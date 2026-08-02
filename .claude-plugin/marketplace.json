@@ -1,0 +1,16 @@
+{
+  "name": "job-seeker-skills",
+  "owner": {
+    "name": "Basilin Joe",
+    "url": "https://github.com/basilinjoe"
+  },
+  "plugins": [
+    {
+      "name": "career-okf",
+      "source": "./plugins/career-okf",
+      "description": "Portable career knowledge base in Open Knowledge Format, with verified ATS-safe resume generation and job-description tailoring",
+      "version": "1.0.0",
+      "author": { "name": "Basilin Joe" }
+    }
+  ]
+}

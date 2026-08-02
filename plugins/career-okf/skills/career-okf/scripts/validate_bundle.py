@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Validate an OKF career bundle. Usage: python3 validate_bundle.py [bundle_root]
+
+Checks OKF v0.1 hard rules plus this bundle's own conventions.
+Requires: pyyaml  (pip install pyyaml)
+"""
+import os, re, sys, yaml
+
+ROOT = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
+STATUS = {"confirmed", "inferred", "needs-verification"}
+SENIORITY = {"architecture-ownership","product-ownership","platform-design","team-leadership",
+             "technical-ownership","hands-on-senior","hands-on","junior"}
+LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+errors, warnings = [], []
+files, types, caps = [], {}, {}
+
+for dp, _, fn in os.walk(ROOT):
+    if os.sep + "." in dp: continue
+    for f in fn:
+        if f.endswith(".md"):
+            files.append(os.path.relpath(os.path.join(dp, f), ROOT))
+
+for rel in sorted(files):
+    txt = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+    if not txt.startswith("---\n"):
+        errors.append(f"{rel}: no YAML frontmatter"); continue
+    end = txt.find("\n---\n", 3)
+    if end == -1:
+        errors.append(f"{rel}: unterminated frontmatter"); continue
+    try:
+        meta = yaml.safe_load(txt[4:end])
+    except Exception as e:
+        errors.append(f"{rel}: YAML parse error - {e}"); continue
+    if not isinstance(meta, dict):
+        errors.append(f"{rel}: frontmatter is not a mapping"); continue
+
+    if not meta.get("type"):
+        errors.append(f"{rel}: MISSING REQUIRED KEY 'type'")
+    else:
+        types[meta["type"]] = types.get(meta["type"], 0) + 1
+    for k in ("title", "description", "timestamp"):
+        if k not in meta: warnings.append(f"{rel}: recommended key '{k}' absent")
+
+    st = meta.get("status")
+    if st and st not in STATUS:
+        errors.append(f"{rel}: status '{st}' not in {sorted(STATUS)}")
+
+    if meta.get("type") == "Project":
+        for k in ("strength", "recency", "seniority", "capabilities", "domains"):
+            if k not in meta: errors.append(f"{rel}: Project missing selection key '{k}'")
+        s = meta.get("strength")
+        if s is not None and (not isinstance(s, int) or not 1 <= s <= 5):
+            errors.append(f"{rel}: strength must be int 1-5, got {s!r}")
+        sn = meta.get("seniority")
+        if sn and sn not in SENIORITY:
+            errors.append(f"{rel}: seniority '{sn}' not in vocabulary")
+        for c in meta.get("capabilities") or []:
+            caps[c] = caps.get(c, 0) + 1
+
+    body = txt[end + 5:]
+    # strip fenced blocks and inline code - example links in templates are not real links
+    body = re.sub(r"```.*?```", "", body, flags=re.S)
+    body = re.sub(r"`[^`\n]*`", "", body)
+    for _, target in LINK.findall(body):
+        if target.startswith(("http://", "https://", "mailto:", "#")) or "://" in target: continue
+        t = target.split("#")[0]
+        if not t: continue
+        p = os.path.normpath(os.path.join(os.path.dirname(rel), t))
+        if not os.path.exists(os.path.join(ROOT, p)):
+            errors.append(f"{rel}: BROKEN LINK -> {target}")
+
+# capabilities must exist in the canonical vocabulary
+vocab_path = os.path.join(ROOT, "framework", "capability-vocabulary.md")
+if not os.path.exists(vocab_path):
+    vocab_path = os.path.join(ROOT, "framework", "capability_vocabulary.md")
+vocab = set()
+if os.path.exists(vocab_path):
+    vocab = set(re.findall(r"`([a-z0-9-]+)`", open(vocab_path, encoding="utf-8").read()))
+unknown = sorted(c for c in caps if vocab and c not in vocab)
+for c in unknown:
+    errors.append(f"capability '{c}' is not in framework/capability-vocabulary.md - add it there or reuse an existing value")
+
+print(f"files {len(files)} | concept types {len(types)} | capabilities {len(caps)}")
+print(f"ERRORS {len(errors)} | WARNINGS {len(warnings)}")
+for e in errors: print("  x", e)
+for w in warnings[:15]: print("  !", w)
+strong = sorted(c for c, n in caps.items() if n >= 3)
+if strong:
+    print(f"\n  through-lines (3+ projects, safe to claim in a summary): {', '.join(strong)}")
+print("\nVALID" if not errors else "\nFAILED")
+sys.exit(1 if errors else 0)
