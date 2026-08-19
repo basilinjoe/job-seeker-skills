@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Validate an OKF career bundle. Usage: python3 validate_bundle.py [bundle_root]
+"""Validate an OKF career bundle.
+
+Usage: python3 validate_bundle.py [bundle_root]
+
+On Windows use `python` or `py -3` in place of `python3`.
 
 Checks OKF v0.1 hard rules plus this bundle's own conventions.
 Requires: pyyaml  (pip install pyyaml)
@@ -11,15 +15,19 @@ STATUS = {"confirmed", "inferred", "needs-verification"}
 SENIORITY = {"architecture-ownership","product-ownership","platform-design","team-leadership",
              "technical-ownership","hands-on-senior","hands-on","junior"}
 LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+LIST_ITEM = re.compile(r"^\s*[-*]\s+")
 
 errors, warnings = [], []
 files, types, caps = [], {}, {}
 
-for dp, _, fn in os.walk(ROOT):
-    if os.sep + "." in dp: continue
+for dp, dns, fn in os.walk(ROOT):
+    dns[:] = [d for d in dns if not d.startswith(".")]   # prune hidden dirs, not whole paths
     for f in fn:
         if f.endswith(".md"):
             files.append(os.path.relpath(os.path.join(dp, f), ROOT))
+
+if not files:
+    errors.append(f"no markdown files found under {ROOT} - is this a bundle?")
 
 for rel in sorted(files):
     txt = open(os.path.join(ROOT, rel), encoding="utf-8").read()
@@ -55,8 +63,12 @@ for rel in sorted(files):
         sn = meta.get("seniority")
         if sn and sn not in SENIORITY:
             errors.append(f"{rel}: seniority '{sn}' not in vocabulary")
-        for c in meta.get("capabilities") or []:
-            caps[c] = caps.get(c, 0) + 1
+        cv = meta.get("capabilities")
+        if cv is not None and not isinstance(cv, list):
+            errors.append(f"{rel}: 'capabilities' must be a list, got {type(cv).__name__}")
+        else:
+            for c in cv or []:
+                caps[c] = caps.get(c, 0) + 1
 
     body = txt[end + 5:]
     # strip fenced blocks and inline code - example links in templates are not real links
@@ -70,13 +82,21 @@ for rel in sorted(files):
         if not os.path.exists(os.path.join(ROOT, p)):
             errors.append(f"{rel}: BROKEN LINK -> {target}")
 
-# capabilities must exist in the canonical vocabulary
+# capabilities must exist in the canonical vocabulary.
+# Only real list items count: the file's own prose and its fenced format example are
+# not vocabulary, and treating them as such would reject every genuine value.
 vocab_path = os.path.join(ROOT, "framework", "capability-vocabulary.md")
 if not os.path.exists(vocab_path):
     vocab_path = os.path.join(ROOT, "framework", "capability_vocabulary.md")
 vocab = set()
 if os.path.exists(vocab_path):
-    vocab = set(re.findall(r"`([a-z0-9-]+)`", open(vocab_path, encoding="utf-8").read()))
+    fenced = False
+    with open(vocab_path, encoding="utf-8") as f:
+        for line in f:
+            if line.lstrip().startswith("```"):
+                fenced = not fenced; continue
+            if not fenced and LIST_ITEM.match(line):
+                vocab.update(re.findall(r"`([a-z0-9-]+)`", line))
 unknown = sorted(c for c in caps if vocab and c not in vocab)
 for c in unknown:
     errors.append(f"capability '{c}' is not in framework/capability-vocabulary.md - add it there or reuse an existing value")
@@ -85,6 +105,7 @@ print(f"files {len(files)} | concept types {len(types)} | capabilities {len(caps
 print(f"ERRORS {len(errors)} | WARNINGS {len(warnings)}")
 for e in errors: print("  x", e)
 for w in warnings[:15]: print("  !", w)
+if len(warnings) > 15: print(f"  ! ... and {len(warnings) - 15} more")
 strong = sorted(c for c, n in caps.items() if n >= 3)
 if strong:
     print(f"\n  through-lines (3+ projects, safe to claim in a summary): {', '.join(strong)}")

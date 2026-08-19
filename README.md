@@ -15,8 +15,9 @@ Interview once. Regenerate resumes, tailored variants, LinkedIn copy and intervi
 
 **Resumes are verified, not assumed.** `check_ats.py` inspects the generated `.docx` for the things
 that make applicant tracking systems silently mangle a resume: tables, text boxes, header/footer
-content, missing section keywords, bracketed placeholders, arrow glyphs that fuse job titles when
-stripped. A resume that fails the checker is not delivered.
+content, section words that appear in prose but never in a heading, any leftover bracketed
+placeholder, an unparseable phone number, arrow glyphs that fuse job titles when stripped. A resume
+that fails the checker is not delivered.
 
 **Two variants, because readability and parsing conflict.** A presentation variant for humans, an
 ATS-maximal variant for portals, plus plain text for paste-in boxes.
@@ -41,6 +42,13 @@ Or copy the skill directly into Claude Code:
 ```bash
 git clone https://github.com/basilinjoe/job-seeker-skills.git
 cp -r job-seeker-skills/plugins/career-okf/skills/career-okf ~/.claude/skills/
+```
+
+On Windows (PowerShell):
+
+```powershell
+git clone https://github.com/basilinjoe/job-seeker-skills.git
+Copy-Item -Recurse job-seeker-skills\plugins\career-okf\skills\career-okf $env:USERPROFILE\.claude\skills\
 ```
 
 Works in Claude Code and Claude Cowork.
@@ -76,8 +84,8 @@ career-okf/
   projects/           one per engagement — the evidence
   achievements/       every verified number
   skills/ · education/ · open-source/ · sources/
-  framework/          schema · vocabulary · templates · scripts
-  resume-generation/  ats-rules · structure-rules · writing-rules · open-questions
+  framework/          capability vocabulary · schema · templates
+  resume-generation/  open-questions, plus optional rule overrides
   tailoring/          selection-method · targets/ · applications/
 ```
 
@@ -86,14 +94,26 @@ translation layer. Keep it in a repo you control so it outlives any single tool.
 
 ### Scripts
 
+The skill runs these for you. To run them yourself, from the skill directory:
+
 ```bash
 python3 scripts/init_bundle.py ./my-career --name "Your Name"   # scaffold
 python3 scripts/validate_bundle.py ./my-career                  # needs pyyaml
 python3 scripts/check_ats.py resume.docx                        # presentation variant
-python3 scripts/check_ats.py resume.docx --strict                # ATS-maximal variant
+python3 scripts/check_ats.py resume.docx --strict               # ATS-maximal variant
 ```
 
-`check_ats.py` and `init_bundle.py` are standard library only.
+`check_ats.py` and `init_bundle.py` are standard library only. On Windows use `python` or `py -3`
+in place of `python3`.
+
+### Tests
+
+```bash
+python -m unittest discover -s tests
+```
+
+Standard library `unittest`; fixtures are generated into temp directories, nothing is committed.
+Every test pins a specific documented rule — the checker is the gate, so it does not go unchecked.
 
 ## Licence
 

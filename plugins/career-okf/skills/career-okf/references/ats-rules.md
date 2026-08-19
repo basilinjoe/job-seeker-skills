@@ -29,8 +29,9 @@ that arrives fragmented.
   heading like "Core Competencies" is invisible to a parser matching on "Skills".
 - **Real bullet lists** via numbering definitions, never a typed `•` or `-`.
 - **Dates as `Mon YYYY`** with a plain hyphen: `Jun 2025 - Present`.
-- **No bracketed placeholders.** `[X%]` shipping in a resume is worse than omitting the number.
-  Search the finished text for `[` before delivering.
+- **No bracketed placeholders.** `[X%]` or `[NUMBER]` shipping in a resume is worse than omitting
+  the number. Any `[` in the finished text fails the check — a bracket in a resume is almost always
+  a leftover.
 
 ## ATS-maximal additions
 
@@ -74,13 +75,22 @@ A `.docx` is a zip. Read `word/document.xml` and check:
 | non-empty `word/header*.xml` / `footer*.xml` | content parsers discard |
 | `<w:cols w:num="2+">` | multi-column |
 
-Then on extracted text: the words summary / skills / experience / education each appear; a parseable
-email and phone are present; no bracketed placeholders; no literal bullet glyph starting a line; at
-least four `Mon YYYY` dates; fonts in the standard set; arrow glyphs absent (warn normally, fail
-under `--strict`).
+Then on extracted text:
 
-Under `--strict` additionally: no non-ASCII at all, plain hyphens in date ranges, and role lines name
-an employer.
+- The words summary / skills / experience / education each appear **in a heading** — a paragraph
+  styled `Heading*`, or short and unpunctuated. The word buried in a summary sentence does not
+  count; that is the whole point of the rule.
+- A parseable email, and a phone number with at least eight digits that is not a year range.
+- No `[...]` span and no stray `[` anywhere.
+- No literal bullet glyph starting a line; at least four `Mon YYYY` dates; fonts in the standard set
+  (read from `document.xml` and `styles.xml`); arrow glyphs absent — warn normally, fail under
+  `--strict`.
+
+Under `--strict` additionally: no non-ASCII at all (fails), plain hyphens in date ranges (fails),
+and role lines that appear not to name an employer (warns — the heuristic is too rough to block on).
+
+Malformed input never crashes: a file that is not a readable `.docx` reports a failure like any
+other finding.
 
 Print `FAIL n WARN n`, then each finding, then `PASS - safe to send` or
 `DO NOT SEND - fix the failures above`. Exit non-zero on failure.

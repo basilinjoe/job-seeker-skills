@@ -3,8 +3,11 @@
 
 Usage: python3 init_bundle.py <path> --name "Full Name"
 
-Creates directories, index files, and seed rule files. Standard library only.
-Populate the concepts afterwards by interviewing the person.
+On Windows use `python` or `py -3` in place of `python3`.
+
+Creates directories and index files. Standard library only. The scripts and rule
+files stay with the career-okf skill; this only creates the bundle. Populate the
+concepts afterwards by interviewing the person.
 """
 import os, sys, argparse, datetime
 
@@ -29,8 +32,13 @@ BLURB = {
  "tailoring/applications":"Submissions, evidence selected, and outcomes.",
 }
 
+def yq(s):
+    """Quote a YAML double-quoted scalar. Names really do contain quotes."""
+    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
 def fm(t, title, desc, ts, extra=""):
-    return f'---\ntype: {t}\ntitle: "{title}"\ndescription: "{desc}"\ntimestamp: {ts}\n{extra}---\n\n'
+    return (f"---\ntype: {t}\ntitle: {yq(title)}\ndescription: {yq(desc)}\n"
+            f"timestamp: {ts}\n{extra}---\n\n")
 
 def main():
     ap = argparse.ArgumentParser()
@@ -113,11 +121,25 @@ Every quarter -> `refresh`. Before applying -> `gaps`, then `resume`. Specific r
 
 # Tools
 
-```bash
-python3 framework/validate_bundle.py .              # bundle well-formed? (needs pyyaml)
-python3 framework/check_ats.py resume.docx          # presentation variant
-python3 framework/check_ats.py resume.docx --strict # ATS-maximal variant
-```
+Validation and ATS checking live with the `career-okf` skill, not in this folder, so they
+stay current as the skill improves. The normal route is simply to ask:
+
+> "validate my bundle" — "check this resume is ATS-safe"
+
+To run them yourself, use the `scripts/` directory inside the installed skill:
+
+    python3 <career-okf-skill>/scripts/validate_bundle.py .            # needs pyyaml
+    python3 <career-okf-skill>/scripts/check_ats.py resume.docx        # presentation variant
+    python3 <career-okf-skill>/scripts/check_ats.py resume.docx --strict
+
+On Windows use `python` or `py -3` in place of `python3`.
+
+# Customising the rules
+
+Rendering rules ship with the skill. If you want to override them for this bundle, create
+`resume-generation/ats-rules.md`, `writing-rules.md` or `structure-rules.md` — the skill reads
+yours in preference to its own. Nothing here is created for you, so an absent file simply means
+"use the skill's defaults".
 """)
 
     with open(os.path.join(root, "log.md"), "w", encoding="utf-8") as f:
@@ -127,8 +149,19 @@ python3 framework/check_ats.py resume.docx --strict # ATS-maximal variant
     with open(os.path.join(root, "framework", "capability-vocabulary.md"), "w", encoding="utf-8") as f:
         f.write(fm("Vocabulary", "Capability vocabulary",
                    "Canonical capability values. Reuse these; a synonym breaks job matching.", ts))
-        f.write("""`capabilities` is the primary axis for matching a job description to evidence, and it compares as
-exact strings. Check here before inventing a value; add new values in the same edit.
+        f.write("""Capabilities are the primary axis for matching a job description to evidence, and they compare
+as exact strings — a synonym silently breaks matching. Check here before inventing a value, and
+add new values in the same edit that first uses them.
+
+Add one Markdown list item per value, in backticks, under the theme headings below:
+
+```
+- `ai-platform-architecture`
+- `data-sovereignty`
+```
+
+Only list items count as vocabulary; prose and the example above are ignored. While the headings
+are empty, capability checking stays off.
 
 # Architecture & design
 
@@ -144,7 +177,8 @@ exact strings. Check here before inventing a value; add new values in the same e
         f.write("# Blocking\n\n# Missing metrics\n\n# Not yet explored\n")
 
     print(f"created bundle at {root}")
-    print("next: seed the rule files in resume-generation/, then interview to populate concepts")
+    print("next: interview to populate concepts, adding capability values to "
+          "framework/capability-vocabulary.md as you go")
     return 0
 
 if __name__ == "__main__":

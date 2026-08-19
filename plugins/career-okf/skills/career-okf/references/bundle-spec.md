@@ -16,8 +16,9 @@ career-okf/
   education/            degrees · certifications
   open-source/          public code, if any
   sources/              archived source documents, interview records
-  framework/            schema · concept-types · capability-vocabulary · templates · scripts
-  resume-generation/    ats-rules · structure-rules · writing-rules · decisions-log · open-questions
+  framework/            capability-vocabulary · schema · concept-types · templates
+  resume-generation/    open-questions, plus optional rule overrides: ats-rules ·
+                        structure-rules · writing-rules · decisions-log
   tailoring/            selection-method · targets/ · applications/
 ```
 
@@ -80,6 +81,10 @@ headline_metric: "event latency 5 min to under 1 s"   # or none-quantified
 `capabilities` is the **primary matching axis** and compares as exact strings, so a synonym silently
 breaks matching. Maintain `framework/capability-vocabulary.md` as the canonical list, grouped by
 theme. Check it before inventing a value; add new values there in the same edit.
+
+Record each value as a Markdown list item in backticks — ``- `data-sovereignty` `` — under a theme
+heading. Only list items count as vocabulary; prose and fenced examples are ignored, and while the
+file holds none the validator leaves capabilities unchecked rather than rejecting every value.
 
 Values appearing on three or more projects are the ones safe to claim as a through-line in a summary.
 

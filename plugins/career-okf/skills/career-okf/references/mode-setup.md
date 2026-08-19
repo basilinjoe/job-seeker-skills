@@ -11,14 +11,18 @@ Create a bundle from nothing, or from an existing resume.
 ## Create the skeleton
 
 ```bash
-python3 scripts/init_bundle.py <path> --name "Their Name"
+python3 <skill-dir>/scripts/init_bundle.py <path> --name "Their Name"
 ```
 
-If the script is unavailable, create the layout in `references/bundle-spec.md` by hand, then seed
-`framework/schema.md`, `framework/capability-vocabulary.md`,
-`resume-generation/ats-rules.md`, `resume-generation/writing-rules.md` and
-`resume-generation/structure-rules.md` from the references here — so the bundle carries its own rules
-and they can edit them without touching the skill.
+That creates directories, index files and an empty capability vocabulary — nothing else. The rules
+and scripts stay with the skill, so a bundle is never stale.
+
+If the script is unavailable, create the layout in `references/bundle-spec.md` by hand.
+
+**Only if they ask to customise rendering**, seed `resume-generation/ats-rules.md`,
+`writing-rules.md` or `structure-rules.md` from the references here. Those files override the
+skill's defaults, so create them deliberately, not by habit — an absent file means "use the
+defaults", which is what most people want.
 
 ## If they have a resume
 

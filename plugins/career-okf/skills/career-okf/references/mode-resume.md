@@ -31,9 +31,12 @@ and the structure rules in `references/bundle-spec.md` first — or the bundle's
 7. **Verify — not optional:**
 
 ```bash
-python3 scripts/check_ats.py <Name>_Resume.docx
-python3 scripts/check_ats.py <Name>_Resume_ATS.docx --strict
+python3 <skill-dir>/scripts/check_ats.py <Name>_Resume.docx
+python3 <skill-dir>/scripts/check_ats.py <Name>_Resume_ATS.docx --strict
 ```
+
+`<skill-dir>` is this skill's own directory — see the Scripts section of `SKILL.md`. On Windows use
+`python` or `py -3`.
 
 Both must PASS. **Show the output.** Fix and re-run rather than explaining away a failure.
 

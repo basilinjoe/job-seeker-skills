@@ -1,15 +1,12 @@
 ---
 name: career-okf
 description: >-
-  Build and maintain a portable career knowledge base in Open Knowledge Format, then generate
-  ATS-safe resumes from it. Use whenever the user wants to write, rebuild, update or tailor a resume
-  or CV; capture work history, projects or accomplishments; record something they shipped; prepare
-  for a job application; paste a job description they want to apply for; check whether a resume will
-  survive applicant tracking systems; resolve gaps or missing metrics in their career records; or
-  asks about a "career bundle", "OKF", "brag document" or "resume framework". Also use when they say
-  their resume is outdated or vague, when they start describing their work in long unstructured
-  messages, or when they want a periodic career review. Prefer this over writing a resume from
-  scratch — it keeps facts, provenance and rules in one reusable place.
+  Use when the user wants to write, rebuild, update or tailor a resume or CV; capture work history,
+  projects or accomplishments; record something they shipped; prepare a job application or paste a
+  job description; check whether a resume will survive applicant tracking systems (ATS); resolve
+  gaps or missing metrics in their career records; says their resume is outdated or vague; describes
+  their work in long unstructured messages; wants a periodic career review; or asks about a career
+  bundle, OKF, brag document or resume framework.
 license: MIT
 ---
 
@@ -52,7 +49,9 @@ someone wants a resume right now, build the resume, then offer to capture it as 
 should never block the actual ask.
 
 **A bundle's own rules win.** If `resume-generation/*.md` exists in their bundle, it takes precedence
-over `references/` here. They may have customised it, and their edits should stick.
+over `references/` here. These files are optional and hand-created — setup does not scaffold them,
+so absent just means "use the defaults". When one does exist, somebody customised it deliberately
+and their edits should stick.
 
 ## Shared references
 
@@ -64,18 +63,26 @@ Load as needed rather than upfront:
 
 ## Scripts
 
-`scripts/validate_bundle.py` — bundle is well-formed. Needs `pyyaml`.
-`scripts/check_ats.py` — a generated `.docx` is safe to send. No dependencies.
-`scripts/init_bundle.py` — creates an empty bundle skeleton. No dependencies.
+They live in `scripts/`, **relative to this skill's own directory** — the absolute path you were
+given when this skill loaded, or `${CLAUDE_PLUGIN_ROOT}/skills/career-okf` in a plugin install.
+Always invoke them by that absolute path. The working directory is the person's project, not the
+skill, so a bare `scripts/…` will not resolve.
+
+| Script | Does | Needs |
+|---|---|---|
+| `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
+| `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
+| `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |
 
 ```bash
-python3 scripts/init_bundle.py <path> --name "Their Name"
-python3 scripts/validate_bundle.py <bundle-path>
-python3 scripts/check_ats.py resume.docx [--strict]
+python3 <skill-dir>/scripts/check_ats.py resume.docx --strict
 ```
 
-If the scripts are not present — the skill was installed as `SKILL.md` alone — write them into the
-bundle's `framework/` from the specifications in `references/ats-rules.md` and
+Use `python` or `py -3` on Windows, where `python3` is usually absent.
+
+The scripts stay with the skill and a bundle never carries copies, so every bundle gets the current
+version. If they are genuinely missing — the skill was installed as `SKILL.md` alone — write them
+into the bundle's `framework/` from the specifications in `references/ats-rules.md` and
 `references/bundle-spec.md`. A rule nobody checks stops being true.
 
 ## The verification gate
