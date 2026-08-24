@@ -60,6 +60,7 @@ Load as needed rather than upfront:
 - `references/bundle-spec.md` — directory layout, frontmatter schema, selection keys, concept types
 - `references/writing-rules.md` — X-Y-Z bullets, verb accuracy, phrases that damage seniority
 - `references/ats-rules.md` — hard rules, the two-variant strategy, keyword placement
+- `references/target-template.md` — the Job Target frontmatter the scorer reads
 
 ## Scripts
 
@@ -73,6 +74,9 @@ skill, so a bare `scripts/…` will not resolve.
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
 | `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
 | `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |
+| `check_prose.py resume.docx` | the writing rules `check_ats.py` cannot see | — |
+| `score_projects.py <bundle> <target.md>` | ranks projects against a posting, from the target's frontmatter | `pyyaml` |
+| `fit_pages.py resume.docx --target-pages 2` | fits a render to a page budget without breaching the floors | LibreOffice, `pymupdf` |
 
 ```bash
 python3 <skill-dir>/scripts/check_ats.py resume.docx --strict
@@ -80,16 +84,38 @@ python3 <skill-dir>/scripts/check_ats.py resume.docx --strict
 
 Use `python` or `py -3` on Windows, where `python3` is usually absent.
 
+`fit_pages.py` is the only script with external dependencies. Without them it reports loudly and
+exits non-zero rather than passing, because a page count nobody measured is a page count nobody
+knows. Everything else runs on a bare Python.
+
 The scripts stay with the skill and a bundle never carries copies, so every bundle gets the current
 version. If they are genuinely missing — the skill was installed as `SKILL.md` alone — write them
 into the bundle's `framework/` from the specifications in `references/ats-rules.md` and
 `references/bundle-spec.md`. A rule nobody checks stops being true.
 
-## The verification gate
+## The verification gates
 
-**Never hand over a resume you have not checked.** Run `check_ats.py` on the presentation variant and
-`--strict` on the ATS-maximal one. Both must PASS. Show the output — the person should see the
-evidence rather than take your word for it. Fix and re-run; never explain away a failure.
+**Never hand over a resume you have not checked.** There are three gates, and they answer different
+questions. Passing one says nothing about the others.
+
+| Gate | Question | How |
+|---|---|---|
+| **Parse** | Will an ATS read this without mangling it? | `check_ats.py` on the presentation variant, `--strict` on the ATS-maximal one |
+| **Prose** | Does it obey the writing rules? | `check_prose.py` on the presentation variant and the plain text |
+| **Render** | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
+
+**The checker verifies that a document parses, not that it is correct.** That sentence is the whole
+reason there are three. `check_ats.py` passed a resume whose bullets rendered as tofu boxes, one whose
+headings silently resolved to a theme font, and one written in the third person — all correctly, all
+outside its scope. The first two are visual and cannot be linted from the XML; the third is why
+`check_prose.py` exists.
+
+All gates must pass. Show the output — the person should see the evidence rather than take your word
+for it. Fix and re-run; never explain away a failure.
+
+**If no PDF renderer is available**, say so and mark the resume unverified rather than treating a
+passing `check_ats.py` as sufficient. An unverified resume the person knows about is fine; one they
+think was checked is not.
 
 Run `validate_bundle.py` after any change to the bundle.
 

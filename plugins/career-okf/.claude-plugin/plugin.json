@@ -1,7 +1,7 @@
 {
   "name": "career-okf",
   "displayName": "Career OKF",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Build a portable career knowledge base in Open Knowledge Format, then generate ATS-safe resumes from it. Interview once; regenerate resumes, tailored variants and interview briefs forever.",
   "author": {
     "name": "Basilin Joe",

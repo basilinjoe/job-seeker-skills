@@ -19,6 +19,12 @@ content, section words that appear in prose but never in a heading, any leftover
 placeholder, an unparseable phone number, arrow glyphs that fuse job titles when stripped. A resume
 that fails the checker is not delivered.
 
+**Three gates, not one, because a checker verifies that a document parses — not that it is correct.**
+Parse (`check_ats.py`), prose (`check_prose.py`), and render: convert to PDF and look at every page.
+Bullets that rendered as tofu boxes, headings that silently resolved to a theme font, and a bullet
+written in the third person all passed the parse gate, correctly. Only the render gate sees the first
+two. Without a renderer, a resume is marked unverified rather than assumed fine.
+
 **Two variants, because readability and parsing conflict.** A presentation variant for humans, an
 ATS-maximal variant for portals, plus plain text for paste-in boxes.
 
@@ -26,7 +32,10 @@ ATS-maximal variant for portals, plus plain text for paste-in boxes.
 sign-off), `needs-verification` (a known gap). Nothing inferred reaches a resume unconfirmed.
 
 **Tailoring is selection, never invention.** Job descriptions are scored against structured metadata
-on each project, and the tool tells you where you fall short instead of flattering you.
+on each project by `score_projects.py`, which reads its requirements from the target file's own
+frontmatter — so the document you review is the one that produced the ranking, and re-running it next
+month gives the same answer. It reports what each project *failed* to match, and tells you where you
+fall short instead of flattering you.
 
 ### Install
 
@@ -101,7 +110,21 @@ python3 scripts/init_bundle.py ./my-career --name "Your Name"   # scaffold
 python3 scripts/validate_bundle.py ./my-career                  # needs pyyaml
 python3 scripts/check_ats.py resume.docx                        # presentation variant
 python3 scripts/check_ats.py resume.docx --strict               # ATS-maximal variant
+python3 scripts/check_prose.py resume.docx                      # the writing rules
+python3 scripts/score_projects.py ./my-career target.md         # needs pyyaml
+python3 scripts/fit_pages.py resume.docx --target-pages 2       # needs LibreOffice + pymupdf
 ```
+
+`check_prose.py` is the sibling gate. `check_ats.py` verifies a document parses; this verifies it
+reads — third person, unresolved placeholders, sentences that stop before their object, phrases that
+read as junior, bullets repeated across projects, and bullets that clear their throat before the
+verb. A resume in the third person is not a parsing defect, so nothing was catching it.
+
+`fit_pages.py` renders the document, measures which block spilled and how much room the page
+actually had, then applies density levers in a fixed order — spacing, bullet spacing, margins, font
+size — stopping at the 10pt / 0.5" floors instead of crossing them. If two pages are unreachable
+without a breach it exits non-zero and says so, because the remedy then is to cut evidence, not to
+shrink type.
 
 `check_ats.py` and `init_bundle.py` are standard library only. On Windows use `python` or `py -3`
 in place of `python3`.

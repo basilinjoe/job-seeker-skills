@@ -4,6 +4,7 @@ Standard library only, matching the scripts under test. Every artefact is writte
 to a caller-supplied temp directory, so nothing lands in the repo and .gitignore's
 `*.docx` rule never comes into it.
 """
+import importlib.util
 import subprocess
 import sys
 import zipfile
@@ -14,6 +15,21 @@ SCRIPTS = REPO_ROOT / "plugins" / "career-okf" / "skills" / "career-okf" / "scri
 CHECK_ATS = SCRIPTS / "check_ats.py"
 VALIDATE_BUNDLE = SCRIPTS / "validate_bundle.py"
 INIT_BUNDLE = SCRIPTS / "init_bundle.py"
+FIT_PAGES = SCRIPTS / "fit_pages.py"
+
+
+def load_script(path):
+    """Import a script as a module, so its pure functions can be tested directly.
+
+    The scripts are CLIs, not packages, and live outside any importable path. The
+    parts worth unit-testing — XML transforms, scoring, geometry — are pure, and
+    exercising them through a subprocess would say much less about them.
+    """
+    path = Path(path)
+    spec = importlib.util.spec_from_file_location(path.stem, str(path))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 V_NS = 'xmlns:v="urn:schemas-microsoft-com:vml"'
