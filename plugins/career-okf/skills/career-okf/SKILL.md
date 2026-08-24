@@ -93,11 +93,29 @@ version. If they are genuinely missing — the skill was installed as `SKILL.md`
 into the bundle's `framework/` from the specifications in `references/ats-rules.md` and
 `references/bundle-spec.md`. A rule nobody checks stops being true.
 
-## The verification gate
+## The verification gates
 
-**Never hand over a resume you have not checked.** Run `check_ats.py` on the presentation variant and
-`--strict` on the ATS-maximal one. Both must PASS. Show the output — the person should see the
-evidence rather than take your word for it. Fix and re-run; never explain away a failure.
+**Never hand over a resume you have not checked.** There are three gates, and they answer different
+questions. Passing one says nothing about the others.
+
+| Gate | Question | How |
+|---|---|---|
+| **Parse** | Will an ATS read this without mangling it? | `check_ats.py` on the presentation variant, `--strict` on the ATS-maximal one |
+| **Prose** | Does it obey the writing rules? | `check_prose.py` on the presentation variant and the plain text |
+| **Render** | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
+
+**The checker verifies that a document parses, not that it is correct.** That sentence is the whole
+reason there are three. `check_ats.py` passed a resume whose bullets rendered as tofu boxes, one whose
+headings silently resolved to a theme font, and one written in the third person — all correctly, all
+outside its scope. The first two are visual and cannot be linted from the XML; the third is why
+`check_prose.py` exists.
+
+All gates must pass. Show the output — the person should see the evidence rather than take your word
+for it. Fix and re-run; never explain away a failure.
+
+**If no PDF renderer is available**, say so and mark the resume unverified rather than treating a
+passing `check_ats.py` as sufficient. An unverified resume the person knows about is fine; one they
+think was checked is not.
 
 Run `validate_bundle.py` after any change to the bundle.
 

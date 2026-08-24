@@ -19,6 +19,12 @@ content, section words that appear in prose but never in a heading, any leftover
 placeholder, an unparseable phone number, arrow glyphs that fuse job titles when stripped. A resume
 that fails the checker is not delivered.
 
+**Three gates, not one, because a checker verifies that a document parses — not that it is correct.**
+Parse (`check_ats.py`), prose (`check_prose.py`), and render: convert to PDF and look at every page.
+Bullets that rendered as tofu boxes, headings that silently resolved to a theme font, and a bullet
+written in the third person all passed the parse gate, correctly. Only the render gate sees the first
+two. Without a renderer, a resume is marked unverified rather than assumed fine.
+
 **Two variants, because readability and parsing conflict.** A presentation variant for humans, an
 ATS-maximal variant for portals, plus plain text for paste-in boxes.
 

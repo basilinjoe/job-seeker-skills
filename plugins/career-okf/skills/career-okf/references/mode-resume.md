@@ -66,7 +66,35 @@ still wraps to six lines. If the script exits non-zero, the budget is unreachabl
 the answer is to remove evidence — compress or cut the oldest, lowest-ranked roles per the treatment
 table in `references/mode-tailor.md` — not to shrink type further.
 
-Fitting changes layout, so re-run `check_ats.py` on the fitted file and look at the render again.
+Fitting changes layout, so re-run `check_ats.py` on the fitted file before step 9.
+
+9. **Look at the render — the second gate, and not optional either.**
+
+The checkers verify that a document parses and that its prose obeys the rules. Neither can see what
+it *looks* like. Three defect classes have escaped them, all legitimately outside their scope:
+
+| Defect | Checker verdict |
+|---|---|
+| Bullets rendering as tofu boxes — `U+F0B7` in a non-Symbol font | PASS |
+| Headings in the theme font instead of the forced one — `w:asciiTheme` beats `w:ascii` | PASS, because the theme font was also a standard font |
+| An orphaned heading, or a role split across a page break | PASS |
+
+Convert to PDF and **look at every page**:
+
+- [ ] Page count is what you intended
+- [ ] Bullets are real glyphs, not boxes, and not a typed `•`
+- [ ] One font family throughout — check headings against body, not just body against itself
+- [ ] No heading stranded at the foot of a page with its content overleaf
+- [ ] Dates aligned and consistently formatted
+- [ ] Read the prose end to end. `check_prose.py` catches the mechanical defects; it cannot tell you
+      that a bullet is true, or that a verb overstates what they actually owned
+
+`fit_pages.py` already produced a PDF during step 8; open that one.
+
+**No renderer available?** Say so and mark the resume **unverified**. Do not treat a passing
+`check_ats.py` as sufficient — it is a different gate answering a different question. A geometric
+estimate of page fill is a reasonable fallback, but label it an estimate: one such estimate read
+~99% where the true value was ~94%. Sound, but pessimistic enough to prompt cuts nobody needed.
 
 ## Generating the .docx
 
