@@ -27,6 +27,12 @@ down and they will want the text at interview. Use `references/target-template.m
 sets go in the **frontmatter**, because that is what the scorer reads. A requirement written only in
 prose does not participate in the ranking.
 
+**Write the target file — posting, ranking and gaps — before generating anything.** Not the posting
+now and the ranking later: the file is the checkpoint, and a checkpoint written after the work is
+finished is a record, not a check. Step 2 fills its `# Evidence ranking` and `# Gaps` sections —
+both from the scorer's unmatched lists — and both belong in the file before the first bullet is
+written. Step 6 is where you *tell* them the gaps; this is where you *record* them.
+
 ## 2. Score every project
 
 ```bash
@@ -65,8 +71,32 @@ that invents a requirement and moves a x2 term. If it is worth exploring, pass
 either evidence that is genuinely absent or a project that is under-tagged. Those need opposite
 responses and only the person whose work it was can tell you which — so show them.
 
-**Show the ranked table before writing anything.** It makes your reasoning inspectable and lets them
-correct you — they know which project was really the hard one.
+### Save the ranking, surface the surprises, continue
+
+**Do not block waiting for a reply**, and do not leave the ranking for the final response either.
+Both readings fail: one stalls a job application on a question the person may answer tomorrow, and
+the other delivers the table alongside the finished resume, after every generation decision has
+already been taken. The correction window the ranking exists to create never opens.
+
+Make the **artefact** the checkpoint instead:
+
+```bash
+python3 <skill-dir>/scripts/score_projects.py <bundle> <target.md> --markdown
+```
+
+Paste that under `# Evidence ranking` in the target file, then in chat surface the top few and
+anything surprising — a project that moved a long way, a top rank you did not expect. Then carry on.
+The reasoning is durably inspectable, they can correct it at any point, and nothing waits.
+
+**Do pause before generating** in these cases, where being wrong is expensive enough to be worth the
+wait:
+
+- The ranking is **close between projects with materially different ownership verbs** — "architected"
+  against "contributed to" is not a detail that can be fixed after the fact
+- A top-ranked concept carries **`status: inferred`** content that would reach the resume. The
+  provenance rule already requires confirmation; this is where it lands
+- The gap analysis suggests **the role may not be worth applying to at all**. That decision is theirs
+  and it comes before the work, not after it
 
 ## 3. Allocate two pages
 
@@ -79,6 +109,14 @@ correct you — they know which project was really the hard one.
 
 **Chronology still governs order.** A high-scoring old project earns more bullets, not an earlier
 position. Reordering roles by relevance reads as concealment and breaks date parsing.
+
+**Score governs allocation, and a recency ratio is a default rather than a constraint.**
+`bundle-spec.md` weights roughly 4:1 toward recent roles, and a bundle's own
+`resume-generation/structure-rules.md` may set its own ratio. When the posting's best-matching
+evidence sits mid-career, those two rules pull against each other — and the resolution is that the
+ratio yields. It exists to stop a resume dwelling on work from a decade ago for no reason; it is not
+a reason to bury the evidence this particular posting is asking for. Say in chat when you have
+departed from the ratio and why, so the decision is visible rather than felt.
 
 ## 4. Retune the top
 
