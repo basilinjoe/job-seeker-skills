@@ -73,12 +73,17 @@ skill, so a bare `scripts/…` will not resolve.
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
 | `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
 | `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |
+| `fit_pages.py resume.docx --target-pages 2` | fits a render to a page budget without breaching the floors | LibreOffice, `pymupdf` |
 
 ```bash
 python3 <skill-dir>/scripts/check_ats.py resume.docx --strict
 ```
 
 Use `python` or `py -3` on Windows, where `python3` is usually absent.
+
+`fit_pages.py` is the only script with external dependencies. Without them it reports loudly and
+exits non-zero rather than passing, because a page count nobody measured is a page count nobody
+knows. Everything else runs on a bare Python.
 
 The scripts stay with the skill and a bundle never carries copies, so every bundle gets the current
 version. If they are genuinely missing — the skill was installed as `SKILL.md` alone — write them

@@ -101,7 +101,14 @@ python3 scripts/init_bundle.py ./my-career --name "Your Name"   # scaffold
 python3 scripts/validate_bundle.py ./my-career                  # needs pyyaml
 python3 scripts/check_ats.py resume.docx                        # presentation variant
 python3 scripts/check_ats.py resume.docx --strict               # ATS-maximal variant
+python3 scripts/fit_pages.py resume.docx --target-pages 2       # needs LibreOffice + pymupdf
 ```
+
+`fit_pages.py` renders the document, measures which block spilled and how much room the page
+actually had, then applies density levers in a fixed order — spacing, bullet spacing, margins, font
+size — stopping at the 10pt / 0.5" floors instead of crossing them. If two pages are unreachable
+without a breach it exits non-zero and says so, because the remedy then is to cut evidence, not to
+shrink type.
 
 `check_ats.py` and `init_bundle.py` are standard library only. On Windows use `python` or `py -3`
 in place of `python3`.

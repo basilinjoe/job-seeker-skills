@@ -40,8 +40,23 @@ python3 <skill-dir>/scripts/check_ats.py <Name>_Resume_ATS.docx --strict
 
 Both must PASS. **Show the output.** Fix and re-run rather than explaining away a failure.
 
-8. **Confirm two pages** by converting to PDF and counting. If it runs over, compress the oldest
-roles. Never shrink below 10pt or 0.5" margins — both read as desperate and hurt parsing.
+8. **Fit to two pages** — measure, do not guess:
+
+```bash
+python3 <skill-dir>/scripts/fit_pages.py <Name>_Resume.docx --target-pages 2
+```
+
+It renders, counts, reports per-page fill, and — when the document runs over — names the block that
+spilled and how much room the previous page actually had. Then it applies density levers in a fixed
+order (inter-paragraph spacing, bullet spacing, margins, font size) and **stops at the floors**: 10pt
+body, 0.5" margins. Never cross them by hand either; both read as desperate and hurt parsing.
+
+**Trimming words rarely helps.** Cutting eight words from a bullet that wraps to six lines usually
+still wraps to six lines. If the script exits non-zero, the budget is unreachable typographically and
+the answer is to remove evidence — compress or cut the oldest, lowest-ranked roles per the treatment
+table in `references/mode-tailor.md` — not to shrink type further.
+
+Fitting changes layout, so re-run `check_ats.py` on the fitted file and look at the render again.
 
 ## Generating the .docx
 
