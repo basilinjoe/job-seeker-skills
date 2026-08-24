@@ -33,12 +33,22 @@ and the structure rules in `references/bundle-spec.md` first — or the bundle's
 ```bash
 python3 <skill-dir>/scripts/check_ats.py <Name>_Resume.docx
 python3 <skill-dir>/scripts/check_ats.py <Name>_Resume_ATS.docx --strict
+python3 <skill-dir>/scripts/check_prose.py <Name>_Resume.docx
 ```
 
 `<skill-dir>` is this skill's own directory — see the Scripts section of `SKILL.md`. On Windows use
 `python` or `py -3`.
 
-Both must PASS. **Show the output.** Fix and re-run rather than explaining away a failure.
+**These check different things.** `check_ats.py` verifies the document *parses*: no tables, no
+header content, a heading a parser can match on. `check_prose.py` verifies it *reads*: third person,
+placeholders, sentences that stop before their object, phrases `writing-rules.md` says to cut, bullets
+repeated across projects. A third-person bullet is not a parsing defect, so `check_ats.py` passes it
+and is right to.
+
+Run `check_prose.py` on the plain-text variant too — it is generated from the same content, so a
+defect in one is a defect in both.
+
+All must PASS. **Show the output.** Fix and re-run rather than explaining away a failure.
 
 8. **Fit to two pages** — measure, do not guess:
 

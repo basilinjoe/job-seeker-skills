@@ -101,8 +101,14 @@ python3 scripts/init_bundle.py ./my-career --name "Your Name"   # scaffold
 python3 scripts/validate_bundle.py ./my-career                  # needs pyyaml
 python3 scripts/check_ats.py resume.docx                        # presentation variant
 python3 scripts/check_ats.py resume.docx --strict               # ATS-maximal variant
+python3 scripts/check_prose.py resume.docx                      # the writing rules
 python3 scripts/fit_pages.py resume.docx --target-pages 2       # needs LibreOffice + pymupdf
 ```
+
+`check_prose.py` is the sibling gate. `check_ats.py` verifies a document parses; this verifies it
+reads — third person, unresolved placeholders, sentences that stop before their object, phrases that
+read as junior, bullets repeated across projects, and bullets that clear their throat before the
+verb. A resume in the third person is not a parsing defect, so nothing was catching it.
 
 `fit_pages.py` renders the document, measures which block spilled and how much room the page
 actually had, then applies density levers in a fixed order — spacing, bullet spacing, margins, font

@@ -61,7 +61,10 @@ its exact vocabulary. Skills: move the matching stack row to second position.
 
 ## 5. Generate, verify, log
 
-Both variants plus plain text, both checkers PASS, then log the submission in
+Both variants plus plain text. `check_ats.py` PASSes on both — plain and `--strict` — and
+`check_prose.py` PASSes on the presentation variant and the plain text. Tailoring rewrites bullets
+against a posting, which is exactly when a rewritten clause loses its object or slips into the third
+person, so the prose gate matters more here than in a straight rebuild. Then log the submission in
 `tailoring/applications/` — including any feedback received later. After a handful of applications,
 patterns emerge about which evidence gets traction, and that belongs back in the rules.
 

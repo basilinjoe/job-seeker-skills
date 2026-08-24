@@ -73,6 +73,7 @@ skill, so a bare `scripts/…` will not resolve.
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
 | `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
 | `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |
+| `check_prose.py resume.docx` | the writing rules `check_ats.py` cannot see | — |
 | `fit_pages.py resume.docx --target-pages 2` | fits a render to a page budget without breaching the floors | LibreOffice, `pymupdf` |
 
 ```bash
