@@ -60,6 +60,7 @@ Load as needed rather than upfront:
 - `references/bundle-spec.md` — directory layout, frontmatter schema, selection keys, concept types
 - `references/writing-rules.md` — X-Y-Z bullets, verb accuracy, phrases that damage seniority
 - `references/ats-rules.md` — hard rules, the two-variant strategy, keyword placement
+- `references/target-template.md` — the Job Target frontmatter the scorer reads
 
 ## Scripts
 
@@ -74,6 +75,7 @@ skill, so a bare `scripts/…` will not resolve.
 | `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
 | `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |
 | `check_prose.py resume.docx` | the writing rules `check_ats.py` cannot see | — |
+| `score_projects.py <bundle> <target.md>` | ranks projects against a posting, from the target's frontmatter | `pyyaml` |
 | `fit_pages.py resume.docx --target-pages 2` | fits a render to a page budget without breaching the floors | LibreOffice, `pymupdf` |
 
 ```bash

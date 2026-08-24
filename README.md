@@ -26,7 +26,10 @@ ATS-maximal variant for portals, plus plain text for paste-in boxes.
 sign-off), `needs-verification` (a known gap). Nothing inferred reaches a resume unconfirmed.
 
 **Tailoring is selection, never invention.** Job descriptions are scored against structured metadata
-on each project, and the tool tells you where you fall short instead of flattering you.
+on each project by `score_projects.py`, which reads its requirements from the target file's own
+frontmatter — so the document you review is the one that produced the ranking, and re-running it next
+month gives the same answer. It reports what each project *failed* to match, and tells you where you
+fall short instead of flattering you.
 
 ### Install
 
@@ -102,6 +105,7 @@ python3 scripts/validate_bundle.py ./my-career                  # needs pyyaml
 python3 scripts/check_ats.py resume.docx                        # presentation variant
 python3 scripts/check_ats.py resume.docx --strict               # ATS-maximal variant
 python3 scripts/check_prose.py resume.docx                      # the writing rules
+python3 scripts/score_projects.py ./my-career target.md         # needs pyyaml
 python3 scripts/fit_pages.py resume.docx --target-pages 2       # needs LibreOffice + pymupdf
 ```
 

@@ -23,21 +23,47 @@ bullet. A posting mentioning stakeholder management in three places is telling y
 responsibilities list buries.
 
 Save to `tailoring/targets/<company>-<role>.md` with the posting pasted verbatim — listings get taken
-down and they will want the text at interview.
+down and they will want the text at interview. Use `references/target-template.md`: the requirement
+sets go in the **frontmatter**, because that is what the scorer reads. A requirement written only in
+prose does not participate in the ranking.
 
 ## 2. Score every project
 
+```bash
+python3 <skill-dir>/scripts/score_projects.py <bundle> tailoring/targets/<company>-<role>.md
 ```
-score =  capability_overlap x 3     # primary axis
-       + technology_overlap x 2
-       + domain_match       x 2
-       + seniority_match    x 2
+
+```
+score =  capability_overlap x 3     # primary axis, a count
+       + technology_overlap x 2     # a count
+       + domain_match       x 2     # binary: any shared domain, or none
+       + seniority_match    x 2     # 0.0-1.0, see the scale below
        + strength                   # 1-5
        + recency_bonus              # +2 within 3 years, +1 within 6
 ```
 
 Overlap counts matching frontmatter array values, compared exactly against
-`framework/capability-vocabulary.md`.
+`framework/capability-vocabulary.md`. Run the script rather than scoring by feel or writing a
+throwaway scorer: a bespoke one re-declares the requirement sets in Python, they drift from the
+frontmatter within the session, and the ranking stops being reproducible a month later.
+
+**`seniority_match` is a graded scale**, not a yes/no: 1.0 at or above the level sought, decaying
+linearly to 0.0 at `junior`. Evidence from a *more* senior engagement than the posting asks for is not
+worth less — the penalty is for falling short, not for overshooting.
+
+**`domain_match` is binary.** Any shared domain scores the full 2; none scores 0. Multiplying a count
+would reward concepts that happen to carry more domain tags, which is a tagging artefact rather than
+a signal.
+
+**When the posting names no technologies at all** — common in enterprise architecture roles — leave
+`required_technologies` empty. The term then contributes 0 to every project and cannot change the
+ranking, which is the honest outcome. Do not quietly score against the stack the posting *implies*:
+that invents a requirement and moves a x2 term. If it is worth exploring, pass
+`--assume-technologies`, which labels the assumption in the output where a reader can see it.
+
+**The unmatched list is as useful as the score.** A required capability a project does not carry is
+either evidence that is genuinely absent or a project that is under-tagged. Those need opposite
+responses and only the person whose work it was can tell you which — so show them.
 
 **Show the ranked table before writing anything.** It makes your reasoning inspectable and lets them
 correct you — they know which project was really the hard one.
