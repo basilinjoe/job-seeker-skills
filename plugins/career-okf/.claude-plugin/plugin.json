@@ -1,7 +1,7 @@
 {
   "name": "career-okf",
   "displayName": "Career OKF",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Build a portable career knowledge base in Open Knowledge Format, then generate ATS-safe resumes from it. Interview once; regenerate resumes, tailored variants and interview briefs forever.",
   "author": {
     "name": "Basilin Joe",
@@ -10,5 +10,19 @@
   "homepage": "https://github.com/basilinjoe/job-seeker-skills",
   "repository": "https://github.com/basilinjoe/job-seeker-skills",
   "license": "MIT",
-  "keywords": ["resume", "cv", "ats", "career", "job-search", "okf", "open-knowledge-format", "tailoring"]
+  "keywords": [
+    "resume",
+    "cv",
+    "ats",
+    "career",
+    "job-search",
+    "okf",
+    "open-knowledge-format",
+    "tailoring",
+    "json",
+    "urs",
+    "latex",
+    "pdf",
+    "i18n"
+  ]
 }

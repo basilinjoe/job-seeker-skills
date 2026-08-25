@@ -1,0 +1,232 @@
+{
+  "$schema": "./urs-v1.schema.json",
+  "urs": "1.0.0",
+  "meta": {
+    "id": "urn:urs:example",
+    "lang": "en",
+    "updated": "2026-08-25",
+    "generator": "career-okf",
+    "conformance": 2,
+    "vocabularies": { "capabilities": "framework/capability-vocabulary.md" }
+  },
+  "person": {
+    "name": {
+      "full": "Priya Raman",
+      "given": "Priya",
+      "family": "Raman",
+      "display_order": "given-first",
+      "related_names": [ { "relation": "father", "name": "Raman Subramanian" } ]
+    },
+    "headline": "Principal Solution Architect",
+    "location": { "locality": "Carlton", "city": "Melbourne", "region": "VIC", "country": "AU", "mode": "hybrid" },
+    "contacts": [
+      { "kind": "email", "value": "priya.raman@example.com", "primary": true },
+      { "kind": "phone", "value": "+61 400 123 456" },
+      { "kind": "linkedin", "value": "linkedin.com/in/priyaraman" }
+    ],
+    "demographics": {
+      "date_of_birth": { "value": "1988-04", "precision": "month" },
+      "nationality": ["IN", "AU"],
+      "marital_status": "married",
+      "visibility": "private"
+    }
+  },
+  "work_authorization": [
+    { "jurisdiction": "AU", "kind": "permanent", "status": "held", "label": "Australian Permanent Resident" }
+  ],
+  "languages": [
+    { "language": "English", "native": true },
+    { "language": "Tamil", "scheme": "self-reported", "modalities": { "speak": "Native", "read": "Fluent", "write": "Fluent" } },
+    { "language": "Arabic", "scheme": "cefr", "overall": "B1", "modalities": { "speak": "B1", "read": "A2", "write": "A2" } }
+  ],
+  "organizations": [
+    { "id": "org_meridian", "name": "Meridian Health", "industry": ["healthcare", "aged-care"], "size": "1001-5000", "sector": "private" },
+    { "id": "org_northbridge", "name": "Northbridge Digital", "industry": ["consulting"], "size": "201-1000", "sector": "private" }
+  ],
+  "engagements": [
+    {
+      "id": "eng_meridian",
+      "kind": "employment",
+      "organization": "org_meridian",
+      "employment": { "arrangement": "full-time" },
+      "period": { "start": { "value": "2021-02", "precision": "month" }, "state": "ongoing" },
+      "location": { "city": "Melbourne", "region": "VIC", "country": "AU", "mode": "hybrid" },
+      "domains": ["healthcare", "aged-care"],
+      "positions": [
+        { "id": "pos_m1", "title": "Senior Solution Architect", "period": { "start": { "value": "2021-02", "precision": "month" }, "end": { "value": "2023-06", "precision": "month" }, "state": "ended" }, "change": "hire", "seniority": "platform-design" },
+        { "id": "pos_m2", "title": "Principal Solution Architect", "period": { "start": { "value": "2023-07", "precision": "month" }, "state": "ongoing" }, "change": "promotion", "seniority": "architecture-ownership" }
+      ],
+      "summary": "Own the clinical data platform serving 42 residential care sites.",
+      "achievements": [
+        {
+          "id": "ach_latency",
+          "text": "Cut p95 clinical event latency from 5 minutes to under 1 second, across 40,000 daily ingestion jobs.",
+          "metrics": [
+            { "kind": "delta", "subject": "p95 clinical event latency", "baseline": { "value": 5, "unit": "min" }, "quantity": { "value": 1, "unit": "s" }, "direction": "decrease", "confidence": "measured" },
+            { "kind": "count", "subject": "daily ingestion jobs", "quantity": { "value": 40000, "unit": "jobs" }, "confidence": "measured" }
+          ],
+          "skills": ["skill_azure", "skill_eventdriven"],
+          "capabilities": ["ai-platform-architecture", "data-sovereignty"],
+          "scope": { "team_size": 6, "users_affected": 40000 },
+          "weight": 5,
+          "provenance": { "status": "confirmed", "asserted": "2026-08-25", "source": { "kind": "self" } }
+        },
+        {
+          "id": "ach_consolidate",
+          "text": "Consolidated 3 regional data platforms into one sovereign landing zone, reducing annual run cost 28%.",
+          "metrics": [
+            { "kind": "count", "subject": "regional data platforms consolidated", "quantity": { "value": 3 }, "confidence": "measured" },
+            { "kind": "ratio", "subject": "annual run cost", "quantity": { "value": 28, "unit": "%" }, "baseline": { "value": 100, "unit": "%" }, "direction": "decrease", "confidence": "measured" }
+          ],
+          "skills": ["skill_azure", "skill_bicep"],
+          "capabilities": ["data-sovereignty", "platform-consolidation"],
+          "weight": 5,
+          "provenance": { "status": "confirmed", "asserted": "2026-08-25", "source": { "kind": "self" } }
+        },
+        {
+          "id": "ach_iso",
+          "text": "Led the architecture workstream for ISO 27001 certification, mentoring a team of 6 engineers through it.",
+          "metrics": [
+            { "kind": "count", "subject": "engineers mentored", "quantity": { "value": 6, "unit": "people" }, "confidence": "reported" }
+          ],
+          "skills": ["skill_security"],
+          "capabilities": ["team-leadership", "security-governance"],
+          "scope": { "team_size": 6 },
+          "weight": 4,
+          "provenance": { "status": "confirmed", "asserted": "2026-08-25", "source": { "kind": "self" } }
+        }
+      ]
+    },
+    {
+      "id": "eng_northbridge",
+      "kind": "employment",
+      "organization": "org_northbridge",
+      "employment": { "arrangement": "full-time" },
+      "period": { "start": { "value": "2016-08", "precision": "month" }, "end": { "value": "2021-01", "precision": "month" }, "state": "ended" },
+      "location": { "city": "Chennai", "country": "IN", "mode": "onsite" },
+      "domains": ["banking", "insurance"],
+      "positions": [
+        { "id": "pos_n1", "title": "Solution Architect", "period": { "start": { "value": "2019-03", "precision": "month" }, "end": { "value": "2021-01", "precision": "month" }, "state": "ended" }, "change": "promotion", "seniority": "platform-design" },
+        { "id": "pos_n2", "title": "Senior Engineer", "period": { "start": { "value": "2016-08", "precision": "month" }, "end": { "value": "2019-02", "precision": "month" }, "state": "ended" }, "change": "hire", "seniority": "hands-on-senior" }
+      ],
+      "achievements": [
+        {
+          "id": "ach_migration",
+          "text": "Migrated a core policy administration system to Azure with no unplanned downtime.",
+          "metrics": [],
+          "skills": ["skill_azure"],
+          "capabilities": ["cloud-migration"],
+          "weight": 3,
+          "provenance": { "status": "confirmed", "asserted": "2026-08-25", "source": { "kind": "self" } }
+        }
+      ]
+    },
+    {
+      "id": "eng_break",
+      "kind": "break",
+      "period": { "start": { "value": "2021-01", "precision": "month" }, "end": { "value": "2021-02", "precision": "month" }, "state": "ended" },
+      "reason": "Relocation from India to Australia",
+      "achievements": []
+    }
+  ],
+  "education": [
+    {
+      "id": "edu_meng",
+      "institution": "Anna University",
+      "level": "isced-7",
+      "qualification": "Master of Engineering",
+      "field": "Computer Science",
+      "period": { "start": { "value": "2010", "precision": "year" }, "end": { "value": "2012", "precision": "year" }, "state": "ended" },
+      "grade": { "scheme": "in-cgpa-10", "value": 8.4, "scale": { "min": 0, "max": 10 }, "direction": "higher-is-better", "label": "First Class with Distinction" },
+      "location": { "city": "Chennai", "country": "IN" },
+      "provenance": { "status": "confirmed" }
+    },
+    {
+      "id": "edu_hsc",
+      "institution": "Kendriya Vidyalaya",
+      "level": "isced-3",
+      "qualification": "Higher Secondary Certificate",
+      "board": "CBSE",
+      "period": { "start": { "value": "2004", "precision": "year" }, "end": { "value": "2006", "precision": "year" }, "state": "ended" },
+      "grade": { "scheme": "in-percentage", "value": 91.2, "scale": { "min": 0, "max": 100 }, "direction": "higher-is-better" },
+      "provenance": { "status": "confirmed" }
+    }
+  ],
+  "credentials": [
+    {
+      "id": "cred_azarch",
+      "name": "Azure Solutions Architect Expert",
+      "issuer": "Microsoft",
+      "kind": "certification",
+      "issued": { "value": "2024-05", "precision": "month" },
+      "status": "active",
+      "provenance": { "status": "confirmed" }
+    }
+  ],
+  "skills": [
+    { "id": "skill_azure", "name": "Azure", "category": "cloud-platform", "aliases": ["Microsoft Azure"], "evidence": ["ach_latency", "ach_consolidate"], "last_used": { "value": "2026", "precision": "year" } },
+    { "id": "skill_bicep", "name": "Bicep", "category": "infrastructure", "evidence": ["ach_consolidate"] },
+    { "id": "skill_eventdriven", "name": "Event-driven architecture", "category": "architecture", "evidence": ["ach_latency"] },
+    { "id": "skill_security", "name": "Security governance", "category": "practice", "evidence": ["ach_iso"] }
+  ],
+  "narratives": [
+    {
+      "id": "nar_default",
+      "kind": "summary",
+      "text": "Solution architect who owns clinical data platforms end to end, from sovereignty constraints through to the latency budget the clinicians actually feel.",
+      "provenance": { "status": "confirmed" }
+    }
+  ],
+  "referees": [
+    {
+      "id": "ref_chen",
+      "name": "Dr Alan Chen",
+      "title": "Chief Information Officer",
+      "organization": "Meridian Health",
+      "relationship": "Direct manager",
+      "contacts": [ { "kind": "email", "value": "alan.chen@example.com" } ],
+      "consent": true,
+      "visibility": "private"
+    }
+  ],
+  "availability": { "notice_period_days": 30, "relocation": false, "work_modes": ["hybrid", "remote"] },
+  "compensation": {
+    "expected": { "amount": { "value": 240000, "currency": "AUD" }, "basis": "total-cash", "period": "year" }
+  },
+  "views": [
+    {
+      "id": "view_au_default",
+      "label": "Australian market, general",
+      "format_profile": "presentation",
+      "region_profile": "urs:profile:au/1",
+      "locale": "en-AU",
+      "narrative": "nar_default",
+      "provenance_floor": "confirmed",
+      "budget": { "pages": 2 }
+    },
+    {
+      "id": "view_ae_gulf",
+      "label": "Gulf market",
+      "format_profile": "presentation",
+      "region_profile": "urs:profile:ae/1",
+      "locale": "en-AE",
+      "narrative": "nar_default",
+      "provenance_floor": "confirmed",
+      "budget": { "pages": 3 }
+    },
+    {
+      "id": "view_meridian_principal",
+      "label": "Principal Architect @ example posting",
+      "format_profile": "ats-maximal",
+      "region_profile": "urs:profile:au/1",
+      "target": { "title": "Principal Solution Architect", "ref": "tailoring/targets/example.md" },
+      "narrative": "nar_default",
+      "include": [
+        { "ref": "eng_meridian", "order": 1, "achievements": ["ach_latency", "ach_consolidate"], "treatment": "full" },
+        { "ref": "eng_northbridge", "order": 2, "treatment": "brief" }
+      ],
+      "provenance_floor": "confirmed",
+      "budget": { "pages": 2 }
+    }
+  ]
+}

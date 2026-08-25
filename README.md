@@ -13,14 +13,35 @@ Interview once. Regenerate resumes, tailored variants, LinkedIn copy and intervi
 
 ### What makes it different
 
+**Every document is rendered from JSON, never hand-built.** The bundle compiles to a
+[URS](plugins/career-okf/skills/career-okf/references/urs-spec.md) record — a universal resume schema
+this project defines — and the LaTeX/PDF, both `.docx` variants and the plain text are all emitted
+from that one file. Two hand-built documents have to agree about every date, bullet and number, and
+they stop agreeing the moment one is edited; usually silently, usually in the copy that gets sent.
+
+**The same record renders correctly in different markets.** A region profile decides what each market
+may and must not see: a photograph and date of birth are conventional on a Gulf resume and a liability
+on an Australian one; India expects academic grades on a CGPA scale, a father's name and a declaration
+block; the Gulf screens visa status and transferability before anything else. Australia, India and the
+UAE ship as profiles, and adding a market is a JSON file rather than a schema change.
+
+**Tailoring cannot invent, structurally.** A tailored resume is a *view*: it references evidence by
+id, orders it, and redacts. The validator rejects free text inside a view, so a posting the record has
+no evidence for produces nothing to point at rather than a plausible new bullet.
+
+**Numbers are checked against their metrics.** Every numeral in a bullet must appear in a structured
+metric on that bullet, or `validate_urs.py` fails the record before anything renders. It is the check
+that catches a rewritten bullet quietly inflating a figure.
+
 **Resumes are verified, not assumed.** `check_ats.py` inspects the generated `.docx` for the things
 that make applicant tracking systems silently mangle a resume: tables, text boxes, header/footer
 content, section words that appear in prose but never in a heading, any leftover bracketed
 placeholder, an unparseable phone number, arrow glyphs that fuse job titles when stripped. A resume
 that fails the checker is not delivered.
 
-**Three gates, not one, because a checker verifies that a document parses — not that it is correct.**
-Parse (`check_ats.py`), prose (`check_prose.py`), and render: convert to PDF and look at every page.
+**Four gates, not one, because a checker verifies that a document parses — not that it is correct.**
+Record (`validate_urs.py`), parse (`check_ats.py`), prose (`check_prose.py`), and render: convert to
+PDF and look at every page.
 Bullets that rendered as tofu boxes, headings that silently resolved to a theme font, and a bullet
 written in the third person all passed the parse gate, correctly. Only the render gate sees the first
 two. Without a renderer, a resume is marked unverified rather than assumed fine.
@@ -83,6 +104,18 @@ Describe what you want; the skill routes to the right mode.
 **Suggested rhythm.** Something ships → `braindump`, five minutes, while you remember the details.
 Every quarter → `refresh`. Before applying → `gaps`, then `resume`. Specific role → `tailor`.
 
+### The resume standard
+
+`references/urs-spec.md` defines **URS**, a JSON standard for the career record, with the schema in
+`schema/urs-v1.schema.json` and region profiles in `schema/profiles/`. It exists because JSON Resume
+is a JSON container around unstructured prose: a bullet is a bare string, so nothing can verify a
+metric; nothing carries an id, so tailoring means copy-and-mutate and the copies drift; nothing
+carries provenance, so "I measured this" and "a model wrote this" look identical; and a promotion has
+to be modelled as two duplicate employers.
+
+URS keeps a mapping to JSON Resume at conformance level 0, so adopting it costs nothing and is
+reversible. `schema/example.resume.json` is a complete worked document.
+
 ### Bundle layout
 
 ```
@@ -108,6 +141,8 @@ The skill runs these for you. To run them yourself, from the skill directory:
 ```bash
 python3 scripts/init_bundle.py ./my-career --name "Your Name"   # scaffold
 python3 scripts/validate_bundle.py ./my-career                  # needs pyyaml
+python3 scripts/validate_urs.py resume.json --level 2           # the record, before rendering
+python3 scripts/render_resume.py resume.json --out . --pdf      # .tex/PDF + both .docx + .txt
 python3 scripts/check_ats.py resume.docx                        # presentation variant
 python3 scripts/check_ats.py resume.docx --strict               # ATS-maximal variant
 python3 scripts/check_prose.py resume.docx                      # the writing rules
@@ -126,7 +161,14 @@ size — stopping at the 10pt / 0.5" floors instead of crossing them. If two pag
 without a breach it exits non-zero and says so, because the remedy then is to cut evidence, not to
 shrink type.
 
-`check_ats.py` and `init_bundle.py` are standard library only. On Windows use `python` or `py -3`
+`render_resume.py` resolves the record once — selection, ordering, provenance filtering, profile
+gating, ASCII folding, date formatting — and the three emitters translate that plan into markup
+without deciding anything. That split is what guarantees the `.docx` and the PDF cannot say different
+things. Without a TeX engine it writes the `.tex` and reports the resume **unverified** rather than
+implying a PDF nobody rendered.
+
+`validate_urs.py`, `render_resume.py`, `check_ats.py` and `init_bundle.py` are standard library only
+(`validate_urs.py` also checks the full JSON Schema when `jsonschema` happens to be installed). On Windows use `python` or `py -3`
 in place of `python3`.
 
 ### Tests

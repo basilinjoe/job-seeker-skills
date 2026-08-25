@@ -1,0 +1,695 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openresume.dev/urs/v1/resume.schema.json",
+  "title": "URS - Universal Resume Schema v1",
+  "description": "The career record. A resume is a view over it. See references/urs-spec.md.",
+  "type": "object",
+  "required": ["urs", "meta", "person"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "urs": { "type": "string", "pattern": "^1\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$" },
+    "meta": { "$ref": "#/$defs/Meta" },
+    "person": { "$ref": "#/$defs/Person" },
+    "work_authorization": { "type": "array", "items": { "$ref": "#/$defs/WorkAuthorization" } },
+    "identity_documents": { "type": "array", "items": { "$ref": "#/$defs/IdentityDocument" } },
+    "languages": { "type": "array", "items": { "$ref": "#/$defs/LanguageSkill" } },
+    "organizations": { "type": "array", "items": { "$ref": "#/$defs/Organization" } },
+    "engagements": { "type": "array", "items": { "$ref": "#/$defs/Engagement" } },
+    "education": { "type": "array", "items": { "$ref": "#/$defs/Education" } },
+    "credentials": { "type": "array", "items": { "$ref": "#/$defs/Credential" } },
+    "projects": { "type": "array", "items": { "$ref": "#/$defs/Project" } },
+    "skills": { "type": "array", "items": { "$ref": "#/$defs/Skill" } },
+    "narratives": { "type": "array", "items": { "$ref": "#/$defs/Narrative" } },
+    "referees": { "type": "array", "items": { "$ref": "#/$defs/Referee" } },
+    "availability": { "$ref": "#/$defs/Availability" },
+    "compensation": { "$ref": "#/$defs/Compensation" },
+    "views": { "type": "array", "items": { "$ref": "#/$defs/View" } },
+    "x": { "type": "object" }
+  },
+
+  "$defs": {
+
+    "Id": {
+      "type": "string",
+      "pattern": "^[a-z]{2,6}_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "description": "Stable identifier, prefixed by kind: ach_, eng_, org_, prj_, skill_, nar_, view_, pos_, edu_, cred_, ref_."
+    },
+
+    "Visibility": {
+      "type": "string",
+      "enum": ["public", "recruiter", "private"],
+      "default": "public"
+    },
+
+    "Instant": {
+      "type": "object",
+      "required": ["value", "precision"],
+      "properties": {
+        "value": { "type": "string", "pattern": "^\\d{4}(-\\d{2}(-\\d{2})?)?$" },
+        "precision": { "type": "string", "enum": ["year", "month", "day"] },
+        "calendar": { "type": "string", "enum": ["gregorian", "japanese", "hijri", "bikram-sambat"] },
+        "display": { "type": "string", "description": "Locale-specific rendering. Never parsed." }
+      },
+      "additionalProperties": false
+    },
+
+    "Period": {
+      "type": "object",
+      "required": ["start", "state"],
+      "properties": {
+        "start": { "$ref": "#/$defs/Instant" },
+        "end": { "$ref": "#/$defs/Instant" },
+        "state": { "type": "string", "enum": ["ongoing", "ended", "unknown"] }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "ended" } }, "required": ["state"] },
+          "then": { "required": ["end"] }
+        },
+        {
+          "if": { "properties": { "state": { "const": "ongoing" } }, "required": ["state"] },
+          "then": { "not": { "required": ["end"] } }
+        }
+      ]
+    },
+
+    "Provenance": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "inferred", "needs-verification", "disputed"]
+        },
+        "asserted": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "source": {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "enum": ["self", "document", "system", "reference"] },
+            "ref": { "type": "string" },
+            "label": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Quantity": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "number" },
+        "unit": { "type": "string" },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+      },
+      "additionalProperties": false
+    },
+
+    "Metric": {
+      "type": "object",
+      "required": ["kind", "subject", "quantity"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["absolute", "delta", "ratio", "duration", "rank", "count"]
+        },
+        "subject": { "type": "string" },
+        "quantity": { "$ref": "#/$defs/Quantity" },
+        "baseline": { "$ref": "#/$defs/Quantity" },
+        "direction": { "type": "string", "enum": ["increase", "decrease", "maintain"] },
+        "window": { "$ref": "#/$defs/Instant" },
+        "confidence": { "type": "string", "enum": ["measured", "estimated", "reported"] }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "delta" } }, "required": ["kind"] },
+          "then": { "required": ["baseline", "direction"] }
+        }
+      ]
+    },
+
+    "Achievement": {
+      "type": "object",
+      "required": ["id", "text", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "metrics": { "type": "array", "items": { "$ref": "#/$defs/Metric" } },
+        "skills": { "type": "array", "items": { "$ref": "#/$defs/Id" } },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "team_size": { "type": "integer", "minimum": 0 },
+            "reports": { "type": "integer", "minimum": 0 },
+            "budget": { "$ref": "#/$defs/Quantity" },
+            "users_affected": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "provenance": { "$ref": "#/$defs/Provenance" },
+        "visibility": { "$ref": "#/$defs/Visibility" }
+      },
+      "additionalProperties": false
+    },
+
+    "Name": {
+      "type": "object",
+      "required": ["full"],
+      "description": "full is authoritative and MUST NOT be reconstructed from the parts.",
+      "properties": {
+        "full": { "type": "string", "minLength": 1 },
+        "given": { "type": "string" },
+        "family": { "type": "string" },
+        "additional": { "type": "array", "items": { "type": "string" } },
+        "display_order": {
+          "type": "string",
+          "enum": ["given-first", "family-first", "mononym"],
+          "default": "given-first"
+        },
+        "transliterations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "related_names": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["relation", "name"],
+            "properties": {
+              "relation": { "type": "string", "enum": ["father", "mother", "spouse", "maiden", "former"] },
+              "name": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Location": {
+      "type": "object",
+      "properties": {
+        "line": { "type": "string" },
+        "locality": { "type": "string", "description": "Suburb or district." },
+        "city": { "type": "string" },
+        "region": { "type": "string" },
+        "postal_code": { "type": "string" },
+        "country": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "mode": { "type": "string", "enum": ["onsite", "hybrid", "remote"] },
+        "visibility": { "$ref": "#/$defs/Visibility" }
+      },
+      "additionalProperties": false
+    },
+
+    "Contact": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["email", "phone", "url", "linkedin", "github", "scholar", "portfolio", "other"]
+        },
+        "value": { "type": "string" },
+        "label": { "type": "string" },
+        "primary": { "type": "boolean" },
+        "visibility": { "$ref": "#/$defs/Visibility" }
+      },
+      "additionalProperties": false
+    },
+
+    "Person": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/Name" },
+        "headline": { "type": "string", "description": "Current title. Not a summary." },
+        "pronouns": { "type": "string" },
+        "location": { "$ref": "#/$defs/Location" },
+        "contacts": { "type": "array", "items": { "$ref": "#/$defs/Contact" } },
+        "photo": {
+          "type": "object",
+          "properties": {
+            "uri": { "type": "string" },
+            "visibility": { "$ref": "#/$defs/Visibility" }
+          },
+          "additionalProperties": false
+        },
+        "demographics": {
+          "type": "object",
+          "description": "Expected in DE, JP, IN and the Gulf; unlawful to solicit in AU, UK and the US. Private by default; a region profile is the only justification for emitting it.",
+          "properties": {
+            "date_of_birth": { "$ref": "#/$defs/Instant" },
+            "nationality": { "type": "array", "items": { "type": "string", "minLength": 2 } },
+            "marital_status": {
+              "type": "string",
+              "enum": ["single", "married", "other", "undisclosed"]
+            },
+            "gender": { "type": "string" },
+            "visibility": { "$ref": "#/$defs/Visibility", "default": "private" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "WorkAuthorization": {
+      "type": "object",
+      "required": ["jurisdiction", "kind", "status"],
+      "properties": {
+        "jurisdiction": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "kind": {
+          "type": "string",
+          "enum": ["citizen", "permanent", "employment-visa", "residence", "student", "working-holiday", "none"]
+        },
+        "status": { "type": "string", "enum": ["held", "expired", "eligible", "requires-sponsorship"] },
+        "transferable": { "type": "boolean", "description": "Gulf NOC transferability." },
+        "expires": { "$ref": "#/$defs/Instant" },
+        "label": { "type": "string" },
+        "visibility": { "$ref": "#/$defs/Visibility" }
+      },
+      "additionalProperties": false
+    },
+
+    "IdentityDocument": {
+      "type": "object",
+      "required": ["kind", "jurisdiction"],
+      "description": "Private by default. Never emitted without a region profile permitting it.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["passport", "national-id", "driving-licence", "residence-permit", "other"]
+        },
+        "jurisdiction": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "number": { "type": "string" },
+        "expires": { "$ref": "#/$defs/Instant" },
+        "label": { "type": "string" },
+        "visibility": { "$ref": "#/$defs/Visibility", "default": "private" }
+      },
+      "additionalProperties": false
+    },
+
+    "LanguageSkill": {
+      "type": "object",
+      "required": ["language"],
+      "properties": {
+        "language": { "type": "string", "description": "BCP 47 tag." },
+        "scheme": { "type": "string", "enum": ["cefr", "ilr", "jlpt", "ielts", "self-reported"] },
+        "overall": { "type": "string" },
+        "modalities": {
+          "type": "object",
+          "properties": {
+            "speak": { "type": "string" },
+            "read": { "type": "string" },
+            "write": { "type": "string" },
+            "listen": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "native": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
+    "Organization": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "name": { "type": "string" },
+        "legal_name": { "type": "string" },
+        "url": { "type": "string" },
+        "industry": { "type": "array", "items": { "type": "string" } },
+        "size": {
+          "type": "string",
+          "enum": ["1-10", "11-50", "51-200", "201-1000", "1001-5000", "5000+"]
+        },
+        "sector": { "type": "string", "enum": ["private", "public", "nonprofit", "academic"] },
+        "identifiers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "description": { "type": "string", "description": "One line, for organizations a reader will not recognise." }
+      },
+      "additionalProperties": false
+    },
+
+    "Position": {
+      "type": "object",
+      "required": ["id", "title", "period"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "title": { "type": "string" },
+        "period": { "$ref": "#/$defs/Period" },
+        "change": { "type": "string", "enum": ["hire", "promotion", "lateral", "title-change"] },
+        "seniority": {
+          "type": "string",
+          "enum": ["architecture-ownership", "product-ownership", "platform-design", "team-leadership",
+                   "technical-ownership", "hands-on-senior", "hands-on", "junior"]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Engagement": {
+      "type": "object",
+      "required": ["id", "kind", "period"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "kind": {
+          "type": "string",
+          "enum": ["employment", "contract", "freelance", "internship", "volunteer", "break", "education-fulltime"]
+        },
+        "organization": { "$ref": "#/$defs/Id" },
+        "employment": {
+          "type": "object",
+          "properties": {
+            "arrangement": {
+              "type": "string",
+              "enum": ["full-time", "part-time", "casual", "fixed-term", "seasonal"]
+            },
+            "via": { "$ref": "#/$defs/Id", "description": "Agency or umbrella company. Client and payer are not the same field." }
+          },
+          "additionalProperties": false
+        },
+        "period": { "$ref": "#/$defs/Period" },
+        "location": { "$ref": "#/$defs/Location" },
+        "positions": { "type": "array", "items": { "$ref": "#/$defs/Position" } },
+        "summary": { "type": "string" },
+        "domains": { "type": "array", "items": { "type": "string" } },
+        "achievements": { "type": "array", "items": { "$ref": "#/$defs/Achievement" } },
+        "projects": { "type": "array", "items": { "$ref": "#/$defs/Id" } },
+        "reason": { "type": "string", "description": "For kind: break. Optional, private by default." },
+        "visibility": { "$ref": "#/$defs/Visibility" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "enum": ["employment", "contract", "freelance", "internship", "volunteer"] } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["organization"] }
+        }
+      ]
+    },
+
+    "Grade": {
+      "type": "object",
+      "required": ["scheme", "direction"],
+      "properties": {
+        "scheme": {
+          "type": "string",
+          "enum": ["in-cgpa-10", "in-percentage", "us-gpa-4", "de-note", "uk-honours", "fr-20", "other"]
+        },
+        "value": { "type": "number" },
+        "scale": {
+          "type": "object",
+          "properties": { "min": { "type": "number" }, "max": { "type": "number" } },
+          "additionalProperties": false
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["higher-is-better", "lower-is-better"],
+          "description": "Stored, not inferred: German Note runs backwards."
+        },
+        "label": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "Education": {
+      "type": "object",
+      "required": ["id", "institution", "period"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "institution": { "type": "string" },
+        "organization": { "$ref": "#/$defs/Id" },
+        "level": {
+          "type": "string",
+          "enum": ["isced-2", "isced-3", "isced-4", "isced-5", "isced-6", "isced-7", "isced-8"],
+          "description": "isced-2/3 carry India's 10th and 12th standard as first-class entries."
+        },
+        "qualification": { "type": "string" },
+        "field": { "type": "string" },
+        "board": { "type": "string", "description": "CBSE, ICSE, a state board, an exam authority." },
+        "period": { "$ref": "#/$defs/Period" },
+        "grade": { "$ref": "#/$defs/Grade" },
+        "location": { "$ref": "#/$defs/Location" },
+        "honours": { "type": "array", "items": { "type": "string" } },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Credential": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "name": { "type": "string" },
+        "issuer": { "type": "string" },
+        "kind": { "type": "string", "enum": ["certification", "licence", "clearance", "membership", "award"] },
+        "identifier": { "type": "string" },
+        "issued": { "$ref": "#/$defs/Instant" },
+        "expires": { "$ref": "#/$defs/Instant" },
+        "status": { "type": "string", "enum": ["active", "expired", "in-progress"] },
+        "url": { "type": "string" },
+        "attestation": {
+          "type": "array",
+          "description": "Gulf MOFA attestation, German Zeugnis, Indian marksheets.",
+          "items": {
+            "type": "object",
+            "required": ["authority"],
+            "properties": {
+              "authority": { "type": "string" },
+              "jurisdiction": { "type": "string", "pattern": "^[A-Z]{2}$" },
+              "attested": { "$ref": "#/$defs/Instant" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Project": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "engagement": { "$ref": "#/$defs/Id" },
+        "period": { "$ref": "#/$defs/Period" },
+        "url": { "type": "string" },
+        "role": { "type": "string" },
+        "strength": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "seniority": {
+          "type": "string",
+          "enum": ["architecture-ownership", "product-ownership", "platform-design", "team-leadership",
+                   "technical-ownership", "hands-on-senior", "hands-on", "junior"]
+        },
+        "domains": { "type": "array", "items": { "type": "string" } },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "technologies": { "type": "array", "items": { "type": "string" } },
+        "achievements": { "type": "array", "items": { "$ref": "#/$defs/Achievement" } },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Skill": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "aliases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "ATS keyword matching is literal. Aliases let a renderer emit the variant a portal expects."
+        },
+        "identifier": {
+          "type": "object",
+          "required": ["scheme", "code"],
+          "properties": {
+            "scheme": { "type": "string", "enum": ["esco", "onet", "linkedin", "other"] },
+            "code": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Id" },
+          "description": "Achievement or project ids. This replaces a self-rated level."
+        },
+        "last_used": { "$ref": "#/$defs/Instant" },
+        "months_applied": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+
+    "Narrative": {
+      "type": "object",
+      "required": ["id", "kind", "text", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "kind": {
+          "type": "string",
+          "enum": ["summary", "objective", "cover-letter", "criterion-response", "bio"]
+        },
+        "text": { "type": "string", "minLength": 1 },
+        "criterion": { "type": "string", "description": "For criterion-response, the criterion addressed." },
+        "audience": { "type": "string" },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Referee": {
+      "type": "object",
+      "required": ["id", "name"],
+      "description": "Australia lists referees inline; the US omits them. A region profile decides which.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "name": { "type": "string" },
+        "title": { "type": "string" },
+        "organization": { "type": "string" },
+        "relationship": { "type": "string" },
+        "contacts": { "type": "array", "items": { "$ref": "#/$defs/Contact" } },
+        "consent": { "type": "boolean", "description": "Whether they have agreed to be contacted." },
+        "visibility": { "$ref": "#/$defs/Visibility", "default": "private" }
+      },
+      "additionalProperties": false
+    },
+
+    "Availability": {
+      "type": "object",
+      "properties": {
+        "notice_period_days": { "type": "integer", "minimum": 0 },
+        "earliest_start": { "$ref": "#/$defs/Instant" },
+        "relocation": { "type": "boolean" },
+        "work_modes": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["onsite", "hybrid", "remote"] }
+        },
+        "visibility": { "$ref": "#/$defs/Visibility", "default": "private" }
+      },
+      "additionalProperties": false
+    },
+
+    "Compensation": {
+      "type": "object",
+      "description": "Routinely stated on Indian and Gulf resumes; never on US or EU ones.",
+      "properties": {
+        "current": { "$ref": "#/$defs/CompensationFigure" },
+        "expected": { "$ref": "#/$defs/CompensationFigure" },
+        "visibility": { "$ref": "#/$defs/Visibility", "default": "private" }
+      },
+      "additionalProperties": false
+    },
+
+    "CompensationFigure": {
+      "type": "object",
+      "required": ["amount", "basis"],
+      "properties": {
+        "amount": { "$ref": "#/$defs/Quantity" },
+        "basis": {
+          "type": "string",
+          "enum": ["ctc", "base", "total-cash", "hourly", "daily"],
+          "description": "CTC bundles allowances and is not a salary."
+        },
+        "period": { "type": "string", "enum": ["year", "month", "day", "hour"] }
+      },
+      "additionalProperties": false
+    },
+
+    "View": {
+      "type": "object",
+      "required": ["id", "format_profile"],
+      "description": "A rendering instruction. MUST NOT contain content text - only references, ordering, redaction and presentation.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "label": { "type": "string", "description": "Metadata about the application. Never rendered into the document body." },
+        "format_profile": {
+          "type": "string",
+          "enum": ["presentation", "ats-maximal", "plaintext", "web"]
+        },
+        "region_profile": { "type": "string", "description": "e.g. urs:profile:au/1" },
+        "locale": { "type": "string" },
+        "target": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "organization": { "type": "string" },
+            "ref": { "type": "string", "description": "Path to the Job Target file." },
+            "requirements": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "narrative": { "$ref": "#/$defs/Id" },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["summary", "skills", "experience", "projects", "education", "credentials",
+                     "languages", "work_authorization", "referees", "availability", "compensation"]
+          }
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["ref"],
+            "properties": {
+              "ref": { "$ref": "#/$defs/Id" },
+              "order": { "type": "integer" },
+              "achievements": { "type": "array", "items": { "$ref": "#/$defs/Id" } },
+              "treatment": { "type": "string", "enum": ["full", "brief", "compressed", "line" ] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "skills": { "type": "array", "items": { "$ref": "#/$defs/Id" } },
+        "redact": { "type": "array", "items": { "type": "string" } },
+        "provenance_floor": {
+          "type": "string",
+          "enum": ["confirmed", "inferred", "needs-verification"],
+          "default": "confirmed"
+        },
+        "budget": {
+          "type": "object",
+          "properties": { "pages": { "type": "integer", "minimum": 1 } },
+          "additionalProperties": false
+        },
+        "x": { "type": "object", "description": "Reverse-DNS keyed extensions. Ignorable, and preserved on round-trip." }
+      },
+      "additionalProperties": false
+    },
+
+    "Meta": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "lang": { "type": "string" },
+        "updated": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "generator": { "type": "string" },
+        "canonical": { "type": "string" },
+        "conformance": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "bundle": { "type": "string", "description": "Path to the OKF bundle this was built from." },
+        "vocabularies": {
+          "type": "object",
+          "properties": {
+            "capabilities": { "type": "string" },
+            "domains": { "type": "string" }
+          },
+          "additionalProperties": { "type": "string" }
+        },
+        "license": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "../profile.schema.json",
+  "id": "urs:profile:in/1",
+  "region": "IN",
+  "label": "India",
+  "required": [
+    "education"
+  ],
+  "expected": [
+    "person.demographics.date_of_birth",
+    "person.demographics.nationality",
+    "person.demographics.marital_status",
+    "person.name.related_names",
+    "person.photo",
+    "languages",
+    "availability.notice_period_days",
+    "compensation.current",
+    "compensation.expected"
+  ],
+  "forbidden": [],
+  "render": {
+    "pages": 3,
+    "order": "reverse-chronological",
+    "referees": "on-request",
+    "photo": true,
+    "declaration": true,
+    "attestation_block": false,
+    "date_format": "Mon YYYY",
+    "sections": [
+      "summary",
+      "skills",
+      "experience",
+      "education",
+      "credentials",
+      "languages",
+      "availability",
+      "personal"
+    ]
+  },
+  "schemes": {
+    "grade": [
+      "in-cgpa-10",
+      "in-percentage"
+    ],
+    "language": "self-reported"
+  },
+  "notes": [
+    "Academic results carry real weight. Render education.grade for every entry, and include isced-2 and isced-3 rows - 10th and 12th standard - with the board named, not only the degree.",
+    "Current and expected compensation use basis: ctc. CTC bundles allowances and is not a salary; converting it to one misstates the figure.",
+    "The declaration block - 'I hereby declare that the information above is true to the best of my knowledge' with place and date - is conventional and its absence is noticed. render.declaration drives it.",
+    "Father's or husband's name is a distinct field in traditional and public-sector formats. It lives in person.name.related_names, not appended to the name.",
+    "Languages are listed with a read/write/speak split rather than a single level.",
+    "Private-sector technology employers increasingly follow the region-neutral convention. Ask before emitting photo, date of birth or marital status; expected is not the same as required."
+  ]
+}

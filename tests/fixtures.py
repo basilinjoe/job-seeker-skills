@@ -136,3 +136,123 @@ def write_concept(bundle, name="care-platform.md", text=CONCEPT):
     path = Path(bundle) / "projects" / name
     path.write_text(text, encoding="utf-8")
     return path
+
+
+# --- URS -------------------------------------------------------------------
+
+SKILL_DIR = REPO_ROOT / "plugins" / "career-okf" / "skills" / "career-okf"
+SCHEMA_DIR = SKILL_DIR / "schema"
+VALIDATE_URS = SCRIPTS / "validate_urs.py"
+RENDER_RESUME = SCRIPTS / "render_resume.py"
+EXAMPLE_URS = SCHEMA_DIR / "example.resume.json"
+
+
+def urs_package():
+    """Import the urs package the renderer uses, for plan-level assertions."""
+    import importlib
+    if str(SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS))
+    return importlib.import_module("urs.plan")
+
+
+def instant(value, precision="month"):
+    return {"value": value, "precision": precision}
+
+
+def ended(start, end):
+    return {"start": instant(start), "end": instant(end), "state": "ended"}
+
+
+def ongoing(start):
+    return {"start": instant(start), "state": "ongoing"}
+
+
+def achievement(text, metrics=(), aid="ach_one", status="confirmed", **extra):
+    node = {
+        "id": aid,
+        "text": text,
+        "metrics": list(metrics),
+        "provenance": {"status": status},
+    }
+    node.update(extra)
+    return node
+
+
+def urs_doc(**overrides):
+    """A minimal document that passes validate_urs.py, for tests to break."""
+    doc = {
+        "urs": "1.0.0",
+        "meta": {"lang": "en", "updated": "2026-08-25"},
+        "person": {
+            "name": {"full": "Test Person"},
+            "headline": "Principal Engineer",
+            "location": {"city": "Melbourne", "region": "VIC", "country": "AU"},
+            "contacts": [
+                {"kind": "email", "value": "test.person@example.com"},
+                {"kind": "phone", "value": "+61 400 000 000"},
+            ],
+            "demographics": {
+                "date_of_birth": instant("1988-04"),
+                "nationality": ["IN"],
+                "marital_status": "married",
+            },
+        },
+        "work_authorization": [
+            {"jurisdiction": "AU", "kind": "permanent", "status": "held",
+             "label": "Australian Permanent Resident"}
+        ],
+        "languages": [{"language": "English", "native": True}],
+        "organizations": [{"id": "org_acme", "name": "Acme Health"}],
+        "engagements": [{
+            "id": "eng_acme",
+            "kind": "employment",
+            "organization": "org_acme",
+            "period": ongoing("2021-02"),
+            "positions": [
+                {"id": "pos_a", "title": "Senior Engineer",
+                 "period": ended("2021-02", "2023-06"), "change": "hire"},
+                {"id": "pos_b", "title": "Principal Engineer",
+                 "period": ongoing("2023-07"), "change": "promotion"},
+            ],
+            "achievements": [
+                achievement(
+                    "Cut p95 latency from 5 minutes to under 1 second.",
+                    metrics=[{
+                        "kind": "delta", "subject": "p95 latency",
+                        "baseline": {"value": 5, "unit": "min"},
+                        "quantity": {"value": 1, "unit": "s"},
+                        "direction": "decrease", "confidence": "measured",
+                    }],
+                    aid="ach_latency", weight=5),
+                achievement("Rebuilt the ingestion pipeline end to end.",
+                            aid="ach_pipeline", weight=3),
+            ],
+        }],
+        "education": [{
+            "id": "edu_meng", "institution": "Anna University", "level": "isced-7",
+            "qualification": "Master of Engineering", "field": "Computer Science",
+            "period": ended("2010", "2012"),
+            "grade": {"scheme": "in-cgpa-10", "value": 8.4,
+                      "scale": {"min": 0, "max": 10}, "direction": "higher-is-better"},
+            "provenance": {"status": "confirmed"},
+        }],
+        "skills": [{"id": "skill_azure", "name": "Azure", "category": "cloud-platform",
+                    "evidence": ["ach_latency"]}],
+        "narratives": [{"id": "nar_default", "kind": "summary",
+                        "text": "Engineer who owns platforms end to end.",
+                        "provenance": {"status": "confirmed"}}],
+        "views": [{
+            "id": "view_default", "format_profile": "presentation",
+            "region_profile": "urs:profile:au/1", "narrative": "nar_default",
+            "provenance_floor": "confirmed", "budget": {"pages": 2},
+        }],
+    }
+    doc.update(overrides)
+    return doc
+
+
+def write_urs(directory, doc, name="resume.json"):
+    import json
+    path = Path(directory) / name
+    path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    return path
