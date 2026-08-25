@@ -8,7 +8,15 @@ On Windows use `python` or `py -3` in place of `python3`.
 Checks OKF v0.1 hard rules plus this bundle's own conventions.
 Requires: pyyaml  (pip install pyyaml)
 """
-import os, re, sys, yaml
+import os, re, sys
+
+try:
+    import yaml
+except ImportError:
+    # A traceback here reads as a broken install rather than a missing package,
+    # and this is often the first script anyone runs against their own bundle.
+    print("validate_bundle.py needs pyyaml:  pip install pyyaml")
+    sys.exit(2)
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
 STATUS = {"confirmed", "inferred", "needs-verification"}
