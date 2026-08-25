@@ -1,0 +1,38 @@
+{
+  "$schema": "../profile.schema.json",
+  "id": "urs:profile:xx/1",
+  "region": "XX",
+  "label": "Region-neutral (US, UK, CA, NZ and most of Western Europe)",
+  "required": [],
+  "expected": [
+    "person.contacts",
+    "person.location.city"
+  ],
+  "forbidden": [
+    "person.photo",
+    "person.demographics.date_of_birth",
+    "person.demographics.marital_status",
+    "person.demographics.gender",
+    "person.name.related_names",
+    "identity_documents",
+    "compensation"
+  ],
+  "render": {
+    "pages": 2,
+    "order": "reverse-chronological",
+    "referees": "omit",
+    "photo": false,
+    "declaration": false,
+    "attestation_block": false,
+    "date_format": "Mon YYYY",
+    "sections": ["summary", "skills", "experience", "education", "credentials"]
+  },
+  "schemes": {
+    "grade": ["us-gpa-4", "uk-honours"],
+    "language": "cefr"
+  },
+  "notes": [
+    "The conservative default. Everything a US or UK employer must not be sent is forbidden here, so an unprofiled render is safe rather than merely typical.",
+    "Referees are omitted entirely rather than reduced to a line: 'references available on request' spends a line to say nothing."
+  ]
+}

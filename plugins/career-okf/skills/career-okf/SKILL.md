@@ -20,6 +20,24 @@ briefs forever without re-interviewing them.
 
 **The bundle is the source of truth. A resume is one rendering of it.**
 
+Rendering goes through JSON, always:
+
+```
+bundle (Markdown)  ->  resume.json (URS)  ->  .tex -> .pdf
+                                          \-> .docx  x2
+                                          \-> .txt
+```
+
+**Never hand-author a `.docx` or a `.tex`.** Build the URS record, validate it, render every format
+from it — `references/urs-spec.md` has the format, `references/mode-resume.md` the procedure. Two
+hand-built documents have to agree about every date, bullet and number, and they stop agreeing the
+moment one is edited, silently, usually in the copy that gets sent. One record with several emitters
+cannot drift, because no emitter decides what the document says.
+
+It is also what makes a resume answerable a year later: the record carries the provenance of every
+claim and the view that selected it, so "what did this application claim, and where did that come
+from" has an answer.
+
 ## Modes
 
 Route on what the user asked for. If they passed an argument (`braindump`, `resume`, `tailor`,
@@ -61,6 +79,8 @@ Load as needed rather than upfront:
 - `references/writing-rules.md` — X-Y-Z bullets, verb accuracy, phrases that damage seniority
 - `references/ats-rules.md` — hard rules, the two-variant strategy, keyword placement
 - `references/target-template.md` — the Job Target frontmatter the scorer reads
+- `references/urs-spec.md` — the JSON resume standard every document is rendered from, plus
+  the region profiles that decide what each market may and must not see
 
 ## Scripts
 
@@ -71,11 +91,14 @@ skill, so a bare `scripts/…` will not resolve.
 
 | Script | Does | Needs |
 |---|---|---|
+| `preflight.py [--verify]` | what this machine can do, and what each gap disables | — |
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
 | `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
 | `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |
 | `check_prose.py resume.docx` | the writing rules `check_ats.py` cannot see | — |
 | `score_projects.py <bundle> <target.md>` | ranks projects against a posting, from the target's frontmatter | `pyyaml` |
+| `validate_urs.py resume.json [--level N]` | the URS record is coherent before anything renders | — |
+| `render_resume.py resume.json --out DIR [--view ID] [--pdf]` | one record to `.tex`/PDF, both `.docx` variants and `.txt` | TeX engine for the PDF |
 | `fit_pages.py resume.docx --target-pages 2` | fits a render to a page budget without breaching the floors | LibreOffice, `pymupdf` |
 
 ```bash
@@ -84,7 +107,7 @@ python3 <skill-dir>/scripts/check_ats.py resume.docx --strict
 
 Use `python` or `py -3` on Windows, where `python3` is usually absent.
 
-`fit_pages.py` is the only script with external dependencies. Without them it reports loudly and
+`fit_pages.py` and the PDF step of `render_resume.py` are the only parts with external dependencies. Without them it reports loudly and
 exits non-zero rather than passing, because a page count nobody measured is a page count nobody
 knows. Everything else runs on a bare Python.
 
@@ -95,17 +118,18 @@ into the bundle's `framework/` from the specifications in `references/ats-rules.
 
 ## The verification gates
 
-**Never hand over a resume you have not checked.** There are three gates, and they answer different
+**Never hand over a resume you have not checked.** There are four gates, and they answer different
 questions. Passing one says nothing about the others.
 
 | Gate | Question | How |
 |---|---|---|
+| **Record** | Is the source coherent, and does every number trace to a metric? | `validate_urs.py` on `resume.json`, before anything renders |
 | **Parse** | Will an ATS read this without mangling it? | `check_ats.py` on the presentation variant, `--strict` on the ATS-maximal one |
 | **Prose** | Does it obey the writing rules? | `check_prose.py` on the presentation variant and the plain text |
 | **Render** | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
 
 **The checker verifies that a document parses, not that it is correct.** That sentence is the whole
-reason there are three. `check_ats.py` passed a resume whose bullets rendered as tofu boxes, one whose
+reason there are four. `check_ats.py` passed a resume whose bullets rendered as tofu boxes, one whose
 headings silently resolved to a theme font, and one written in the third person — all correctly, all
 outside its scope. The first two are visual and cannot be linted from the XML; the third is why
 `check_prose.py` exists.

@@ -125,12 +125,50 @@ its exact vocabulary. Skills: move the matching stack row to second position.
 
 ## 5. Generate, verify, log
 
-Both variants plus plain text. `check_ats.py` PASSes on both — plain and `--strict` — and
-`check_prose.py` PASSes on the presentation variant and the plain text. Tailoring rewrites bullets
-against a posting, which is exactly when a rewritten clause loses its object or slips into the third
-person, so the prose gate matters more here than in a straight rebuild. Then log the submission in
-`tailoring/applications/` — including any feedback received later. After a handful of applications,
-patterns emerge about which evidence gets traction, and that belongs back in the rules.
+**Tailoring is a view, not a new document.** Add one to `resume.json` naming the evidence the ranking
+chose, and render from it:
+
+```json
+{ "id": "view_acme_principal",
+  "format_profile": "ats-maximal",
+  "region_profile": "urs:profile:au/1",
+  "target": { "title": "Principal Solution Architect", "ref": "tailoring/targets/acme.md" },
+  "narrative": "nar_acme",
+  "include": [
+    { "ref": "eng_meridian", "order": 1, "achievements": ["ach_latency", "ach_consolidate"] },
+    { "ref": "eng_northbridge", "order": 2, "treatment": "brief" }
+  ],
+  "provenance_floor": "confirmed",
+  "budget": { "pages": 2 } }
+```
+
+```bash
+python3 <skill-dir>/scripts/validate_urs.py resume.json
+python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view view_acme_principal --pdf
+```
+
+**A view references content; it cannot contain it.** The validator rejects free text inside one. That
+is the structural expression of the rule at the top of this file: a tailored resume is a selection
+over evidence that already existed, and a format where invention is impossible beats a process where
+invention is merely discouraged. If the posting wants something the record does not have, the view has
+nothing to point at — which is the honest outcome, and the thing to tell them in step 6.
+
+Retuned prose — a summary written for this posting, a bullet re-emphasised — is a **new narrative or a
+new achievement in the record**, with its own `provenance`. Written there, it is reviewable, reusable
+and attributable. Written into the view, it would be none of those, which is why it is rejected.
+
+Save the tailored record as `tailoring/applications/<company>-<role>.resume.json`. Every previous
+application then remains reproducible: same record, same view, same output, a year later.
+
+Then the gates. `check_ats.py` PASSes on both variants — plain and `--strict` — and `check_prose.py`
+PASSes on the presentation variant and the plain text. Tailoring rewrites bullets against a posting,
+which is exactly when a rewritten clause loses its object or slips into the third person, so the prose
+gate matters more here than in a straight rebuild. And because a rewritten bullet is where a number
+drifts, `validate_urs.py` re-checks every numeral against its metric before anything renders.
+
+Log the submission in `tailoring/applications/` — including any feedback received later. After a
+handful of applications, patterns emerge about which evidence gets traction, and that belongs back in
+the rules.
 
 ## 6. Tell them where they fall short
 

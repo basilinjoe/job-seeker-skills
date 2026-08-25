@@ -1,0 +1,44 @@
+{
+  "$schema": "../profile.schema.json",
+  "id": "urs:profile:au/1",
+  "region": "AU",
+  "label": "Australia",
+  "required": [
+    "work_authorization"
+  ],
+  "expected": [
+    "referees",
+    "person.location.locality",
+    "person.location.region"
+  ],
+  "forbidden": [
+    "person.photo",
+    "person.demographics.date_of_birth",
+    "person.demographics.marital_status",
+    "person.demographics.gender",
+    "person.name.related_names",
+    "identity_documents",
+    "compensation"
+  ],
+  "render": {
+    "pages": 3,
+    "order": "reverse-chronological",
+    "referees": "inline",
+    "photo": false,
+    "declaration": false,
+    "attestation_block": false,
+    "date_format": "Mon YYYY",
+    "sections": ["summary", "skills", "experience", "education", "credentials", "referees"]
+  },
+  "schemes": {
+    "grade": ["uk-honours", "us-gpa-4"],
+    "language": "cefr"
+  },
+  "notes": [
+    "Work rights are conventionally stated outright - 'Australian citizen', 'Permanent Resident' - because sponsorship capability is a genuine screening question. Hence required rather than expected.",
+    "Referees appear inline with names and contact details, unlike the US convention. Obtain consent before rendering: set referees[].consent.",
+    "Three to four pages is normal, not padding. Australian recruiters read longer documents than American ones.",
+    "Suburb and state rather than a street address.",
+    "Public-sector postings often require selection-criteria responses. Hold those as narratives[].kind: criterion-response and deliver them as a companion document, not a resume section."
+  ]
+}
