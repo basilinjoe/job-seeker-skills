@@ -3,6 +3,12 @@
 One file per posting, at `tailoring/targets/<company>-<role>.md`. Written in step 1 of
 `references/mode-tailor.md`, **before anything is generated**.
 
+This is the **working copy**. It stays editable — the same employer posts again, a listing is
+revised, the scorer is re-run. When something is actually submitted, step 5 freezes a copy of it into
+`tailoring/applications/<company>-<role>.target.md` as `type: Source Document`, and that copy is what
+the application was answering. Editing this file afterwards is expected and harmless; editing the
+frozen one is not.
+
 The frontmatter is not decoration. `score_projects.py` reads the requirement sets from it, so the
 document a human reviews is the document that drives the ranking. A bespoke scorer that re-declares
 the same sets in Python drifts from this file immediately, and then the frontmatter stops being true.

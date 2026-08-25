@@ -25,6 +25,32 @@ career-okf/
 Every directory gets an `index.md` listing its contents. `index.md` and `log.md` are the only
 reserved filenames.
 
+## Applications on disk
+
+One submission is a **set of files sharing a stem**, all in `tailoring/applications/`:
+
+| File | Is |
+|---|---|
+| `<company>-<role>.md` | the log: what was sent, what was selected, what came back |
+| `<company>-<role>.target.md` | the posting, ranking and gaps **frozen at submission** |
+| `<company>-<role>.resume.json` | the URS record it rendered from |
+| `<Name>_<Company>_Resume*.{docx,txt,tex,pdf}` | the files actually sent |
+
+**Both inputs are frozen, not just the record.** `tailoring/targets/<company>-<role>.md` is the
+working copy and stays editable; the `.target.md` beside the application is the archive and does not.
+An application that links to a mutable posting cannot answer what it was answering.
+
+The `Application` concept names both, and the distinction is the point:
+
+```yaml
+posting: "<company>-<role>.target.md"              # frozen - what was applied against
+target_working_copy: "../targets/<company>-<role>.md"   # editable - may have moved on
+record: "<company>-<role>.resume.json"
+view: view_<id>
+submitted: 2026-08-26
+outcome: pending | rejected-at-screen | rejected-after-interview | offer | withdrawn
+```
+
 ## Concept file format
 
 ```markdown

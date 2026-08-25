@@ -44,6 +44,10 @@ participate in the ranking.*
 **Write the file before scoring, not after.** It is the checkpoint, and a checkpoint written once
 the work is finished is a record rather than a check.
 
+This is the **working copy**, and it is the only target file you touch. If anything is actually
+submitted, the caller freezes a copy into `tailoring/applications/<company>-<role>.target.md` at that
+point. Submission is not your step.
+
 ## 3. Score
 
 ```bash
