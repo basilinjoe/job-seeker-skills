@@ -2,6 +2,15 @@
 
 Create a bundle from nothing, or from an existing resume.
 
+**`/career-okf:setup` wraps this mode** with a toolchain check either side of it — preflight before,
+a real render after. When someone arrives through that command, phases 1 and 2 have already run and
+this file is phase 3; do not re-run preflight. When they arrive here directly, run it first, because
+a bundle built on a toolchain that cannot render is a bundle nobody can use yet:
+
+```bash
+python3 <skill-dir>/scripts/preflight.py
+```
+
 ## Ask two things
 
 1. **Where should it live?** Default `career-okf/` in a folder they control. Version control is

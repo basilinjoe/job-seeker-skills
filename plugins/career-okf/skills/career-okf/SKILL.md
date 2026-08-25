@@ -91,6 +91,7 @@ skill, so a bare `scripts/…` will not resolve.
 
 | Script | Does | Needs |
 |---|---|---|
+| `preflight.py [--verify]` | what this machine can do, and what each gap disables | — |
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
 | `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
 | `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |

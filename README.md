@@ -83,6 +83,27 @@ Copy-Item -Recurse job-seeker-skills\plugins\career-okf\skills\career-okf $env:U
 
 Works in Claude Code and Claude Cowork.
 
+### Setup
+
+```
+/career-okf:setup
+```
+
+One command, four phases: check what this machine can actually do, offer to close the gaps, create or
+adopt a career bundle, then render a real resume from it and run every gate. It asks before installing
+anything.
+
+The toolchain check is worth running on its own whenever something looks off:
+
+```bash
+python3 plugins/career-okf/skills/career-okf/scripts/preflight.py --verify
+```
+
+`--verify` renders the shipped example end to end and runs the parse and prose gates, so a pass means
+the pipeline genuinely works here rather than looking like it should. Gaps are reported by what they
+cost, not by package name — the one that matters is a missing TeX engine, because without a PDF nobody
+has looked at a rendered page, and every resume is then honestly but permanently marked *unverified*.
+
 ### Use
 
 Describe what you want; the skill routes to the right mode.
@@ -139,6 +160,7 @@ translation layer. Keep it in a repo you control so it outlives any single tool.
 The skill runs these for you. To run them yourself, from the skill directory:
 
 ```bash
+python3 scripts/preflight.py --verify                           # what works here
 python3 scripts/init_bundle.py ./my-career --name "Your Name"   # scaffold
 python3 scripts/validate_bundle.py ./my-career                  # needs pyyaml
 python3 scripts/validate_urs.py resume.json --level 2           # the record, before rendering
@@ -167,9 +189,10 @@ without deciding anything. That split is what guarantees the `.docx` and the PDF
 things. Without a TeX engine it writes the `.tex` and reports the resume **unverified** rather than
 implying a PDF nobody rendered.
 
-`validate_urs.py`, `render_resume.py`, `check_ats.py` and `init_bundle.py` are standard library only
-(`validate_urs.py` also checks the full JSON Schema when `jsonschema` happens to be installed). On Windows use `python` or `py -3`
-in place of `python3`.
+`preflight.py`, `validate_urs.py`, `render_resume.py`, `check_ats.py` and `init_bundle.py` run on a
+bare Python. `preflight.py` especially: a preflight that needs installing first is not a preflight.
+`validate_urs.py` additionally checks the full JSON Schema when `jsonschema` happens to be installed.
+On Windows use `python` or `py -3` in place of `python3`.
 
 ### Tests
 
