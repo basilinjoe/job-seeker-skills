@@ -114,6 +114,27 @@ version. If they are genuinely missing — the skill was installed as `SKILL.md`
 into the bundle's `framework/` from the specifications in `references/ats-rules.md` and
 `references/bundle-spec.md`. *A rule nobody checks stops being true.*
 
+## Agents
+
+Three parts of this work are read-heavy or mechanical and need nobody in the room. Delegate those and
+keep the conversation for the judgment.
+
+| Agent | Hand it | Get back |
+|---|---|---|
+| `career-okf-verifier` | the rendered files, the view id, the page budget | every gate's verdict verbatim, and where in `resume.json` each defect is repaired |
+| `career-okf-bundle-auditor` | the bundle path | a prioritised gap queue, with the questions written ready to ask |
+| `career-okf-posting-analyst` | a posting and the bundle | the target file written, the ranking, the unmatched requirements, and what to pause on |
+
+They read and report; **they never interview and they never decide.** Confirming an `inferred` claim,
+choosing between two close-ranked projects, and telling someone where they fall short all stay here,
+with the person present.
+
+Their output does not reach the person, so **relay the evidence rather than summarising it.** A
+checker's verdict line, shown, is evidence; your description of it is not.
+
+Nothing depends on them. Where agents are unavailable, run the same procedure inline — the mode files
+hold it either way.
+
 ## The verification gates
 
 **Never hand over a resume you have not checked.** There are four gates, they answer different
@@ -129,6 +150,10 @@ parses, not that it is correct.*
 
 All gates must pass. Show the output — the person should see the evidence rather than take your word
 for it. Fix and re-run; never explain away a failure.
+
+`career-okf-verifier` runs all four against files that already exist and reports what they said. It
+has no way to edit a document, which is deliberate: a defect is repaired in `resume.json` and
+re-rendered, never patched into the `.docx`.
 
 **If no PDF renderer is available**, say so and mark the resume unverified rather than treating a
 passing `check_ats.py` as sufficient. *An unverified resume the person knows about is fine; one they

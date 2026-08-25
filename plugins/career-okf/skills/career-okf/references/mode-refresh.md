@@ -5,6 +5,11 @@ A periodic pass so nobody has to reconstruct two years from memory.
 ## Orient first
 
 Read `log.md` for when the last update happened and what was left open, then `open-questions.md`.
+
+For anything more than a quick top-up, send `career-okf-bundle-auditor` the bundle path first. It
+flags the `headline_metric` values that have gone stale and the questions open across three or more
+entries — the two things a refresh exists to catch and the two easiest to miss by reading `log.md`
+alone.
 Open with something concrete rather than a blank prompt:
 
 > "Last updated in February, and you'd flagged three things as unresolved. Shall we start with what's

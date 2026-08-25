@@ -1,7 +1,7 @@
 ---
 description: Tailor the resume to a specific job description - scores your evidence against the posting and tells you where you fall short
 argument-hint: Paste the job description, or a path to a file containing it
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 ---
 
 # Tailor

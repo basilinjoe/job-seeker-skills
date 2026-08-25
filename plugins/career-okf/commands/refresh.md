@@ -1,7 +1,7 @@
 ---
 description: Periodic bundle top-up - what changed, what numbers moved, what needs re-confirming
 argument-hint: Optional: the period to cover, e.g. 'last quarter'
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 ---
 
 # Refresh

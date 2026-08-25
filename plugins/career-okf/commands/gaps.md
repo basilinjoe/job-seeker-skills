@@ -1,7 +1,7 @@
 ---
 description: Find and close what is missing - unconfirmed claims, missing metrics, roles with no evidence behind them
 argument-hint: Optional: a bundle path
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 ---
 
 # Gaps

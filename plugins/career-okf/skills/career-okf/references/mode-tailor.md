@@ -13,6 +13,19 @@ say so — do not manufacture a bullet. Anything `inferred` needs confirmation b
 Not only ethics: someone who bluffs past a screen gets found out in the first technical conversation,
 having burned both the opportunity and their credibility.
 
+## Steps 1 and 2 delegate
+
+Decomposing a posting and scoring a bundle against it is reading and arithmetic — hand both to
+`career-okf-posting-analyst`, with the posting, the bundle path and this skill's directory. It writes
+the target file, runs the scorer, and returns the ranking, the unmatched requirements and the PAUSE
+flags below.
+
+What it returns is not what the person sees. **Surface the top few and the surprises in chat
+yourself**, in your own words, and act on the flags. Step 6 is yours and is not delegable.
+
+The procedure is written out below because it is the same procedure inline, where no agent is
+available.
+
 ## 1. Decompose the posting
 
 Extract, in priority order: **required capabilities**, **required technologies**, **domain**,

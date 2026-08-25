@@ -45,6 +45,27 @@ yourself making a formatting decision inside the plan, it belongs in an emitter.
 `formatting.py` holds pure functions over single values — no view, no profile, no record — which is
 what makes them testable in isolation. Import `plan`; the split is behind it.
 
+## The agent boundary
+
+Three tasks are delegated to subagents. The line between what an agent does and what the main
+conversation does is the same line the pipeline draws elsewhere: **agents read, measure and report;
+the conversation decides and writes.**
+
+| Agent | Has | Deliberately lacks |
+|---|---|---|
+| `career-okf-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into a `.docx` |
+| `career-okf-bundle-auditor` | Read, Glob, Grep, Bash | Write and Edit — a `status` flips only when the person says so |
+| `career-okf-posting-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the target file, which is a checkpoint, and never `resume.json` |
+
+Two consequences worth keeping in mind when editing them:
+
+1. **A subagent's output never reaches the person.** Every agent is told to return checker verdicts
+   and quoted claims verbatim, and every calling mode is told to relay rather than summarise. Break
+   either half and the "show the output" rule quietly stops holding.
+2. **Nothing may depend on an agent existing.** The mode files carry the full inline procedure, so
+   the skill works unchanged in an environment with no subagents. An agent is a context optimisation,
+   not a step.
+
 ## Repo layout
 
 ```
@@ -55,6 +76,10 @@ plugins/career-okf/
   commands/                         slash commands
     setup.md                        the four-phase setup procedure
     braindump|resume|tailor|...     thin delegations into the skill's modes
+  agents/                           subagents the modes delegate to
+    career-okf-verifier.md          runs the four gates on rendered files, reports verbatim
+    career-okf-bundle-auditor.md    reads the whole bundle, returns a prioritised gap queue
+    career-okf-posting-analyst.md   decomposes a posting, writes the target, runs the scorer
   skills/career-okf/
     SKILL.md                        the agent's entry point: routing + hard rules
     references/                     what the agent loads on demand
@@ -88,6 +113,7 @@ tests/                              unittest, one file per script
 | Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md` |
 | How postings are scored | `scripts/score_projects.py` | `references/target-template.md` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
+| What an agent may do | `plugins/career-okf/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
 
 ## What is frozen
