@@ -30,7 +30,7 @@ reserved filenames.
 The bundle root's `index.md` carries one extra key:
 
 ```yaml
-okf_bundle: 2      # layout revision - NOT the plugin version
+okf_bundle: 3      # layout revision - NOT the plugin version
 ```
 
 An integer, deliberately not the plugin's semver: the plugin ships releases that do not touch the
@@ -42,6 +42,7 @@ way to say so.
 |---|---|
 | 1 | applications point at a mutable target file via `target:` |
 | 2 | the posting is frozen beside each application as `<stem>.target.md` |
+| 3 | an application's outcome is derived from an append-only `# Timeline` |
 
 `validate_bundle.py` warns on an older revision and never fails it. `migrate_bundle.py` moves a
 bundle forward, reports what it cannot establish, and marks anything it reconstructs
@@ -68,10 +69,55 @@ The `Application` concept names both, and the distinction is the point:
 posting: "<company>-<role>.target.md"              # frozen - what was applied against
 target_working_copy: "../targets/<company>-<role>.md"   # editable - may have moved on
 record: "<company>-<role>.resume.json"
+company_ref: "../../organisations/<company>.md"
 view: view_<id>
 submitted: 2026-08-26
-outcome: pending | rejected-at-screen | rejected-after-interview | offer | withdrawn
+channel: "Workday portal"
 ```
+
+Frontmatter carries **only what was true at submission and never changes**. There is no `outcome:`
+key: at revision 3 the outcome is derived from the timeline below, because a status word and the
+prose beneath it stop agreeing the moment one is edited.
+
+## The application timeline
+
+Appended to, never edited. A correction is a new row, for the same reason `log.md` records mistakes
+rather than hiding them.
+
+```markdown
+# Timeline
+
+| Date | Event | Channel | Note | Due |
+|---|---|---|---|---|
+| 2026-08-26 | submitted | Workday | ATS variant uploaded, presentation copy to the referrer | |
+| 2026-09-11 | screen-scheduled | email | Phone screen 2026-09-15, 30 min | 2026-09-15 |
+| 2026-09-15 | screen-done | phone | They flagged the Terraform gap, as expected | 2026-09-22 |
+```
+
+`Event` values come from `framework/pipeline-vocabulary.md` and compare as exact strings — a synonym
+is a row that stops counting, and `validate_bundle.py` rejects it. Dates are `YYYY-MM-DD` or the
+literal `unknown`, which is what a migration writes when it could not establish one.
+
+**Stage** is the last advancing event. **Staleness** is measured from the last event that restarts
+the clock — which `follow-up-sent` does and `note` does not. `Due` records what somebody promised,
+the latest non-empty one wins, and it beats the staleness rule in both directions.
+
+`pipeline.py` derives all of it. Nothing is stored twice.
+
+## Organisations
+
+One file per company, whether they worked there, applied there, or both:
+
+```yaml
+type: Organisation
+relationship: prospect        # employer | prospect | both
+```
+
+The body carries a `# People` table — recruiter, referrer, hiring manager, how you know them, last
+contact. Hand-maintained, because it is reference data with low churn rather than a log.
+
+**Linking is one-way.** The application names the company via `company_ref`; the company does not
+list its applications. That list is derived — `pipeline.py --company NAME` — so it cannot drift.
 
 ## Concept file format
 

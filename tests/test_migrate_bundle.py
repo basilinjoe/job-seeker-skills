@@ -9,7 +9,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import INIT_BUNDLE, MIGRATE_BUNDLE, VALIDATE_BUNDLE, run
+from fixtures import INIT_BUNDLE, MIGRATE_BUNDLE, VALIDATE_BUNDLE, load_script, run
+
+CURRENT = load_script(MIGRATE_BUNDLE).CURRENT_REVISION
 
 TARGET = """---
 type: Job Target
@@ -131,7 +133,7 @@ class MigrateCase(unittest.TestCase):
     def test_apply_freezes_the_posting_beside_the_application(self):
         root = self.make_r1()
         code, out = run(MIGRATE_BUNDLE, root, "--apply")
-        self.assertEqual(code, 0, out)
+        self.assertIn("MIGRATED to revision", out)
         self.assertTrue(self.frozen(root).exists())
         frozen = self.frozen(root).read_text(encoding="utf-8")
         self.assertIn("type: Source Document", frozen)
@@ -170,7 +172,7 @@ class MigrateCase(unittest.TestCase):
     def test_index_is_stamped(self):
         root = self.make_r1()
         run(MIGRATE_BUNDLE, root, "--apply")
-        self.assertIn("okf_bundle: 2", (root / "index.md").read_text(encoding="utf-8"))
+        self.assertIn(f"okf_bundle: {CURRENT}", (root / "index.md").read_text(encoding="utf-8"))
 
     def test_running_twice_changes_nothing(self):
         root = self.make_r1()
@@ -187,8 +189,8 @@ class MigrateCase(unittest.TestCase):
         root = self.make_r1(with_orphan=True)
         code, out = run(MIGRATE_BUNDLE, root, "--apply")
         self.assertEqual(code, 1, out)
-        self.assertIn("NEEDS A PERSON 1", out)
         self.assertIn("cannot invent one", out)
+        self.assertIn("vanished-co.md", out)
         self.assertFalse((root / "tailoring/applications/vanished-co.target.md").exists())
 
     def test_no_dangling_posting_pointer_is_written(self):
@@ -205,6 +207,83 @@ class MigrateCase(unittest.TestCase):
         code, out = run(VALIDATE_BUNDLE, root)
         self.assertEqual(code, 0, out)
         self.assertIn("VALID", out)
+
+    # --------------------------------------------------------------- r2 -> r3
+
+    def test_a_closed_application_gets_a_terminal_row(self):
+        root = self.make_r1()
+        app = root / "tailoring/applications/kestrel.md"
+        app.write_text(
+            APPLICATION.replace("outcome: pending", "outcome: rejected-after-interview")
+            + "\n# Outcome\n\nRejected after first interview, 2026-07-02.\n",
+            encoding="utf-8")
+        run(MIGRATE_BUNDLE, root, "--apply")
+        text = app.read_text(encoding="utf-8")
+        self.assertIn("# Timeline", text)
+        self.assertIn("| 2020-03-04 | submitted |", text)
+        self.assertIn("| 2026-07-02 | rejected |", text)
+
+    def test_an_outcome_with_no_date_is_written_unknown(self):
+        """A plausible date is indistinguishable from a recorded one. That is the bug."""
+        root = self.make_r1()
+        app = root / "tailoring/applications/kestrel.md"
+        app.write_text(
+            APPLICATION.replace("outcome: pending", "outcome: rejected-at-screen"),
+            encoding="utf-8")
+        run(MIGRATE_BUNDLE, root, "--apply")
+        text = app.read_text(encoding="utf-8")
+        self.assertIn("| unknown | rejected |", text)
+        self.assertIn("[reconstructed at migration", text)
+
+    def test_a_date_outside_the_outcome_section_is_not_borrowed(self):
+        root = self.make_r1()
+        app = root / "tailoring/applications/kestrel.md"
+        app.write_text(
+            APPLICATION.replace("outcome: pending", "outcome: withdrawn")
+            + "\n# Selection\n\nRanked on 2026-04-01.\n\n# Outcome\n\nWithdrawn.\n",
+            encoding="utf-8")
+        run(MIGRATE_BUNDLE, root, "--apply")
+        text = app.read_text(encoding="utf-8")
+        self.assertIn("| unknown | withdrawn |", text)
+        self.assertNotIn("| 2026-04-01 | withdrawn |", text)
+
+    def test_outcome_is_deprecated_not_deleted(self):
+        root = self.make_r1()
+        run(MIGRATE_BUNDLE, root, "--apply")
+        text = (root / "tailoring/applications/kestrel.md").read_text(encoding="utf-8")
+        self.assertIn("outcome: pending", text)
+        self.assertIn("DEPRECATED at r3", text)
+
+    def test_live_applications_are_listed_for_a_person(self):
+        root = self.make_r1()
+        code, out = run(MIGRATE_BUNDLE, root, "--apply")
+        self.assertEqual(code, 1, out)
+        self.assertIn("live application(s) have no history beyond submission", out)
+
+    def test_the_pipeline_vocabulary_is_seeded(self):
+        root = self.make_r1()
+        run(MIGRATE_BUNDLE, root, "--apply")
+        vocab = root / "framework/pipeline-vocabulary.md"
+        self.assertTrue(vocab.exists())
+        text = vocab.read_text(encoding="utf-8")
+        self.assertIn("`submitted`", text)
+        self.assertIn("`follow-up-sent`", text)
+
+    def test_organisations_are_labelled_employer(self):
+        root = self.make_r1()
+        (root / "organisations/meridian.md").write_text("""---
+type: Organisation
+title: "Meridian Health"
+description: "Aged care provider."
+timestamp: 2026-01-01T00:00:00Z
+status: confirmed
+---
+
+# About
+""", encoding="utf-8")
+        run(MIGRATE_BUNDLE, root, "--apply")
+        text = (root / "organisations/meridian.md").read_text(encoding="utf-8")
+        self.assertIn("relationship: employer", text)
 
     def test_an_old_bundle_is_warned_about_never_failed(self):
         """Failing r1 would break every bundle already in existence."""

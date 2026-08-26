@@ -60,6 +60,7 @@ each other.
 | You shipped something | `/career-okf:braindump` — five minutes, while you still remember the numbers |
 | Every quarter | `/career-okf:refresh` |
 | Before applying | `/career-okf:gaps`, then `/career-okf:resume` |
+| Once a week while job-hunting | `/career-okf:pipeline` |
 | A specific job posting | `/career-okf:tailor`, then paste the description |
 
 ## If something looks wrong

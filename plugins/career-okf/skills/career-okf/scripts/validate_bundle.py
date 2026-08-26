@@ -10,6 +10,12 @@ Requires: pyyaml  (pip install pyyaml)
 """
 import os, re, sys
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+import pipeline_model  # noqa: E402
+
 try:
     import yaml
 except ImportError:
@@ -36,6 +42,38 @@ for dp, dns, fn in os.walk(ROOT):
 
 if not files:
     errors.append(f"no markdown files found under {ROOT} - is this a bundle?")
+
+# The layout revision, so an out-of-date bundle is told rather than silently misread.
+# A WARNING and never an ERROR: failing a bundle built on an earlier revision would break
+# every bundle already in existence, which the frozen surfaces rule out. Absent means r1,
+# because every bundle predating the stamp has no way to say so.
+CURRENT_BUNDLE_REVISION = 3
+revision = None
+index_path = os.path.join(ROOT, "index.md")
+if os.path.exists(index_path):
+    itxt = open(index_path, encoding="utf-8").read()
+    iend = itxt.find("\n---\n", 3) if itxt.startswith("---\n") else -1
+    if iend != -1:
+        try:
+            imeta = yaml.safe_load(itxt[4:iend])
+            if isinstance(imeta, dict):
+                revision = imeta.get("okf_bundle", 1)
+        except Exception:
+            revision = None
+
+# The timeline vocabulary. Absent, events go unchecked rather than all being rejected -
+# the same fallback capabilities use, and the same reason: a bundle that predates the file
+# is not a broken bundle.
+pipeline_vocab = set()
+pv_path = os.path.join(ROOT, "framework", "pipeline-vocabulary.md")
+if os.path.exists(pv_path):
+    fenced = False
+    with open(pv_path, encoding="utf-8") as f:
+        for line in f:
+            if line.lstrip().startswith("```"):
+                fenced = not fenced; continue
+            if not fenced and LIST_ITEM.match(line):
+                pipeline_vocab.update(re.findall(r"`([a-z0-9-]+)`", line))
 
 for rel in sorted(files):
     txt = open(os.path.join(ROOT, rel), encoding="utf-8").read()
@@ -79,6 +117,38 @@ for rel in sorted(files):
                 caps[c] = caps.get(c, 0) + 1
 
     body = txt[end + 5:]
+
+    # Timelines are checked at revision 3 and above only. An older bundle has no
+    # timelines and must not start failing because the current shape gained them.
+    if meta.get("type") == "Application" and isinstance(revision, int) and revision >= 3:
+        rows = pipeline_model.parse_timeline(body)
+        if not rows:
+            errors.append(f"{rel}: Application has no '# Timeline' - "
+                          "its stage and outcome cannot be derived")
+        elif not any(r.event == "submitted" for r in rows):
+            errors.append(f"{rel}: timeline has no 'submitted' row - "
+                          "every application starts by being sent")
+        seen_terminal = None
+        previous = None
+        for r in rows:
+            if pipeline_vocab and r.event not in pipeline_vocab:
+                errors.append(f"{rel}:{r.line}: event '{r.event}' is not in "
+                              "framework/pipeline-vocabulary.md - a synonym stops counting")
+            if r.date is None and r.raw_date.strip().lower() != "unknown":
+                errors.append(f"{rel}:{r.line}: date '{r.raw_date}' is neither "
+                              "YYYY-MM-DD nor 'unknown'")
+            if r.date and previous and r.date < previous:
+                warnings.append(f"{rel}:{r.line}: dated before the row above it - "
+                                "expected when backfilling, worth a look otherwise")
+            if seen_terminal and r.event in pipeline_model.ADVANCING:
+                warnings.append(f"{rel}:{r.line}: '{r.event}' follows "
+                                f"'{seen_terminal}' - a reopened process, or a mistake")
+            if r.event in pipeline_model.TERMINAL:
+                seen_terminal = r.event
+            elif r.event in pipeline_model.ADVANCING:
+                seen_terminal = None
+            previous = r.date or previous
+
     # strip fenced blocks and inline code - example links in templates are not real links
     body = re.sub(r"```.*?```", "", body, flags=re.S)
     body = re.sub(r"`[^`\n]*`", "", body)
@@ -108,24 +178,6 @@ if os.path.exists(vocab_path):
 unknown = sorted(c for c in caps if vocab and c not in vocab)
 for c in unknown:
     errors.append(f"capability '{c}' is not in framework/capability-vocabulary.md - add it there or reuse an existing value")
-
-# The layout revision, so an out-of-date bundle is told rather than silently misread.
-# A WARNING and never an ERROR: failing a bundle built on an earlier revision would break
-# every bundle already in existence, which the frozen surfaces rule out. Absent means r1,
-# because every bundle predating the stamp has no way to say so.
-CURRENT_BUNDLE_REVISION = 2
-revision = None
-index_path = os.path.join(ROOT, "index.md")
-if os.path.exists(index_path):
-    itxt = open(index_path, encoding="utf-8").read()
-    iend = itxt.find("\n---\n", 3) if itxt.startswith("---\n") else -1
-    if iend != -1:
-        try:
-            imeta = yaml.safe_load(itxt[4:iend])
-            if isinstance(imeta, dict):
-                revision = imeta.get("okf_bundle", 1)
-        except Exception:
-            revision = None
 
 print(f"files {len(files)} | concept types {len(types)} | capabilities {len(caps)}")
 print(f"ERRORS {len(errors)} | WARNINGS {len(warnings)}")

@@ -25,13 +25,36 @@ but no value is dropped, and no file is removed.
 import argparse
 import datetime
 import os
+import re
 import sys
 
-CURRENT_REVISION = 2
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+import pipeline_model  # noqa: E402
+
+CURRENT_REVISION = 3
 
 REVISIONS = {
     1: "applications point at a mutable target file (`target:`) and carry `outcome:`",
     2: "the posting is frozen beside each application as `<stem>.target.md`",
+    3: "an application's outcome is derived from an append-only timeline",
+}
+
+# `outcome:` values seen in the wild, mapped onto timeline events. `offer` maps to an
+# advancing event rather than a terminal one, because an old record saying "offer" does
+# not say whether it was accepted - and guessing which would be inventing the ending.
+OUTCOME_TO_EVENT = {
+    "offer": "offer",
+    "accepted": "accepted",
+    "declined": "declined",
+    "rejected": "rejected",
+    "rejected-at-screen": "rejected",
+    "rejected-after-interview": "rejected",
+    "withdrawn": "withdrawn",
+    "no-response": "no-response",
+    "ghosted": "no-response",
 }
 
 
@@ -252,6 +275,136 @@ def plan_r1_to_r2(root, today, changes, blocked):
         plan_application(root, f"tailoring/applications/{name}", today, changes, blocked)
 
 
+# --------------------------------------------------------------- r2 -> r3
+
+# A date sitting in the `# Outcome` prose, which is where it usually is:
+# "Rejected after first interview, 2026-07-02."
+PROSE_DATE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+
+
+def timeline_rows(fm_lines, body):
+    """Reconstruct what the frontmatter and prose can support, and no more.
+
+    `outcome: rejected-after-interview` records *what* happened, never *when*. Where
+    the date cannot be established this writes `unknown` rather than a plausible
+    guess: a fabricated date would be indistinguishable from a recorded one, which is
+    exactly the confusion the provenance rules exist to prevent.
+    """
+    rows = []
+    submitted = fm_get(fm_lines, "submitted")
+    channel = fm_get(fm_lines, "channel") or ""
+    rows.append((submitted or "unknown", "submitted", channel,
+                 "" if submitted else "[reconstructed at migration - date not recorded]", ""))
+
+    outcome = fm_get(fm_lines, "outcome")
+    event = OUTCOME_TO_EVENT.get((outcome or "").strip())
+    if event:
+        # Only look after the outcome heading; a date earlier in the file belongs to
+        # something else, and borrowing it would be the guess this avoids.
+        tail = body.split("# Outcome", 1)[1] if "# Outcome" in body else ""
+        found = PROSE_DATE.search(tail)
+        date = found.group(1) if found else "unknown"
+        note = f"was `outcome: {outcome}`"
+        if date == "unknown":
+            note += " [reconstructed at migration - date not recorded]"
+        rows.append((date, event, "", note, ""))
+    return rows
+
+
+def render_timeline(rows):
+    out = ["", "# Timeline", "",
+           "| Date | Event | Channel | Note | Due |",
+           "|---|---|---|---|---|"]
+    for date, event, channel, note, due in rows:
+        out.append(f"| {date} | {event} | {channel} | {note} | {due} |")
+    return "\n".join(out) + "\n"
+
+
+def plan_timeline(root, rel, changes):
+    path = os.path.join(root, rel)
+    parts = split_frontmatter(open(path, encoding="utf-8").read())
+    if not parts:
+        return
+    fm_lines, body = parts
+    if fm_get(fm_lines, "type") != "Application":
+        return
+    if "# Timeline" in body:
+        return
+
+    rows = timeline_rows(fm_lines, body)
+    # An `offer` row leaves the application live: the record never said how it ended.
+    live = len(rows) == 1 or rows[-1][1] not in pipeline_model.TERMINAL
+
+    def write(p=path, rows=rows):
+        fm_lines, body = split_frontmatter(open(p, encoding="utf-8").read())
+        i = fm_index(fm_lines, "outcome")
+        if i != -1:
+            # Kept for one revision, not deleted. Marked, so nobody edits it expecting
+            # it to mean anything - the timeline decides the outcome now.
+            fm_lines[i] = fm_lines[i] + "   # DEPRECATED at r3 - the timeline is the outcome"
+        open(p, "w", encoding="utf-8").write(
+            join_frontmatter(fm_lines, body.rstrip("\n") + "\n" + render_timeline(rows)))
+
+    detail = f"{len(rows)} row(s) from submitted:" + (" and outcome:" if not live else "")
+    if live:
+        detail += " - live, so the history between then and now needs a person"
+    changes.append(Change("update", rel, detail, write))
+    return live
+
+
+def plan_organisation(root, rel, changes):
+    path = os.path.join(root, rel)
+    parts = split_frontmatter(open(path, encoding="utf-8").read())
+    if not parts:
+        return
+    fm_lines, _ = parts
+    if fm_get(fm_lines, "type") != "Organisation":
+        return
+    if fm_index(fm_lines, "relationship") != -1:
+        return
+
+    def write(p=path):
+        fm_lines, body = split_frontmatter(open(p, encoding="utf-8").read())
+        at = fm_index(fm_lines, "type")
+        fm_lines.insert(at + 1 if at != -1 else 0, "relationship: employer")
+        open(p, "w", encoding="utf-8").write(join_frontmatter(fm_lines, body))
+
+    changes.append(Change("update", rel, "relationship: employer - what it already was", write))
+
+
+def plan_r2_to_r3(root, changes, blocked):
+    vocab = os.path.join(root, "framework", "pipeline-vocabulary.md")
+    if not os.path.exists(vocab):
+        stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        def write(dest=vocab, ts=stamp):
+            open(dest, "w", encoding="utf-8").write(pipeline_model.vocabulary_markdown(ts))
+        changes.append(Change("create", "framework/pipeline-vocabulary.md",
+                              "the event vocabulary the timeline is checked against", write))
+
+    orgs = os.path.join(root, "organisations")
+    if os.path.isdir(orgs):
+        for name in sorted(os.listdir(orgs)):
+            if name.endswith(".md") and name != "index.md":
+                plan_organisation(root, f"organisations/{name}", changes)
+
+    apps = os.path.join(root, "tailoring", "applications")
+    if not os.path.isdir(apps):
+        return
+    live = 0
+    for name in sorted(os.listdir(apps)):
+        if not name.endswith(".md") or name == "index.md" or name.endswith(".target.md"):
+            continue
+        if plan_timeline(root, f"tailoring/applications/{name}", changes):
+            live += 1
+    if live:
+        blocked.append(
+            f"{live} live application(s) have no history beyond submission. Everything between "
+            "then and now is in somebody's inbox, not the bundle - run /career-okf:pipeline and "
+            "fill them in one at a time."
+        )
+
+
 # ------------------------------------------------------------------ the stamp
 
 def plan_stamp(root, revision, changes):
@@ -308,6 +461,9 @@ def main(argv=None):
     if revision < 2:
         print(f"\nr1 -> r2  {REVISIONS[2]}")
         plan_r1_to_r2(root, today, changes, blocked)
+    if revision < 3:
+        print(f"\nr2 -> r3  {REVISIONS[3]}")
+        plan_r2_to_r3(root, changes, blocked)
     plan_stamp(root, CURRENT_REVISION, changes)
 
     done = {"create": "created", "update": "updated", "stamp": "stamped"}

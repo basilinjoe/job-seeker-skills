@@ -13,6 +13,7 @@ what the current task needs.
 | `mode-tailor.md` | A specific job description is on the table |
 | `mode-refresh.md` | Periodic top-up: what changed, what numbers moved |
 | `mode-gaps.md` | Resolving unanswered questions and unverified claims |
+| `mode-pipeline.md` | Working the application pipeline: what is overdue, what to record, what to close |
 
 ## Specifications — the formats
 

@@ -36,7 +36,7 @@ MIN_PYTHON = (3, 8)
 SCRIPTS = [
     "init_bundle.py", "validate_bundle.py", "check_ats.py", "check_prose.py",
     "score_projects.py", "fit_pages.py", "validate_urs.py", "render_resume.py",
-    "migrate_bundle.py",
+    "migrate_bundle.py", "pipeline.py", "pipeline_model.py",
 ]
 URS_MODULES = ["__init__.py", "plan.py", "profiles.py",
                "emit_docx.py", "emit_latex.py", "emit_text.py"]

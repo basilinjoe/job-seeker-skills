@@ -95,9 +95,11 @@ plugins/career-okf/
       urs-v1.schema.json            JSON Schema for the record
       profiles/*.json               region profiles: default, au, in, ae
       example.resume.json           a complete worked document
-    scripts/                        the ten tools, plus the urs/ package
-      okf.py                        one entry point that forwards to the ten
+    scripts/                        the eleven tools, plus the urs/ package
+      okf.py                        one entry point that forwards to the eleven
       migrate_bundle.py             moves an older bundle to the current layout revision
+      pipeline.py                   the weekly board, derived from application timelines
+      pipeline_model.py             what a timeline event means - the only module that decides
 tests/                              unittest, one file per script
 ```
 
@@ -113,6 +115,7 @@ tests/                              unittest, one file per script
 | Support for a new market | `schema/profiles/<code>.json` | the region section of `references/urs-spec.md` |
 | Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
 | What a migration does | `scripts/migrate_bundle.py` | `docs/SCRIPTS.md`, `tests/test_migrate_bundle.py` |
+| **What a timeline event means** | `scripts/pipeline_model.py` | never in a caller — `pipeline.py`, `validate_bundle.py` and `migrate_bundle.py` all read it |
 | How postings are scored | `scripts/score_projects.py` | `references/target-template.md` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/career-okf/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |

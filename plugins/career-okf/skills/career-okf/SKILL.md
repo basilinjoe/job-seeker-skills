@@ -36,7 +36,7 @@ procedure.
 ## Modes
 
 Route on what the user asked for. If they passed an argument (`braindump`, `resume`, `tailor`,
-`refresh`, `gaps`, `setup`), use it. Otherwise infer from their message.
+`refresh`, `gaps`, `setup`, `pipeline`), use it. Otherwise infer from their message.
 
 | Mode | Trigger | Read |
 |---|---|---|
@@ -46,6 +46,7 @@ Route on what the user asked for. If they passed an argument (`braindump`, `resu
 | **tailor** | pasted a job description; "customise for this role" | `references/mode-tailor.md` |
 | **refresh** | "update my bundle", quarterly review, got promoted | `references/mode-refresh.md` |
 | **gaps** | "what's missing", "resume feels vague", verify before applying | `references/mode-gaps.md` |
+| **pipeline** | "what do I chase", "where are my applications", weekly review | `references/mode-pipeline.md` |
 
 Ambiguous? Ask which they want rather than guessing — the modes do genuinely different things.
 
@@ -104,6 +105,7 @@ skill, so a bare `scripts/…` will not resolve.
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
 | `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
 | `migrate_bundle.py <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
+| `pipeline.py <bundle> [--all] [--company N] [--as-of D]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
 | `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |
 | `check_prose.py resume.docx` | the writing rules `check_ats.py` cannot see | — |
 | `score_projects.py <bundle> <target.md>` | ranks projects against a posting, from the target's frontmatter | `pyyaml` |

@@ -2,12 +2,12 @@
 
 The skill runs these for you. This page is for running them yourself.
 
-All ten live in `plugins/career-okf/skills/career-okf/scripts/`. Paths below assume you are in that
+All eleven live in `plugins/career-okf/skills/career-okf/scripts/`. Paths below assume you are in that
 directory. On Windows use `python` or `py -3` in place of `python3`.
 
 ## One entry point: `okf.py`
 
-If you would rather not remember ten names:
+If you would rather not remember eleven names:
 
 ```bash
 python3 scripts/okf.py doctor                  # what works on this machine
@@ -21,7 +21,7 @@ python3 scripts/okf.py fit resume.docx --target-pages 2
 ```
 
 Every subcommand forwards to the script below with the same arguments and the same exit code, so
-everything documented here stays true through it. **The ten scripts remain the stable API** — this
+everything documented here stays true through it. **The eleven scripts remain the stable API** — this
 is a convenience layer, not a replacement, and nothing that works today stops working.
 
 Two subcommands do slightly more than forward:
@@ -164,6 +164,7 @@ because every bundle created before the stamp existed has no way to say so.
 |---|---|
 | 1 | applications point at a mutable target file via `target:` |
 | 2 | the posting is frozen beside each application as `<stem>.target.md` |
+| 3 | an application's outcome is derived from an append-only `# Timeline` |
 
 Report mode **exits 1 when changes are pending**, which is what makes it usable as a check: an
 out-of-date bundle is detectable without writing to it. `--apply` exits 0 only when nothing is left
@@ -177,6 +178,31 @@ prevent, and the tool is not exempt from its own rule.
 
 Standard library only. Frontmatter is edited line by line rather than round-tripped through a YAML
 parser, so comments, key order and quoting style survive and the change is legible in a diff.
+
+### `pipeline.py`
+
+What the job search needs from you this week, derived from every application's `# Timeline`.
+
+```bash
+python3 pipeline.py <bundle>                   # what needs attention, most urgent first
+python3 pipeline.py <bundle> --all             # the full board, closed applications included
+python3 pipeline.py <bundle> --company NAME    # every application to one employer
+python3 pipeline.py <bundle> --as-of DATE      # compute against a date rather than today
+python3 pipeline.py <bundle> --markdown        # a table, to paste into a file
+```
+
+**Exit 0 when nothing needs attention, 1 when something does**, 2 when called wrong — the same
+convention as `migrate_bundle.py`'s dry run, and what makes it usable as a scheduled check.
+
+`--as-of` exists for two reasons: deterministic tests, and answering "what did this look like when I
+last checked". A report whose output depends on an unstated clock can neither be tested nor compared
+with itself.
+
+Decides nothing on its own. Stage, staleness and next action all come from `pipeline_model.py`, which
+is also what `validate_bundle.py` checks against and what `migrate_bundle.py` writes — one module
+decides what an event means, so the board and the application files cannot disagree.
+
+Needs `pyyaml`.
 
 ### `score_projects.py`
 

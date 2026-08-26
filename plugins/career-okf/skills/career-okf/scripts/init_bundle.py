@@ -11,7 +11,13 @@ concepts afterwards by interviewing the person.
 """
 import os, sys, argparse, datetime
 
-BUNDLE_REVISION = 2   # keep in step with CURRENT_REVISION in migrate_bundle.py
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+import pipeline_model  # noqa: E402
+
+BUNDLE_REVISION = 3   # keep in step with CURRENT_REVISION in migrate_bundle.py
 
 DIRS = ["profile","organisations","roles","projects","achievements","skills","education",
         "open-source","sources","framework","resume-generation","tailoring",
@@ -109,7 +115,7 @@ by AI tools with no translation layer.
 
 # Using it
 
-The `career-okf` skill has six modes. Say what you want; it routes.
+The `career-okf` skill has seven modes. Say what you want; it routes.
 
 | Mode | Use when |
 |---|---|
@@ -119,11 +125,13 @@ The `career-okf` skill has six modes. Say what you want; it routes.
 | `tailor` | You have a specific job description |
 | `refresh` | Periodic top-up: what changed, what numbers moved |
 | `gaps` | Resolve unanswered questions and unverified claims |
+| `pipeline` | What to chase this week, and recording what has happened |
 
 # Rhythm
 
 Something ships -> `braindump`, five minutes, while you remember the details.
 Every quarter -> `refresh`. Before applying -> `gaps`, then `resume`. Specific role -> `tailor`.
+Once a week while job-hunting -> `pipeline`.
 
 # Tools
 
@@ -175,6 +183,12 @@ are empty, capability checking stays off.
 
 # Leadership & engagement
 """)
+
+    # Ships full, unlike the capability vocabulary above, which ships empty and grows
+    # with the person. These name a process the scripts reason about rather than
+    # someone's own work, so the list is not theirs to invent.
+    with open(os.path.join(root, "framework", "pipeline-vocabulary.md"), "w", encoding="utf-8") as f:
+        f.write(pipeline_model.vocabulary_markdown(ts))
 
     with open(os.path.join(root, "resume-generation", "open-questions.md"), "w", encoding="utf-8") as f:
         f.write(fm("Open Questions", "Verify before publishing",
