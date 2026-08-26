@@ -11,6 +11,14 @@ concepts afterwards by interviewing the person.
 """
 import os, sys, argparse, datetime
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+import pipeline_model  # noqa: E402
+
+BUNDLE_REVISION = 3   # keep in step with CURRENT_REVISION in migrate_bundle.py
+
 DIRS = ["profile","organisations","roles","projects","achievements","skills","education",
         "open-source","sources","framework","resume-generation","tailoring",
         "tailoring/targets","tailoring/applications"]
@@ -59,8 +67,12 @@ def main():
             f.write(fm("Index", slug, BLURB.get(d, slug), ts) + "Empty. Add concepts here.\n")
 
     with open(os.path.join(root, "index.md"), "w", encoding="utf-8") as f:
+        # The layout revision, stamped once, on the bundle root only. migrate_bundle.py
+        # reads it to know what shape a bundle is in; an absent stamp means r1, because
+        # every bundle created before the stamp existed predates it.
         f.write(fm("Index", f"{name} - Career Knowledge Bundle",
-                   "Portable career knowledge base: roles, projects, evidence and resume rules.", ts))
+                   "Portable career knowledge base: roles, projects, evidence and resume rules.", ts,
+                   extra=f"okf_bundle: {BUNDLE_REVISION}\n"))
         f.write(f"""# Purpose
 
 Everything needed to regenerate a resume, LinkedIn profile or interview brief for {name} without
@@ -103,7 +115,7 @@ by AI tools with no translation layer.
 
 # Using it
 
-The `career-okf` skill has six modes. Say what you want; it routes.
+The `career-okf` skill has seven modes. Say what you want; it routes.
 
 | Mode | Use when |
 |---|---|
@@ -113,11 +125,13 @@ The `career-okf` skill has six modes. Say what you want; it routes.
 | `tailor` | You have a specific job description |
 | `refresh` | Periodic top-up: what changed, what numbers moved |
 | `gaps` | Resolve unanswered questions and unverified claims |
+| `pipeline` | What to chase this week, and recording what has happened |
 
 # Rhythm
 
 Something ships -> `braindump`, five minutes, while you remember the details.
 Every quarter -> `refresh`. Before applying -> `gaps`, then `resume`. Specific role -> `tailor`.
+Once a week while job-hunting -> `pipeline`.
 
 # Tools
 
@@ -169,6 +183,12 @@ are empty, capability checking stays off.
 
 # Leadership & engagement
 """)
+
+    # Ships full, unlike the capability vocabulary above, which ships empty and grows
+    # with the person. These name a process the scripts reason about rather than
+    # someone's own work, so the list is not theirs to invent.
+    with open(os.path.join(root, "framework", "pipeline-vocabulary.md"), "w", encoding="utf-8") as f:
+        f.write(pipeline_model.vocabulary_markdown(ts))
 
     with open(os.path.join(root, "resume-generation", "open-questions.md"), "w", encoding="utf-8") as f:
         f.write(fm("Open Questions", "Verify before publishing",

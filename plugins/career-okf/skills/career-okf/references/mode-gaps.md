@@ -15,7 +15,11 @@ makes it easy to leave in and hard to defend when someone asks a follow-up.
 
 ## Run it
 
-Read `open-questions.md` and work **one question at a time**. A list of fifteen gets abandoned; one
+**Scan first, then talk.** Send `career-okf-bundle-auditor` the bundle path; it reads every concept
+and returns the gaps already ordered, each with the question written ready to ask. That keeps a
+full-bundle read out of the conversation and leaves you the part that needs a person.
+
+Then work **one question at a time**, from that queue and `open-questions.md`. A list of fifteen gets abandoned; one
 gets answered.
 
 Order by what unblocks most:

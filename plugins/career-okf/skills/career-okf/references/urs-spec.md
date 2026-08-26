@@ -16,17 +16,13 @@ text is a renderer that cannot embellish.
 
 ## Why not JSON Resume
 
-JSON Resume is a JSON container around unstructured prose, and four gaps follow from that:
-
-| Gap | Consequence |
-|---|---|
-| A bullet is a bare string in `highlights[]` | Nothing machine-usable. Metrics cannot be verified, ranked or matched — only grepped. |
-| No stable identifiers | Nothing can be referenced, diffed or deduplicated. Tailoring means copy-and-mutate, and the copies drift apart permanently. |
-| No provenance | "I measured this" and "a model wrote this for me" are indistinguishable in the file. |
-| No employer/role model | A promotion becomes two duplicate `work` entries; a contractor cannot express client versus agency. |
+JSON Resume is a container around unstructured prose: a bullet is a bare string so no metric can be
+verified, nothing carries an id so tailoring means copy-and-mutate, nothing carries provenance, and a
+promotion has to be modelled as two duplicate employers.
 
 URS keeps a **normative bidirectional mapping** to JSON Resume at conformance Level 0, so adoption
-costs nothing and is reversible. See *Interoperability*.
+costs nothing and is reversible. See *Interoperability* below, and `docs/urs-guide.md` for the gap
+table and the reasoning.
 
 ## Design rules
 
@@ -365,12 +361,7 @@ render setting · cover letters.
 
 ## Beyond the boundary
 
-Two cases the standard does not claim, stated plainly rather than implied away:
-
-**Japan's rirekisho** is a JIS-standardised *form* — fixed fields, a photograph at set dimensions,
-commute time, dependents, oldest-first ordering, and a companion *shokumu keirekisho*. A profile can
-emit an approximation. Claiming URS "supports Japan" would be false.
-
-**Australian public-sector selection criteria** are a distinct genre: several hundred words per
-criterion, STAR-structured. Accommodated cheaply as `narratives[].kind: "criterion-response"` with a
-criterion reference, but it is a companion document rather than a resume section.
+Two cases the standard does not claim: **Japan's rirekisho**, a JIS-standardised form that a profile
+can only approximate, and **Australian public-sector selection criteria**, accommodated as
+`narratives[].kind: "criterion-response"` but a companion document rather than a resume section.
+Neither is claimed as supported. `docs/urs-guide.md` states both in full.

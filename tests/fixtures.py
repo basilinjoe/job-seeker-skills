@@ -15,6 +15,9 @@ SCRIPTS = REPO_ROOT / "plugins" / "career-okf" / "skills" / "career-okf" / "scri
 CHECK_ATS = SCRIPTS / "check_ats.py"
 VALIDATE_BUNDLE = SCRIPTS / "validate_bundle.py"
 INIT_BUNDLE = SCRIPTS / "init_bundle.py"
+MIGRATE_BUNDLE = SCRIPTS / "migrate_bundle.py"
+PIPELINE = SCRIPTS / "pipeline.py"
+PIPELINE_MODEL = SCRIPTS / "pipeline_model.py"
 FIT_PAGES = SCRIPTS / "fit_pages.py"
 
 

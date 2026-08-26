@@ -84,6 +84,11 @@ python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view <view-id
 
 7. **Verify — not optional:**
 
+   Hand steps 7 to 9 to `career-okf-verifier` — it runs every gate, measures the fit, reads the PDF,
+   and returns each verdict verbatim with the `resume.json` site for every defect. It cannot edit a
+   document, which is the point. Run the commands inline where no agent is available; the procedure
+   below is the same either way.
+
 ```bash
 python3 <skill-dir>/scripts/check_ats.py <Name>_Resume.docx
 python3 <skill-dir>/scripts/check_ats.py <Name>_Resume_ATS.docx --strict
@@ -102,9 +107,10 @@ bullet is not a parsing defect, so `check_ats.py` passes it and is right to.
 Run `check_prose.py` on the plain-text variant too — same record, so a defect in one is a defect in
 both.
 
-All must PASS. **Show the output.** Fix and re-run rather than explaining away a failure. Fix it *in
-`resume.json`* and re-render; editing the `.docx` puts the record and the document out of step, which
-is the failure this pipeline exists to prevent.
+All must PASS. **Show the output** — the checker's own lines. An agent's summary of a checker is not
+the checker, and the person is entitled to the evidence rather than a report of it. Fix and re-run
+rather than explaining away a failure. Fix it *in `resume.json`* and re-render; editing the `.docx`
+puts the record and the document out of step, which is the failure this pipeline exists to prevent.
 
 8. **Fit to the page budget** — measure, do not guess:
 
@@ -129,7 +135,9 @@ the record, which is the point: next month's posting may want exactly what this 
 
 Fitting changes layout, so re-run `check_ats.py` on the fitted file before step 9.
 
-9. **Look at the render — the last gate, and not optional either.**
+9. **Look at the render — the last gate, and not optional either.** `career-okf-verifier` reads the
+   PDF as part of its run; if you are working inline, open it yourself. Nobody signs this one off
+   from a checker's exit code.
 
 The checkers verify that a record is coherent, that a document parses, and that its prose obeys the
 rules. None of them can see what it *looks* like. Three defect classes have escaped them, all

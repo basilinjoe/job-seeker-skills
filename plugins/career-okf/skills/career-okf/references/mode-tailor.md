@@ -13,6 +13,19 @@ say so — do not manufacture a bullet. Anything `inferred` needs confirmation b
 Not only ethics: someone who bluffs past a screen gets found out in the first technical conversation,
 having burned both the opportunity and their credibility.
 
+## Steps 1 and 2 delegate
+
+Decomposing a posting and scoring a bundle against it is reading and arithmetic — hand both to
+`career-okf-posting-analyst`, with the posting, the bundle path and this skill's directory. It writes
+the target file, runs the scorer, and returns the ranking, the unmatched requirements and the PAUSE
+flags below.
+
+What it returns is not what the person sees. **Surface the top few and the surprises in chat
+yourself**, in your own words, and act on the flags. Step 6 is yours and is not delegable.
+
+The procedure is written out below because it is the same procedure inline, where no agent is
+available.
+
 ## 1. Decompose the posting
 
 Extract, in priority order: **required capabilities**, **required technologies**, **domain**,
@@ -132,7 +145,8 @@ chose, and render from it:
 { "id": "view_acme_principal",
   "format_profile": "ats-maximal",
   "region_profile": "urs:profile:au/1",
-  "target": { "title": "Principal Solution Architect", "ref": "tailoring/targets/acme.md" },
+  "target": { "title": "Principal Solution Architect",
+              "ref": "tailoring/applications/acme-principal.target.md" },
   "narrative": "nar_acme",
   "include": [
     { "ref": "eng_meridian", "order": 1, "achievements": ["ach_latency", "ach_consolidate"] },
@@ -157,8 +171,31 @@ Retuned prose — a summary written for this posting, a bullet re-emphasised —
 new achievement in the record**, with its own `provenance`. Written there, it is reviewable, reusable
 and attributable. Written into the view, it would be none of those, which is why it is rejected.
 
-Save the tailored record as `tailoring/applications/<company>-<role>.resume.json`. Every previous
-application then remains reproducible: same record, same view, same output, a year later.
+### Freeze both inputs, not one
+
+Save the tailored record as `tailoring/applications/<company>-<role>.resume.json`, and **copy the
+target file alongside it** as `tailoring/applications/<company>-<role>.target.md`:
+
+```yaml
+type: Source Document        # not Job Target - this copy is an archive
+snapshot_of: "../targets/<company>-<role>.md"
+snapshot_taken: 2026-08-26
+frozen: true
+```
+
+Lead the body with a line saying it is frozen, when it was taken, and that it wins over the working
+copy if the two disagree.
+
+The record alone is not enough. *A frozen record scored against an editable posting is not
+reproducible; it only looks it.* The file in `targets/` is a working copy — it gets edited when the
+same employer posts again, when a listing is revised, when the scorer is re-run — and every one of
+those edits silently rewrites what a past application appears to have answered. `<company>-<role>` also
+collides the second time a company posts the same role.
+
+So: `targets/` is where a posting is worked on, `applications/` is where one is archived. With both
+frozen, every previous application remains reproducible — same posting, same record, same view, same
+output, a year later — and the application folder answers *what was this answering* without leaving
+itself.
 
 Then the gates. `check_ats.py` PASSes on both variants — plain and `--strict` — and `check_prose.py`
 PASSes on the presentation variant and the plain text. Tailoring rewrites bullets against a posting,
