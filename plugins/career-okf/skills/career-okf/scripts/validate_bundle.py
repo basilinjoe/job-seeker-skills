@@ -109,6 +109,24 @@ unknown = sorted(c for c in caps if vocab and c not in vocab)
 for c in unknown:
     errors.append(f"capability '{c}' is not in framework/capability-vocabulary.md - add it there or reuse an existing value")
 
+# The layout revision, so an out-of-date bundle is told rather than silently misread.
+# A WARNING and never an ERROR: failing a bundle built on an earlier revision would break
+# every bundle already in existence, which the frozen surfaces rule out. Absent means r1,
+# because every bundle predating the stamp has no way to say so.
+CURRENT_BUNDLE_REVISION = 2
+revision = None
+index_path = os.path.join(ROOT, "index.md")
+if os.path.exists(index_path):
+    itxt = open(index_path, encoding="utf-8").read()
+    iend = itxt.find("\n---\n", 3) if itxt.startswith("---\n") else -1
+    if iend != -1:
+        try:
+            imeta = yaml.safe_load(itxt[4:iend])
+            if isinstance(imeta, dict):
+                revision = imeta.get("okf_bundle", 1)
+        except Exception:
+            revision = None
+
 print(f"files {len(files)} | concept types {len(types)} | capabilities {len(caps)}")
 print(f"ERRORS {len(errors)} | WARNINGS {len(warnings)}")
 for e in errors: print("  x", e)
@@ -117,5 +135,9 @@ if len(warnings) > 15: print(f"  ! ... and {len(warnings) - 15} more")
 strong = sorted(c for c, n in caps.items() if n >= 3)
 if strong:
     print(f"\n  through-lines (3+ projects, safe to claim in a summary): {', '.join(strong)}")
+if isinstance(revision, int) and revision < CURRENT_BUNDLE_REVISION:
+    print(f"\n  bundle revision {revision}, current is {CURRENT_BUNDLE_REVISION}"
+          " - run migrate_bundle.py <bundle> to bring it up to date")
+
 print("\nVALID" if not errors else "\nFAILED")
 sys.exit(1 if errors else 0)

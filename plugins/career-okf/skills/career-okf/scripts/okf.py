@@ -8,8 +8,8 @@ for the underlying script is still true here:
     okf check resume.docx     ==     check_ats.py resume.docx
                                      check_prose.py resume.docx
 
-The nine scripts remain the stable, documented API. They are callable directly and
-always will be. This exists so that nobody has to remember nine names to get started.
+The ten scripts remain the stable, documented API. They are callable directly and
+always will be. This exists so that nobody has to remember ten names to get started.
 
     okf doctor                  what works on this machine
     okf new PATH --name NAME    scaffold a bundle
@@ -18,6 +18,7 @@ always will be. This exists so that nobody has to remember nine names to get sta
     okf check DOCX [--strict]   the parse gate and the prose gate, both
     okf score BUNDLE TARGET     rank projects against a posting
     okf fit DOCX [...]          fit a render to a page budget
+    okf migrate BUNDLE [--apply]  bring an older bundle up to the current layout
 
 Standard library only.
 """
@@ -34,6 +35,7 @@ SIMPLE = {
     "render": ("render_resume.py", "one record to .tex/PDF, both .docx variants and .txt"),
     "score": ("score_projects.py", "rank projects against a posting"),
     "fit": ("fit_pages.py", "fit a render to a page budget"),
+    "migrate": ("migrate_bundle.py", "bring an older bundle up to the current layout"),
 }
 
 # The gates okf check runs, in order. Both always run: a document that fails the parse

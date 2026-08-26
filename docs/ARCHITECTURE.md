@@ -95,8 +95,9 @@ plugins/career-okf/
       urs-v1.schema.json            JSON Schema for the record
       profiles/*.json               region profiles: default, au, in, ae
       example.resume.json           a complete worked document
-    scripts/                        the nine tools, plus the urs/ package
-      okf.py                        one entry point that forwards to the nine
+    scripts/                        the ten tools, plus the urs/ package
+      okf.py                        one entry point that forwards to the ten
+      migrate_bundle.py             moves an older bundle to the current layout revision
 tests/                              unittest, one file per script
 ```
 
@@ -110,7 +111,8 @@ tests/                              unittest, one file per script
 | **What content is selected** | `scripts/urs/plan.py` | never an emitter |
 | **How a document looks** | `scripts/urs/emit_*.py` | never `plan.py` |
 | Support for a new market | `schema/profiles/<code>.json` | the region section of `references/urs-spec.md` |
-| Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md` |
+| Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
+| What a migration does | `scripts/migrate_bundle.py` | `docs/SCRIPTS.md`, `tests/test_migrate_bundle.py` |
 | How postings are scored | `scripts/score_projects.py` | `references/target-template.md` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/career-okf/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
@@ -125,6 +127,11 @@ story:
    API — they appear in shell histories, in README examples, and in bundles that copied them.
    Internals are free; the invocation surface is not.
 2. **Bundle layout on disk.** Renaming `projects/` breaks every bundle already in existence.
+   Layout *additions* are allowed, but only behind a revision: bump `CURRENT_REVISION` in
+   `migrate_bundle.py`, teach it the step, and keep `validate_bundle.py` **warning** rather than
+   failing on the older shape. `BUNDLE_REVISION` in `init_bundle.py` must move in the same commit —
+   new bundles are born current, and a bundle that lies about its revision is worse than one that
+   carries no stamp at all.
 3. **The URS schema and gate behaviour.** `urs-v1.schema.json` stays wire-compatible, and a gate
    keeps failing on exactly what it fails on today.
 

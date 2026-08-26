@@ -91,7 +91,7 @@ translation layer. Keep it in a repo you control so it outlives any single tool,
 | [Quickstart](docs/QUICKSTART.md) | Install to first resume, ten minutes |
 | [Concepts](docs/CONCEPTS.md) | The vocabulary, on one screen |
 | [Why it works this way](docs/WHY.md) | The reasoning behind every design decision |
-| [Scripts](docs/SCRIPTS.md) | The nine tools: flags, dependencies, exit codes |
+| [Scripts](docs/SCRIPTS.md) | The ten tools: flags, dependencies, exit codes |
 | [Architecture](docs/ARCHITECTURE.md) | For anyone editing this repo |
 | [URS, explained](docs/urs-guide.md) | The résumé record format, walked through a real document |
 | [URS spec](plugins/career-okf/skills/career-okf/references/urs-spec.md) | The normative definition: every type, every MUST |

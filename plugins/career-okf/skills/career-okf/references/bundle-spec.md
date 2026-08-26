@@ -25,6 +25,28 @@ career-okf/
 Every directory gets an `index.md` listing its contents. `index.md` and `log.md` are the only
 reserved filenames.
 
+## The layout revision
+
+The bundle root's `index.md` carries one extra key:
+
+```yaml
+okf_bundle: 2      # layout revision - NOT the plugin version
+```
+
+An integer, deliberately not the plugin's semver: the plugin ships releases that do not touch the
+on-disk shape, and conflating the two makes every release look like a migration until nobody reads
+them. **An absent stamp means revision 1** — every bundle created before the stamp existed has no
+way to say so.
+
+| Rev | Shape |
+|---|---|
+| 1 | applications point at a mutable target file via `target:` |
+| 2 | the posting is frozen beside each application as `<stem>.target.md` |
+
+`validate_bundle.py` warns on an older revision and never fails it. `migrate_bundle.py` moves a
+bundle forward, reports what it cannot establish, and marks anything it reconstructs
+`needs-verification`.
+
 ## Applications on disk
 
 One submission is a **set of files sharing a stem**, all in `tailoring/applications/`:

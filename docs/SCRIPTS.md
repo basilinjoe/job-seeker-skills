@@ -2,12 +2,12 @@
 
 The skill runs these for you. This page is for running them yourself.
 
-All nine live in `plugins/career-okf/skills/career-okf/scripts/`. Paths below assume you are in that
+All ten live in `plugins/career-okf/skills/career-okf/scripts/`. Paths below assume you are in that
 directory. On Windows use `python` or `py -3` in place of `python3`.
 
 ## One entry point: `okf.py`
 
-If you would rather not remember nine names:
+If you would rather not remember ten names:
 
 ```bash
 python3 scripts/okf.py doctor                  # what works on this machine
@@ -21,7 +21,7 @@ python3 scripts/okf.py fit resume.docx --target-pages 2
 ```
 
 Every subcommand forwards to the script below with the same arguments and the same exit code, so
-everything documented here stays true through it. **The nine scripts remain the stable API** — this
+everything documented here stays true through it. **The ten scripts remain the stable API** — this
 is a convenience layer, not a replacement, and nothing that works today stops working.
 
 Two subcommands do slightly more than forward:
@@ -147,6 +147,36 @@ python3 scripts/validate_bundle.py ./my-career
 ```
 
 Bundle is well-formed. Needs `pyyaml`. Run it after any change to the bundle.
+
+### `migrate_bundle.py`
+
+Brings a bundle built on an earlier layout up to the current one.
+
+```bash
+python3 migrate_bundle.py <bundle>            # report what would change
+python3 migrate_bundle.py <bundle> --apply    # make the changes
+```
+
+`index.md` carries `okf_bundle:`, an integer layout revision. An absent stamp means revision 1,
+because every bundle created before the stamp existed has no way to say so.
+
+| Revision | Shape |
+|---|---|
+| 1 | applications point at a mutable target file via `target:` |
+| 2 | the posting is frozen beside each application as `<stem>.target.md` |
+
+Report mode **exits 1 when changes are pending**, which is what makes it usable as a check: an
+out-of-date bundle is detectable without writing to it. `--apply` exits 0 only when nothing is left
+for a person.
+
+Nothing is deleted, and the run is idempotent. Where the migration cannot establish a fact — a
+posting that was never captured, a snapshot taken months after the submission it belongs to — it
+**reports the gap and marks what it wrote `needs-verification`** rather than filling it in. A
+reconstructed posting that claims to be the original is precisely the failure the four gates exist to
+prevent, and the tool is not exempt from its own rule.
+
+Standard library only. Frontmatter is edited line by line rather than round-tripped through a YAML
+parser, so comments, key order and quoting style survive and the change is legible in a diff.
 
 ### `score_projects.py`
 

@@ -55,6 +55,18 @@ Ambiguous? Ask which they want rather than guessing — the modes do genuinely d
 containing both `projects/` and `resume-generation/`, or matching `*-okf`, or a zip with `okf` in
 the name. Read its `index.md` then `log.md` — they orient you.
 
+**Check its revision.** `index.md` carries `okf_bundle:`. Absent, or below the current
+revision, means the bundle predates the current layout:
+
+```bash
+python3 <skill-dir>/scripts/migrate_bundle.py <bundle>
+```
+
+Report mode writes nothing. Say what it found and **offer** the `--apply` run — never migrate
+unasked, because it writes into their record. An older bundle still works, so this is a suggestion
+and never a blocker. Where the migration says something needs a person, that goes on the list for
+gaps mode rather than being filled in for them.
+
 Sessions do not share state. Never assume a bundle exists because one was created before.
 
 **No bundle?** Switch to setup mode — unless they asked for something you can deliver anyway. If
@@ -91,6 +103,7 @@ skill, so a bare `scripts/…` will not resolve.
 | `preflight.py [--verify]` | what this machine can do, and what each gap disables | — |
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
 | `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
+| `migrate_bundle.py <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
 | `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |
 | `check_prose.py resume.docx` | the writing rules `check_ats.py` cannot see | — |
 | `score_projects.py <bundle> <target.md>` | ranks projects against a posting, from the target's frontmatter | `pyyaml` |
