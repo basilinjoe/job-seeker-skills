@@ -458,10 +458,14 @@ def main(argv=None):
     changes, blocked = [], []
     today = datetime.date.today().isoformat()
 
-    if revision < 2:
+    # Each step runs only when the bundle is below it AND the target reaches it. Guarding
+    # on `revision < N` alone would run a step the target excludes and then stamp a lower
+    # number over it - a bundle that lies about its own shape, which is worse than one
+    # carrying no stamp at all.
+    if revision < 2 <= CURRENT_REVISION:
         print(f"\nr1 -> r2  {REVISIONS[2]}")
         plan_r1_to_r2(root, today, changes, blocked)
-    if revision < 3:
+    if revision < 3 <= CURRENT_REVISION:
         print(f"\nr2 -> r3  {REVISIONS[3]}")
         plan_r2_to_r3(root, changes, blocked)
     plan_stamp(root, CURRENT_REVISION, changes)

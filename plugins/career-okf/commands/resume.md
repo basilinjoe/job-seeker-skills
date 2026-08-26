@@ -1,6 +1,6 @@
 ---
 description: Build a verified resume from the bundle - two variants plus plain text, through all four gates
-argument-hint: Optional: region code (au, in, ae) or a view id
+argument-hint: 'Optional: region code (au, in, ae) or a view id'
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 ---
 
