@@ -84,7 +84,7 @@ python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view <view-id
 
 7. **Verify — not optional:**
 
-   Hand steps 7 to 9 to `career-okf-verifier` — it runs every gate, measures the fit, reads the PDF,
+   Hand steps 7 to 9 to `jsk-verifier` — it runs every gate, measures the fit, reads the PDF,
    and returns each verdict verbatim with the `resume.json` site for every defect. It cannot edit a
    document, which is the point. Run the commands inline where no agent is available; the procedure
    below is the same either way.
@@ -135,7 +135,7 @@ the record, which is the point: next month's posting may want exactly what this 
 
 Fitting changes layout, so re-run `check_ats.py` on the fitted file before step 9.
 
-9. **Look at the render — the last gate, and not optional either.** `career-okf-verifier` reads the
+9. **Look at the render — the last gate, and not optional either.** `jsk-verifier` reads the
    PDF as part of its run; if you are working inline, open it yourself. Nobody signs this one off
    from a checker's exit code.
 

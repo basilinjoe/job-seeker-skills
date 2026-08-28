@@ -6,7 +6,7 @@ Usage: python3 init_bundle.py <path> --name "Full Name"
 On Windows use `python` or `py -3` in place of `python3`.
 
 Creates directories and index files. Standard library only. The scripts and rule
-files stay with the career-okf skill; this only creates the bundle. Populate the
+files stay with the jsk skill; this only creates the bundle. Populate the
 concepts afterwards by interviewing the person.
 """
 import os, sys, argparse, datetime
@@ -115,7 +115,7 @@ by AI tools with no translation layer.
 
 # Using it
 
-The `career-okf` skill has seven modes. Say what you want; it routes.
+The `jsk` skill has seven modes. Say what you want; it routes.
 
 | Mode | Use when |
 |---|---|
@@ -135,16 +135,16 @@ Once a week while job-hunting -> `pipeline`.
 
 # Tools
 
-Validation and ATS checking live with the `career-okf` skill, not in this folder, so they
+Validation and ATS checking live with the `jsk` skill, not in this folder, so they
 stay current as the skill improves. The normal route is simply to ask:
 
 > "validate my bundle" — "check this resume is ATS-safe"
 
 To run them yourself, use the `scripts/` directory inside the installed skill:
 
-    python3 <career-okf-skill>/scripts/validate_bundle.py .            # needs pyyaml
-    python3 <career-okf-skill>/scripts/check_ats.py resume.docx        # presentation variant
-    python3 <career-okf-skill>/scripts/check_ats.py resume.docx --strict
+    python3 <jsk-skill>/scripts/validate_bundle.py .            # needs pyyaml
+    python3 <jsk-skill>/scripts/check_ats.py resume.docx        # presentation variant
+    python3 <jsk-skill>/scripts/check_ats.py resume.docx --strict
 
 On Windows use `python` or `py -3` in place of `python3`.
 

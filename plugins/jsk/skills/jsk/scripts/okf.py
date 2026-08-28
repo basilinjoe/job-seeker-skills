@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""okf - one entry point for the career-okf tools.
+"""okf - one entry point for the jsk tools.
 
 A convenience layer, never a replacement. Each subcommand forwards to the script that
 does the work, with the same arguments and the same exit code, so anything documented

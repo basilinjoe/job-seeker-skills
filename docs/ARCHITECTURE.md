@@ -53,9 +53,9 @@ the conversation decides and writes.**
 
 | Agent | Has | Deliberately lacks |
 |---|---|---|
-| `career-okf-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into a `.docx` |
-| `career-okf-bundle-auditor` | Read, Glob, Grep, Bash | Write and Edit — a `status` flips only when the person says so |
-| `career-okf-posting-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the target file, which is a checkpoint, and never `resume.json` |
+| `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into a `.docx` |
+| `jsk-bundle-auditor` | Read, Glob, Grep, Bash | Write and Edit — a `status` flips only when the person says so |
+| `jsk-posting-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the target file, which is a checkpoint, and never `resume.json` |
 
 Two consequences worth keeping in mind when editing them:
 
@@ -71,16 +71,16 @@ Two consequences worth keeping in mind when editing them:
 ```
 .claude-plugin/marketplace.json     marketplace manifest (carries a version)
 docs/                               this directory — human-facing documentation
-plugins/career-okf/
+plugins/jsk/
   .claude-plugin/plugin.json        plugin manifest (carries a version)
   commands/                         slash commands
     setup.md                        the four-phase setup procedure
     braindump|resume|tailor|...     thin delegations into the skill's modes
   agents/                           subagents the modes delegate to
-    career-okf-verifier.md          runs the four gates on rendered files, reports verbatim
-    career-okf-bundle-auditor.md    reads the whole bundle, returns a prioritised gap queue
-    career-okf-posting-analyst.md   decomposes a posting, writes the target, runs the scorer
-  skills/career-okf/
+    jsk-verifier.md                 runs the four gates on rendered files, reports verbatim
+    jsk-bundle-auditor.md           reads the whole bundle, returns a prioritised gap queue
+    jsk-posting-analyst.md          decomposes a posting, writes the target, runs the scorer
+  skills/jsk/
     SKILL.md                        the agent's entry point: routing + hard rules
     references/                     what the agent loads on demand
       README.md                     index of everything below
@@ -118,7 +118,7 @@ tests/                              unittest, one file per script
 | **What a timeline event means** | `scripts/pipeline_model.py` | never in a caller — `pipeline.py`, `validate_bundle.py` and `migrate_bundle.py` all read it |
 | How postings are scored | `scripts/score_projects.py` | `references/target-template.md` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
-| What an agent may do | `plugins/career-okf/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
+| What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
 
 ## What is frozen
@@ -173,7 +173,7 @@ Anything that cannot run reports loudly and exits non-zero rather than passing q
 
 The version lives in **two** files and they must agree:
 
-- `plugins/career-okf/.claude-plugin/plugin.json`
+- `plugins/jsk/.claude-plugin/plugin.json`
 - `.claude-plugin/marketplace.json`
 
 Before tagging: run the tests, run `preflight.py --verify`, and check that every internal doc link

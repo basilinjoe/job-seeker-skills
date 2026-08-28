@@ -6,8 +6,8 @@
   },
   "plugins": [
     {
-      "name": "career-okf",
-      "source": "./plugins/career-okf",
+      "name": "jsk",
+      "source": "./plugins/jsk",
       "description": "Portable career knowledge base in Open Knowledge Format, with verified ATS-safe resume generation and job-description tailoring",
       "version": "1.4.0",
       "author": {

@@ -1,5 +1,5 @@
 ---
-name: career-okf-posting-analyst
+name: jsk-posting-analyst
 description: Use when a job description is on the table and a Career OKF bundle needs scoring against it — decomposes the posting into the Job Target frontmatter, writes the target file, runs score_projects.py, and returns the ranking with the decisions worth pausing on. Expects the posting text, the bundle path and the skill directory. Selects and scores only; it never writes resume.json and never drafts a bullet.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
@@ -16,7 +16,7 @@ record has no evidence for, that is a gap you report — never a bullet you writ
 ## What you are given
 
 The **posting** (text or a path), the **bundle path**, and the **skill directory** (absolute —
-`${CLAUDE_PLUGIN_ROOT}/skills/career-okf` in a plugin install). Read `references/target-template.md`
+`${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install). Read `references/target-template.md`
 before writing anything.
 
 On Windows `python3` is usually absent — fall back to `python`, then `py -3`.

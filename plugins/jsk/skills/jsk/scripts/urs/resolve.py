@@ -17,6 +17,11 @@ from .formatting import (fold_ascii, fmt_grade, fmt_instant, fmt_period,
 PROVENANCE_RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
 
 # Architecture-level rows first, then stacks - the ordering in bundle-spec.md.
+# .title() would render these as "Ai" / "Api" / "Ml"; a skills row is the most
+# scanned line on a resume and a miscased acronym reads as carelessness.
+CATEGORY_ACRONYMS = {"ai": "AI", "api": "API", "ml": "ML", "ui": "UI",
+                     "ux": "UX", "qa": "QA", "devops": "DevOps"}
+
 CATEGORY_ORDER = [
     "architecture", "platform", "cloud-platform", "ai", "data", "language",
     "framework", "infrastructure", "database", "tooling", "practice", "domain",
@@ -176,6 +181,8 @@ class Resolver:
                 if self.ascii_only:
                     names.extend(s.get("aliases") or [])
             label = cat.replace("-", " ").replace("_", " ").title()
+            # .title() lowercases acronyms - an "AI" row must not render as "Ai".
+            label = " ".join(CATEGORY_ACRONYMS.get(w.lower(), w) for w in label.split())
             rows.append({"label": self.t(label), "items": [self.t(n) for n in names]})
         heading = "Technical Skills" if self.ascii_only else "Skills"
         return {"kind": "rows", "heading": heading, "rows": rows}

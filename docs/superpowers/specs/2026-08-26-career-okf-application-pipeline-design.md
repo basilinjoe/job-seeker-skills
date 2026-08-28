@@ -214,7 +214,7 @@ Standard library plus `pyyaml` (it reads bundle frontmatter, like `validate_bund
 
 ## Mode and command
 
-`references/mode-pipeline.md`, routed from `SKILL.md`, with `/career-okf:pipeline` as the slash
+`references/mode-pipeline.md`, routed from `SKILL.md`, with `/jsk:pipeline` as the slash
 command and `okf pipeline` as the shell entry point — forwarded like every other subcommand, with the
 same arguments and the same exit code.
 
@@ -261,7 +261,7 @@ guessed at:
 
 ```
 12 live applications have no timeline beyond submission.
-Run /career-okf:pipeline to fill them in - one at a time.
+Run /jsk:pipeline to fill them in - one at a time.
 ```
 
 ## Validation

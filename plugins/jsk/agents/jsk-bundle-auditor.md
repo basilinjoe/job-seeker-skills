@@ -1,5 +1,5 @@
 ---
-name: career-okf-bundle-auditor
+name: jsk-bundle-auditor
 description: Use when a Career OKF bundle needs a full read before a conversation with its owner — resolving gaps, running a periodic refresh, or checking what is unverified before an application goes out. Reads every concept and returns a prioritised gap report with the questions worth asking. Expects the bundle path and the skill directory. Reads only; it never edits the bundle and never talks to the person.
 model: sonnet
 tools: Read, Glob, Grep, Bash
@@ -17,7 +17,7 @@ no Write or Edit tool for that reason. Draft the questions; someone else asks th
 ## What you are given
 
 The **bundle path** and the **skill directory** (absolute —
-`${CLAUDE_PLUGIN_ROOT}/skills/career-okf` in a plugin install). The caller may narrow you to a
+`${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install). The caller may narrow you to a
 subset — recent projects only, one role, the material behind a specific posting. Respect the
 narrowing and say what you skipped.
 

@@ -1,5 +1,5 @@
 ---
-name: career-okf-verifier
+name: jsk-verifier
 description: Use when a Career OKF resume has been rendered and needs to pass the four verification gates before handover — after render_resume.py writes its files, after fit_pages.py changes the layout, or when someone asks whether a generated resume is safe to send. Expects the skill directory, the output directory and the view id. Verifies only; it never edits a document.
 model: sonnet
 tools: Bash, Read, Glob
@@ -16,7 +16,7 @@ reason.
 ## What you are given
 
 The caller passes: the **skill directory** (absolute — the plugin install is
-`${CLAUDE_PLUGIN_ROOT}/skills/career-okf`), the **output directory**, the **view id**, the **page
+`${CLAUDE_PLUGIN_ROOT}/skills/jsk`), the **output directory**, the **view id**, the **page
 budget**, and the file names. If a file name is missing, glob for `*_Resume.docx`,
 `*_Resume_ATS.docx`, `*_Resume_ATS.txt`, `*.pdf` and `resume.json` in the output directory and say
 what you found.

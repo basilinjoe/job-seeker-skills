@@ -16,7 +16,7 @@ having burned both the opportunity and their credibility.
 ## Steps 1 and 2 delegate
 
 Decomposing a posting and scoring a bundle against it is reading and arithmetic — hand both to
-`career-okf-posting-analyst`, with the posting, the bundle path and this skill's directory. It writes
+`jsk-posting-analyst`, with the posting, the bundle path and this skill's directory. It writes
 the target file, runs the scorer, and returns the ranking, the unmatched requirements and the PAUSE
 flags below.
 

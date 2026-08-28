@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 Render a resume from the bundle. This command is a shortcut into the skill's `resume` mode - it does not reimplement anything.
 
 ```
-Skill(skill="career-okf:career-okf", args="resume")
+Skill(skill="jsk:jsk", args="resume")
 ```
 
 That loads `references/mode-resume.md`, which holds the procedure.
@@ -22,7 +22,7 @@ bundle, ask before rendering - a photograph is conventional in one market and a 
 available, mark the resume unverified rather than treating a passing `check_ats.py` as sufficient.
 
 **Before anything else, find the bundle.** Sessions do not share state, so never assume one exists
-because it did last time. If there is no bundle, say so and offer `/career-okf:setup` - but if what
+because it did last time. If there is no bundle, say so and offer `/jsk:setup` - but if what
 they asked for can be delivered anyway, deliver it first and offer to capture it afterwards.
 
 Append a dated entry to the bundle's `log.md` when the session ends.

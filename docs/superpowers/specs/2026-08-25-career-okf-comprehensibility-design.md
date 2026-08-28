@@ -50,7 +50,7 @@ New `docs/` at the repo root:
 
 | File | Job |
 |---|---|
-| `QUICKSTART.md` | Install, `/career-okf:setup`, first resume. Imperative, no rationale, no unmet vocabulary. |
+| `QUICKSTART.md` | Install, `/jsk:setup`, first resume. Imperative, no rationale, no unmet vocabulary. |
 | `CONCEPTS.md` | The glossary in one screen. Each term: one sentence of definition, one line of why it matters. |
 | `WHY.md` | The design rationale lifted from the README. The current voice lives here. |
 | `ARCHITECTURE.md` | Maintainer map: annotated tree, data flow, a *where do I change X* table, test layout, release ritual. |
@@ -146,6 +146,6 @@ put. The real gain was additive: `docs/urs-guide.md` gives a human a way into UR
   or the tests. Removed during the split.
 
 **Not done, and deliberately left for a release decision:** the version in
-`plugins/career-okf/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` is still
+`plugins/jsk/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` is still
 `1.3.0`. Five new commands and a new script are user-visible additions and want a minor bump when
 this ships.

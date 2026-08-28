@@ -2,7 +2,7 @@
 
 A reading path into the résumé record format, for people rather than parsers. The normative
 definition — every type, every field, every MUST — is
-[`urs-spec.md`](../plugins/career-okf/skills/career-okf/references/urs-spec.md). Start here, go there
+[`urs-spec.md`](../plugins/jsk/skills/jsk/references/urs-spec.md). Start here, go there
 when you need the exact rule.
 
 ## The one idea
@@ -36,7 +36,7 @@ costs nothing and is reversible.
 
 ## A walk through a real record
 
-[`schema/example.resume.json`](../plugins/career-okf/skills/career-okf/schema/example.resume.json) is
+[`schema/example.resume.json`](../plugins/jsk/skills/jsk/schema/example.resume.json) is
 a complete, valid document. Its top level:
 
 ```
@@ -154,5 +154,5 @@ criterion reference, but it is a companion document rather than a resume section
 
 ---
 
-Next: [the normative spec](../plugins/career-okf/skills/career-okf/references/urs-spec.md) ·
+Next: [the normative spec](../plugins/jsk/skills/jsk/references/urs-spec.md) ·
 [Concepts](CONCEPTS.md) · [Why it works this way](WHY.md)

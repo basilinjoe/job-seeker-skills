@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 Work the application pipeline. This command is a shortcut into the skill's `pipeline` mode - it does not reimplement anything.
 
 ```
-Skill(skill="career-okf:career-okf", args="pipeline")
+Skill(skill="jsk:jsk", args="pipeline")
 ```
 
 That loads `references/mode-pipeline.md`, which holds the procedure.
@@ -29,6 +29,6 @@ If applications have no history beyond submission - the usual state after a migr
 them one at a time. `unknown` is a legitimate date and an honest one; a plausible date is not.
 
 **Before anything else, find the bundle.** Sessions do not share state, so never assume one exists
-because it did last time. If there is no bundle, say so and offer `/career-okf:setup`.
+because it did last time. If there is no bundle, say so and offer `/jsk:setup`.
 
 Append a dated entry to the bundle's `log.md` when the session ends.

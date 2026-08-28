@@ -24,13 +24,13 @@ Three things make it different:
 
 ```
 /plugin marketplace add basilinjoe/job-seeker-skills
-/plugin install career-okf@job-seeker-skills
+/plugin install jsk@job-seeker-skills
 ```
 
 Then:
 
 ```
-/career-okf:setup
+/jsk:setup
 ```
 
 Setup checks what your machine can do, offers to close the gaps, builds your career folder, and
@@ -39,7 +39,7 @@ renders a real resume from it. It asks before installing anything.
 Already have a resume? Point at it — it is the fastest starting point available:
 
 ```
-/career-okf:setup ./old-resume.docx
+/jsk:setup ./old-resume.docx
 ```
 
 Works in Claude Code and Claude Cowork. Full instructions, including manual install, in the
@@ -51,16 +51,16 @@ Describe what you want and the skill routes there by itself. Or say it directly:
 
 | Command | When |
 |---|---|
-| `/career-okf:setup` | First run, or importing an existing resume |
-| `/career-okf:braindump` | You have something to say about your work |
-| `/career-okf:resume` | You need a resume — two verified variants plus plain text |
-| `/career-okf:tailor` | You have a specific job description |
-| `/career-okf:refresh` | Periodic top-up: what changed, what numbers moved |
-| `/career-okf:gaps` | Resolve unanswered questions and unverified claims |
-| `/career-okf:pipeline` | What to chase this week: what has gone quiet, what is overdue |
+| `/jsk:setup` | First run, or importing an existing resume |
+| `/jsk:braindump` | You have something to say about your work |
+| `/jsk:resume` | You need a resume — two verified variants plus plain text |
+| `/jsk:tailor` | You have a specific job description |
+| `/jsk:refresh` | Periodic top-up: what changed, what numbers moved |
+| `/jsk:gaps` | Resolve unanswered questions and unverified claims |
+| `/jsk:pipeline` | What to chase this week: what has gone quiet, what is overdue |
 
 ```
-/career-okf:tailor      # then paste the job description
+/jsk:tailor      # then paste the job description
 ```
 
 **A rhythm that works.** Something ships → `braindump`, five minutes, while you still remember the
@@ -95,7 +95,7 @@ translation layer. Keep it in a repo you control so it outlives any single tool,
 | [Scripts](docs/SCRIPTS.md) | The eleven tools: flags, dependencies, exit codes |
 | [Architecture](docs/ARCHITECTURE.md) | For anyone editing this repo |
 | [URS, explained](docs/urs-guide.md) | The résumé record format, walked through a real document |
-| [URS spec](plugins/career-okf/skills/career-okf/references/urs-spec.md) | The normative definition: every type, every MUST |
+| [URS spec](plugins/jsk/skills/jsk/references/urs-spec.md) | The normative definition: every type, every MUST |
 
 ### Tests
 

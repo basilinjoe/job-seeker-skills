@@ -400,7 +400,7 @@ def plan_r2_to_r3(root, changes, blocked):
     if live:
         blocked.append(
             f"{live} live application(s) have no history beyond submission. Everything between "
-            "then and now is in somebody's inbox, not the bundle - run /career-okf:pipeline and "
+            "then and now is in somebody's inbox, not the bundle - run /jsk:pipeline and "
             "fill them in one at a time."
         )
 

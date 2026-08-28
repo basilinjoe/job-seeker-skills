@@ -16,7 +16,7 @@ repo you control so it outlives any single tool, including this one.
 
 ## Every document is rendered from JSON, never hand-built
 
-The bundle compiles to a [URS](../plugins/career-okf/skills/career-okf/references/urs-spec.md)
+The bundle compiles to a [URS](../plugins/jsk/skills/jsk/references/urs-spec.md)
 record, and the LaTeX/PDF, both `.docx` variants and the plain text are all emitted from that one
 file.
 

@@ -10,8 +10,8 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PLUGIN = REPO / "plugins" / "career-okf"
-SKILL = PLUGIN / "skills" / "career-okf"
+PLUGIN = REPO / "plugins" / "jsk"
+SKILL = PLUGIN / "skills" / "jsk"
 SCRIPTS = SKILL / "scripts"
 
 try:
@@ -93,7 +93,7 @@ class AgentFrontmatter(unittest.TestCase):
     def test_the_read_only_agents_cannot_write(self):
         """Both are deliberately denied Write and Edit: a defect is repaired in the
         record, and a provenance status flips only when the person says so."""
-        for name in ("career-okf-verifier", "career-okf-bundle-auditor"):
+        for name in ("jsk-verifier", "jsk-bundle-auditor"):
             tools = frontmatter(PLUGIN / "agents" / f"{name}.md")["tools"]
             with self.subTest(agent=name):
                 self.assertNotIn("Write", tools)

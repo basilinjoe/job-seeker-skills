@@ -2,7 +2,7 @@
 
 The skill runs these for you. This page is for running them yourself.
 
-All eleven live in `plugins/career-okf/skills/career-okf/scripts/`. Paths below assume you are in that
+All eleven live in `plugins/jsk/skills/jsk/scripts/`. Paths below assume you are in that
 directory. On Windows use `python` or `py -3` in place of `python3`.
 
 ## One entry point: `okf.py`

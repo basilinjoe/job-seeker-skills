@@ -6,7 +6,7 @@ A periodic pass so nobody has to reconstruct two years from memory.
 
 Read `log.md` for when the last update happened and what was left open, then `open-questions.md`.
 
-For anything more than a quick top-up, send `career-okf-bundle-auditor` the bundle path first. It
+For anything more than a quick top-up, send `jsk-bundle-auditor` the bundle path first. It
 flags the `headline_metric` values that have gone stale and the questions open across three or more
 entries — the two things a refresh exists to catch and the two easiest to miss by reading `log.md`
 alone.

@@ -260,7 +260,7 @@ def main(argv):
         }, indent=2))
         return 1 if blocked or any(not s[1] for s in steps) else 0
 
-    print("career-okf preflight")
+    print("jsk preflight")
     print(f"skill: {SKILL}\n")
     for c in checks:
         mark = "ok  " if c.ok else ("FAIL" if is_required(c) else "gap ")

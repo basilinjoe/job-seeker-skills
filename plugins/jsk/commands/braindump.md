@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill
 Capture work into the bundle. This command is a shortcut into the skill's `braindump` mode - it does not reimplement anything.
 
 ```
-Skill(skill="career-okf:career-okf", args="braindump")
+Skill(skill="jsk:jsk", args="braindump")
 ```
 
 That loads `references/mode-braindump.md`, which holds the procedure.
@@ -21,7 +21,7 @@ to impose format loses material people only surface once.
 on and let them answer at length.
 
 **Before anything else, find the bundle.** Sessions do not share state, so never assume one exists
-because it did last time. If there is no bundle, say so and offer `/career-okf:setup` - but if what
+because it did last time. If there is no bundle, say so and offer `/jsk:setup` - but if what
 they asked for can be delivered anyway, deliver it first and offer to capture it afterwards.
 
 Append a dated entry to the bundle's `log.md` when the session ends.

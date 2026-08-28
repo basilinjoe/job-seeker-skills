@@ -1,5 +1,5 @@
 ---
-name: career-okf
+name: jsk
 description: >-
   Use when the user wants to write, rebuild, update or tailor a resume or CV; capture work history,
   projects or accomplishments; record something they shipped; prepare a job application or paste a
@@ -95,7 +95,7 @@ Load as needed rather than upfront:
 ## Scripts
 
 They live in `scripts/`, **relative to this skill's own directory** — the absolute path you were
-given when this skill loaded, or `${CLAUDE_PLUGIN_ROOT}/skills/career-okf` in a plugin install.
+given when this skill loaded, or `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install.
 Always invoke them by that absolute path. The working directory is the person's project, not the
 skill, so a bare `scripts/…` will not resolve.
 
@@ -136,9 +136,9 @@ keep the conversation for the judgment.
 
 | Agent | Hand it | Get back |
 |---|---|---|
-| `career-okf-verifier` | the rendered files, the view id, the page budget | every gate's verdict verbatim, and where in `resume.json` each defect is repaired |
-| `career-okf-bundle-auditor` | the bundle path | a prioritised gap queue, with the questions written ready to ask |
-| `career-okf-posting-analyst` | a posting and the bundle | the target file written, the ranking, the unmatched requirements, and what to pause on |
+| `jsk-verifier` | the rendered files, the view id, the page budget | every gate's verdict verbatim, and where in `resume.json` each defect is repaired |
+| `jsk-bundle-auditor` | the bundle path | a prioritised gap queue, with the questions written ready to ask |
+| `jsk-posting-analyst` | a posting and the bundle | the target file written, the ranking, the unmatched requirements, and what to pause on |
 
 They read and report; **they never interview and they never decide.** Confirming an `inferred` claim,
 choosing between two close-ranked projects, and telling someone where they fall short all stay here,
@@ -166,7 +166,7 @@ parses, not that it is correct.*
 All gates must pass. Show the output — the person should see the evidence rather than take your word
 for it. Fix and re-run; never explain away a failure.
 
-`career-okf-verifier` runs all four against files that already exist and reports what they said. It
+`jsk-verifier` runs all four against files that already exist and reports what they said. It
 has no way to edit a document, which is deliberate: a defect is repaired in `resume.json` and
 re-rendered, never patched into the `.docx`.
 

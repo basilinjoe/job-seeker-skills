@@ -15,7 +15,7 @@ makes it easy to leave in and hard to defend when someone asks a follow-up.
 
 ## Run it
 
-**Scan first, then talk.** Send `career-okf-bundle-auditor` the bundle path; it reads every concept
+**Scan first, then talk.** Send `jsk-bundle-auditor` the bundle path; it reads every concept
 and returns the gaps already ordered, each with the question written ready to ask. That keeps a
 full-bundle read out of the conversation and leaves you the part that needs a person.
 

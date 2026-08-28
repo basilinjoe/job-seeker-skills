@@ -1,4 +1,4 @@
-"""Builders and helpers for the career-okf script tests.
+"""Builders and helpers for the jsk script tests.
 
 Standard library only, matching the scripts under test. Every artefact is written
 to a caller-supplied temp directory, so nothing lands in the repo and .gitignore's
@@ -11,7 +11,7 @@ import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS = REPO_ROOT / "plugins" / "career-okf" / "skills" / "career-okf" / "scripts"
+SCRIPTS = REPO_ROOT / "plugins" / "jsk" / "skills" / "jsk" / "scripts"
 CHECK_ATS = SCRIPTS / "check_ats.py"
 VALIDATE_BUNDLE = SCRIPTS / "validate_bundle.py"
 INIT_BUNDLE = SCRIPTS / "init_bundle.py"
@@ -143,7 +143,7 @@ def write_concept(bundle, name="care-platform.md", text=CONCEPT):
 
 # --- URS -------------------------------------------------------------------
 
-SKILL_DIR = REPO_ROOT / "plugins" / "career-okf" / "skills" / "career-okf"
+SKILL_DIR = REPO_ROOT / "plugins" / "jsk" / "skills" / "jsk"
 SCHEMA_DIR = SKILL_DIR / "schema"
 VALIDATE_URS = SCRIPTS / "validate_urs.py"
 RENDER_RESUME = SCRIPTS / "render_resume.py"

@@ -1,10 +1,10 @@
 ---
-description: Set up career-okf end to end - check the toolchain, close the gaps, create or adopt a career bundle, and prove the pipeline works
+description: Set up jsk end to end - check the toolchain, close the gaps, create or adopt a career bundle, and prove the pipeline works
 argument-hint: Optional path for the bundle, or a path to an existing resume to import
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill
 ---
 
-# Set up career-okf
+# Set up jsk
 
 Get this machine from nothing to a working, verified resume pipeline. Four phases, in order, and
 **do not skip phase 1** — every later phase depends on knowing what actually runs here.
@@ -15,10 +15,10 @@ empty, ask.
 
 ## Phase 1: Find out what works
 
-The skill directory is `${CLAUDE_PLUGIN_ROOT}/skills/career-okf`. Run:
+The skill directory is `${CLAUDE_PLUGIN_ROOT}/skills/jsk`. Run:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/career-okf/scripts/preflight.py --verify
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/preflight.py --verify
 ```
 
 On Windows use `python` or `py -3`. `--verify` renders the shipped example document end to end and
@@ -61,7 +61,7 @@ Invoke the skill's own setup mode rather than reimplementing it — it holds the
 this command is not the place to fork it:
 
 ```
-Skill(skill="career-okf:career-okf", args="setup")
+Skill(skill="jsk:jsk", args="setup")
 ```
 
 That reads `references/mode-setup.md` and handles both paths: a bundle from nothing, or a bundle built
@@ -75,7 +75,7 @@ from an existing resume. Two things worth getting right while it runs:
 Then validate:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/career-okf/scripts/validate_bundle.py <bundle>
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/validate_bundle.py <bundle>
 ```
 
 ## Phase 4: Prove it, on their data
@@ -94,10 +94,10 @@ Close the loop on theirs.
 3. Validate, render, gate:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/career-okf/scripts/validate_urs.py <bundle>/resume-generation/resume.json
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/career-okf/scripts/render_resume.py <bundle>/resume-generation/resume.json --out . --pdf
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/career-okf/scripts/check_ats.py <Name>_Resume.docx
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/career-okf/scripts/check_prose.py <Name>_Resume.docx
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/validate_urs.py <bundle>/resume-generation/resume.json
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/render_resume.py <bundle>/resume-generation/resume.json --out . --pdf
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_ats.py <Name>_Resume.docx
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_prose.py <Name>_Resume.docx
 ```
 
 Show every gate's output. If the PDF step reports the resume **unverified**, say so plainly rather
