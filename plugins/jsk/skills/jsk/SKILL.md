@@ -10,7 +10,7 @@ description: >-
 license: MIT
 ---
 
-# Career OKF
+# Job Seeker Skill
 
 A career knowledge base as a folder of linked Markdown files with YAML frontmatter — the
 **Open Knowledge Format** — plus tooling to render verified, ATS-safe resumes from it.

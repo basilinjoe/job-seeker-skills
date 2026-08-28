@@ -1,6 +1,6 @@
 {
   "name": "jsk",
-  "displayName": "Career OKF",
+  "displayName": "Job Seeker Skill",
   "version": "1.4.0",
   "description": "Build a portable career knowledge base in Open Knowledge Format, then generate ATS-safe resumes from it. Interview once; regenerate resumes, tailored variants and interview briefs forever.",
   "author": {

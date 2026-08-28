@@ -1,6 +1,6 @@
 ---
 name: jsk-posting-analyst
-description: Use when a job description is on the table and a Career OKF bundle needs scoring against it — decomposes the posting into the Job Target frontmatter, writes the target file, runs score_projects.py, and returns the ranking with the decisions worth pausing on. Expects the posting text, the bundle path and the skill directory. Selects and scores only; it never writes resume.json and never drafts a bullet.
+description: Use when a job description is on the table and a Job Seeker Skill career bundle needs scoring against it — decomposes the posting into the Job Target frontmatter, writes the target file, runs score_projects.py, and returns the ranking with the decisions worth pausing on. Expects the posting text, the bundle path and the skill directory. Selects and scores only; it never writes resume.json and never drafts a bullet.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 color: purple

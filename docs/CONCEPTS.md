@@ -1,6 +1,6 @@
 # Concepts
 
-Everything Career OKF asks you to know, on one screen. You do not need this to use the plugin — setup
+Everything Job Seeker Skill asks you to know, on one screen. You do not need this to use the plugin — setup
 explains what it needs as it goes. Read it when a word turns up and you want it pinned down.
 
 ## The record

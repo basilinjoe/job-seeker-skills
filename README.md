@@ -1,8 +1,8 @@
 # job-seeker-skills
 
-Claude skills for job seekers. Currently ships one plugin: **Career OKF**.
+Claude skills for job seekers. Currently ships one plugin: **Job Seeker Skill**.
 
-## Career OKF
+## Job Seeker Skill
 
 Most resume tools start from a blank page every time. This one keeps your career in a portable
 knowledge base — a folder of plain Markdown files you own — and treats a resume as one *rendering*
@@ -70,7 +70,7 @@ details. Every quarter → `refresh`. Before applying → `gaps`, then `resume`.
 ### Your career folder
 
 ```
-career-okf/
+career/
   index.md · getting-started.md · log.md
   profile/            identity · positioning · career-progression
   organisations/ · roles/

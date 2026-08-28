@@ -13,7 +13,7 @@ python3 <skill-dir>/scripts/preflight.py
 
 ## Ask two things
 
-1. **Where should it live?** Default `career-okf/` in a folder they control. Version control is
+1. **Where should it live?** Default `career/` in a folder they control. Version control is
    ideal — this should outlive any tool.
 2. **Do they have an existing resume?** It is the fastest skeleton available.
 

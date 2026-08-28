@@ -67,7 +67,7 @@ Skill(skill="jsk:jsk", args="setup")
 That reads `references/mode-setup.md` and handles both paths: a bundle from nothing, or a bundle built
 from an existing resume. Two things worth getting right while it runs:
 
-- **Location.** Default `career-okf/` somewhere they control, ideally under version control. This
+- **Location.** Default `career/` somewhere they control, ideally under version control. This
   should outlive any single tool, including this one.
 - **An existing resume is the fastest skeleton available.** If `$ARGUMENTS` named one, or they have
   one anywhere, use it. Archive it verbatim at `sources/prior-resume.md` before extracting anything.

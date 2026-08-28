@@ -3,7 +3,7 @@
 ## Layout
 
 ```
-career-okf/
+career/
   index.md              navigation, how to use, provenance conventions
   getting-started.md    human entry point
   log.md                chronological history, newest appended

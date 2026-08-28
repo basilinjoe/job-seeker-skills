@@ -23,7 +23,7 @@ class BundleDiscovery(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
 
-    def make_bundle(self, parent, name="career-okf"):
+    def make_bundle(self, parent, name="career"):
         root = parent / name
         (root / "projects").mkdir(parents=True)
         (root / "resume-generation").mkdir(parents=True)

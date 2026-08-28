@@ -1,4 +1,4 @@
-# Career OKF: tracking a job search, not just its resumes
+# Job Seeker Skill: tracking a job search, not just its resumes
 
 **Date:** 2026-08-26
 **Status:** implemented — see *Outcome* at the end
@@ -189,7 +189,7 @@ compared with itself.
 Output follows house style — columns, then a count line:
 
 ```
-pipeline.py   bundle: ~/career-okf   as of 2026-09-18
+pipeline.py   bundle: ~/career        as of 2026-09-18
 
 NEEDS YOU (3)
   overdue 9d    Kestrel Health         Principal Platform Architect   screen-done   follow up

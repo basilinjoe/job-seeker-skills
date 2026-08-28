@@ -1,11 +1,11 @@
-# Career OKF: making the plugin easier to understand and handle
+# Job Seeker Skill: making the plugin easier to understand and handle
 
 **Date:** 2026-08-25
 **Status:** implemented — see *Outcome* at the end
 
 ## Problem
 
-Career OKF is a disciplined plugin with a comprehension problem. Every reference file has a clear
+Job Seeker Skill is a disciplined plugin with a comprehension problem. Every reference file has a clear
 job, the headings are consistent, and nothing is tracked that shouldn't be. The difficulty is what a
 newcomer meets first.
 

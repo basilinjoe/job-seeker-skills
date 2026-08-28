@@ -5,7 +5,7 @@
     "id": "urn:urs:example",
     "lang": "en",
     "updated": "2026-08-25",
-    "generator": "career-okf",
+    "generator": "jsk",
     "conformance": 2,
     "vocabularies": { "capabilities": "framework/capability-vocabulary.md" }
   },
