@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import SCRIPTS, SKILL_DIR, CLEAN_RESUME, build_docx, resume_with, run
+from fixtures import SCRIPTS, SKILL_DIR, CLEAN_RESUME, build_text, resume_with, run
 
 OKF = SCRIPTS / "okf.py"
 EXAMPLE = SKILL_DIR / "schema" / "example.resume.json"
@@ -87,30 +87,33 @@ class Check(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
 
-    def docx(self, paragraphs=None, name="resume.docx"):
-        return build_docx(self.tmp / name,
+    def document(self, paragraphs=None, name="resume.txt"):
+        """The .txt: the one artefact both gates read, so `okf check` can still
+        run them in a single pass now that check_ats.py reads the PDF and
+        check_prose.py reads the .tex."""
+        return build_text(self.tmp / name,
                           CLEAN_RESUME if paragraphs is None else paragraphs)
 
     def test_clean_resume_passes_both_gates(self):
-        code, out = run(OKF, "check", self.docx())
+        code, out = run(OKF, "check", self.document())
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to send", out)
         self.assertIn("PASS - prose rules satisfied", out)
 
     def test_both_gates_are_labelled(self):
-        code, out = run(OKF, "check", self.docx())
+        code, out = run(OKF, "check", self.document())
         del code
         self.assertIn("parse gate", out)
         self.assertIn("prose gate", out)
 
     def test_a_failing_gate_propagates_its_exit_code(self):
-        bad = self.docx(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
+        bad = self.document(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
         code, out = run(OKF, "check", bad)
         self.assertEqual(code, 1, out)
         self.assertIn("DO NOT SEND", out)
 
     def test_the_second_gate_still_runs_after_the_first_fails(self):
-        bad = self.docx(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
+        bad = self.document(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
         code, out = run(OKF, "check", bad)
         del code
         self.assertIn("prose gate", out)
@@ -118,13 +121,13 @@ class Check(unittest.TestCase):
     def test_passing_both_does_not_imply_the_other_two_gates(self):
         """SKILL.md: "passing one says nothing about the others". A clean parse and
         prose result must not read as a finished resume."""
-        code, out = run(OKF, "check", self.docx())
+        code, out = run(OKF, "check", self.document())
         del code
         self.assertIn("okf validate", out)
         self.assertIn("PDF", out)
 
     def test_strict_reaches_the_parse_gate(self):
-        code, out = run(OKF, "check", self.docx(), "--strict")
+        code, out = run(OKF, "check", self.document(), "--strict")
         del code
         self.assertIn("--strict", out)
 

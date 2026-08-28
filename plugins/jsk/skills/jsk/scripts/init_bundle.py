@@ -143,8 +143,8 @@ stay current as the skill improves. The normal route is simply to ask:
 To run them yourself, use the `scripts/` directory inside the installed skill:
 
     python3 <jsk-skill>/scripts/validate_bundle.py .            # needs pyyaml
-    python3 <jsk-skill>/scripts/check_ats.py resume.docx        # presentation variant
-    python3 <jsk-skill>/scripts/check_ats.py resume.docx --strict
+    python3 <jsk-skill>/scripts/check_ats.py resume.pdf         # the deliverable
+    python3 <jsk-skill>/scripts/check_ats.py resume_ATS.txt --strict
 
 On Windows use `python` or `py -3` in place of `python3`.
 

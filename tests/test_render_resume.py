@@ -2,31 +2,28 @@
 
 These tests pin the three claims the JSON-first pipeline is built to make:
 
-  * the .docx and the .tex say the same things, because one resolver decided
-    what they say and the emitters only chose markup
+  * the PDF and the plain text say the same things, because one resolver
+    decided what they say and the emitters only chose markup
   * a region profile changes what is emitted, so the same record is lawful in
     Sydney and conventional in Dubai
   * a rendered document still has to pass check_ats.py - generating a file is
     not the same as checking one
 """
+import contextlib
+import io
+import os
 import re
 import tempfile
 import unittest
-import zipfile
 from pathlib import Path
 
-from fixtures import (CHECK_ATS, EXAMPLE_URS, RENDER_RESUME, achievement, run,
-                      urs_doc, urs_package, write_urs)
+from fixtures import (CHECK_ATS, EXAMPLE_URS, RENDER_RESUME, achievement,
+                      load_script, run, urs_doc, urs_module, urs_package,
+                      write_urs)
 
 planner = urs_package()
-
-
-def docx_text(path):
-    with zipfile.ZipFile(path) as z:
-        xml = z.read("word/document.xml").decode("utf8")
-    xml = re.sub(r"<w:tab\b[^>]*/?>", "\t", xml)
-    xml = re.sub(r"<w:p\b[^>]*>", "\n", xml)
-    return re.sub(r"<[^>]+>", "", xml)
+emit_latex = urs_module("urs.emit_latex")
+tex = urs_module("urs.tex")
 
 
 class PlanCase(unittest.TestCase):
@@ -182,19 +179,14 @@ class AtsVariant(PlanCase):
 class EmittersDoNotDiverge(PlanCase):
     """The point of the narrow waist: the same bullets in every format."""
 
-    def test_docx_latex_and_text_carry_the_same_bullets(self):
-        from urs import emit_docx, emit_latex, emit_text  # noqa
+    def test_latex_and_text_carry_the_same_bullets(self):
+        from urs import emit_latex, emit_text  # noqa
         plan = self.plan()
         bullets = plan["sections"][2]["entries"][0]["bullets"]
         tex = emit_latex.emit(plan)
         txt = emit_text.emit(plan)
-        with tempfile.TemporaryDirectory() as tmp:
-            path = str(Path(tmp) / "r.docx")
-            emit_docx.emit(plan, path)
-            docx = docx_text(path)
         for bullet in bullets:
             self.assertIn(bullet, txt)
-            self.assertIn(bullet, docx)
             self.assertIn(bullet.replace("%", r"\%"), tex)
 
     def test_latex_escapes_specials(self):
@@ -228,23 +220,24 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.assertEqual(code, 0, out)
         return out
 
-    def test_presentation_docx_passes_check_ats(self):
+    def test_the_plain_text_passes_check_ats_strict(self):
         self.render(EXAMPLE_URS, "--view", "view_au_default")
-        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume.docx")
+        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume_ATS.txt", "--strict")
         self.assertEqual(code, 0, out)
         self.assertIn("PASS", out)
 
-    def test_ats_docx_passes_check_ats_strict(self):
+    def test_one_record_yields_one_deliverable_and_the_paste_in_text(self):
+        """Four artefacts became two plus the .tex they come from. The .docx was
+        removed because the fitter measured it while the PDF was what shipped."""
         self.render(EXAMPLE_URS, "--view", "view_au_default")
-        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume_ATS.docx", "--strict")
-        self.assertEqual(code, 0, out)
-        self.assertIn("PASS", out)
-
-    def test_all_four_artefacts_come_from_one_record(self):
-        self.render(EXAMPLE_URS, "--view", "view_au_default")
-        for name in ("Priya_Raman_Resume.tex", "Priya_Raman_Resume.docx",
-                     "Priya_Raman_Resume_ATS.docx", "Priya_Raman_Resume_ATS.txt"):
+        for name in ("Priya_Raman_Resume.tex", "Priya_Raman_Resume_ATS.txt"):
             self.assertTrue((self.tmp / name).exists(), name)
+        self.assertEqual(list(self.tmp.glob("*.docx")), [])
+
+    def test_ats_max_switches_the_variant_rather_than_adding_a_file(self):
+        self.render(EXAMPLE_URS, "--view", "view_au_default", "--ats-max")
+        self.assertTrue((self.tmp / "Priya_Raman_Resume_ATS.tex").exists())
+        self.assertFalse((self.tmp / "Priya_Raman_Resume.tex").exists())
 
     def test_plain_text_is_ascii_only(self):
         self.render(EXAMPLE_URS, "--view", "view_au_default")
@@ -258,11 +251,167 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.assertIn("view_nonexistent", out)
 
     def test_absent_tex_engine_is_reported_not_assumed(self):
-        import shutil
-        if any(shutil.which(e) for e in ("tectonic", "latexmk", "pdflatex")):
+        if tex.available_engine():
             self.skipTest("a TeX engine is installed, so there is nothing to report")
-        out = self.render(EXAMPLE_URS, "--view", "view_au_default", "--pdf")
+        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
+                        "--view", "view_au_default", "--pdf")
         self.assertIn("UNVERIFIED", out)
+        self.assertEqual(code, 1, out)
+
+
+class ThePdfIsTheDeliverable(unittest.TestCase):
+    """--pdf either produces a PDF or says so in the exit code.
+
+    It used to append the failure to a list of notes and return 0, so a caller
+    could ask for a PDF, be told in passing that there wasn't one, and still see
+    success. Every gate downstream then reported on a document nobody rendered.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
+    def test_a_pdf_is_actually_produced(self):
+        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
+                        "--view", "view_au_default", "--pdf")
+        self.assertEqual(code, 0, out)
+        self.assertTrue((self.tmp / "Priya_Raman_Resume.pdf").exists(), out)
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
+    def test_a_relative_out_dir_still_produces_a_pdf(self):
+        """The reported bug: the engines run with cwd=out_dir, so a relative
+        -o resolved against itself and the compile failed silently."""
+        here = Path.cwd()
+        try:
+            os.chdir(self.tmp)
+            os.mkdir("rel")
+            code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", "rel",
+                            "--view", "view_au_default", "--pdf")
+            self.assertEqual(code, 0, out)
+            self.assertTrue((self.tmp / "rel" / "Priya_Raman_Resume.pdf").exists(), out)
+        finally:
+            os.chdir(here)
+
+    def test_a_failed_compile_exits_nonzero_and_says_unverified(self):
+        module = load_script(RENDER_RESUME)
+        module.compile_pdf = lambda tex_path, out_dir: (None, "stub: no PDF")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = module.main(["render_resume.py", str(EXAMPLE_URS),
+                                "--out", str(self.tmp), "--view", "view_au_default",
+                                "--pdf"])
+        self.assertEqual(code, 1, buf.getvalue())
+        self.assertIn("UNVERIFIED", buf.getvalue())
+
+    def test_without_pdf_a_missing_engine_is_not_a_failure(self):
+        """Rendering the .tex alone is a legitimate thing to ask for."""
+        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
+                        "--view", "view_au_default")
+        self.assertEqual(code, 0, out)
+
+
+class PaperSizeFollowsTheRegion(unittest.TestCase):
+    """A4 was hardcoded in the LaTeX preamble while the .docx honoured the
+    region, so one record produced a Letter .docx and an A4 PDF."""
+
+    def plan(self, region):
+        return planner.build(urs_doc(), region=region)
+
+    def test_us_renders_letterpaper(self):
+        self.assertIn("letterpaper", emit_latex.emit(self.plan("US")))
+
+    def test_au_renders_a4paper(self):
+        self.assertIn("a4paper", emit_latex.emit(self.plan("AU")))
+
+
+class TheTemplateCannotEmitAnAtsHazard(PlanCase):
+    """What replaced the seven structural checks in check_ats.py.
+
+    Those read a .docx for a table, a text box, an image, a drawing, SmartArt,
+    header content and a second column, on every render. None can reach a
+    document by accident now, because one template produces every render - so
+    the check moved from the output to the generator, which is the only place it
+    can be proved rather than sampled. If it moves back, it moves back here.
+    """
+
+    HAZARDS = {
+        "a table": ("tabular", "longtable"),
+        "a text box": ("minipage", "fbox", "parbox"),
+        "an image": ("includegraphics", "graphicx"),
+        "a drawing, SmartArt or a chart": ("tikz", "pgfplots"),
+        "content in a header or footer": ("fancyhdr", "markboth"),
+        "a second column": ("multicol", "twocolumn"),
+    }
+
+    def rendered(self):
+        return [(fmt, emit_latex.emit(self.plan(fmt=fmt)))
+                for fmt in ("presentation", "ats-maximal")]
+
+    def test_no_variant_can_express_a_structural_hazard(self):
+        for fmt, tex in self.rendered():
+            for hazard, markers in self.HAZARDS.items():
+                for marker in markers:
+                    self.assertNotIn(marker, tex, f"{fmt} emitted {hazard}")
+
+    def test_the_package_list_is_pinned(self):
+        """The golden file, narrowed to the part that carries risk. Every hazard
+        above needs a package to express it, so pinning the list is what makes
+        the class above hold for hazards nobody has thought of yet."""
+        for fmt, tex in self.rendered():
+            packages = re.findall(r"\\usepackage(?:\[[^\]]*\])?\{([^}]*)\}", tex)
+            self.assertEqual(packages, ["fontenc", "inputenc", "geometry", "enumitem"], fmt)
+
+    def test_the_ascii_variant_renders_an_ascii_bullet(self):
+        """A PDF bullet is a glyph in the text layer, so U+2022 would fail the
+        ATS-maximal variant's own ASCII rule."""
+        by_fmt = dict(self.rendered())
+        self.assertIn("label={-}", by_fmt["ats-maximal"])
+        self.assertIn(r"label=\textbullet", by_fmt["presentation"])
+
+    def test_the_ascii_variant_breaks_ligatures(self):
+        """T1 Computer Modern turns "fi" into U+FB01 and "ffi" into U+FB03 - one
+        codepoint each in the extracted text, so a parser reading "efficiency"
+        gets a word that is not there."""
+        doc = urs_doc()
+        doc["engagements"][0]["achievements"] = [achievement(
+            "Improved efficiency of the affiliate workflow.", "eff-1")]
+        tex = emit_latex.emit(self.plan(doc, fmt="ats-maximal"))
+        # "ff" and "fi" are both broken, so "efficiency" leaves as ef{}f{}iciency
+        # and no ligature pair survives anywhere in the bullet.
+        self.assertIn("ef{}f{}iciency", tex)
+        self.assertIn("workf{}low", tex)
+        self.assertNotIn("efficiency", tex)
+
+
+class TargetSelection(unittest.TestCase):
+    """--profile names a variant, --format names a file kind, and the stem
+    follows the variant. It used to follow the format, so an ats-maximal .tex
+    was written over the presentation one under the same name."""
+
+    def setUp(self):
+        self.select = load_script(RENDER_RESUME).select_targets
+
+    def test_profile_is_not_discarded_under_the_default_format(self):
+        rendered = self.select("all", "ats-maximal")
+        self.assertEqual([v for v, k, _ in rendered if k == "latex"], ["ats-maximal"])
+
+    def test_the_plain_text_rides_along_whichever_variant_is_chosen(self):
+        for profile in (None, "ats-maximal"):
+            kinds = {k for _, k, _ in self.select("all", profile)}
+            self.assertEqual(kinds, {"latex", "txt"}, profile)
+
+    def test_an_ats_render_cannot_overwrite_the_presentation_one(self):
+        ats = self.select("latex", "ats-maximal")[0][2]
+        presentation = self.select("latex", None)[0][2]
+        self.assertNotEqual(ats, presentation)
+        self.assertIn("_ATS", ats)
+
+    def test_no_profile_renders_the_presentation_variant(self):
+        rendered = self.select("all", None)
+        self.assertEqual(len(rendered), 2)
+        self.assertEqual([v for v, k, _ in rendered if k == "latex"], ["presentation"])
 
 
 if __name__ == "__main__":

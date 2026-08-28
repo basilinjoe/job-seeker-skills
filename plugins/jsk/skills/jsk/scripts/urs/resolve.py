@@ -5,8 +5,9 @@ in what order, what is gated away by the region profile, how a date reads, and
 whether the text is folded to ASCII. The emitters receive finished strings and
 decide nothing.
 
-That is the guarantee the pipeline exists to provide. A DOCX and a PDF built
-from the same view cannot disagree, because neither of them chose what to say.
+That is the guarantee the pipeline exists to provide. The PDF and the plain
+text built from the same view cannot disagree, because neither of them chose
+what to say.
 """
 import re
 
@@ -487,6 +488,15 @@ def build(doc, view_id=None, region=None, fmt=None):
         r.warnings.append(
             f"profile {profile['id']} requires {missing!r} and the record has nothing for it")
 
+    # ATS-maximal is deliberately longer: it repeats the employer on every role
+    # line and expands the skills block with keyword aliases. Holding it to the
+    # presentation budget would mean cutting evidence to satisfy a constraint a
+    # parser does not have, so it carries its own budget and falls back to the
+    # shared one when a view does not set it.
+    budget = view.get("budget") or {}
+    pages = budget.get("ats_maximal_pages") if fmt == "ats-maximal" else None
+    pages = pages or budget.get("pages") or gate.setting("pages", 2)
+
     photo = (doc.get("person") or {}).get("photo")
     photo_uri = None
     if photo and gate.setting("photo") and gate.permits("person.photo"):
@@ -496,9 +506,15 @@ def build(doc, view_id=None, region=None, fmt=None):
         "view": view["id"],
         "format": fmt,
         "profile": profile["id"],
-        "region": profile.get("region"),
+        # The profile's own region is a family - "XX" covers the US, the UK and
+        # much of Europe - so it cannot answer a question like paper size. When
+        # the caller named a region explicitly that is the more specific answer,
+        # and it wins. Without this, --region US loaded the default profile and
+        # reported region "XX", so the Letter branch in the emitters was
+        # unreachable and a US resume rendered A4.
+        "region": (region or "").strip().upper() or profile.get("region"),
         "locale": view.get("locale"),
-        "pages": (view.get("budget") or {}).get("pages") or gate.setting("pages", 2),
+        "pages": pages,
         "name": name,
         "header_lines": header_lines,
         "photo": photo_uri,

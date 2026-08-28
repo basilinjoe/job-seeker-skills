@@ -2,12 +2,11 @@
 
 Standard library only, matching the scripts under test. Every artefact is written
 to a caller-supplied temp directory, so nothing lands in the repo and .gitignore's
-`*.docx` rule never comes into it.
+`*.pdf` rule never comes into it.
 """
 import importlib.util
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -34,40 +33,38 @@ def load_script(path):
     spec.loader.exec_module(module)
     return module
 
-W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
-V_NS = 'xmlns:v="urn:schemas-microsoft-com:vml"'
+def build_text(path, paragraphs=(), trailing=()):
+    """Write the extracted-text form of a resume: one paragraph per line.
 
-
-def _esc(text):
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def paragraph(text, style=None, font="Calibri"):
-    props = f'<w:pStyle w:val="{style}"/>' if style else ""
-    props += f'<w:rPr><w:rFonts w:ascii="{font}"/></w:rPr>'
-    return (f"<w:p><w:pPr>{props}</w:pPr>"
-            f'<w:r><w:t xml:space="preserve">{_esc(text)}</w:t></w:r></w:p>')
-
-
-def build_docx(path, paragraphs=(), body_extra="", extra_parts=None, font="Calibri"):
-    """Write a minimal but well-formed .docx.
-
-    paragraphs: iterable of `text` or `(text, style)`.
-    body_extra: raw OOXML appended inside <w:body> (tables, text boxes, sectPr).
-    extra_parts: {zip_entry_name: content} for headers, media, diagrams.
+    This replaces build_docx. Both document gates now read text - check_ats.py
+    from the PDF or the .txt, check_prose.py from the .tex or the .txt - so a
+    fixture exercising a rule about what a document *says* no longer has to
+    synthesise OOXML to say it. The seven rules that needed real OOXML were the
+    structural ones, and those are gone: one LaTeX template cannot emit a table
+    or a text box, so the check moved to a golden-file test on the template.
     """
-    body = ""
-    for item in paragraphs:
-        text, style = (item, None) if isinstance(item, str) else item
-        body += paragraph(text, style, font)
-    doc = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-           f"<w:document {W_NS} {V_NS}><w:body>{body}{body_extra}</w:body></w:document>")
-    with zipfile.ZipFile(str(path), "w") as z:
-        z.writestr("[Content_Types].xml", "<Types/>")
-        z.writestr("_rels/.rels", "<Relationships/>")
-        z.writestr("word/document.xml", doc)
-        for name, content in (extra_parts or {}).items():
-            z.writestr(name, content)
+    lines = [item if isinstance(item, str) else item[0] for item in paragraphs]
+    lines.extend(trailing)
+    with open(str(path), "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+    return str(path)
+
+
+def build_pdf(path, text_lines=(), blank=False):
+    """A PDF written directly, for the rules that are about the PDF itself.
+
+    `blank=True` produces a page with no text layer at all - a scan, as far as
+    any parser is concerned - which is the case the extractability rule exists
+    for and the one no .txt fixture can express.
+    """
+    import pymupdf
+
+    doc = pymupdf.open()
+    page = doc.new_page()
+    if not blank:
+        page.insert_text((72, 72), "\n".join(text_lines), fontsize=11)
+    doc.save(str(path))
+    doc.close()
     return str(path)
 
 
@@ -150,12 +147,17 @@ RENDER_RESUME = SCRIPTS / "render_resume.py"
 EXAMPLE_URS = SCHEMA_DIR / "example.resume.json"
 
 
-def urs_package():
-    """Import the urs package the renderer uses, for plan-level assertions."""
+def urs_module(name):
+    """Import a module from the urs package the renderer itself uses."""
     import importlib
     if str(SCRIPTS) not in sys.path:
         sys.path.insert(0, str(SCRIPTS))
-    return importlib.import_module("urs.plan")
+    return importlib.import_module(name)
+
+
+def urs_package():
+    """Import the urs package the renderer uses, for plan-level assertions."""
+    return urs_module("urs.plan")
 
 
 def instant(value, precision="month"):

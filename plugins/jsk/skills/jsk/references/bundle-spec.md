@@ -57,7 +57,7 @@ One submission is a **set of files sharing a stem**, all in `tailoring/applicati
 | `<company>-<role>.md` | the log: what was sent, what was selected, what came back |
 | `<company>-<role>.target.md` | the posting, ranking and gaps **frozen at submission** |
 | `<company>-<role>.resume.json` | the URS record it rendered from |
-| `<Name>_<Company>_Resume*.{docx,txt,tex,pdf}` | the files actually sent |
+| `<Name>_<Company>_Resume*.{pdf,tex,txt}` | the files actually sent |
 
 **Both inputs are frozen, not just the record.** `tailoring/targets/<company>-<role>.md` is the
 working copy and stays editable; the `.target.md` beside the application is the archive and does not.

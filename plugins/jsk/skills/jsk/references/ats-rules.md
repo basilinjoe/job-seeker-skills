@@ -13,6 +13,9 @@ looks repetitive. You cannot optimise both in one document.
 
 Plus a **plain-text** file for portals with paste-in boxes.
 
+Both variants ship as **one PDF**. `--ats-max` on `/jsk:tailor` chooses which variant that PDF
+holds; it never produces a second file. One posting in, one PDF out.
+
 When unsure what an employer runs, send ATS-maximal. A plain resume that parses beats a beautiful one
 that arrives fragmented.
 
@@ -23,11 +26,31 @@ that arrives fragmented.
 - **No multi-column layouts.**
 - **Nothing in headers or footers** — many parsers discard them, and contact details are the worst
   thing to lose.
-- **`.docx`**, not `.pdf`, `.doc` or `.rtf`, unless the posting names a format.
-- **Standard fonts:** Calibri, Arial, Helvetica, Georgia, Times New Roman.
+
+  Those four are now **guaranteed rather than checked.** One LaTeX template produces every render
+  and it cannot express any of them, so `check_ats.py` stopped looking per render and a golden-file
+  test on `emit_latex.py` guards the template instead. Keep the rules written down: they are why the
+  template looks the way it does, and the first person to add a two-column layout will come here
+  first.
+
+- **`.pdf`**, from `render_resume.py --pdf`. This reverses the older rule, which said `.docx` and
+  not `.pdf`. The rule was right for its time and wrong by the end: a `.docx` and a PDF built from
+  one record disagreed about page count, only the `.docx` was ever measured, and the file being
+  measured was not the file being sent. Modern portals — Workday, Greenhouse, Lever, Ashby — parse
+  PDF text without complaint. **If a posting names a format, follow the posting**; a portal that
+  demands `.docx` is a portal to submit to by hand.
+- **A text layer, not a picture of one.** The one genuinely new PDF hazard: a PDF whose fonts are
+  not embedded, or that is a scan, extracts as nothing at all. `check_ats.py` fails on it.
+- **No ligatures in the ATS-maximal render.** T1 Computer Modern turns `fi` into U+FB01 and `ffi`
+  into U+FB03 — one codepoint each — so a parser reading "efficiency" gets a word that is not there.
+  `emit_latex.py` breaks the pairs for the ASCII variants. This never showed up under `.docx`,
+  because nothing ever looked at a rendered page.
 - **Section headings must contain the literal words** Summary, Skills, Experience, Education. A
   heading like "Core Competencies" is invisible to a parser matching on "Skills".
-- **Real bullet lists** via numbering definitions, never a typed `•` or `-`.
+- **Bullet markers a parser maps:** `•` in the presentation render, `-` in the ATS-maximal one.
+  A PDF carries no list *structure* — the marker is a glyph in the text layer whatever produced it —
+  so the old rule about real numbering versus a typed glyph no longer has anything to distinguish.
+  What is left is the choice of glyph, and a decorative one breaks the line.
 - **Dates as `Mon YYYY`** with a plain hyphen: `Jun 2025 - Present`.
 - **No bracketed placeholders.** `[X%]` or `[NUMBER]` shipping in a resume is worse than omitting
   the number. Any `[` in the finished text fails the check — a bracket in a resume is almost always
@@ -63,17 +86,16 @@ it after the machine.
 
 ## What check_ats.py verifies
 
-A `.docx` is a zip. Read `word/document.xml` and check:
+It reads the `.pdf` (text via `pymupdf`) or the `.txt`. The seven structural checks it used to run
+over `word/document.xml` are gone with the format that could express them — see the note under the
+hard rules above.
+
+First, that the deliverable is readable at all:
 
 | Signal | Meaning |
 |---|---|
-| `<w:tbl>` | table |
-| `w:txbxContent` or `<v:shape` | text box |
-| `word/media/` entries | images |
-| `<w:drawing>` | drawing object |
-| `diagrams` / `charts` parts | SmartArt or chart |
-| non-empty `word/header*.xml` / `footer*.xml` | content parsers discard |
-| `<w:cols w:num="2+">` | multi-column |
+| almost no extractable text | a scan, or fonts that are not embedded — unreadable to every parser |
+| no embedded fonts | warns: extraction may vary between parsers |
 
 Then on extracted text:
 
@@ -82,15 +104,22 @@ Then on extracted text:
   count; that is the whole point of the rule.
 - A parseable email, and a phone number with at least eight digits that is not a year range.
 - No `[...]` span and no stray `[` anywhere.
-- No literal bullet glyph starting a line; at least four `Mon YYYY` dates; fonts in the standard set
-  (read from `document.xml` and `styles.xml`); arrow glyphs absent — warn normally, fail under
-  `--strict`.
+- Bullet markers are `•` or `-`, the two the templates emit and every parser maps. A decorative
+  glyph fails. In a `.docx` this rule asked whether the bullet had been *typed* instead of being
+  real list numbering; a PDF has no list structure to compare against, so the question became which
+  glyph rather than whether one was typed.
+- At least four `Mon YYYY` dates; arrow glyphs absent — warn normally, fail under `--strict`.
+- The font-name allowlist is gone. One template chooses the typeface, and a LaTeX PDF embeds Latin
+  Modern, which no list of Office fonts would have contained: the check would have warned on every
+  correct render and caught no incorrect one. Extractability replaced it, which is what the name
+  check was a proxy for.
 
 Under `--strict` additionally: no non-ASCII at all (fails), plain hyphens in date ranges (fails),
 and role lines that appear not to name an employer (warns — the heuristic is too rough to block on).
 
-Malformed input never crashes: a file that is not a readable `.docx` reports a failure like any
-other finding.
+Malformed input never crashes: a file that is not a readable `.pdf` reports a failure like any
+other finding. A `.docx` is rejected — it is no longer a deliverable, and a gate that quietly
+accepted one would be checking a file nobody sends.
 
 Print `FAIL n WARN n`, then each finding, then `PASS - safe to send` or
 `DO NOT SEND - fix the failures above`. Exit non-zero on failure.

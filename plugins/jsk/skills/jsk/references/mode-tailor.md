@@ -153,13 +153,23 @@ chose, and render from it:
     { "ref": "eng_northbridge", "order": 2, "treatment": "brief" }
   ],
   "provenance_floor": "confirmed",
-  "budget": { "pages": 2 } }
+  "budget": { "pages": 2, "ats_maximal_pages": 3 } }
 ```
 
 ```bash
 python3 <skill-dir>/scripts/validate_urs.py resume.json
 python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view view_acme_principal --pdf
 ```
+
+Add `--ats-max` when the posting goes into a portal known to parse badly — Workday, Taleo,
+SuccessFactors, Naukri — or when the target is a form rather than a person. It switches which variant
+the PDF holds; there is still one PDF. The presentation variant is right for a referral or a direct
+email. When in doubt, ATS-maximal.
+
+`ats_maximal_pages` exists because that variant is deliberately longer: it repeats the employer on
+every role line and expands the skills block with keyword aliases. Give it its own budget rather than
+cutting evidence to fit the presentation one — a parser does not care about length, and the reason
+this was never visible before is that the ATS-maximal render was a `.docx` nobody ever measured.
 
 **A view references content; it cannot contain it.** The validator rejects free text inside one. That
 is the structural expression of the rule at the top of this file: a tailored resume is a selection
@@ -197,8 +207,8 @@ frozen, every previous application remains reproducible — same posting, same r
 output, a year later — and the application folder answers *what was this answering* without leaving
 itself.
 
-Then the gates. `check_ats.py` PASSes on both variants — plain and `--strict` — and `check_prose.py`
-PASSes on the presentation variant and the plain text. Tailoring rewrites bullets against a posting,
+Then the gates. `check_ats.py` PASSes on the rendered `.pdf`, and `--strict` on the `.txt` (or on an
+ATS-maximal PDF); `check_prose.py` PASSes on the `.tex` and the plain text. Tailoring rewrites bullets against a posting,
 which is exactly when a rewritten clause loses its object or slips into the third person, so the prose
 gate matters more here than in a straight rebuild. And because a rewritten bullet is where a number
 drifts, `validate_urs.py` re-checks every numeral against its metric before anything renders.

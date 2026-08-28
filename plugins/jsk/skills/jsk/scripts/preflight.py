@@ -38,13 +38,12 @@ SCRIPTS = [
     "score_projects.py", "fit_pages.py", "validate_urs.py", "render_resume.py",
     "migrate_bundle.py", "pipeline.py", "pipeline_model.py",
 ]
-URS_MODULES = ["__init__.py", "plan.py", "profiles.py",
-               "emit_docx.py", "emit_latex.py", "emit_text.py"]
+URS_MODULES = ["__init__.py", "plan.py", "profiles.py", "tex.py",
+               "emit_latex.py", "emit_text.py"]
 SCHEMA_FILES = ["urs-v1.schema.json", "profile.schema.json", "example.resume.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
 
 TEX_ENGINES = ["tectonic", "latexmk", "pdflatex", "xelatex", "lualatex"]
-OFFICE = ["soffice", "libreoffice"]
 
 INSTALL = {
     "tex": {
@@ -54,17 +53,13 @@ INSTALL = {
         "note": "tectonic is a single self-contained binary; TeX Live and MiKTeX are "
                 "gigabytes and only worth it if you already wanted them.",
     },
-    "office": {
-        "win32": "winget install --id TheDocumentFoundation.LibreOffice",
-        "darwin": "brew install --cask libreoffice",
-        "linux": "apt install libreoffice-writer",
-        "note": "Used only to measure page count and to render the .docx to PDF.",
-    },
     "pyyaml": {"pip": "pyyaml", "note": "Reads bundle frontmatter."},
     "jsonschema": {"pip": "jsonschema",
                    "note": "Full URS schema validation. Without it the structural "
                            "rules still run, but a mistyped key is not caught."},
-    "pymupdf": {"pip": "pymupdf", "note": "Measures the rendered page fill."},
+    "pymupdf": {"pip": "pymupdf",
+                "note": "Reads the PDF: check_ats.py extracts its text and "
+                        "fit_pages.py measures its pages."},
 }
 
 
@@ -164,25 +159,20 @@ def gather(bundle_arg=None):
     engine, path = which_any(TEX_ENGINES)
     checks.append(Check(
         f"TeX engine ({engine})" if engine else "TeX engine", bool(engine), key="tex",
-        disables="no PDF from LaTeX. render_resume.py --pdf writes the .tex and "
-                 "reports the resume UNVERIFIED, which is correct and still means "
-                 "nobody has looked at a rendered page",
+        disables="no PDF at all. The PDF is the only rendered deliverable, so "
+                 "without an engine there is nothing to send, nothing to check "
+                 "and nothing to measure - render_resume.py --pdf reports "
+                 "UNVERIFIED and exits non-zero",
         detail=path or ""))
-
-    office, opath = which_any(OFFICE)
-    checks.append(Check(
-        f"LibreOffice ({office})" if office else "LibreOffice", bool(office),
-        key="office",
-        disables="fit_pages.py cannot measure the render, so a page budget is a "
-                 "guess rather than a measurement",
-        detail=opath or ""))
 
     # The module name fit_pages.py actually imports. Probing the legacy `fitz`
     # alias instead answers a different question and prints a deprecation
     # warning while doing it.
     checks.append(Check(
         "pymupdf", module_available("pymupdf"), key="pymupdf",
-        disables="fit_pages.py cannot read per-page fill"))
+        disables="the PDF cannot be read: check_ats.py cannot extract its text "
+                 "and fit_pages.py cannot measure its pages, so the parse gate "
+                 "and the page budget are both unverifiable"))
 
     bundle = bundle_arg or find_bundle()
     checks.append(Check(
@@ -193,7 +183,16 @@ def gather(bundle_arg=None):
     return checks, bundle
 
 
-REQUIRED = {"Python", "scripts", "urs renderer package", "URS schema"}
+# LibreOffice used to appear here. It rendered the .docx for page measurement;
+# with the .docx gone it has no job left in this pipeline.
+#
+# A TeX engine and pymupdf moved the other way, from optional to required. They
+# were survivable while the .docx was the portal artefact and the PDF was a
+# nicety. Now the PDF is the only rendered deliverable, so a machine without
+# them cannot produce a resume at all - reporting that as a degraded install
+# would be telling someone their toolchain works when it does not.
+REQUIRED = {"Python", "scripts", "urs renderer package", "URS schema",
+            "TeX engine", "pymupdf"}
 
 
 def is_required(check):
@@ -216,18 +215,21 @@ def verify(tmp):
 
     run("validate the example record",
         [os.path.join(HERE, "validate_urs.py"), EXAMPLE, "--level", "2"])
-    ok = run("render every format",
+    # --pdf, because the PDF is the deliverable: a render that stops at the .tex
+    # proves the resolver works and nothing about whether anything can be sent.
+    ok = run("render the example to a PDF",
              [os.path.join(HERE, "render_resume.py"), EXAMPLE, "--out", tmp,
-              "--view", "view_au_default"])
+              "--view", "view_au_default", "--pdf"])
     if not ok:
         return steps
 
-    presentation = os.path.join(tmp, "Priya_Raman_Resume.docx")
-    ats = os.path.join(tmp, "Priya_Raman_Resume_ATS.docx")
-    run("parse gate, presentation variant", [os.path.join(HERE, "check_ats.py"), presentation])
-    run("parse gate, ATS variant (strict)",
-        [os.path.join(HERE, "check_ats.py"), ats, "--strict"])
-    run("prose gate", [os.path.join(HERE, "check_prose.py"), presentation])
+    pdf = os.path.join(tmp, "Priya_Raman_Resume.pdf")
+    tex = os.path.join(tmp, "Priya_Raman_Resume.tex")
+    txt = os.path.join(tmp, "Priya_Raman_Resume_ATS.txt")
+    run("parse gate, rendered PDF", [os.path.join(HERE, "check_ats.py"), pdf])
+    run("parse gate, plain text (strict)",
+        [os.path.join(HERE, "check_ats.py"), txt, "--strict"])
+    run("prose gate", [os.path.join(HERE, "check_prose.py"), tex])
     return steps
 
 

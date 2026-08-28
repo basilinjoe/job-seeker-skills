@@ -84,12 +84,29 @@ class RequiredVersusOptional(unittest.TestCase):
         self.assertTrue(any(n.startswith("urs renderer") for n in required))
         self.assertTrue(any(n.startswith("URS schema") for n in required))
 
-    def test_external_tools_are_not_required(self):
+    def test_the_pdf_toolchain_is_required(self):
+        """A TeX engine and pymupdf were survivable while the .docx was the
+        portal artefact. The PDF is now the only rendered deliverable, so a
+        machine without them cannot produce a resume at all - reporting that as
+        a degraded install would say the toolchain works when it does not."""
         checks, _ = preflight.gather()
-        for name in ("TeX engine", "LibreOffice", "pyyaml", "jsonschema", "pymupdf"):
+        for name in ("TeX engine", "pymupdf"):
+            check = next(c for c in checks if c.name.startswith(name))
+            self.assertTrue(preflight.is_required(check),
+                            f"{name} must block: without it there is no deliverable")
+
+    def test_the_convenience_libraries_are_not_required(self):
+        checks, _ = preflight.gather()
+        for name in ("pyyaml", "jsonschema"):
             check = next(c for c in checks if c.name.startswith(name))
             self.assertFalse(preflight.is_required(check),
                              f"{name} must not block the core pipeline")
+
+    def test_libreoffice_is_no_longer_probed(self):
+        """It rendered the .docx for page measurement. With the .docx gone it has
+        no job left, and probing for it would teach people to install it."""
+        checks, _ = preflight.gather()
+        self.assertFalse([c for c in checks if "ibre" in c.name or "offic" in c.name.lower()])
 
     def test_an_absent_bundle_does_not_block(self):
         checks, _ = preflight.gather()
@@ -118,9 +135,9 @@ class CliBehaviour(unittest.TestCase):
     def test_verify_runs_the_pipeline_and_every_gate(self):
         code, out = run(PREFLIGHT, "--verify")
         self.assertEqual(code, 0, out)
-        for step in ("validate the example record", "render every format",
-                     "parse gate, presentation variant",
-                     "parse gate, ATS variant (strict)", "prose gate"):
+        for step in ("validate the example record", "render the example to a PDF",
+                     "parse gate, rendered PDF",
+                     "parse gate, plain text (strict)", "prose gate"):
             self.assertIn(step, out)
         self.assertNotIn("FAIL", out)
 

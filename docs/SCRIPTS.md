@@ -15,9 +15,9 @@ python3 scripts/okf.py new ./my-career --name "Your Name"
 python3 scripts/okf.py validate resume.json    # a record
 python3 scripts/okf.py validate ./my-career    # or a bundle - it dispatches
 python3 scripts/okf.py render resume.json --out . --pdf
-python3 scripts/okf.py check resume.docx       # both document gates, one pass
+python3 scripts/okf.py check resume.pdf        # both document gates, one pass
 python3 scripts/okf.py score ./my-career target.md
-python3 scripts/okf.py fit resume.docx --target-pages 2
+python3 scripts/okf.py fit resume.tex --target-pages 2
 ```
 
 Every subcommand forwards to the script below with the same arguments and the same exit code, so
@@ -96,10 +96,11 @@ python3 scripts/render_resume.py resume.json --out DIR
 python3 scripts/render_resume.py resume.json --out DIR --pdf
 python3 scripts/render_resume.py resume.json --out DIR --view view_au_default
 python3 scripts/render_resume.py resume.json --out DIR --region au
-python3 scripts/render_resume.py resume.json --out DIR --format docx
+python3 scripts/render_resume.py resume.json --out DIR --pdf --ats-max
 ```
 
-One record to `.tex` (and PDF with `--pdf`), both `.docx` variants and `.txt`.
+One record to `.tex` (and PDF with `--pdf`) plus `.txt`. The PDF is the only rendered deliverable;
+`--ats-max` chooses which variant it holds rather than adding a second file.
 
 | Flag | Does |
 |---|---|
@@ -108,35 +109,44 @@ One record to `.tex` (and PDF with `--pdf`), both `.docx` variants and `.txt`.
 | `--view ID` | render a tailored view |
 | `--region CODE` | apply a region profile |
 | `--profile PATH` | a profile file directly |
-| `--format` | `all` (default), or one of `tex` / `docx` / `txt` |
+| `--format` | `all` (default), or one of `latex` / `txt` |
+| `--ats-max` | render the PDF in the ATS-maximal variant (shorthand for `--profile ats-maximal`) |
 | `--name` | override the output filename stem |
 
-Without a TeX engine it writes the `.tex` and reports the resume **unverified** rather than implying a
-PDF nobody rendered.
+**With `--pdf`, a run that produced no PDF exits 1** and says **UNVERIFIED**. It used to record the
+failure as a passing note and exit 0, so a caller could ask for a PDF, be told in passing there wasn't
+one, and still see success.
 
 ## The gates on the document
 
 ### `check_ats.py`
 
 ```bash
-python3 scripts/check_ats.py resume.docx            # presentation variant
-python3 scripts/check_ats.py resume.docx --strict   # ATS-maximal variant
+python3 scripts/check_ats.py resume.pdf             # the rendered deliverable
+python3 scripts/check_ats.py resume_ATS.txt --strict  # the ASCII variant
 ```
 
-The **parse gate**. Inspects the generated `.docx` for what makes applicant tracking systems mangle a
-resume: tables, text boxes, header/footer content, section words that appear in prose but never in a
-heading, leftover bracketed placeholders, unparseable phone numbers, and arrow glyphs that fuse job
-titles when stripped. No dependencies.
+The **parse gate**. Reads the PDF's text layer (or the `.txt`) for what makes applicant tracking
+systems mangle a resume: text that does not extract at all, section words that appear in prose but
+never in a heading, leftover bracketed placeholders, unparseable phone numbers, bullet glyphs a
+parser will not map, and arrow glyphs that fuse job titles when stripped.
+
+The structural checks — tables, text boxes, header content, second columns — are gone. One LaTeX
+template produces every render and cannot express any of them, so the check moved from the output to
+a golden-file test on the template, where it is proved rather than sampled. Needs `pymupdf` for a
+PDF; the `.txt` path is standard library only.
 
 ### `check_prose.py`
 
 ```bash
-python3 scripts/check_prose.py resume.docx
+python3 scripts/check_prose.py resume.tex
+python3 scripts/check_prose.py resume_ATS.txt
 ```
 
 The **prose gate** — the writing rules `check_ats.py` cannot see. Third person, unresolved
 placeholders, sentences that stop before their object, phrases that read as junior, bullets repeated
-across projects, bullets that clear their throat before the verb. No dependencies.
+across projects, bullets that clear their throat before the verb. It reads the `.tex` rather than the
+PDF, because a bullet is an unambiguous `\item` there and needs no library to find. No dependencies.
 
 ## The bundle
 
@@ -222,20 +232,22 @@ match. Needs `pyyaml`.
 ### `fit_pages.py`
 
 ```bash
-python3 scripts/fit_pages.py resume.docx --target-pages 2
-python3 scripts/fit_pages.py resume.docx --dry-run
-python3 scripts/fit_pages.py resume.docx --in-place
-python3 scripts/fit_pages.py resume.docx -o fitted.docx
-python3 scripts/fit_pages.py resume.docx --renderer /path/to/soffice
+python3 scripts/fit_pages.py resume.tex --target-pages 2
+python3 scripts/fit_pages.py resume.tex --dry-run
+python3 scripts/fit_pages.py resume.tex --in-place
+python3 scripts/fit_pages.py resume.tex -o fitted.tex
 ```
 
-Renders, measures which block spilled, then applies density levers in a fixed order — spacing, bullet
-spacing, margins, font size — stopping at the 10pt and 0.5" floors instead of crossing them. If the
-target is unreachable without a breach it exits non-zero, because the remedy then is to cut evidence,
-not to shrink type.
+Rewrites the density knobs in the `.tex`, recompiles, and measures the PDF that comes out. It applies
+the levers in a fixed order — spacing, bullet spacing, margins, font size — stopping at the 10pt and
+0.5" floors instead of crossing them. If the target is unreachable without a breach it exits
+non-zero, because the remedy then is to cut evidence, not to shrink type.
 
-Needs LibreOffice and `pymupdf`. This and the PDF step of `render_resume.py` are the only parts with
-external dependencies.
+It used to measure a `.docx` through LibreOffice while the PDF was what got sent. The two disagreed,
+and a resume this reported as two pages shipped as three — a gate passing on a document nobody was
+sending. It now measures the artefact that goes out.
+
+Needs a TeX engine and `pymupdf`.
 
 ---
 

@@ -42,12 +42,13 @@ several gigabytes.
 
 Use `AskUserQuestion` to offer the choice rather than assuming:
 
-- **The TeX engine is the one that matters.** Without it there is no PDF, and without a PDF nobody has
-  looked at a rendered page — which means every resume this produces is marked *unverified*, honestly
-  but permanently. `tectonic` is a single self-contained binary and is the right recommendation;
-  MiKTeX and TeX Live are worth it only if they already wanted them.
-- **LibreOffice and pymupdf** together let `fit_pages.py` measure the page count. Without them a
-  two-page resume is an estimate. Survivable, and worth saying out loud.
+- **The TeX engine is not optional.** The PDF is the only rendered deliverable, so without an engine
+  there is nothing to send, nothing to check and nothing to measure — preflight reports **BLOCKED**,
+  not a gap. `tectonic` is a single self-contained binary and is the right recommendation; MiKTeX and
+  TeX Live are worth it only if they already wanted them.
+- **pymupdf is not optional either.** `check_ats.py` reads the PDF's text through it and
+  `fit_pages.py` measures the pages through it. Without it the parse gate and the page budget are
+  both unverifiable. One `pip install`.
 - **pyyaml** is needed to read the bundle at all — `validate_bundle.py` and `score_projects.py` both
   fail without it. Recommend installing it.
 - **jsonschema** catches a mistyped key in the URS record. Without it the structural rules still run,
@@ -96,8 +97,8 @@ Close the loop on theirs.
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/validate_urs.py <bundle>/resume-generation/resume.json
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/render_resume.py <bundle>/resume-generation/resume.json --out . --pdf
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_ats.py <Name>_Resume.docx
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_prose.py <Name>_Resume.docx
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_ats.py <Name>_Resume.pdf
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_prose.py <Name>_Resume.tex
 ```
 
 Show every gate's output. If the PDF step reports the resume **unverified**, say so plainly rather

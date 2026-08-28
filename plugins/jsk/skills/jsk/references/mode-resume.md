@@ -6,20 +6,24 @@ bundle's own `resume-generation/*` if present, which wins.
 
 ## The pipeline is JSON-first
 
-**Never author a `.docx` or a `.tex` by hand.** Build the URS document, then render every format from
-it:
+**Never author a `.tex` by hand.** Build the URS document, then render from it:
 
 ```
-bundle (Markdown)  ->  resume.json (URS)  ->  render plan  ->  .tex -> .pdf
-                                                           \-> .docx  x2
-                                                           \-> .txt
+bundle (Markdown)  ->  resume.json (URS)  ->  render plan  ->  .tex -> .pdf   (the deliverable)
+                                                           \-> .txt          (paste-in boxes)
 ```
 
-The reason is not tidiness. A hand-built presentation `.docx` and a hand-built ATS `.docx` are two
-documents that have to agree about every date, every bullet and every number, and they stop agreeing
-the moment one is edited — usually silently, usually in the copy that gets sent. One record with
-three emitters cannot drift, because no emitter decides what the document says. `scripts/urs/plan.py`
-makes every content decision exactly once; the emitters only choose markup.
+The reason is not tidiness. Two hand-built documents have to agree about every date, every bullet and
+every number, and they stop agreeing the moment one is edited — usually silently, usually in the copy
+that gets sent. One record with two emitters cannot drift, because no emitter decides what the
+document says. `scripts/urs/plan.py` makes every content decision exactly once; the emitters only
+choose markup.
+
+There used to be a third and fourth file: a presentation `.docx` and an ATS-maximal `.docx`. They
+went because the same argument applied one level up. `fit_pages.py` measured the `.docx` through
+LibreOffice while the PDF was what got sent, the two disagreed, and a resume reported as two pages
+shipped as three. **`--ats-max` now chooses which variant the single PDF holds** rather than adding a
+second file.
 
 The JSON is also the durable artefact. Save it — `resume-generation/resume.json` for a general
 rebuild, `tailoring/applications/<company>-<role>.resume.json` for a tailored one. A month later the
@@ -32,9 +36,11 @@ from", and only the record answers that.
 |---|---|
 | `resume.json` | The record every other file is rendered from |
 | `<Name>_Resume.pdf` | Humans — referrals, direct email, interviews |
-| `<Name>_Resume.docx` | Humans who want an editable file |
-| `<Name>_Resume_ATS.docx` | Portals — Workday, Taleo, SuccessFactors, Naukri |
+| `<Name>_Resume.tex` | What the PDF is compiled from; the prose gate and the fitter both read it |
 | `<Name>_Resume_ATS.txt` | Paste-in boxes |
+
+With `--ats-max` the first two become `<Name>_Resume_ATS.pdf` and `<Name>_Resume_ATS.tex` — the same
+two files in the other variant, never four files.
 
 ## Build order
 
@@ -69,8 +75,8 @@ from", and only the record answers that.
 python3 <skill-dir>/scripts/validate_urs.py resume.json --level 2
 ```
 
-   Nothing is rendered from a document that fails. A defect in the record becomes a defect in four
-   files at once, and finding it in the `.docx` means finding it three files too late.
+   Nothing is rendered from a document that fails. A defect in the record becomes a defect in every
+   file at once, and finding it in the PDF means finding it too late.
 
 6. **Render every format from that one file:**
 
@@ -78,8 +84,9 @@ python3 <skill-dir>/scripts/validate_urs.py resume.json --level 2
 python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view <view-id> --pdf
 ```
 
-   That writes the `.tex`, compiles it if a TeX engine is present, and writes both `.docx` variants
-   and the plain text. Read the warnings it prints: a withheld bullet, a field the region profile
+   Add `--ats-max` for the ATS-maximal variant. That writes the `.tex`, compiles it to the PDF, and
+   writes the plain text. **It exits non-zero if no PDF was produced** — a `.tex` nobody rendered is
+   a resume nobody has looked at. Read the warnings it prints: a withheld bullet, a field the region profile
    requires and the record does not have, a bracket that should not be in anyone's resume.
 
 7. **Verify — not optional:**
@@ -90,16 +97,18 @@ python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view <view-id
    below is the same either way.
 
 ```bash
-python3 <skill-dir>/scripts/check_ats.py <Name>_Resume.docx
-python3 <skill-dir>/scripts/check_ats.py <Name>_Resume_ATS.docx --strict
-python3 <skill-dir>/scripts/check_prose.py <Name>_Resume.docx
+python3 <skill-dir>/scripts/check_ats.py <Name>_Resume.pdf
+python3 <skill-dir>/scripts/check_ats.py <Name>_Resume_ATS.txt --strict
+python3 <skill-dir>/scripts/check_prose.py <Name>_Resume.tex
 ```
 
 `<skill-dir>` is this skill's own directory — see the Scripts section of `SKILL.md`. On Windows use
 `python` or `py -3`.
 
 **These check different things.** `validate_urs.py` verifies the *record* is coherent. `check_ats.py`
-verifies the document *parses*: no tables, no header content, a heading a parser can match on.
+verifies the document *parses*: text that actually extracts, a heading a parser can match on, a
+bullet glyph it recognises. The structural checks — no tables, no header content, no second column —
+moved to a test on the LaTeX template, which cannot express any of them.
 `check_prose.py` verifies it *reads*: third person, placeholders, sentences that stop before their
 object, phrases `writing-rules.md` says to cut, bullets repeated across projects. A third-person
 bullet is not a parsing defect, so `check_ats.py` passes it and is right to.
@@ -109,16 +118,16 @@ both.
 
 All must PASS. **Show the output** — the checker's own lines. An agent's summary of a checker is not
 the checker, and the person is entitled to the evidence rather than a report of it. Fix and re-run
-rather than explaining away a failure. Fix it *in `resume.json`* and re-render; editing the `.docx`
+rather than explaining away a failure. Fix it *in `resume.json`* and re-render; editing the `.tex`
 puts the record and the document out of step, which is the failure this pipeline exists to prevent.
 
 8. **Fit to the page budget** — measure, do not guess:
 
 ```bash
-python3 <skill-dir>/scripts/fit_pages.py <Name>_Resume.docx --target-pages 2
+python3 <skill-dir>/scripts/fit_pages.py <Name>_Resume.tex --target-pages 2
 ```
 
-It renders, counts, reports per-page fill, and — when the document runs over — names the block that
+It rewrites the `.tex`, recompiles it, counts, reports per-page fill, and — when the document runs over — names the block that
 spilled and how much room the previous page actually had. Then it applies density levers in a fixed
 order (inter-paragraph spacing, bullet spacing, margins, font size) and **stops at the floors**: 10pt
 body, 0.5" margins. Never cross them by hand either; both read as desperate and hurt parsing.
@@ -165,8 +174,13 @@ Open the PDF and **look at every page**:
 - [ ] Read the prose end to end. `check_prose.py` catches the mechanical defects; it cannot tell you
       that a bullet is true, or that a verb overstates what they actually owned
 
-`render_resume.py --pdf` produces the PDF from LaTeX; `fit_pages.py` produces one from the `.docx`.
-Look at both if you changed the fit — they are different documents.
+`render_resume.py --pdf` and `fit_pages.py` now build the PDF the same way, from the same `.tex`, so
+the page count you are shown is the page count of the file you send. That was not true before: the
+fitter measured a `.docx` and the deliverable came from LaTeX, and they disagreed.
+
+**After fitting, recompile and re-check.** `fit_pages.py` writes a `.tex`; run `render_resume.py`'s
+compile over it, then `check_ats.py` on the new PDF. Fitting changes layout, and layout is what the
+render gate reads.
 
 **No renderer available?** Say so and mark the resume **unverified**. `render_resume.py` reports it in
 those words when it finds no TeX engine; pass that on rather than quietly delivering a `.tex`. Do not
@@ -178,10 +192,11 @@ needed.
 ## If the scripts are missing
 
 If the skill was installed as `SKILL.md` alone, write the record as URS anyway — the format is
-specified in `references/urs-spec.md` and the schema in `schema/urs-v1.schema.json`. A `.docx` is a
-zip of XML and can be written with the standard library; keep the markup minimal — paragraphs, runs, a
-numbering definition for bullets, tab stops for right-aligned dates. Minimal markup parses best
-anyway. Whatever you use, the output must satisfy `check_ats.py`: that is the contract, not the tool.
+specified in `references/urs-spec.md` and the schema in `schema/urs-v1.schema.json`. LaTeX can be
+written with the standard library and compiled by any engine; keep the preamble minimal — `geometry`
+and `enumitem` are enough, and a template that needs more is a template that will not build on the
+machine you actually have. Whatever you use, the output must satisfy `check_ats.py`: that is the
+contract, not the tool.
 
 ## Deliver
 

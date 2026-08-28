@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check a generated resume against the rules in references/writing-rules.md
 
-Usage: python3 check_prose.py resume.docx
+Usage: python3 check_prose.py resume.tex
        python3 check_prose.py resume.txt
 
 On Windows use `python` or `py -3` in place of `python3`.
@@ -14,7 +14,7 @@ through his promotion" - is not a parsing defect, so check_ats.py passes it with
 Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
 No third-party dependencies.
 """
-import sys, os, re, zipfile, html
+import sys, os, re
 
 # --- fail: a resume is implied first person, and these are never the subject ---
 # `they/them/their` are excluded deliberately. "Migrated their estate to Azure"
@@ -52,28 +52,51 @@ VERB_SUFFIXES = ("ed", "ised", "ized", "ated", "ected", "ored", "ered")
 NEAR_DUPLICATE = 0.75          # Jaccard over word sets; 1.0 is an exact repeat
 WORD = re.compile(r"[a-z0-9']+")
 
+# --- reading the .tex the PDF is built from ---
+ITEM = "\\item"
+# A control sequence is a backslash and letters; `\&` and friends are not, which
+# is why the unescape below runs first and is left alone by this.
+TEX_COMMAND = re.compile(r"\\[a-zA-Z]+\*?(?:\[[^\]]*\])?")
+PREAMBLE_CMD = re.compile(
+    r"\\(?:documentclass|usepackage|setlength|newcommand|setlist|pagestyle|begin|end)\b")
+TEX_UNESCAPE = [
+    ("\\&", "&"), ("\\%", "%"), ("\\$", "$"), ("\\#", "#"),
+    ("\\_", "_"), ("\\{", "{"), ("\\}", "}"),
+]
 
-def plain_text(xml):
-    t = re.sub(r"<w:tab\b[^>]*/?>", "\t", xml)
-    t = re.sub(r"<w:(?:br|cr)\b[^>]*/?>", "\n", t)
-    t = re.sub(r"<[^>]+>", "", t)
-    return html.unescape(t)
 
-
-def read_docx(path):
+def read_tex(path):
     """[(is_bullet, text)] one entry per paragraph, in document order.
 
-    Bullets are identified by their numbering definition rather than by a leading
-    glyph, because ats-rules.md requires real list numbering and forbids a typed one.
+    The .tex is read rather than the PDF it compiles to, for two reasons. A
+    bullet is unambiguous here - it is `\\item`, not a glyph a text extractor may
+    or may not have kept - and reading it needs no third-party library, which
+    keeps this gate runnable on a machine that cannot render.
     """
-    z = zipfile.ZipFile(path)
-    doc = z.read("word/document.xml").decode("utf8", "replace")
     out = []
-    for m in re.finditer(r"<w:p(?:\s[^>]*)?>(.*?)</w:p>", doc, re.S):
-        chunk = m.group(1)
-        props = re.search(r"<w:pPr>(.*?)</w:pPr>", chunk, re.S)
-        out.append(("<w:numPr" in (props.group(1) if props else ""), plain_text(chunk)))
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line or line.startswith("%"):
+                continue
+            bullet = line.startswith(ITEM)
+            if bullet:
+                line = line[len(ITEM):]
+            elif PREAMBLE_CMD.match(line):
+                continue
+            text = strip_tex(line)
+            if text:
+                out.append((bullet, text))
     return out
+
+
+def strip_tex(line):
+    """The words a reader sees, with the markup taken off."""
+    for escaped, plain in TEX_UNESCAPE:
+        line = line.replace(escaped, plain)
+    line = TEX_COMMAND.sub(" ", line)
+    line = line.replace("{", " ").replace("}", " ")
+    return " ".join(line.split())
 
 
 def read_txt(path):
@@ -183,7 +206,7 @@ def main(argv=None):
         pass
 
     if not argv:
-        print("usage: check_prose.py resume.docx | resume.txt")
+        print("usage: check_prose.py resume.tex | resume.txt")
         return 2
     path = argv[0]
     if not os.path.exists(path):
@@ -199,17 +222,13 @@ def main(argv=None):
 
     ext = os.path.splitext(path)[1].lower()
     try:
-        if ext == ".docx":
-            paragraphs = read_docx(path)
+        if ext == ".tex":
+            paragraphs = read_tex(path)
         elif ext in (".txt", ".md"):
             paragraphs = read_txt(path)
         else:
-            print(f"unsupported file type {ext!r} - pass the .docx or the .txt variant")
+            print(f"unsupported file type {ext!r} - pass the .tex or the .txt variant")
             return 2
-    except zipfile.BadZipFile:
-        return unreadable("not a zip archive - a .docx is a zip of XML")
-    except KeyError:
-        return unreadable("no word/document.xml inside")
     except OSError as e:
         return unreadable(str(e))
 

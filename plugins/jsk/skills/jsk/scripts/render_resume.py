@@ -1,50 +1,79 @@
 #!/usr/bin/env python3
-"""Render a URS document into a .docx, a .tex (and PDF), or plain text.
+"""Render a URS document into a .tex (and PDF), or plain text.
 
 Usage:
   python3 render_resume.py resume.json --out DIR [options]
 
   --view ID          which view to render (default: the first one)
-  --format F         docx | latex | txt | all      (default: all)
+  --format F         latex | txt | all             (default: all)
   --region CC        override the view's region profile, e.g. AU, IN, AE
   --profile P        override format_profile: presentation | ats-maximal | plaintext
+  --ats-max          shorthand for --profile ats-maximal: renders the PDF in the
+                     ATS-maximal variant instead of the presentation one
   --pdf              compile the .tex with whatever TeX engine is installed
   --name N           basename for the outputs (default: from person.name.full)
 
 On Windows use `python` or `py -3` in place of `python3`.
 
-Exit 0 = rendered. Exit 1 = nothing written. Exit 2 = usage error.
+Exit 0 = rendered. Exit 1 = nothing written, or --pdf produced no PDF.
+Exit 2 = usage error.
 
 Every content decision is made once, in urs/plan.py, and the emitters translate
-that plan into markup without choosing anything. Which is the point: a .docx and
-a PDF built from one view cannot say different things.
+that plan into markup without choosing anything. Which is the point: the PDF and
+the plain text built from one view cannot say different things.
+
+There is one rendered deliverable, the PDF, and --ats-max chooses which variant
+it holds. The page count therefore describes the document actually being sent -
+which it did not while the fitter measured a .docx nobody submitted.
 """
 import json
 import os
-import shutil
-import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from urs import emit_docx, emit_latex, emit_text, plan as planner  # noqa: E402
+from urs import emit_latex, emit_text, plan as planner  # noqa: E402
+from urs.tex import compile_pdf  # noqa: E402
 
-TEX_ENGINES = [
-    ("tectonic", ["tectonic", "--keep-logs", "-o"]),
-    ("latexmk", ["latexmk", "-pdf", "-interaction=nonstopmode", "-outdir"]),
-    ("pdflatex", ["pdflatex", "-interaction=nonstopmode", "-output-directory"]),
-]
-
-# ats-maximal is what goes into a portal, so it is what gets the .docx and the
-# .txt. The presentation variant is what a human reads, so it gets the PDF.
+# One record, one rendered deliverable, plus the paste-in-box text. Which
+# variant the PDF holds is a choice at the call site, not a second file.
 DEFAULT_TARGETS = [
     ("presentation", "latex", "{name}_Resume"),
-    ("presentation", "docx", "{name}_Resume"),
-    ("ats-maximal", "docx", "{name}_Resume_ATS"),
     ("plaintext", "txt", "{name}_Resume_ATS"),
 ]
+
+
+# The stem follows the VARIANT. It used to follow the format, so
+# `--format latex --profile ats-maximal` wrote `{name}_Resume.tex` and silently
+# overwrote the presentation render with a different document.
+STEMS = {
+    "presentation": "{name}_Resume",
+    "ats-maximal": "{name}_Resume_ATS",
+    "plaintext": "{name}_Resume_ATS",
+}
+
+
+def select_targets(fmt, profile):
+    """(variant, kind, stem) rows to render.
+
+    --profile names the variant the document is rendered IN; --format names a
+    file kind. They compose. --profile used to be discarded entirely whenever
+    --format was left at its default of `all`, so asking for an ATS-maximal
+    render quietly gave you a presentation one.
+
+    --ats-max switches the variant the PDF holds; it never adds a second PDF.
+    The plain text rides along either way - it is the paste-in-box artefact and
+    it is ASCII-folded whatever the PDF holds.
+    """
+    variant = profile or "presentation"
+    if fmt != "all":
+        return [(variant, fmt, STEMS.get(variant, "{name}_Resume"))]
+    return [
+        (variant, "latex", STEMS.get(variant, "{name}_Resume")),
+        ("plaintext", "txt", STEMS["plaintext"]),
+    ]
 
 
 def arg(argv, flag, default=None):
@@ -54,25 +83,6 @@ def arg(argv, flag, default=None):
         except IndexError:
             return default
     return default
-
-
-def compile_pdf(tex_path, out_dir):
-    """Compile with the first engine present. Returns (pdf_path, note)."""
-    for name, base in TEX_ENGINES:
-        if not shutil.which(name):
-            continue
-        cmd = base + [out_dir, tex_path]
-        try:
-            proc = subprocess.run(cmd, cwd=out_dir, capture_output=True, text=True, timeout=180)
-        except (OSError, subprocess.TimeoutExpired) as e:
-            return None, f"{name} failed to run: {e}"
-        pdf = os.path.splitext(tex_path)[0] + ".pdf"
-        if os.path.exists(pdf):
-            return pdf, f"compiled with {name}"
-        tail = (proc.stdout or proc.stderr or "").strip().splitlines()[-6:]
-        return None, f"{name} produced no PDF:\n    " + "\n    ".join(tail)
-    return None, ("no TeX engine found (tectonic, latexmk or pdflatex) - "
-                  "the .tex is written but unrendered, so the resume is UNVERIFIED")
 
 
 def safe_name(text):
@@ -94,7 +104,7 @@ def main(argv):
     view_id = arg(argv, "--view")
     fmt = arg(argv, "--format", "all")
     region = arg(argv, "--region")
-    profile = arg(argv, "--profile")
+    profile = "ats-maximal" if "--ats-max" in argv else arg(argv, "--profile")
     want_pdf = "--pdf" in argv
 
     with open(src, encoding="utf8") as fh:
@@ -103,14 +113,10 @@ def main(argv):
     base = arg(argv, "--name") or safe_name(
         ((doc.get("person") or {}).get("name") or {}).get("full"))
 
-    if fmt == "all":
-        targets = DEFAULT_TARGETS
-    else:
-        targets = [(profile or "presentation", fmt, "{name}_Resume")]
-    if profile and fmt != "all":
-        targets = [(profile, fmt, "{name}_Resume")]
+    targets = select_targets(fmt, profile)
 
     written, warnings, notes, first = [], [], [], None
+    unverified = False
     for variant, kind, stem in targets:
         try:
             rendered = planner.build(doc, view_id=view_id, region=region, fmt=variant)
@@ -123,10 +129,7 @@ def main(argv):
         stem_name = stem.format(name=base)
         path = os.path.join(out_dir, stem_name)
 
-        if kind == "docx":
-            emit_docx.emit(rendered, path + ".docx")
-            written.append(path + ".docx")
-        elif kind == "latex":
+        if kind == "latex":
             tex = path + ".tex"
             with open(tex, "w", encoding="utf8") as fh:
                 fh.write(emit_latex.emit(rendered))
@@ -136,13 +139,15 @@ def main(argv):
                 notes.append(note)
                 if pdf:
                     written.append(pdf)
+                else:
+                    unverified = True
         elif kind == "txt":
             txt = path + ".txt"
             with open(txt, "w", encoding="ascii", errors="replace") as fh:
                 fh.write(emit_text.emit(rendered))
             written.append(txt)
         else:
-            print(f"unknown --format {kind!r}: use docx, latex, txt or all")
+            print(f"unknown --format {kind!r}: use latex, txt or all")
             return 2
 
     print(f"view: {first['view']}   profile: {first['profile']}   "
@@ -161,15 +166,27 @@ def main(argv):
 
     # Name only files that exist. A hint pointing at a document nobody wrote
     # teaches people the gates are decorative.
-    docx = [p for p in written if p.endswith(".docx")]
-    if docx:
+    checkable = [p for p in written if p.endswith((".pdf", ".txt"))]
+    if checkable:
         print("\nRendered. Now run the gates - a rendered resume is not a checked one:")
-        for path in docx:
+        for path in checkable:
             name = os.path.basename(path)
             strict = " --strict" if "_ATS" in name else ""
             print(f"  check_ats.py {name}{strict}")
-        print(f"  check_prose.py {os.path.basename(docx[0])}")
-    return 0 if written else 1
+        for path in written:
+            if path.endswith((".tex", ".txt")):
+                print(f"  check_prose.py {os.path.basename(path)}")
+    if not written:
+        return 1
+    if unverified:
+        # A .tex nobody rendered is a resume nobody has looked at. Exiting 0
+        # here taught every caller that the render gate was decorative.
+        print("")
+        print("UNVERIFIED - --pdf was requested and no PDF was produced.")
+        print("  Nobody has seen a rendered page, so the page count and the layout")
+        print("  are both unknown. A passing check_ats.py does not cover this.")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

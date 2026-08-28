@@ -17,8 +17,7 @@ repo you control so it outlives any single tool, including this one.
 ## Every document is rendered from JSON, never hand-built
 
 The bundle compiles to a [URS](../plugins/jsk/skills/jsk/references/urs-spec.md)
-record, and the LaTeX/PDF, both `.docx` variants and the plain text are all emitted from that one
-file.
+record, and the LaTeX, the PDF and the plain text are all emitted from that one file.
 
 Two hand-built documents have to agree about every date, bullet and number, and they stop agreeing
 the moment one is edited; usually silently, usually in the copy that gets sent. One record with
@@ -29,8 +28,8 @@ claim and the view that selected it, so "what did this application claim, and wh
 from" has an answer.
 
 `render_resume.py` resolves the record once — selection, ordering, provenance filtering, profile
-gating, ASCII folding, date formatting — and the three emitters translate that plan into markup
-without deciding anything. That split is what guarantees the `.docx` and the PDF cannot say different
+gating, ASCII folding, date formatting — and the emitters translate that plan into markup without
+deciding anything. That split is what guarantees the PDF and the plain text cannot say different
 things.
 
 ## Four gates, not one

@@ -18,14 +18,18 @@ resume.json  (URS record)
    v
 render plan
    |
-   +--> emit_latex.py  -->  .tex  -->  .pdf
-   +--> emit_docx.py   -->  presentation .docx + ATS-maximal .docx
-   +--> emit_text.py   -->  .txt
+   +--> emit_latex.py  -->  .tex  -->  .pdf   (the deliverable; --ats-max picks the variant)
+   +--> emit_text.py   -->  .txt          (paste-in boxes)
 ```
 
 **The narrow waist is the design.** Every content decision happens once, in the plan. The emitters
-translate a resolved plan into markup and decide nothing. That is what guarantees the `.docx` and the
-PDF cannot say different things — neither of them chose what to say.
+translate a resolved plan into markup and decide nothing. That is what guarantees the PDF and the
+plain text cannot say different things — neither of them chose what to say.
+
+`emit_docx.py` used to sit alongside them and produced two more files. It went because the same
+argument applies one level up: `fit_pages.py` measured the `.docx` through LibreOffice while the PDF
+was what got sent, they disagreed, and a resume reported as two pages shipped as three. There is now
+one rendered deliverable, and the thing measured is the thing sent.
 
 If you find yourself making a content decision inside an emitter, it belongs in the plan. If you find
 yourself making a formatting decision inside the plan, it belongs in an emitter.
@@ -53,7 +57,7 @@ the conversation decides and writes.**
 
 | Agent | Has | Deliberately lacks |
 |---|---|---|
-| `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into a `.docx` |
+| `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into the render |
 | `jsk-bundle-auditor` | Read, Glob, Grep, Bash | Write and Edit — a `status` flips only when the person says so |
 | `jsk-posting-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the target file, which is a checkpoint, and never `resume.json` |
 
@@ -156,16 +160,24 @@ change in behaviour unless the behaviour change is the point and it is written d
 
 ## Dependencies
 
-Deliberately close to zero. `preflight.py`, `validate_urs.py`, `render_resume.py`, `check_ats.py`,
-`check_prose.py` and `init_bundle.py` run on a bare Python — `preflight.py` especially, because a
-preflight that needs installing first is not a preflight.
+Deliberately close to zero. `preflight.py`, `validate_urs.py`, `render_resume.py`, `check_prose.py`
+and `init_bundle.py` run on a bare Python — `preflight.py` especially, because a preflight that needs
+installing first is not a preflight. `check_ats.py` does too when given the `.txt`; only reading a PDF
+needs `pymupdf`.
 
 | Optional | Unlocks |
 |---|---|
 | `pyyaml` | reading the bundle at all: `validate_bundle.py`, `score_projects.py` |
 | `jsonschema` | full schema validation in `validate_urs.py` (structural rules run without it) |
-| a TeX engine | the PDF, and therefore the render gate |
-| LibreOffice + `pymupdf` | page measurement in `fit_pages.py` |
+
+| Required | Why |
+|---|---|
+| a TeX engine | the PDF is the only rendered deliverable; without one there is nothing to send |
+| `pymupdf` | without it the parse gate and the page budget are both unverifiable |
+
+A TeX engine and `pymupdf` were optional while the `.docx` was the portal artefact. `preflight.py`
+now reports their absence as BLOCKED rather than a gap. LibreOffice left the list entirely: it
+existed only to render the `.docx` for measurement.
 
 Anything that cannot run reports loudly and exits non-zero rather than passing quietly.
 

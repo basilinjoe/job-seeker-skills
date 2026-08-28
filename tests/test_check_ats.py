@@ -4,10 +4,12 @@ importantly — pin that a correct resume still passes.
 """
 import tempfile
 import unittest
-import zipfile
 from pathlib import Path
 
-from fixtures import CHECK_ATS, CLEAN_RESUME, build_docx, resume_with, run
+from fixtures import (CHECK_ATS, CLEAN_RESUME, EXAMPLE_URS, RENDER_RESUME,
+                      build_pdf, build_text, resume_with, run, urs_module)
+
+tex = urs_module("urs.tex")
 
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
@@ -18,8 +20,8 @@ class CheckATSCase(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
 
-    def check(self, paragraphs=None, strict=False, name="resume.docx", **kw):
-        path = build_docx(self.tmp / name,
+    def check(self, paragraphs=None, strict=False, name="resume.txt", **kw):
+        path = build_text(self.tmp / name,
                           CLEAN_RESUME if paragraphs is None else paragraphs, **kw)
         args = [path, "--strict"] if strict else [path]
         return run(CHECK_ATS, *args)
@@ -156,72 +158,52 @@ class ContactDetails(CheckATSCase):
 class MalformedInput(CheckATSCase):
     """A gate that crashes gives no verdict. It must always report."""
 
-    def test_renamed_non_zip_reports_a_verdict(self):
-        path = self.tmp / "fake.docx"
-        path.write_text("not a zip at all", encoding="utf-8")
-        code, out = run(CHECK_ATS, path)
-        self.assertEqual(code, 1)
-        self.assertNotIn("Traceback", out)
-        self.assertIn("FAIL", out)
-
-    def test_zip_without_document_xml_reports_a_verdict(self):
-        path = self.tmp / "nodoc.docx"
-        with zipfile.ZipFile(str(path), "w") as z:
-            z.writestr("word/other.xml", "<a/>")
+    def test_a_pdf_that_is_not_a_pdf_reports_a_verdict(self):
+        path = self.tmp / "fake.pdf"
+        path.write_text("not a PDF at all", encoding="utf-8")
         code, out = run(CHECK_ATS, path)
         self.assertEqual(code, 1)
         self.assertNotIn("Traceback", out)
         self.assertIn("FAIL", out)
 
     def test_missing_file_reports_a_verdict(self):
-        code, out = run(CHECK_ATS, self.tmp / "absent.docx")
+        code, out = run(CHECK_ATS, self.tmp / "absent.pdf")
         self.assertNotEqual(code, 0)
         self.assertNotIn("Traceback", out)
 
-    def test_wrong_extension_is_rejected(self):
-        path = self.tmp / "resume.pdf"
+    def test_the_docx_is_no_longer_accepted(self):
+        """It was the deliverable; it is not one any more, and a gate that
+        silently accepted it would be checking a file nobody sends."""
+        path = self.tmp / "resume.docx"
         path.write_text("x", encoding="utf-8")
         code, out = run(CHECK_ATS, path)
         self.assertEqual(code, 1)
-        self.assertIn("docx", out)
+        self.assertIn(".pdf", out)
 
 
-class StructuralKillers(CheckATSCase):
-    """Positive controls: these already worked and must not regress."""
+class BulletGlyphs(CheckATSCase):
+    """The one structural rule with a text-level meaning.
 
-    def test_table(self):
-        code, out = self.check(body_extra="<w:tbl><w:tr><w:tc/></w:tr></w:tbl>")
-        self.assertFails(out, code, "table")
+    In a .docx a leading bullet character meant the list had no real numbering.
+    A PDF has no list structure to compare against - the marker is a glyph in
+    the text either way - so the question became which glyph, not whether one
+    was typed. U+2022 and a hyphen are what the two templates emit and what
+    every parser maps; the decorative ones are what break.
+    """
 
-    def test_text_box(self):
-        code, out = self.check(body_extra="<w:p><w:r><w:pict><v:shape><w:txbxContent/></v:shape></w:pict></w:r></w:p>")
-        self.assertFails(out, code, "text box")
-
-    def test_image(self):
-        code, out = self.check(extra_parts={"word/media/image1.png": "fake"})
-        self.assertFails(out, code, "image")
-
-    def test_drawing(self):
-        code, out = self.check(body_extra="<w:p><w:r><w:drawing/></w:r></w:p>")
-        self.assertFails(out, code, "drawing")
-
-    def test_smartart(self):
-        code, out = self.check(extra_parts={"word/diagrams/data1.xml": "<a/>"})
-        self.assertFails(out, code, "smartart")
-
-    def test_header_content(self):
-        hdr = ('<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-               "<w:p><w:r><w:t>jane@example.com</w:t></w:r></w:p></w:hdr>")
-        code, out = self.check(extra_parts={"word/header1.xml": hdr})
-        self.assertFails(out, code, "header")
-
-    def test_multi_column(self):
-        code, out = self.check(body_extra='<w:sectPr><w:cols w:num="2"/></w:sectPr>')
-        self.assertFails(out, code, "column")
-
-    def test_typed_bullet_glyph(self):
-        code, out = self.check(resume_with((BODY, "• Typed bullet glyph as text")))
+    def test_a_decorative_glyph_fails(self):
+        code, out = self.check(resume_with((BODY, "▪ Decorative bullet glyph")))
         self.assertFails(out, code, "bullet")
+
+    def test_the_templates_own_bullet_passes(self):
+        code, out = self.check(resume_with((BODY, "• Cut latency 62 percent by "
+                                                  "decomposing a monolith.")))
+        self.assertPasses(out, code)
+
+    def test_the_ascii_variants_hyphen_passes(self):
+        code, out = self.check(resume_with((BODY, "- Cut latency 62 percent by "
+                                                  "decomposing a monolith.")))
+        self.assertPasses(out, code)
 
 
 class StrictMode(CheckATSCase):
@@ -249,12 +231,47 @@ class StrictMode(CheckATSCase):
 
 
 class TextExtraction(CheckATSCase):
-    def test_line_break_does_not_fuse_text(self):
-        """<w:br/> must become a newline, or a typed bullet after a break hides."""
-        para = ('<w:p><w:r><w:t>Owned the migration.</w:t><w:br/>'
-                '<w:t>• Typed bullet after a break</w:t></w:r></w:p>')
-        code, out = self.check(resume_with((BODY, None)), body_extra=para)
+    def test_a_break_inside_a_paragraph_does_not_hide_what_follows(self):
+        """A rule that scans line starts only sees the lines it was given. The
+        .docx form of this was <w:br/> having to become a newline; the text form
+        is that an embedded break still splits."""
+        fused = "Owned the migration.\n\u25aa Decorative bullet after a break"
+        code, out = self.check(resume_with((BODY, fused)))
         self.assertFails(out, code, "bullet")
+
+
+class ThePdfItself(CheckATSCase):
+    """Rules about the deliverable, not about what it says.
+
+    These are what replaced the font-name allowlist. A LaTeX PDF embeds Latin
+    Modern, which no list of Office fonts would have contained, and the name was
+    never the point: what matters is whether text comes back out at all.
+    """
+
+    def test_a_pdf_with_no_text_layer_fails(self):
+        path = build_pdf(self.tmp / "scan.pdf", blank=True)
+        code, out = run(CHECK_ATS, path)
+        self.assertEqual(code, 1, out)
+        self.assertIn("extractable text", out)
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
+    def test_the_rendered_presentation_pdf_passes(self):
+        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
+                        "--view", "view_au_default", "--pdf")
+        self.assertEqual(code, 0, out)
+        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume.pdf")
+        self.assertPasses(out, code)
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
+    def test_the_rendered_ats_pdf_passes_strict(self):
+        """The ligature trap: T1 Computer Modern turns "fi" into U+FB01, so an
+        ATS-maximal PDF failed its own ASCII rule until the emitter broke the
+        pairs. The .docx never showed this, because nothing rendered it."""
+        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
+                        "--view", "view_au_default", "--pdf", "--ats-max")
+        self.assertEqual(code, 0, out)
+        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume_ATS.pdf", "--strict")
+        self.assertPasses(out, code)
 
 
 if __name__ == "__main__":

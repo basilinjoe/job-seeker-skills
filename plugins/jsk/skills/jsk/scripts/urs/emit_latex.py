@@ -4,10 +4,35 @@ Deliberately narrow dependencies: `geometry` and `enumitem` only, both present
 in any TeX distribution worth the name. A resume that needs texlive-full to
 build is a resume that will not build on the machine you actually have.
 
-The PDF is the presentation artefact. The .docx remains what goes into a portal,
-because ats-rules.md says so and a PDF does not stop being harder to parse just
-because it is prettier.
+The PDF this produces is the only rendered deliverable, in whichever variant
+--ats-max selected, so this template is now the single place a structural ATS
+hazard could enter a document. It cannot express one - there is no table, no
+text box, no image, no second column and no header - which is why check_ats.py
+stopped checking for them per render and a golden-file test guards this file
+instead.
+
+The density levers near the end of the preamble are rewritten in place by
+fit_pages.py. Keep them literal, one per line, and in point units.
 """
+import re
+
+from .formatting import LETTER_REGIONS
+
+# Variants resolve.py folds to ASCII, and which therefore cannot carry a
+# U+2022 bullet in the rendered text layer either.
+ASCII_VARIANTS = ("ats-maximal", "plaintext")
+
+# Body size in points. fit_pages.py may lower it in the .tex, never below 10.
+BODY_PT = 11
+
+# T1 Computer Modern forms ligatures for ff, fi, fl, ffi and ffl, and turns two
+# hyphens into an en dash. Each becomes a SINGLE non-ASCII codepoint in the PDF
+# text layer - U+FB01 for "fi" - so a parser extracting "efficiency" reads
+# "e<ffi>ciency" and the word is gone. The record is ASCII, the .txt is ASCII,
+# and check_ats.py passed the .docx: only the render was never ASCII, and
+# nothing looked at it until the PDF became the deliverable. Breaking the pair
+# with an empty group costs nothing visually and keeps the text layer flat.
+LIGATURE_BREAK = re.compile(r"(?<=f)(?=[fil])|(?<=-)(?=-)")
 
 SPECIALS = {
     "\\": r"\textbackslash{}",
@@ -22,7 +47,7 @@ SPECIALS = {
     "·": r"\textperiodcentered{}",
 }
 
-PREAMBLE = r"""\documentclass[%(pt)spt,a4paper]{article}
+PREAMBLE = r"""\documentclass[%(pt)spt,%(paper)s]{article}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage[margin=%(margin)s]{geometry}
@@ -30,30 +55,58 @@ PREAMBLE = r"""\documentclass[%(pt)spt,a4paper]{article}
 \pagestyle{empty}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0pt}
+%% --- density levers: fit_pages.py rewrites the values on the next three lines,
+%% and the margin above. Keep them literal and one per line so it can. ---
+\newlength{\sectiongap}\setlength{\sectiongap}{7pt}
+\newlength{\entrygap}\setlength{\entrygap}{4pt}
+\setlist[itemize]{leftmargin=12pt,topsep=2pt,itemsep=1pt,parsep=0pt,label=%(bullet)s}
+%% -------------------------------------------------------------------------
 \newcommand{\sectionrule}{\vspace{1pt}\rule{\linewidth}{0.4pt}\vspace{2pt}\par}
 \newcommand{\sectionhead}[1]{%%
-  \vspace{7pt}{\large\bfseries\MakeUppercase{#1}}\par\sectionrule}
+  \vspace{\sectiongap}{\large\bfseries\MakeUppercase{#1}}\par\sectionrule}
 \newcommand{\entryline}[2]{\textbf{#1}\hfill #2\par}
 \newcommand{\roleline}[2]{#1\hfill #2\par}
-\setlist[itemize]{leftmargin=12pt,topsep=2pt,itemsep=1pt,parsep=0pt,label=\textbullet}
 \begin{document}
+%% The body size is set here rather than only in \documentclass, because the
+%% class accepts 10, 11 or 12pt and nothing between - and the font lever moves
+%% in half-points.
+\fontsize{%(pt)spt}{%(baseline)spt}\selectfont
 """
 
 
-def esc(text):
+def esc(text, ascii_safe=False):
+    """Escape for LaTeX. No value in SPECIALS contains a ligature pair, so the
+    break can safely run after the mapping rather than before it - running it
+    before would see its own braces escaped."""
     if text is None:
         return ""
-    return "".join(SPECIALS.get(ch, ch) for ch in str(text))
+    out = "".join(SPECIALS.get(ch, ch) for ch in str(text))
+    return LIGATURE_BREAK.sub("{}", out) if ascii_safe else out
 
 
 def emit(plan):
     pages = plan.get("pages") or 2
-    body = [PREAMBLE % {"pt": "11", "margin": "0.8in" if pages > 1 else "0.9in"}]
+    # A4 was hardcoded here while the .docx emitter honoured the region, so a US
+    # view produced a Letter .docx and an A4 PDF of the same document.
+    paper = "letterpaper" if plan.get("region") in LETTER_REGIONS else "a4paper"
+    # In a PDF the bullet is a glyph in the text layer, not list structure the
+    # way it was in the .docx - so an ATS-maximal render whose marker is U+2022
+    # fails its own ASCII rule. The variant that promises pure ASCII has to use
+    # a marker that is pure ASCII.
+    ascii_safe = plan.get("format") in ASCII_VARIANTS
+    bullet = "{-}" if ascii_safe else "\\textbullet"
+
+    def esc_(text):
+        return esc(text, ascii_safe)
+
+    body = [PREAMBLE % {"pt": BODY_PT, "baseline": f"{BODY_PT * 1.2:g}",
+                        "paper": paper, "bullet": bullet,
+                        "margin": "0.8in" if pages > 1 else "0.9in"}]
 
     body.append(r"\begin{center}")
-    body.append(r"{\LARGE\bfseries %s}\par" % esc(plan["name"]))
+    body.append(r"{\LARGE\bfseries %s}\par" % esc_(plan["name"]))
     for line in plan["header_lines"]:
-        body.append(r"\vspace{2pt}%s\par" % esc(line))
+        body.append(r"\vspace{2pt}%s\par" % esc_(line))
     body.append(r"\end{center}")
 
     if plan.get("photo"):
@@ -63,14 +116,14 @@ def emit(plan):
 
     for section in plan["sections"]:
         if section.get("heading"):
-            body.append(r"\sectionhead{%s}" % esc(section["heading"]))
-        body.extend(_section(section))
+            body.append(r"\sectionhead{%s}" % esc_(section["heading"]))
+        body.extend(_section(section, esc_))
 
     body.append(r"\end{document}")
     return "\n".join(body) + "\n"
 
 
-def _section(section):
+def _section(section, esc):
     kind = section["kind"]
     out = []
     if kind == "text":
@@ -84,7 +137,7 @@ def _section(section):
             out.append(r"\textbf{%s:} %s\par" % (esc(row["label"]), esc(", ".join(row["items"]))))
     elif kind == "entries":
         for entry in section["entries"]:
-            out.append(r"\vspace{4pt}")
+            out.append(r"\vspace{\entrygap}")
             if entry.get("org_line"):
                 out.append(r"\entryline{%s}{%s}" % (esc(entry["org_line"]), esc(entry.get("org_right"))))
             for role in entry["roles"]:

@@ -8,6 +8,11 @@ Split out of plan.py: resolving *what* a document says is a different job from
 formatting *how* a single value reads.
 """
 
+# Paper size is a regional fact about the reader, not a property of one emitter.
+# It lived in emit_docx.py, which is why the LaTeX path hardcoded A4 and shipped
+# an A4 PDF to every US and Canadian reader.
+LETTER_REGIONS = {"US", "CA"}
+
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 

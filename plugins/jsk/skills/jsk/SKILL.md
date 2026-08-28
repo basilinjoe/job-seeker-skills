@@ -23,12 +23,14 @@ briefs forever without re-interviewing them.
 Rendering goes through JSON, always:
 
 ```
-bundle (Markdown)  ->  resume.json (URS)  ->  .tex -> .pdf
-                                          \-> .docx  x2
-                                          \-> .txt
+bundle (Markdown)  ->  resume.json (URS)  ->  .tex -> .pdf   (the deliverable)
+                                          \-> .txt          (paste-in boxes)
 ```
 
-**Never hand-author a `.docx` or a `.tex`.** Build the URS record, validate it, render every format
+The PDF is the only rendered deliverable. `--ats-max` chooses which variant it holds - presentation
+or ATS-maximal - rather than producing a second file.
+
+**Never hand-author a `.tex`.** Build the URS record, validate it, render every format
 from it. *Two hand-built documents stop agreeing the moment one is edited — silently, usually in the
 copy that gets sent.* `references/urs-spec.md` has the format, `references/mode-resume.md` the
 procedure.
@@ -106,23 +108,24 @@ skill, so a bare `scripts/…` will not resolve.
 | `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
 | `migrate_bundle.py <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
 | `pipeline.py <bundle> [--all] [--company N] [--as-of D]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
-| `check_ats.py resume.docx [--strict]` | a generated `.docx` is safe to send | — |
-| `check_prose.py resume.docx` | the writing rules `check_ats.py` cannot see | — |
+| `check_ats.py resume.pdf [--strict]` | the rendered PDF (or the `.txt`) is safe to send | `pymupdf` for a PDF |
+| `check_prose.py resume.tex` | the writing rules `check_ats.py` cannot see | — |
 | `score_projects.py <bundle> <target.md>` | ranks projects against a posting, from the target's frontmatter | `pyyaml` |
 | `validate_urs.py resume.json [--level N]` | the URS record is coherent before anything renders | — |
-| `render_resume.py resume.json --out DIR [--view ID] [--pdf]` | one record to `.tex`/PDF, both `.docx` variants and `.txt` | TeX engine for the PDF |
-| `fit_pages.py resume.docx --target-pages 2` | fits a render to a page budget without breaching the floors | LibreOffice, `pymupdf` |
+| `render_resume.py resume.json --out DIR [--view ID] [--pdf] [--ats-max]` | one record to `.tex`/PDF plus `.txt` | TeX engine for the PDF |
+| `fit_pages.py resume.tex --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
 
 ```bash
-python3 <skill-dir>/scripts/check_ats.py resume.docx --strict
+python3 <skill-dir>/scripts/check_ats.py resume.pdf --strict
 ```
 
 Use `python` or `py -3` on Windows, where `python3` is usually absent.
 
-Exit codes are uniform: `0` passed, `1` failed, `2` called wrong. `fit_pages.py` and the PDF step of
-`render_resume.py` are the only parts with external dependencies; without them they report loudly and
-exit non-zero rather than passing, *because a page count nobody measured is a page count nobody
-knows.* Everything else runs on a bare Python.
+Exit codes are uniform: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are
+required, not optional: the PDF is the only rendered deliverable, so without them there is nothing to
+send, nothing to check and nothing to measure. `render_resume.py --pdf` exits **non-zero** when no PDF
+was produced, *because a page count nobody measured is a page count nobody knows.* Everything else
+runs on a bare Python.
 
 The scripts stay with the skill and a bundle never carries copies, so every bundle gets the current
 version. If they are genuinely missing — the skill was installed as `SKILL.md` alone — write them
@@ -159,8 +162,8 @@ parses, not that it is correct.*
 | Gate | Question | How |
 |---|---|---|
 | **Record** | Is the source coherent, and does every number trace to a metric? | `validate_urs.py` on `resume.json`, before anything renders |
-| **Parse** | Will an ATS read this without mangling it? | `check_ats.py` on the presentation variant, `--strict` on the ATS-maximal one |
-| **Prose** | Does it obey the writing rules? | `check_prose.py` on the presentation variant and the plain text |
+| **Parse** | Will an ATS read this without mangling it? | `check_ats.py` on the rendered `.pdf`, and `--strict` on the `.txt` (or on an ATS-maximal PDF) |
+| **Prose** | Does it obey the writing rules? | `check_prose.py` on the `.tex` and on the plain text |
 | **Render** | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
 
 All gates must pass. Show the output — the person should see the evidence rather than take your word
@@ -168,7 +171,7 @@ for it. Fix and re-run; never explain away a failure.
 
 `jsk-verifier` runs all four against files that already exist and reports what they said. It
 has no way to edit a document, which is deliberate: a defect is repaired in `resume.json` and
-re-rendered, never patched into the `.docx`.
+re-rendered, never patched into the PDF.
 
 **If no PDF renderer is available**, say so and mark the resume unverified rather than treating a
 passing `check_ats.py` as sufficient. *An unverified resume the person knows about is fine; one they

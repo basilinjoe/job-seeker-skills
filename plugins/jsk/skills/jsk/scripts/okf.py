@@ -5,8 +5,8 @@ A convenience layer, never a replacement. Each subcommand forwards to the script
 does the work, with the same arguments and the same exit code, so anything documented
 for the underlying script is still true here:
 
-    okf check resume.docx     ==     check_ats.py resume.docx
-                                     check_prose.py resume.docx
+    okf check resume.pdf      ==     check_ats.py resume.pdf
+                                     check_prose.py resume.tex
 
 The eleven scripts remain the stable, documented API. They are callable directly and
 always will be. This exists so that nobody has to remember eleven names to get started.
@@ -14,10 +14,10 @@ always will be. This exists so that nobody has to remember eleven names to get s
     okf doctor                  what works on this machine
     okf new PATH --name NAME    scaffold a bundle
     okf validate TARGET         a record (.json) or a bundle (directory)
-    okf render RECORD [...]     one record to every format
-    okf check DOCX [--strict]   the parse gate and the prose gate, both
+    okf render RECORD [...]     one record to a PDF and plain text
+    okf check PDF [--strict]    the parse gate and the prose gate, both
     okf score BUNDLE TARGET     rank projects against a posting
-    okf fit DOCX [...]          fit a render to a page budget
+    okf fit TEX [...]           fit a render to a page budget
     okf migrate BUNDLE [--apply]  bring an older bundle up to the current layout
     okf pipeline BUNDLE [...]     what the job search needs from you this week
 
@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # subcommand -> (script, what it does)
 SIMPLE = {
     "new": ("init_bundle.py", "scaffold an empty bundle"),
-    "render": ("render_resume.py", "one record to .tex/PDF, both .docx variants and .txt"),
+    "render": ("render_resume.py", "one record to .tex/PDF plus .txt"),
     "score": ("score_projects.py", "rank projects against a posting"),
     "fit": ("fit_pages.py", "fit a render to a page budget"),
     "migrate": ("migrate_bundle.py", "bring an older bundle up to the current layout"),
@@ -42,10 +42,26 @@ SIMPLE = {
 
 # The gates okf check runs, in order. Both always run: a document that fails the parse
 # gate can still have prose findings worth seeing in the same pass.
+#
+# They no longer read the same file. check_ats.py reads what is actually sent - the
+# PDF - while check_prose.py reads the .tex it was compiled from, where a bullet is
+# an \item rather than a glyph that a text extractor may or may not have kept. Pass
+# either one and the other is found beside it.
 CHECK_GATES = [
-    ("check_ats.py", "parse gate", True),   # True: forward --strict
-    ("check_prose.py", "prose gate", False),
+    ("check_ats.py", "parse gate", True, (".pdf", ".txt")),   # True: forward --strict
+    ("check_prose.py", "prose gate", False, (".tex", ".txt")),
 ]
+
+
+def gate_target(path, accepts):
+    """The file a gate reads, given whichever sibling the caller named."""
+    stem, ext = os.path.splitext(path)
+    if ext.lower() in accepts and os.path.exists(path):
+        return path
+    for want in accepts:
+        if os.path.exists(stem + want):
+            return stem + want
+    return None
 
 
 def run(script, args):
@@ -91,14 +107,22 @@ def cmd_validate(args):
 def cmd_check(args):
     """Both document gates, in one pass, on one file."""
     if not args:
-        print("usage: okf check <resume.docx> [--strict]")
+        print("usage: okf check <resume.pdf> [--strict]")
         return 2
-    docx = args[0]
+    target = args[0]
     strict = "--strict" in args
     worst = 0
-    for script, label, takes_strict in CHECK_GATES:
-        print(f"--- {label}: {script} {docx}" + (" --strict" if strict and takes_strict else ""))
-        gate_args = [docx] + (["--strict"] if strict and takes_strict else [])
+    for script, label, takes_strict, accepts in CHECK_GATES:
+        path = gate_target(target, accepts)
+        if not path:
+            print(f"--- {label}: {script}")
+            print(f"SKIPPED - no {' or '.join(accepts)} beside {os.path.basename(target)}.")
+            print("  A gate that did not run is not a gate that passed.")
+            worst = max(worst, 1)
+            print()
+            continue
+        print(f"--- {label}: {script} {path}" + (" --strict" if strict and takes_strict else ""))
+        gate_args = [path] + (["--strict"] if strict and takes_strict else [])
         code = run(script, gate_args)
         worst = max(worst, code)
         print()

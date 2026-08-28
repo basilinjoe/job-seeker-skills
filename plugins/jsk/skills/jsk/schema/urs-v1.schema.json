@@ -661,7 +661,14 @@
         },
         "budget": {
           "type": "object",
-          "properties": { "pages": { "type": "integer", "minimum": 1 } },
+          "properties": {
+            "pages": { "type": "integer", "minimum": 1 },
+            "ats_maximal_pages": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page budget for the ATS-maximal render, which is deliberately longer than the presentation one: it repeats the employer on every role line and expands the skills block with keyword aliases. Falls back to `pages` when absent. A parser does not care about length, so holding it to the presentation budget would mean cutting evidence to satisfy a constraint nothing enforces."
+            }
+          },
           "additionalProperties": false
         },
         "x": { "type": "object", "description": "Reverse-DNS keyed extensions. Ignorable, and preserved on round-trip." }

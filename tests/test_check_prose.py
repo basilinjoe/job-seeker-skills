@@ -7,15 +7,12 @@ still comes out clean. A gate that cries wolf gets switched off.
 """
 import tempfile
 import unittest
-import zipfile
 from pathlib import Path
 
 from fixtures import SCRIPTS, load_script, run
 
 CHECK_PROSE = SCRIPTS / "check_prose.py"
 cp = load_script(CHECK_PROSE)
-
-W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 
 # A resume whose prose satisfies every documented rule. The regression guard.
 CLEAN = [
@@ -46,22 +43,24 @@ class ProseCase(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
 
-    def docx(self, paragraphs, name="resume.docx"):
-        body = ""
+    def tex(self, paragraphs, name="resume.tex"):
+        r"""The .tex the deliverable PDF is compiled from.
+
+        A bullet is an \item here, which is why the prose gate reads this rather
+        than the PDF: a text extractor may or may not have kept the glyph, and a
+        rule about how a bullet opens needs to know which lines are bullets.
+        """
+        body = []
         for bullet, text in paragraphs:
-            props = '<w:pPr><w:numPr><w:ilvl w:val="0"/></w:numPr></w:pPr>' if bullet else ""
-            body += (f"<w:p>{props}<w:r><w:t>"
-                     f"{text.replace('&', '&amp;').replace('<', '&lt;')}"
-                     f"</w:t></w:r></w:p>")
+            escaped = text.replace("&", "\\&").replace("%", "\\%")
+            body.append(f"  \\item {escaped}" if bullet else f"{escaped}\\par")
         path = self.tmp / name
-        with zipfile.ZipFile(str(path), "w") as z:
-            z.writestr("[Content_Types].xml", "<Types/>")
-            z.writestr("word/document.xml",
-                       f"<w:document {W_NS}><w:body>{body}</w:body></w:document>")
+        doc = [r"\begin{document}"] + body + [r"\end{document}"]
+        path.write_text(chr(10).join(doc) + chr(10), encoding="utf-8")
         return path
 
-    def check(self, paragraphs=None, name="resume.docx"):
-        return run(CHECK_PROSE, self.docx(CLEAN if paragraphs is None else paragraphs, name))
+    def check(self, paragraphs=None, name="resume.tex"):
+        return run(CHECK_PROSE, self.tex(CLEAN if paragraphs is None else paragraphs, name))
 
     def assertFails(self, code, out, needle=None):
         self.assertEqual(code, 1, f"expected FAIL, got exit {code}:\n{out}")
@@ -243,14 +242,15 @@ class PlainTextVariant(ProseCase):
 
 
 class MalformedInput(ProseCase):
-    def test_renamed_non_zip_reports_a_verdict(self):
+    def test_the_docx_is_no_longer_accepted(self):
         junk = self.tmp / "resume.docx"
         junk.write_text("not a zip", encoding="utf-8")
         code, out = run(CHECK_PROSE, junk)
-        self.assertFails(code, out, "not a readable document")
+        self.assertEqual(code, 2)
+        self.assertIn("unsupported", out.lower())
 
     def test_missing_file_reports_a_verdict(self):
-        code, out = run(CHECK_PROSE, self.tmp / "absent.docx")
+        code, out = run(CHECK_PROSE, self.tmp / "absent.tex")
         self.assertEqual(code, 2)
         self.assertIn("not found", out.lower())
 

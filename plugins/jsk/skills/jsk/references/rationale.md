@@ -13,8 +13,8 @@ moment one is edited — silently, usually in the copy that gets sent. One recor
 cannot drift, because no emitter decides what the document says.
 
 `render_resume.py` resolves the record once — selection, ordering, provenance filtering, region
-gating, ASCII folding, date formatting — and the three emitters translate that plan into markup
-without deciding anything.
+gating, ASCII folding, date formatting — and the emitters translate that plan into markup without
+deciding anything.
 
 It is also what makes a resume answerable a year later. The record carries the provenance of every
 claim and the view that selected it, so "what did this application claim, and where did that come
@@ -51,6 +51,12 @@ looked at a rendered page, so the render gate did not run — it did not pass.
 An unverified resume the person knows about is fine. One they think was checked is not. That is the
 entire distinction, and it is worth being pedantic about.
 
+Being pedantic about it has a consequence: `render_resume.py --pdf` **exits non-zero** when no PDF
+came out, and `preflight.py` reports a missing engine as BLOCKED rather than a gap. It used to
+record the failure as a note and exit 0 — so a caller could ask for a PDF, be told in passing there
+was not one, and still see success. A warning that does not change the exit code is a warning
+nothing acts on.
+
 ## Why tailoring is selection and never invention
 
 A tailored resume is a *view*: it references evidence by id, orders it, and redacts. The validator
@@ -71,13 +77,20 @@ fails the record before anything renders.
 It catches the specific failure of a bullet being rewritten for flow and the figure quietly moving
 with it — 30% becoming 40% because the sentence scanned better.
 
-## Why two variants
+## Why two variants, but only one file
 
 Readability and machine-parsing genuinely conflict. A layout that reads well for a human uses the
 constructs that make parsers drop content; a layout that parses perfectly looks flat.
 
 One document cannot be optimal for both readers. Pretending otherwise means quietly losing one of
 them, and you do not find out which.
+
+So there are two variants — but they are not two files sent together. `--ats-max` chooses which one
+the single PDF holds, at the moment you know who is receiving it. Shipping both was worse than
+useless: it meant four artefacts per application, and the fitter measured the `.docx` while the PDF
+was what went out. A resume it reported as two pages shipped as three. **A gate that measures a
+document nobody sends is not a gate**, and the cheapest way to keep it honest is to have one
+rendered document.
 
 ## Why provenance is tracked on every claim
 
