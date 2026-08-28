@@ -14,6 +14,12 @@ SPECIALS = {
     "&": r"\&", "%": r"\%", "$": r"\$", "#": r"\#",
     "_": r"\_", "{": r"\{", "}": r"\}",
     "~": r"\textasciitilde{}", "^": r"\textasciicircum{}",
+    # U+00B7 is the separator resolve.sep() emits for the presentation
+    # variant. Passed through raw it reaches the TeX as byte 0xB7, which
+    # under [T1]{fontenc} is u-with-ring - so every contact line rendered
+    # as "name <u-ring> email" in the PDF, while the .docx and all three
+    # checkers, none of which ever see the TeX, reported clean.
+    "·": r"\textperiodcentered{}",
 }
 
 PREAMBLE = r"""\documentclass[%(pt)spt,a4paper]{article}
