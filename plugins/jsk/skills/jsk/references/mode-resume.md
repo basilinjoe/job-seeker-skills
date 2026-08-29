@@ -42,6 +42,13 @@ from", and only the record answers that.
 With `--ats-max` the first two become `<Name>_Resume_ATS.pdf` and `<Name>_Resume_ATS.tex` — the same
 two files in the other variant, never four files.
 
+## Handover is a shared procedure
+
+Steps 6 onward — render, the four gates, fit to budget, file it — are the same actions
+`mode-tailor.md` ends with, and they live in `references/mode-ship.md`. They are written out below
+too, because this mode is usable on its own; when the two disagree, `mode-ship.md` is the one being
+maintained.
+
 ## Build order
 
 1. **Read** `profile/positioning.md`, `resume-generation/*`, all of `projects/`, and

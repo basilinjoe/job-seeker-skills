@@ -52,15 +52,24 @@ what makes them testable in isolation. Import `plan`; the split is behind it.
 
 ## The agent boundary
 
-Three tasks are delegated to subagents. The line between what an agent does and what the main
-conversation does is the same line the pipeline draws elsewhere: **agents read, measure and report;
-the conversation decides and writes.**
+Six tasks are delegated to subagents. The line between an agent and the main conversation is
+**Write versus Edit**: an agent writes its own analysis, and only the conversation edits the person's
+record. A `status` that flips without them saying so is the defect this framework exists to prevent.
 
 | Agent | Has | Deliberately lacks |
 |---|---|---|
 | `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into the render |
-| `jsk-bundle-auditor` | Read, Glob, Grep, Bash | Write and Edit — a `status` flips only when the person says so |
-| `jsk-posting-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the target file, which is a checkpoint, and never `resume.json` |
+| `jsk-bundle-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes a UGS audit document; a concept is the person's |
+| `jsk-posting-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the UJD posting and never `resume.json` |
+| `jsk-record-builder` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it transcribes into `record.json` and writes no view, narrative or new prose |
+| `jsk-gap-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the UGS assessment and never touches the bundle |
+| `jsk-resume-author` | Read, Write, Edit, Glob, Grep, Bash | nothing structural — and it is the one that writes prose |
+
+`jsk-resume-author` is the exception worth understanding. It authors the narrative, the retuned
+summary and the view, so restraint alone would not be enough. Everything it writes is marked
+`inferred`, and a view with `provenance_floor: confirmed` means `validate_urs.py` refuses to render
+it until a person has confirmed each clause. **The guarantee lives in the record gate, not in the
+agent.**
 
 Two consequences worth keeping in mind when editing them:
 
@@ -83,8 +92,11 @@ plugins/jsk/
     braindump|resume|tailor|...     thin delegations into the skill's modes
   agents/                           subagents the modes delegate to
     jsk-verifier.md                 runs the four gates on rendered files, reports verbatim
-    jsk-bundle-auditor.md           reads the whole bundle, returns a prioritised gap queue
-    jsk-posting-analyst.md          decomposes a posting, writes the target, runs the scorer
+    jsk-bundle-auditor.md           reads the whole bundle, writes a posting-less UGS audit
+    jsk-posting-analyst.md          decomposes a posting into UJD, runs the scorer
+    jsk-record-builder.md           transcribes the bundle into record.json, ids kept stable
+    jsk-gap-analyst.md              joins posting to record, writes the UGS assessment
+    jsk-resume-author.md            authors the tailored record: narrative, summary, view
   skills/jsk/
     SKILL.md                        the agent's entry point: routing + hard rules
     references/                     what the agent loads on demand
@@ -92,15 +104,18 @@ plugins/jsk/
       mode-*.md                     one procedure per mode
       bundle-spec.md                bundle layout, frontmatter schema, selection keys
       urs-spec.md                   the normative record format
+      ujd-spec.md                   the normative posting format the scorer reads
+      ugs-spec.md                   the normative assessment format: the join between the two
       ats-rules.md                  hard rules, two-variant strategy, keyword placement
       writing-rules.md              X-Y-Z bullets, verb accuracy, phrases to cut
-      target-template.md            Job Target frontmatter the scorer reads
       rationale.md                  long-form reasoning, loaded to explain a rule
     schema/
       urs-v1.schema.json            JSON Schema for the record
+      ujd-v1.schema.json            JSON Schema for the posting
+      ugs-v1.schema.json            JSON Schema for the assessment
       profiles/*.json               region profiles: default, au, in, ae
-      example.resume.json           a complete worked document
-    scripts/                        the twelve tools, plus the urs/ package
+      example.{resume,posting,gaps}.json   three complete worked documents
+    scripts/                        the fourteen tools, plus the urs/ package
       okf.py                        one entry point that forwards to the rest
       preview_templates.py          one record in every template, so the look is chosen by looking
       migrate_bundle.py             moves an older bundle to the current layout revision
@@ -123,7 +138,9 @@ tests/                              unittest, one file per script
 | Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
 | What a migration does | `scripts/migrate_bundle.py` | `docs/SCRIPTS.md`, `tests/test_migrate_bundle.py` |
 | **What a timeline event means** | `scripts/pipeline_model.py` | never in a caller — `pipeline.py`, `validate_bundle.py` and `migrate_bundle.py` all read it |
-| How postings are scored | `scripts/score_projects.py` | `references/target-template.md` |
+| How postings are scored | `scripts/score_projects.py` | `references/ujd-spec.md`, `tests/test_score_projects.py` |
+| What makes a posting invalid | `scripts/validate_ujd.py` | `schema/ujd-v1.schema.json`, `references/ujd-spec.md` |
+| **What an assessment must prove** | `scripts/validate_ugs.py` | `schema/ugs-v1.schema.json`, `references/ugs-spec.md` — and note what `--recompute` can and cannot re-derive |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
