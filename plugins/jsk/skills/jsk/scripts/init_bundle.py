@@ -17,7 +17,7 @@ if HERE not in sys.path:
 
 import pipeline_model  # noqa: E402
 
-BUNDLE_REVISION = 4   # keep in step with CURRENT_REVISION in migrate_bundle.py
+BUNDLE_REVISION = 5   # keep in step with CURRENT_REVISION in migrate_bundle.py
 
 DIRS = ["profile","organisations","roles","projects","achievements","skills","education",
         "open-source","sources","framework","resume-generation","tailoring",

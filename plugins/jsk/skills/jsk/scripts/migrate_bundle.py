@@ -35,13 +35,14 @@ if HERE not in sys.path:
 
 import pipeline_model  # noqa: E402
 
-CURRENT_REVISION = 4
+CURRENT_REVISION = 5
 
 REVISIONS = {
     1: "applications point at a mutable target file (`target:`) and carry `outcome:`",
     2: "the posting is frozen beside each application as `<stem>.target.md`",
     3: "an application's outcome is derived from an append-only timeline",
     4: "the posting is a UJD document, `<stem>.posting.json`, not Markdown frontmatter",
+    5: "roles and projects declare their relations in frontmatter, so the record compiles",
 }
 
 # `outcome:` values seen in the wild, mapped onto timeline events. `offer` maps to an
@@ -614,6 +615,192 @@ def plan_r3_to_r4(root, today, changes, blocked, planned=None):
             "evidence is not a text substitution.")
 
 
+# ------------------------------------------- r4 -> r5: the relational keys
+
+MONTHS = {m: "%02d" % i for i, m in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun",
+     "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+
+
+def ladder_date(cell):
+    """Aug 2015 -> 2015-08. Present -> None, which is what ongoing means."""
+    text = cell.strip().strip("*").strip()
+    if not text or text.lower() in ("present", "now", "current", "-", "ongoing"):
+        return None
+    m = re.match(r"^([A-Za-z]{3})[a-z]*\.?\s+(\d{4})$", text)
+    if m and m.group(1).lower() in MONTHS:
+        return "%s-%s" % (m.group(2), MONTHS[m.group(1).lower()])
+    m = re.match(r"^(\d{4})-(\d{2})", text)
+    if m:
+        return "%s-%s" % (m.group(1), m.group(2))
+    m = re.match(r"^(\d{4})$", text)
+    return m.group(1) if m else None
+
+
+def read_ladder(root):
+    """The Career Progression concept's ladder, one row per role, in its own order.
+
+    The relational spine was already written down here - which employer, from when to
+    when, in what order. It was just never in a place a compile could read.
+    """
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for name in sorted(filenames):
+            if not name.endswith(".md"):
+                continue
+            path = os.path.join(dirpath, name)
+            parts = split_frontmatter(open(path, encoding="utf-8").read())
+            if not parts or fm_get(parts[0], "type") != "Career Progression":
+                continue
+            rows = []
+            for line in parts[1].splitlines():
+                if not line.startswith("|") or set(line.strip()) <= set("|- "):
+                    continue
+                cells = [c.strip() for c in line.strip().strip("|").split("|")]
+                if len(cells) < 4 or cells[0].lower().strip("*") == "role":
+                    continue
+                rows.append(cells)
+            if rows:
+                return rows
+    return []
+
+
+def org_stem(cell, org_stems):
+    """The organisations/ file a ladder cell names, by link or by name."""
+    link = re.search(r"\(([^)]+)\)", cell)
+    if link:
+        stem = os.path.basename(link.group(1)).replace(".md", "")
+        if stem in org_stems:
+            return stem
+    plain = re.sub(r"[\[\]]", "", re.sub(r"\([^)]*\)", "", cell)).strip().lower()
+    if not plain:
+        return None
+    head = plain.split()[0]
+    for stem in sorted(org_stems):
+        if stem.startswith(head) or head in stem:
+            return stem
+    return None
+
+
+def plan_r4_to_r5(root, changes, blocked):
+    roles_dir = os.path.join(root, "roles")
+    if not os.path.isdir(roles_dir):
+        return
+    org_stems = set()
+    orgs_dir = os.path.join(root, "organisations")
+    if os.path.isdir(orgs_dir):
+        org_stems = {n[:-3] for n in os.listdir(orgs_dir)
+                     if n.endswith(".md") and n != "index.md"}
+
+    ladder = read_ladder(root)
+    if not ladder:
+        blocked.append(
+            "no Career Progression concept with a ladder table, so the roles' employers "
+            "and dates cannot be read from anywhere. Add organisation, start, end, state "
+            "and change to each roles/*.md by hand - bundle-spec.md, 'The relational keys'.")
+        return
+
+    seen_org, by_title = set(), {}
+    for cells in ladder:
+        title = re.sub(r"[*`]", "", cells[0]).strip()
+        stem = org_stem(cells[1], org_stems)
+        entry = {"organisation": stem,
+                 "start": ladder_date(cells[2]),
+                 "end": ladder_date(cells[3]),
+                 "org_cell": cells[1],
+                 "change": "hire" if stem not in seen_org else "promotion"}
+        seen_org.add(stem)
+        by_title[title.lower()] = entry
+
+    for name in sorted(os.listdir(roles_dir)):
+        if not name.endswith(".md") or name == "index.md":
+            continue
+        rel = "roles/" + name
+        path = os.path.join(roles_dir, name)
+        parts = split_frontmatter(open(path, encoding="utf-8").read())
+        if not parts:
+            continue
+        fm_lines, _ = parts
+        if fm_get(fm_lines, "type") != "Role":
+            continue
+        if fm_index(fm_lines, "organisation") != -1:
+            continue
+        title = (fm_get(fm_lines, "title") or "").strip().strip('"')
+        row = by_title.get(title.lower()) or by_title.get(title.split(" - ")[0].strip().lower())
+        if not row:
+            blocked.append(
+                "%s: %r is not a row in the career-progression ladder, so its employer and "
+                "dates cannot be established. Add them by hand." % (rel, title))
+            continue
+        if not row["organisation"]:
+            blocked.append(
+                "%s: the ladder names %s, which has no concept in organisations/. A role "
+                "cannot be for a company the bundle does not know - write that concept "
+                "first." % (rel, row["org_cell"]))
+            continue
+        if not row["start"]:
+            blocked.append("%s: the ladder gives no readable start date." % rel)
+            continue
+
+        lines = ["organisation: " + row["organisation"], "start: " + row["start"]]
+        if row["end"]:
+            lines += ["end: " + row["end"], "state: ended"]
+        else:
+            lines += ["state: ongoing"]
+        lines.append("change: " + row["change"])
+
+        def write(p=path, add=tuple(lines)):
+            fm_lines, body = split_frontmatter(open(p, encoding="utf-8").read())
+            at = fm_index(fm_lines, "status")
+            if at == -1:
+                at = len(fm_lines) - 1
+            for offset, line in enumerate(add):
+                fm_lines.insert(at + 1 + offset, line)
+            open(p, "w", encoding="utf-8").write(join_frontmatter(fm_lines, body))
+
+        changes.append(Change("update", rel, ", ".join(lines), write))
+
+    # A project points at the role it was done under. The body already carries the link
+    # a reader follows; this is the key a compile reads.
+    projects_dir = os.path.join(root, "projects")
+    if not os.path.isdir(projects_dir):
+        return
+    role_stems = {n[:-3] for n in os.listdir(roles_dir)
+                  if n.endswith(".md") and n != "index.md"}
+    for name in sorted(os.listdir(projects_dir)):
+        if not name.endswith(".md") or name == "index.md":
+            continue
+        rel = "projects/" + name
+        path = os.path.join(projects_dir, name)
+        parts = split_frontmatter(open(path, encoding="utf-8").read())
+        if not parts:
+            continue
+        fm_lines, body = parts
+        if fm_get(fm_lines, "type") != "Project" or fm_index(fm_lines, "role") != -1:
+            continue
+        found = None
+        for _label, target in re.findall(r"\*\*Role:\*\*\s*\[([^\]]+)\]\(([^)]+)\)", body):
+            stem = os.path.basename(target).replace(".md", "")
+            if stem in role_stems:
+                found = stem
+                break
+        if not found:
+            blocked.append(
+                "%s: no **Role:** link in the body, so the role it was done under is "
+                "recorded nowhere. Add `role: <stem>` to its frontmatter." % rel)
+            continue
+
+        def write_project(p=path, stem=found):
+            fm_lines, body = split_frontmatter(open(p, encoding="utf-8").read())
+            at = fm_index(fm_lines, "status")
+            if at == -1:
+                at = len(fm_lines) - 1
+            fm_lines.insert(at + 1, "role: " + stem)
+            open(p, "w", encoding="utf-8").write(join_frontmatter(fm_lines, body))
+
+        changes.append(Change("update", rel, "role: " + found, write_project))
+
+
 # ------------------------------------------------------------------ the stamp
 
 def plan_stamp(root, revision, changes):
@@ -684,6 +871,9 @@ def main(argv=None):
     if revision < 4 <= CURRENT_REVISION:
         print(f"\nr3 -> r4  {REVISIONS[4]}")
         plan_r3_to_r4(root, today, changes, blocked, planned)
+    if revision < 5 <= CURRENT_REVISION:
+        print(f"\nr4 -> r5  {REVISIONS[5]}")
+        plan_r4_to_r5(root, changes, blocked)
     plan_stamp(root, CURRENT_REVISION, changes)
 
     done = {"create": "created", "update": "updated", "stamp": "stamped"}

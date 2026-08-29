@@ -13,6 +13,7 @@ will be. This exists so that nobody has to remember every name to get started.
 
     okf doctor                  what works on this machine
     okf new PATH --name NAME    scaffold a bundle
+    okf compile BUNDLE          build the record from the concepts, deterministically
     okf validate TARGET         a record, posting or gaps .json, or a bundle
     okf render RECORD [...]     one record to a PDF and plain text
     okf preview RECORD --out D  the same record in every template, to pick a look
@@ -34,6 +35,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # subcommand -> (script, what it does)
 SIMPLE = {
     "new": ("init_bundle.py", "scaffold an empty bundle"),
+    "compile": ("okf_compile.py", "the bundle, as the record everything downstream reads"),
     "render": ("render_resume.py", "one record to .tex/PDF plus .txt"),
     "preview": ("preview_templates.py", "one record in every template, side by side"),
     "score": ("score_projects.py", "rank projects against a posting"),

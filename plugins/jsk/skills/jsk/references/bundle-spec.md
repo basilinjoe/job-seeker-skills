@@ -45,6 +45,7 @@ way to say so.
 | 2 | the posting is frozen beside each application as `<stem>.target.md` |
 | 3 | an application's outcome is derived from an append-only `# Timeline` |
 | 4 | the posting is a UJD document, `<stem>.posting.json`, not Markdown frontmatter |
+| 5 | roles and projects declare their relations in frontmatter, so the record compiles rather than being transcribed |
 
 `validate_bundle.py` warns on an older revision and never fails it. `migrate_bundle.py` moves a
 bundle forward, reports what it cannot establish, and marks anything it reconstructs
@@ -165,9 +166,44 @@ title: "Member of Technical Staff"
 functional_title: "Full-Stack Engineer"    # renders in parentheses; never replaces title
 ```
 
-An extension key, so no validator change was needed to carry it — but it is the field
-`resume.json` reads, so spell it exactly. `writing-rules.md` has when to reach for it and, more
-often, when not to.
+An extension key, so no validator change was needed to carry it — but it is the field the compiled
+record reads, so spell it exactly. `writing-rules.md` has when to reach for it and, more often, when
+not to.
+
+### The relational keys
+
+A role also declares who it was for and when. These are what the compile reads to build the
+engagement history, and they are required: a role that cannot say who it was for and when cannot be
+placed on a resume.
+
+```yaml
+type: Role
+organisation: experion-technologies   # the Organisation file's stem, not its display name
+start: 2019-04                        # 2019, 2019-04 or 2019-04-01 - precision is read from what you write
+end: 2021-12                          # omit entirely while state is ongoing
+state: ended                          # ended | ongoing | unknown
+seniority: team-leadership            # the closed vocabulary Projects already use
+change: promotion                     # hire | promotion | lateral | title-change
+```
+
+**Roles sharing an `organisation` compile into one engagement**, ordered by `start`, each becoming a
+position in its history. That is what puts a promotion on the resume as progression within one
+employer rather than as two unrelated jobs, and `change` is what names it.
+
+A Project points at the role it was done under:
+
+```yaml
+type: Project
+role: lead-software-engineer-experion   # the Role file's stem
+```
+
+The body's `**Role:**` link stays — it is how a reader navigates — but the compile reads the key,
+because prose can be rephrased and a key cannot.
+
+Before revision 5 all of this lived in prose: tenure under a `# Tenure` heading, the employer
+inferable only from the title's suffix, the progression left for a model to work out. Each was a
+judgement made during transcription, which is exactly where a resume acquires a fact nobody wrote
+down. `migrate_bundle.py` fills them in where it can and names every role it could not place.
 
 ## Concept file format
 
@@ -234,6 +270,46 @@ heading. Only list items count as vocabulary; prose and fenced examples are igno
 file holds none the validator leaves capabilities unchecked rather than rejecting every value.
 
 Values appearing on three or more projects are the ones safe to claim as a through-line in a summary.
+
+## Authored content - bullets and skills
+
+Almost everything in a bundle is a frontmatter key, and the record compiles from it without
+anyone transcribing anything. Two things are different: they are *written*. Both live in the
+concept they belong to, so a sentence written once is reusable by the next application rather
+than stranded in one.
+
+**A project's `# Bullets`** are the resume lines its prose earned:
+
+```markdown
+# Bullets
+
+- Cut event propagation from 5 minutes to under 1 second across 15+ integrated applications.
+  metric: Event propagation latency
+  status: confirmed
+```
+
+`metric` names a row in `achievements/metrics.md`. The number lives there once and a bullet
+points at it rather than restating it, which is what stops a rewritten clause inflating it -
+"cut latency 62%" becoming "by over 60%" becoming "by two thirds". `status` is `confirmed`,
+`inferred` or `needs-verification`; anything authored during tailoring arrives `inferred`, and
+a view carrying `provenance_floor: confirmed` will not render it until the person has said
+otherwise.
+
+**A Skill Set's `# Skills`** are the competencies as a reader should see them:
+
+```markdown
+# Skills
+
+- C# / .NET
+  id: skill_dotnet
+  category: language
+  aliases: C#, .NET, ASP.NET Core, LINQ, Entity Framework
+```
+
+Deliberately not the same thing as a project's `capabilities` and `technologies`. Those are
+matching vocabulary and compare as exact strings, so a synonym silently breaks matching. These
+are display names, grouped and aliased by someone with a view about how the block should read.
+A view selects from them by id; `ats-maximal` expands them with their aliases.
 
 ## Structure rules for rendering
 

@@ -47,7 +47,7 @@ if not files:
 # A WARNING and never an ERROR: failing a bundle built on an earlier revision would break
 # every bundle already in existence, which the frozen surfaces rule out. Absent means r1,
 # because every bundle predating the stamp has no way to say so.
-CURRENT_BUNDLE_REVISION = 4
+CURRENT_BUNDLE_REVISION = 5
 revision = None
 index_path = os.path.join(ROOT, "index.md")
 if os.path.exists(index_path):
