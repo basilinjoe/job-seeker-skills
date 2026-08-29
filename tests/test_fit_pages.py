@@ -19,6 +19,7 @@ from fixtures import (EXAMPLE_URS, FIT_PAGES, RENDER_RESUME, load_script, run,
 
 fp = load_script(FIT_PAGES)
 emit_latex = urs_module("urs.emit_latex")
+themes = urs_module("urs.themes")
 tex = urs_module("urs.tex")
 
 
@@ -127,17 +128,42 @@ class LeverPlan(unittest.TestCase):
             size = float(out.split(r"\fontsize{")[1].split("pt")[0])
             self.assertGreaterEqual(size, fp.FONT_FLOOR_PT, label)
 
-    def test_every_state_applies_cleanly_to_a_real_template(self):
-        """The levers are regexes over emit_latex.py's own output. If that file
-        reformats a knob, this is what notices."""
-        source = emit_latex.PREAMBLE % {
-            "pt": 11, "baseline": "13.2", "paper": "a4paper",
-            "bullet": r"\textbullet", "margin": "0.8in"}
-        for label, state in self.plan:
-            out = fp.apply_state(source, state)
-            self.assertNotEqual(out, "", label)
-            self.assertIsNotNone(fp.body_font_pt(out), label)
-            self.assertIsNotNone(fp.current_margin_in(out), label)
+    def preamble_for(self, name):
+        return themes.preamble(themes.get(name), body_pt=11, baseline_pt="13.2",
+                               paper="a4paper", margin_in=0.8,
+                               bullet=r"\textbullet")
+
+    def test_every_state_applies_cleanly_to_every_template(self):
+        """The levers are regexes over the rendered preamble. If a theme
+        reformats a knob, this is what notices - and it checks every theme
+        rather than whichever one happens to be the default, because the knobs
+        are written per theme now."""
+        for name in themes.names():
+            source = self.preamble_for(name)
+            for label, state in self.plan:
+                where = f"{name}: {label}"
+                out = fp.apply_state(source, state)
+                self.assertNotEqual(out, "", where)
+                self.assertIsNotNone(fp.body_font_pt(out), where)
+                self.assertIsNotNone(fp.current_margin_in(out), where)
+
+    def test_the_font_lever_shrinks_the_body_and_spares_the_anchors(self):
+        r"""Themes write display sizes as \fontsize{24}{27} - unit-less, which
+        LaTeX reads as points just the same - specifically so the body-size
+        regex cannot reach them.
+
+        A fitter that shrank the name and the section heads along with the body
+        would hold the page count and dismantle the hierarchy the page count
+        exists to protect, and it would do it silently: the text is unchanged,
+        every checker still passes, and only a person looking at the render
+        would ever know.
+        """
+        for name in themes.names():
+            theme = themes.get(name)
+            out = fp.shrink_font(self.preamble_for(name), 1.0)
+            self.assertEqual(fp.body_font_pt(out), 10.0, name)
+            self.assertIn(r"\fontsize{%g}{" % theme["name_pt"], out, name)
+            self.assertIn(r"\fontsize{%g}{" % theme["head_pt"], out, name)
 
 
 class Geometry(unittest.TestCase):
@@ -243,10 +269,15 @@ class WithAnEngine(unittest.TestCase):
     def test_an_over_budget_document_does_not_pass(self):
         source = self.render()
         body = source.read_text(encoding="utf-8")
-        head, rest = body.split("selectfont", 1)
-        middle, tail = rest.rsplit(r"\end{document}", 1)
+        # Split at \begin{document}, not at the first "selectfont": a theme puts
+        # \selectfont in the preamble as well, so the old split cut inside the
+        # preamble and repeated the \newcommand block six times. The document
+        # then failed to compile at all, and this test read that as "too long" -
+        # a fitter regression and a broken toolchain were indistinguishable here.
+        head, middle = body.split(r"\begin{document}", 1)
+        middle = middle.rsplit(r"\end{document}", 1)[0]
         fat = self.tmp / "fat.tex"
-        fat.write_text(head + "selectfont" + middle * 6 + r"\end{document}" + tail,
+        fat.write_text(head + r"\begin{document}" + middle * 6 + r"\end{document}",
                        encoding="utf-8")
         code, out = run(FIT_PAGES, fat, "--target-pages", "1", "--dry-run")
         self.assertEqual(code, 1, out)

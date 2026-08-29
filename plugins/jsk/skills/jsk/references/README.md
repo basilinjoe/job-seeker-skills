@@ -30,6 +30,7 @@ what the current task needs.
 |---|---|
 | `writing-rules.md` | X-Y-Z bullets, verb accuracy, phrases to cut, phrases that damage seniority |
 | `ats-rules.md` | Hard rules for both variants, the two-variant strategy, keyword placement, what `check_ats.py` verifies |
+| `templates.md` | The five visual templates, what each is for, and the design rules behind them |
 
 ## Reasoning
 

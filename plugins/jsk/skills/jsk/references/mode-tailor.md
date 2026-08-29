@@ -166,6 +166,11 @@ SuccessFactors, Naukri — or when the target is a form rather than a person. It
 the PDF holds; there is still one PDF. The presentation variant is right for a referral or a direct
 email. When in doubt, ATS-maximal.
 
+`--template NAME` is a separate axis and composes with either variant: the variant decides what the
+document says, the template decides how it looks, and every template extracts to the same text. Let
+the employer choose it — a design studio's careers page argues for `ember`, a bank's for the
+ink-only default. `templates.md` has the catalogue.
+
 `ats_maximal_pages` exists because that variant is deliberately longer: it repeats the employer on
 every role line and expands the skills block with keyword aliases. Give it its own budget rather than
 cutting evidence to fit the presentation one — a parser does not care about length, and the reason

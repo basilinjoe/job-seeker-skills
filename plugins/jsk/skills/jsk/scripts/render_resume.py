@@ -10,6 +10,8 @@ Usage:
   --profile P        override format_profile: presentation | ats-maximal | plaintext
   --ats-max          shorthand for --profile ats-maximal: renders the PDF in the
                      ATS-maximal variant instead of the presentation one
+  --template NAME    visual theme for the PDF (default: monolith)
+  --list-templates   print the themes with what each is for, and exit
   --pdf              compile the .tex with whatever TeX engine is installed
   --name N           basename for the outputs (default: from person.name.full)
 
@@ -34,7 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from urs import emit_latex, emit_text, plan as planner  # noqa: E402
+from urs import emit_latex, emit_text, plan as planner, themes  # noqa: E402
 from urs.tex import compile_pdf  # noqa: E402
 
 # One record, one rendered deliverable, plus the paste-in-box text. Which
@@ -76,6 +78,23 @@ def select_targets(fmt, profile):
     ]
 
 
+def list_templates():
+    """The catalogue, in the order themes.py declares - conservative first.
+
+    Printed rather than documented only, because the choice is a judgement about
+    an employer and the person making it is at a terminal, not in the docs.
+    """
+    print("templates (--template NAME):")
+    for name, blurb, best_for in themes.catalogue():
+        mark = "  *" if name == themes.DEFAULT else "   "
+        print(f"\n{mark} {name:<10} {blurb}")
+        print(f"      for: {best_for}")
+    print()
+    print("  * = default. Every template extracts to identical text; the choice")
+    print("      changes nothing a parser sees, only what a person sees.")
+    return 0
+
+
 def arg(argv, flag, default=None):
     if flag in argv:
         try:
@@ -91,6 +110,8 @@ def safe_name(text):
 
 
 def main(argv):
+    if "--list-templates" in argv:
+        return list_templates()
     if len(argv) < 2 or argv[1].startswith("--"):
         print(__doc__.strip().split("\n\n")[1])
         return 2
@@ -106,6 +127,15 @@ def main(argv):
     region = arg(argv, "--region")
     profile = "ats-maximal" if "--ats-max" in argv else arg(argv, "--profile")
     want_pdf = "--pdf" in argv
+    template = arg(argv, "--template")
+    try:
+        themes.get(template)
+    except KeyError as e:
+        # Failing here rather than at write time: an unknown template that
+        # quietly rendered the default would produce a resume nobody chose,
+        # and it would look perfectly fine.
+        print(f"usage: {e.args[0]}")
+        return 2
 
     with open(src, encoding="utf8") as fh:
         doc = json.load(fh)
@@ -132,7 +162,7 @@ def main(argv):
         if kind == "latex":
             tex = path + ".tex"
             with open(tex, "w", encoding="utf8") as fh:
-                fh.write(emit_latex.emit(rendered))
+                fh.write(emit_latex.emit(rendered, template=template))
             written.append(tex)
             if want_pdf:
                 pdf, note = compile_pdf(tex, out_dir)
@@ -151,7 +181,7 @@ def main(argv):
             return 2
 
     print(f"view: {first['view']}   profile: {first['profile']}   "
-          f"page budget: {first['pages']}")
+          f"page budget: {first['pages']}   template: {template or themes.DEFAULT}")
     for path in written:
         print(f"  wrote  {os.path.relpath(path, out_dir)}")
     for note in notes:

@@ -8,13 +8,14 @@ for the underlying script is still true here:
     okf check resume.pdf      ==     check_ats.py resume.pdf
                                      check_prose.py resume.tex
 
-The eleven scripts remain the stable, documented API. They are callable directly and
-always will be. This exists so that nobody has to remember eleven names to get started.
+The scripts remain the stable, documented API. They are callable directly and always
+will be. This exists so that nobody has to remember every name to get started.
 
     okf doctor                  what works on this machine
     okf new PATH --name NAME    scaffold a bundle
     okf validate TARGET         a record (.json) or a bundle (directory)
     okf render RECORD [...]     one record to a PDF and plain text
+    okf preview RECORD --out D  the same record in every template, to pick a look
     okf check PDF [--strict]    the parse gate and the prose gate, both
     okf score BUNDLE TARGET     rank projects against a posting
     okf fit TEX [...]           fit a render to a page budget
@@ -34,6 +35,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SIMPLE = {
     "new": ("init_bundle.py", "scaffold an empty bundle"),
     "render": ("render_resume.py", "one record to .tex/PDF plus .txt"),
+    "preview": ("preview_templates.py", "one record in every template, side by side"),
     "score": ("score_projects.py", "rank projects against a posting"),
     "fit": ("fit_pages.py", "fit a render to a page budget"),
     "migrate": ("migrate_bundle.py", "bring an older bundle up to the current layout"),

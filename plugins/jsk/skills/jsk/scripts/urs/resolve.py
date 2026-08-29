@@ -124,8 +124,13 @@ class Resolver:
         person = self.doc.get("person") or {}
         name = (person.get("name") or {}).get("full", "")
         lines = []
-        if person.get("headline"):
-            lines.append(self.t(person["headline"]))
+        # Kept on the resolver as well as in `lines`, so an emitter can style
+        # the professional title without having to guess which header line it
+        # is. It stays in `lines` because the plain-text emitter wants the
+        # header as a flat block and nothing about that changed.
+        self.headline = self.t(person["headline"]) if person.get("headline") else None
+        if self.headline:
+            lines.append(self.headline)
 
         loc = person.get("location") or {}
         place = []
@@ -541,6 +546,7 @@ def build(doc, view_id=None, region=None, fmt=None):
         "pages": pages,
         "name": name,
         "header_lines": header_lines,
+        "headline": getattr(r, "headline", None),
         "photo": photo_uri,
         "sections": sections,
         "warnings": r.warnings,

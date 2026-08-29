@@ -89,6 +89,12 @@ python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view <view-id
    a resume nobody has looked at. Read the warnings it prints: a withheld bullet, a field the region profile
    requires and the record does not have, a bracket that should not be in anyone's resume.
 
+   `--template NAME` chooses the look. The default, `monolith`, is ink-only and conservative; four
+   others use colour and typography to build a stronger visual hierarchy. All five say the same
+   words in the same order and extract to identical text, so this is a question about the reader,
+   never about the parse. `--list-templates` describes them and `preview_templates.py` renders all
+   five from the record — nobody picks a resume design from a sentence. See `templates.md`.
+
 7. **Verify — not optional:**
 
    Hand steps 7 to 9 to `jsk-verifier` — it runs every gate, measures the fit, reads the PDF,

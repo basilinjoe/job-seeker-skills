@@ -27,11 +27,27 @@ that arrives fragmented.
 - **Nothing in headers or footers** — many parsers discard them, and contact details are the worst
   thing to lose.
 
-  Those four are now **guaranteed rather than checked.** One LaTeX template produces every render
+  Those four are now **guaranteed rather than checked.** One LaTeX emitter produces every render
   and it cannot express any of them, so `check_ats.py` stopped looking per render and a golden-file
-  test on `emit_latex.py` guards the template instead. Keep the rules written down: they are why the
-  template looks the way it does, and the first person to add a two-column layout will come here
-  first.
+  test on `emit_latex.py` guards it instead. Keep the rules written down: they are why the renders
+  look the way they do, and the first person to add a two-column layout will come here first.
+
+  There are five **visual templates** (`--template`, see `templates.md`), and the guarantee covers
+  all of them: the package list is pinned, no template can load anything that draws a box, and the
+  golden-file test runs against every template rather than against one. Colour, typeface and rule
+  weight are the only things a template moves.
+
+- **Colour is safe; a glyph change is not.** Colour lives in a PDF's graphics state and never in its
+  text layer, so a parser reading a navy heading reads the heading. That makes the four coloured
+  templates exactly as parseable as the ink-only one, and `tests/test_themes.py` proves it by
+  extracting from all five compiled PDFs and comparing.
+
+  What is *not* safe is anything that changes the characters themselves. `\MakeUppercase` on the
+  **name** did — the text layer said `PRIYA RAMAN` where every other template said `Priya Raman`,
+  on the one field an ATS extracts by heuristic rather than matches against a known word. It is
+  gone from the templates. Uppercase *section headings* stay: a heading is matched, `check_ats.py`
+  lowercases first, and the same argument does not carry. Letterspacing is out for the same reason
+  — it sets each character as its own glyph, and `SUMMARY` extracts as `S U M M A R Y`.
 
 - **`.pdf`**, from `render_resume.py --pdf`. This reverses the older rule, which said `.docx` and
   not `.pdf`. The rule was right for its time and wrong by the end: a `.docx` and a PDF built from

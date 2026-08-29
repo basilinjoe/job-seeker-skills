@@ -406,8 +406,17 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
     }
 
     def rendered(self):
-        return [(fmt, emit_latex.emit(self.plan(fmt=fmt)))
-                for fmt in ("presentation", "ats-maximal")]
+        """Every variant crossed with every theme.
+
+        Themes multiplied the number of templates that exist by five, so a
+        check that ran against "the template" now has to run against all of
+        them or it is sampling again - which is exactly what moving the check
+        here was meant to stop.
+        """
+        themes_mod = urs_module("urs.themes")
+        return [(f"{fmt}/{name}", emit_latex.emit(self.plan(fmt=fmt), template=name))
+                for fmt in ("presentation", "ats-maximal")
+                for name in themes_mod.names()]
 
     def test_no_variant_can_express_a_structural_hazard(self):
         for fmt, tex in self.rendered():
@@ -415,20 +424,48 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
                 for marker in markers:
                     self.assertNotIn(marker, tex, f"{fmt} emitted {hazard}")
 
+    # Everything a theme is allowed to load. `xcolor` draws no structure - it
+    # sets colour in the graphics state and cannot make a box - and the four
+    # typeface packages only select glyphs. Nothing here can express a hazard
+    # above, which is what makes pinning the list the real guard: a hazard
+    # nobody has thought of still needs a package, and a new package has to be
+    # argued for here first.
+    ALLOWED = {"fontenc", "inputenc", "geometry", "enumitem", "xcolor",
+               "lmodern", "tgtermes", "tgpagella", "tgschola", "tgheros",
+               "tgadventor"}
+    REQUIRED = ["fontenc", "inputenc", "geometry", "enumitem", "xcolor"]
+
+    def packages(self, tex):
+        return re.findall(r"\\usepackage(?:\[[^\]]*\])?\{([^}]*)\}", tex)
+
     def test_the_package_list_is_pinned(self):
-        """The golden file, narrowed to the part that carries risk. Every hazard
-        above needs a package to express it, so pinning the list is what makes
-        the class above hold for hazards nobody has thought of yet."""
+        """The golden file, narrowed to the part that carries risk."""
         for fmt, tex in self.rendered():
-            packages = re.findall(r"\\usepackage(?:\[[^\]]*\])?\{([^}]*)\}", tex)
-            self.assertEqual(packages, ["fontenc", "inputenc", "geometry", "enumitem"], fmt)
+            found = self.packages(tex)
+            self.assertEqual(found[:len(self.REQUIRED)], self.REQUIRED, fmt)
+            self.assertEqual(set(found) - self.ALLOWED, set(), fmt)
+
+    def test_every_optional_font_load_is_guarded(self):
+        r"""A typeface is worth a package; it is not worth a build failure on
+        someone else's machine. Every font package is loaded inside
+        \IfFileExists, so a thin TeX distribution substitutes Latin Modern and
+        warns instead of stopping - and the four required packages, which every
+        distribution has, are loaded plainly so a genuinely broken install
+        fails loudly rather than rendering something unrecognisable."""
+        for fmt, tex in self.rendered():
+            for pkg in self.packages(tex):
+                if pkg in self.REQUIRED:
+                    continue
+                self.assertIn(r"\IfFileExists{%s.sty}{\usepackage{%s}}{}" % (pkg, pkg),
+                              tex, f"{fmt}: {pkg} loaded unguarded")
 
     def test_the_ascii_variant_renders_an_ascii_bullet(self):
         """A PDF bullet is a glyph in the text layer, so U+2022 would fail the
-        ATS-maximal variant's own ASCII rule."""
-        by_fmt = dict(self.rendered())
-        self.assertIn("label={-}", by_fmt["ats-maximal"])
-        self.assertIn(r"label=\textbullet", by_fmt["presentation"])
+        ATS-maximal variant's own ASCII rule. Colouring the marker wraps the
+        glyph and does not change it."""
+        for fmt, tex in self.rendered():
+            expected = "{-}" if fmt.startswith("ats-maximal") else r"\textbullet"
+            self.assertIn(r"label=\textcolor{jskbullet}{%s}" % expected, tex, fmt)
 
     def test_the_ascii_variant_breaks_ligatures(self):
         """T1 Computer Modern turns "fi" into U+FB01 and "ffi" into U+FB03 - one
@@ -471,10 +508,17 @@ class TheDateColumnHolds(unittest.TestCase):
         return doc
 
     def test_the_template_carries_both_guards(self):
-        """Either one alone produces a defect, so neither may be dropped."""
-        rendered = emit_latex.emit(planner.build(self.long_titled_doc()))
-        self.assertIn(r"\rightskip=0pt plus 1fil", rendered)
-        self.assertIn(r"\mbox{#2}", rendered)
+        """Either one alone produces a defect, so neither may be dropped - in
+        any theme. Four of the five also set \\raggedright, which sets the same
+        \\rightskip globally; the \\hfill that pushes the date right is `fill`,
+        an infinity order above `fil`, so it still wins and the guard is
+        unaffected either way."""
+        themes_mod = urs_module("urs.themes")
+        for name in themes_mod.names():
+            rendered = emit_latex.emit(planner.build(self.long_titled_doc()),
+                                       template=name)
+            self.assertIn(r"\rightskip=0pt plus 1fil", rendered, name)
+            self.assertIn(r"\mbox{{\color{jskdate}#2}}", rendered, name)
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
     def test_a_long_role_line_stays_inside_the_right_margin(self):

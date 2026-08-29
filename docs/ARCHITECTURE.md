@@ -45,6 +45,7 @@ yourself making a formatting decision inside the plan, it belongs in an emitter.
 | `formatting.py` | *how* one value reads: dates, grades, quantities, the fold to ASCII |
 | `profiles.py` | region profile loading and the gate that applies it |
 | `emit_*.py` | markup only |
+| `themes.py` | *appearance* only: palette, typeface, rhythm. Below `emit_latex.py`, and it cannot reach the text |
 
 `formatting.py` holds pure functions over single values — no view, no profile, no record — which is
 what makes them testable in isolation. Import `plan`; the split is behind it.
@@ -99,8 +100,9 @@ plugins/jsk/
       urs-v1.schema.json            JSON Schema for the record
       profiles/*.json               region profiles: default, au, in, ae
       example.resume.json           a complete worked document
-    scripts/                        the eleven tools, plus the urs/ package
-      okf.py                        one entry point that forwards to the eleven
+    scripts/                        the twelve tools, plus the urs/ package
+      okf.py                        one entry point that forwards to the rest
+      preview_templates.py          one record in every template, so the look is chosen by looking
       migrate_bundle.py             moves an older bundle to the current layout revision
       pipeline.py                   the weekly board, derived from application timelines
       pipeline_model.py             what a timeline event means - the only module that decides
@@ -116,6 +118,7 @@ tests/                              unittest, one file per script
 | What makes a record invalid | `scripts/validate_urs.py` | `schema/urs-v1.schema.json`, `references/urs-spec.md` |
 | **What content is selected** | `scripts/urs/plan.py` | never an emitter |
 | **How a document looks** | `scripts/urs/emit_*.py` | never `plan.py` |
+| **A palette, typeface or rule** | `scripts/urs/themes.py` | `references/templates.md`, `tests/test_themes.py` |
 | Support for a new market | `schema/profiles/<code>.json` | the region section of `references/urs-spec.md` |
 | Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
 | What a migration does | `scripts/migrate_bundle.py` | `docs/SCRIPTS.md`, `tests/test_migrate_bundle.py` |

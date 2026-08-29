@@ -1,8 +1,10 @@
 """LaTeX emitter, for the PDF a human reads.
 
-Deliberately narrow dependencies: `geometry` and `enumitem` only, both present
-in any TeX distribution worth the name. A resume that needs texlive-full to
-build is a resume that will not build on the machine you actually have.
+Deliberately narrow dependencies: `geometry`, `enumitem` and `xcolor`, all
+present in any TeX distribution worth the name, plus optional typeface packages
+loaded behind `\\IfFileExists` so their absence costs appearance and never a
+build. A resume that needs texlive-full to build is a resume that will not build
+on the machine you actually have.
 
 The PDF this produces is the only rendered deliverable, in whichever variant
 --ats-max selected, so this template is now the single place a structural ATS
@@ -11,11 +13,18 @@ text box, no image, no second column and no header - which is why check_ats.py
 stopped checking for them per render and a golden-file test guards this file
 instead.
 
+How the document *looks* moved to `themes.py`; what it *says* was settled in
+`resolve.py`. This module is the seam: it walks the plan and hands each piece to
+a command the theme defined. That split is why a theme cannot change a word, and
+why `tests/test_themes.py` can prove it by extracting text from five differently
+coloured PDFs and finding one document.
+
 The density levers near the end of the preamble are rewritten in place by
 fit_pages.py. Keep them literal, one per line, and in point units.
 """
 import re
 
+from . import themes
 from .formatting import LETTER_REGIONS
 
 # Variants resolve.py folds to ASCII, and which therefore cannot carry a
@@ -32,6 +41,10 @@ BODY_PT = 11
 # and check_ats.py passed the .docx: only the render was never ASCII, and
 # nothing looked at it until the PDF became the deliverable. Breaking the pair
 # with an empty group costs nothing visually and keeps the text layer flat.
+#
+# Every face a theme can select forms the same pairs, so this stayed here rather
+# than moving into themes.py with the rest of the typography: it is a property
+# of the text layer, not of the look.
 LIGATURE_BREAK = re.compile(r"(?<=f)(?=[fil])|(?<=-)(?=-)")
 
 SPECIALS = {
@@ -47,50 +60,6 @@ SPECIALS = {
     "·": r"\textperiodcentered{}",
 }
 
-PREAMBLE = r"""\documentclass[%(pt)spt,%(paper)s]{article}
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage[margin=%(margin)s]{geometry}
-\usepackage{enumitem}
-\pagestyle{empty}
-\setlength{\parindent}{0pt}
-\setlength{\parskip}{0pt}
-%% --- density levers: fit_pages.py rewrites the values on the next three lines,
-%% and the margin above. Keep them literal and one per line so it can. ---
-\newlength{\sectiongap}\setlength{\sectiongap}{7pt}
-\newlength{\entrygap}\setlength{\entrygap}{4pt}
-\setlist[itemize]{leftmargin=12pt,topsep=2pt,itemsep=1pt,parsep=0pt,label=%(bullet)s}
-%% -------------------------------------------------------------------------
-\newcommand{\sectionrule}{\vspace{1pt}\rule{\linewidth}{0.4pt}\vspace{2pt}\par}
-\newcommand{\sectionhead}[1]{%%
-  \vspace{\sectiongap}{\large\bfseries\MakeUppercase{#1}}\par\sectionrule}
-%% A two-column line without a two-column layout: text left, date right. Both
-%% halves of the guard matter, and neither works alone.
-%%
-%% \mbox stops TeX breaking *inside* the date. Plain `#1\hfill #2` on a long left
-%% side - which functional_title makes common, "Member of Technical Staff, Grade
-%% IV (Principal Platform Engineer)" - collapses the \hfill to zero and breaks the
-%% date itself, leaving "...Engineer)Aug 2016" on one line and "- Feb 2019" on the
-%% next. \mbox alone then overflows the right margin instead, because an
-%% unbreakable date with no legal breakpoint before it has nowhere to go.
-%%
-%% \rightskip gives every line infinite stretch, so TeX will break the *title* at
-%% a space and carry the intact date to the next line. \hfill is fill order and
-%% \rightskip is fil, so on a line that fits the \hfill still wins outright and
-%% the date sits flush right exactly as before.
-%%
-%% Neither is a layout container: no package, no box in the hazard list, and the
-%% extracted text layer is identical either way.
-\newcommand{\dateright}[2]{{\rightskip=0pt plus 1fil\relax #1\hfill\mbox{#2}\par}}
-\newcommand{\entryline}[2]{\dateright{\textbf{#1}}{#2}}
-\newcommand{\roleline}[2]{\dateright{#1}{#2}}
-\begin{document}
-%% The body size is set here rather than only in \documentclass, because the
-%% class accepts 10, 11 or 12pt and nothing between - and the font lever moves
-%% in half-points.
-\fontsize{%(pt)spt}{%(baseline)spt}\selectfont
-"""
-
 
 def esc(text, ascii_safe=False):
     """Escape for LaTeX. No value in SPECIALS contains a ligature pair, so the
@@ -102,7 +71,14 @@ def esc(text, ascii_safe=False):
     return LIGATURE_BREAK.sub("{}", out) if ascii_safe else out
 
 
-def emit(plan):
+def emit(plan, template=None):
+    """The .tex for one render plan, in one theme.
+
+    `template` names a theme in `themes.py`. An unknown name raises rather than
+    falling back: a resume rendered in a theme nobody chose is a resume nobody
+    has looked at, and it would look fine.
+    """
+    theme = themes.get(template or plan.get("template"))
     pages = plan.get("pages") or 2
     # A4 was hardcoded here while the .docx emitter honoured the region, so a US
     # view produced a Letter .docx and an A4 PDF of the same document.
@@ -110,22 +86,19 @@ def emit(plan):
     # In a PDF the bullet is a glyph in the text layer, not list structure the
     # way it was in the .docx - so an ATS-maximal render whose marker is U+2022
     # fails its own ASCII rule. The variant that promises pure ASCII has to use
-    # a marker that is pure ASCII.
+    # a marker that is pure ASCII. Colour is applied by the theme around it and
+    # changes neither the glyph nor its extraction.
     ascii_safe = plan.get("format") in ASCII_VARIANTS
-    bullet = "{-}" if ascii_safe else "\\textbullet"
+    bullet = "{-}" if ascii_safe else r"\textbullet"
 
     def esc_(text):
         return esc(text, ascii_safe)
 
-    body = [PREAMBLE % {"pt": BODY_PT, "baseline": f"{BODY_PT * 1.2:g}",
-                        "paper": paper, "bullet": bullet,
-                        "margin": "0.8in" if pages > 1 else "0.9in"}]
+    body = [themes.preamble(
+        theme, body_pt=BODY_PT, baseline_pt=f"{BODY_PT * 1.2:g}", paper=paper,
+        margin_in=0.8 if pages > 1 else 0.9, bullet=bullet)]
 
-    body.append(r"\begin{center}")
-    body.append(r"{\LARGE\bfseries %s}\par" % esc_(plan["name"]))
-    for line in plan["header_lines"]:
-        body.append(r"\vspace{2pt}%s\par" % esc_(line))
-    body.append(r"\end{center}")
+    body.extend(_header(plan, theme, esc_))
 
     if plan.get("photo"):
         # Recorded rather than embedded: a graphics dependency for a decorative
@@ -141,6 +114,25 @@ def emit(plan):
     return "\n".join(body) + "\n"
 
 
+def _header(plan, theme, esc):
+    """Name, then the headline, then everything else.
+
+    The headline is `person.headline` and `resolve.header()` puts it first in
+    `header_lines`; the plan repeats it under its own key so this can tell it
+    apart from a contact line without re-deriving anything. Recruiters' first
+    pass is spent almost entirely on six items and the current title is one of
+    them, so it is worth a size of its own. A phone number is not.
+    """
+    headline = plan.get("headline")
+    out = [r"\headeropen", r"\resumename{%s}" % esc(plan["name"])]
+    for i, line in enumerate(plan["header_lines"]):
+        macro = "resumeheadline" if (i == 0 and headline and line == headline) else "resumecontact"
+        out.append(r"\%s{%s}" % (macro, esc(line)))
+    out.append(r"\headerclose")
+    out.append(r"\headerrule")
+    return out
+
+
 def _section(section, esc):
     kind = section["kind"]
     out = []
@@ -152,14 +144,22 @@ def _section(section, esc):
             out.append(esc(line) + r"\par")
     elif kind == "rows":
         for row in section["rows"]:
-            out.append(r"\textbf{%s:} %s\par" % (esc(row["label"]), esc(", ".join(row["items"]))))
+            out.append(r"\skillrow{%s}{%s}" % (esc(row["label"]),
+                                               esc(", ".join(row["items"]))))
     elif kind == "entries":
-        for entry in section["entries"]:
-            out.append(r"\vspace{\entrygap}")
+        for index, entry in enumerate(section["entries"]):
+            # The gap separates one entry from the previous one, so the first
+            # entry does not get one: stacked on top of the space the section
+            # rule already leaves, it put more air between a heading and its
+            # own first employer than between that employer and the section
+            # above. The section head owns the space above the section; the
+            # entry gap owns the space between entries.
+            if index:
+                out.append(r"\vspace{\entrygap}")
             if entry.get("org_line"):
                 out.append(r"\entryline{%s}{%s}" % (esc(entry["org_line"]), esc(entry.get("org_right"))))
             for role in entry["roles"]:
-                out.append(r"\roleline{\textit{%s}}{%s}" % (esc(role["left"]), esc(role.get("right"))))
+                out.append(r"\roleline{%s}{%s}" % (esc(role["left"]), esc(role.get("right"))))
             for line in entry["lines"]:
                 out.append(esc(line) + r"\par")
             if entry["bullets"]:

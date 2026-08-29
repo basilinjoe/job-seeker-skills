@@ -2,12 +2,12 @@
 
 The skill runs these for you. This page is for running them yourself.
 
-All eleven live in `plugins/jsk/skills/jsk/scripts/`. Paths below assume you are in that
+All twelve live in `plugins/jsk/skills/jsk/scripts/`. Paths below assume you are in that
 directory. On Windows use `python` or `py -3` in place of `python3`.
 
 ## One entry point: `okf.py`
 
-If you would rather not remember eleven names:
+If you would rather not remember twelve names:
 
 ```bash
 python3 scripts/okf.py doctor                  # what works on this machine
@@ -21,7 +21,7 @@ python3 scripts/okf.py fit resume.tex --target-pages 2
 ```
 
 Every subcommand forwards to the script below with the same arguments and the same exit code, so
-everything documented here stays true through it. **The eleven scripts remain the stable API** — this
+everything documented here stays true through it. **The twelve scripts remain the stable API** — this
 is a convenience layer, not a replacement, and nothing that works today stops working.
 
 Two subcommands do slightly more than forward:
@@ -111,11 +111,44 @@ One record to `.tex` (and PDF with `--pdf`) plus `.txt`. The PDF is the only ren
 | `--profile PATH` | a profile file directly |
 | `--format` | `all` (default), or one of `latex` / `txt` |
 | `--ats-max` | render the PDF in the ATS-maximal variant (shorthand for `--profile ats-maximal`) |
+| `--template NAME` | the visual template (default `monolith`) |
+| `--list-templates` | print the templates with what each is for, and exit |
 | `--name` | override the output filename stem |
 
 **With `--pdf`, a run that produced no PDF exits 1** and says **UNVERIFIED**. It used to record the
 failure as a passing note and exit 0, so a caller could ask for a PDF, be told in passing there wasn't
 one, and still see success.
+
+`--template` and `--ats-max` are different axes and compose. The variant decides what the document
+says; the template decides how it looks. All five templates extract to identical text, so the choice
+is about the reader and never about the parse. An unknown name is a usage error rather than a silent
+fall back to the default, because a resume rendered in a template nobody chose is a resume nobody has
+looked at — and it would look perfectly fine. See `references/templates.md`.
+
+### `preview_templates.py`
+
+```bash
+python3 scripts/preview_templates.py resume.json --out DIR
+python3 scripts/preview_templates.py resume.json --out DIR --view view_acme --only meridian,ember
+```
+
+The same record rendered in every template, with the page count for each, so the look is chosen by
+looking. Writes `DIR/<template>.pdf` and `.tex`, plus a `.png` of the first page where `pymupdf` is
+installed.
+
+Density is the one difference between templates that is not a matter of taste: the same record is
+one page in a dense template and two in an airy one, and a two-page resume where a one-page resume
+was available is a decision worth making on purpose.
+
+| Flag | Does |
+|---|---|
+| `--out DIR` | required — previews are scratch, not deliverables |
+| `--view ID` / `--region CC` / `--ats-max` | passed straight through to `render_resume.py` |
+| `--only A,B` | just these templates |
+
+Exit 0 = every template rendered. Exit 1 = at least one did not, and that is reported rather than
+worked around: a template that does not build is not a template, and the others may be about to
+break too. Exit 2 = usage, or no TeX engine.
 
 ## The gates on the document
 
