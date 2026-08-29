@@ -35,12 +35,15 @@ MIN_PYTHON = (3, 8)
 
 SCRIPTS = [
     "init_bundle.py", "validate_bundle.py", "check_ats.py", "check_prose.py",
-    "score_projects.py", "fit_pages.py", "validate_urs.py", "render_resume.py",
-    "migrate_bundle.py", "pipeline.py", "pipeline_model.py",
+    "score_projects.py", "fit_pages.py", "validate_urs.py", "validate_ujd.py",
+    "validate_ugs.py", "render_resume.py", "migrate_bundle.py", "pipeline.py",
+    "pipeline_model.py",
 ]
 URS_MODULES = ["__init__.py", "plan.py", "profiles.py", "tex.py",
                "emit_latex.py", "emit_text.py"]
-SCHEMA_FILES = ["urs-v1.schema.json", "profile.schema.json", "example.resume.json"]
+SCHEMA_FILES = ["urs-v1.schema.json", "ujd-v1.schema.json", "ugs-v1.schema.json",
+                "profile.schema.json", "example.resume.json",
+                "example.posting.json", "example.gaps.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
 
 TEX_ENGINES = ["tectonic", "latexmk", "pdflatex", "xelatex", "lualatex"]

@@ -261,3 +261,102 @@ def write_urs(directory, doc, name="resume.json"):
     path = Path(directory) / name
     path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     return path
+
+
+# --- UJD and UGS -----------------------------------------------------------
+
+VALIDATE_UJD = SCRIPTS / "validate_ujd.py"
+VALIDATE_UGS = SCRIPTS / "validate_ugs.py"
+EXAMPLE_UJD = SCHEMA_DIR / "example.posting.json"
+EXAMPLE_UGS = SCHEMA_DIR / "example.gaps.json"
+
+
+def load_example(path):
+    """A shipped example, as a fresh mutable copy.
+
+    Tests deform these rather than hand-building a document, because the point of
+    most of them is that a *valid* document stops being valid when one field is
+    wrong. A hand-built minimum passes for reasons that have nothing to do with
+    the rule under test.
+    """
+    import copy
+    import json
+    with open(path, encoding="utf-8") as fh:
+        return copy.deepcopy(json.load(fh))
+
+
+def ujd_doc(**overrides):
+    """A minimal Level 1 posting: one capability requirement and a seniority."""
+    doc = {
+        "ujd": "1.0.0",
+        "meta": {"id": "ujd:test", "updated": "2026-08-29"},
+        "posting": {"id": "pst_test", "title": "Solution Architect"},
+        "organization": {"name": "Test Corp"},
+        "role": {"seniority": "architecture-ownership", "domains": ["healthcare"]},
+        "requirements": [{
+            "id": "req_one", "kind": "capability", "necessity": "must-have",
+            "value": "integration-architecture",
+            "provenance": {"status": "confirmed", "source": {"kind": "posting-text",
+                                                             "span": "integration"}},
+        }],
+        "source": {"raw_text": "We need integration architecture."},
+    }
+    doc.update(overrides)
+    return doc
+
+
+def ugs_doc(**overrides):
+    """A minimal record audit: no posting, which is what UGS 1.1 made legal."""
+    doc = {
+        "ugs": "1.1.0",
+        "meta": {"id": "ugs:test", "updated": "2026-08-29", "purpose": "self-assessment"},
+        "subjects": {"record": {"ref": "record.json"}},
+        "questions": [{
+            "id": "qst_one", "text": "Is this claim yours?", "priority": "inferred-claim",
+        }],
+    }
+    doc.update(overrides)
+    return doc
+
+
+def write_json(directory, doc, name):
+    import json
+    path = Path(directory) / name
+    path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    return path
+
+
+def gaps_workspace(directory, gaps, posting=None, record=None, seal=True,
+                   prefix="sha256:"):
+    """Lay out a gap document beside the subjects its refs resolve to.
+
+    The shipped example refs `schema/<name>`, resolved relative to the directory
+    above the gap file, so the layout is reproduced rather than the refs rewritten
+    - a test that rewrites them stops exercising resolve_ref at all.
+
+    `seal` re-stamps the subject checksums over the bytes actually written here.
+    Without it every test would fail on a checksum mismatch, because rewriting a
+    document re-serialises it and the shipped digests no longer describe it - so
+    each test would be exercising the checksum rule rather than its own. Tests
+    that are about the checksum pass seal=False and set one themselves.
+    """
+    import hashlib
+    import json
+    inner = Path(directory) / "schema"
+    inner.mkdir(parents=True, exist_ok=True)
+    written = {}
+    for key, doc, name in (("posting", posting, "example.posting.json"),
+                           ("record", record, "example.resume.json")):
+        if doc is None:
+            continue
+        raw = json.dumps(doc, indent=2).encode("utf-8")
+        (inner / name).write_bytes(raw)
+        written[key] = hashlib.sha256(raw).hexdigest()
+    if seal:
+        for key, digest in written.items():
+            entry = (gaps.get("subjects") or {}).get(key)
+            if isinstance(entry, dict) and "checksum" in entry:
+                entry["checksum"] = prefix + digest
+    path = inner / "test.gaps.json"
+    path.write_bytes(json.dumps(gaps, indent=2).encode("utf-8"))
+    return path
