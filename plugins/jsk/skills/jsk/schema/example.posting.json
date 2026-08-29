@@ -1,0 +1,526 @@
+{
+  "$schema": "https://openresume.dev/ujd/v1/posting.schema.json",
+  "ujd": "1.0.0",
+
+  "meta": {
+    "id": "ujd:acme:solution-architect:2026-08",
+    "lang": "en",
+    "updated": "2026-08-29",
+    "generator": "jsk/ujd-example",
+    "conformance": 2,
+    "target": "tailoring/targets/acme-corp-solution-architect.md",
+    "vocabularies": {
+      "capabilities": "framework/capability-vocabulary.md",
+      "domains": "framework/domain-vocabulary.md"
+    },
+    "license": "CC0-1.0"
+  },
+
+  "posting": {
+    "id": "pst_acme_sa_2026",
+    "title": "Solution Architect - Integration Platform",
+    "identifier": "ACM-2026-0417",
+    "url": "https://example.com/jobs/12345",
+    "canonical_url": "https://careers.acme.example/roles/ACM-2026-0417",
+    "posted": { "value": "2026-08-18", "precision": "day" },
+    "valid_through": { "value": "2026-09-30", "precision": "day" },
+    "retrieved": "2026-08-24",
+    "status": "open",
+    "direct_apply": false,
+    "language": "en-AU",
+    "syndication": [
+      { "url": "https://www.seek.com.au/job/78451233", "board": "Seek", "identifier": "78451233" }
+    ]
+  },
+
+  "organization": {
+    "id": "org_acme",
+    "name": "Acme Corp",
+    "legal_name": "Acme Health Holdings Pty Ltd",
+    "url": "https://acme.example",
+    "industry": ["healthcare", "health-insurance"],
+    "size": "1001-5000",
+    "sector": "private",
+    "description": "Private health insurer running claims and provider integration for 2.1M members.",
+    "provenance": {
+      "status": "confirmed",
+      "asserted": "2026-08-24",
+      "source": { "kind": "employer-site", "ref": "https://careers.acme.example/roles/ACM-2026-0417" }
+    }
+  },
+
+  "role": {
+    "normalized_title": "Solution Architect",
+    "seniority": "architecture-ownership",
+    "seniority_provenance": {
+      "status": "confirmed",
+      "asserted": "2026-08-24",
+      "source": {
+        "kind": "posting-text",
+        "span": "You will own the target-state architecture for our integration platform and hold design authority across four delivery squads.",
+        "label": "Stated as design authority, not read off the title."
+      }
+    },
+    "occupation": [
+      {
+        "scheme": "onet-soc",
+        "scheme_version": "2019",
+        "code": "15-1299.08",
+        "label": "Computer Systems Engineers/Architects",
+        "match_type": "close",
+        "confidence": 0.78,
+        "provenance": { "status": "inferred", "source": { "kind": "inferred" } }
+      },
+      {
+        "scheme": "anzsco",
+        "scheme_version": "2022",
+        "code": "261313",
+        "label": "Software Engineer",
+        "match_type": "broad",
+        "confidence": 0.5,
+        "provenance": { "status": "inferred", "source": { "kind": "inferred" } }
+      }
+    ],
+    "function": "engineering",
+    "domains": ["healthcare", "integration"],
+    "team": "Platform Engineering",
+    "reports_to": "Head of Architecture",
+    "direct_reports": 0,
+    "summary": "Design authority for the claims integration platform across four squads."
+  },
+
+  "engagement": {
+    "kind": "employment",
+    "arrangement": "full-time",
+    "start_urgency": "flexible",
+    "travel_percent": 10,
+    "provenance": {
+      "status": "confirmed",
+      "asserted": "2026-08-24",
+      "source": { "kind": "structured-feed", "ref": "seek:78451233" }
+    }
+  },
+
+  "locations": [
+    {
+      "id": "loc_syd",
+      "city": "Sydney",
+      "region": "NSW",
+      "country": "AU",
+      "mode": "hybrid",
+      "onsite_days_per_week": 3,
+      "primary": true,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "Our hybrid model asks for three days a week in the Sydney office."
+        }
+      }
+    },
+    {
+      "id": "loc_mel",
+      "city": "Melbourne",
+      "region": "VIC",
+      "country": "AU",
+      "mode": "hybrid",
+      "onsite_days_per_week": 3,
+      "primary": false,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": { "kind": "posting-text", "span": "Sydney or Melbourne based." }
+      }
+    }
+  ],
+
+  "eligibility": {
+    "applicant_locations": [
+      { "country": "AU" },
+      { "country": "NZ" }
+    ],
+    "work_authorization": [
+      {
+        "jurisdiction": "AU",
+        "accepted_kinds": ["citizen", "permanent"],
+        "sponsorship": "not-offered",
+        "provenance": {
+          "status": "confirmed",
+          "asserted": "2026-08-24",
+          "source": {
+            "kind": "posting-text",
+            "span": "Applicants must hold full Australian working rights. We are not able to offer sponsorship for this role."
+          }
+        }
+      }
+    ],
+    "background_checks": ["police-check", "working-with-children"]
+  },
+
+  "compensation": {
+    "disclosed": true,
+    "disclosure_basis": "voluntary",
+    "figures": [
+      {
+        "min": { "value": 185000, "currency": "AUD" },
+        "max": { "value": 215000, "currency": "AUD" },
+        "basis": "base",
+        "period": "year",
+        "applies_to": "loc_syd",
+        "band_label": "Level 6 - Architect"
+      }
+    ],
+    "variable": {
+      "kind": "bonus",
+      "percent_of_base": 15,
+      "guaranteed": false
+    },
+    "equity": { "offered": false },
+    "provenance": {
+      "status": "confirmed",
+      "asserted": "2026-08-24",
+      "source": {
+        "kind": "posting-text",
+        "span": "Base salary $185,000 - $215,000 plus superannuation, with a discretionary bonus of up to 15%."
+      }
+    }
+  },
+
+  "requirements": [
+    {
+      "id": "req_integration_arch",
+      "kind": "capability",
+      "necessity": "must-have",
+      "value": "integration-architecture",
+      "label": "designing enterprise integration platforms",
+      "raw_text": "Proven experience designing enterprise integration platforms at scale.",
+      "experience": { "min_months": 96, "in": "enterprise integration" },
+      "weight": 5,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "Proven experience designing enterprise integration platforms at scale (8+ years)."
+        }
+      }
+    },
+    {
+      "id": "req_stakeholder",
+      "kind": "capability",
+      "necessity": "must-have",
+      "value": "stakeholder-management",
+      "label": "influencing senior clinical and commercial stakeholders",
+      "raw_text": "You will influence senior clinical and commercial stakeholders without direct authority.",
+      "weight": 5,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "You will influence senior clinical and commercial stakeholders without direct authority."
+        }
+      }
+    },
+    {
+      "id": "req_data_sovereignty",
+      "kind": "capability",
+      "necessity": "must-have",
+      "value": "data-sovereignty",
+      "label": "health data residency and privacy obligations",
+      "raw_text": "Deep familiarity with Australian health data residency and privacy obligations.",
+      "weight": 4,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "Deep familiarity with Australian health data residency and privacy obligations."
+        }
+      }
+    },
+    {
+      "id": "req_azure",
+      "kind": "technology",
+      "necessity": "must-have",
+      "value": "azure",
+      "label": "Azure",
+      "raw_text": "Hands-on with Azure integration services (APIM, Service Bus, Logic Apps).",
+      "experience": { "min_months": 36, "recency_months": 24 },
+      "weight": 4,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "Hands-on with Azure integration services (APIM, Service Bus, Logic Apps) within the last two years."
+        }
+      }
+    },
+    {
+      "id": "req_terraform",
+      "kind": "technology",
+      "necessity": "preferred",
+      "value": "terraform",
+      "label": "Terraform",
+      "raw_text": "Terraform or equivalent infrastructure-as-code experience is highly regarded.",
+      "weight": 2,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "Terraform or equivalent infrastructure-as-code experience is highly regarded."
+        }
+      }
+    },
+    {
+      "id": "req_fhir",
+      "kind": "domain",
+      "necessity": "preferred",
+      "value": "healthcare",
+      "label": "HL7 FHIR",
+      "raw_text": "Exposure to HL7 FHIR would be an advantage.",
+      "weight": 2,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": { "kind": "posting-text", "span": "Exposure to HL7 FHIR would be an advantage." }
+      }
+    },
+
+    {
+      "id": "req_degree",
+      "kind": "education",
+      "necessity": "must-have",
+      "label": "Bachelor's degree in a technical discipline",
+      "raw_text": "A bachelor's degree in a technical discipline and six years in architecture roles, or a postgraduate qualification in a related field.",
+      "level": { "scheme": "isced", "value": "isced-6" },
+      "group": "grp_degree_and_years",
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "A bachelor's degree in a technical discipline and six years in architecture roles, or a postgraduate qualification in a related field."
+        }
+      }
+    },
+    {
+      "id": "req_six_years",
+      "kind": "experience",
+      "necessity": "must-have",
+      "label": "six years in architecture roles",
+      "raw_text": "A bachelor's degree in a technical discipline and six years in architecture roles, or a postgraduate qualification in a related field.",
+      "experience": { "min_months": 72, "in": "architecture roles" },
+      "group": "grp_degree_and_years",
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "A bachelor's degree in a technical discipline and six years in architecture roles, or a postgraduate qualification in a related field."
+        }
+      }
+    },
+    {
+      "id": "req_postgrad",
+      "kind": "education",
+      "necessity": "must-have",
+      "label": "postgraduate qualification in a related field",
+      "raw_text": "A bachelor's degree in a technical discipline and six years in architecture roles, or a postgraduate qualification in a related field.",
+      "level": { "scheme": "isced", "value": "isced-7" },
+      "group": "grp_qualification",
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "A bachelor's degree in a technical discipline and six years in architecture roles, or a postgraduate qualification in a related field."
+        }
+      }
+    },
+
+    {
+      "id": "req_vendor_mgmt",
+      "kind": "capability",
+      "necessity": "implicit",
+      "value": "vendor-management",
+      "label": "managing the integration vendor",
+      "raw_text": "Coordinate delivery with our offshore integration partner and hold them to the architecture.",
+      "weight": 3,
+      "provenance": {
+        "status": "inferred",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "inferred",
+          "span": "Coordinate delivery with our offshore integration partner and hold them to the architecture.",
+          "label": "Never listed as a requirement, but it is a responsibility the role cannot discharge without it."
+        }
+      }
+    },
+
+    {
+      "id": "req_ciso_cert",
+      "kind": "credential",
+      "necessity": "preferred",
+      "label": "TOGAF or equivalent architecture certification",
+      "raw_text": "TOGAF certification or equivalent is well regarded but not essential.",
+      "credential": {
+        "name": "TOGAF",
+        "issuer": "The Open Group",
+        "kind": "certification",
+        "must_hold_at_application": false
+      },
+      "weight": 1,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "TOGAF certification or equivalent is well regarded but not essential."
+        }
+      }
+    }
+  ],
+
+  "requirement_groups": [
+    {
+      "id": "grp_qualification",
+      "satisfy": "any",
+      "members": ["grp_degree_and_years", "req_postgrad"],
+      "necessity": "must-have",
+      "raw_text": "A bachelor's degree in a technical discipline and six years in architecture roles, or a postgraduate qualification in a related field.",
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "A bachelor's degree in a technical discipline and six years in architecture roles, or a postgraduate qualification in a related field.",
+          "label": "Recorded as a choice. Flattening this into three demands would score a PhD holder as missing two must-haves; flattening it into one `any` over three would let the bare degree satisfy it."
+        }
+      }
+    },
+    {
+      "id": "grp_degree_and_years",
+      "satisfy": "all",
+      "members": ["req_degree", "req_six_years"],
+      "necessity": "must-have",
+      "raw_text": "A bachelor's degree in a technical discipline and six years in architecture roles",
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": {
+          "kind": "posting-text",
+          "span": "A bachelor's degree in a technical discipline and six years in architecture roles",
+          "label": "The conjunctive arm of grp_qualification."
+        }
+      }
+    }
+  ],
+
+  "responsibilities": [
+    {
+      "id": "rsp_target_state",
+      "text": "Own the target-state architecture for the claims integration platform and hold design authority across four delivery squads.",
+      "capabilities": ["integration-architecture"],
+      "weight": 5,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": { "kind": "posting-text" }
+      }
+    },
+    {
+      "id": "rsp_vendor",
+      "text": "Coordinate delivery with our offshore integration partner and hold them to the architecture.",
+      "capabilities": ["vendor-management"],
+      "weight": 3,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": { "kind": "posting-text" }
+      }
+    },
+    {
+      "id": "rsp_forum",
+      "text": "Chair the fortnightly architecture review forum with clinical and commercial representatives.",
+      "capabilities": ["stakeholder-management"],
+      "weight": 4,
+      "provenance": {
+        "status": "confirmed",
+        "asserted": "2026-08-24",
+        "source": { "kind": "posting-text" }
+      }
+    }
+  ],
+
+  "benefits": [
+    { "id": "ben_leave", "kind": "leave", "label": "Additional paid wellbeing leave", "quantity": { "value": 5, "unit": "day" } },
+    { "id": "ben_learning", "kind": "learning", "label": "Annual professional development allowance", "quantity": { "value": 3000, "currency": "AUD" } }
+  ],
+
+  "process": {
+    "apply_url": "https://acme.example/apply/ACM-2026-0417",
+    "ats": "Workday",
+    "deadline": { "value": "2026-09-30", "precision": "day" },
+    "documents_required": ["resume", "cover-letter"],
+    "stages": [
+      { "id": "stg_screen", "kind": "screen", "order": 1, "label": "Talent partner call", "duration_minutes": 30 },
+      { "id": "stg_hm", "kind": "interview", "order": 2, "label": "Head of Architecture", "duration_minutes": 60 },
+      { "id": "stg_case", "kind": "presentation", "order": 3, "label": "Architecture case study to panel", "duration_minutes": 90, "compensated": false },
+      { "id": "stg_panel", "kind": "panel", "order": 4, "label": "Cross-functional panel", "duration_minutes": 60 },
+      { "id": "stg_refs", "kind": "reference-check", "order": 5 }
+    ],
+    "provenance": {
+      "status": "confirmed",
+      "asserted": "2026-08-24",
+      "source": { "kind": "posting-text" }
+    }
+  },
+
+  "emphasis": [
+    {
+      "id": "emp_stakeholder",
+      "text": "Influencing senior stakeholders without direct authority",
+      "occurrences": 3,
+      "sections": ["summary", "responsibilities", "requirements"],
+      "requirements": ["req_stakeholder"]
+    },
+    {
+      "id": "emp_sovereignty",
+      "text": "Australian health data residency",
+      "occurrences": 2,
+      "sections": ["about-us", "requirements"],
+      "requirements": ["req_data_sovereignty"]
+    }
+  ],
+
+  "concerns": [
+    {
+      "id": "cnc_case_study",
+      "kind": "unpaid-work-sample",
+      "text": "A 90-minute architecture case study presented to a panel, uncompensated, at stage three of five.",
+      "severity": "caution",
+      "evidence": ["stg_case"]
+    },
+    {
+      "id": "cnc_authority",
+      "kind": "contradiction",
+      "text": "Described as holding design authority across four squads, but with no direct reports and delivery coordinated through an offshore partner. Worth asking what the authority actually rests on.",
+      "severity": "note",
+      "evidence": ["rsp_target_state", "rsp_vendor"]
+    }
+  ],
+
+  "source": {
+    "raw_format": "text",
+    "ingested_from": "manual",
+    "ingest_notes": [
+      "Salary read from prose; the Seek structured feed carried no salary fields.",
+      "occupationalCategory absent from source - both occupation codes are inferred, not asserted."
+    ],
+    "retrieved_by": "jsk-posting-analyst"
+  }
+}

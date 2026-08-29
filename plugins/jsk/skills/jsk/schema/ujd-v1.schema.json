@@ -1,0 +1,722 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openresume.dev/ujd/v1/posting.schema.json",
+  "title": "UJD - Universal Job Description Schema v1",
+  "description": "The posting record. A job target is a view over it. Counterpart to URS: URS models a career the author owns, UJD models third-party text of unknown fidelity. See references/ujd-spec.md.",
+  "type": "object",
+  "required": ["ujd", "meta", "posting"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "ujd": { "type": "string", "pattern": "^1\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$" },
+    "meta": { "$ref": "#/$defs/Meta" },
+    "posting": { "$ref": "#/$defs/Posting" },
+    "organization": { "$ref": "#/$defs/Organization" },
+    "role": { "$ref": "#/$defs/Role" },
+    "engagement": { "$ref": "#/$defs/Engagement" },
+    "locations": { "type": "array", "items": { "$ref": "#/$defs/Location" } },
+    "eligibility": { "$ref": "#/$defs/Eligibility" },
+    "compensation": { "$ref": "#/$defs/Compensation" },
+    "requirements": { "type": "array", "items": { "$ref": "#/$defs/Requirement" } },
+    "requirement_groups": { "type": "array", "items": { "$ref": "#/$defs/RequirementGroup" } },
+    "responsibilities": { "type": "array", "items": { "$ref": "#/$defs/Responsibility" } },
+    "benefits": { "type": "array", "items": { "$ref": "#/$defs/Benefit" } },
+    "process": { "$ref": "#/$defs/Process" },
+    "emphasis": { "type": "array", "items": { "$ref": "#/$defs/Emphasis" } },
+    "concerns": { "type": "array", "items": { "$ref": "#/$defs/Concern" } },
+    "source": { "$ref": "#/$defs/Source" },
+    "x": { "type": "object", "description": "Reverse-DNS keyed extensions. Ignorable, and preserved on round-trip." }
+  },
+  "additionalProperties": false,
+
+  "$defs": {
+
+    "Id": {
+      "type": "string",
+      "pattern": "^[a-z]{2,6}_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "description": "Stable identifier, prefixed by kind: pst_, org_, req_, grp_, rsp_, ben_, loc_, stg_, emp_, cnc_. Same shape as a URS id so the two documents can be cross-referenced without a translation table."
+    },
+
+    "Instant": {
+      "type": "object",
+      "required": ["value", "precision"],
+      "description": "Identical to URS Instant. Postings carry deadlines and start dates at wildly varying precision - 'Q3', 'ASAP', '2026-03-01' - and an omitted precision is how 'starting 2026' silently becomes 1 January.",
+      "properties": {
+        "value": { "type": "string", "pattern": "^\\d{4}(-\\d{2}(-\\d{2})?)?$" },
+        "precision": { "type": "string", "enum": ["year", "month", "day"] },
+        "display": { "type": "string", "description": "Locale-specific rendering. Never parsed." }
+      },
+      "additionalProperties": false
+    },
+
+    "Provenance": {
+      "type": "object",
+      "required": ["status"],
+      "description": "On every claim, as in URS - but the source vocabulary differs, and that difference is the whole point of UJD. A career record is asserted by the person it describes. A posting is third-party text: a salary band stated in a structured feed and a seniority guessed from a job title are not the same kind of fact, and a matcher that treats them alike will rank on a guess.",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "inferred", "needs-verification", "disputed"],
+          "description": "Same vocabulary as URS and the bundle, so `confirmed` means the same thing in all three. `confirmed` here means the posting says it, not that it is true."
+        },
+        "asserted": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "source": {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["structured-feed", "posting-text", "employer-site", "recruiter", "inferred", "reference"],
+              "description": "`structured-feed` is a value the publisher put in a field. `posting-text` is a value read out of prose. `inferred` is a value nothing in the posting states. Collapsing these three is the single most common defect in posting data."
+            },
+            "ref": { "type": "string", "description": "URL, feed id, or the id of a Source excerpt." },
+            "span": {
+              "type": "string",
+              "description": "The substring of source.raw_text this was read from. Required by conformance Level 2 for anything with source.kind: posting-text - an extraction nobody can trace back to a span is an assertion."
+            },
+            "label": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "source": { "properties": { "kind": { "const": "inferred" } }, "required": ["kind"] } },
+            "required": ["source"]
+          },
+          "then": {
+            "properties": { "status": { "enum": ["inferred", "needs-verification", "disputed"] } },
+            "description": "An inferred source cannot yield a confirmed claim. This is enforced rather than documented because the inverse is exactly how a guess is laundered into a fact."
+          }
+        }
+      ]
+    },
+
+    "Quantity": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "number" },
+        "unit": { "type": "string" },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217." }
+      },
+      "additionalProperties": false
+    },
+
+    "Seniority": {
+      "type": "string",
+      "enum": ["architecture-ownership", "product-ownership", "platform-design", "team-leadership",
+               "technical-ownership", "hands-on-senior", "hands-on", "junior"],
+      "description": "Reused verbatim from URS Position.seniority and Project.seniority. It MUST stay identical or the primary match axis breaks. No open standard for seniority exists to borrow instead: the string 'seniority' does not appear anywhere in the schema.org vocabulary, and LinkedIn's list is gated behind an authenticated API and conflates engagement type ('Unpaid', 'Training') with hierarchical rank. This enum is therefore deliberately bespoke and versioned with the schema. Engagement type lives on Engagement, never here."
+    },
+
+    "OccupationCode": {
+      "type": "object",
+      "required": ["scheme", "code"],
+      "description": "Never a bare code. O*NET-SOC 2010 to 2019 changed 107 codes, removed 157 and added 63 - '15-1141.00' meant Database Administrators under 2010 and is not a valid 2019 code at all. A code without its scheme version is undecodable, and a cross-scheme code without its match grade is a false precision: the official O*NET-ESCO crosswalk is an ML-derived mapping whose best model produced the correct exact match first only 85% of the time.",
+      "properties": {
+        "scheme": {
+          "type": "string",
+          "enum": ["onet-soc", "soc", "isco-08", "esco", "anzsco", "noc", "kldb", "other"]
+        },
+        "scheme_version": {
+          "type": "string",
+          "description": "Vintage of the scheme, e.g. '2019' for O*NET-SOC, '1.2.1' for ESCO. Omit only when the scheme has never been revised, which is not true of any scheme in the enum."
+        },
+        "code": { "type": "string" },
+        "label": { "type": "string", "description": "The scheme's own label for the code. Stored so a reader can check the code without the scheme to hand." },
+        "match_type": {
+          "type": "string",
+          "enum": ["exact", "narrow", "broad", "close", "related", "asserted"],
+          "description": "How this code was arrived at. The first five mirror the O*NET-ESCO crosswalk grades; `asserted` means the posting itself named the code. `related` carries explicitly lower quality assurance in the source crosswalk and should not be scored as a match."
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Posting": {
+      "type": "object",
+      "required": ["id", "title"],
+      "description": "The advertisement as an artifact, distinct from the job it advertises. The same job is re-posted, revised and syndicated; those are different postings of one role.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "title": { "type": "string", "minLength": 1, "description": "The posting's own title, verbatim. Mirror this wording in the resume; match on Role.seniority and requirements instead." },
+        "identifier": { "type": "string", "description": "The employer's or board's requisition id." },
+        "url": { "type": "string" },
+        "canonical_url": { "type": "string", "description": "Where the employer published it, when this copy came from an aggregator." },
+        "posted": { "$ref": "#/$defs/Instant" },
+        "valid_through": { "$ref": "#/$defs/Instant" },
+        "retrieved": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "When this document was built. Postings are taken down; this dates the evidence." },
+        "status": {
+          "type": "string",
+          "enum": ["open", "closed", "filled", "withdrawn", "unknown"],
+          "default": "unknown"
+        },
+        "direct_apply": { "type": "boolean", "description": "Whether the url accepts an application directly rather than redirecting to another board." },
+        "language": { "type": "string", "description": "BCP 47 tag for the posting text." },
+        "syndication": {
+          "type": "array",
+          "description": "Other places this same posting appeared. Aggregators duplicate heavily and a duplicate is not a second opportunity.",
+          "items": {
+            "type": "object",
+            "required": ["url"],
+            "properties": {
+              "url": { "type": "string" },
+              "board": { "type": "string" },
+              "identifier": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Organization": {
+      "type": "object",
+      "required": ["name"],
+      "description": "Deliberately shaped to match URS Organization so an employer known from the career record and an employer met in a posting reconcile without a mapping.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "name": { "type": "string" },
+        "legal_name": { "type": "string" },
+        "url": { "type": "string" },
+        "industry": { "type": "array", "items": { "type": "string" } },
+        "size": {
+          "type": "string",
+          "enum": ["1-10", "11-50", "51-200", "201-1000", "1001-5000", "5000+"]
+        },
+        "sector": { "type": "string", "enum": ["private", "public", "nonprofit", "academic"] },
+        "identifiers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "description": { "type": "string" },
+        "hiring_via": {
+          "type": "object",
+          "description": "An agency advertising on behalf of an undisclosed employer. The advertiser and the employer are not the same field, and a posting that hides the employer is a fact worth recording rather than a blank.",
+          "properties": {
+            "name": { "type": "string" },
+            "kind": { "type": "string", "enum": ["agency", "rpo", "job-board", "aggregator"] },
+            "employer_disclosed": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Role": {
+      "type": "object",
+      "description": "The job, as distinct from the advertisement. This is the block the matcher reads first.",
+      "properties": {
+        "normalized_title": { "type": "string", "description": "Title with employer-specific ladder noise removed, e.g. 'Member of Technical Staff III' to 'Senior Software Engineer'. Never overwrite Posting.title with this." },
+        "seniority": { "$ref": "#/$defs/Seniority" },
+        "seniority_provenance": {
+          "$ref": "#/$defs/Provenance",
+          "description": "Seniority is inferred from the title far more often than it is stated. Recording which one happened is what stops a title guess from carrying the same weight as a stated level."
+        },
+        "occupation": { "type": "array", "items": { "$ref": "#/$defs/OccupationCode" } },
+        "function": { "type": "string", "description": "Broad discipline, e.g. engineering, design, finance. Free text: no open taxonomy at this granularity is licence-clean." },
+        "domains": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Industry or problem context. Matched against URS Project.domains as a binary - any overlap, or none."
+        },
+        "team": { "type": "string" },
+        "reports_to": { "type": "string" },
+        "direct_reports": { "type": "integer", "minimum": 0 },
+        "summary": { "type": "string", "description": "One line. Not the posting's marketing paragraph." }
+      },
+      "additionalProperties": false
+    },
+
+    "Engagement": {
+      "type": "object",
+      "description": "How the work is bought. Held apart from Seniority on purpose: LinkedIn's seniority list mixes 'Unpaid' and 'Training' in with rank, which makes the values unorderable and the axis useless for scoring.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["employment", "contract", "freelance", "internship", "apprenticeship", "volunteer", "temporary"],
+          "description": "Aligned with URS Engagement.kind so a posting and a career entry describe engagement the same way."
+        },
+        "arrangement": {
+          "type": "string",
+          "enum": ["full-time", "part-time", "casual", "fixed-term", "seasonal"]
+        },
+        "hours_per_week": { "$ref": "#/$defs/Quantity" },
+        "duration_months": { "type": "integer", "minimum": 0, "description": "For fixed-term and contract only." },
+        "start": { "$ref": "#/$defs/Instant" },
+        "start_urgency": { "type": "string", "enum": ["immediate", "scheduled", "flexible", "unstated"] },
+        "travel_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "shift": { "type": "string", "description": "Nights, weekends, on-call rotation. Free text; the vocabulary is too industry-specific to close." },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Location": {
+      "type": "object",
+      "description": "A place the work happens. An array because multi-site and multi-country postings are ordinary and collapsing them to one loses the only field a candidate needs.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "line": { "type": "string" },
+        "locality": { "type": "string" },
+        "city": { "type": "string" },
+        "region": { "type": "string" },
+        "postal_code": { "type": "string" },
+        "country": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "mode": {
+          "type": "string",
+          "enum": ["onsite", "hybrid", "remote"],
+          "description": "A closed enum, matching URS Location.mode. schema.org types jobLocationType as free Text whose only documented value is TELECOMMUTE, with no sanctioned representation of hybrid at all - a mainstream CMS emitting the obvious 'Remote/Hybrid/Onsite' values fails Google's validator. `hybrid` therefore does not round-trip to schema.org; see the mapping table in references/ujd-spec.md."
+        },
+        "onsite_days_per_week": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7,
+          "description": "The number that decides whether a hybrid role is actually workable. Absent from every format surveyed."
+        },
+        "primary": { "type": "boolean" },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "hybrid" } }, "required": ["mode"] },
+          "then": { "required": ["city"] },
+          "description": "Hybrid without a place is not a work mode, it is an unanswered question."
+        }
+      ]
+    },
+
+    "Eligibility": {
+      "type": "object",
+      "description": "Who may hold the job at all. These are hard filters, not scored requirements, and separating them from Requirement is what stops a matcher from offsetting a visa bar against a strong skills overlap.",
+      "properties": {
+        "applicant_locations": {
+          "type": "array",
+          "description": "Where an applicant may be based. Distinct from Location, which is where the work happens - schema.org keeps these separate too, and a 'remote' posting that is remote-within-one-country is the most common place the distinction bites.",
+          "items": {
+            "type": "object",
+            "required": ["country"],
+            "properties": {
+              "country": { "type": "string", "pattern": "^[A-Z]{2}$" },
+              "region": { "type": "string" },
+              "excluded": { "type": "boolean", "default": false, "description": "true expresses a carve-out, e.g. remote in the US except NY and CA." }
+            },
+            "additionalProperties": false
+          }
+        },
+        "work_authorization": {
+          "type": "array",
+          "description": "Matched against URS work_authorization. Kinds and statuses are drawn from the same vocabulary.",
+          "items": {
+            "type": "object",
+            "required": ["jurisdiction"],
+            "properties": {
+              "jurisdiction": { "type": "string", "pattern": "^[A-Z]{2}$" },
+              "accepted_kinds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["citizen", "permanent", "employment-visa", "residence", "student", "working-holiday"]
+                }
+              },
+              "sponsorship": {
+                "type": "string",
+                "enum": ["offered", "not-offered", "case-by-case", "unstated"],
+                "default": "unstated",
+                "description": "`unstated` is the honest default and is not the same as `not-offered`. Most postings say nothing."
+              },
+              "provenance": { "$ref": "#/$defs/Provenance" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "security_clearance": {
+          "type": "object",
+          "properties": {
+            "jurisdiction": { "type": "string", "pattern": "^[A-Z]{2}$" },
+            "level": { "type": "string" },
+            "must_hold_at_application": { "type": "boolean", "description": "Held on day one versus eligible to obtain. The difference decides whether applying is possible at all." }
+          },
+          "additionalProperties": false
+        },
+        "background_checks": { "type": "array", "items": { "type": "string" } },
+        "physical_requirements": { "type": "array", "items": { "type": "string" } },
+        "age_or_demographic_restrictions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Lawful and routine in some jurisdictions, unlawful to state in others. Recorded verbatim because it is a fact about the posting, never generated into an application."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "Compensation": {
+      "type": "object",
+      "description": "CAUTION: the design of this block rests on the same reasoning as URS Compensation rather than on surveyed posting data - see the coverage gap noted in references/ujd-spec.md. Treat it as provisional and expect a 1.1 revision.",
+      "properties": {
+        "disclosed": {
+          "type": "boolean",
+          "description": "Whether the posting states pay at all. A first-class field because absence is now legally meaningful in several jurisdictions, and because 'no salary field' and 'salary withheld' are different facts about an employer."
+        },
+        "disclosure_basis": {
+          "type": "string",
+          "enum": ["voluntary", "statutory", "unstated"],
+          "description": "Whether disclosure appears to be required by a pay-transparency law. Recorded, never inferred from the posting's location alone."
+        },
+        "figures": { "type": "array", "items": { "$ref": "#/$defs/CompensationFigure" } },
+        "equity": {
+          "type": "object",
+          "properties": {
+            "offered": { "type": "boolean" },
+            "kind": { "type": "string", "enum": ["options", "rsu", "phantom", "profit-share", "other"] },
+            "note": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "variable": {
+          "type": "object",
+          "description": "Bonus and commission. Kept out of the base range because employers routinely advertise on-target earnings as though it were salary.",
+          "properties": {
+            "kind": { "type": "string", "enum": ["bonus", "commission", "on-target-earnings", "profit-share"] },
+            "amount": { "$ref": "#/$defs/Quantity" },
+            "percent_of_base": { "type": "number", "minimum": 0 },
+            "guaranteed": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "review_cadence": { "type": "string" },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "CompensationFigure": {
+      "type": "object",
+      "required": ["basis", "period"],
+      "description": "A range, not a point, because that is what postings state. Requiring `basis` is the one hard-won thing this borrows from URS: an Indian CTC figure and a US base salary differ by a large multiple and are not comparable numbers.",
+      "properties": {
+        "min": { "$ref": "#/$defs/Quantity" },
+        "max": { "$ref": "#/$defs/Quantity" },
+        "basis": {
+          "type": "string",
+          "enum": ["ctc", "base", "total-cash", "hourly", "daily", "unstated"],
+          "description": "CTC bundles allowances and is not a salary."
+        },
+        "period": { "type": "string", "enum": ["year", "month", "week", "day", "hour", "project"] },
+        "applies_to": { "$ref": "#/$defs/Id", "description": "Location id, for postings that band pay by geography." },
+        "band_label": { "type": "string", "description": "The employer's own band name, when given." }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        { "required": ["min"] },
+        { "required": ["max"] }
+      ]
+    },
+
+    "Requirement": {
+      "type": "object",
+      "required": ["id", "kind", "necessity", "provenance"],
+      "description": "The matching axis, and the reason UJD exists. No surveyed format carries a required-versus-preferred modifier: schema.org has none anywhere on JobPosting, and its one structured experience type is a pending term with a single property. Everything a matcher needs is therefore modelled here rather than inherited.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "kind": {
+          "type": "string",
+          "enum": ["capability", "technology", "domain", "credential", "education", "experience",
+                   "language", "seniority", "soft-skill", "other"],
+          "description": "`capability` and `technology` mirror the two axes score_projects.py already weighs at x3 and x2."
+        },
+        "necessity": {
+          "type": "string",
+          "enum": ["must-have", "preferred", "implicit"],
+          "description": "`implicit` is for a requirement the posting clearly operates under but never states. It MUST carry provenance.source.kind: inferred, and a scorer should be able to exclude it in one predicate - which is the point of naming it rather than quietly promoting it to must-have."
+        },
+        "value": {
+          "type": "string",
+          "description": "The vocabulary term this requirement resolves to. For kind: capability this MUST be an exact value from the capabilities vocabulary named in meta.vocabularies - matching is literal and a synonym scores zero while looking like absent evidence."
+        },
+        "vocabulary": { "type": "string", "description": "Which vocabulary `value` came from, when it is not the document default." },
+        "label": {
+          "type": "string",
+          "description": "The posting's own phrasing. Kept separate from `value` because the resume should mirror the posting's wording while the score is computed on the vocabulary term."
+        },
+        "raw_text": {
+          "type": "string",
+          "description": "The sentence or bullet this was extracted from. A requirement whose source text nobody can read back is not reviewable."
+        },
+        "experience": {
+          "type": "object",
+          "description": "Years-of-experience assertions, stored in months. Both bounds are optional: '5+ years' has no maximum, and inventing one changes the meaning.",
+          "properties": {
+            "min_months": { "type": "integer", "minimum": 0 },
+            "max_months": { "type": "integer", "minimum": 0 },
+            "in": { "type": "string", "description": "What the experience must be in, when narrower than `value`." },
+            "recency_months": { "type": "integer", "minimum": 0, "description": "'within the last N months', which is a different demand from a total." }
+          },
+          "additionalProperties": false
+        },
+        "level": {
+          "type": "object",
+          "description": "For requirements graded on a named scale - CEFR for languages, a certification tier, an education level.",
+          "properties": {
+            "scheme": { "type": "string", "enum": ["cefr", "ilr", "isced", "vendor", "other"] },
+            "value": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "credential": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "issuer": { "type": "string" },
+            "kind": { "type": "string", "enum": ["certification", "licence", "clearance", "membership", "registration"] },
+            "must_hold_at_application": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "substitutable_by": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Id" },
+          "description": "Requirement ids that satisfy this one instead, for the 'or equivalent experience' clause. schema.org models exactly one case of this, experienceInPlaceOfEducation, as a bare boolean."
+        },
+        "group": {
+          "$ref": "#/$defs/Id",
+          "description": "The RequirementGroup that directly contains this requirement, when it is one arm of a choice rather than a standing demand. A requirement inside a nested group names the innermost group, not the outermost."
+        },
+        "weight": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Emphasis within its necessity tier, from repetition and placement. Never a substitute for necessity."
+        },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "necessity": { "const": "implicit" } }, "required": ["necessity"] },
+          "then": {
+            "properties": {
+              "provenance": {
+                "properties": { "source": { "properties": { "kind": { "const": "inferred" } }, "required": ["kind"] } },
+                "required": ["source"]
+              }
+            },
+            "required": ["provenance"]
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "credential" } }, "required": ["kind"] },
+          "then": { "required": ["credential"] }
+        }
+      ]
+    },
+
+    "RequirementGroup": {
+      "type": "object",
+      "required": ["id", "satisfy"],
+      "description": "The boolean case: 'a four-year degree AND six years of experience, OR a PhD'. This is the shape the W3C Talent Signal community group raised against schema.org's flat decomposition and left unanswered, and a flat requirement list genuinely cannot express it - decomposing it silently turns a choice into three separate demands and scores a qualified candidate as short.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "satisfy": {
+          "type": "string",
+          "enum": ["all", "any", "at-least"],
+          "description": "How many members must hold."
+        },
+        "n": { "type": "integer", "minimum": 1, "description": "Required when satisfy is at-least." },
+        "members": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Id" },
+          "minItems": 2,
+          "description": "Requirement ids, or the ids of other RequirementGroups. Groups nest because the motivating case demands it: 'a degree AND six years, OR a PhD' is `any` over [`all` over [degree, six-years], phd], and a flat `any` over all three would let the bare degree satisfy the clause. Two levels carries every real posting seen; deeper nesting is legal but a scorer that cannot explain its verdict in one sentence has stopped being reviewable, which is the trade this whole schema is making."
+        },
+        "necessity": { "type": "string", "enum": ["must-have", "preferred", "implicit"] },
+        "raw_text": { "type": "string" },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "satisfy": { "const": "at-least" } }, "required": ["satisfy"] },
+          "then": { "required": ["n"] }
+        }
+      ]
+    },
+
+    "Responsibility": {
+      "type": "object",
+      "required": ["id", "text"],
+      "description": "What the job does, as opposed to what it demands. Held separately because postings routinely bury a real requirement in the responsibilities list, and a reader needs to see which bucket each line was filed under.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Vocabulary terms this implies. A capability reaching the score from here rather than from a stated requirement is an inference, and its Requirement entry carries necessity: implicit."
+        },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Benefit": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "kind": {
+          "type": "string",
+          "enum": ["leave", "health", "retirement", "equity", "learning", "relocation",
+                   "visa-support", "childcare", "transport", "equipment", "other"]
+        },
+        "label": { "type": "string" },
+        "quantity": { "$ref": "#/$defs/Quantity" },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Process": {
+      "type": "object",
+      "description": "How to apply and what happens next. Recorded because a nine-stage process with an unpaid take-home is a cost, and the decision to apply is made against cost as much as fit.",
+      "properties": {
+        "apply_url": { "type": "string" },
+        "apply_email": { "type": "string" },
+        "ats": { "type": "string", "description": "The applicant tracking system behind the form, when identifiable. Decides which resume render to submit." },
+        "deadline": { "$ref": "#/$defs/Instant" },
+        "documents_required": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["resume", "cover-letter", "portfolio", "transcript", "references",
+                     "selection-criteria", "work-sample", "photo", "identity-document"]
+          },
+          "description": "Aligned with what URS can render. `selection-criteria` maps to URS narratives[].kind: criterion-response; `photo` and `identity-document` are ordinary in some markets and unlawful to ask for in others."
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind"],
+            "properties": {
+              "id": { "$ref": "#/$defs/Id" },
+              "kind": {
+                "type": "string",
+                "enum": ["screen", "interview", "panel", "technical", "take-home", "presentation",
+                         "assessment", "reference-check", "offer"]
+              },
+              "order": { "type": "integer", "minimum": 1 },
+              "label": { "type": "string" },
+              "duration_minutes": { "type": "integer", "minimum": 0 },
+              "compensated": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "contact": { "type": "string" },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      },
+      "additionalProperties": false
+    },
+
+    "Emphasis": {
+      "type": "object",
+      "required": ["id", "text"],
+      "description": "What the posting says twice. Repetition marks the real priority and it is often not the first bullet - the analyst prose already says so, and this makes it a field a scorer can read rather than a note a human has to remember.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "text": { "type": "string" },
+        "occurrences": { "type": "integer", "minimum": 2 },
+        "sections": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Which parts of the posting it appeared in. Three mentions across three sections is a stronger signal than three inside one list."
+        },
+        "requirements": { "type": "array", "items": { "$ref": "#/$defs/Id" } }
+      },
+      "additionalProperties": false
+    },
+
+    "Concern": {
+      "type": "object",
+      "required": ["id", "kind", "text"],
+      "description": "Something a reader should weigh before applying. Structured rather than left to prose so it survives into the target file and can be reviewed a month later, when the posting is gone.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "kind": {
+          "type": "string",
+          "enum": ["scope-mismatch", "compensation-withheld", "title-inflation", "unclear-employer",
+                   "excessive-requirements", "unpaid-work-sample", "process-length", "contradiction", "other"],
+          "description": "`contradiction` is for a posting that disagrees with itself - a remote listing with a mandatory office, a senior title with a junior band."
+        },
+        "text": { "type": "string" },
+        "severity": { "type": "string", "enum": ["note", "caution", "blocking"] },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Id" } }
+      },
+      "additionalProperties": false
+    },
+
+    "Source": {
+      "type": "object",
+      "description": "The posting as retrieved, kept so every extraction stays checkable after the listing is taken down. This is the field that makes conformance Level 2 possible.",
+      "properties": {
+        "raw_text": { "type": "string", "description": "The advertisement verbatim. Provenance spans index into this." },
+        "raw_format": { "type": "string", "enum": ["text", "html", "markdown"] },
+        "ingested_from": {
+          "type": "string",
+          "enum": ["schema-org-jobposting", "hropen-positionopening", "open-job-protocol",
+                   "greenhouse", "lever", "workday", "ashby", "indeed-xml", "linkedin-feed",
+                   "manual", "other"],
+          "description": "Which format this document was mapped from, when it was not authored directly. Names the mapping that produced it so its known losses are attributable."
+        },
+        "ingest_notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What the inbound mapping could not carry. A lossy mapping that reports nothing is indistinguishable from a lossless one."
+        },
+        "checksum": { "type": "string" },
+        "retrieved_by": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "Meta": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "lang": { "type": "string" },
+        "updated": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "generator": { "type": "string" },
+        "canonical": { "type": "string" },
+        "conformance": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "0 core, 1 structured requirements, 2 traceable. See references/ujd-spec.md."
+        },
+        "target": {
+          "type": "string",
+          "description": "Path to the Job Target file this document backs, when there is one."
+        },
+        "vocabularies": {
+          "type": "object",
+          "description": "Which vocabularies requirement values are drawn from. `capabilities` and `domains` MUST name the same files URS meta.vocabularies names, or the two documents cannot be compared.",
+          "properties": {
+            "capabilities": { "type": "string" },
+            "domains": { "type": "string" },
+            "technologies": { "type": "string" }
+          },
+          "additionalProperties": { "type": "string" }
+        },
+        "license": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

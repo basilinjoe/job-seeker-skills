@@ -21,6 +21,7 @@ what the current task needs.
 |---|---|
 | `bundle-spec.md` | Bundle layout on disk, concept file format, frontmatter schema, selection keys, concept types |
 | `urs-spec.md` | The URS record: document shape, core types, views, region profiles, conformance levels |
+| `ujd-spec.md` | The UJD posting record: requirement model, provenance, inbound mappings. Nothing reads it yet — `target-template.md` is still what drives scoring |
 | `target-template.md` | The Job Target file, including the frontmatter `score_projects.py` reads |
 
 ## Rules — what good looks like

@@ -338,7 +338,11 @@
       "required": ["id", "title", "period"],
       "properties": {
         "id": { "$ref": "#/$defs/Id" },
-        "title": { "type": "string" },
+        "title": { "type": "string", "description": "The official title, verbatim. What a reference check will confirm." },
+        "functional_title": {
+          "type": "string",
+          "description": "The role in words a reader outside that employer will recognise, for a title that is niche, internal-only, or does not reflect the work: 'Member of Technical Staff' to 'Full-Stack Engineer'. Rendered in parentheses after title and never in place of it - the official title is what a reference check confirms. UJD's normalized_title is the mirror of this on the posting side, and it replaces rather than annotates, which is why the two carry different names."
+        },
         "period": { "$ref": "#/$defs/Period" },
         "change": { "type": "string", "enum": ["hire", "promotion", "lateral", "title-change"] },
         "seniority": {
