@@ -11,6 +11,7 @@ what the current task needs.
 | `mode-braindump.md` | They are telling you about their work |
 | `mode-resume.md` | They need a resume — the full JSON-first build order |
 | `mode-tailor.md` | A specific job description is on the table |
+| `mode-ship.md` | A record is finished and needs rendering, checking, freezing and logging |
 | `mode-refresh.md` | Periodic top-up: what changed, what numbers moved |
 | `mode-gaps.md` | Resolving unanswered questions and unverified claims |
 | `mode-pipeline.md` | Working the application pipeline: what is overdue, what to record, what to close |
@@ -21,8 +22,8 @@ what the current task needs.
 |---|---|
 | `bundle-spec.md` | Bundle layout on disk, concept file format, frontmatter schema, selection keys, concept types |
 | `urs-spec.md` | The URS record: document shape, core types, views, region profiles, conformance levels |
-| `ujd-spec.md` | The UJD posting record: requirement model, provenance, inbound mappings. Nothing reads it yet — `target-template.md` is still what drives scoring |
-| `target-template.md` | The Job Target file, including the frontmatter `score_projects.py` reads |
+| `ujd-spec.md` | The UJD posting: requirement model with `necessity`, boolean requirement groups, eligibility gates, provenance, inbound mappings. `score_projects.py` reads it |
+| `ugs-spec.md` | The UGS assessment: the join between a posting and a record — verdicts, evidence, typed shortfalls, counterfactuals, the question queue |
 
 ## Rules — what good looks like
 

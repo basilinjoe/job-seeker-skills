@@ -2,6 +2,19 @@
 
 Turn unverified and unquantified material into confirmed facts.
 
+## Two entry points, one format
+
+| Entry | Subject | Asks about |
+|---|---|---|
+| `/jsk:gaps` — a record audit | the bundle, no posting in view | record quality: unconfirmed claims, missing metrics, illegible titles, unexplored territory |
+| A tailoring round — see `mode-tailor.md` | a posting **and** the record | both, ranked together: what this posting wants that the record cannot answer, alongside the record-quality problems that would reach *this* resume |
+
+Both write **UGS**, so the questions have the same shape, the same priorities and the same
+resolutions wherever they came from. `references/ugs-spec.md` is the format. This file is the
+conversation.
+
+The rest of this file is the record audit. The tailoring round is in `mode-tailor.md`.
+
 ## Why it matters
 
 Two failure modes end interviews, both invisible until they happen.
@@ -15,12 +28,26 @@ makes it easy to leave in and hard to defend when someone asks a follow-up.
 
 ## Run it
 
-**Scan first, then talk.** Send `jsk-bundle-auditor` the bundle path; it reads every concept
-and returns the gaps already ordered, each with the question written ready to ask. That keeps a
-full-bundle read out of the conversation and leaves you the part that needs a person.
+**Scan first, then talk.** Send `jsk-bundle-auditor` the bundle path. It reads every concept and
+writes `resume-generation/audit.gaps.json` — a posting-less UGS document holding the gaps already
+ordered, each with the question written ready to ask. That keeps a full-bundle read out of the
+conversation and leaves you the part that needs a person.
 
-Then work **one question at a time**, from that queue and `open-questions.md`. A list of fifteen gets abandoned; one
-gets answered.
+```bash
+python3 <skill-dir>/scripts/validate_ugs.py <bundle>/resume-generation/audit.gaps.json --report
+```
+
+A record audit sets `meta.purpose: self-assessment` and omits `subjects.posting` — there is no
+requirement side to pin. The validator fails a posting-less document claiming any other purpose, and
+fails one carrying `assessments[]`, because an assessment references a `req_` id and there is nothing
+here for one to resolve against. Questions are the whole document.
+
+Then work **one question at a time**, from that queue and `open-questions.md`. *A list of fifteen gets
+abandoned; one gets answered.*
+
+This is the one place that rule still holds unchanged. A record audit is open-ended and has no natural
+end, so a long list is a list nobody finishes. A tailoring round is bounded and every question names
+the requirement it would close, which is why it asks the whole queue at once instead.
 
 Order by what unblocks most:
 
@@ -30,6 +57,9 @@ Order by what unblocks most:
 3. **Illegible titles** — a job title a reader outside that employer cannot place
 4. **Missing metrics**, highest-strength projects first
 5. **Unexplored territory**
+
+`unmet-requirement` is the tailoring loop's priority and has no meaning here — nothing is being
+applied to.
 
 ## For inferred claims
 
@@ -76,7 +106,16 @@ rather than fixing one.
 ## Record and close
 
 Update the concept, set `confirmed`, add numbers to `achievements/metrics.md`, remove from
-`open-questions.md`, append to `log.md`, run the validator.
+`open-questions.md`, and set the question's `resolution` in the gap document. All six outcomes are
+real, and `unavailable` is one of them — a metric nobody can reconstruct resolves the question and
+should soften or cut the claim rather than leaving it pending forever.
+
+**If `resume-generation/record.json` exists, patch it too.** It is the standing transcription
+everything downstream reads, and an answer that reaches the concept but not the record leaves the two
+disagreeing. `jsk-record-builder` reconciles them and reports what diverged, but the cheap fix is to
+write both now.
+
+Append to `log.md` and run the validator.
 
 Report what resolved, what is still open, and **which claims should be softened or cut** because no
 evidence turned up. That last list is the valuable one — better to lose a bullet now than be asked

@@ -198,12 +198,15 @@ Split it and link with a relative Markdown link — links are how the graph is t
 `Organisation` · `Role` · `Project` · `Metric Set` · `Skill Set` · `Education` ·
 `Certification Status` · `Open Source` · `Rule Set` · `Method` · `Decision Log` · `Open Questions` ·
 `Source Document` · `Source Interview` · `Schema` · `Vocabulary` · `Template` · `Prompt` ·
-`Job Target` · `Application`
+`Application`
 
 Worth adding as someone's career grows: `Talk` · `Publication` · `Patent` · `Award` · `Reference` ·
 `Training Programme` · `Framework` · `Community`.
 
 Reuse these. A near-synonym fragments the graph.
+
+`Job Target` was a concept type until revision 4. A posting is now a UJD document rather than a
+Markdown concept, so it has no `type:` — `references/ujd-spec.md` is its schema.
 
 ## Selection keys — Project concepts only
 
