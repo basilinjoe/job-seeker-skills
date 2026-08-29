@@ -61,7 +61,7 @@ The schema anticipates LLM assessment: `Method.kind` has an `llm` value, and `mo
 verdicts.
 
 What it must **not** own is the arithmetic — boolean requirement groups, `score.components[]` and its
-`formula`, checksums, and the `surface[]`/`surplus[]` set differences. UGS design rule 8 refuses an
+`formula`, and checksums. UGS design rule 8 refuses an
 aggregate that cannot say how it was computed; a model emitting a number beside a formula string that
 does not correspond satisfies the schema and defeats the rule.
 
@@ -74,8 +74,6 @@ disagrees.
 | `group_assessments[].verdict`, `branches[]`, `closest_branch` | UJD `requirement_groups` + member verdicts, as `all`/`any`/`at-least`, nesting preserved |
 | `score.components[]` | the assessments each names in `of` |
 | `score.aggregate.value` | the stated `formula` over `components_included` — recomputed, not trusted |
-| `surface[]` | `satisfied` evidence ids absent from `views[].include` |
-| `surplus[]` | `record.json` capabilities and technologies matched by no requirement |
 | `subjects.*.checksum` | sha256 of both subject documents as read |
 | `score.eligibility_excluded` | must be `true`, and no eligibility requirement may appear in any `of` |
 
@@ -122,7 +120,8 @@ disagrees.
               conversation confirms each authored clause ──► status: confirmed
                          │
                          ▼
-              validate_ugs.py --recompute  (now with the view) ──► surface[]
+              jsk-resume-author writes surface[] for what its view cut
+                   └──► validate_ugs.py --recompute enforces the obligation
                          │
                          ▼
               /jsk:ship ──► render · four gates · freeze the archive triple
@@ -156,15 +155,23 @@ verdicts. The builder derives ids from concept filenames and updates the previou
 place rather than re-deriving it. This is the cost of doing transcription with a model rather than a
 fixed mapping, and it is why the id-stability check is a named verification step.
 
-### `surface[]` needs no agent
+### `surface[]` is an obligation, not a derivation
 
-Surface gaps — held in the record, absent from what was actually sent — are the set difference
-between the view's `include[]` and the evidence ids of `satisfied` assessments. `--recompute` derives
-them. They are uncomputable before a view exists, since a keyword is always missing *from* something,
-which is why the recompute runs once more after authoring rather than during the rounds.
+*Corrected during implementation. The design assumed this field could be computed; it cannot.*
 
-They are worth the extra pass: their `counterfactual.kind` is `surface-existing`, "the cheapest fix
-there is".
+A `SurfaceGap` carries a `term`, the `aliases_available` the record uses instead of the posting's
+word, and a `remedy` — the record says "security governance" where the posting says "data residency".
+Those are vocabulary judgements, and no set difference produces them.
+
+What **is** derivable is the obligation. `validate_ugs.py --recompute` fails a gap document where a
+`satisfied` or `partial` assessment's evidence lies entirely outside the rendered view and no
+`surface[]` entry reports it. The entries themselves are written by `jsk-resume-author`, which is the
+step that knows what it cut to fit the page budget — so the knowledge is already there and no extra
+agent pass is needed.
+
+Either way they are uncomputable before a view exists, since a keyword is always missing *from*
+something. And they are worth finding: their `counterfactual.kind` is `surface-existing`, "the
+cheapest fix there is".
 
 ## Termination
 
@@ -203,8 +210,8 @@ Four, one per document, and the division is by what each is allowed to write.
 |---|---|---|---|
 | `jsk-posting-analyst` | once | `<slug>.posting.json` (UJD L2) | fetches — the main thread has WebFetch |
 | `jsk-record-builder` | twice | `record.json` (URS entities) | a view, a narrative, or any new prose |
-| `jsk-gap-analyst` | per round | `<slug>.gaps.json` (UGS L2) | `surface[]` — it is derived, not judged |
-| `jsk-resume-author` | once | `<slug>.resume.json` (narrative + view) | reads bundle concepts for evidence |
+| `jsk-gap-analyst` | per round | `<slug>.gaps.json` (UGS L2) | `surface[]` — no view exists during a round |
+| `jsk-resume-author` | once | `<slug>.resume.json`, plus the `surface[]` entries for what it cut | reads bundle concepts for evidence |
 
 `jsk-resume-author` writes prose, which the other three do not, and that is the one place this design
 trusts a model with something a person has to defend in an interview. Three existing guardrails carry
