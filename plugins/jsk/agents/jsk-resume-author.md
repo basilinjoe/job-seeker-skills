@@ -52,6 +52,13 @@ bundle path is for exactly two things:
 
 Read `references/urs-spec.md`, `references/writing-rules.md` and `references/ats-rules.md` first.
 
+**Do not read `schema/urs-v1.schema.json` or `scripts/validate_urs.py`** — 42KB restating the spec you
+have just read. The validator enforces the schema at runtime; run it instead of reading it.
+
+**Do not read a `.resume.json` written for a different posting.** It is another posting's answer to
+another posting's question. Read as a reference it becomes a template to copy, which is how a tailored
+resume stops being tailored — and the record it was drawn from is the one you already have.
+
 On Windows `python3` is usually absent — fall back to `python`, then `py -3`.
 
 ## A view references content; it cannot contain it

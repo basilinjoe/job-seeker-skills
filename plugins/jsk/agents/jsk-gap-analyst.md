@@ -14,7 +14,18 @@ whether a role is worth applying to, and which of two close-ranked projects lead
 happen in the main conversation with the person present. You write the document that conversation
 reads from.
 
-Read `references/ugs-spec.md` before writing anything. `schema/example.gaps.json` is a worked one.
+Read `references/ugs-spec.md` before writing anything. `schema/example.gaps.json` is a worked one —
+consult the entry you need rather than reading the file whole.
+
+## What not to read
+
+**Not `schema/ugs-v1.schema.json`. Not `scripts/validate_ugs.py`.** Between them they are 67KB
+restating, in two further dialects, the spec you have just read. The validator enforces the schema at
+runtime in under a second — run it rather than reading it, and let it tell you where you are wrong.
+
+This is a budget, not a preference. Everything you load is re-read on every turn you take afterwards,
+so a spec consulted once is paid for a dozen times over. A round that opens by loading the whole
+format corpus spends its first several minutes doing nothing the spec alone would not have told it.
 
 ## What you are given
 
