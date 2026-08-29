@@ -64,8 +64,26 @@ PREAMBLE = r"""\documentclass[%(pt)spt,%(paper)s]{article}
 \newcommand{\sectionrule}{\vspace{1pt}\rule{\linewidth}{0.4pt}\vspace{2pt}\par}
 \newcommand{\sectionhead}[1]{%%
   \vspace{\sectiongap}{\large\bfseries\MakeUppercase{#1}}\par\sectionrule}
-\newcommand{\entryline}[2]{\textbf{#1}\hfill #2\par}
-\newcommand{\roleline}[2]{#1\hfill #2\par}
+%% A two-column line without a two-column layout: text left, date right. Both
+%% halves of the guard matter, and neither works alone.
+%%
+%% \mbox stops TeX breaking *inside* the date. Plain `#1\hfill #2` on a long left
+%% side - which functional_title makes common, "Member of Technical Staff, Grade
+%% IV (Principal Platform Engineer)" - collapses the \hfill to zero and breaks the
+%% date itself, leaving "...Engineer)Aug 2016" on one line and "- Feb 2019" on the
+%% next. \mbox alone then overflows the right margin instead, because an
+%% unbreakable date with no legal breakpoint before it has nowhere to go.
+%%
+%% \rightskip gives every line infinite stretch, so TeX will break the *title* at
+%% a space and carry the intact date to the next line. \hfill is fill order and
+%% \rightskip is fil, so on a line that fits the \hfill still wins outright and
+%% the date sits flush right exactly as before.
+%%
+%% Neither is a layout container: no package, no box in the hazard list, and the
+%% extracted text layer is identical either way.
+\newcommand{\dateright}[2]{{\rightskip=0pt plus 1fil\relax #1\hfill\mbox{#2}\par}}
+\newcommand{\entryline}[2]{\dateright{\textbf{#1}}{#2}}
+\newcommand{\roleline}[2]{\dateright{#1}{#2}}
 \begin{document}
 %% The body size is set here rather than only in \documentclass, because the
 %% class accepts 10, 11 or 12pt and nothing between - and the font lever moves

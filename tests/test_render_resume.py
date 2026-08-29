@@ -445,6 +445,69 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
         self.assertNotIn("efficiency", tex)
 
 
+class TheDateColumnHolds(unittest.TestCase):
+    r"""A two-column line without a two-column layout, and the case that breaks
+    it is a long left side - which functional_title makes common.
+
+    Three renderings of `#1 <gap> #2` were tried and two were wrong: plain
+    \hfill splits the date across lines ("...Engineer)Aug 2016" / "- Feb 2019"),
+    \mbox alone runs past the right margin. Both pass every checker, because a
+    checker reads extracted text and neither defect is in the text.
+    """
+
+    LONG = "Member of Technical Staff, Distinguished Grade IV"
+    GLOSS = "Principal Full-Stack Platform Engineer"
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def long_titled_doc(self):
+        doc = urs_doc()
+        position = doc["engagements"][0]["positions"][0]
+        position["title"] = self.LONG
+        position["functional_title"] = self.GLOSS
+        return doc
+
+    def test_the_template_carries_both_guards(self):
+        """Either one alone produces a defect, so neither may be dropped."""
+        rendered = emit_latex.emit(planner.build(self.long_titled_doc()))
+        self.assertIn(r"\rightskip=0pt plus 1fil", rendered)
+        self.assertIn(r"\mbox{#2}", rendered)
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
+    def test_a_long_role_line_stays_inside_the_right_margin(self):
+        import pymupdf
+
+        path = write_urs(self.tmp, self.long_titled_doc(), "long.json")
+        code, out = run(RENDER_RESUME, path, "--out", self.tmp,
+                        "--view", "view_default", "--pdf")
+        self.assertEqual(code, 0, out)
+        pdf = next(self.tmp.glob("*.pdf"))
+        with pymupdf.open(pdf) as doc:
+            for page in doc:
+                limit = page.rect.width - 0.5 * 72      # inside the tightest margin
+                spilled = [b[4].strip()[:60] for b in page.get_text("blocks")
+                           if b[2] > limit]
+                self.assertEqual(spilled, [], "text past the right margin")
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
+    def test_a_long_role_line_does_not_split_its_date(self):
+        import pymupdf
+
+        path = write_urs(self.tmp, self.long_titled_doc(), "long.json")
+        run(RENDER_RESUME, path, "--out", self.tmp, "--view", "view_default", "--pdf")
+        pdf = next(self.tmp.glob("*.pdf"))
+        with pymupdf.open(pdf) as doc:
+            text = "".join(page.get_text() for page in doc)
+        # The date on the long line specifically - the fixture gives that
+        # position Feb 2021 - Jun 2023, and no other element carries it.
+        # Under a bare \hfill it extracts as "...Engineer)Feb 2021" on one line
+        # and "- Jun 2023" on the next, so the contiguous run is what fails.
+        self.assertIn("Feb 2021 - Jun 2023", text)
+
+
 class TargetSelection(unittest.TestCase):
     """--profile names a variant, --format names a file kind, and the stem
     follows the variant. It used to follow the format, so an ats-maximal .tex
