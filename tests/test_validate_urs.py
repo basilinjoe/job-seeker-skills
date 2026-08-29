@@ -36,10 +36,12 @@ class UrsCase(unittest.TestCase):
 
 
 class ShippedExample(UrsCase):
-    def test_example_document_is_valid_at_level_2(self):
-        code, out = run(VALIDATE_URS, EXAMPLE_URS, "--level", "2")
+    def test_example_document_is_still_valid(self):
+        """The shipped example is a frozen archive shape: no schema, no conformance
+        level, and still every invariant that stops a resume inventing something."""
+        code, out = run(VALIDATE_URS, EXAMPLE_URS)
         self.assertEqual(code, 0, out)
-        self.assertIn("conformance: level 2", out)
+        self.assertIn("PASS", out)
 
     def test_baseline_fixture_is_valid(self):
         self.assertPasses(urs_doc())
@@ -75,7 +77,7 @@ class NumeralsMustBeBacked(UrsCase):
     def test_quantified_prose_without_any_metric_only_warns(self):
         code, out = self.validate(self.bullet("Rolled out to 42 sites."))
         self.assertEqual(code, 0, out)
-        self.assertIn("machine mirror", out)
+        self.assertIn("cannot be checked for inflation", out)
 
     def test_standard_designators_are_not_quantities(self):
         # ISO 27001 and SOC 2 are names. Counting them would make the gate noise.
@@ -188,18 +190,11 @@ class ProvenanceAndPlaceholders(UrsCase):
         self.assertPasses(doc)
 
 
-class ConformanceLevels(UrsCase):
-    def test_level_assertion_fails_when_unreached(self):
-        doc = urs_doc()
-        doc["skills"][0].pop("evidence")
-        for a in doc["engagements"][0]["achievements"]:
-            a["metrics"] = []
-        self.assertFails(doc, "conformance level 0, asserted 2", "--level", "2")
-
+class StrictMode(UrsCase):
     def test_strict_promotes_warnings_to_failures(self):
         doc = urs_doc()
         doc["engagements"][0]["achievements"][1]["text"] = "Rebuilt 9 pipelines."
-        self.assertFails(doc, "machine mirror", "--strict")
+        self.assertFails(doc, "cannot be checked for inflation", "--strict")
 
 
 class Malformed(UrsCase):

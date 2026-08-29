@@ -173,6 +173,55 @@ def metrics_table(root):
     return rows
 
 
+MONTHS = {m: "%02d" % i for i, m in enumerate(
+    ["january", "february", "march", "april", "may", "june",
+     "july", "august", "september", "october", "november", "december"], 1)}
+
+
+def loose_date(text):
+    """"July 2011", "Jul 2011", "2011-07" and "2011" all mean the same thing here."""
+    text = str(text or "").strip().strip("*").strip()
+    if not text or text.lower() in ("present", "now", "current", "ongoing"):
+        return None
+    m = re.match(r"^([A-Za-z]+)\.?\s+(\d{4})$", text)
+    if m:
+        for name, num in MONTHS.items():
+            if name.startswith(m.group(1).lower()[:3]):
+                return "%s-%s" % (m.group(2), num)
+    m = re.match(r"^(\d{4})(?:-(\d{2}))?", text)
+    if m:
+        return "%s-%s" % (m.group(1), m.group(2)) if m.group(2) else m.group(1)
+    return None
+
+
+def kv_table(body, heading=None):
+    """A two-column `| Field | Value |` table, as a dict.
+
+    The bundle writes contact details and metrics this way, so the compile reads them
+    that way rather than asking anyone to write them twice.
+    """
+    if heading:
+        m = re.search(r"^#+\s*%s\s*$(.*?)(?=^#\s|\Z)" % heading, body, re.M | re.S)
+        if not m:
+            return {}
+        body = m.group(1)
+    out = {}
+    for line in body.splitlines():
+        if not line.startswith("|") or set(line.strip()) <= set("|- "):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 2 or cells[0].lower() in ("field", "dimension"):
+            continue
+        out[cells[0].lower().strip("*")] = cells[1]
+    return out
+
+
+def labelled(body):
+    """`- **Institute:** Mahatma Gandhi University` items, as a dict."""
+    return {m.group(1).strip().lower(): m.group(2).strip()
+            for m in re.finditer(r"^\s*[-*]\s+\*\*([^:*]+):?\*\*:?\s*(.+)$", body, re.M)}
+
+
 def blocks(body, heading, keys):
     """The `- item` entries under one heading, each with its own `key: value` lines.
 
@@ -294,9 +343,12 @@ def build_engagements(roles, orgs_by_stem):
         out.append({k: v for k, v in {
             "id": f"eng_{slug(org)}",
             "organization": ident(eng_meta, org, "org"),
+            # employment unless the organisation says otherwise. A contract or a
+            # freelance engagement reads differently on a resume and the difference is
+            # the company's to declare, not this script's to infer from a job title.
+            "kind": str(eng_meta.get("employment") or "employment"),
             "period": span,
             "location": eng_meta.get("location"),
-            "employment": eng_meta.get("employment"),
             "positions": positions,
             "achievements": [],
         }.items() if v is not None})
@@ -321,8 +373,11 @@ def build_projects(items, roles_by_stem, metrics):
         for key in ("strength", "seniority", "domains", "capabilities", "technologies", "url"):
             if meta.get(key) is not None:
                 entry[key] = meta[key]
-        if meta.get("recency"):
-            entry["period"] = {"state": "ended", "end": date(meta["recency"], f"projects/{stem}.md")}
+        # `recency` is the year the work was last touched, not a span. Turning one year
+        # into a period would invent a start date nobody wrote, so it stays what it is:
+        # the field the scorer already ranks on.
+        if meta.get("recency") is not None:
+            entry["recency"] = meta["recency"]
         entry["achievements"] = bullets(body, f"projects/{stem}.md", metrics)
         out.append({k: v for k, v in entry.items() if v is not None})
     return out
@@ -356,25 +411,93 @@ def build_skills(items):
 
 
 def build_narratives(items):
-    """Positioning concepts, and any summary authored beside them.
+    """Each `# Summary ...` section of a Positioning concept is one narrative.
 
-    A narrative is prose about the whole person rather than about one engagement, so it
-    has no other concept to live in.
+    A bundle usually holds several - positioning-led, constraint-led, keyword-dense -
+    because which one belongs on a resume depends on the posting. A view names the one
+    it wants, so they all compile and the choice stays with the view.
     """
     out = []
     for stem, meta, body in items:
-        text = "\n".join(ln for ln in body.strip().splitlines()
-                         if ln.strip() and not ln.startswith("#")).strip()
-        if not text:
-            continue
-        entry = {
-            "id": ident(meta, stem, "nar"),
-            "text": text,
-            "provenance": provenance(meta),
-        }
-        for key in ("kind", "audience"):
+        for head, section in re.findall(r"^#+\s*(Summary[^\n]*)$(.*?)(?=^#\s|\Z)",
+                                        body, re.M | re.S):
+            text = " ".join(ln.strip() for ln in section.splitlines()
+                            if ln.strip() and not ln.startswith(("|", "#", ">"))).strip()
+            if not text:
+                continue
+            label = re.sub(r"^summary\s*(variant)?\s*", "", head.strip(), flags=re.I)
+            out.append({
+                "id": f"nar_{slug(label) or slug(stem)}",
+                "kind": "summary",
+                "text": text,
+                "label": label.strip(" -"),
+                "provenance": provenance(meta),
+            })
+    return out
+
+
+def build_person(items):
+    """The Person concept's `# Contact` table.
+
+    Only the table. The identity concept also carries a home address marked *never
+    render on a resume*, and a compile that swept up every field in the file would put
+    it one careless view away from being printed.
+    """
+    if not items:
+        return {}
+    stem, meta, body = items[0]
+    fields = kv_table(body, "Contact")
+    contacts, seen = [], set()
+    for key, kind in (("email (personal)", "email"), ("email", "email"),
+                      ("phone", "phone"), ("linkedin", "linkedin"), ("github", "github")):
+        if fields.get(key) and kind not in seen:
+            seen.add(kind)
+            contacts.append({"kind": kind, "value": fields[key]})
+    person = {"name": {"full": fields.get("name") or str(meta.get("title") or "").strip('"')}}
+    if fields.get("location"):
+        person["location"] = {"label": fields["location"]}
+    if meta.get("description"):
+        person["headline"] = meta["description"]
+    person["contacts"] = contacts
+    return person
+
+
+def build_education(items):
+    """Education concepts. Institute and period are written as a labelled list."""
+    out = []
+    for stem, meta, body in items:
+        fields = labelled(body)
+        entry = {"id": ident(meta, stem, "edu"), "provenance": provenance(meta)}
+        entry["qualification"] = str(meta.get("title") or stem).strip('"')
+        institution = fields.get("institute") or fields.get("institution")
+        if institution:
+            entry["institution"] = {"name": institution}
+        span = fields.get("period") or ""
+        parts = [p.strip() for p in re.split(r"\s+[-–]\s+", span) if p.strip()]
+        start = loose_date(parts[0]) if parts else None
+        end = loose_date(parts[1]) if len(parts) > 1 else None
+        if start:
+            entry["period"] = {"state": "ended" if end else "ongoing",
+                               "start": date(start, f"{stem}.md")}
+            if end:
+                entry["period"]["end"] = date(end, f"{stem}.md")
+        for key in ("level", "field", "location"):
             if meta.get(key):
                 entry[key] = meta[key]
+        out.append(entry)
+    return out
+
+
+def build_credentials(items):
+    """Certification Status concepts."""
+    out = []
+    for stem, meta, body in items:
+        entry = {"id": ident(meta, stem, "cred"),
+                 "name": str(meta.get("title") or stem).strip('"'),
+                 "provenance": provenance(meta)}
+        fields = labelled(body)
+        if fields.get("issuer"):
+            entry["issuer"] = {"name": fields["issuer"]}
         out.append(entry)
     return out
 
@@ -406,36 +529,29 @@ def load(root):
     roles_by_stem = {stem: meta for stem, meta, _ in by_type.get("Role", [])}
 
     person_items = by_type.get("Person", [])
-    person = person_items[0][1] if person_items else {}
+    person_meta = person_items[0][1] if person_items else {}
 
     doc = {
         "urs": "1.0.0",
         "meta": {
             "id": f"urn:urs:{slug(os.path.basename(root))}",
-            "lang": person.get("lang", "en"),
+            "lang": person_meta.get("lang", "en"),
             "generator": "okf_compile",
             "bundle": os.path.basename(root),
         },
-        "person": {k: v for k, v in {
-            "name": person.get("name"),
-            "headline": person.get("headline"),
-            "location": person.get("location"),
-            "contacts": person.get("contacts"),
-        }.items() if v is not None},
+        "person": build_person(person_items),
         "organizations": build_organizations(by_type.get("Organisation", [])),
         "engagements": build_engagements(by_type.get("Role", []), orgs_by_stem),
         "projects": build_projects(by_type.get("Project", []), roles_by_stem, metrics),
-        "education": simple(by_type.get("Education", []), "edu",
-                            ("institution", "qualification", "level", "field", "location")),
-        "credentials": simple(by_type.get("Certification Status", []), "cred",
-                              ("name", "issuer", "expires")),
+        "education": build_education(by_type.get("Education", [])),
+        "credentials": build_credentials(by_type.get("Certification Status", [])),
         "skills": build_skills(by_type.get("Skill Set", [])),
         "narratives": build_narratives(by_type.get("Positioning", [])),
         "views": [],
     }
     for key in ("languages", "work_authorization", "availability"):
-        if person.get(key) is not None:
-            doc[key] = person[key]
+        if person_meta.get(key) is not None:
+            doc[key] = person_meta[key]
     return doc
 
 

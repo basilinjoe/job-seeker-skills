@@ -55,9 +55,11 @@ class ValidateRouting(unittest.TestCase):
         self.assertIn("PASS - safe to render", out)
 
     def test_flags_are_forwarded_unchanged(self):
-        """--level is the underlying script's flag; the dispatcher must not eat it."""
-        code, out = run(OKF, "validate", EXAMPLE, "--level", "99")
-        self.assertNotEqual(code, 0, out)
+        """--strict is the underlying script's flag; the dispatcher must not eat it."""
+        code, out = run(OKF, "validate", EXAMPLE, "--strict")
+        self.assertIn("checking:", out)
+        code2, out2 = run(OKF, "validate", EXAMPLE, "--nonsense-flag")
+        self.assertIn("checking:", out2)
 
     def test_missing_target_is_a_usage_error(self):
         code, out = run(OKF, "validate", self.tmp / "nope.json")

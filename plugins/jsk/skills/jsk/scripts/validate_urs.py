@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Validate a URS document against references/urs-spec.md.
 
-Usage: python3 validate_urs.py resume.json [--strict] [--level N]
-       --strict   treat conformance warnings as failures
-       --level N  assert conformance level N (0, 1 or 2)
+Usage: python3 validate_urs.py <bundle-dir | resume.json> [--strict]
+       --strict   treat warnings as failures
 
 On Windows use `python` or `py -3` in place of `python3`.
 
 Exit 0 = valid. Exit 1 = do not render this. Exit 2 = usage error.
 
-Standard library only. If `jsonschema` happens to be installed the full schema
-is checked as well, but the rules that matter most here are the ones a schema
+Standard library only. There is no schema check: nothing hand-writes this record
+any more, so a structural check on it would only be re-checking `okf_compile.py`.
+The rules that matter are the ones a schema
 cannot express:
 
   * a numeral in a bullet that appears in no metric - the check that stops a
@@ -216,7 +216,11 @@ def check_views(doc, rep):
                     f"view {v.get('id')}: unknown field {key!r} holds free text - "
                     "a view references content, it never contains it")
             else:
-                rep.warn(f"view {v.get('id')}: unknown field {key!r}")
+                # With no schema behind this, an unknown key is caught only here.
+                # 'startDate' for 'start' is the failure it exists for: a typo that
+                # loses a date with nobody noticing. Extensions go under 'x'.
+                rep.fail(f"view {v.get('id')}: unknown field {key!r} - "
+                         "extensions belong under x")
         if not v.get("format_profile"):
             rep.fail(f"view {v.get('id')}: no format_profile")
         region = v.get("region_profile")
@@ -242,7 +246,7 @@ def check_metrics(doc, rep):
             continue
         if not a.get("metrics"):
             rep.warn(f"achievement {a.get('id')} in {where}: quantified prose with no metrics - "
-                     "conformance level 1 needs the machine mirror")
+                     "a number nothing backs cannot be checked for inflation")
             continue
         for value, suffix, shown in found:
             if not covered(value, suffix, pool):
@@ -280,64 +284,43 @@ def check_placeholders(doc, rep):
     walk(doc, "")
 
 
-def conformance(doc):
-    """The highest level the document actually reaches."""
-    has_ids = bool(doc.get("engagements")) and all(
-        a.get("id") for a, _ in walk_achievements(doc))
-    has_metrics = any(a.get("metrics") for a, _ in walk_achievements(doc))
-    has_evidence = any(s.get("evidence") for s in doc.get("skills") or [])
-    all_prov = all((a.get("provenance") or {}).get("status")
-                   for a, _ in walk_achievements(doc))
-    floors = all(v.get("provenance_floor") for v in doc.get("views") or [])
-    if has_ids and has_metrics and has_evidence and all_prov and floors and doc.get("views"):
-        return 2
-    if has_ids and has_metrics and has_evidence:
-        return 1
-    return 0
+def load_target(path):
+    """The record to check: a bundle compiled, or a document read.
 
-
-def schema_check(doc, rep):
-    try:
-        import jsonschema
-    except ImportError:
-        return "jsonschema not installed - structural rules checked, full schema skipped"
-    path = os.path.join(SCHEMA_DIR, "urs-v1.schema.json")
-    with open(path, encoding="utf8") as fh:
-        schema = json.load(fh)
-    validator = jsonschema.Draft202012Validator(schema)
-    errors = sorted(validator.iter_errors(doc), key=lambda e: list(e.path))
-    for e in errors[:20]:
-        where = "/".join(str(p) for p in e.path) or "(root)"
-        rep.fail(f"schema: {where}: {e.message}")
-    if len(errors) > 20:
-        rep.fail(f"schema: +{len(errors) - 20} further violations")
-    return f"schema validated against {os.path.basename(path)}"
+    A bundle is the ordinary case now. A document is an archived application, frozen
+    at submission and still worth being able to re-check years later.
+    """
+    if not os.path.isdir(path):
+        with open(path, encoding="utf8") as fh:
+            return json.load(fh), os.path.basename(path)
+    sys.path.insert(0, HERE)
+    import okf_compile
+    return okf_compile.load(path), os.path.basename(os.path.abspath(path)) + " (compiled)"
 
 
 def main(argv):
     if len(argv) < 2:
-        print("usage: validate_urs.py resume.json [--strict] [--level N]")
+        print("usage: validate_urs.py <bundle-dir | resume.json> [--strict]")
         return 2
     path = argv[1]
     strict = "--strict" in argv
-    want_level = None
-    if "--level" in argv:
-        try:
-            want_level = int(argv[argv.index("--level") + 1])
-        except (IndexError, ValueError):
-            print("--level needs a number: 0, 1 or 2")
-            return 2
     if not os.path.exists(path):
         print(f"file not found: {path}")
         return 2
 
     try:
-        with open(path, encoding="utf8") as fh:
-            doc = json.load(fh)
+        doc, label = load_target(path)
     except json.JSONDecodeError as e:
         print(f"checking: {os.path.basename(path)}\n\nFAIL 1   WARN 0")
         print(f"  FAIL  not valid JSON: {e}")
         print("\nDO NOT RENDER - fix the failures above")
+        return 1
+    except Exception as e:
+        # A bundle that will not compile cannot be checked, and saying which concept
+        # is wrong is more use than a stack trace about a dict that was never built.
+        print(f"checking: {os.path.basename(path)}\n\nFAIL 1   WARN 0")
+        print(f"  FAIL  {e}")
+        print("\nDO NOT RENDER - fix the concept named above")
         return 1
 
     rep = Report()
@@ -361,18 +344,12 @@ def main(argv):
     check_metrics(doc, rep)
     check_provenance(doc, rep)
     check_placeholders(doc, rep)
-    note = schema_check(doc, rep)
-
-    level = conformance(doc)
-    if want_level is not None and level < want_level:
-        rep.fail(f"conformance level {level}, asserted {want_level}")
 
     if strict:
         rep.fails.extend(rep.warns)
         rep.warns = []
 
-    print(f"checking: {os.path.basename(path)}   urs: {version}   conformance: level {level}")
-    print(note)
+    print(f"checking: {label}   urs: {version}")
     print(f"\nFAIL {len(rep.fails)}   WARN {len(rep.warns)}")
     for f in rep.fails:
         print("  FAIL  " + f)
