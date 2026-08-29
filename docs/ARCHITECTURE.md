@@ -99,9 +99,7 @@ plugins/jsk/
       README.md                     index of everything below
       mode-*.md                     one procedure per mode
       bundle-spec.md                bundle layout, frontmatter schema, selection keys
-      urs-spec.md                   the normative record format
-      ujd-spec.md                   the normative posting format the scorer reads
-      ugs-spec.md                   the normative assessment format: the join between the two
+      urs-spec.md                   the shape the record compiles to, and the region profiles
       ats-rules.md                  hard rules, two-variant strategy, keyword placement
       writing-rules.md              X-Y-Z bullets, verb accuracy, phrases to cut
       rationale.md                  long-form reasoning, loaded to explain a rule
@@ -134,9 +132,10 @@ tests/                              unittest, one file per script
 | Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
 | What a migration does | `scripts/migrate_bundle.py` | `docs/SCRIPTS.md`, `tests/test_migrate_bundle.py` |
 | **What a timeline event means** | `scripts/pipeline_model.py` | never in a caller — `pipeline.py`, `validate_bundle.py` and `migrate_bundle.py` all read it |
-| How postings are scored | `scripts/score_projects.py` | `references/ujd-spec.md`, `tests/test_score_projects.py` |
-| What makes a posting invalid | `scripts/validate_ujd.py` | `schema/ujd-v1.schema.json`, `references/ujd-spec.md` |
-| **What an assessment must prove** | `scripts/validate_ugs.py` | `schema/ugs-v1.schema.json`, `references/ugs-spec.md` — and note what `--recompute` can and cannot re-derive |
+| How the record is built | `scripts/okf_compile.py` | `references/bundle-spec.md`, `tests/test_okf_compile.py` — and the render test, which is what a schema used to do |
+| How postings are scored | `scripts/score_projects.py` | `agents/jsk-tailor-analyst.md` (it writes the requirements), `tests/test_score_projects.py` |
+| A posting's or assessment's shape | `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` — the format is written out in the agent, so it is one place |
+| An archived application's format | `scripts/validate_ujd.py`, `scripts/validate_ugs.py` | nothing — both are frozen, kept only so a sent application stays readable |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |

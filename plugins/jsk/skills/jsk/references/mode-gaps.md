@@ -9,9 +9,9 @@ Turn unverified and unquantified material into confirmed facts.
 | `/jsk:gaps` — a record audit | the bundle, no posting in view | record quality: unconfirmed claims, missing metrics, illegible titles, unexplored territory |
 | A tailoring round — see `mode-tailor.md` | a posting **and** the record | both, ranked together: what this posting wants that the record cannot answer, alongside the record-quality problems that would reach *this* resume |
 
-Both write **UGS**, so the questions have the same shape, the same priorities and the same
-resolutions wherever they came from. `references/ugs-spec.md` is the format. This file is the
-conversation.
+Both write the same Markdown assessment, so the questions have the same shape, the same priorities
+and the same resolutions wherever they came from. `agents/jsk-tailor-analyst.md` has the format.
+This file is the conversation.
 
 The rest of this file is the record audit. The tailoring round is in `mode-tailor.md`.
 
@@ -110,10 +110,9 @@ Update the concept, set `confirmed`, add numbers to `achievements/metrics.md`, r
 real, and `unavailable` is one of them — a metric nobody can reconstruct resolves the question and
 should soften or cut the claim rather than leaving it pending forever.
 
-**If `resume-generation/record.json` exists, patch it too.** It is the standing transcription
-everything downstream reads, and an answer that reaches the concept but not the record leaves the two
-disagreeing. `jsk-record-builder` reconciles them and reports what diverged, but the cheap fix is to
-write both now.
+**The concept is the only place to write.** The record compiles from it, so an answer that reaches
+the concept has reached everything downstream by construction. There is no second copy to keep in
+step, which is the whole reason this used to say the opposite.
 
 Append to `log.md` and run the validator.
 

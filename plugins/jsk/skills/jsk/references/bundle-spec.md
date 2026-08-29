@@ -249,8 +249,9 @@ Worth adding as someone's career grows: `Talk` · `Publication` · `Patent` · `
 
 Reuse these. A near-synonym fragments the graph.
 
-`Job Target` was a concept type until revision 4. A posting is now a UJD document rather than a
-Markdown concept, so it has no `type:` — `references/ujd-spec.md` is its schema.
+`Job Posting` was called `Job Target` before revision 4, and was a JSON document for one revision
+after it. It is a Markdown concept again, with its requirements in frontmatter — see **Postings on
+disk** above.
 
 ## Selection keys — Project concepts only
 
