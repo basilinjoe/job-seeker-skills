@@ -56,7 +56,8 @@ INSTALL = {
         "note": "tectonic is a single self-contained binary; TeX Live and MiKTeX are "
                 "gigabytes and only worth it if you already wanted them.",
     },
-    "pyyaml": {"pip": "pyyaml", "note": "Reads bundle frontmatter."},
+    "pyyaml": {"pip": "pyyaml", "note": "Reads bundle frontmatter. Only "
+                                        "validate_bundle.py needs it."},
     "jsonschema": {"pip": "jsonschema",
                    "note": "Full URS schema validation. Without it the structural "
                            "rules still run, but a mistyped key is not caught."},
@@ -151,8 +152,9 @@ def gather(bundle_arg=None):
 
     checks.append(Check(
         "pyyaml", module_available("yaml"), key="pyyaml",
-        disables="validate_bundle.py and score_projects.py cannot run, so the "
-                 "bundle goes unchecked and tailoring falls back to guesswork"))
+        disables="validate_bundle.py cannot run, so the bundle goes unchecked. "
+                 "Scoring and both JSON validators are unaffected - they read "
+                 "JSON on both sides"))
 
     checks.append(Check(
         "jsonschema", module_available("jsonschema"), key="jsonschema",

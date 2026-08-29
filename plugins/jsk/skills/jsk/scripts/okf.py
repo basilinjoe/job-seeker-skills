@@ -13,11 +13,11 @@ will be. This exists so that nobody has to remember every name to get started.
 
     okf doctor                  what works on this machine
     okf new PATH --name NAME    scaffold a bundle
-    okf validate TARGET         a record (.json) or a bundle (directory)
+    okf validate TARGET         a record, posting or gaps .json, or a bundle
     okf render RECORD [...]     one record to a PDF and plain text
     okf preview RECORD --out D  the same record in every template, to pick a look
     okf check PDF [--strict]    the parse gate and the prose gate, both
-    okf score BUNDLE TARGET     rank projects against a posting
+    okf score RECORD POSTING    rank projects against a posting
     okf fit TEX [...]           fit a render to a page budget
     okf migrate BUNDLE [--apply]  bring an older bundle up to the current layout
     okf pipeline BUNDLE [...]     what the job search needs from you this week
@@ -88,21 +88,34 @@ def cmd_doctor(args):
     return run("preflight.py", args)
 
 
+# Which validator owns which document, by the filename each format reserves.
+# Dispatching on the extension rather than on the content keeps a truncated or
+# malformed file going to the validator that can explain what is wrong with it.
+JSON_VALIDATORS = (
+    (".posting.json", "validate_ujd.py"),   # UJD - the job posting
+    (".gaps.json", "validate_ugs.py"),      # UGS - the assessment
+)
+
+
 def cmd_validate(args):
-    """A record or a bundle - dispatch on what the target actually is."""
+    """A record, a posting, an assessment or a bundle - dispatch on the target."""
     if not args:
-        print("usage: okf validate <resume.json | bundle-directory> [...]")
+        print("usage: okf validate "
+              "<resume.json | posting.json | gaps.json | bundle-directory> [...]")
         return 2
     target = args[0]
     if os.path.isdir(target):
         return run("validate_bundle.py", args)
     if target.endswith(".json"):
+        for suffix, script in JSON_VALIDATORS:
+            if target.endswith(suffix):
+                return run(script, args)
         return run("validate_urs.py", args)
     if not os.path.exists(target):
         print(f"file not found: {target}")
         return 2
     print(f"FAIL  cannot validate: {target}")
-    print("fix:  pass a .json record or a bundle directory")
+    print("fix:  pass a .json document or a bundle directory")
     return 2
 
 
