@@ -59,10 +59,8 @@ record. A `status` that flips without them saying so is the defect this framewor
 | Agent | Has | Deliberately lacks |
 |---|---|---|
 | `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into the render |
-| `jsk-bundle-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes a UGS audit document; a concept is the person's |
-| `jsk-posting-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the UJD posting and never `resume.json` |
-| `jsk-record-builder` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it transcribes into `record.json` and writes no view, narrative or new prose |
-| `jsk-gap-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the UGS assessment and never touches the bundle |
+| `jsk-bundle-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit; a concept is the person's |
+| `jsk-tailor-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the posting's requirements and the assessment, never a concept |
 | `jsk-resume-author` | Read, Write, Edit, Glob, Grep, Bash | nothing structural — and it is the one that writes prose |
 
 `jsk-resume-author` is the exception worth understanding. It authors the narrative, the retuned
@@ -92,10 +90,8 @@ plugins/jsk/
     braindump|resume|tailor|...     thin delegations into the skill's modes
   agents/                           subagents the modes delegate to
     jsk-verifier.md                 runs the four gates on rendered files, reports verbatim
-    jsk-bundle-auditor.md           reads the whole bundle, writes a posting-less UGS audit
-    jsk-posting-analyst.md          decomposes a posting into UJD, runs the scorer
-    jsk-record-builder.md           transcribes the bundle into record.json, ids kept stable
-    jsk-gap-analyst.md              joins posting to record, writes the UGS assessment
+    jsk-bundle-auditor.md           reads the whole bundle, writes a posting-less audit
+    jsk-tailor-analyst.md           reads a posting and the compiled record, writes the assessment
     jsk-resume-author.md            authors the tailored record: narrative, summary, view
   skills/jsk/
     SKILL.md                        the agent's entry point: routing + hard rules

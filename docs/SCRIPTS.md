@@ -82,9 +82,9 @@ Creates an empty bundle skeleton. No dependencies.
 ### `validate_urs.py`
 
 ```bash
-python3 scripts/validate_urs.py resume.json
-python3 scripts/validate_urs.py resume.json --level 2
-python3 scripts/validate_urs.py resume.json --strict
+python3 scripts/validate_urs.py <bundle | resume.json>
+python3 scripts/validate_urs.py <bundle | resume.json> --level 2
+python3 scripts/validate_urs.py <bundle | resume.json> --strict
 ```
 
 The **record gate**. Run it before anything renders. Checks that the record is coherent and that
@@ -96,11 +96,11 @@ when `jsonschema` happens to be installed; the structural rules run either way.
 ### `render_resume.py`
 
 ```bash
-python3 scripts/render_resume.py resume.json --out DIR
-python3 scripts/render_resume.py resume.json --out DIR --pdf
-python3 scripts/render_resume.py resume.json --out DIR --view view_au_default
-python3 scripts/render_resume.py resume.json --out DIR --region au
-python3 scripts/render_resume.py resume.json --out DIR --pdf --ats-max
+python3 scripts/render_resume.py <bundle | resume.json> --out DIR
+python3 scripts/render_resume.py <bundle | resume.json> --out DIR --pdf
+python3 scripts/render_resume.py <bundle | resume.json> --out DIR --view view_au_default
+python3 scripts/render_resume.py <bundle | resume.json> --out DIR --region au
+python3 scripts/render_resume.py <bundle | resume.json> --out DIR --pdf --ats-max
 ```
 
 One record to `.tex` (and PDF with `--pdf`) plus `.txt`. The PDF is the only rendered deliverable;

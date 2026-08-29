@@ -17,8 +17,7 @@ career/
   open-source/          public code, if any
   sources/              archived source documents, interview records
   framework/            capability-vocabulary · schema · concept-types · templates
-  resume-generation/    record.json - the standing URS transcription of this bundle -
-                        plus open-questions and optional rule overrides: ats-rules ·
+  resume-generation/    open-questions, plus optional rule overrides: ats-rules ·
                         structure-rules · writing-rules · decisions-log
   tailoring/            selection-method · targets/ · applications/
 ```
@@ -51,35 +50,44 @@ way to say so.
 bundle forward, reports what it cannot establish, and marks anything it reconstructs
 `needs-verification`.
 
-## The record — `resume-generation/record.json`
+## The record — compiled, not stored
 
-**Derived, and never hand-edited.** It is the URS transcription of every concept in this bundle:
-organizations, engagements, projects, skills, education, credentials and achievements, each carrying
-its concept's `status` across as URS `provenance`. `jsk-record-builder` writes it.
+**There is no record file.** `okf_compile.py` builds it from the concepts in under a second and hands
+it to whatever asked: the scorer, the validator, the renderer. Every field in it is a frontmatter key
+or a table cell, so building it is a mapping rather than a judgement.
 
-Everything downstream reads it rather than the Markdown — `score_projects.py` ranks over its
-`projects[]`, the gap analysis assesses against it and pins it in `subjects.record`, and the author
-selects from it. That is the point: when the scorer read the bundle and the assessment read a record,
-the two could disagree about what the record held and nothing would have said so.
+It used to be `resume-generation/record.json`, transcribed by a model. Everything heavy in the old
+formats hung off that one decision — checksums to notice the transcription drifting, a reconcile pass
+to bring it back, conformance levels to say how complete it was, provenance re-asserted per entity
+because the transcription had to carry it across. A compile needs none of that: run it again and it is
+current by construction.
 
-Because it is derived, an edit made here is a claim with no concept behind it. Edit the concept and
-rebuild. It is worth committing anyway — a gap analysis pins it by checksum, so the file is what makes
-a past assessment reproducible.
+The bundle is in git, so a resume sent last March rebuilds from the commit it was sent at. That is a
+stronger guarantee than a checksum over a copied file, and it costs nothing to keep.
+
+```bash
+python3 <skill-dir>/scripts/okf_compile.py <bundle> --dump-record record.json
+```
+
+`--dump-record` is for reading, never for editing: the next compile overwrites it. An edit made there
+is a claim with no concept behind it.
 
 ## Postings on disk
 
-**A posting is a UJD document**, `tailoring/targets/<company>-<role>.posting.json`, with the
-advertisement verbatim in `source.raw_text` and every requirement carrying its own `kind`,
-`necessity` and provenance. `references/ujd-spec.md` has the format; `schema/example.posting.json` is
-a worked one.
+**A posting is a Markdown concept**, `tailoring/targets/<company>-<role>.posting.md`, with the
+advertisement verbatim in its body and its requirements in frontmatter — each carrying `value` (the
+vocabulary term the ranking runs on), `kind`, `necessity` and the posting's own wording as `label`.
 
-The gap analysis of that posting against the record sits beside it as `<company>-<role>.gaps.json`,
-a UGS document. Both are working copies and stay editable.
+The assessment of that posting against the record sits beside it as `<company>-<role>.gaps.md`, and
+the view that renders from it as `<company>-<role>.view.md`. All three are working copies and stay
+editable until an application freezes them.
 
-Before revision 4 a posting was a Markdown file whose frontmatter carried four flat arrays. That shape
-could not say which requirements were required and which were merely preferred, could not express
-"a degree and six years, or a postgraduate qualification", and left every gap as prose nobody could
-re-check. `migrate_bundle.py` converts an older bundle and reports what it could not recover.
+Revision 4 made the posting a JSON document because Markdown frontmatter could not say which
+requirements were demanded and which were merely preferred. That was true and it is worth one key per
+requirement, which is what `necessity` now is. The rest of that document — provenance spans on every
+field, boolean requirement groups, a scored assessment with its own arithmetic — was read by nothing
+but its own validator. `migrate_bundle.py` converts an older bundle and reports what it could not
+recover; archived JSON postings stay readable, because an application that has been sent is frozen.
 
 ## Applications on disk
 
