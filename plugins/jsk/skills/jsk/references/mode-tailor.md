@@ -86,8 +86,16 @@ python3 <skill-dir>/scripts/okf_compile.py <bundle> --quiet
 ## 3. A second round only if a verdict moved
 
 Run the analyst again **only when an answer changed what the record holds** — a metric arrived, an
-unevidenced claim got its evidence, a requirement that was indeterminate can now be judged. Pass it the
-previous `gaps.md`; it revises rather than re-deriving.
+unevidenced claim got its evidence, a requirement that was indeterminate can now be judged.
+
+**Continue the same agent with `SendMessage`; do not spawn a second one.** It still holds the posting,
+the record and the vocabulary — about 60 KB it would otherwise read again to learn what it already
+knows. Send it what changed and which concepts moved, and let it revise `gaps.md` rather than
+re-derive it. A fresh agent is not merely slower: it re-reads a record the answers have just changed
+and has no memory of which verdicts it had already settled, so it re-opens them.
+
+Only start a cold analyst if the first one is gone — the run was interrupted, or the session ended.
+Then pass it the previous `gaps.md` so it revises rather than starting over.
 
 Otherwise stop. A round that re-asks what was already answered is how a loop stops ending, and three
 rounds of a document nobody's answers changed is where the old procedure spent most of its time.

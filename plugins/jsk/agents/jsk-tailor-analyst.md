@@ -34,7 +34,8 @@ record that would not build is an assessment of nothing.
 ## 1. The requirements, into the posting's frontmatter
 
 Read the advertisement in the body and write what it asks for into the frontmatter above it. **The
-whole format is here** — there is nothing else to look up:
+whole format is here**, every closed vocabulary with it. The one file worth opening is the person's
+own `framework/capability-vocabulary.md`, because that is their data rather than this format:
 
 ```yaml
 ---
@@ -42,7 +43,7 @@ type: Job Posting
 title: "Staff Software Engineer, Product Engineering"
 company: Ashby
 url: https://jobs.ashbyhq.com/...
-seniority: platform-design        # the closed vocabulary in bundle-spec.md
+seniority: platform-design        # one of the eight below
 domains: [hr-tech, saas]
 status: confirmed
 requirements:
@@ -56,6 +57,11 @@ requirements:
 ---
 ```
 
+`seniority` is one of eight, and this is the whole list — architecture-ownership ·
+product-ownership · platform-design · team-leadership · technical-ownership · hands-on-senior ·
+hands-on · junior. `kind` is `capability` or `technology`, and `necessity` is `required`,
+`preferred` or `implicit`. Nothing above needs a file opened to check it.
+
 Four rules about that block, and each of them is a way the ranking goes wrong:
 
 **`value` is vocabulary, `label` is the advertisement.** The score matches on `value` as an exact
@@ -67,7 +73,7 @@ because that is what belongs in prose later.
 and one that says "Terraform a plus" are different postings, and the ranking treats them differently.
 When the advertisement genuinely does not say, write `implicit` rather than promoting a guess to
 `required` — the scorer excludes implicit requirements by default, and a requirement invented as
-must-have makes a good fit look like a bad one.
+`required` makes a good fit look like a bad one.
 
 **Do not put the advertisement in the frontmatter.** It is already in the body, verbatim, which is
 what the archive keeps and what a person re-reads.

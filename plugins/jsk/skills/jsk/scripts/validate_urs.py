@@ -250,14 +250,24 @@ def check_metrics(doc, rep):
             pool.add(float(budget))
         if not found:
             continue
-        if not a.get("metrics"):
-            rep.warn(f"achievement {a.get('id')} in {where}: quantified prose with no metrics - "
-                     "a number nothing backs cannot be checked for inflation")
-            continue
+        # An achievement carrying no metrics at all used to warn here and skip the
+        # check. That inverted the threat: a bullet whose number disagrees with its
+        # own metric failed, while a bullet that invented a number and attached
+        # nothing passed and rendered. The second is what tailoring produces - prose
+        # written fresh against a posting - so it is the case worth failing.
+        #
+        # Dropping the branch also lets `scope` back the number. A bullet saying
+        # "led a team of 12" against scope.team_size 12 was warned about rather than
+        # checked, because it carried no `metrics` list.
+        missing = not a.get("metrics")
         for value, suffix, shown in found:
-            if not covered(value, suffix, pool):
-                rep.fail(f"achievement {a.get('id')} in {where}: {shown!r} appears in the text "
-                         "but in no metric - the number cannot be verified")
+            if covered(value, suffix, pool):
+                continue
+            rep.fail(f"achievement {a.get('id')} in {where}: {shown!r} appears in the text "
+                     "but in no metric - the number cannot be verified" +
+                     (" (this achievement carries no metrics at all: add the row to "
+                      "achievements/metrics.md and name it in the bullet's `metric:`)"
+                      if missing else ""))
 
 
 def check_provenance(doc, rep):
