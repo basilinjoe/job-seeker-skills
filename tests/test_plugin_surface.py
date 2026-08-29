@@ -90,13 +90,25 @@ class AgentFrontmatter(unittest.TestCase):
                 self.assertTrue(fm.get("tools"))
                 self.assertLess(len(fm["description"]), 1024)
 
-    def test_the_read_only_agents_cannot_write(self):
-        """Both are deliberately denied Write and Edit: a defect is repaired in the
-        record, and a provenance status flips only when the person says so."""
-        for name in ("jsk-verifier", "jsk-bundle-auditor"):
+    def test_the_verifier_cannot_touch_a_document(self):
+        """Denied Write and Edit both: a defect is repaired in the record and
+        re-rendered, never patched into the document the checker just read."""
+        tools = frontmatter(PLUGIN / "agents" / "jsk-verifier.md")["tools"]
+        self.assertNotIn("Write", tools)
+        self.assertNotIn("Edit", tools)
+
+    def test_no_agent_that_reports_on_the_record_can_edit_it(self):
+        """The auditor and the gap analyst write their own analysis and nothing else.
+
+        Both hold Write, because a UGS document is their output. Neither holds Edit,
+        which is the tool that would let one change a concept - and a provenance
+        status that flips without the person saying so is the defect this whole
+        framework exists to prevent.
+        """
+        for name in ("jsk-bundle-auditor",):
             tools = frontmatter(PLUGIN / "agents" / f"{name}.md")["tools"]
             with self.subTest(agent=name):
-                self.assertNotIn("Write", tools)
+                self.assertIn("Write", tools)
                 self.assertNotIn("Edit", tools)
 
 
