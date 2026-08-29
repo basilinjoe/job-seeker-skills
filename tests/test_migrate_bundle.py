@@ -297,3 +297,126 @@ status: confirmed
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class R3ToR4(MigrateCase):
+    """The posting becomes a UJD document, and the one unrecoverable fact is said.
+
+    A Job Target file held a single list of requirements with no required-versus-
+    preferred modifier. Promoting all of them to must-have is the only reading that
+    does not silently discard a distinction - but it is still a promotion, so it is
+    reported rather than performed quietly.
+    """
+
+    def migrate(self, root):
+        code, out = run(MIGRATE_BUNDLE, root, "--apply")
+        return code, out
+
+    def posting(self, root, rel="tailoring/targets/kestrel.posting.json"):
+        import json
+        path = root / rel
+        self.assertTrue(path.exists(), f"{rel} was not written")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_a_target_becomes_a_ujd_document(self):
+        root = self.make_r1()
+        self.migrate(root)
+        doc = self.posting(root)
+        self.assertEqual(doc["ujd"], "1.0.0")
+        self.assertEqual(doc["posting"]["title"], "Principal Platform Architect")
+        self.assertEqual(doc["organization"]["name"], "Kestrel Health")
+
+    def test_requirements_carry_their_kind_and_value(self):
+        root = self.make_r1()
+        self.migrate(root)
+        doc = self.posting(root)
+        pairs = {(r["kind"], r["value"]) for r in doc["requirements"]}
+        self.assertEqual(pairs, {("capability", "integration-architecture"),
+                                 ("technology", "azure")})
+
+    def test_role_axes_carry_over(self):
+        root = self.make_r1()
+        self.migrate(root)
+        doc = self.posting(root)
+        self.assertEqual(doc["role"]["domains"], ["healthcare"])
+        self.assertEqual(doc["role"]["seniority"], "architecture-ownership")
+
+    def test_necessity_is_promoted_and_the_promotion_is_reported(self):
+        root = self.make_r1()
+        _, out = self.migrate(root)
+        doc = self.posting(root)
+        self.assertTrue(all(r["necessity"] == "must-have" for r in doc["requirements"]))
+        self.assertTrue(all(r["provenance"]["status"] == "needs-verification"
+                            for r in doc["requirements"]))
+        self.assertIn("nothing here can tell which", out)
+
+    def test_the_advertisement_is_kept_and_nothing_else_is(self):
+        """Only the `# Posting` section. The ranking below it was our own output,
+        and carrying it into raw_text would let a span check pass against text that
+        was never in the advertisement."""
+        root = self.make_r1()
+        (root / "tailoring/targets/kestrel.md").write_text(
+            TARGET + "\n# Evidence ranking\n\n| rank | score |\n|---|---|\n| 1 | 19 |\n"
+            "\n# Gaps\n\nNo Terraform evidence.\n", encoding="utf-8")
+        self.migrate(root)
+        raw = self.posting(root)["source"]["raw_text"]
+        self.assertIn("Own the clinical integration platform across 60 sites.", raw)
+        self.assertNotIn("Evidence ranking", raw)
+        self.assertNotIn("Terraform", raw)
+
+    def test_the_frozen_application_target_is_converted_too(self):
+        root = self.make_r1()
+        self.migrate(root)
+        doc = self.posting(root, "tailoring/applications/kestrel.posting.json")
+        self.assertEqual(doc["organization"]["name"], "Kestrel Health")
+
+    def test_the_application_log_is_not_mistaken_for_a_posting(self):
+        """In applications/ only the frozen `.target.md` is a posting; the bare
+        `<stem>.md` is the log, and converting it would invent a posting."""
+        root = self.make_r1()
+        self.migrate(root)
+        self.assertTrue((root / "tailoring/applications/kestrel.md").exists())
+        self.assertEqual(
+            len(list((root / "tailoring/applications").glob("*.posting.json"))), 1)
+
+    def test_the_markdown_is_left_in_place(self):
+        root = self.make_r1()
+        self.migrate(root)
+        self.assertTrue((root / "tailoring/targets/kestrel.md").exists())
+
+    def test_it_does_not_overwrite_a_posting_that_already_exists(self):
+        root = self.make_r1()
+        self.migrate(root)
+        target = root / "tailoring/targets/kestrel.posting.json"
+        target.write_text('{"ujd": "1.0.0", "mine": true}', encoding="utf-8")
+        run(MIGRATE_BUNDLE, root, "--apply")
+        self.assertIn("mine", target.read_text(encoding="utf-8"))
+
+    def test_the_produced_document_validates_as_ujd(self):
+        from fixtures import VALIDATE_UJD
+        root = self.make_r1()
+        self.migrate(root)
+        code, out = run(VALIDATE_UJD, root / "tailoring/targets/kestrel.posting.json")
+        self.assertEqual(code, 0, out)
+
+    def test_the_missing_record_is_reported_rather_than_invented(self):
+        """Transcribing prose into evidence is not a text substitution."""
+        root = self.make_r1()
+        _, out = self.migrate(root)
+        self.assertIn("record.json does not exist yet", out)
+        self.assertFalse((root / "resume-generation" / "record.json").exists())
+
+    def test_a_target_with_no_frontmatter_is_reported_not_guessed(self):
+        root = self.make_r1()
+        (root / "tailoring/targets/bare.md").write_text(
+            "# Just a posting\n\nSome text.\n", encoding="utf-8")
+        _, out = self.migrate(root)
+        self.assertIn("no readable frontmatter", out)
+        self.assertFalse((root / "tailoring/targets/bare.posting.json").exists())
+
+    def test_a_dry_run_writes_nothing(self):
+        root = self.make_r1()
+        code, out = run(MIGRATE_BUNDLE, root)
+        self.assertEqual(code, 1)
+        self.assertIn("would create", out)
+        self.assertFalse((root / "tailoring/targets/kestrel.posting.json").exists())

@@ -17,7 +17,8 @@ career/
   open-source/          public code, if any
   sources/              archived source documents, interview records
   framework/            capability-vocabulary · schema · concept-types · templates
-  resume-generation/    open-questions, plus optional rule overrides: ats-rules ·
+  resume-generation/    record.json - the standing URS transcription of this bundle -
+                        plus open-questions and optional rule overrides: ats-rules ·
                         structure-rules · writing-rules · decisions-log
   tailoring/            selection-method · targets/ · applications/
 ```
@@ -43,10 +44,41 @@ way to say so.
 | 1 | applications point at a mutable target file via `target:` |
 | 2 | the posting is frozen beside each application as `<stem>.target.md` |
 | 3 | an application's outcome is derived from an append-only `# Timeline` |
+| 4 | the posting is a UJD document, `<stem>.posting.json`, not Markdown frontmatter |
 
 `validate_bundle.py` warns on an older revision and never fails it. `migrate_bundle.py` moves a
 bundle forward, reports what it cannot establish, and marks anything it reconstructs
 `needs-verification`.
+
+## The record — `resume-generation/record.json`
+
+**Derived, and never hand-edited.** It is the URS transcription of every concept in this bundle:
+organizations, engagements, projects, skills, education, credentials and achievements, each carrying
+its concept's `status` across as URS `provenance`. `jsk-record-builder` writes it.
+
+Everything downstream reads it rather than the Markdown — `score_projects.py` ranks over its
+`projects[]`, the gap analysis assesses against it and pins it in `subjects.record`, and the author
+selects from it. That is the point: when the scorer read the bundle and the assessment read a record,
+the two could disagree about what the record held and nothing would have said so.
+
+Because it is derived, an edit made here is a claim with no concept behind it. Edit the concept and
+rebuild. It is worth committing anyway — a gap analysis pins it by checksum, so the file is what makes
+a past assessment reproducible.
+
+## Postings on disk
+
+**A posting is a UJD document**, `tailoring/targets/<company>-<role>.posting.json`, with the
+advertisement verbatim in `source.raw_text` and every requirement carrying its own `kind`,
+`necessity` and provenance. `references/ujd-spec.md` has the format; `schema/example.posting.json` is
+a worked one.
+
+The gap analysis of that posting against the record sits beside it as `<company>-<role>.gaps.json`,
+a UGS document. Both are working copies and stay editable.
+
+Before revision 4 a posting was a Markdown file whose frontmatter carried four flat arrays. That shape
+could not say which requirements were required and which were merely preferred, could not express
+"a degree and six years, or a postgraduate qualification", and left every gap as prose nobody could
+re-check. `migrate_bundle.py` converts an older bundle and reports what it could not recover.
 
 ## Applications on disk
 
@@ -55,19 +87,22 @@ One submission is a **set of files sharing a stem**, all in `tailoring/applicati
 | File | Is |
 |---|---|
 | `<company>-<role>.md` | the log: what was sent, what was selected, what came back |
-| `<company>-<role>.target.md` | the posting, ranking and gaps **frozen at submission** |
+| `<company>-<role>.posting.json` | the posting **frozen at submission** |
+| `<company>-<role>.gaps.json` | the assessment it was answering, frozen with it |
 | `<company>-<role>.resume.json` | the URS record it rendered from |
 | `<Name>_<Company>_Resume*.{pdf,tex,txt}` | the files actually sent |
 
-**Both inputs are frozen, not just the record.** `tailoring/targets/<company>-<role>.md` is the
-working copy and stays editable; the `.target.md` beside the application is the archive and does not.
-An application that links to a mutable posting cannot answer what it was answering.
+**Every input is frozen, not just the record.** The files in `tailoring/targets/` are working copies
+and stay editable; the copies beside the application are the archive and do not. An application that
+links to a mutable posting cannot answer what it was answering — and the gap document pins both by
+checksum, so a verdict recomputed against an edited posting is caught rather than believed.
 
 The `Application` concept names both, and the distinction is the point:
 
 ```yaml
-posting: "<company>-<role>.target.md"              # frozen - what was applied against
-target_working_copy: "../targets/<company>-<role>.md"   # editable - may have moved on
+posting: "<company>-<role>.posting.json"          # frozen - what was applied against
+assessment: "<company>-<role>.gaps.json"          # frozen - the gaps it answered
+target_working_copy: "../targets/<company>-<role>.posting.json"   # editable
 record: "<company>-<role>.resume.json"
 company_ref: "../../organisations/<company>.md"
 view: view_<id>
