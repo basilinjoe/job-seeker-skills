@@ -18,7 +18,7 @@ will be. This exists so that nobody has to remember every name to get started.
     okf render RECORD [...]     one record to a PDF and plain text
     okf preview RECORD --out D  the same record in every template, to pick a look
     okf check PDF [--strict]    the parse gate and the prose gate, both
-    okf score RECORD POSTING    rank projects against a posting
+    okf score BUNDLE POSTING.md rank projects against a posting
     okf fit TEX [...]           fit a render to a page budget
     okf migrate BUNDLE [--apply]  bring an older bundle up to the current layout
     okf pipeline BUNDLE [...]     what the job search needs from you this week
@@ -26,9 +26,12 @@ will be. This exists so that nobody has to remember every name to get started.
 Standard library only.
 """
 
+import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -38,7 +41,6 @@ SIMPLE = {
     "compile": ("okf_compile.py", "the bundle, as the record everything downstream reads"),
     "render": ("render_resume.py", "one record to .tex/PDF plus .txt"),
     "preview": ("preview_templates.py", "one record in every template, side by side"),
-    "score": ("score_projects.py", "rank projects against a posting"),
     "fit": ("fit_pages.py", "fit a render to a page budget"),
     "migrate": ("migrate_bundle.py", "bring an older bundle up to the current layout"),
     "pipeline": ("pipeline.py", "what the job search needs from you this week"),
@@ -150,10 +152,50 @@ def cmd_check(args):
     return worst
 
 
+def cmd_score(args):
+    """Rank the bundle's projects against a posting.
+
+    Both sides are compiled here rather than in `score_projects.py`, which reads JSON
+    and only JSON. That is deliberate: the scorer is arithmetic over two documents and
+    has no business knowing how a bundle is stored, so the shape it wants is built for
+    it and handed over.
+    """
+    if len(args) < 2:
+        print("usage: okf score <bundle-dir | record.json> <posting.md | posting.json> [...]")
+        return 2
+    sys.path.insert(0, HERE)
+    try:
+        import okf_compile
+    except SystemExit:
+        return 2
+
+    tmp = tempfile.mkdtemp(prefix="okf-score-")
+    paths = []
+    try:
+        for arg, kind in ((args[0], "record"), (args[1], "posting")):
+            if os.path.isdir(arg) or arg.endswith(".md"):
+                try:
+                    doc = (okf_compile.load(arg) if os.path.isdir(arg)
+                           else okf_compile.posting(arg))
+                except okf_compile.Problem as exc:
+                    print(f"FAIL  {exc}")
+                    return 1
+                path = os.path.join(tmp, kind + ".json")
+                with open(path, "w", encoding="utf-8") as fh:
+                    json.dump(doc, fh)
+                paths.append(path)
+            else:
+                paths.append(arg)
+        return run("score_projects.py", paths + list(args[2:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 HANDLERS = {
     "doctor": cmd_doctor,
     "validate": cmd_validate,
     "check": cmd_check,
+    "score": cmd_score,
 }
 
 

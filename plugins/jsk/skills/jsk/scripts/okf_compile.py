@@ -373,11 +373,14 @@ def build_projects(items, roles_by_stem, metrics):
         for key in ("strength", "seniority", "domains", "capabilities", "technologies", "url"):
             if meta.get(key) is not None:
                 entry[key] = meta[key]
-        # `recency` is the year the work was last touched, not a span. Turning one year
-        # into a period would invent a start date nobody wrote, so it stays what it is:
-        # the field the scorer already ranks on.
+        # `recency` is the year the work was last touched, not a span, and the scorer
+        # reads a Period. So the year becomes an end and the start stays absent, which
+        # is the honest reading: we know when it last ran and nobody wrote down when it
+        # began. Inventing a start to fill the shape is the failure this whole exercise
+        # is about.
         if meta.get("recency") is not None:
-            entry["recency"] = meta["recency"]
+            entry["period"] = {"state": "ended",
+                               "end": date(meta["recency"], f"projects/{stem}.md")}
         entry["achievements"] = bullets(body, f"projects/{stem}.md", metrics)
         out.append({k: v for k, v in entry.items() if v is not None})
     return out
@@ -555,11 +558,54 @@ def load(root):
     return doc
 
 
+def posting(path):
+    """A posting.md, as the object score_projects.py reads.
+
+    The advertisement stays in the body, verbatim, because that is the thing a person
+    re-reads and the thing the archive has to keep. Only what the ranking runs on is
+    lifted into frontmatter: a requirement's vocabulary term, whether it is a capability
+    or a technology, and whether the posting demanded it or merely preferred it.
+
+    That last one is the single distinction Markdown postings could not make before
+    revision 4, and it is one key per requirement.
+    """
+    with open(path, encoding="utf-8") as fh:
+        meta, body = read_frontmatter(fh.read())
+    if not meta:
+        raise Problem(f"{os.path.basename(path)}: no frontmatter - a posting needs "
+                      f"requirements[] with value, kind and necessity")
+    reqs = []
+    for n, item in enumerate(meta.get("requirements") or [], 1):
+        if not isinstance(item, dict):
+            raise Problem(f"{os.path.basename(path)}: requirement {n} is not a mapping")
+        if not item.get("value") or not item.get("kind"):
+            raise Problem(f"{os.path.basename(path)}: requirement {n} needs a value and "
+                          f"a kind (capability or technology)")
+        reqs.append(item)
+    return {
+        "title": meta.get("title"),
+        "company": meta.get("company"),
+        "url": meta.get("url"),
+        "requirements": reqs,
+        "role": {"domains": meta.get("domains") or [],
+                 "seniority": meta.get("seniority")},
+        "source": {"raw_text": body.strip()},
+    }
+
+
 def main(argv):
     args = [a for a in argv[1:] if not a.startswith("-")]
     if not args:
-        print("usage: okf_compile.py BUNDLE [--dump-record FILE|-]")
+        print("usage: okf_compile.py <BUNDLE | posting.md> [--dump-record FILE|-]")
         return 2
+    if args[0].endswith(".md"):
+        try:
+            doc = posting(args[0])
+        except Problem as exc:
+            print(f"FAIL  {exc}")
+            return 1
+        json.dump(doc, sys.stdout, indent=2, ensure_ascii=False)
+        return 0
     quiet = "--quiet" in argv
     try:
         doc = load(args[0])
