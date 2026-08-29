@@ -1,7 +1,7 @@
 # Job Seeker Skill: tailoring as a gap-closing loop
 
 **Date:** 2026-08-29
-**Status:** designed — implementation staged, see *Work* at the end
+**Status:** implemented — see *Outcome* at the end
 
 ## Problem
 
@@ -331,3 +331,51 @@ End to end: a posting URL in, two gap rounds answered in bulk, a skip on the thi
 and `/jsk:ship`. No `.resume.json` may exist before the skip — if one does, the reorder did not take.
 `jsk-record-builder` must have run exactly twice. And a posting the bundle already answers well must
 end after **one** round without asking anything.
+
+## Outcome
+
+Implemented 2026-08-29, as designed, with five changes made during the build.
+
+- **`surface[]` cannot be derived, only obligated.** The design said `--recompute` would compute it as
+  a set difference. A `SurfaceGap` carries a `term`, `aliases_available` and a `remedy` — the record
+  says "security governance" where the posting says "data residency" — and no set difference produces
+  those. What shipped enforces the *obligation*: a `satisfied` assessment whose evidence lies entirely
+  outside the rendered view and that nothing reports **fails** the document. `jsk-resume-author` writes
+  the entries, because it is the step that knows what it cut. The design's conclusion — no second
+  gap-analyst pass — survives for a different reason than the one given. The same correction removed
+  `surplus[]` from the recompute table.
+
+- **`score.components[]` is checked but not recomputed.** The spec blesses three different
+  computations for a component's `value`: summed evidence credit for capability and technology, a
+  group verdict for the qualification axis (its own text says summing the members "would score it 0.66
+  and be wrong"), and seniority, which is computed from no assessments at all. One mechanical rule
+  would reject correct documents. What is enforced instead is that `of` resolves, `normalized` is in
+  range, and the aggregate built from them recomputes exactly — which is the number that could
+  actually bias a decision.
+
+- **Four defects in the shipped examples**, each the class of error its check exists for.
+  `example.posting.json` claimed conformance 2 with no `source.raw_text` and four spanless
+  extractions. `example.gaps.json` scored `cmp_capability` at 1.5 where its own `explanation` names
+  credits summing to 1.2 — corrected, moving the aggregate 0.79 → 0.77; its `questions[]` ran
+  `missing-metric` before `inferred-claim`; and it carried no checksums and no `Evidence.span`, so it
+  reached level 1 while claiming 2. All four now validate at level 2.
+
+- **A migration ordering bug**, found by a test rather than by reading. In a single r1 → r4 run,
+  r3 → r4 listed `tailoring/applications/` before r1 → r2 had written the frozen `.target.md` it was
+  about to create, because every change is planned before any is applied. Planned files are now
+  threaded forward, so the oldest bundles are no longer the only ones whose archived posting stays
+  Markdown.
+
+- **One agent rule was stated too broadly.** A test asserted that `jsk-bundle-auditor` holds neither
+  Write nor Edit. Emitting a UGS document needs Write. The rule worth keeping is the distinction
+  between the two: a gap document is an agent's own output, a concept is the person's record, and a
+  provenance status that flips without them saying so is the defect this framework exists to prevent.
+  The test now asserts the verifier holds neither, and that an agent reporting on the record holds
+  Write and never Edit.
+
+460 tests pass, up from 350 on main. The shipped examples validate at conformance level 2 and preflight's
+end-to-end check is green.
+
+**Not done, and deliberately.** No fixture bundle exercises the full loop end to end — the four
+agents are prose, so the loop's behaviour is asserted through the validators rather than by running
+it. The manual walkthrough in *Verification* above is what closes that, and it needs a real bundle.
