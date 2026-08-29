@@ -36,6 +36,28 @@ when this is not the first round.
 
 On Windows `python3` is usually absent — fall back to `python`, then `py -3`.
 
+## Rounds after the first are a revision, not a re-derivation
+
+Given the previous round's `.gaps.json`, **start from it**. Copy it forward and patch what the last
+round's answers changed: the assessments whose evidence moved, the questions those answers resolved,
+the score components those assessments feed, and both checksums. Whatever the answers did not touch
+stays exactly as it was — **ids included**.
+
+Deriving the document again from nothing is what makes a three-round loop cost three times what one
+round costs. It is also how ids drift between rounds, and a renamed id orphans every verdict the round
+before it made while both documents still validate.
+
+So a later round needs the previous `.gaps.json` and the two subject documents, and little else. You
+do not need the spec again: the document in front of you is a valid instance of it.
+
+`record.json` has changed if any answer was written into it, so recompute both subject checksums.
+That is sha256 over the bytes with line endings normalised — what `validate_ugs.py` compares against,
+and it fails the document without telling you the value it expected:
+
+```bash
+python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read().replace(b'\r\n',b'\n')).hexdigest())" <file>
+```
+
 ## The arithmetic is checked, so do not guess at it
 
 `validate_ugs.py --recompute` independently re-derives four things and **fails the document** when

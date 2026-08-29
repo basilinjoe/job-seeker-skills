@@ -64,6 +64,10 @@ python3 <skill-dir>/scripts/score_projects.py <bundle>/resume-generation/record.
         tailoring/targets/<slug>.posting.json --markdown
 ```
 
+**From round 2 on, pass the previous `.gaps.json`.** The analyst patches that document instead of
+deriving a new one — same ids, only what the answers changed — which is what stops a three-round loop
+from costing three times what one round costs.
+
 Then `jsk-gap-analyst` writes `tailoring/targets/<slug>.gaps.json`, and:
 
 ```bash
