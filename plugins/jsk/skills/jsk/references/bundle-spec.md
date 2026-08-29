@@ -96,25 +96,28 @@ One submission is a **set of files sharing a stem**, all in `tailoring/applicati
 | File | Is |
 |---|---|
 | `<company>-<role>.md` | the log: what was sent, what was selected, what came back |
-| `<company>-<role>.posting.json` | the posting **frozen at submission** |
-| `<company>-<role>.gaps.json` | the assessment it was answering, frozen with it |
-| `<company>-<role>.resume.json` | the URS record it rendered from |
+| `<company>-<role>.posting.md` | the posting **frozen at submission** |
+| `<company>-<role>.gaps.md` | the assessment it was answering, frozen with it |
+| `<company>-<role>.view.md` | the view it rendered from |
 | `<Name>_<Company>_Resume*.{pdf,tex,txt}` | the files actually sent |
 
-**Every input is frozen, not just the record.** The files in `tailoring/targets/` are working copies
+**Every input is frozen, not just the view.** The files in `tailoring/targets/` are working copies
 and stay editable; the copies beside the application are the archive and do not. An application that
-links to a mutable posting cannot answer what it was answering — and the gap document pins both by
-checksum, so a verdict recomputed against an edited posting is caught rather than believed.
+links to a mutable posting cannot answer what it was answering.
+
+The record is not among them, and does not need to be. It compiles from concepts that are in git, so
+a resume sent last March rebuilds from the commit it was sent at — a stronger guarantee than a copy
+beside the application, which only ever proved what somebody wrote down.
 
 The `Application` concept names both, and the distinction is the point:
 
 ```yaml
-posting: "<company>-<role>.posting.json"          # frozen - what was applied against
-assessment: "<company>-<role>.gaps.json"          # frozen - the gaps it answered
-target_working_copy: "../targets/<company>-<role>.posting.json"   # editable
-record: "<company>-<role>.resume.json"
+posting: "<company>-<role>.posting.md"            # frozen - what was applied against
+assessment: "<company>-<role>.gaps.md"            # frozen - the gaps it answered
+target_working_copy: "../targets/<company>-<role>.posting.md"     # editable
+view_file: "<company>-<role>.view.md"             # frozen - what was rendered
 company_ref: "../../organisations/<company>.md"
-view: view_<id>
+view: view_<id>                                   # the id inside it
 submitted: 2026-08-26
 channel: "Workday portal"
 ```

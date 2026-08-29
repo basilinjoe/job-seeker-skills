@@ -41,8 +41,10 @@ REVISIONS = {
     1: "applications point at a mutable target file (`target:`) and carry `outcome:`",
     2: "the posting is frozen beside each application as `<stem>.target.md`",
     3: "an application's outcome is derived from an append-only timeline",
-    4: "the posting is a UJD document, `<stem>.posting.json`, not Markdown frontmatter",
-    5: "roles and projects declare their relations in frontmatter, so the record compiles",
+    4: "the posting is a UJD document - superseded by 5, which puts it back "
+       "into Markdown",
+    5: "roles and projects declare their relations in frontmatter so the record "
+       "compiles, and the posting is `<stem>.posting.md` again",
 }
 
 # `outcome:` values seen in the wild, mapped onto timeline events. `offer` maps to an
@@ -194,7 +196,7 @@ def freeze_text(target_text, stem, today, submitted):
     return join_frontmatter(out, banner + body)
 
 
-def plan_application(root, rel, today, changes, blocked, planned=None):
+def plan_application(root, rel, today, changes, blocked):
     """Plan the r1 -> r2 edits for one Application concept."""
     path = os.path.join(root, rel)
     parts = split_frontmatter(open(path, encoding="utf-8").read())
@@ -232,12 +234,6 @@ def plan_application(root, rel, today, changes, blocked, planned=None):
                     f"frozen from {working_rel}, marked needs-verification (a late snapshot)",
                     write))
                 frozen_ok = True
-                # r3 -> r4 converts frozen postings, and in a single r1 -> r4 run this
-                # file does not exist on disk yet - every change is planned before any
-                # is applied. Recording the text here is what stops the last bundle in
-                # the chain from being the only one whose archive keeps its Markdown.
-                if planned is not None:
-                    planned[frozen_rel] = frozen
 
     # 2. the pointers, which must say which copy they mean.
     # `posting:` is only written when there is - or will be - something for it to point
@@ -274,7 +270,7 @@ def plan_application(root, rel, today, changes, blocked, planned=None):
         changes.append(Change("update", rel, detail, repoint))
 
 
-def plan_r1_to_r2(root, today, changes, blocked, planned=None):
+def plan_r1_to_r2(root, today, changes, blocked):
     apps = os.path.join(root, "tailoring", "applications")
     if not os.path.isdir(apps):
         return
@@ -282,7 +278,7 @@ def plan_r1_to_r2(root, today, changes, blocked, planned=None):
         if not name.endswith(".md") or name == "index.md" or name.endswith(".target.md"):
             continue
         plan_application(root, f"tailoring/applications/{name}", today, changes,
-                         blocked, planned)
+                         blocked)
 
 
 # --------------------------------------------------------------- r2 -> r3
@@ -419,12 +415,11 @@ def plan_r2_to_r3(root, changes, blocked):
 
 # The single fact this migration cannot recover, stated on every requirement it
 # writes. A Job Target file held one list of requirements with no
-# required-versus-preferred modifier, so promoting all of them to must-have is the
-# only reading that does not silently discard a distinction - and it is exactly the
-# loss the UJD spec's own schema.org mapping table predicts.
+# required-versus-preferred modifier, so promoting all of them to `required` is the
+# only reading that does not silently discard a distinction.
 NECESSITY_NOTE = ("necessity is not recoverable from a Job Target file: it held one "
                   "list with no required-versus-preferred modifier. Every requirement "
-                  "here is must-have and needs review.")
+                  "here is `required` and needs review.")
 
 
 def fm_list(fm_lines, key):
@@ -449,8 +444,8 @@ def posting_body(body):
     """The advertisement, taken from the target file's own `# Posting` section.
 
     Only that section. The ranking and gap headings beneath it are this toolchain's
-    own earlier output, and carrying them into source.raw_text would let a later
-    span check pass against text that was never in the advertisement.
+    own earlier output, and carrying them into the new posting would leave a person
+    re-reading this framework's guesses as though the employer had written them.
     """
     capture, out = False, []
     for line in body.split("\n"):
@@ -462,157 +457,175 @@ def posting_body(body):
     return "\n".join(out).strip()
 
 
-def target_to_ujd(text, stem, today):
-    """A Job Target file as a conformance Level 0 UJD document."""
+def quote(value):
+    """A frontmatter scalar, quoted only when leaving it bare would change it."""
+    value = value or ""
+    if value and not re.search(r"""[:#\[\]{}'"\n]|^[-?&*!|>%@`]|^\s|\s$""", value):
+        return value
+    return '"%s"' % value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def target_to_posting(text, stem):
+    """A revision 3 Job Target file as a revision 5 posting.
+
+    The advertisement moves into the body verbatim and the two flat requirement
+    lists become one `requirements:` block. Nothing is invented: `label` is left off
+    entirely rather than filled with the vocabulary term, because a term someone
+    typed while decomposing a posting is not the posting's own wording.
+    """
     parts = split_frontmatter(text)
     if not parts:
-        return None
+        return None, 0
     fm_lines, body = parts
-    raw_text = posting_body(body)
 
-    requirements = []
+    pairs = []
     for key, kind in (("required_capabilities", "capability"),
                       ("required_technologies", "technology")):
-        for value in fm_list(fm_lines, key):
-            requirements.append({
-                "id": "req_r4_%d" % (len(requirements) + 1),
-                "kind": kind,
-                "necessity": "must-have",
-                "value": value,
-                "provenance": {
-                    "status": "needs-verification",
-                    "asserted": today,
-                    # The caveat rides on source.label, where the schema puts a note
-                    # about how a claim was read. Provenance itself takes no free text.
-                    "source": {"kind": "posting-text", "label": NECESSITY_NOTE},
-                },
-            })
+        pairs += [(value, kind) for value in fm_list(fm_lines, key)]
 
-    doc = {
-        "$schema": "https://openresume.dev/ujd/v1/posting.schema.json",
-        "ujd": "1.0.0",
-        "meta": {
-            "id": "ujd:migrated:" + stem,
-            "updated": today,
-            "generator": "migrate_bundle.py r3->r4",
-            # No self-declared conformance. The validator computes the level this
-            # document actually reaches, and a migrated file claiming its own grade
-            # is the sort of assertion the whole format is built to avoid.
-        },
-        "posting": {
-            "id": "pst_" + (re.sub(r"[^a-z0-9]+", "_", stem.lower()).strip("_") or "migrated"),
-            "title": fm_get(fm_lines, "role") or fm_get(fm_lines, "title") or stem,
-            "retrieved": today,
-            "status": "unknown",
-        },
-    }
-    company = fm_get(fm_lines, "company")
-    if company:
-        doc["organization"] = {"id": "org_migrated", "name": company}
-    url = fm_get(fm_lines, "source")
-    if url and url.startswith("http"):
-        doc["posting"]["url"] = url
-
-    role = {}
+    out = ["type: Job Posting"]
+    out.append("title: " + quote(fm_get(fm_lines, "role")
+                                 or fm_get(fm_lines, "title") or stem))
+    for source_key, key in (("company", "company"), ("source", "url"),
+                            ("seniority_sought", "seniority")):
+        value = fm_get(fm_lines, source_key)
+        if value:
+            out.append("%s: %s" % (key, quote(value)))
     domains = fm_list(fm_lines, "domains")
     if domains:
-        role["domains"] = domains
-    seniority = fm_get(fm_lines, "seniority_sought")
-    if seniority:
-        role["seniority"] = seniority
-    if role:
-        doc["role"] = role
-    if requirements:
-        doc["requirements"] = requirements
+        out.append("domains: [%s]" % ", ".join(domains))
+    out.append("status: needs-verification")
+    for index, (value, kind) in enumerate(pairs):
+        if not index:
+            out.append("requirements:")
+        out.append("  - value: " + quote(value))
+        out.append("    kind: " + kind)
+        out.append("    necessity: required")
 
-    doc["source"] = {
-        "raw_format": "markdown",
-        "ingested_from": "manual",
-        "ingest_notes": [
-            NECESSITY_NOTE,
-            "Migrated from a Job Target Markdown file. Requirement values are the "
-            "vocabulary terms a person typed while decomposing the posting, so no "
-            "source.span can be recovered and this stays at conformance Level 0.",
-        ],
-    }
-    if raw_text:
-        doc["source"]["raw_text"] = raw_text
-    else:
-        doc["source"]["ingest_notes"].append(
-            "The target file carried no `# Posting` section, so the advertisement "
-            "itself is gone. Nothing downstream can check an extraction against it.")
-    return doc
+    advertisement = posting_body(body) or (
+        "<!-- The Job Target file carried no `# Posting` section, so the "
+        "advertisement itself is gone. Paste it back here. -->")
+    return join_frontmatter(out, "\n# Posting\n\n" + advertisement + "\n"), len(pairs)
 
 
-def plan_target(root, rel, today, changes, blocked, text=None):
-    """One Job Target file to one UJD document, written beside it.
+def ujd_to_posting(doc):
+    """A revision 4 UJD document as a revision 5 posting.
 
-    `text` is supplied when the source is a file an earlier step is only planning to
-    write, which is the r1 -> r4 case: nothing is on disk until every step has been
-    planned.
+    Every key the ranking reads has a home in frontmatter. The rest of that document
+    - provenance spans, requirement groups, a self-scored aggregate - is dropped,
+    which is the whole point of the revision: nothing but its own validator read it.
+    """
+    posting = doc.get("posting") or {}
+    role = doc.get("role") or {}
+    out = ["type: Job Posting", "title: " + quote(posting.get("title"))]
+    company = (doc.get("organization") or {}).get("name")
+    if company:
+        out.append("company: " + quote(company))
+    if posting.get("url"):
+        out.append("url: " + quote(posting["url"]))
+    if role.get("seniority"):
+        out.append("seniority: " + quote(role["seniority"]))
+    if role.get("domains"):
+        out.append("domains: [%s]" % ", ".join(role["domains"]))
+    out.append("status: needs-verification")
+
+    requirements = doc.get("requirements") or []
+    for index, req in enumerate(requirements):
+        if not index:
+            out.append("requirements:")
+        out.append("  - value: " + quote(req.get("value")))
+        out.append("    kind: " + (req.get("kind") or "capability"))
+        necessity = req.get("necessity") or "required"
+        out.append("    necessity: " + {"must-have": "required",
+                                        "nice-to-have": "preferred"}.get(
+                                            necessity, necessity))
+        label = ((req.get("provenance") or {}).get("source") or {}).get("text")
+        if label:
+            out.append("    label: " + quote(label))
+
+    advertisement = ((doc.get("source") or {}).get("raw_text") or "").strip() or (
+        "<!-- The UJD document carried no source.raw_text, so the advertisement "
+        "itself is gone. Paste it back here. -->")
+    return (join_frontmatter(out, "\n# Posting\n\n" + advertisement + "\n"),
+            len(requirements))
+
+
+def plan_posting(root, rel, changes, blocked):
+    """One working posting - a Job Target or a UJD document - to `<stem>.posting.md`.
+
+    The source is left where it is. Nothing reads it any more, but deleting somebody's
+    only copy of an advertisement to save a few kilobytes is not a trade a migration
+    gets to make on their behalf.
     """
     stem = os.path.basename(rel)
-    for suffix in (".target.md", ".md"):
+    for suffix in (".posting.json", ".target.md", ".md"):
         if stem.endswith(suffix):
             stem = stem[: -len(suffix)]
             break
-    out_rel = "%s/%s.posting.json" % (os.path.dirname(rel), stem)
+    out_rel = "%s/%s.posting.md" % (os.path.dirname(rel), stem)
     if os.path.exists(os.path.join(root, out_rel)):
         return
 
-    if text is None:
-        with open(os.path.join(root, rel), encoding="utf-8") as fh:
-            text = fh.read()
-    doc = target_to_ujd(text, stem, today)
-    if doc is None:
-        blocked.append("%s has no readable frontmatter, so nothing could be read from "
-                       "it. Convert it by hand, or re-capture the posting." % rel)
-        return
-    count = len(doc.get("requirements") or [])
+    with open(os.path.join(root, rel), encoding="utf-8") as fh:
+        text = fh.read()
 
-    def write(dest=os.path.join(root, out_rel), payload=doc):
+    note = None
+    if rel.endswith(".json"):
+        try:
+            written, count = ujd_to_posting(json.loads(text))
+        except ValueError as exc:
+            blocked.append("%s is not readable JSON (%s), so nothing could be read "
+                           "from it. Convert it by hand." % (rel, exc))
+            return
+        detail = "%d requirement(s) carried over; the JSON is left in place" % count
+    else:
+        written, count = target_to_posting(text, stem)
+        if written is None:
+            blocked.append("%s has no readable frontmatter, so nothing could be read "
+                           "from it. Convert it by hand, or re-capture the posting."
+                           % rel)
+            return
+        detail = ("%d requirement(s) from frontmatter, all required and unverified; "
+                  "the Markdown is left in place" % count)
+        if count:
+            note = "%s: %d requirement(s) - %s" % (out_rel, count, NECESSITY_NOTE)
+
+    def write(dest=os.path.join(root, out_rel), payload=written):
         with open(dest, "w", encoding="utf-8", newline="\n") as fh:
-            json.dump(payload, fh, indent=2, ensure_ascii=False)
-            fh.write("\n")
+            fh.write(payload)
 
-    changes.append(Change(
-        "create", out_rel,
-        "%d requirement(s) from frontmatter, all must-have and needs-verification; "
-        "the Markdown is left in place" % count, write))
-    if count:
-        blocked.append(
-            "%s: %d requirement(s) are must-have because a Job Target file could not "
-            "say otherwise. Some of them were preferred, and nothing here can tell "
-            "which - read the posting and set `necessity`." % (out_rel, count))
+    changes.append(Change("create", out_rel, detail, write))
+    if note:
+        blocked.append(note)
 
 
-def plan_r3_to_r4(root, today, changes, blocked, planned=None):
-    for folder in ("targets", "applications"):
-        directory = os.path.join(root, "tailoring", folder)
-        if not os.path.isdir(directory):
+def plan_postings(root, changes, blocked):
+    """Every working posting to Markdown, one per stem.
+
+    A bundle that stopped at revision 4 holds both sources for the same posting: the
+    Job Target file r3 left in place and the UJD document r4 wrote beside it. They
+    describe one job and land on one filename, so only one can be the source - and it
+    is the JSON, which is the later document and the only one that ever recorded a
+    required-versus-preferred distinction.
+
+    `tailoring/targets/` only. The copy beside an application was frozen when that
+    application was sent, and it is already Markdown - `<stem>.target.md`, written by
+    r1 -> r2. Rewriting it would edit an archive to match a convention that postdates
+    it, which is the one thing an archive exists to prevent.
+    """
+    directory = os.path.join(root, "tailoring", "targets")
+    if not os.path.isdir(directory):
+        return
+    sources = {}
+    for name in sorted(os.listdir(directory)):
+        if name == "index.md" or name.endswith(".posting.md"):
             continue
-        for name in sorted(os.listdir(directory)):
-            if not name.endswith(".md") or name == "index.md":
-                continue
-            # In targets/ every Markdown file is a posting. In applications/ only the
-            # frozen `.target.md` is - the bare `<stem>.md` is the application log.
-            if folder == "applications" and not name.endswith(".target.md"):
-                continue
-            plan_target(root, "tailoring/%s/%s" % (folder, name), today, changes, blocked)
-
-    # Postings an earlier step is about to write. Without this an r1 -> r4 run leaves
-    # every archived posting as Markdown, because nothing had been applied yet when
-    # this step listed the directory.
-    for rel, text in sorted((planned or {}).items()):
-        plan_target(root, rel, today, changes, blocked, text=text)
-
-    if not os.path.exists(os.path.join(root, "resume-generation", "record.json")):
-        blocked.append(
-            "resume-generation/record.json does not exist yet. It is the standing URS "
-            "transcription of this bundle, and everything downstream now reads it - the "
-            "scorer, the gap analysis and the author. jsk-record-builder writes it on "
-            "the first /jsk:tailor run. A migration cannot: transcribing prose into "
-            "evidence is not a text substitution.")
+        if name.endswith(".posting.json"):
+            sources[name[: -len(".posting.json")]] = name
+        elif name.endswith(".md"):
+            sources.setdefault(name[:-3], name)
+    for _, name in sorted(sources.items()):
+        plan_posting(root, "tailoring/targets/" + name, changes, blocked)
 
 
 # ------------------------------------------- r4 -> r5: the relational keys
@@ -852,10 +865,6 @@ def main(argv=None):
         return 0
 
     changes, blocked = [], []
-    # Files a step plans to create, for the steps that come after it. Every change is
-    # planned before any is applied, so a later step cannot see an earlier one's work
-    # on disk.
-    planned = {}
     today = datetime.date.today().isoformat()
 
     # Each step runs only when the bundle is below it AND the target reaches it. Guarding
@@ -864,15 +873,16 @@ def main(argv=None):
     # carrying no stamp at all.
     if revision < 2 <= CURRENT_REVISION:
         print(f"\nr1 -> r2  {REVISIONS[2]}")
-        plan_r1_to_r2(root, today, changes, blocked, planned)
+        plan_r1_to_r2(root, today, changes, blocked)
     if revision < 3 <= CURRENT_REVISION:
         print(f"\nr2 -> r3  {REVISIONS[3]}")
         plan_r2_to_r3(root, changes, blocked)
-    if revision < 4 <= CURRENT_REVISION:
-        print(f"\nr3 -> r4  {REVISIONS[4]}")
-        plan_r3_to_r4(root, today, changes, blocked, planned)
+    # r3 -> r4 turned every posting into JSON and r5 turns it back, so a bundle
+    # below either one converts straight to Markdown. Running r4's step first would
+    # write a document whose only reader was deleted with the format.
     if revision < 5 <= CURRENT_REVISION:
         print(f"\nr4 -> r5  {REVISIONS[5]}")
+        plan_postings(root, changes, blocked)
         plan_r4_to_r5(root, changes, blocked)
     plan_stamp(root, CURRENT_REVISION, changes)
 

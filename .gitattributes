@@ -1,4 +1,4 @@
-# The shipped schema documents are checksummed by validate_ugs.py, so their bytes
-# must not change on checkout. Without this, a clone with core.autocrlf=true rewrites
-# every LF to CRLF and the example gap analysis fails against its own subjects.
+# JSON stays LF on every platform. A clone with core.autocrlf=true would otherwise
+# rewrite every LF to CRLF, changing the bytes of the shipped region profiles and of
+# any resume archived as JSON - files whose whole value is that they do not move.
 *.json text eol=lf

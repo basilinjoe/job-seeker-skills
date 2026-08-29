@@ -29,18 +29,13 @@ makes it easy to leave in and hard to defend when someone asks a follow-up.
 ## Run it
 
 **Scan first, then talk.** Send `jsk-bundle-auditor` the bundle path. It reads every concept and
-writes `resume-generation/audit.gaps.json` — a posting-less UGS document holding the gaps already
-ordered, each with the question written ready to ask. That keeps a full-bundle read out of the
-conversation and leaves you the part that needs a person.
+writes `resume-generation/audit.gaps.md` — the gaps already ordered, each with the question written
+ready to ask. That keeps a full-bundle read out of the conversation and leaves you the part that
+needs a person.
 
-```bash
-python3 <skill-dir>/scripts/validate_ugs.py <bundle>/resume-generation/audit.gaps.json --report
-```
-
-A record audit sets `meta.purpose: self-assessment` and omits `subjects.posting` — there is no
-requirement side to pin. The validator fails a posting-less document claiming any other purpose, and
-fails one carrying `assessments[]`, because an assessment references a `req_` id and there is nothing
-here for one to resolve against. Questions are the whole document.
+A record audit carries `purpose: self-assessment` and **no requirements table and no verdicts**. A
+verdict is a judgement against something a posting asked for, and there is no posting here — nothing
+is being applied to. Questions are the whole document.
 
 Then work **one question at a time**, from that queue and `open-questions.md`. *A list of fifteen gets
 abandoned; one gets answered.*

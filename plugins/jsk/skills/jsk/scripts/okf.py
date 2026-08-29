@@ -92,34 +92,33 @@ def cmd_doctor(args):
     return run("preflight.py", args)
 
 
-# Which validator owns which document, by the filename each format reserves.
-# Dispatching on the extension rather than on the content keeps a truncated or
-# malformed file going to the validator that can explain what is wrong with it.
-JSON_VALIDATORS = (
-    (".posting.json", "validate_ujd.py"),   # UJD - the job posting
-    (".gaps.json", "validate_ugs.py"),      # UGS - the assessment
-)
+# The two formats an archive may still hold. Nothing writes them and nothing
+# reads them: a sent application is frozen, so its posting and its assessment are
+# there to be re-read by a person, not re-checked by a tool.
+FROZEN = (".posting.json", ".gaps.json")
 
 
 def cmd_validate(args):
-    """A record, a posting, an assessment or a bundle - dispatch on the target."""
+    """A bundle or a record - dispatch on the target."""
     if not args:
-        print("usage: okf validate "
-              "<resume.json | posting.json | gaps.json | bundle-directory> [...]")
+        print("usage: okf validate <bundle-directory | resume.json> [...]")
         return 2
     target = args[0]
     if os.path.isdir(target):
         return run("validate_bundle.py", args)
-    if target.endswith(".json"):
-        for suffix, script in JSON_VALIDATORS:
-            if target.endswith(suffix):
-                return run(script, args)
-        return run("validate_urs.py", args)
     if not os.path.exists(target):
         print(f"file not found: {target}")
         return 2
+    if target.endswith(FROZEN):
+        print(f"FAIL  cannot validate: {target}")
+        print("fix:  this is an archived UJD or UGS document from an application")
+        print("      that has already been sent. Both formats are retired, and a")
+        print("      frozen document is meant to be read, not re-checked.")
+        return 2
+    if target.endswith(".json"):
+        return run("validate_urs.py", args)
     print(f"FAIL  cannot validate: {target}")
-    print("fix:  pass a .json document or a bundle directory")
+    print("fix:  pass a bundle directory, or an archived resume.json")
     return 2
 
 

@@ -1,5 +1,4 @@
 {
-  "$schema": "./urs-v1.schema.json",
   "urs": "1.0.0",
   "meta": {
     "id": "urn:urs:example",

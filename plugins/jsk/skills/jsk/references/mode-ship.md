@@ -38,7 +38,7 @@ it. That is the guardrail working: go back and get confirm-correct-or-cut on eac
 ## 2. Render
 
 ```bash
-python3 <skill-dir>/scripts/render_resume.py <record.json> --out . --view <id> --pdf
+python3 <skill-dir>/scripts/render_resume.py <bundle> --out . --view <id> --pdf
 ```
 
 **The template defaults to the ink-only default**, and `--template NAME` is the only way to get

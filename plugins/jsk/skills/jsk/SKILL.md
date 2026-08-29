@@ -132,8 +132,7 @@ skill, so a bare `scripts/…` will not resolve.
 | `check_prose.py resume.tex` | the writing rules `check_ats.py` cannot see | — |
 | `okf.py compile <bundle>` | the bundle as the record everything downstream reads | — |
 | `okf.py score <bundle> <posting.md>` | ranks the projects against the posting's requirements | — |
-| `validate_urs.py resume.json [--level N]` | the URS record is coherent before anything renders | — |
-| `validate_ujd.py posting.json` · `validate_ugs.py gaps.json` | archived applications only — both formats are frozen, not written | — |
+| `validate_urs.py <bundle \| resume.json>` | the record is coherent before anything renders | `pyyaml` for a bundle |
 | `render_resume.py resume.json --out DIR [--view ID] [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt` | TeX engine for the PDF |
 | `preview_templates.py resume.json --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` for thumbnails |
 | `fit_pages.py resume.tex --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |

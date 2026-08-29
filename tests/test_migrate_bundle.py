@@ -295,116 +295,149 @@ status: confirmed
         self.assertIn("migrate_bundle.py", out)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
-class R3ToR4(MigrateCase):
-    """The posting becomes a UJD document, and the one unrecoverable fact is said.
+class Postings(MigrateCase):
+    """A working posting becomes `<stem>.posting.md`, and the one unrecoverable
+    fact is said.
 
     A Job Target file held a single list of requirements with no required-versus-
-    preferred modifier. Promoting all of them to must-have is the only reading that
+    preferred modifier. Promoting all of them to `required` is the only reading that
     does not silently discard a distinction - but it is still a promotion, so it is
     reported rather than performed quietly.
     """
 
+    OUT = "tailoring/targets/kestrel.posting.md"
+
     def migrate(self, root):
-        code, out = run(MIGRATE_BUNDLE, root, "--apply")
-        return code, out
+        return run(MIGRATE_BUNDLE, root, "--apply")
 
-    def posting(self, root, rel="tailoring/targets/kestrel.posting.json"):
-        import json
-        path = root / rel
-        self.assertTrue(path.exists(), f"{rel} was not written")
-        return json.loads(path.read_text(encoding="utf-8"))
-
-    def test_a_target_becomes_a_ujd_document(self):
+    def make_r1_migrated(self):
         root = self.make_r1()
         self.migrate(root)
-        doc = self.posting(root)
-        self.assertEqual(doc["ujd"], "1.0.0")
-        self.assertEqual(doc["posting"]["title"], "Principal Platform Architect")
-        self.assertEqual(doc["organization"]["name"], "Kestrel Health")
+        return root
+
+    def posting(self, root, rel=None):
+        path = root / (rel or self.OUT)
+        self.assertTrue(path.exists(), f"{rel or self.OUT} was not written")
+        return path.read_text(encoding="utf-8")
+
+    def frontmatter(self, root, rel=None):
+        text = self.posting(root, rel)
+        self.assertTrue(text.startswith("---"), text[:40])
+        return text.split("---", 2)[1]
+
+    def requirements(self, root, rel=None):
+        """The `requirements:` blocks as dicts, without a YAML parser.
+
+        Everything above the first `- ` is a scalar key, so it lands nowhere.
+        """
+        out = []
+        for line in self.frontmatter(root, rel).splitlines():
+            stripped = line.strip()
+            if stripped.startswith("- "):
+                out.append({})
+                stripped = stripped[2:]
+            if out and ": " in stripped:
+                key, value = stripped.split(": ", 1)
+                out[-1][key] = value.split("#")[0].strip().strip('"')
+        return out
+
+    def test_a_target_becomes_a_markdown_posting(self):
+        fm = self.frontmatter(self.make_r1_migrated())
+        self.assertIn("type: Job Posting", fm)
+        self.assertIn("title: Principal Platform Architect", fm)
+        self.assertIn("company: Kestrel Health", fm)
 
     def test_requirements_carry_their_kind_and_value(self):
-        root = self.make_r1()
-        self.migrate(root)
-        doc = self.posting(root)
-        pairs = {(r["kind"], r["value"]) for r in doc["requirements"]}
-        self.assertEqual(pairs, {("capability", "integration-architecture"),
-                                 ("technology", "azure")})
+        reqs = self.requirements(self.make_r1_migrated())
+        self.assertEqual({(r["value"], r["kind"]) for r in reqs},
+                         {("integration-architecture", "capability"),
+                          ("azure", "technology")})
 
     def test_role_axes_carry_over(self):
-        root = self.make_r1()
-        self.migrate(root)
-        doc = self.posting(root)
-        self.assertEqual(doc["role"]["domains"], ["healthcare"])
-        self.assertEqual(doc["role"]["seniority"], "architecture-ownership")
+        fm = self.frontmatter(self.make_r1_migrated())
+        self.assertIn("domains: [healthcare]", fm)
+        self.assertIn("seniority: architecture-ownership", fm)
 
     def test_necessity_is_promoted_and_the_promotion_is_reported(self):
         root = self.make_r1()
         _, out = self.migrate(root)
-        doc = self.posting(root)
-        self.assertTrue(all(r["necessity"] == "must-have" for r in doc["requirements"]))
-        self.assertTrue(all(r["provenance"]["status"] == "needs-verification"
-                            for r in doc["requirements"]))
-        self.assertIn("nothing here can tell which", out)
+        fm = self.frontmatter(root)
+        self.assertEqual(fm.count("necessity: required"), 2)
+        self.assertIn("status: needs-verification", fm)
+        self.assertIn("no required-versus-preferred modifier", out)
 
     def test_the_advertisement_is_kept_and_nothing_else_is(self):
         """Only the `# Posting` section. The ranking below it was our own output,
-        and carrying it into raw_text would let a span check pass against text that
-        was never in the advertisement."""
+        and carrying it over would leave someone re-reading this framework's guesses
+        as though the employer had written them."""
         root = self.make_r1()
         (root / "tailoring/targets/kestrel.md").write_text(
             TARGET + "\n# Evidence ranking\n\n| rank | score |\n|---|---|\n| 1 | 19 |\n"
             "\n# Gaps\n\nNo Terraform evidence.\n", encoding="utf-8")
         self.migrate(root)
-        raw = self.posting(root)["source"]["raw_text"]
-        self.assertIn("Own the clinical integration platform across 60 sites.", raw)
-        self.assertNotIn("Evidence ranking", raw)
-        self.assertNotIn("Terraform", raw)
+        body = self.posting(root).split("---", 2)[2]
+        self.assertIn("Own the clinical integration platform across 60 sites.", body)
+        self.assertNotIn("Evidence ranking", body)
+        self.assertNotIn("Terraform", body)
 
-    def test_the_frozen_application_target_is_converted_too(self):
-        root = self.make_r1()
-        self.migrate(root)
-        doc = self.posting(root, "tailoring/applications/kestrel.posting.json")
-        self.assertEqual(doc["organization"]["name"], "Kestrel Health")
+    def test_the_frozen_application_target_is_left_alone(self):
+        """It is already Markdown, and it is already frozen. Rewriting it to match a
+        convention that postdates the application is what an archive exists to
+        prevent."""
+        root = self.make_r1_migrated()
+        self.assertTrue((root / "tailoring/applications/kestrel.target.md").exists())
+        self.assertEqual(
+            list((root / "tailoring/applications").glob("*.posting.md")), [])
 
     def test_the_application_log_is_not_mistaken_for_a_posting(self):
-        """In applications/ only the frozen `.target.md` is a posting; the bare
-        `<stem>.md` is the log, and converting it would invent a posting."""
-        root = self.make_r1()
-        self.migrate(root)
+        root = self.make_r1_migrated()
         self.assertTrue((root / "tailoring/applications/kestrel.md").exists())
-        self.assertEqual(
-            len(list((root / "tailoring/applications").glob("*.posting.json"))), 1)
 
-    def test_the_markdown_is_left_in_place(self):
-        root = self.make_r1()
-        self.migrate(root)
+    def test_the_markdown_source_is_left_in_place(self):
+        root = self.make_r1_migrated()
         self.assertTrue((root / "tailoring/targets/kestrel.md").exists())
 
     def test_it_does_not_overwrite_a_posting_that_already_exists(self):
-        root = self.make_r1()
-        self.migrate(root)
-        target = root / "tailoring/targets/kestrel.posting.json"
-        target.write_text('{"ujd": "1.0.0", "mine": true}', encoding="utf-8")
+        root = self.make_r1_migrated()
+        target = root / self.OUT
+        target.write_text("---\ntype: Job Posting\nmine: true\n---\n",
+                          encoding="utf-8")
         run(MIGRATE_BUNDLE, root, "--apply")
         self.assertIn("mine", target.read_text(encoding="utf-8"))
 
-    def test_the_produced_document_validates_as_ujd(self):
-        from fixtures import VALIDATE_UJD
+    def test_a_ujd_posting_is_converted_too(self):
+        """A bundle stopped at revision 4 has JSON postings and no reader for them."""
+        import json
         root = self.make_r1()
+        (root / "tailoring/targets/heron.posting.json").write_text(json.dumps({
+            "ujd": "1.0.0",
+            "posting": {"title": "Staff Engineer", "url": "https://example.com/j/1"},
+            "organization": {"name": "Heron Labs"},
+            "role": {"domains": ["fintech"], "seniority": "platform-design"},
+            "requirements": [
+                {"kind": "technology", "value": "kubernetes", "necessity": "must-have",
+                 "provenance": {"source": {"text": "deep Kubernetes experience"}}},
+                {"kind": "capability", "value": "observability",
+                 "necessity": "nice-to-have"},
+            ],
+            "source": {"raw_text": "Run the platform team."},
+        }), encoding="utf-8")
         self.migrate(root)
-        code, out = run(VALIDATE_UJD, root / "tailoring/targets/kestrel.posting.json")
-        self.assertEqual(code, 0, out)
-
-    def test_the_missing_record_is_reported_rather_than_invented(self):
-        """Transcribing prose into evidence is not a text substitution."""
-        root = self.make_r1()
-        _, out = self.migrate(root)
-        self.assertIn("record.json does not exist yet", out)
-        self.assertFalse((root / "resume-generation" / "record.json").exists())
+        text = self.posting(root, "tailoring/targets/heron.posting.md")
+        fm, body = text.split("---", 2)[1], text.split("---", 2)[2]
+        self.assertIn("title: Staff Engineer", fm)
+        self.assertIn("company: Heron Labs", fm)
+        # A URL holds a colon, which is the one thing bare YAML cannot carry.
+        self.assertIn('url: "https://example.com/j/1"', fm)
+        self.assertIn("domains: [fintech]", fm)
+        self.assertIn("Run the platform team.", body)
+        reqs = self.requirements(root, "tailoring/targets/heron.posting.md")
+        self.assertEqual(reqs, [
+            {"value": "kubernetes", "kind": "technology", "necessity": "required",
+             "label": "deep Kubernetes experience"},
+            {"value": "observability", "kind": "capability",
+             "necessity": "preferred"},
+        ])
 
     def test_a_target_with_no_frontmatter_is_reported_not_guessed(self):
         root = self.make_r1()
@@ -412,11 +445,15 @@ class R3ToR4(MigrateCase):
             "# Just a posting\n\nSome text.\n", encoding="utf-8")
         _, out = self.migrate(root)
         self.assertIn("no readable frontmatter", out)
-        self.assertFalse((root / "tailoring/targets/bare.posting.json").exists())
+        self.assertFalse((root / "tailoring/targets/bare.posting.md").exists())
 
     def test_a_dry_run_writes_nothing(self):
         root = self.make_r1()
         code, out = run(MIGRATE_BUNDLE, root)
         self.assertEqual(code, 1)
         self.assertIn("would create", out)
-        self.assertFalse((root / "tailoring/targets/kestrel.posting.json").exists())
+        self.assertFalse((root / self.OUT).exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

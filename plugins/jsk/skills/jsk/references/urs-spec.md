@@ -5,7 +5,7 @@ A JSON standard for the career record, from which a resume is rendered.
 ```
 media type   application/resume+json
 file         *.resume.json
-schema       schema/urs-v1.schema.json
+compiler     scripts/okf_compile.py
 profiles     schema/profiles/<region>.json
 discovery    https://example.com/.well-known/resume.json
 ```

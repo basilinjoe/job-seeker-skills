@@ -16,7 +16,7 @@ already in the record — so a renderer that cannot invent text is a renderer th
 ```
 media type   application/resume+json
 file         *.resume.json
-schema       schema/urs-v1.schema.json
+compiler     scripts/okf_compile.py
 profiles     schema/profiles/<region>.json
 ```
 

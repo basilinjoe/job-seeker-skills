@@ -58,7 +58,7 @@ block.
 
 Read `references/urs-spec.md`, `references/writing-rules.md` and `references/ats-rules.md` first.
 
-**Do not read `schema/urs-v1.schema.json` or `scripts/validate_urs.py`** — they restate the spec you
+**Do not read `scripts/okf_compile.py` or `scripts/validate_urs.py`** — they restate the spec you
 have just read, and the validator enforces itself at runtime. **Do not read a view written for a
 different posting**: it is another posting's answer to another posting's question, and read as a
 reference it becomes a template to copy, which is how a tailored resume stops being tailored.

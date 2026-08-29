@@ -205,7 +205,7 @@ needed.
 ## If the scripts are missing
 
 If the skill was installed as `SKILL.md` alone, write the record as URS anyway — the format is
-specified in `references/urs-spec.md` and the schema in `schema/urs-v1.schema.json`. LaTeX can be
+specified in `references/urs-spec.md`. LaTeX can be
 written with the standard library and compiled by any engine; keep the preamble minimal — `geometry`
 and `enumitem` are enough, and a template that needs more is a template that will not build on the
 machine you actually have. Whatever you use, the output must satisfy `check_ats.py`: that is the

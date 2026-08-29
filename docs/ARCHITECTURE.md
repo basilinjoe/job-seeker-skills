@@ -104,12 +104,10 @@ plugins/jsk/
       writing-rules.md              X-Y-Z bullets, verb accuracy, phrases to cut
       rationale.md                  long-form reasoning, loaded to explain a rule
     schema/
-      urs-v1.schema.json            JSON Schema for the record
-      ujd-v1.schema.json            JSON Schema for the posting
-      ugs-v1.schema.json            JSON Schema for the assessment
       profiles/*.json               region profiles: default, au, in, ae
-      example.{resume,posting,gaps}.json   three complete worked documents
-    scripts/                        the fourteen tools, plus the urs/ package
+      profile.schema.json           what a region profile must contain
+      example.resume.json           one complete worked record
+    scripts/                        the thirteen tools, plus the urs/ package
       okf.py                        one entry point that forwards to the rest
       preview_templates.py          one record in every template, so the look is chosen by looking
       migrate_bundle.py             moves an older bundle to the current layout revision
@@ -124,7 +122,7 @@ tests/                              unittest, one file per script
 |---|---|---|
 | What the parse gate rejects | `scripts/check_ats.py` | `references/ats-rules.md`, `tests/test_check_ats.py` |
 | What the prose gate rejects | `scripts/check_prose.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
-| What makes a record invalid | `scripts/validate_urs.py` | `schema/urs-v1.schema.json`, `references/urs-spec.md` |
+| What makes a record invalid | `scripts/validate_urs.py` | `references/urs-spec.md`, `tests/test_validate_urs.py` |
 | **What content is selected** | `scripts/urs/plan.py` | never an emitter |
 | **How a document looks** | `scripts/urs/emit_*.py` | never `plan.py` |
 | **A palette, typeface or rule** | `scripts/urs/themes.py` | `references/templates.md`, `tests/test_themes.py` |
@@ -135,7 +133,6 @@ tests/                              unittest, one file per script
 | How the record is built | `scripts/okf_compile.py` | `references/bundle-spec.md`, `tests/test_okf_compile.py` — and the render test, which is what a schema used to do |
 | How postings are scored | `scripts/score_projects.py` | `agents/jsk-tailor-analyst.md` (it writes the requirements), `tests/test_score_projects.py` |
 | A posting's or assessment's shape | `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` — the format is written out in the agent, so it is one place |
-| An archived application's format | `scripts/validate_ujd.py`, `scripts/validate_ugs.py` | nothing — both are frozen, kept only so a sent application stays readable |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
@@ -154,8 +151,9 @@ story:
    failing on the older shape. `BUNDLE_REVISION` in `init_bundle.py` must move in the same commit —
    new bundles are born current, and a bundle that lies about its revision is worse than one that
    carries no stamp at all.
-3. **The URS schema and gate behaviour.** `urs-v1.schema.json` stays wire-compatible, and a gate
-   keeps failing on exactly what it fails on today.
+3. **The compiled record's shape and gate behaviour.** What `okf_compile.py` hands the renderer
+   stays wire-compatible with an archived `resume.json`, and a gate keeps failing on exactly what
+   it fails on today.
 
 A fourth, discovered the hard way: **the tests assert on output text.** There are 108 `assertIn`
 calls against strings like `PASS - safe to send` and `DO NOT SEND`. You may *add* lines to a script's

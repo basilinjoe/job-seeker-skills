@@ -7,7 +7,7 @@ directory. On Windows use `python` or `py -3` in place of `python3`.
 
 ## One entry point: `okf.py`
 
-If you would rather not remember fourteen names:
+If you would rather not remember thirteen names:
 
 ```bash
 python3 scripts/okf.py doctor                  # what works on this machine
@@ -23,7 +23,7 @@ python3 scripts/okf.py fit resume.tex --target-pages 2
 ```
 
 Every subcommand forwards to the script below with the same arguments and the same exit code, so
-everything documented here stays true through it. **The fourteen scripts remain the stable API** — this
+everything documented here stays true through it. **The thirteen scripts remain the stable API** — this
 is a convenience layer, not a replacement, and nothing that works today stops working.
 
 Two subcommands do slightly more than forward:
@@ -31,10 +31,10 @@ Two subcommands do slightly more than forward:
 - `okf check` runs the parse gate *and* the prose gate on one file, and keeps going after the first
   one fails, because a document with parse problems usually has prose problems too. It exits with the
   worse of the two codes, and reminds you that the record and render gates are separate.
-- `okf validate` dispatches on the filename each format reserves: `.posting.json` to
-  `validate_ujd.py`, `.gaps.json` to `validate_ugs.py`, any other `.json` to `validate_urs.py`, and a
-  directory to `validate_bundle.py`. It dispatches on the name rather than the content so a truncated
-  file still reaches the validator that can explain what is wrong with it.
+- `okf validate` sends a directory to `validate_bundle.py` and a `.json` file to `validate_urs.py`.
+  A `.posting.json` or `.gaps.json` is refused by name: those are archived UJD and UGS documents
+  from an application already sent, both formats are retired, and a frozen document is meant to be
+  re-read by a person rather than re-checked by a tool.
 
 ## Exit codes
 
@@ -212,7 +212,13 @@ because every bundle created before the stamp existed has no way to say so.
 | 1 | applications point at a mutable target file via `target:` |
 | 2 | the posting is frozen beside each application as `<stem>.target.md` |
 | 3 | an application's outcome is derived from an append-only `# Timeline` |
-| 4 | the posting is a UJD document, `<stem>.posting.json`, not Markdown frontmatter |
+| 4 | the posting is a UJD document, `<stem>.posting.json` — superseded by 5 |
+| 5 | roles and projects carry their relations in frontmatter, and the posting is `<stem>.posting.md` again |
+
+Revisions 4 and 5 collapse into one step. A bundle below either converts its postings straight to
+Markdown, because running revision 4's step first would write a document whose only reader was
+deleted along with the format. A posting already frozen beside a sent application is left exactly
+as it is.
 
 Report mode **exits 1 when changes are pending**, which is what makes it usable as a check: an
 out-of-date bundle is detectable without writing to it. `--apply` exits 0 only when nothing is left
@@ -271,56 +277,6 @@ exclusion is printed. `--include-implicit` scores them and prints that instead. 
 moves a ×3 term is an invented requirement, so neither choice is made silently.
 
 Standard library only.
-
-### `validate_ujd.py`
-
-```bash
-python3 scripts/validate_ujd.py acme.posting.json
-python3 scripts/validate_ujd.py acme.posting.json --level 2
-python3 scripts/validate_ujd.py acme.posting.json --bundle ./my-career
-```
-
-The posting is coherent before anything is scored against it. Beyond the schema, it checks the rules
-a schema cannot express: a provenance `span` must actually be a substring of `source.raw_text`, a
-requirement group's members must resolve and must not contain the group itself, and a `confirmed`
-status may never sit on an `inferred` source.
-
-`--bundle` checks capability values against `framework/capability-vocabulary.md`. That one **warns**
-rather than fails, because the vocabulary is the person's own file and may legitimately be behind the
-posting — but a warning there means the requirement scores zero on every project, which looks
-identical to absent evidence.
-
-Standard library only; uses `jsonschema` for the full schema when it is installed.
-
-### `validate_ugs.py`
-
-```bash
-python3 scripts/validate_ugs.py acme.gaps.json
-python3 scripts/validate_ugs.py acme.gaps.json --recompute --level 2
-python3 scripts/validate_ugs.py acme.gaps.json --recompute --report
-python3 scripts/validate_ugs.py acme.gaps.json --carry previous.gaps.json
-```
-
-The auditor for a document an agent wrote, so it is explicit about what it can and cannot prove.
-
-**`--recompute` re-derives and fails on disagreement:** every group verdict from its own members,
-`score.aggregate.value` from its own stated formula, both subject checksums, and that no eligibility
-requirement reached a score component.
-
-**It does not recompute** a component's `value` per axis — the spec blesses three different
-computations, so one mechanical rule would reject correct documents — nor `surface[]` and `surplus[]`
-entries, both of which carry vocabulary judgements no set difference produces. What it enforces for
-surface is the *obligation*: evidence that never reached the rendered view must be reported as a gap.
-
-`--report` prints the readable checkpoint — the requirement table with verdicts, the shortfalls, the
-surplus, the question queue and the score — plus the loop's own status: whether another round is worth
-running, and which reason ended it. This is what the retired Job Target file used to be, except that
-it is rendered from the JSON on demand and so cannot drift from it.
-
-`--carry` warns when a question parked `deferred` or `unavailable` last round comes back unresolved.
-Without it, a requirement nobody can close re-asks forever.
-
-Standard library only; uses `jsonschema` for the full schema when it is installed.
 
 ## Fitting
 

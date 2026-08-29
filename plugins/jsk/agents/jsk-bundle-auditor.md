@@ -119,8 +119,8 @@ no ticket and no war story and is exactly what senior hiring looks for.
 The caller works through this one question at a time with a person. *A list of fifteen gets
 abandoned; one gets answered.* So order it, and keep it short enough to act on.
 
-1. **Bundle health** — `validate_bundle.py` and `validate_ugs.py` output verbatim, plus a one-line
-   state of the record, and the loop status the validator computed.
+1. **Bundle health** — `validate_bundle.py` and `okf_compile.py` output verbatim, plus a one-line
+   state of the record: what compiled, and what a concept was too thin to carry.
 2. **Where the gap document is**, and the queue it holds in priority order — blocking, then inferred
    claims, then missing metrics by strength, then stale metrics, then unexplored territory. Each
    item: the file, the exact quote or field, and **the question to ask**, written ready to say out

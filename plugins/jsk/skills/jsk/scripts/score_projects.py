@@ -38,10 +38,17 @@ RANK = {name: len(SENIORITY) - 1 - i for i, name in enumerate(SENIORITY)}
 
 RECENT_BONUS = ((3, 2), (6, 1))
 
-# `implicit` requirements are ones the posting never stated. UJD names them so a
-# scorer can drop them in one predicate, and dropping them is the default: an
+# `implicit` requirements are ones the posting never stated. Naming them lets a
+# scorer drop them in one predicate, and dropping them is the default: an
 # inference that moves a x3 term is an invented requirement.
-SCORED_NECESSITY = {"must-have", "preferred"}
+#
+# `must-have` is UJD's word for `required`. It is here because a posting migrated
+# out of an archived UJD document still carries it, and because the alternative -
+# an unrecognised word falling through to `implicit` - drops the whole primary
+# axis without saying so. That is exactly the failure this mapping exists to stop.
+LEGACY_NECESSITY = {"must-have": "required", "nice-to-have": "preferred"}
+SCORED_NECESSITY = {"required", "preferred"}
+KNOWN_NECESSITY = SCORED_NECESSITY | {"implicit"} | set(LEGACY_NECESSITY)
 
 YEAR = re.compile(r"^(\d{4})")
 
@@ -150,11 +157,14 @@ def requirements(posting, include_implicit):
     conflating them scores a synonym as absent evidence.
     """
     capabilities, technologies = set(), set()
-    dropped = 0
+    dropped, unknown = 0, set()
     for requirement in posting.get("requirements") or []:
         if not isinstance(requirement, dict):
             continue
         necessity = requirement.get("necessity")
+        necessity = LEGACY_NECESSITY.get(necessity, necessity)
+        if necessity not in KNOWN_NECESSITY:
+            unknown.add(str(necessity))
         if necessity not in SCORED_NECESSITY and not include_implicit:
             dropped += 1
             continue
@@ -172,6 +182,7 @@ def requirements(posting, include_implicit):
         "domains": as_set(role.get("domains")),
         "seniority": role.get("seniority"),
         "dropped_implicit": dropped,
+        "unknown_necessity": sorted(unknown),
     }
 
 
@@ -266,6 +277,12 @@ def main(argv=None):
                      "for every project, so the ranking rests on capabilities, domain "
                      "and seniority. Pass --assume-technologies to explore an implied "
                      "stack rather than writing one into the posting")
+
+    if want["unknown_necessity"]:
+        warns.append("necessity value(s) this scorer does not know: %s - each one's "
+                     "requirement was treated as implicit and dropped. The vocabulary is "
+                     "required | preferred | implicit."
+                     % ", ".join(want["unknown_necessity"]))
 
     if want["dropped_implicit"]:
         notes.append(f"{want['dropped_implicit']} implicit requirement(s) excluded - the "
