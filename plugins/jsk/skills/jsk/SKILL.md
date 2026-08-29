@@ -35,17 +35,30 @@ from it. *Two hand-built documents stop agreeing the moment one is edited — si
 copy that gets sent.* `references/urs-spec.md` has the format, `references/mode-resume.md` the
 procedure.
 
+## Three documents, and the loop between them
+
+| Standard | Holds | Written by |
+|---|---|---|
+| **URS** — `resume-generation/record.json` | the career record, transcribed from the bundle | `jsk-record-builder` |
+| **UJD** — `<slug>.posting.json` | the posting: requirements with `necessity`, boolean groups, eligibility gates | `jsk-posting-analyst` |
+| **UGS** — `<slug>.gaps.json` | the join: a verdict per requirement, evidence, typed shortfalls, questions | `jsk-gap-analyst` |
+
+Tailoring is a loop over these, and **the gaps close before the resume is written**: assess, ask the
+queue, write answers back into the bundle *and* the record, reassess. Only when the loop ends does
+`jsk-resume-author` write the tailored record, once. `references/mode-tailor.md` has the procedure.
+
 ## Modes
 
 Route on what the user asked for. If they passed an argument (`braindump`, `resume`, `tailor`,
-`refresh`, `gaps`, `setup`, `pipeline`), use it. Otherwise infer from their message.
+`ship`, `refresh`, `gaps`, `setup`, `pipeline`), use it. Otherwise infer from their message.
 
 | Mode | Trigger | Read |
 |---|---|---|
 | **setup** | no bundle exists, or "set this up" | `references/mode-setup.md` |
 | **braindump** | telling you about their work; long unstructured messages | `references/mode-braindump.md` |
 | **resume** | "build my resume", "is this ATS-safe" | `references/mode-resume.md` |
-| **tailor** | pasted a job description; "customise for this role" | `references/mode-tailor.md` |
+| **tailor** | pasted a job description or a URL; "customise for this role" | `references/mode-tailor.md` |
+| **ship** | a record is finished and needs rendering, checking, freezing and logging | `references/mode-ship.md` |
 | **refresh** | "update my bundle", quarterly review, got promoted | `references/mode-refresh.md` |
 | **gaps** | "what's missing", "resume feels vague", verify before applying | `references/mode-gaps.md` |
 | **pipeline** | "what do I chase", "where are my applications", weekly review | `references/mode-pipeline.md` |
@@ -90,8 +103,9 @@ Load as needed rather than upfront:
 | `references/bundle-spec.md` | directory layout, frontmatter schema, selection keys, concept types |
 | `references/writing-rules.md` | X-Y-Z bullets, verb accuracy, phrases that damage seniority |
 | `references/ats-rules.md` | hard rules, the two-variant strategy, keyword placement |
-| `references/target-template.md` | the Job Target frontmatter the scorer reads |
 | `references/urs-spec.md` | the JSON standard every document renders from, plus the region profiles |
+| `references/ujd-spec.md` | the posting standard the scorer reads — `necessity`, requirement groups, eligibility gates |
+| `references/ugs-spec.md` | the assessment standard — verdicts, evidence, typed shortfalls, the question queue |
 | `references/rationale.md` | why the rules are what they are — read it when you need to *explain* one |
 
 ## Scripts
@@ -110,8 +124,10 @@ skill, so a bare `scripts/…` will not resolve.
 | `pipeline.py <bundle> [--all] [--company N] [--as-of D]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
 | `check_ats.py resume.pdf [--strict]` | the rendered PDF (or the `.txt`) is safe to send | `pymupdf` for a PDF |
 | `check_prose.py resume.tex` | the writing rules `check_ats.py` cannot see | — |
-| `score_projects.py <bundle> <target.md>` | ranks projects against a posting, from the target's frontmatter | `pyyaml` |
+| `score_projects.py <record.json> <posting.json>` | ranks the record's projects against the posting's requirements | — |
 | `validate_urs.py resume.json [--level N]` | the URS record is coherent before anything renders | — |
+| `validate_ujd.py posting.json [--level N] [--bundle DIR]` | the posting is coherent, and every span traces to the advertisement | — |
+| `validate_ugs.py gaps.json [--recompute] [--report]` | the assessment is coherent, and its arithmetic re-derives | — |
 | `render_resume.py resume.json --out DIR [--view ID] [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt` | TeX engine for the PDF |
 | `preview_templates.py resume.json --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` for thumbnails |
 | `fit_pages.py resume.tex --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
@@ -135,18 +151,24 @@ into the bundle's `framework/` from the specifications in `references/ats-rules.
 
 ## Agents
 
-Three parts of this work are read-heavy or mechanical and need nobody in the room. Delegate those and
+Six parts of this work are read-heavy or mechanical and need nobody in the room. Delegate those and
 keep the conversation for the judgment.
 
 | Agent | Hand it | Get back |
 |---|---|---|
 | `jsk-verifier` | the rendered files, the view id, the page budget | every gate's verdict verbatim, and where in `resume.json` each defect is repaired |
-| `jsk-bundle-auditor` | the bundle path | a prioritised gap queue, with the questions written ready to ask |
-| `jsk-posting-analyst` | a posting and the bundle | the target file written, the ranking, the unmatched requirements, and what to pause on |
+| `jsk-bundle-auditor` | the bundle path | a posting-less UGS document, and a prioritised queue with the questions written ready to ask |
+| `jsk-posting-analyst` | the posting text, its URL, the record | the UJD document written, the ranking, the unmatched requirements, and what to pause on |
+| `jsk-record-builder` | the bundle path | `record.json` transcribed and validated, and everything `inferred` that reached it |
+| `jsk-gap-analyst` | the posting, the record, the previous round | the UGS document written, the honest fit, and the question queue |
+| `jsk-resume-author` | the record, the posting, the gaps, the ranking | the tailored record, every clause it authored quoted, and what it cut |
 
-They read and report; **they never interview and they never decide.** Confirming an `inferred` claim,
-choosing between two close-ranked projects, and telling someone where they fall short all stay here,
-with the person present.
+**They never interview.** Confirming an `inferred` claim, choosing between two close-ranked projects,
+and telling someone where they fall short all stay here, with the person present.
+
+`jsk-resume-author` is the one that writes prose, and everything it authors arrives marked `inferred`.
+A view with `provenance_floor: confirmed` will not render it until the person has confirmed each
+clause — so the rule is enforced by the record gate rather than by the agent's restraint.
 
 Their output does not reach the person, so **relay the evidence rather than summarising it.** A
 checker's verdict line, shown, is evidence; your description of it is not.

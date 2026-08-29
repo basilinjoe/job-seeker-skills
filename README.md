@@ -14,6 +14,9 @@ Three things make it different:
 
 - **Nothing is hand-built.** Your record compiles to JSON, and the PDF, both Word variants and the
   plain text are all emitted from that one file — so they cannot drift apart or contradict each other.
+- **Three formats, one loop.** Your record, the posting and the gap between them are each a JSON
+  document with a published schema. Tailoring closes the gaps first and writes the resume last -
+  there is no reason to author a document from a record you are about to change.
 - **Nothing is invented.** Tailoring is selection: a view references your evidence by id and reorders
   it. Every number in a bullet must trace to a recorded metric, or the record fails before anything
   renders.
@@ -54,13 +57,14 @@ Describe what you want and the skill routes there by itself. Or say it directly:
 | `/jsk:setup` | First run, or importing an existing resume |
 | `/jsk:braindump` | You have something to say about your work |
 | `/jsk:resume` | You need a resume — two verified variants plus plain text |
-| `/jsk:tailor` | You have a specific job description |
+| `/jsk:tailor` | You have a specific job posting - a loop that closes the gaps, then writes the resume |
+| `/jsk:ship` | A resume is finished and needs rendering, checking and filing |
 | `/jsk:refresh` | Periodic top-up: what changed, what numbers moved |
 | `/jsk:gaps` | Resolve unanswered questions and unverified claims |
 | `/jsk:pipeline` | What to chase this week: what has gone quiet, what is overdue |
 
 ```
-/jsk:tailor      # then paste the job description
+/jsk:tailor      # then paste the job posting, or give it the URL
 ```
 
 **A rhythm that works.** Something ships → `braindump`, five minutes, while you still remember the
@@ -79,7 +83,7 @@ career/
   skills/ · education/ · open-source/ · sources/
   framework/          capability vocabulary · schema · templates
   resume-generation/  open-questions, plus optional rule overrides
-  tailoring/          selection-method · targets/ · applications/
+  tailoring/          targets/ - postings and their gap analyses · applications/
 ```
 
 Plain Markdown: readable in any editor, versionable in Git, readable by AI tools without a

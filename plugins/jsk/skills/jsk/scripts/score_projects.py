@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Score every project in a bundle against a job target, per references/mode-tailor.md
+"""Rank a URS record's projects against a UJD posting, per references/mode-tailor.md
 
-Usage: python3 score_projects.py <bundle-path> <tailoring/targets/foo.md>
-                                 [--markdown] [--as-of YEAR]
+Usage: python3 score_projects.py <record.json> <posting.json>
+                                 [--markdown] [--as-of YEAR] [--include-implicit]
                                  [--assume-technologies a,b,c]
 
 On Windows use `python` or `py -3` in place of `python3`.
@@ -14,23 +14,21 @@ On Windows use `python` or `py -3` in place of `python3`.
            + strength                   # 1-5
            + recency_bonus              # +2 within 3 years, +1 within 6
 
-Requirements come from the target's own frontmatter, so the document a human reviews
-is the document that drove the ranking.
+Both sides are JSON. Requirements come from the posting's `requirements[]`, and
+projects from the record's `projects[]`, so the document a gap analysis assesses
+is the document this ranking was computed over. When the scorer read the bundle
+and the assessor read the record they could disagree about what the record held,
+and nothing would have said so.
 
-Requires: pyyaml  (pip install pyyaml)
+Standard library only.
 Exit 0 = scored. Exit 1 = nothing to score. Exit 2 = usage error.
 """
 import argparse
 import datetime
+import json
 import os
 import re
 import sys
-
-try:
-    import yaml
-except ImportError:
-    print("score_projects.py needs pyyaml:  pip install pyyaml")
-    sys.exit(2)
 
 # Most senior first. Ranks are positions in this list, counted from the bottom.
 SENIORITY = ["architecture-ownership", "product-ownership", "platform-design",
@@ -38,25 +36,18 @@ SENIORITY = ["architecture-ownership", "product-ownership", "platform-design",
              "hands-on", "junior"]
 RANK = {name: len(SENIORITY) - 1 - i for i, name in enumerate(SENIORITY)}
 
-LIST_ITEM = re.compile(r"^\s*[-*]\s+")
 RECENT_BONUS = ((3, 2), (6, 1))
 
+# `implicit` requirements are ones the posting never stated. UJD names them so a
+# scorer can drop them in one predicate, and dropping them is the default: an
+# inference that moves a x3 term is an invented requirement.
+SCORED_NECESSITY = {"must-have", "preferred"}
 
-def frontmatter(path):
-    """The YAML block at the top of a concept file, as a dict. {} if there is none."""
-    with open(path, encoding="utf-8") as f:
-        text = f.read()
-    if not text.startswith("---\n"):
-        return {}
-    end = text.find("\n---\n", 3)
-    if end == -1:
-        return {}
-    meta = yaml.safe_load(text[4:end])
-    return meta if isinstance(meta, dict) else {}
+YEAR = re.compile(r"^(\d{4})")
 
 
 def as_set(value):
-    """Frontmatter lists are lists, but a single value written bare is a string."""
+    """A list, a bare string, or nothing, as a set of trimmed strings."""
     if value is None:
         return set()
     if isinstance(value, str):
@@ -80,32 +71,53 @@ def seniority_match(project, sought):
     return 1.0 if have >= want else max(0.0, 1.0 - (want - have) / want)
 
 
-def recency_bonus(recency, as_of):
-    try:
-        age = as_of - int(recency)
-    except (TypeError, ValueError):
-        return 0
+def project_year(project):
+    """The year a project last ran, for the recency bonus.
+
+    URS carries a Period rather than the bundle's bare `recency:` year. An ongoing
+    project is as recent as it gets; one with no end and no ongoing state is dated
+    from its start, which is the conservative reading.
+    """
+    period = project.get("period") or {}
+    if period.get("state") == "ongoing":
+        return None  # scored as current
+    for key in ("end", "start"):
+        value = (period.get(key) or {}).get("value")
+        if value:
+            match = YEAR.match(str(value))
+            if match:
+                return int(match.group(1))
+    return None
+
+
+def recency_bonus(project, as_of):
+    year = project_year(project)
+    if year is None:
+        # Ongoing, or undated. Ongoing earns the full bonus; undated cannot be
+        # distinguished from it here and the record gate is where that is caught.
+        return RECENT_BONUS[0][1] if (project.get("period") or {}).get(
+            "state") == "ongoing" else 0
+    age = as_of - year
     for within, bonus in RECENT_BONUS:
         if age <= within:
             return bonus
     return 0
 
 
-def score_one(project, target, as_of, technologies):
+def score_one(project, want, as_of, technologies):
     caps = as_set(project.get("capabilities"))
     techs = as_set(project.get("technologies"))
     domains = as_set(project.get("domains"))
-    want_caps = as_set(target.get("required_capabilities"))
 
-    matched = sorted(caps & want_caps)
-    unmatched = sorted(want_caps - caps)
+    matched = sorted(caps & want["capabilities"])
+    unmatched = sorted(want["capabilities"] - caps)
     tech_hits = sorted(techs & technologies)
-    # Binary, not a count: multiplying a count rewards concepts that happen to carry
+    # Binary, not a count: multiplying a count rewards projects that happen to carry
     # more domain tags, which is a tagging artefact rather than a signal.
-    domain = 1 if (domains & as_set(target.get("domains"))) else 0
-    seniority = seniority_match(project.get("seniority"), target.get("seniority_sought"))
+    domain = 1 if (domains & want["domains"]) else 0
+    seniority = seniority_match(project.get("seniority"), want["seniority"])
     strength = project.get("strength") or 0
-    recent = recency_bonus(project.get("recency"), as_of)
+    recent = recency_bonus(project, as_of)
 
     total = (len(matched) * 3 + len(tech_hits) * 2 + domain * 2
              + seniority * 2 + strength + recent)
@@ -113,45 +125,69 @@ def score_one(project, target, as_of, technologies):
         "score": total, "matched": matched, "unmatched": unmatched,
         "tech": tech_hits, "domain": domain, "seniority": seniority,
         "strength": strength, "recency": recent,
-        "want_caps": len(want_caps), "want_tech": len(technologies),
+        "want_caps": len(want["capabilities"]), "want_tech": len(technologies),
     }
 
 
-def read_vocabulary(bundle):
-    """Capability values from framework/capability-vocabulary.md. Only list items count."""
-    for name in ("capability-vocabulary.md", "capability_vocabulary.md"):
-        path = os.path.join(bundle, "framework", name)
-        if os.path.exists(path):
-            break
-    else:
-        return set()
-    vocab, fenced = set(), False
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            if line.lstrip().startswith("```"):
-                fenced = not fenced
-                continue
-            if not fenced and LIST_ITEM.match(line):
-                vocab.update(re.findall(r"`([a-z0-9-]+)`", line))
-    return vocab
+def read_json(path, label):
+    """A JSON document, or None with the reason already printed."""
+    if not os.path.exists(path):
+        print(f"{label} not found: {path}")
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except json.JSONDecodeError as error:
+        print(f"{label} is not valid JSON: {error}")
+        return None
 
 
-def read_projects(bundle):
-    """[(name, frontmatter)] for every Project concept, index files excluded."""
-    directory = os.path.join(bundle, "projects")
-    if not os.path.isdir(directory):
-        return []
+def requirements(posting, include_implicit):
+    """The scored axes, read from the posting's own requirement objects.
+
+    `value` is the vocabulary term the score runs on, never `label`: the resume
+    mirrors the posting's wording, the ranking matches on the vocabulary term, and
+    conflating them scores a synonym as absent evidence.
+    """
+    capabilities, technologies = set(), set()
+    dropped = 0
+    for requirement in posting.get("requirements") or []:
+        if not isinstance(requirement, dict):
+            continue
+        necessity = requirement.get("necessity")
+        if necessity not in SCORED_NECESSITY and not include_implicit:
+            dropped += 1
+            continue
+        value = requirement.get("value")
+        if not value:
+            continue
+        if requirement.get("kind") == "capability":
+            capabilities.add(str(value).strip())
+        elif requirement.get("kind") == "technology":
+            technologies.add(str(value).strip())
+    role = posting.get("role") or {}
+    return {
+        "capabilities": capabilities,
+        "technologies": technologies,
+        "domains": as_set(role.get("domains")),
+        "seniority": role.get("seniority"),
+        "dropped_implicit": dropped,
+    }
+
+
+def read_projects(record):
+    """[(label, project)] for every project in the record.
+
+    Projects are a root array in URS; `engagements[].projects` holds ids that point
+    back at them. The selection keys - strength, seniority, domains, capabilities,
+    technologies - live only on Project, which is why this is the unit that ranks.
+    """
     out = []
-    for name in sorted(os.listdir(directory)):
-        if not name.endswith(".md") or name == "index.md":
+    for project in record.get("projects") or []:
+        if not isinstance(project, dict):
             continue
-        try:
-            meta = frontmatter(os.path.join(directory, name))
-        except yaml.YAMLError as e:
-            print(f"  WARN  {name}: YAML parse error, skipped - {e}")
-            continue
-        if meta.get("type") == "Project":
-            out.append((os.path.splitext(name)[0], meta))
+        label = project.get("title") or project.get("id") or "(untitled)"
+        out.append((label, project))
     return out
 
 
@@ -182,14 +218,17 @@ def render_table(rows, markdown):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="Rank a bundle's projects against a job target's frontmatter.")
-    ap.add_argument("bundle")
-    ap.add_argument("target")
+        description="Rank a URS record's projects against a UJD posting.")
+    ap.add_argument("record", help="the URS career record, resume-generation/record.json")
+    ap.add_argument("posting", help="the UJD posting, tailoring/targets/<slug>.posting.json")
     ap.add_argument("--markdown", action="store_true",
-                    help="emit the ranked table as Markdown, to paste under "
-                         "'# Evidence ranking' in the target file")
+                    help="emit the ranked table as Markdown")
     ap.add_argument("--as-of", type=int, default=datetime.date.today().year,
                     help="year the recency bonus is measured from")
+    ap.add_argument("--include-implicit", action="store_true",
+                    help="score requirements the posting never stated; the fact is "
+                         "printed, because an inference that moves a x3 term is an "
+                         "invented requirement")
     ap.add_argument("--assume-technologies", default="",
                     help="comma-separated stack to score against when the posting "
                          "names none; the assumption is labelled in the output")
@@ -200,31 +239,23 @@ def main(argv=None):
     except Exception:
         pass
 
-    if not os.path.isdir(a.bundle):
-        print(f"bundle not found: {a.bundle}")
+    record = read_json(a.record, "record")
+    if record is None:
         return 2
-    if not os.path.exists(a.target):
-        print(f"target not found: {a.target}")
-        return 2
-    try:
-        target = frontmatter(a.target)
-    except yaml.YAMLError as e:
-        print(f"target frontmatter is not valid YAML: {e}")
-        return 2
-    if not target:
-        print(f"no frontmatter in {a.target} - see references/target-template.md")
+    posting = read_json(a.posting, "posting")
+    if posting is None:
         return 2
 
-    projects = read_projects(a.bundle)
+    want = requirements(posting, a.include_implicit)
+    projects = read_projects(record)
     notes, warns = [], []
 
-    want_caps = as_set(target.get("required_capabilities"))
-    technologies = as_set(target.get("required_technologies"))
+    technologies = want["technologies"]
     assumed = as_set([t for t in a.assume_technologies.split(",") if t.strip()])
     if assumed:
         if technologies:
-            warns.append("--assume-technologies ignored: the target already names "
-                         "required_technologies")
+            warns.append("--assume-technologies ignored: the posting already names "
+                         "technology requirements")
         else:
             technologies = assumed
             notes.append(f"technologies ASSUMED, not from the posting: "
@@ -234,35 +265,52 @@ def main(argv=None):
         notes.append("the posting names no technologies - the technology term is inert "
                      "for every project, so the ranking rests on capabilities, domain "
                      "and seniority. Pass --assume-technologies to explore an implied "
-                     "stack rather than writing one into the target file")
+                     "stack rather than writing one into the posting")
 
-    vocab = read_vocabulary(a.bundle)
-    for capability in sorted(want_caps):
-        if vocab and capability not in vocab:
-            warns.append(f"required capability {capability!r} is not in "
-                         f"framework/capability-vocabulary.md - matching is exact-string, "
-                         f"so a typo scores zero on every project and is invisible")
-    if not want_caps:
-        warns.append("the target names no required_capabilities - the primary axis is "
-                     "empty and this ranking means very little")
+    if want["dropped_implicit"]:
+        notes.append(f"{want['dropped_implicit']} implicit requirement(s) excluded - the "
+                     f"posting never stated them. Pass --include-implicit to score them, "
+                     f"which makes your inference part of the ranking")
+    elif a.include_implicit:
+        notes.append("--include-implicit: requirements the posting never stated are "
+                     "part of this ranking")
 
-    label = " - ".join(str(target[k]) for k in ("company", "role") if target.get(k))
-    print(f"target: {label or os.path.basename(a.target)}   ({a.target})")
-    print(f"requirements: {len(want_caps)} capabilities, {len(technologies)} technologies, "
-          f"domains {', '.join(sorted(as_set(target.get('domains')))) or 'none'}, "
-          f"seniority {target.get('seniority_sought') or 'unspecified'}")
+    if not want["capabilities"]:
+        warns.append("the posting names no capability requirements - the primary axis "
+                     "is empty and this ranking means very little")
+
+    # A capability no project carries is either absent evidence or an under-tagged
+    # project, and the two need opposite responses. Naming it here beats leaving it
+    # to be noticed in the per-project lists below.
+    everywhere = set()
+    for _, project in projects:
+        everywhere |= as_set(project.get("capabilities"))
+    for capability in sorted(want["capabilities"] - everywhere):
+        warns.append(f"required capability {capability!r} appears on no project in the "
+                     f"record - it scores zero everywhere, which looks identical to "
+                     f"absent evidence")
+
+    title = (posting.get("posting") or {}).get("title") or ""
+    organization = (posting.get("organization") or {}).get("name") or ""
+    label = " - ".join(part for part in (organization, title) if part)
+    print(f"posting: {label or os.path.basename(a.posting)}   ({a.posting})")
+    print(f"requirements: {len(want['capabilities'])} capabilities, "
+          f"{len(technologies)} technologies, "
+          f"domains {', '.join(sorted(want['domains'])) or 'none'}, "
+          f"seniority {want['seniority'] or 'unspecified'}")
     print(f"projects scored: {len(projects)}   recency measured from {a.as_of}")
-    for n in notes:
-        print(f"\n  NOTE  {n}")
-    for w in warns:
-        print(f"\n  WARN  {w}")
+    for note in notes:
+        print(f"\n  NOTE  {note}")
+    for warning in warns:
+        print(f"\n  WARN  {warning}")
 
     if not projects:
-        print(f"\nnothing to score - no Project concepts in {a.bundle}/projects/")
+        print(f"\nnothing to score - no projects[] in {a.record}. The selection keys "
+              f"live on Project, so a record without them cannot be ranked.")
         return 1
 
-    scored = [(name, score_one(meta, target, a.as_of, technologies))
-              for name, meta in projects]
+    scored = [(name, score_one(project, want, a.as_of, technologies))
+              for name, project in projects]
     scored.sort(key=lambda pair: (-pair[1]["score"], pair[0]))
 
     print()

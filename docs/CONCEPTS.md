@@ -29,6 +29,23 @@ hides the rest.
 *Why it matters:* the validator rejects free text inside a view. Tailoring can therefore emphasise,
 but it structurally cannot invent.
 
+**Record** — `resume-generation/record.json`, the standing URS transcription of the whole bundle.
+*Why it matters:* the ranking, the gap analysis and the author all read it. When each read something
+different, two of them could disagree about what your record held and nothing would have said so.
+
+**UJD (Universal Job Description)** — the posting, as JSON. Every requirement carries whether it was
+*required* or merely *preferred*, what the advertisement actually said, and the sentence it was read
+from.
+*Why it matters:* a flat list of keywords cannot say "a degree **and** six years, **or** a
+postgraduate qualification". Flattened one way it scores a master's holder as unqualified; flattened
+the other, a bare degree passes. Both are wrong, so the boolean structure is modelled.
+
+**UGS (Universal Gap Schema)** — the join between a posting and your record: one verdict per
+requirement, the evidence behind it, and how far short it falls on a *named* axis.
+*Why it matters:* it distinguishes "you don't have it" from "you have it and never wrote it down"
+from "you claimed it with nothing behind it". Those need opposite responses, and only the last one
+ends an interview badly.
+
 **Region profile** — a JSON file deciding what a given market may and must not show. Australia, India
 and the UAE ship; the default forbids everything region-specific.
 *Why it matters:* a photograph and date of birth are conventional on a Gulf resume and a liability on
@@ -61,16 +78,18 @@ a rendered page.
 
 ## The modes
 
-Six things the skill can do. You do not have to pick — describe what you want and it routes.
+Eight things the skill can do. You do not have to pick — describe what you want and it routes.
 
 | Mode | When |
 |---|---|
 | `setup` | First run, or importing an existing resume |
 | `braindump` | You have something to say about your work |
 | `resume` | You need a resume |
-| `tailor` | You have a specific job description |
+| `tailor` | You have a specific job posting — a loop that closes the gaps, then writes the resume |
+| `ship` | A resume is finished and needs rendering, checking and filing |
 | `refresh` | Periodic top-up |
 | `gaps` | Resolve unanswered questions and unverified claims |
+| `pipeline` | Work the applications you have out: what is overdue, what to close |
 
 ---
 

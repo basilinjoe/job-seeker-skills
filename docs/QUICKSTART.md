@@ -61,7 +61,13 @@ each other.
 | Every quarter | `/jsk:refresh` |
 | Before applying | `/jsk:gaps`, then `/jsk:resume` |
 | Once a week while job-hunting | `/jsk:pipeline` |
-| A specific job posting | `/jsk:tailor`, then paste the description |
+| A specific job posting | `/jsk:tailor`, with the URL or the description pasted |
+| A resume that is ready to send | `/jsk:ship` |
+
+`/jsk:tailor` is a loop rather than a single step. It reads the posting, works out what your record
+answers and what it does not, and asks you about the gaps — then writes the resume once, at the end.
+You can skip out of it at any round and take the record as it stands. It tells you where you fall
+short against that posting either way, because being flattered costs interviews.
 
 ## If something looks wrong
 

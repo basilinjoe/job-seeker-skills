@@ -136,8 +136,8 @@
 
     "Subjects": {
       "type": "object",
-      "required": ["posting", "record"],
-      "description": "The two documents this gap analysis joins. Both are pinned: a gap document is only meaningful against the exact versions it was computed from, and postings are edited and taken down.",
+      "required": ["record"],
+      "description": "The documents this gap analysis joins. `record` is always present and both are pinned, because a gap document is only meaningful against the exact versions it was computed from and postings are edited and taken down. `posting` is omitted only by a record audit run against no posting at all - `meta.purpose: self-assessment` - where there is no requirement side to pin.",
       "properties": {
         "posting": {
           "type": "object",
@@ -513,8 +513,8 @@
         },
         "priority": {
           "type": "string",
-          "enum": ["blocking", "inferred-claim", "missing-metric", "unexplored"],
-          "description": "In order. `blocking` stops a resume going out at all. `inferred-claim` is content nobody has confirmed. `missing-metric` is a true claim with no number. `unexplored` is territory never discussed."
+          "enum": ["blocking", "unmet-requirement", "inferred-claim", "missing-metric", "unexplored"],
+          "description": "In order. `blocking` stops a resume going out at all. `unmet-requirement` is a posting requirement the record does not answer, and it is named for the requirement rather than the record because the answer may be evidence that was never written down. It is deliberately not called `unevidenced-requirement`: the `unevidenced` verdict means the opposite thing, a record claim with nothing behind it. `inferred-claim` is content nobody has confirmed. `missing-metric` is a true claim with no number. `unexplored` is territory never discussed."
         },
         "about": {
           "type": "array",

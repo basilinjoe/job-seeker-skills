@@ -1,7 +1,6 @@
 # Mode: tailor
 
-Score evidence against a specific posting, then generate. Read `references/mode-resume.md` for
-generation and verification; this adds the selection logic in front.
+Close the gaps against a posting, then write the resume once.
 
 ## The one rule
 
@@ -13,223 +12,169 @@ say so — do not manufacture a bullet. Anything `inferred` needs confirmation b
 Not only ethics: someone who bluffs past a screen gets found out in the first technical conversation,
 having burned both the opportunity and their credibility.
 
-## Steps 1 and 2 delegate
+## The shape, and why gaps come first
 
-Decomposing a posting and scoring a bundle against it is reading and arithmetic — hand both to
-`jsk-posting-analyst`, with the posting, the bundle path and this skill's directory. It writes
-the target file, runs the scorer, and returns the ranking, the unmatched requirements and the PAUSE
-flags below.
+```
+posting  ──►  UJD        the requirement side, extracted rather than typed
+bundle   ──►  URS        the evidence side, one standing record
+UJD × URS ──► UGS        the join: verdicts, evidence, shortfalls, questions
+answers  ──►  bundle     the record improves, and the round runs again
+                └──► on any termination reason: author once, confirm, ship
+```
 
-What it returns is not what the person sees. **Surface the top few and the surprises in chat
-yourself**, in your own words, and act on the flags. Step 6 is yours and is not delegable.
+The resume is written **last**. There is no reason to author a document from a record you are about
+to change, and doing it at the end drops N−1 authoring passes from an N-round loop.
 
-The procedure is written out below because it is the same procedure inline, where no agent is
-available.
+This is also the fix for the defect the old procedure had. It reported gaps at the final step, after
+every generation decision had already been taken — so the correction window it existed to create
+never opened.
 
-## 1. Decompose the posting
+## 0. Get the posting
 
-Extract, in priority order: **required capabilities**, **required technologies**, **domain**,
-**seniority signal**.
+`$ARGUMENTS` may hold a URL, the text, or a path. **Fetch a URL yourself**; the analyst has no network
+tools. Job boards refuse often — LinkedIn and most Workday tenants sit behind a wall — so when a fetch
+fails, say what happened and ask them to paste it. That is an ordinary outcome, not an error.
 
-**Notice what it says twice.** Repetition marks the real priority, and it is often not the first
-bullet. A posting mentioning stakeholder management in three places is telling you something the
-responsibilities list buries.
+Keep the URL either way. It goes in `posting.url`, and the archive needs it.
 
-Save to `tailoring/targets/<company>-<role>.md` with the posting pasted verbatim — listings get taken
-down and they will want the text at interview. Use `references/target-template.md`: the requirement
-sets go in the **frontmatter**, because that is what the scorer reads. A requirement written only in
-prose does not participate in the ranking.
+## 1. Build the two documents
 
-**Write the target file — posting, ranking and gaps — before generating anything.** Not the posting
-now and the ranking later: the file is the checkpoint, and a checkpoint written after the work is
-finished is a record, not a check. Step 2 fills its `# Evidence ranking` and `# Gaps` sections —
-both from the scorer's unmatched lists — and both belong in the file before the first bullet is
-written. Step 6 is where you *tell* them the gaps; this is where you *record* them.
+Both are read-heavy and neither needs anybody in the room, so delegate them.
 
-## 2. Score every project
+| Agent | Writes | Then |
+|---|---|---|
+| `jsk-posting-analyst` | `tailoring/targets/<slug>.posting.json` | `validate_ujd.py --level 2 --bundle <bundle>` |
+| `jsk-record-builder` | `resume-generation/record.json` | `validate_urs.py --level 2` |
+
+`record.json` is the standing transcription of the bundle. It may already exist from a previous
+session — pass it, and the builder updates it in place rather than re-deriving it. **Ids must not
+change between rounds**: a gap document resolves its evidence against this file, so a renamed id
+orphans every verdict from the round before while both documents still validate.
+
+**Surface what came back in your own words.** The analyst's PAUSE flags are not advisory: stop and ask
+before anything is authored when the ranking is close between projects with materially different
+ownership verbs, when a top-ranked entity carries `inferred` content, when eligibility fails, or when
+the posting suggests the role may not be worth applying to at all. That last decision is theirs and it
+comes before the work.
+
+## 2. The round
 
 ```bash
-python3 <skill-dir>/scripts/score_projects.py <bundle> tailoring/targets/<company>-<role>.md
+python3 <skill-dir>/scripts/score_projects.py <bundle>/resume-generation/record.json \
+        tailoring/targets/<slug>.posting.json --markdown
 ```
 
-```
-score =  capability_overlap x 3     # primary axis, a count
-       + technology_overlap x 2     # a count
-       + domain_match       x 2     # binary: any shared domain, or none
-       + seniority_match    x 2     # 0.0-1.0, see the scale below
-       + strength                   # 1-5
-       + recency_bonus              # +2 within 3 years, +1 within 6
-```
-
-Overlap counts matching frontmatter array values, compared exactly against
-`framework/capability-vocabulary.md`. Run the script rather than scoring by feel or writing a
-throwaway scorer: a bespoke one re-declares the requirement sets in Python, they drift from the
-frontmatter within the session, and the ranking stops being reproducible a month later.
-
-**`seniority_match` is a graded scale**, not a yes/no: 1.0 at or above the level sought, decaying
-linearly to 0.0 at `junior`. Evidence from a *more* senior engagement than the posting asks for is not
-worth less — the penalty is for falling short, not for overshooting.
-
-**`domain_match` is binary.** Any shared domain scores the full 2; none scores 0. Multiplying a count
-would reward concepts that happen to carry more domain tags, which is a tagging artefact rather than
-a signal.
-
-**When the posting names no technologies at all** — common in enterprise architecture roles — leave
-`required_technologies` empty. The term then contributes 0 to every project and cannot change the
-ranking, which is the honest outcome. Do not quietly score against the stack the posting *implies*:
-that invents a requirement and moves a x2 term. If it is worth exploring, pass
-`--assume-technologies`, which labels the assumption in the output where a reader can see it.
-
-**The unmatched list is as useful as the score.** A required capability a project does not carry is
-either evidence that is genuinely absent or a project that is under-tagged. Those need opposite
-responses and only the person whose work it was can tell you which — so show them.
-
-### Save the ranking, surface the surprises, continue
-
-**Do not block waiting for a reply**, and do not leave the ranking for the final response either.
-Both readings fail: one stalls a job application on a question the person may answer tomorrow, and
-the other delivers the table alongside the finished resume, after every generation decision has
-already been taken. The correction window the ranking exists to create never opens.
-
-Make the **artefact** the checkpoint instead:
+Then `jsk-gap-analyst` writes `tailoring/targets/<slug>.gaps.json`, and:
 
 ```bash
-python3 <skill-dir>/scripts/score_projects.py <bundle> <target.md> --markdown
+python3 <skill-dir>/scripts/validate_ugs.py tailoring/targets/<slug>.gaps.json \
+        --recompute --report --carry <previous.gaps.json>
 ```
 
-Paste that under `# Evidence ranking` in the target file, then in chat surface the top few and
-anything surprising — a project that moved a long way, a top rank you did not expect. Then carry on.
-The reasoning is durably inspectable, they can correct it at any point, and nothing waits.
+`--recompute` re-derives the group verdicts, the aggregate and both checksums, and fails the document
+when they disagree with what the agent wrote. `--report` prints the readable checkpoint — the
+requirement table, the shortfalls, the surplus and the question queue — which is what the retired Job
+Target file used to be, except that it is rendered from the JSON and so cannot drift from it.
 
-**Do pause before generating** in these cases, where being wrong is expensive enough to be worth the
-wait:
+**Show them the report.** Not a summary of it.
 
-- The ranking is **close between projects with materially different ownership verbs** — "architected"
-  against "contributed to" is not a detail that can be fixed after the fact
-- A top-ranked concept carries **`status: inferred`** content that would reach the resume. The
-  provenance rule already requires confirmation; this is where it lands
-- The gap analysis suggests **the role may not be worth applying to at all**. That decision is theirs
-  and it comes before the work, not after it
+## 3. Ask the whole queue at once
 
-## 3. Allocate two pages
+Present the ordered queue and take a bulk reply. Then go one at a time **only** for answers that came
+back ambiguous, incomplete, or that contradict what the record already says.
 
-| Rank | Treatment |
-|---|---|
-| 1-2 | Full treatment, 3-5 bullets, lead the section |
-| 3-5 | One or two bullets each |
-| 6-8 | Compressed, shared role headers |
-| 9+ | Cut, or one line if chronology needs it |
+This departs from `mode-gaps.md`'s standing rule — *"one question at a time… a list of fifteen gets
+abandoned; one gets answered"* — and the departure is deliberate. That rule was written for an
+open-ended bundle audit with no natural end. A tailoring round is bounded, ordered by priority, and
+every question names the requirement it would close, so the person can see the whole cost of the round
+before starting it. `/jsk:gaps` keeps one-at-a-time.
 
-**Chronology still governs order.** A high-scoring old project earns more bullets, not an earlier
-position. Reordering roles by relevance reads as concealment and breaks date parsing.
+Order is `blocking → unmet-requirement → inferred-claim → missing-metric → unexplored`.
 
-**Score governs allocation, and a recency ratio is a default rather than a constraint.**
-`bundle-spec.md` weights roughly 4:1 toward recent roles, and a bundle's own
-`resume-generation/structure-rules.md` may set its own ratio. When the posting's best-matching
-evidence sits mid-career, those two rules pull against each other — and the resolution is that the
-ratio yields. It exists to stop a resume dwelling on work from a decade ago for no reason; it is not
-a reason to bury the evidence this particular posting is asking for. Say in chat when you have
-departed from the ratio and why, so the decision is visible rather than felt.
+For an inferred claim, quote it exactly, say where it came from, and offer the exit:
 
-## 4. Retune the top
+> "On the care-plan project I wrote that policy grounding was there to stop hallucinated guidance
+> reaching staff. You described the mechanism but not the reason — I supplied that. Is it right? If
+> not, I'll cut the clause."
 
-Summary: keep the opening claim, swap evidence clauses for the posting's top two capabilities, mirror
-its exact vocabulary. Skills: move the matching stack row to second position.
+Confirm, correct, or delete. All three are fine. Leaving it as-is is not.
 
-## 5. Generate, verify, log
+For a missing metric, prompt with where the number might live: monitoring dashboards, APM, cloud
+billing, sprint retros, release notes, incident reviews, promotion documents, a colleague. **Ask
+twice, then let go** — an honest "~50 tenants" beats silence, and a bullet permanently awaiting a
+metric is a bullet nobody improved.
 
-**Tailoring is a view, not a new document.** Add one to `resume.json` naming the evidence the ranking
-chose, and render from it:
+### Write each answer to both places
 
-```json
-{ "id": "view_acme_principal",
-  "format_profile": "ats-maximal",
-  "region_profile": "urs:profile:au/1",
-  "target": { "title": "Principal Solution Architect",
-              "ref": "tailoring/applications/acme-principal.target.md" },
-  "narrative": "nar_acme",
-  "include": [
-    { "ref": "eng_meridian", "order": 1, "achievements": ["ach_latency", "ach_consolidate"] },
-    { "ref": "eng_northbridge", "order": 2, "treatment": "brief" }
-  ],
-  "provenance_floor": "confirmed",
-  "budget": { "pages": 2, "ats_maximal_pages": 3 } }
-```
+An answer updates the **bundle concept** and patches **`record.json`** in the same edit — flipping a
+`status`, adding a metric, adding a capability. Both, every time. The reconcile pass in step 4 exists
+because this is the one thing the arrangement can get wrong, and it reports divergence rather than
+quietly fixing it.
 
-```bash
-python3 <skill-dir>/scripts/validate_urs.py resume.json
-python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view view_acme_principal --pdf
-```
+## 4. Ending the round
 
-Add `--ats-max` when the posting goes into a portal known to parse badly — Workday, Taleo,
-SuccessFactors, Naukri — or when the target is a form rather than a person. It switches which variant
-the PDF holds; there is still one PDF. The presentation variant is right for a referral or a direct
-email. When in doubt, ATS-maximal.
+The loop ends when **any** of these holds. `validate_ugs.py --report` computes the first three and
+prints which one:
 
-`--template NAME` is a separate axis and composes with either variant: the variant decides what the
-document says, the template decides how it looks, and every template extracts to the same text. Let
-the employer choose it — a design studio's careers page argues for `ember`, a bank's for the
-ink-only default. `templates.md` has the catalogue.
+1. **`questions[]` is empty.** Nothing is worth asking.
+2. **Every open question is `unexplored`** — territory never discussed. It improves the record in
+   general, not this application, and belongs in `/jsk:gaps`.
+3. **No new answerable question this round.** Every one is already carried as `deferred` or
+   `unavailable`. Without this guard, a requirement nobody can close re-asks forever.
+4. **Three rounds**, unless they asked for more.
+5. **They skip.** Offer it every round. It is the ordinary exit, not a failure.
 
-`ats_maximal_pages` exists because that variant is deliberately longer: it repeats the employer on
-every role line and expands the skills block with keyword aliases. Give it its own budget rather than
-cutting evidence to fit the presentation one — a parser does not care about length, and the reason
-this was never visible before is that the ATS-maximal render was a `.docx` nobody ever measured.
+**Tell them which reason ended it.** "Nothing left to ask" and "you have hit the cap with four things
+open" call for different next moves.
+
+Then run `jsk-record-builder` once more to reconcile, and report any divergence it found.
+
+## 5. Author, once
+
+`jsk-resume-author` writes `tailoring/targets/<slug>.resume.json` — the narrative, the summary retuned
+to this posting, and the view. It is the only agent that writes prose, and three things carry that:
+
+- **Everything it authored is `inferred`**, and `provenance_floor: confirmed` on the view means
+  `validate_urs.py` refuses to render it until a person confirms it. A failing render here is the
+  guardrail working, not a problem to route around.
+- **Every numeral must trace to a metric.** Tailoring is exactly when a rewritten clause inflates a
+  number, and that check is what catches it.
+- **It quotes every clause back**, with what it derived it from.
+
+**Read those quotes to the person and get confirm-correct-or-cut on each**, then flip the confirmed
+ones in the record. This step is yours and is not delegable.
 
 **A view references content; it cannot contain it.** The validator rejects free text inside one. That
-is the structural expression of the rule at the top of this file: a tailored resume is a selection
-over evidence that already existed, and a format where invention is impossible beats a process where
-invention is merely discouraged. If the posting wants something the record does not have, the view has
-nothing to point at — which is the honest outcome, and the thing to tell them in step 6.
+is the structural expression of the rule at the top of this file: a format where invention is
+impossible beats a process where invention is merely discouraged. If the posting wants something the
+record does not have, the view has nothing to point at — which is the honest outcome, and the thing
+to say out loud.
 
-Retuned prose — a summary written for this posting, a bullet re-emphasised — is a **new narrative or a
-new achievement in the record**, with its own `provenance`. Written there, it is reviewable, reusable
-and attributable. Written into the view, it would be none of those, which is why it is rejected.
+Then re-run the recompute with the view in view, which is what populates `surface[]`:
 
-### Freeze both inputs, not one
-
-Save the tailored record as `tailoring/applications/<company>-<role>.resume.json`, and **copy the
-target file alongside it** as `tailoring/applications/<company>-<role>.target.md`:
-
-```yaml
-type: Source Document        # not Job Target - this copy is an archive
-snapshot_of: "../targets/<company>-<role>.md"
-snapshot_taken: 2026-08-26
-frozen: true
+```bash
+python3 <skill-dir>/scripts/validate_ugs.py tailoring/targets/<slug>.gaps.json --recompute --report
 ```
 
-Lead the body with a line saying it is frozen, when it was taken, and that it wins over the working
-copy if the two disagree.
+A surface gap is *held in the record, absent from what is about to be sent* — a different failure from
+not having the thing, with a much cheaper fix, and invisible to anyone reading only the rendered
+document.
 
-The record alone is not enough. *A frozen record scored against an editable posting is not
-reproducible; it only looks it.* The file in `targets/` is a working copy — it gets edited when the
-same employer posts again, when a listing is revised, when the scorer is re-run — and every one of
-those edits silently rewrites what a past application appears to have answered. `<company>-<role>` also
-collides the second time a company posts the same role.
+## 6. Ship
 
-So: `targets/` is where a posting is worked on, `applications/` is where one is archived. With both
-frozen, every previous application remains reproducible — same posting, same record, same view, same
-output, a year later — and the application folder answers *what was this answering* without leaving
-itself.
+`/jsk:ship`, or `references/mode-ship.md` inline. It renders, runs all four gates through
+`jsk-verifier`, freezes the archive and logs the submission. It never freezes a document that failed a
+gate.
 
-Then the gates. `check_ats.py` PASSes on the rendered `.pdf`, and `--strict` on the `.txt` (or on an
-ATS-maximal PDF); `check_prose.py` PASSes on the `.tex` and the plain text. Tailoring rewrites bullets against a posting,
-which is exactly when a rewritten clause loses its object or slips into the third person, so the prose
-gate matters more here than in a straight rebuild. And because a rewritten bullet is where a number
-drifts, `validate_urs.py` re-checks every numeral against its metric before anything renders.
+## 7. Tell them where they fall short
 
-Log the submission in `tailoring/applications/` — including any feedback received later. After a
-handful of applications, patterns emerge about which evidence gets traction, and that belongs back in
-the rules.
+Every time, in chat, before they ask. By now this is a reading of the assessment rather than a
+judgement you are forming:
 
-## 6. Tell them where they fall short
-
-Every time, in chat, before they ask.
-
-> "Two gaps. They want direct people-management — you have technical leadership and mentoring
-> evidence, but nothing on hiring or performance reviews. And they name Terraform throughout; your
-> IaC evidence is all Bicep. The concepts transfer and you could say so in interview, but the resume
-> can't claim Terraform depth you don't have."
+> "Two gaps survived the rounds. They want direct people-management — you have technical leadership
+> and mentoring evidence, but nothing on hiring or performance reviews. And they name Terraform
+> throughout; your IaC evidence is all Bicep. The concepts transfer and you could say so in interview,
+> but the resume can't claim Terraform depth you don't have."
 
 A named gap can be prepared for, addressed in a cover letter, or used to decide the role is not worth
 applying to. That decision is theirs and needs real information. If the fit is genuinely poor, say so.
@@ -238,3 +183,10 @@ applying to. That decision is theirs and needs real information. If the fit is g
 
 Under 250 words. Strongest capability match first. One concrete piece of evidence with its metric.
 Address the obvious gap in one honest line rather than hoping nobody notices. No enthusiasm padding.
+
+## Running it inline
+
+Where agents are unavailable, the procedure is the same and the scripts are the same. What you lose is
+the separation, not the method — so be stricter about the two places it matters: keep the
+advertisement before you read anything out of it, and run `validate_ugs.py --recompute` rather than
+trusting your own arithmetic.

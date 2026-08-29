@@ -95,7 +95,8 @@ The first four are URS's and UJD's, unchanged. The rest are UGS's own.
 }
 ```
 
-Only `ugs`, `meta` and `subjects` are required. `subjects` pins both documents, with checksums:
+Only `ugs`, `meta` and `subjects` are required. `subjects` pins the record and, when there is one,
+the posting — with checksums:
 a gap verdict recomputed against an edited posting is a different verdict, and postings are edited
 and taken down.
 
@@ -243,6 +244,24 @@ major version. `Assessment.verdict` and `Evidence.relation` are the two vocabula
 grow, and both are closed enums on purpose — an open vocabulary here would let a matcher invent a
 verdict that no reader can interpret.
 
+### 1.1
+
+Two widenings. Every 1.0 document remains valid against 1.1.
+
+**`Subjects` requires only `record`.** A record audit run against no posting — `meta.purpose:
+self-assessment` — has no requirement side to pin, and 1.0 made that document invalid before it could
+be written. `posting` stays required in substance rather than in schema: an assessment naming a
+`req_` id it cannot resolve is still a broken document, and the validator says so.
+
+**`Question.priority` gains `unmet-requirement`**, second, after `blocking`. The 1.0 enum is
+record-quality only and has no value for *the posting asks for this and the record does not answer
+it* — which is the most common thing a tailoring round has to ask about. It is named for the
+requirement, not the record, because the answer is often evidence that was simply never written down.
+
+It is deliberately **not** `unevidenced-requirement`. The `unevidenced` *verdict* means the opposite
+thing — a record claim with nothing behind it — and two vocabularies one letter apart in the same
+document is how a reader ends up acting on the wrong one.
+
 ## Relationship to mode-gaps
 
 `references/mode-gaps.md` is the conversation; UGS is what the conversation reads from and writes back
@@ -250,7 +269,7 @@ to. The mapping is direct:
 
 | mode-gaps | UGS |
 |---|---|
-| Blocking, then inferred claims, then missing metrics, then unexplored | `Question.priority`, in that enum order |
+| Blocking, then inferred claims, then missing metrics, then unexplored | `Question.priority`, in that enum order — with `unmet-requirement` second when a posting is in view |
 | "Quote it exactly, say where it came from, offer the exit" | `Question.quoted_claim` + `expected: confirm-correct-or-cut` |
 | Confirm, correct, or delete — all three fine, leaving it is not | `Question.resolution` |
 | An honest approximation beats silence | `Shortfall.evidenced` with `provenance.status: needs-verification` |

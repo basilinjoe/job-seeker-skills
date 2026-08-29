@@ -17,7 +17,7 @@ if HERE not in sys.path:
 
 import pipeline_model  # noqa: E402
 
-BUNDLE_REVISION = 3   # keep in step with CURRENT_REVISION in migrate_bundle.py
+BUNDLE_REVISION = 4   # keep in step with CURRENT_REVISION in migrate_bundle.py
 
 DIRS = ["profile","organisations","roles","projects","achievements","skills","education",
         "open-source","sources","framework","resume-generation","tailoring",
@@ -34,9 +34,11 @@ BLURB = {
  "open-source":"Public code and independent projects.",
  "sources":"Archived source documents and interview records.",
  "framework":"Schema, vocabularies, templates and scripts for extending this bundle.",
- "resume-generation":"Rules governing how this bundle renders into a resume.",
+ "resume-generation":"Rules governing how this bundle renders into a resume, plus "
+                     "record.json - the standing URS transcription everything else reads.",
  "tailoring":"Turning a job description into a targeted resume.",
- "tailoring/targets":"Captured job descriptions.",
+ "tailoring/targets":"Captured job postings as UJD documents, and the gap analysis "
+                     "of each against your record.",
  "tailoring/applications":"Submissions, evidence selected, and outcomes.",
 }
 

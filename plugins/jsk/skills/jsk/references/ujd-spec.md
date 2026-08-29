@@ -331,7 +331,15 @@ schema.org's own `estimatedSalary` was dropped from Google Search in June 2025.
 
 ## Relationship to the Job Target file
 
-UJD does **not** replace `tailoring/targets/<company>-<role>.md`. That file stays the human checkpoint
-and `score_projects.py` still reads its frontmatter. A UJD document is a richer, machine-first record
-of the same posting: `meta.target` points at the Markdown file when both exist. Wiring the scorer to
-read UJD directly is a separate decision, deliberately not taken here.
+UJD **replaced** it, at bundle revision 4. `tailoring/targets/<company>-<role>.md` and its
+`target-template.md` are gone, and `score_projects.py` reads `requirements[]` directly.
+
+The Markdown file could not carry the three things matching actually runs on: `necessity`, so a
+preferred skill scored as a demand; boolean requirement groups, so *"a degree and six years, or a
+postgraduate qualification"* had to be flattened into a reading that was wrong either way; and a
+provenance span, so no extraction could be checked against the advertisement it came from.
+
+What is not lost is the human checkpoint, which was the reason to keep a Markdown file. It comes back
+as `validate_ugs.py --report` — rendered from the JSON on demand, so unlike editable frontmatter it
+cannot drift from what the scorer read. `migrate_bundle.py` converts an older bundle and reports what
+it could not recover, `necessity` first among it.

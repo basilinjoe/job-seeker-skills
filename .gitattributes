@@ -1,0 +1,4 @@
+# The shipped schema documents are checksummed by validate_ugs.py, so their bytes
+# must not change on checkout. Without this, a clone with core.autocrlf=true rewrites
+# every LF to CRLF and the example gap analysis fails against its own subjects.
+*.json text eol=lf

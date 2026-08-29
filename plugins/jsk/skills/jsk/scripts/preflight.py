@@ -35,12 +35,15 @@ MIN_PYTHON = (3, 8)
 
 SCRIPTS = [
     "init_bundle.py", "validate_bundle.py", "check_ats.py", "check_prose.py",
-    "score_projects.py", "fit_pages.py", "validate_urs.py", "render_resume.py",
-    "migrate_bundle.py", "pipeline.py", "pipeline_model.py",
+    "score_projects.py", "fit_pages.py", "validate_urs.py", "validate_ujd.py",
+    "validate_ugs.py", "render_resume.py", "migrate_bundle.py", "pipeline.py",
+    "pipeline_model.py",
 ]
 URS_MODULES = ["__init__.py", "plan.py", "profiles.py", "tex.py",
                "emit_latex.py", "emit_text.py"]
-SCHEMA_FILES = ["urs-v1.schema.json", "profile.schema.json", "example.resume.json"]
+SCHEMA_FILES = ["urs-v1.schema.json", "ujd-v1.schema.json", "ugs-v1.schema.json",
+                "profile.schema.json", "example.resume.json",
+                "example.posting.json", "example.gaps.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
 
 TEX_ENGINES = ["tectonic", "latexmk", "pdflatex", "xelatex", "lualatex"]
@@ -53,7 +56,8 @@ INSTALL = {
         "note": "tectonic is a single self-contained binary; TeX Live and MiKTeX are "
                 "gigabytes and only worth it if you already wanted them.",
     },
-    "pyyaml": {"pip": "pyyaml", "note": "Reads bundle frontmatter."},
+    "pyyaml": {"pip": "pyyaml", "note": "Reads bundle frontmatter. Only "
+                                        "validate_bundle.py needs it."},
     "jsonschema": {"pip": "jsonschema",
                    "note": "Full URS schema validation. Without it the structural "
                            "rules still run, but a mistyped key is not caught."},
@@ -148,8 +152,9 @@ def gather(bundle_arg=None):
 
     checks.append(Check(
         "pyyaml", module_available("yaml"), key="pyyaml",
-        disables="validate_bundle.py and score_projects.py cannot run, so the "
-                 "bundle goes unchecked and tailoring falls back to guesswork"))
+        disables="validate_bundle.py cannot run, so the bundle goes unchecked. "
+                 "Scoring and both JSON validators are unaffected - they read "
+                 "JSON on both sides"))
 
     checks.append(Check(
         "jsonschema", module_available("jsonschema"), key="jsonschema",
