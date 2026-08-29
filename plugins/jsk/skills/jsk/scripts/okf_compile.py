@@ -386,6 +386,53 @@ def build_projects(items, roles_by_stem, metrics):
     return out
 
 
+def build_views(items):
+    """`type: View` concepts - the tailoring views, beside the postings they answer.
+
+    A view is the one concept that is already URS: its frontmatter is the document,
+    which is why every key but `type` passes through untranslated. That includes a
+    key nobody recognises, so that validate_urs.py fails on it - dropping a typo
+    here would turn a misspelt `provenance_floor` into a view with no floor at all.
+
+    `views` used to be a hardcoded empty list, so `render_resume.py --view <id>`
+    could not find a view sitting on disk, and `provenance_floor` never ran on
+    anything. A floor that never runs is the guardrail against unconfirmed prose
+    reaching a resume, so this was not a missing feature but an absent check.
+    """
+    out, seen = [], set()
+    for stem, meta, _ in items:
+        view = {k: v for k, v in meta.items() if k != "type"}
+        view.setdefault("id", f"view_{slug(stem)}")
+        if view["id"] in seen:
+            # A view frozen beside a sent application and its working copy in
+            # targets/ share an id. The working copy is the one being edited.
+            continue
+        seen.add(view["id"])
+        out.append(view)
+    return out
+
+
+def link_projects(engagements, projects):
+    """`engagement.projects[]`, inverted from the pointer each project carries.
+
+    `resolve.py` walks `engagement["projects"]` and nothing else to find a project's
+    bullets, so while this was never populated every project achievement was dropped
+    from every render - a resume with roles, dates and no evidence, which passed the
+    record gate because a missing back-reference is not an invalid document. The
+    forward pointer was always there: `build_projects` writes `engagement` on every
+    project whose concept names a role.
+    """
+    by_engagement = {}
+    for p in projects:
+        if p.get("engagement"):
+            by_engagement.setdefault(p["engagement"], []).append(p["id"])
+    for e in engagements:
+        ids = by_engagement.get(e["id"])
+        if ids:
+            e["projects"] = ids
+    return engagements
+
+
 def build_skills(items):
     """A Skill Set concept's `# Skills` block.
 
@@ -610,8 +657,10 @@ def load(root, notes=None):
             by_type.get("Certification Status", []), notes),
         "skills": build_skills(by_type.get("Skill Set", [])),
         "narratives": build_narratives(by_type.get("Positioning", [])),
-        "views": [],
+        "views": build_views(by_type.get("View", [])),
     }
+    link_projects(doc["engagements"], doc["projects"])
+
     for key in ("languages", "work_authorization", "availability"):
         if person_meta.get(key) is not None:
             doc[key] = person_meta[key]

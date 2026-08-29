@@ -232,6 +232,12 @@ def check_views(doc, rep):
         region = v.get("region_profile")
         if region:
             token = region.split(":")[-1].split("/")[0].lower()
+            # The same aliases profiles.load() honours, and only those. Calling
+            # profiles.load() here instead would pass every token, because it falls
+            # back to default.json for anything it cannot find - so a typo
+            # would validate and then render under rules nobody chose.
+            if token in ("xx", "", "none"):
+                token = "default"
             if not os.path.exists(os.path.join(SCHEMA_DIR, "profiles", f"{token}.json")):
                 rep.fail(f"view {v.get('id')}: no profile file for {region!r}")
 
