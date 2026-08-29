@@ -494,17 +494,69 @@ def build_education(items):
     return out
 
 
-def build_credentials(items):
-    """Certification Status concepts."""
+def build_credentials(items, notes=None):
+    """Certification Status concepts - the ones that actually hold a certification.
+
+    The type name is the whole point: a `Certification Status` concept reports a
+    *status*, and "none held" is a legitimate one. This used to emit one credential
+    per concept named after the concept's own title, so a file whose entire subject
+    was that nothing had been earned compiled to a held credential called
+    "Certifications - none held" - and a resume is exactly where that must never
+    appear. A credential is now emitted only where the concept evidences one.
+
+    Two shapes count as evidence. A `# Held` block, one entry per certification,
+    which is the same shape `# Bullets` and `# Skills` use:
+
+        # Held
+
+        - Azure Solutions Architect Expert
+          issuer: Microsoft
+          issued: 2024-05
+          status: active
+
+    Or, for a concept that is about a single certification, an `- **Issuer:**` line
+    in the body. Anything else - a gap note, a list of certifications someone is
+    considering - yields nothing, and says so rather than passing silently.
+    """
     out = []
     for stem, meta, body in items:
-        entry = {"id": ident(meta, stem, "cred"),
-                 "name": str(meta.get("title") or stem).strip('"'),
-                 "provenance": provenance(meta)}
+        held = blocks(body, "Held", ("issuer", "issued", "expires", "status", "id"))
+        for n, (name, fields) in enumerate(held, 1):
+            # Two different `status` fields meet here and must not be conflated.
+            # `provenance.status` is how well the bundle knows the claim, and comes
+            # from the concept's frontmatter. The credential's own `status` is
+            # whether the certification is current.
+            entry = {"id": fields.get("id") or f"cred_{slug(stem)}_{n}",
+                     "name": name,
+                     "kind": "certification",
+                     "status": fields.get("status") or "active",
+                     "provenance": provenance(meta)}
+            if fields.get("issuer"):
+                entry["issuer"] = fields["issuer"]
+            if fields.get("issued"):
+                entry["issued"] = date(fields["issued"], f"{stem}.md issued")
+            if fields.get("expires"):
+                entry["expires"] = date(fields["expires"], f"{stem}.md expires")
+            out.append(entry)
+        if held:
+            continue
+
+        # The single-certification concept: one `- **Issuer:**` line is the claim.
         fields = labelled(body)
         if fields.get("issuer"):
-            entry["issuer"] = fields["issuer"]
-        out.append(entry)
+            entry = {"id": ident(meta, stem, "cred"),
+                     "name": str(meta.get("title") or stem).strip('"'),
+                     "issuer": fields["issuer"],
+                     "kind": "certification",
+                     "provenance": provenance(meta)}
+            out.append(entry)
+            continue
+
+        if notes is not None:
+            notes.append(
+                f"education/{stem}.md is a Certification Status concept naming no "
+                f"certification held - no credential compiled. If one has been "
+                f"earned, list it under a `# Held` heading with its issuer.")
     return out
 
 
@@ -521,8 +573,12 @@ def simple(items, prefix, fields):
     return out
 
 
-def load(root):
-    """The bundle, as the record every downstream tool already reads."""
+def load(root, notes=None):
+    """The bundle, as the record every downstream tool already reads.
+
+    `notes` collects what a person should know but that is not an error - a concept
+    that yielded nothing where it might have been expected to yield something.
+    """
     root = os.path.abspath(root)
     if not os.path.isdir(root):
         raise Problem(f"not a directory: {root}")
@@ -550,7 +606,8 @@ def load(root):
         "engagements": build_engagements(by_type.get("Role", []), orgs_by_stem),
         "projects": build_projects(by_type.get("Project", []), roles_by_stem, metrics),
         "education": build_education(by_type.get("Education", [])),
-        "credentials": build_credentials(by_type.get("Certification Status", [])),
+        "credentials": build_credentials(
+            by_type.get("Certification Status", []), notes),
         "skills": build_skills(by_type.get("Skill Set", [])),
         "narratives": build_narratives(by_type.get("Positioning", [])),
         "views": [],
@@ -610,8 +667,9 @@ def main(argv):
         json.dump(doc, sys.stdout, indent=2, ensure_ascii=False)
         return 0
     quiet = "--quiet" in argv
+    notes = []
     try:
-        doc = load(args[0])
+        doc = load(args[0], notes)
     except Problem as exc:
         print(f"FAIL  {exc}")
         return 1
@@ -629,6 +687,11 @@ def main(argv):
         if not quiet:
             print(f"wrote {dump}  (a cache - edit the concept, not this)")
     if not quiet:
+        # Notes are not failures. They exist because a concept yielding nothing
+        # looks identical to a concept that was never written, and one of those
+        # is worth a person's attention.
+        for note in notes:
+            print(f"  note  {note}")
         counts = ", ".join(f"{len(v)} {k}" for k, v in doc.items()
                            if isinstance(v, list) and v)
         print(f"compiled {os.path.basename(os.path.abspath(args[0]))}: {counts}")

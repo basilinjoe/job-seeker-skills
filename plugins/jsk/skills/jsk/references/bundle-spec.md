@@ -323,6 +323,24 @@ matching vocabulary and compare as exact strings, so a synonym silently breaks m
 are display names, grouped and aliased by someone with a view about how the block should read.
 A view selects from them by id; `ats-maximal` expands them with their aliases.
 
+**A Certification Status concept's `# Held`** are the certifications actually earned:
+
+```markdown
+# Held
+
+- Azure Solutions Architect Expert
+  issuer: Microsoft
+  issued: 2024-05
+  status: active
+```
+
+**Nothing outside this block becomes a credential.** The type is a *status*, and "none held" is a
+legitimate one — a concept recording a certification gap, or listing the ones someone is
+considering, compiles to no credentials at all and says so in the compile output. The concept's
+own `title` is a document title, never a credential name. A concept about a single certification
+may instead carry one `- **Issuer:** <name>` line in its body, and then its title is the
+certification.
+
 ## Structure rules for rendering
 
 ```

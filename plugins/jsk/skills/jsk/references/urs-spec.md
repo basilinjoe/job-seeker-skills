@@ -282,6 +282,12 @@ A view is a rendering instruction. It selects, orders, redacts and sets a budget
   "budget": { "pages": 2 } }
 ```
 
+**`order` orders achievements, never employers.** Within an `include` entry, the `achievements`
+list is rendered in the order written — that is how a bullet earns the top of a role. The entry's
+own `order` is read and then overridden: engagements always render by date, because a resume that
+reorders employers by relevance reads as concealment and breaks the date parsing every ATS does
+first. `render.order` in the region profile chooses which direction that date sort runs.
+
 **Normative: a view MUST NOT contain content text.** It may carry only references, ordering,
 redaction and presentation settings. `label` and `target` are metadata about the application, not
 resume content, and are never rendered into the document body.
