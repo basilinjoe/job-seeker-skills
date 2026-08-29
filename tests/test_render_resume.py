@@ -148,6 +148,66 @@ class Chronology(PlanCase):
         self.assertIn("Present", self.flat(self.plan()))
 
 
+class FunctionalTitles(PlanCase):
+    """A title that is internal-only or niche - "Member of Technical Staff" -
+    tells a reader outside that employer nothing, and the reader is spending six
+    seconds. The gloss rides beside the official title, never in place of it:
+    the official one is what a reference check confirms.
+    """
+
+    def gloss(self, functional="Full-Stack Engineer", title="Member of Technical Staff"):
+        doc = urs_doc()
+        position = doc["engagements"][0]["positions"][0]
+        position["title"] = title
+        if functional is not None:
+            position["functional_title"] = functional
+        return doc
+
+    def first_role(self, doc, **kwargs):
+        return self.plan(doc, **kwargs)["sections"][2]["entries"][0]["roles"]
+
+    def test_the_presentation_role_line_carries_the_gloss(self):
+        roles = self.first_role(self.gloss())
+        self.assertIn("Member of Technical Staff (Full-Stack Engineer)",
+                      [r["left"] for r in roles])
+
+    def test_the_ats_variant_carries_both_the_gloss_and_the_employer(self):
+        roles = self.first_role(self.gloss(), fmt="ats-maximal")
+        self.assertIn("Member of Technical Staff (Full-Stack Engineer), Acme Health",
+                      [r["left"] for r in roles])
+
+    def test_a_gloss_that_repeats_the_title_is_suppressed(self):
+        """Transcribing a bundle fills both often enough, and "Senior Engineer
+        (Senior Engineer)" is worse than either alone."""
+        roles = self.first_role(self.gloss(functional="senior ENGINEER",
+                                           title="Senior Engineer"))
+        self.assertIn("Senior Engineer", [r["left"] for r in roles])
+        self.assertNotIn("(", self.flat(self.plan(self.gloss(
+            functional="senior ENGINEER", title="Senior Engineer"))))
+
+    def test_a_position_without_a_gloss_is_unchanged(self):
+        roles = self.first_role(self.gloss(functional=None))
+        self.assertEqual([r["left"] for r in roles][-1], "Member of Technical Staff")
+
+    def test_the_promotion_sentence_keeps_bare_titles(self):
+        """The sentence exists to defeat the arrow trap; four parentheticals in
+        one line defeat the reader instead. Each gloss is on its own role line."""
+        doc = self.gloss(title="Member of Technical Staff II")
+        doc["engagements"][0]["positions"].append(
+            {"id": "pos_c", "title": "Distinguished Engineer",
+             "period": {"start": {"value": "2025-01", "precision": "month"},
+                        "state": "unknown"},
+             "change": "promotion"})
+        lines = self.plan(doc)["sections"][2]["entries"][0]["lines"]
+        promoted = [l for l in lines if l.startswith("Promoted through")]
+        self.assertTrue(promoted, lines)
+        self.assertNotIn("(", promoted[0])
+
+    def test_the_gloss_survives_the_ascii_fold(self):
+        text = self.flat(self.plan(self.gloss(), fmt="ats-maximal"))
+        self.assertIn("(Full-Stack Engineer)", text)
+
+
 class AtsVariant(PlanCase):
     def test_ats_maximal_names_the_employer_on_every_role_line(self):
         plan = self.plan(fmt="ats-maximal")

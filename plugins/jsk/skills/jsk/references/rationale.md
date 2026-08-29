@@ -92,6 +92,21 @@ was what went out. A resume it reported as two pages shipped as three. **A gate 
 document nobody sends is not a gate**, and the cheapest way to keep it honest is to have one
 rendered document.
 
+## Why we do not optimise for the ranker
+
+The parse rules look like ATS optimisation and are not. They exist so a document arrives intact:
+a table that fragments a bullet, a ligature that eats a word, a header that gets discarded with the
+phone number in it. Every one of them is about **not losing content**.
+
+Nothing here tries to raise a score. Hidden keyword blocks, invisible type and term-stuffing all fail
+in the same specific way: they work on the machine and then the document reaches a person. The
+keyword got the resume into the room and the interview is the room. Resume-score tools fail
+differently — they score against a model of a parser rather than the parser the employer runs, so the
+number moves for reasons unrelated to the work, and people rewrite good bullets to chase it.
+
+**How to say it to someone:** *"A hidden keyword block is a lie told to a machine that a human then
+reads back to you in the interview."*
+
 ## Why provenance is tracked on every claim
 
 You will often write better prose than the person spoke. That is useful. But reasoning you supplied

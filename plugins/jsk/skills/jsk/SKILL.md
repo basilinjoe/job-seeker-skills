@@ -196,6 +196,11 @@ follow-up.*
 
 **Never invent a credential**, or claim one is "in progress", unless they said so.
 
+**Never hide text in a resume**, and never add a term the person cannot defend in an interview.
+The parse rules keep a document readable; they are not a ranking to game. Hidden keywords, invisible
+type and resume-score tools are out of scope — `references/ats-rules.md` has the boundary and the
+reasoning.
+
 ## Working with people
 
 Adapt to what they know. Some will not know what YAML or an ATS is — explain briefly in plain terms

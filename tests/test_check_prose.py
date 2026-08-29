@@ -15,6 +15,9 @@ CHECK_PROSE = SCRIPTS / "check_prose.py"
 cp = load_script(CHECK_PROSE)
 
 # A resume whose prose satisfies every documented rule. The regression guard.
+# Both bullets carry a number deliberately: quantification coverage is one of
+# the rules now, and a fixture that models the clean case has to model that one
+# too, or "WARN 0" stops meaning what it says.
 CLEAN = [
     (False, "Jane Doe"),
     (False, "Phone: +61 400 123 456 | Email: jane.doe@example.com"),
@@ -25,7 +28,7 @@ CLEAN = [
     (False, "Professional Experience"),
     (False, "Senior Architect, Acme Corp | Jun 2025 - Present"),
     (True, "Owned the migration to event-driven services across six delivery teams, "
-           "cutting release lead time from three weeks to two days."),
+           "cutting release lead time from 21 days to 2 days."),
     (True, "Cut order-processing latency 62 percent by decomposing a monolithic "
            "service into six event-driven microservices."),
     (False, "Education"),
@@ -265,6 +268,58 @@ class MalformedInput(ProseCase):
         code, out = run(CHECK_PROSE)
         self.assertEqual(code, 2)
         self.assertIn("usage", out.lower())
+
+
+class QuantificationCoverage(ProseCase):
+    """writing-rules.md anchors every bullet on a measurable result. Nothing was
+    measuring whether it happened: validate_urs.py checks that a number in prose
+    traces to a metric, which says nothing about a bullet carrying no number.
+
+    Reported, never enforced. A gate that demands a number is a gate that gets
+    fed an invented one, and inventing numbers is the exact failure the whole
+    provenance apparatus exists to prevent.
+    """
+
+    UNQUANTIFIED = "Architected the multi-tenant isolation layer for the platform."
+
+    def test_the_coverage_line_is_reported(self):
+        _, out = self.check()
+        self.assertIn("quantified: 2/2 (100%)", out)
+
+    def test_an_unquantified_bullet_is_counted_and_named(self):
+        code, out = self.check(with_lines((True, self.UNQUANTIFIED)))
+        self.assertEqual(code, 0, out)
+        self.assertIn("quantified: 2/3 (66%)", out)
+        self.assertIn("no metric in bullet", out)
+        self.assertIn("isolation layer", out)
+
+    def test_no_number_anywhere_still_passes(self):
+        code, out = self.check([
+            (False, "Professional Experience"),
+            (True, "Owned the payments rewrite end to end."),
+            (True, "Architected the tenancy model for the platform."),
+        ])
+        self.assertEqual(code, 0, out)
+        self.assertIn("PASS", out)
+        self.assertIn("quantified: 0/2 (0%)", out)
+
+    def test_the_listing_is_capped(self):
+        """A wholly unquantified draft must not bury every other finding."""
+        _, out = self.check([(False, "Professional Experience")] +
+                            [(True, f"Owned the {w} rewrite end to end.")
+                             for w in ("billing", "payments", "search", "tenancy",
+                                       "reporting", "identity")])
+        self.assertEqual(out.count("no metric in bullet"), 4)
+        self.assertIn("and 2 more bullets carry no number", out)
+
+    def test_a_year_does_not_count_as_a_metric(self):
+        """The exclusions are why validate_urs.numerals() is reused rather than
+        reimplemented - a bullet mentioning 2019 is not a quantified bullet."""
+        _, out = self.check([
+            (False, "Professional Experience"),
+            (True, "Owned the payments rewrite through the 2019 reorganisation."),
+        ])
+        self.assertIn("quantified: 0/1 (0%)", out)
 
 
 class OutputShape(ProseCase):

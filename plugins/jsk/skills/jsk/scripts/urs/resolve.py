@@ -45,6 +45,26 @@ def _index(items):
     return {i["id"]: i for i in (items or []) if isinstance(i, dict) and "id" in i}
 
 
+def role_title(p):
+    """The title, with its functional gloss when one adds something.
+
+    A title that is internal-only, niche or simply misleading - "Member of
+    Technical Staff", "Client Success Associate" - tells a reader outside that
+    employer nothing, and the reader is spending six seconds. The gloss goes in
+    parentheses beside the official title rather than in place of it, because
+    the official title is the one a reference check confirms.
+
+    Suppressed when the two match case-insensitively: transcribing a bundle
+    fills both often enough, and "Senior Engineer (Senior Engineer)" is worse
+    than either alone.
+    """
+    title = (p.get("title") or "").strip()
+    functional = (p.get("functional_title") or "").strip()
+    if functional and functional.lower() != title.lower():
+        return f"{title} ({functional})"
+    return title
+
+
 class Resolver:
     def __init__(self, doc, gate, view, ascii_only):
         self.doc = doc
@@ -219,7 +239,8 @@ class Resolver:
         if self.ascii_only:
             # ATS-maximal: name the employer on every role line.
             for p in positions:
-                left = f"{p['title']}, {org_name}" if org_name else p["title"]
+                shown = role_title(p)
+                left = f"{shown}, {org_name}" if org_name else shown
                 entry["roles"].append({"left": self.t(left), "right": fmt_period(p.get("period"))})
             if not positions:
                 entry["roles"].append({"left": self.t(org_name), "right": fmt_period(e.get("period"))})
@@ -227,7 +248,7 @@ class Resolver:
             entry["org_line"] = self.t(org_name)
             entry["org_right"] = fmt_period(e.get("period"))
             for p in positions:
-                entry["roles"].append({"left": self.t(p["title"]),
+                entry["roles"].append({"left": self.t(role_title(p)),
                                        "right": fmt_period(p.get("period"))})
 
         context = []
@@ -251,6 +272,9 @@ class Resolver:
             # stripped, four job titles fuse into one phantom title. The
             # progression is stated oldest-first because that is the direction
             # a promotion runs, whatever order the roles are listed in above.
+            # Bare titles here, not role_title(): this sentence exists to defeat
+            # the arrow trap, and four parentheticals in one line defeat the
+            # reader instead. Each gloss is already on its own role line above.
             oldest_first = sorted(positions, key=lambda p: period_key(p.get("period")))
             titles = ", ".join(p["title"] for p in oldest_first)
             entry["lines"].append(self.t(

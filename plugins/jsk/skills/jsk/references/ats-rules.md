@@ -84,6 +84,26 @@ Spell out and abbreviate on first use: `Retrieval-Augmented Generation (RAG)`. P
 stack row second in the skills block, right after the architecture row. Do not stuff; a human reads
 it after the machine.
 
+## What this does not do
+
+Every rule above exists so a parser does not **lose** content. None of it exists to move a document
+up a ranking, and the difference is the whole boundary of this skill.
+
+Out of scope, and declined when asked for:
+
+- **Hidden text.** White or near-invisible type, keyword blocks behind an image, terms sized to
+  nothing, a keyword layer under the visible one. It is a lie told to a machine that a human then
+  reads back in the interview.
+- **Keyword injection.** A term the person cannot defend, whatever it does to a match rate. Mirroring
+  a posting's exact wording for work they actually did is the rule above; adding Kubernetes because
+  the posting says Kubernetes is not.
+- **Resume-score tools.** They score a document against a *model* of a parser, not the parser the
+  employer runs, and the number moves for reasons that have nothing to do with the work. The four
+  gates in `SKILL.md` answer questions that can actually be answered.
+
+The document is built for a person reading it in six seconds. The parse rules exist so that document
+reaches them intact — that is all they are for.
+
 ## What check_ats.py verifies
 
 It reads the `.pdf` (text via `pymupdf`) or the `.txt`. The seven structural checks it used to run

@@ -7,7 +7,9 @@ Usage: python3 check_prose.py resume.tex
 On Windows use `python` or `py -3` in place of `python3`.
 
 The sibling gate to check_ats.py. That one verifies a document *parses*; this one
-verifies it *reads*. A bullet in the third person - "the platform followed him
+verifies it *reads* - and reports how much of it is quantified, which nothing
+else measures: validate_urs.py checks that a number in prose traces to a metric,
+never that any number is there at all. A bullet in the third person - "the platform followed him
 through his promotion" - is not a parsing defect, so check_ats.py passes it with
 0 failures and is right to. Nothing else was checking.
 
@@ -15,6 +17,22 @@ Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
 No third-party dependencies.
 """
 import sys, os, re
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+try:
+    # Reused rather than reimplemented. validate_urs.numerals() already knows
+    # that a year, a glued designator (p95, S3, H100) and a standard's number
+    # (ISO 27001) are not claims, and a second detector without those
+    # exclusions would report a resume as unquantified because it mentions
+    # 2019. This gate stays runnable where that file is absent - SKILL.md's
+    # "installed as SKILL.md alone" case - by dropping the coverage line
+    # rather than failing.
+    from validate_urs import numerals
+except ImportError:                                          # pragma: no cover
+    numerals = None
 
 # --- fail: a resume is implied first person, and these are never the subject ---
 # `they/them/their` are excluded deliberately. "Migrated their estate to Azure"
@@ -195,7 +213,25 @@ def check(paragraphs):
         if not opens_on_a_verb(bullet):
             warns.append(f"bullet does not open on a verb: {bullet[:60]!r}")
 
-    return fails, warns
+    quantified = None
+    if numerals is not None and bullets:
+        unquantified = [b for b in bullets if not numerals(b)]
+        quantified = len(bullets) - len(unquantified)
+        # Listed rather than counted, because the useful output is *which*
+        # bullets, and capped because a wholly unquantified draft would
+        # otherwise bury every other finding. Deliberately never a failure and
+        # never a threshold: a gate that demands a number is a gate that gets
+        # fed an invented one, which is the exact failure provenance exists to
+        # prevent. writing-rules.md names the metrics worth chasing, and
+        # mode-gaps.md is where the chasing happens - with the person present.
+        for bullet in unquantified[:4]:
+            warns.append(f"no metric in bullet: {bullet[:60]!r}")
+        if len(unquantified) > 4:
+            warns.append(f"...and {len(unquantified) - 4} more bullets carry no number - "
+                         f"writing-rules.md anchors Y on latency, defect rate, "
+                         f"release frequency, onboarding time, users served")
+
+    return fails, warns, quantified
 
 
 def main(argv=None):
@@ -232,11 +268,14 @@ def main(argv=None):
     except OSError as e:
         return unreadable(str(e))
 
-    fails, warns = check(paragraphs)
+    fails, warns, quantified = check(paragraphs)
     bullets = sum(1 for b, t in paragraphs if b and t.strip())
 
+    counts = f"paragraphs: {len(paragraphs)}   bullets: {bullets}"
+    if quantified is not None and bullets:
+        counts += f"   quantified: {quantified}/{bullets} ({quantified * 100 // bullets}%)"
     print(f"checking: {os.path.basename(path)}")
-    print(f"paragraphs: {len(paragraphs)}   bullets: {bullets}")
+    print(counts)
     print(f"\nFAIL {len(fails)}   WARN {len(warns)}")
     for f in fails:
         print("  FAIL  " + f)

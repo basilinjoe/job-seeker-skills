@@ -119,6 +119,21 @@ contact. Hand-maintained, because it is reference data with low churn rather tha
 **Linking is one-way.** The application names the company via `company_ref`; the company does not
 list its applications. That list is derived — `pipeline.py --company NAME` — so it cannot drift.
 
+## Roles
+
+One file per job title. Where the official title is internal-only, niche, or does not describe the
+work, record the bridge beside it rather than editing the title:
+
+```yaml
+type: Role
+title: "Member of Technical Staff"
+functional_title: "Full-Stack Engineer"    # renders in parentheses; never replaces title
+```
+
+An extension key, so no validator change was needed to carry it — but it is the field
+`resume.json` reads, so spell it exactly. `writing-rules.md` has when to reach for it and, more
+often, when not to.
+
 ## Concept file format
 
 ```markdown
@@ -198,6 +213,10 @@ senior role earns one or two lines for the first two years.
 **Many roles at one employer:** one company block, a single progression line, achievements grouped by
 scope era. Repeating the employer six times fragments the page and turns a promotion story into
 clutter. (ATS-maximal reverses this — see `ats-rules.md`.)
+
+**Bridge a title nobody outside that employer can place.** "Member of Technical Staff
+(Full-Stack Engineer)" on the role line. The official title stays first and verbatim — see
+`writing-rules.md`, which also says when to leave a title alone.
 
 **Label domains inline on every project.** For one long tenure this is the main defence against
 "narrow exposure", and it is free.

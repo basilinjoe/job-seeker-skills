@@ -169,7 +169,8 @@ This is what fixes promotions and contracting.
     "location": { "city": "Melbourne", "region": "VIC", "country": "AU", "mode": "hybrid" },
     "period": { },
     "positions": [
-      { "id": "pos_1", "title": "Senior Engineer", "period": { } },
+      { "id": "pos_1", "title": "Member of Technical Staff",
+        "functional_title": "Senior Engineer", "period": { } },
       { "id": "pos_2", "title": "Principal Engineer", "period": { }, "change": "promotion" }
     ],
     "achievements": [ ] }
@@ -182,6 +183,24 @@ client and payer stop being the same field.
 
 `kind: "break"` is deliberate. A career break becomes a declarable entry with an optional reason
 rather than a hole in the chronology that a screener infers something about.
+
+`functional_title` is the bridge for a title that is internal-only, niche, or does not describe the
+work — "Member of Technical Staff", "Client Success Associate", any ladder rung that means something
+only inside one company. It renders in parentheses **after** `title` on the role line, in both
+variants:
+
+```
+Member of Technical Staff (Senior Engineer)                          Jun 2025 - Present
+```
+
+It never replaces `title`, because `title` is what a reference check confirms. It also never
+promotes: the gloss says what the role *was*, so a Senior Engineer does not gain "(Engineering
+Manager)". Omit it whenever the official title already reads plainly — most do, and a gloss on
+"Senior Engineer" is noise. The resolver drops one that merely repeats the title.
+
+UJD carries `normalized_title` for the same problem on the posting side, but that one *replaces* an
+employer's ladder noise with a comparable title for matching. Different operation, different name,
+deliberately.
 
 ### Grade
 

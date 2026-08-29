@@ -27,8 +27,9 @@ Order by what unblocks most:
 1. **Blocking** — anything stopping a resume going out: an unnamed project, an unresolved contact
    detail, a date conflict
 2. **Inferred claims**
-3. **Missing metrics**, highest-strength projects first
-4. **Unexplored territory**
+3. **Illegible titles** — a job title a reader outside that employer cannot place
+4. **Missing metrics**, highest-strength projects first
+5. **Unexplored territory**
 
 ## For inferred claims
 
@@ -39,6 +40,22 @@ Quote it exactly, say where it came from, offer the exit:
 > not, I'll cut the clause."
 
 Confirm, correct, or delete. All three are fine. Leaving it as-is is not.
+
+## For illegible titles
+
+Most people never notice this one, because inside the company the title was perfectly clear. Ask
+plainly:
+
+> "Your title there was Member of Technical Staff. If I showed that line to a hiring manager who has
+> never worked at that company, what would they think you did? What would the same job be called
+> somewhere else?"
+
+Record their answer as `functional_title` and leave the official title untouched — it is what a
+reference check confirms, and rewriting it turns a clarification into a discrepancy. Watch for the
+answer that is a level up rather than a translation ("really I was doing staff engineer work"): that
+is a claim about scope, and it belongs in the evidence, not in a parenthesis.
+
+Most titles need nothing here. Skip the ones that already read plainly.
 
 ## For missing metrics
 

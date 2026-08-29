@@ -107,7 +107,7 @@
       "domains": ["banking", "insurance"],
       "positions": [
         { "id": "pos_n1", "title": "Solution Architect", "period": { "start": { "value": "2019-03", "precision": "month" }, "end": { "value": "2021-01", "precision": "month" }, "state": "ended" }, "change": "promotion", "seniority": "platform-design" },
-        { "id": "pos_n2", "title": "Senior Engineer", "period": { "start": { "value": "2016-08", "precision": "month" }, "end": { "value": "2019-02", "precision": "month" }, "state": "ended" }, "change": "hire", "seniority": "hands-on-senior" }
+        { "id": "pos_n2", "title": "Member of Technical Staff", "functional_title": "Senior Engineer", "period": { "start": { "value": "2016-08", "precision": "month" }, "end": { "value": "2019-02", "precision": "month" }, "state": "ended" }, "change": "hire", "seniority": "hands-on-senior" }
       ],
       "achievements": [
         {
