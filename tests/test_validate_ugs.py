@@ -154,6 +154,36 @@ class SubjectsArePinned(UgsCase):
         self.assertEqual(code, 1, out)
         self.assertIn("does not match the file as read", out)
 
+    def test_a_line_ending_conversion_is_not_an_edit(self):
+        """Regression: a Windows clone with core.autocrlf rewrites every LF to CRLF.
+
+        Hashing the bytes as they sit on disk would invalidate every past assessment
+        on checkout, for a change that is not an edit to the posting in any sense a
+        person would recognise. The checksum answers "was this document changed", so
+        it is taken over normalised line endings.
+        """
+        import json
+        gaps, posting, record = self.example()
+        path = gaps_workspace(self.tmp, gaps, posting, record)
+        for name in ("example.posting.json", "example.resume.json"):
+            target = path.parent / name
+            target.write_bytes(target.read_bytes().replace(b"\n", b"\r\n"))
+        code, out = run(VALIDATE_UGS, path, "--recompute")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("does not match the file as read", out)
+
+    def test_a_real_content_edit_still_fails_under_that_normalisation(self):
+        """The normalisation must not soften what the checksum is for."""
+        import json
+        gaps, posting, record = self.example()
+        path = gaps_workspace(self.tmp, gaps, posting, record)
+        target = path.parent / "example.posting.json"
+        target.write_bytes(json.dumps(posting, indent=2).encode("utf-8")
+                           .replace(b"Acme Corp", b"Other Corp"))
+        code, out = run(VALIDATE_UGS, path, "--recompute")
+        self.assertEqual(code, 1, out)
+        self.assertIn("does not match the file as read", out)
+
     def test_a_bare_hex_checksum_is_accepted_too(self):
         """`sha256:<hex>` and a bare `<hex>` name the same thing."""
         gaps, posting, record = self.example()

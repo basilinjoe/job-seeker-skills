@@ -95,6 +95,21 @@ def resolve_ref(ref, gaps_path):
     return None
 
 
+def checksum(raw):
+    """sha256 over the document with line endings normalised.
+
+    Not over the bytes as they sit on disk. A bundle is version-controlled and moves
+    between machines, and a Windows checkout with core.autocrlf rewrites every LF to
+    CRLF - which would invalidate every past assessment on clone, for a change that
+    is not an edit to the posting in any sense a person would recognise.
+
+    The purpose of the checksum is to catch a subject document being *changed* after a
+    verdict was computed against it. Normalising here keeps it answering that question
+    and only that one.
+    """
+    return hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+
+
 def load_subject(subjects, key, gaps_path, rep):
     """The subject document, plus the sha256 of the bytes actually read."""
     entry = (subjects or {}).get(key) or {}
@@ -109,7 +124,7 @@ def load_subject(subjects, key, gaps_path, rep):
     with open(path, "rb") as fh:
         raw = fh.read()
     try:
-        return json.loads(raw.decode("utf-8")), hashlib.sha256(raw).hexdigest()
+        return json.loads(raw.decode("utf-8")), checksum(raw)
     except (json.JSONDecodeError, UnicodeDecodeError) as error:
         rep.fail(f"subjects.{key}.ref {ref!r} is not readable JSON: {error}")
         return None, None

@@ -373,7 +373,15 @@ Implemented 2026-08-29, as designed, with five changes made during the build.
   The test now asserts the verifier holds neither, and that an agent reporting on the record holds
   Write and never Edit.
 
-460 tests pass, up from 350 on main. The shipped examples validate at conformance level 2 and preflight's
+- **The checksum could not hash the bytes on disk.** A Windows clone with
+  `core.autocrlf=true` rewrites every LF to CRLF on checkout, which changed the hash of both shipped
+  subject documents and failed the example gap analysis against itself. A line-ending conversion is
+  not an edit to the posting in any sense a person would recognise, and the checksum exists to answer
+  "was this document changed" — so it is taken over normalised line endings, with a `.gitattributes`
+  pinning the repo's own JSON to LF as well. Two regression tests: a CRLF rewrite passes, a one-word
+  content edit still fails.
+
+462 tests pass, up from 350 on main. The shipped examples validate at conformance level 2 and preflight's
 end-to-end check is green.
 
 **Not done, and deliberately.** No fixture bundle exercises the full loop end to end — the four
