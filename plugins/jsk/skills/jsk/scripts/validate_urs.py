@@ -85,6 +85,12 @@ def metric_values(metrics):
             q = m.get(key) or {}
             if isinstance(q.get("value"), (int, float)):
                 out.add(float(q["value"]))
+        # A metric compiled from `achievements/metrics.md` carries the row as written -
+        # "5 min to under 1 s", "2,000+", "-30%" - because that is how a person records
+        # a number they verified. Every numeral in it counts as recorded, which is what
+        # the check is asking: does this number appear in something someone wrote down.
+        if isinstance(m.get("value"), str):
+            out.update(value for value, _suffix, _shown in numerals(m["value"]))
     return out
 
 

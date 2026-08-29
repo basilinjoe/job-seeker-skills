@@ -22,8 +22,6 @@ what the current task needs.
 |---|---|
 | `bundle-spec.md` | Bundle layout on disk, concept file format, frontmatter schema, selection keys, concept types |
 | `urs-spec.md` | The URS record: document shape, core types, views, region profiles, conformance levels |
-| `ujd-spec.md` | The UJD posting: requirement model with `necessity`, boolean requirement groups, eligibility gates, provenance, inbound mappings. `score_projects.py` reads it |
-| `ugs-spec.md` | The UGS assessment: the join between a posting and a record — verdicts, evidence, typed shortfalls, counterfactuals, the question queue |
 
 ## Rules — what good looks like
 

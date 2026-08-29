@@ -12,22 +12,22 @@ say so — do not manufacture a bullet. Anything `inferred` needs confirmation b
 Not only ethics: someone who bluffs past a screen gets found out in the first technical conversation,
 having burned both the opportunity and their credibility.
 
-## The shape, and why gaps come first
+## The shape
 
 ```
-posting  ──►  UJD        the requirement side, extracted rather than typed
-bundle   ──►  URS        the evidence side, one standing record
-UJD × URS ──► UGS        the join: verdicts, evidence, shortfalls, questions
-answers  ──►  bundle     the record improves, and the round runs again
-                └──► on any termination reason: author once, confirm, ship
+posting.md   ──►  requirements[] in its own frontmatter
+bundle       ──►  the record, compiled in under a second
+      └────────►  gaps.md     verdicts, shortfalls, the question queue
+answers      ──►  the concepts, and the record recompiles
+                        └──► author once, confirm, ship
 ```
 
-The resume is written **last**. There is no reason to author a document from a record you are about
-to change, and doing it at the end drops N−1 authoring passes from an N-round loop.
+**Two agent passes, and the person in between.** One reads the posting and the record and writes the
+assessment; one authors the resume after the questions are answered. Everything else — the record, the
+ranking, the checks — is a script, because none of it needs judgement.
 
-This is also the fix for the defect the old procedure had. It reported gaps at the final step, after
-every generation decision had already been taken — so the correction window it existed to create
-never opened.
+The resume is written **last**. There is no reason to author a document from a record you are about to
+change, and doing it at the end drops every wasted authoring pass.
 
 ## 0. Get the posting
 
@@ -35,54 +35,23 @@ never opened.
 tools. Job boards refuse often — LinkedIn and most Workday tenants sit behind a wall — so when a fetch
 fails, say what happened and ask them to paste it. That is an ordinary outcome, not an error.
 
-Keep the URL either way. It goes in `posting.url`, and the archive needs it.
+Write it to `tailoring/targets/<slug>.posting.md` with the advertisement verbatim in the body and the
+URL in the frontmatter. Keep the URL either way; the archive needs it.
 
-## 1. Build the two documents
+## 1. Assess
 
-Both are read-heavy and neither needs anybody in the room, so delegate them.
+`jsk-tailor-analyst` writes the requirements into the posting's frontmatter and the assessment into
+`tailoring/targets/<slug>.gaps.md`, and returns the ranking.
 
-| Agent | Writes | Then |
-|---|---|---|
-| `jsk-posting-analyst` | `tailoring/targets/<slug>.posting.json` | `validate_ujd.py --level 2 --bundle <bundle>` |
-| `jsk-record-builder` | `resume-generation/record.json` | `validate_urs.py --level 2` |
+**Show them the assessment.** Not a summary of it. It is written to be read aloud, which is the whole
+reason it is Markdown and not a document with a schema.
 
-`record.json` is the standing transcription of the bundle. It may already exist from a previous
-session — pass it, and the builder updates it in place rather than re-deriving it. **Ids must not
-change between rounds**: a gap document resolves its evidence against this file, so a renamed id
-orphans every verdict from the round before while both documents still validate.
+**Surface what came back in your own words**, and stop before anything is authored when: the ranking
+is close between projects with materially different ownership verbs, a top-ranked project carries
+unconfirmed content, eligibility fails, or the posting suggests the role may not be worth applying to
+at all. That last decision is theirs and it comes before the work.
 
-**Surface what came back in your own words.** The analyst's PAUSE flags are not advisory: stop and ask
-before anything is authored when the ranking is close between projects with materially different
-ownership verbs, when a top-ranked entity carries `inferred` content, when eligibility fails, or when
-the posting suggests the role may not be worth applying to at all. That last decision is theirs and it
-comes before the work.
-
-## 2. The round
-
-```bash
-python3 <skill-dir>/scripts/score_projects.py <bundle>/resume-generation/record.json \
-        tailoring/targets/<slug>.posting.json --markdown
-```
-
-**From round 2 on, pass the previous `.gaps.json`.** The analyst patches that document instead of
-deriving a new one — same ids, only what the answers changed — which is what stops a three-round loop
-from costing three times what one round costs.
-
-Then `jsk-gap-analyst` writes `tailoring/targets/<slug>.gaps.json`, and:
-
-```bash
-python3 <skill-dir>/scripts/validate_ugs.py tailoring/targets/<slug>.gaps.json \
-        --recompute --report --carry <previous.gaps.json>
-```
-
-`--recompute` re-derives the group verdicts, the aggregate and both checksums, and fails the document
-when they disagree with what the agent wrote. `--report` prints the readable checkpoint — the
-requirement table, the shortfalls, the surplus and the question queue — which is what the retired Job
-Target file used to be, except that it is rendered from the JSON and so cannot drift from it.
-
-**Show them the report.** Not a summary of it.
-
-## 3. Ask the whole queue at once
+## 2. Ask the whole queue at once
 
 Present the ordered queue and take a bulk reply. Then go one at a time **only** for answers that came
 back ambiguous, incomplete, or that contradict what the record already says.
@@ -90,95 +59,76 @@ back ambiguous, incomplete, or that contradict what the record already says.
 This departs from `mode-gaps.md`'s standing rule — *"one question at a time… a list of fifteen gets
 abandoned; one gets answered"* — and the departure is deliberate. That rule was written for an
 open-ended bundle audit with no natural end. A tailoring round is bounded, ordered by priority, and
-every question names the requirement it would close, so the person can see the whole cost of the round
-before starting it. `/jsk:gaps` keeps one-at-a-time.
+every question names the requirement it would close, so the person can see the whole cost before
+starting it. `/jsk:gaps` keeps one-at-a-time.
 
-Order is `blocking → unmet-requirement → inferred-claim → missing-metric → unexplored`.
+**Offer the skip.** It is the ordinary exit, not a failure.
 
-For an inferred claim, quote it exactly, say where it came from, and offer the exit:
+For a claim the record only infers, quote it exactly, say where it came from, and offer confirm,
+correct, or cut. For a missing metric, prompt with where the number might live — dashboards, billing,
+retros, release notes, incident reviews, promotion documents, a colleague. **Ask twice, then let go**:
+an honest "~50 tenants" beats silence, and a bullet permanently awaiting a number is a bullet nobody
+improved.
 
-> "On the care-plan project I wrote that policy grounding was there to stop hallucinated guidance
-> reaching staff. You described the mechanism but not the reason — I supplied that. Is it right? If
-> not, I'll cut the clause."
+### Answers go into the concepts
 
-Confirm, correct, or delete. All three are fine. Leaving it as-is is not.
+An answer edits **the concept it belongs to** — the project file, `achievements/metrics.md`, the role.
+One place, because there is only one source now: the record recompiles from it. That is the whole
+reason the old procedure's "write it to both places, then reconcile" step is gone, along with the class
+of bug it existed to catch.
 
-For a missing metric, prompt with where the number might live: monitoring dashboards, APM, cloud
-billing, sprint retros, release notes, incident reviews, promotion documents, a colleague. **Ask
-twice, then let go** — an honest "~50 tenants" beats silence, and a bullet permanently awaiting a
-metric is a bullet nobody improved.
+Then recompile, so everything after this reads the answers:
 
-### Write each answer to both places
+```bash
+python3 <skill-dir>/scripts/okf_compile.py <bundle> --quiet
+```
 
-An answer updates the **bundle concept** and patches **`record.json`** in the same edit — flipping a
-`status`, adding a metric, adding a capability. Both, every time. The reconcile pass in step 4 exists
-because this is the one thing the arrangement can get wrong, and it reports divergence rather than
-quietly fixing it.
+## 3. A second round only if a verdict moved
 
-## 4. Ending the round
+Run the analyst again **only when an answer changed what the record holds** — a metric arrived, an
+unevidenced claim got its evidence, a requirement that was indeterminate can now be judged. Pass it the
+previous `gaps.md`; it revises rather than re-deriving.
 
-The loop ends when **any** of these holds. `validate_ugs.py --report` computes the first three and
-prints which one:
+Otherwise stop. A round that re-asks what was already answered is how a loop stops ending, and three
+rounds of a document nobody's answers changed is where the old procedure spent most of its time.
 
-1. **`questions[]` is empty.** Nothing is worth asking.
-2. **Every open question is `unexplored`** — territory never discussed. It improves the record in
-   general, not this application, and belongs in `/jsk:gaps`.
-3. **No new answerable question this round.** Every one is already carried as `deferred` or
-   `unavailable`. Without this guard, a requirement nobody can close re-asks forever.
-4. **Three rounds**, unless they asked for more.
-5. **They skip.** Offer it every round. It is the ordinary exit, not a failure.
+**Say why it ended.** "Nothing left worth asking" and "you skipped with four things open" call for
+different next moves.
 
-**Tell them which reason ended it.** "Nothing left to ask" and "you have hit the cap with four things
-open" call for different next moves.
+## 4. Author, once
 
-Then run `jsk-record-builder` once more to reconcile, and report any divergence it found.
+`jsk-resume-author` writes the view and the prose. Three things carry that:
 
-## 5. Author, once
-
-`jsk-resume-author` writes `tailoring/targets/<slug>.resume.json` — the narrative, the summary retuned
-to this posting, and the view. It is the only agent that writes prose, and three things carry that:
-
-- **Everything it authored is `inferred`**, and `provenance_floor: confirmed` on the view means
-  `validate_urs.py` refuses to render it until a person confirms it. A failing render here is the
+- **Everything it authors is `inferred`**, and `provenance_floor: confirmed` on the view means
+  `validate_urs.py` refuses to render it until a person confirms. A failing render here is the
   guardrail working, not a problem to route around.
-- **Every numeral must trace to a metric.** Tailoring is exactly when a rewritten clause inflates a
-  number, and that check is what catches it.
+- **Every numeral must trace to a metric** in `achievements/metrics.md`. Tailoring is exactly when a
+  rewritten clause inflates a number, and that check is what catches it.
 - **It quotes every clause back**, with what it derived it from.
 
 **Read those quotes to the person and get confirm-correct-or-cut on each**, then flip the confirmed
-ones in the record. This step is yours and is not delegable.
+ones. This step is yours and is not delegable.
 
-**A view references content; it cannot contain it.** The validator rejects free text inside one. That
-is the structural expression of the rule at the top of this file: a format where invention is
-impossible beats a process where invention is merely discouraged. If the posting wants something the
-record does not have, the view has nothing to point at — which is the honest outcome, and the thing
-to say out loud.
+**A view references content; it cannot contain it.** The validator rejects free text inside one and
+fails on a key it does not recognise. That is the structural expression of the rule at the top of this
+file: a format where invention is impossible beats a process where invention is merely discouraged. If
+the posting wants something the record does not have, the view has nothing to point at — which is the
+honest outcome, and the thing to say out loud.
 
-Then re-run the recompute with the view in view, which is what populates `surface[]`:
+## 5. Ship
 
-```bash
-python3 <skill-dir>/scripts/validate_ugs.py tailoring/targets/<slug>.gaps.json --recompute --report
-```
+`/jsk:ship`, or `references/mode-ship.md` inline. It renders, runs the four gates, freezes the archive
+and logs the submission. It never freezes a document that failed a gate.
 
-A surface gap is *held in the record, absent from what is about to be sent* — a different failure from
-not having the thing, with a much cheaper fix, and invisible to anyone reading only the rendered
-document.
-
-## 6. Ship
-
-`/jsk:ship`, or `references/mode-ship.md` inline. It renders, runs all four gates through
-`jsk-verifier`, freezes the archive and logs the submission. It never freezes a document that failed a
-gate.
-
-## 7. Tell them where they fall short
+## 6. Tell them where they fall short
 
 Every time, in chat, before they ask. By now this is a reading of the assessment rather than a
 judgement you are forming:
 
-> "Two gaps survived the rounds. They want direct people-management — you have technical leadership
-> and mentoring evidence, but nothing on hiring or performance reviews. And they name Terraform
-> throughout; your IaC evidence is all Bicep. The concepts transfer and you could say so in interview,
-> but the resume can't claim Terraform depth you don't have."
+> "Two gaps survived. They want direct people-management — you have technical leadership and mentoring
+> evidence, but nothing on hiring or performance reviews. And they name Terraform throughout; your IaC
+> evidence is all Bicep. The concepts transfer and you could say so in interview, but the resume can't
+> claim Terraform depth you don't have."
 
 A named gap can be prepared for, addressed in a cover letter, or used to decide the role is not worth
 applying to. That decision is theirs and needs real information. If the fit is genuinely poor, say so.
@@ -192,5 +142,5 @@ Address the obvious gap in one honest line rather than hoping nobody notices. No
 
 Where agents are unavailable, the procedure is the same and the scripts are the same. What you lose is
 the separation, not the method — so be stricter about the two places it matters: keep the
-advertisement before you read anything out of it, and run `validate_ugs.py --recompute` rather than
-trusting your own arithmetic.
+advertisement before you read anything out of it, and run the scripts rather than trusting your own
+arithmetic.

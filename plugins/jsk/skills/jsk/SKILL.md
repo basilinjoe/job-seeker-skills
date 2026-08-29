@@ -35,17 +35,25 @@ from it. *Two hand-built documents stop agreeing the moment one is edited — si
 copy that gets sent.* `references/urs-spec.md` has the format, `references/mode-resume.md` the
 procedure.
 
-## Three documents, and the loop between them
+## One source, and what compiles from it
 
-| Standard | Holds | Written by |
+**The bundle is the only thing anyone edits.** Everything a tool reads is built from it:
+
+| Thing | Is | Made by |
 |---|---|---|
-| **URS** — `resume-generation/record.json` | the career record, transcribed from the bundle | `jsk-record-builder` |
-| **UJD** — `<slug>.posting.json` | the posting: requirements with `necessity`, boolean groups, eligibility gates | `jsk-posting-analyst` |
-| **UGS** — `<slug>.gaps.json` | the join: a verdict per requirement, evidence, typed shortfalls, questions | `jsk-gap-analyst` |
+| the bundle — `projects/`, `roles/`, `achievements/`, … | the source of truth, hand-written Markdown | the person |
+| the record | the bundle as URS, in memory, in under a second | `okf_compile.py` |
+| `<slug>.posting.md` | the advertisement verbatim, plus its requirements in frontmatter | `jsk-tailor-analyst` |
+| `<slug>.gaps.md` | verdicts, shortfalls and the question queue, written to be read aloud | `jsk-tailor-analyst` |
+| `<slug>.view.md` | which evidence appears, in what order, and the prose retuned for this posting | `jsk-resume-author` |
 
-Tailoring is a loop over these, and **the gaps close before the resume is written**: assess, ask the
-queue, write answers back into the bundle *and* the record, reassess. Only when the loop ends does
-`jsk-resume-author` write the tailored record, once. `references/mode-tailor.md` has the procedure.
+The record is **compiled, never transcribed**. Every field in it is a frontmatter key or a table
+cell, so a model reading them across adds no judgement — and a transcription that can drift is what
+checksums, conformance levels and a reconcile pass all used to police.
+
+**The gaps close before the resume is written**: assess, ask the queue, write the answers into the
+concepts, recompile. Only then does `jsk-resume-author` write the view, once.
+`references/mode-tailor.md` has the procedure.
 
 ## Modes
 
@@ -103,9 +111,7 @@ Load as needed rather than upfront:
 | `references/bundle-spec.md` | directory layout, frontmatter schema, selection keys, concept types |
 | `references/writing-rules.md` | X-Y-Z bullets, verb accuracy, phrases that damage seniority |
 | `references/ats-rules.md` | hard rules, the two-variant strategy, keyword placement |
-| `references/urs-spec.md` | the JSON standard every document renders from, plus the region profiles |
-| `references/ujd-spec.md` | the posting standard the scorer reads — `necessity`, requirement groups, eligibility gates |
-| `references/ugs-spec.md` | the assessment standard — verdicts, evidence, typed shortfalls, the question queue |
+| `references/urs-spec.md` | the shape the record compiles to, and the region profiles a view renders through |
 | `references/rationale.md` | why the rules are what they are — read it when you need to *explain* one |
 
 ## Scripts
@@ -124,10 +130,10 @@ skill, so a bare `scripts/…` will not resolve.
 | `pipeline.py <bundle> [--all] [--company N] [--as-of D]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
 | `check_ats.py resume.pdf [--strict]` | the rendered PDF (or the `.txt`) is safe to send | `pymupdf` for a PDF |
 | `check_prose.py resume.tex` | the writing rules `check_ats.py` cannot see | — |
-| `score_projects.py <record.json> <posting.json>` | ranks the record's projects against the posting's requirements | — |
+| `okf.py compile <bundle>` | the bundle as the record everything downstream reads | — |
+| `okf.py score <bundle> <posting.md>` | ranks the projects against the posting's requirements | — |
 | `validate_urs.py resume.json [--level N]` | the URS record is coherent before anything renders | — |
-| `validate_ujd.py posting.json [--level N] [--bundle DIR]` | the posting is coherent, and every span traces to the advertisement | — |
-| `validate_ugs.py gaps.json [--recompute] [--report]` | the assessment is coherent, and its arithmetic re-derives | — |
+| `validate_ujd.py posting.json` · `validate_ugs.py gaps.json` | archived applications only — both formats are frozen, not written | — |
 | `render_resume.py resume.json --out DIR [--view ID] [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt` | TeX engine for the PDF |
 | `preview_templates.py resume.json --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` for thumbnails |
 | `fit_pages.py resume.tex --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
@@ -157,11 +163,9 @@ keep the conversation for the judgment.
 | Agent | Hand it | Get back |
 |---|---|---|
 | `jsk-verifier` | the rendered files, the view id, the page budget | every gate's verdict verbatim, and where in `resume.json` each defect is repaired |
-| `jsk-bundle-auditor` | the bundle path | a posting-less UGS document, and a prioritised queue with the questions written ready to ask |
-| `jsk-posting-analyst` | the posting text, its URL, the record | the UJD document written, the ranking, the unmatched requirements, and what to pause on |
-| `jsk-record-builder` | the bundle path | `record.json` transcribed and validated, and everything `inferred` that reached it |
-| `jsk-gap-analyst` | the posting, the record, the previous round | the UGS document written, the honest fit, and the question queue |
-| `jsk-resume-author` | the record, the posting, the gaps, the ranking | the tailored record, every clause it authored quoted, and what it cut |
+| `jsk-bundle-auditor` | the bundle path | what the bundle is missing, and a prioritised queue with the questions written ready to ask |
+| `jsk-tailor-analyst` | the posting file, the bundle path | the requirements written into the posting, the assessment, the ranking, the honest fit and the question queue |
+| `jsk-resume-author` | the posting, the gaps, the bundle path | the view, every clause it authored quoted, and what it cut |
 
 **They never interview.** Confirming an `inferred` claim, choosing between two close-ranked projects,
 and telling someone where they fall short all stay here, with the person present.

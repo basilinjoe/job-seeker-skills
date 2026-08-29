@@ -17,7 +17,7 @@ That loads `references/mode-gaps.md`, which holds the procedure.
 Run this before applying anywhere. It works through `inferred` claims that need sign-off, bullets
 with no metric behind them, and territory the record never covered.
 
-It writes a **posting-less UGS document** - `resume-generation/audit.gaps.json` - so a record audit
+It writes a **posting-less assessment** - `resume-generation/audit.gaps.md` - so a record audit
 and a tailoring round produce questions with the same shape, priorities and resolutions. There is no
 posting to pin, so `meta.purpose` is `self-assessment` and there are no assessments: questions are
 the whole document.

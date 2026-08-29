@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Render a URS document into a .tex (and PDF), or plain text.
+"""Render a bundle - or an archived URS document - into a .tex (and PDF), or plain text.
 
 Usage:
-  python3 render_resume.py resume.json --out DIR [options]
+  python3 render_resume.py <bundle-dir | resume.json> --out DIR [options]
 
   --view ID          which view to render (default: the first one)
   --format F         latex | txt | all             (default: all)
@@ -137,8 +137,19 @@ def main(argv):
         print(f"usage: {e.args[0]}")
         return 2
 
-    with open(src, encoding="utf8") as fh:
-        doc = json.load(fh)
+    if os.path.isdir(src):
+        # The ordinary case: compile the bundle. A document path still works, because
+        # an archived application is frozen JSON and has to stay renderable.
+        sys.path.insert(0, HERE)
+        import okf_compile
+        try:
+            doc = okf_compile.load(src)
+        except okf_compile.Problem as exc:
+            print(f"FAIL  {exc}")
+            return 1
+    else:
+        with open(src, encoding="utf8") as fh:
+            doc = json.load(fh)
 
     base = arg(argv, "--name") or safe_name(
         ((doc.get("person") or {}).get("name") or {}).get("full"))

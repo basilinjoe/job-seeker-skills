@@ -15,12 +15,12 @@ Skill(skill="jsk:jsk", args="tailor")
 That loads `references/mode-tailor.md`, which holds the procedure.
 
 `$ARGUMENTS` may hold a posting URL, the description itself, or a path to a file. **Fetch a URL
-yourself** - the posting analyst has no network tools. Boards refuse often, so when a fetch fails say
+yourself** - the analyst has no network tools. Boards refuse often, so when a fetch fails say
 what happened and ask them to paste it. That is an ordinary outcome, not an error.
 
 **Gaps close before the resume is written.** Each round scores the record against the posting,
-assesses it into a UGS gap document, and asks the whole queue at once. Answers go into the bundle
-concepts *and* `record.json`, and the round runs again. The resume is authored once, at the end -
+assesses it into `<slug>.gaps.md`, and asks the whole queue at once. Answers go into the bundle
+concepts - the only place there is - and the record recompiles. The resume is authored once, at the end -
 there is no reason to write a document from a record you are about to change.
 
 **Offer the skip every round.** It is the ordinary exit, not a failure. The loop also ends by itself

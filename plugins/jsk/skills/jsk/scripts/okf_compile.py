@@ -424,16 +424,19 @@ def build_narratives(items):
     for stem, meta, body in items:
         for head, section in re.findall(r"^#+\s*(Summary[^\n]*)$(.*?)(?=^#\s|\Z)",
                                         body, re.M | re.S):
-            text = " ".join(ln.strip() for ln in section.splitlines()
-                            if ln.strip() and not ln.startswith(("|", "#", ">"))).strip()
-            if not text:
+            # The summary is what is quoted. Everything else in the section is
+            # commentary *about* it - which variant to use, when it was confirmed - and
+            # a compile that swept that up would print the annotation on the resume.
+            text = " ".join(ln.strip().lstrip("> ").strip()
+                            for ln in section.splitlines() if ln.strip().startswith(">"))
+            if not text.strip():
                 continue
             label = re.sub(r"^summary\s*(variant)?\s*", "", head.strip(), flags=re.I)
             out.append({
                 "id": f"nar_{slug(label) or slug(stem)}",
                 "kind": "summary",
-                "text": text,
-                "label": label.strip(" -"),
+                "text": " ".join(text.split()),
+                "audience": label.strip(" -") or None,
                 "provenance": provenance(meta),
             })
     return out
@@ -474,7 +477,7 @@ def build_education(items):
         entry["qualification"] = str(meta.get("title") or stem).strip('"')
         institution = fields.get("institute") or fields.get("institution")
         if institution:
-            entry["institution"] = {"name": institution}
+            entry["institution"] = institution
         span = fields.get("period") or ""
         parts = [p.strip() for p in re.split(r"\s+[-–]\s+", span) if p.strip()]
         start = loose_date(parts[0]) if parts else None
@@ -500,7 +503,7 @@ def build_credentials(items):
                  "provenance": provenance(meta)}
         fields = labelled(body)
         if fields.get("issuer"):
-            entry["issuer"] = {"name": fields["issuer"]}
+            entry["issuer"] = fields["issuer"]
         out.append(entry)
     return out
 

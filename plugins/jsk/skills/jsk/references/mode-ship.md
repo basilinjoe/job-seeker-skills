@@ -7,10 +7,10 @@ repeating them. Reached by `/jsk:ship`, or read inline at the end of either mode
 
 ## What it needs
 
-A URS record that already validates, and the view to render. Everything else has a default.
+A bundle that compiles, and the view to render. Everything else has a default.
 
 ```
-/jsk:ship <record.json> [--view ID] [--template NAME] [--ats-max] [--pages N]
+/jsk:ship <view.md> [--template NAME] [--ats-max] [--pages N]
 ```
 
 **Nothing here decides what the document says.** If a gate fails, the defect is repaired in the
@@ -21,8 +21,12 @@ pipeline exists to prevent.*
 ## 1. The record gate, before anything renders
 
 ```bash
-python3 <skill-dir>/scripts/validate_urs.py <record.json> --level 2
+python3 <skill-dir>/scripts/validate_urs.py <bundle>
 ```
+
+It compiles the bundle and checks the result: ids resolve, periods are coherent, every view
+reference points at something, every numeral traces to a metric, nothing unconfirmed sits under a
+`provenance_floor: confirmed`. A bundle that will not compile names the concept that is wrong.
 
 A defect in the record becomes a defect in every format rendered from it. This runs first for that
 reason, and a failure stops here.
@@ -100,20 +104,19 @@ One submission is a set of files sharing a stem in `tailoring/applications/`:
 | File | Is |
 |---|---|
 | `<slug>.md` | the log: what was sent, what was selected, what came back |
-| `<slug>.posting.json` | the posting, frozen |
-| `<slug>.gaps.json` | the assessment it was answering, frozen |
-| `<slug>.resume.json` | the URS record it rendered from |
+| `<slug>.posting.md` | the posting, frozen - the advertisement verbatim |
+| `<slug>.gaps.md` | the assessment it was answering, frozen |
+| `<slug>.view.md` | the view it rendered from |
 | `<Name>_<Company>_Resume*.{pdf,tex,txt}` | the files actually sent |
 
-Copy all three JSON documents out of `tailoring/targets/`, and set `frozen: true` with the date on
-each. The files in `targets/` stay editable — the same employer posts again, a listing is revised, a
-round is re-run — and every one of those edits would silently rewrite what a past application appears
-to have answered.
+Copy all three out of `tailoring/targets/`, and set `frozen: true` with the date on each. The files
+in `targets/` stay editable — the same employer posts again, a listing is revised, an assessment is
+re-run — and every one of those edits would silently rewrite what a past application appears to have
+answered.
 
-**The record alone is not enough.** A frozen record scored against an editable posting is not
-reproducible; it only looks it. The gap document pins both by checksum, so
-`validate_ugs.py --recompute` on an archived application will *fail* if either subject was edited
-afterwards — which is the property that makes the archive worth keeping.
+**The record is not copied, and does not need to be.** It compiles from concepts that are in git, so
+the resume this application sent can be rebuilt from the commit it was sent at. That is a stronger
+guarantee than a checksum over a copied file, and it costs nothing to keep.
 
 Write the `Application` concept with its `# Timeline`, per `bundle-spec.md`. Frontmatter carries only
 what was true at submission and never changes; the outcome is derived from the timeline, because a
