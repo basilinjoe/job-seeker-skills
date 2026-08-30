@@ -19,13 +19,17 @@ through a YAML parser, because a dump-and-rewrite erases comments, key order and
 quoting style across the whole file - a lot of collateral damage for renaming one
 key. A migration should be legible in a diff.
 
-Nothing is deleted. A key may be renamed when the new key carries the same value,
-but no value is dropped, and no file is removed.
+Nothing is deleted. A key may be renamed when the new key carries the same value and
+r7 moves the application archive into year directories, but no value is dropped, no
+file is removed, and nothing is ever written over a file that is already there. Where
+the bundle does not record something - the year an application was sent, which
+application a loose resume belongs to - it is reported and left alone.
 """
 import argparse
 import datetime
 import json
 import os
+import posixpath
 import re
 import sys
 
@@ -35,7 +39,7 @@ if HERE not in sys.path:
 
 import pipeline_model  # noqa: E402
 
-CURRENT_REVISION = 6
+CURRENT_REVISION = 7
 
 REVISIONS = {
     1: "applications point at a mutable target file (`target:`) and carry `outcome:`",
@@ -47,12 +51,14 @@ REVISIONS = {
        "compiles, and the posting is `<stem>.posting.md` again",
     6: "the working posting r5 replaced is marked `superseded_by:`, and every live "
        "reference points at the posting",
+    7: "the application archive is partitioned by submission year",
 }
 
 # A frontmatter line carrying a single scalar. Lists and nested maps are skipped, which
 # is correct here: no path-valued key in the layout is ever a list.
 FM_SCALAR = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):[ \t]+(\S.*)$")
 LINK_TARGET = re.compile(r"\]\(([^)]+)\)")
+MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 
 # `outcome:` values seen in the wild, mapped onto timeline events. `offer` maps to an
 # advancing event rather than a terminal one, because an old record saying "offer" does
@@ -824,7 +830,7 @@ def plan_r4_to_r5(root, changes, blocked):
 # ------------------------------------------- r5 -> r6: retiring the working posting
 
 
-def superseded_targets(root):
+def superseded_targets(root, pending=()):
     """`tailoring/targets/<stem>.md` that `<stem>.posting.md` has replaced.
 
     r5 converted every working posting to `<stem>.posting.md` and deliberately left the
@@ -833,11 +839,19 @@ def superseded_targets(root):
     the file. So a migrated bundle holds two documents per job, nothing on either one
     names the live copy, and the indexes still link to the retired one. This step
     writes the relationship down; the file still is not deleted.
+
+    `pending` names the postings r4 -> r5 is about to write in this same run. Reading
+    only the filesystem was the regression: a bundle coming from r1 has no
+    `<stem>.posting.md` on disk when this step is planned, so nothing looked superseded,
+    nothing was marked, and `--apply` finished by producing a bundle that
+    validate_bundle.py rejects on the rule this very step exists to satisfy.
     """
     directory = os.path.join(root, "tailoring", "targets")
     if not os.path.isdir(directory):
         return {}
     names = set(os.listdir(directory))
+    names |= {posixpath.basename(p) for p in pending
+              if posixpath.dirname(p) == "tailoring/targets"}
     found = {}
     for name in sorted(names):
         if not name.endswith(".md") or name == "index.md":
@@ -934,9 +948,14 @@ def plan_repoint(root, retired, changes):
 
             def write(p=path, keys=tuple(moves), body_links=tuple(links)):
                 fm_lines, body = split_frontmatter(open(p, encoding="utf-8").read())
-                for key, was, now in keys:
+                # Matched on the value, not on the key the value was found under: an
+                # earlier step in the same run renames `target:` to
+                # `target_working_copy:`, and a key-anchored rewrite silently did
+                # nothing once it had.
+                for _key, was, now in keys:
                     for i, line in enumerate(fm_lines):
-                        if line.startswith(key) and was in line:
+                        match = FM_SCALAR.match(line)
+                        if match and scalar(match.group(2)) == was:
                             fm_lines[i] = line.replace(was, now, 1)
                             break
                 for was, now in body_links:
@@ -949,8 +968,8 @@ def plan_repoint(root, retired, changes):
             changes.append(Change("update", rel, detail, write))
 
 
-def plan_r5_to_r6(root, changes, blocked):
-    retired = superseded_targets(root)
+def plan_r5_to_r6(root, changes, blocked, pending=()):
+    retired = superseded_targets(root, pending)
     for stem, rel in sorted(retired.items()):
         path = os.path.join(root, rel)
         parts = split_frontmatter(open(path, encoding="utf-8").read())
@@ -978,6 +997,361 @@ def plan_r5_to_r6(root, changes, blocked):
         plan_repoint(root, set(retired.values()), changes)
 
 
+# ------------------------------------------- r6 -> r7: the archive, by year
+
+# The stem already carries the submission date, so for anything written since r2 the
+# year is in the filename. Only an older stem needs the frontmatter read.
+STEM_YEAR = re.compile(r"^(\d{4})-\d{2}-\d{2}-")
+SUBMITTED_YEAR = re.compile(r"^(\d{4})-\d{2}-\d{2}")
+YEAR_DIR = re.compile(r"^(?:\d{4}|undated)$")
+APPLICATION_COMPANIONS = (".target.md", ".posting.md", ".gaps.md", ".view.md")
+UNDATED = "undated"
+
+
+def application_stem(name):
+    """The stem a Markdown file in tailoring/applications/ belongs to.
+
+    None for anything that is not Markdown. A sent resume is named after the person and
+    the company rather than after the application - `Priya_Raman_Acme_Resume.pdf` - so it
+    cannot be grouped by its own name and is attributed separately.
+    """
+    for suffix in APPLICATION_COMPANIONS:
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name[:-3] if name.endswith(".md") else None
+
+
+def links_to(root, apps_rel, stem, name):
+    path = os.path.join(root, apps_rel, stem + ".md")
+    if not os.path.exists(path):
+        return False
+    text = open(path, encoding="utf-8").read()
+    return any(t.split("#")[0] == name for t in LINK_TARGET.findall(text))
+
+
+def attribute(root, apps_rel, name, groups):
+    """The application a loose file - a sent resume, an attachment - belongs to.
+
+    Three signals, strongest first: the filename carries the stem, the application log
+    links to the file, or there is only one application it could belong to. Anything
+    else returns None and is reported. A resume filed under the wrong application is a
+    worse record than one nobody moved, and company names in a filename are exactly
+    close enough to make that mistake plausible.
+    """
+    named = sorted((s for s in groups if name.startswith(s)), key=len, reverse=True)
+    if named:
+        return named[0]
+    linked = [s for s in sorted(groups) if links_to(root, apps_rel, s, name)]
+    if len(linked) == 1:
+        return linked[0]
+    if not linked and len(groups) == 1:
+        return next(iter(groups))
+    return None
+
+
+def group_year(root, apps_rel, stem):
+    """The submission year, or None where the bundle does not record one."""
+    match = STEM_YEAR.match(stem)
+    if match:
+        return match.group(1)
+    leader = os.path.join(root, apps_rel, stem + ".md")
+    if os.path.exists(leader):
+        parts = split_frontmatter(open(leader, encoding="utf-8").read())
+        if parts:
+            match = SUBMITTED_YEAR.match(fm_get(parts[0], "submitted") or "")
+            if match:
+                return match.group(1)
+    return None
+
+
+def archive_resolver(root, moves):
+    """Where a bundle-relative path ends up, given the moves this migration makes.
+
+    None for anything the bundle does not hold. A migration rebases the references it
+    can prove; rewriting one that already dangles would only move the dangle somewhere
+    harder to spot.
+    """
+    def resolve(rel):
+        if rel in moves:
+            return moves[rel]
+        if rel == ".." or rel.startswith("../"):
+            return None
+        return rel if os.path.exists(os.path.join(root, rel)) else None
+    return resolve
+
+
+def rebase_target(target, old_rel, new_rel, resolve):
+    """One relative reference, seen from the file's new home.
+
+    Resolved against where the file was and recomputed from where it lands, rather than
+    counting `../` segments. That is the same arithmetic for a companion in the same
+    directory, a posting two levels up and an application in another year, so it cannot
+    drift out of step with the layout the way a hand-counted prefix does.
+    """
+    if not target or "://" in target or target.startswith(("mailto:", "#", "/")):
+        return None
+    bare, sep, anchor = target.partition("#")
+    if not bare or os.path.isabs(bare):
+        return None
+    was_at = posixpath.normpath(posixpath.join(posixpath.dirname(old_rel), bare))
+    landed = resolve(was_at)
+    if landed is None:
+        return None
+    if landed == was_at and posixpath.dirname(old_rel) == posixpath.dirname(new_rel):
+        # Neither end of the reference moved. Recomputing it anyway would rewrite
+        # `./x.md` to `x.md` across the bundle - a diff that says nothing.
+        return None
+    now = posixpath.relpath(landed, posixpath.dirname(new_rel) or ".")
+    return None if now == bare else now + (sep + anchor if sep else "")
+
+
+def rebase_text(text, old_rel, new_rel, resolve):
+    """`text` with every relative reference recomputed for `new_rel`.
+
+    Frontmatter scalars and body links both: `target_working_copy:` and a link in the
+    prose are the same promise and break the same way.
+    """
+    parts = split_frontmatter(text)
+    fm_lines, body = parts if parts else (None, text)
+    if fm_lines is not None:
+        for i, line in enumerate(fm_lines):
+            match = FM_SCALAR.match(line)
+            if not match:
+                continue
+            was = scalar(match.group(2))
+            now = rebase_target(was, old_rel, new_rel, resolve)
+            if now:
+                fm_lines[i] = line.replace(was, now, 1)
+
+    def one(match):
+        label, target = match.group(1), match.group(2)
+        now = rebase_target(target, old_rel, new_rel, resolve)
+        if not now:
+            return match.group(0)
+        # A link whose text is its own path - the freeze banner writes one - is showing
+        # the reader a path, so the shown path has to be the one that resolves.
+        return "[%s](%s)" % (now if label == target else label, now)
+
+    body = MARKDOWN_LINK.sub(one, body)
+    return join_frontmatter(fm_lines, body) if fm_lines is not None else body
+
+
+def year_index(root, apps_rel, year, stems):
+    """The index a year directory needs, listing what is in it."""
+    ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    when = ("Applications with no recorded submission date." if year == UNDATED
+            else f"Applications submitted in {year}.")
+    lines = [f'---\ntype: Index\ntitle: "Applications {year}"\n'
+             f'description: "{when}"\ntimestamp: {ts}\n---\n']
+    for stem in stems:
+        leader = os.path.join(root, apps_rel, year, stem + ".md")
+        title = stem
+        if os.path.exists(leader):
+            parts = split_frontmatter(open(leader, encoding="utf-8").read())
+            if parts:
+                title = fm_get(parts[0], "title") or stem
+        lines.append(f"- [{title}]({stem}.md)")
+    return "\n".join(lines) + "\n"
+
+
+def plan_r6_to_r7(root, changes, blocked, pending=()):
+    """Every application in the flat archive into `applications/<year>/`.
+
+    The archive is the one part of a bundle that only grows. At a hundred applications a
+    flat directory is four hundred files nobody can read, and the frozen `.view.md`
+    copies in it collide in the compiler with the live views they were taken from. The
+    year is immutable and already recorded, which is why it - and not the outcome, which
+    changes - is what the layout partitions on.
+    """
+    apps_rel = "tailoring/applications"
+    apps = os.path.join(root, apps_rel)
+    if not os.path.isdir(apps):
+        return
+
+    entries = sorted(os.listdir(apps))
+    for name in entries:
+        if os.path.isdir(os.path.join(apps, name)) and not YEAR_DIR.match(name):
+            blocked.append(
+                f"{apps_rel}/{name}/: not a year directory, so revision 7 has no place "
+                "for it and this migration will not guess one. Move what is in it into "
+                "the year each application was submitted.")
+
+    flat = {n for n in entries if os.path.isfile(os.path.join(apps, n))}
+    # An r1 bundle reaches r7 in one run, so the archive it is asked to partition
+    # includes the snapshots the r1 -> r2 step is about to write beside each
+    # application. Planning against the filesystem alone would move the application out
+    # from under its own frozen posting.
+    flat |= {posixpath.basename(p) for p in pending
+             if posixpath.dirname(p) == apps_rel}
+    flat.discard("index.md")
+
+    groups = {}
+    for name in sorted(flat):
+        stem = application_stem(name)
+        if stem:
+            groups.setdefault(stem, []).append(name)
+    for name in sorted(n for n in flat if application_stem(n) is None):
+        owner = attribute(root, apps_rel, name, groups)
+        if owner:
+            groups[owner].append(name)
+        else:
+            blocked.append(
+                f"{apps_rel}/{name}: belongs to no application this migration can name, "
+                "so it stays where it is. Move it into the year directory of the "
+                "application that sent it.")
+
+    moves, per_year, undated = {}, {}, []
+    for stem in sorted(groups):
+        year = group_year(root, apps_rel, stem)
+        if year is None:
+            year = UNDATED
+            undated.append(stem)
+        placed = []
+        for name in sorted(groups[stem]):
+            new_rel = f"{apps_rel}/{year}/{name}"
+            if os.path.exists(os.path.join(root, new_rel)):
+                blocked.append(
+                    f"{new_rel} already exists, so {apps_rel}/{name} was left where it "
+                    "is rather than written over. Compare the two and keep the one that "
+                    "belongs there.")
+                continue
+            moves[f"{apps_rel}/{name}"] = new_rel
+            placed.append(name)
+        if placed:
+            per_year.setdefault(year, []).append(stem)
+            changes.append(Change(
+                "move", f"{apps_rel}/{stem}.*",
+                "%d file(s) -> %s/, relative links rebased one level deeper"
+                % (len(placed), year),
+                _mover(root, [(f"{apps_rel}/{n}", f"{apps_rel}/{year}/{n}")
+                              for n in placed], moves)))
+
+    for stem in undated:
+        blocked.append(
+            f"{apps_rel}/{stem}.md: neither the stem nor `submitted:` gives a submission "
+            f"date, so it went to {apps_rel}/{UNDATED}/ rather than into a guessed year. "
+            "Add `submitted:` and move it.")
+
+    plan_archive_indexes(root, apps_rel, per_year, moves, changes)
+    plan_archive_relinks(root, moves, changes)
+
+
+def _mover(root, pairs, moves):
+    """Move one application's files, rewriting each one's references on the way.
+
+    Rewritten before the move rather than after, and re-read at apply time rather than
+    planned as a string edit: earlier revision steps in the same run have been writing
+    into these files, and this step has to rebase what is in them then, not what was in
+    them when the run was planned.
+    """
+    def action():
+        resolve = archive_resolver(root, moves)
+        for old_rel, new_rel in pairs:
+            src, dst = os.path.join(root, old_rel), os.path.join(root, new_rel)
+            if not os.path.exists(src) or os.path.exists(dst):
+                continue
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            if old_rel.endswith(".md"):
+                text = open(src, encoding="utf-8").read()
+                rebased = rebase_text(text, old_rel, new_rel, resolve)
+                if rebased != text:
+                    open(src, "w", encoding="utf-8").write(rebased)
+            os.replace(src, dst)
+    return action
+
+
+def plan_archive_indexes(root, apps_rel, per_year, moves, changes):
+    """The index every directory in the layout is required to have.
+
+    A year directory with no index is a folder of filenames: the archive is the part of
+    a bundle a person comes back to months later, and the title of what was sent is the
+    only thing that makes it findable.
+    """
+    for year in sorted(per_year):
+        rel = f"{apps_rel}/{year}/index.md"
+        if os.path.exists(os.path.join(root, rel)):
+            continue
+
+        def write(dest=os.path.join(root, rel), y=year, stems=tuple(sorted(per_year[year]))):
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(year_index(root, apps_rel, y, stems))
+
+        count = len(per_year[year])
+        changes.append(Change(
+            "create", rel,
+            "%d application(s) with no recorded submission date" % count
+            if year == UNDATED else "%d application(s) submitted in %s" % (count, year),
+            write))
+
+    rel = f"{apps_rel}/index.md"
+    path = os.path.join(root, rel)
+    existed = os.path.exists(path)
+    body_now = ""
+    if existed:
+        parts = split_frontmatter(open(path, encoding="utf-8").read())
+        body_now = parts[1] if parts else ""
+    listed = {t.split("/")[0] for t in LINK_TARGET.findall(body_now)}
+    missing = [y for y in sorted(per_year) if y not in listed]
+    if existed and not missing:
+        return
+
+    def write_root(dest=path, years=tuple(missing), had=existed):
+        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if had:
+            fm_lines, body = split_frontmatter(open(dest, encoding="utf-8").read())
+        else:
+            fm_lines, body = ["type: Index", 'title: "Applications"',
+                              'description: "Submissions, evidence selected, and outcomes."',
+                              f"timestamp: {ts}"], ""
+        # Appended, never rewritten: whatever else is in this index is somebody's own
+        # notes about their own applications.
+        if "# Years" in body:
+            body = body.rstrip("\n") + "\n\n"
+        else:
+            body = (body.rstrip("\n")
+                    + "\n\n# Years\n\nOne directory per submission year.\n\n")
+        body += "\n".join(f"- [{y}/]({y}/index.md)" for y in years) + "\n"
+        open(dest, "w", encoding="utf-8").write(join_frontmatter(fm_lines, body))
+
+    changes.append(Change("update" if existed else "create", rel,
+                          "lists the year directories: %s" % ", ".join(missing),
+                          write_root))
+
+
+def plan_archive_relinks(root, moves, changes):
+    """Every reference from outside the archive, moved with the file it names.
+
+    r5 -> r6 deliberately left prose links alone, and was right to: the file they named
+    was still there. Here it is not - the whole step is that these files move - so a
+    link nobody rebases is a broken link, and validate_bundle.py is right to fail it.
+    """
+    if not moves:
+        return
+    resolve = archive_resolver(root, moves)
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for name in sorted(filenames):
+            if not name.endswith(".md"):
+                continue
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, root).replace(os.sep, "/")
+            if rel in moves:
+                continue
+            text = open(path, encoding="utf-8").read()
+            if rebase_text(text, rel, rel, resolve) == text:
+                continue
+
+            def write(p=path, r=rel):
+                current = open(p, encoding="utf-8").read()
+                open(p, "w", encoding="utf-8").write(
+                    rebase_text(current, r, r, archive_resolver(root, moves)))
+
+            changes.append(Change("update", rel,
+                                  "links into the archive rebased on the year directories",
+                                  write))
+
+
 # ------------------------------------------------------------------ the stamp
 
 def plan_stamp(root, revision, changes):
@@ -998,6 +1372,15 @@ def plan_stamp(root, revision, changes):
 
 
 # ------------------------------------------------------------------------ cli
+
+def pending_creations(changes):
+    """Bundle-relative paths an earlier step will write during this same run.
+
+    Each step plans against the filesystem, so a later step cannot see what an earlier
+    one has not written yet - and a bundle at r1 crosses every revision in one command.
+    """
+    return {c.subject for c in changes if c.verb == "create"}
+
 
 def main(argv=None):
     ap = argparse.ArgumentParser(add_help=True)
@@ -1050,10 +1433,14 @@ def main(argv=None):
         plan_r4_to_r5(root, changes, blocked)
     if revision < 6 <= CURRENT_REVISION:
         print(f"\nr5 -> r6  {REVISIONS[6]}")
-        plan_r5_to_r6(root, changes, blocked)
+        plan_r5_to_r6(root, changes, blocked, pending_creations(changes))
+    if revision < 7 <= CURRENT_REVISION:
+        print(f"\nr6 -> r7  {REVISIONS[7]}")
+        plan_r6_to_r7(root, changes, blocked, pending_creations(changes))
     plan_stamp(root, CURRENT_REVISION, changes)
 
-    done = {"create": "created", "update": "updated", "stamp": "stamped"}
+    done = {"create": "created", "update": "updated",
+            "move": "moved", "stamp": "stamped"}
     for c in changes:
         prefix = ("would " + c.verb) if not args.apply else done[c.verb]
         print(f"  {prefix:<14} {c.subject}")
