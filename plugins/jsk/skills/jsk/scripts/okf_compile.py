@@ -94,6 +94,20 @@ def concepts(root):
     return out
 
 
+def census(root):
+    """How many concepts of each type the bundle holds, before anything is built.
+
+    The counterpart to load(): what was read, against what was emitted. A compiler
+    that drops a whole type cannot be caught by any check written about the
+    survivors - every one of those checks iterates a list that is empty, and passes.
+    `views` was a hardcoded `[]` for months for exactly that reason.
+    """
+    out = {}
+    for _, ctype, _, _ in concepts(root):
+        out[ctype] = out.get(ctype, 0) + 1
+    return out
+
+
 def slug(text):
     return re.sub(r"[^a-z0-9]+", "_", str(text).lower()).strip("_")
 

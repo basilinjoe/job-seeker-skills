@@ -28,6 +28,12 @@ It compiles the bundle and checks the result: ids resolve, periods are coherent,
 reference points at something, every numeral traces to a metric, nothing unconfirmed sits under a
 `provenance_floor: confirmed`. A bundle that will not compile names the concept that is wrong.
 
+It also checks the two things absence hides. **Coverage**: a project the bundle rates `strength: 4`
+or better with nothing in its `# Bullets` block fails, because a project called resume-worthy that
+has nothing to quote is a gap someone pays for later, mid-tailoring. Below that it warns.
+**Conservation**: a concept type sitting on disk that compiles to an empty record key fails - every
+other check here iterates that key, and an empty list satisfies all of them.
+
 A defect in the record becomes a defect in every format rendered from it. This runs first for that
 reason, and a failure stops here.
 

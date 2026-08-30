@@ -128,8 +128,19 @@ for rel in sorted(files):
             errors.append(f"{rel}: Application has no '# Timeline' - "
                           "its stage and outcome cannot be derived")
         elif not any(r.event == "submitted" for r in rows):
-            errors.append(f"{rel}: timeline has no 'submitted' row - "
-                          "every application starts by being sent")
+            # Not every application was sent. One prepared, rendered and then held
+            # back is a real application concept with a real timeline, and its
+            # frontmatter already says so - so ask it rather than assuming. Writing
+            # a `submitted` row to clear this error would trade an accurate red for
+            # a false green, and the stage derived from it would be a lie.
+            #
+            # Only an explicit `submitted: false` exempts it. A file that never
+            # says either way is the case this check was written for: a timeline
+            # nobody finished, where the absence means nothing was recorded.
+            if meta.get("submitted") is not False:
+                errors.append(f"{rel}: timeline has no 'submitted' row and "
+                              "frontmatter does not say `submitted: false` - "
+                              "an application was either sent or explicitly held")
         seen_terminal = None
         previous = None
         for r in rows:

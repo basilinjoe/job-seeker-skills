@@ -83,15 +83,22 @@ Creates an empty bundle skeleton. No dependencies.
 
 ```bash
 python3 scripts/validate_urs.py <bundle | resume.json>
-python3 scripts/validate_urs.py <bundle | resume.json> --level 2
 python3 scripts/validate_urs.py <bundle | resume.json> --strict
 ```
 
 The **record gate**. Run it before anything renders. Checks that the record is coherent and that
 every numeral in a bullet traces to a structured metric on that bullet.
 
-`--level N` asserts a conformance level (0, 1 or 2). Full JSON Schema validation runs additionally
-when `jsonschema` happens to be installed; the structural rules run either way.
+Two of its checks are about what is *not* there, because nothing else in the pipeline can see an
+absence. **Coverage** fails a project rated `strength: 4` or better whose `# Bullets` block is
+empty, and warns below that; it also warns where an employer has no evidence under it at all.
+**Conservation** compares `okf_compile.census()` - what the bundle holds on disk - against what the
+compiler emitted, and fails a concept type that produced an empty record key. Cardinality is not
+asserted, because it is legitimately not 1:1 (9 Roles compile to 4 engagements, 1 Skill Set to 83
+skills); only that a type present on disk produces something.
+
+Conservation needs the bundle, so it is skipped when the target is an archived `resume.json`.
+`--strict` promotes every warning to a failure.
 
 ### `render_resume.py`
 

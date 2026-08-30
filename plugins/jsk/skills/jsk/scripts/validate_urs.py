@@ -34,6 +34,30 @@ ID_PREFIX = {
     "narratives": "nar", "referees": "ref", "views": "view",
 }
 
+# Concept type -> the record key it feeds, for the conservation check.
+#
+# Cardinality is deliberately NOT asserted. The relation is not 1:1 and the places it
+# is not are all correct: Role 9 -> 4 engagements (roles group by organisation),
+# Skill Set 1 -> 83 skills (one `# Skills` block flattens), Positioning 2 -> 4
+# narratives. What holds for every type is weaker and sufficient: a type present on
+# disk must produce something.
+TYPE_TO_KEY = {
+    "Organisation": "organizations", "Role": "engagements", "Project": "projects",
+    "Education": "education", "Skill Set": "skills", "Positioning": "narratives",
+    "View": "views",
+}
+
+# "Certification Status" is deliberately absent from that map: "none held" is a
+# legitimate status that evidences no credential, so 1 concept -> 0 credentials is the
+# compiler working (okf_compile.build_credentials), not a type being dropped.
+
+# The strength at or above which a project with no evidence fails rather than warns.
+# Keyed to strength because that is the person's own assertion that a project is worth
+# putting on a resume - which makes the floor self-scaling, and non-retroactive without
+# needing a bundle-revision gate: a bundle of low-strength stubs warns, a bundle
+# claiming strong work with nothing behind it fails.
+COVERAGE_FAIL_STRENGTH = 4
+
 VIEW_KEYS = {
     "id", "label", "format_profile", "region_profile", "locale", "target",
     "narrative", "sections", "include", "skills", "redact",
@@ -306,6 +330,71 @@ def check_placeholders(doc, rep):
     walk(doc, "")
 
 
+def check_conservation(root, doc, rep):
+    """What the bundle holds on disk, against what the compiler emitted.
+
+    Every other check in this file iterates a record key and verifies the shape of
+    what it finds. None of them can fail on an empty list, because an empty list
+    satisfies every statement you can make about its elements - which is how
+    `views: []` passed the record gate for months while `provenance_floor` never ran
+    on anything at all.
+
+    This is the only check that can see a type go missing, and it needs the bundle,
+    so it does not run against an archived document.
+    """
+    import okf_compile
+    counts = okf_compile.census(root)
+    for ctype, key in TYPE_TO_KEY.items():
+        n = counts.get(ctype, 0)
+        if n and not (doc.get(key) or []):
+            rep.fail(f"{n} {ctype!r} concept(s) on disk and record[{key!r}] is empty - "
+                     f"the compiler read them and emitted nothing")
+
+
+def check_backrefs(doc, rep):
+    """Every project that names an engagement appears in that engagement's projects[].
+
+    resolve.py walks `engagement["projects"]` and nothing else to reach a project's
+    bullets, so a project missing from that list is silently absent from every
+    rendered document while the record stays perfectly valid - a missing
+    back-reference is not an invalid reference, which is why nothing caught it when
+    okf_compile never populated the list at all.
+    """
+    listed = {pid for e in doc.get("engagements") or [] for pid in (e.get("projects") or [])}
+    for p in doc.get("projects") or []:
+        eng = p.get("engagement")
+        if eng and p.get("id") not in listed:
+            rep.fail(f"project {p.get('id')}: names engagement {eng!r} and appears in no "
+                     f"engagement's projects[] - its bullets reach no rendered document")
+
+
+def check_coverage(doc, rep):
+    """A project the person called resume-worthy must have something to quote.
+
+    Nothing else here reads a body for evidence, so a bundle of 15 projects and no
+    `# Bullets` block anywhere validates clean and then costs whoever tailors against
+    it the authoring pass the bundle should already have had.
+    """
+    empty = [p for p in doc.get("projects") or [] if not (p.get("achievements") or [])]
+    for p in sorted(empty, key=lambda p: -(p.get("strength") or 0)):
+        strength = p.get("strength") or 0
+        msg = (f"project {p.get('id')}: strength {strength}, no evidence - nothing in "
+               f"its `# Bullets` block for a resume to quote")
+        if strength >= COVERAGE_FAIL_STRENGTH:
+            rep.fail(msg)
+        else:
+            rep.warn(msg)
+
+    by_id = {p.get("id"): p for p in doc.get("projects") or []}
+    for e in doc.get("engagements") or []:
+        if e.get("achievements"):
+            continue
+        if any((by_id.get(pid) or {}).get("achievements") for pid in e.get("projects") or []):
+            continue
+        rep.warn(f"engagement {e.get('id')}: no achievements of its own and no project "
+                 f"under it carries any - this employer renders with nothing beneath it")
+
+
 def load_target(path):
     """The record to check: a bundle compiled, or a document read.
 
@@ -366,6 +455,10 @@ def main(argv):
     check_metrics(doc, rep)
     check_provenance(doc, rep)
     check_placeholders(doc, rep)
+    check_coverage(doc, rep)
+    check_backrefs(doc, rep)
+    if os.path.isdir(path):
+        check_conservation(path, doc, rep)
 
     if strict:
         rep.fails.extend(rep.warns)

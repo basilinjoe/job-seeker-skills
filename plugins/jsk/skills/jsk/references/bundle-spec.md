@@ -159,6 +159,16 @@ rather than hiding them.
 is a row that stops counting, and `validate_bundle.py` rejects it. Dates are `YYYY-MM-DD` or the
 literal `unknown`, which is what a migration writes when it could not establish one.
 
+**An application that was never sent says so.** A posting worked through, rendered and then
+held back is a real application with a real timeline, and it has no `submitted` row because
+nothing was submitted. Write `submitted: false` in its frontmatter and `validate_bundle.py`
+stops asking for the row. That key is the exemption and the only one — a file that says
+nothing either way still fails, because there the missing row means nobody finished the
+record rather than nobody sent the application, and `submitted:` carrying a date with no row
+beneath it fails too, because the two then disagree. Never write a `submitted` row to clear
+the error: it trades an accurate red for a false green, and every stage derived from that
+timeline afterwards is wrong.
+
 **Stage** is the last advancing event. **Staleness** is measured from the last event that restarts
 the clock — which `follow-up-sent` does and `note` does not. `Due` records what somebody promised,
 the latest non-empty one wins, and it beats the staleness rule in both directions.
