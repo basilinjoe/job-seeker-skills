@@ -25,8 +25,12 @@ Start by compiling the record. It is the bundle as every downstream tool reads i
 second, and it is a cache — never edit it, edit the concept:
 
 ```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --dump-record record.json --quiet
+python3 <skill-dir>/scripts/okf_compile.py <bundle> --dump-record record.json --no-views --quiet
 ```
+
+`--no-views` because nothing you do reads one. Scoring compares the posting's requirements against
+the projects, and a bundle that has answered a hundred postings carries a hundred views — half the
+file, none of it yours.
 
 If that fails it will name the concept that is wrong. Report that and stop: a gap assessment against a
 record that would not build is an assessment of nothing.

@@ -63,8 +63,10 @@ expands the skills block with keyword aliases — so it carries its own budget,
 `budget.ats_maximal_pages`. Do not cut evidence to force it onto the presentation variant's budget; a
 parser does not care about length.
 
-`render_resume.py --pdf` exits **non-zero** when no PDF was produced. *A page count nobody measured
-is a page count nobody knows.*
+`render_resume.py --pdf` exits **non-zero** when no PDF was produced, and the page count it prints is
+counted off the PDF rather than repeated back from the view's budget. It used to print the budget
+under the word "pages", so a two-page budget that rendered three pages reported two. *A page count
+nobody measured is a page count nobody knows.*
 
 ## 3. Fit, if it overran
 
@@ -105,9 +107,10 @@ was checked is not.*
 Only once every gate has passed. **A failing document is never frozen** — an archive of something
 that was not sendable is worse than no archive, because later it reads as though it was.
 
-One submission is a set of files sharing a stem in `tailoring/applications/`. The stem is
-`<yyyy-mm-dd>-<company>-<role>` - today's date, then the target's slug - because applying twice to
-one posting is ordinary and the second round needs somewhere to go that is not on top of the first:
+One submission is a set of files sharing a stem, filed under `tailoring/applications/<yyyy>/` - the
+year it was sent. The stem is `<yyyy-mm-dd>-<company>-<role>` - today's date, then the target's slug -
+because applying twice to one posting is ordinary and the second round needs somewhere to go that is
+not on top of the first:
 
 | File | Is |
 |---|---|
@@ -117,10 +120,24 @@ one posting is ordinary and the second round needs somewhere to go that is not o
 | `<stem>.view.md` | the view it rendered from |
 | `<Name>_<Company>_Resume*.{pdf,tex,txt}` | the files actually sent |
 
-Copy all three out of `tailoring/targets/`, and set `frozen: true` with the date on each. The files
-in `targets/` stay editable — the same employer posts again, a listing is revised, an assessment is
-re-run — and every one of those edits would silently rewrite what a past application appears to have
-answered.
+Copy all three out of `tailoring/targets/` into that year's directory, and set `frozen: true` with the
+date on each. The files in `targets/` stay editable — the same employer posts again, a listing is
+revised, an assessment is re-run — and every one of those edits would silently rewrite what a past
+application appears to have answered. **The freeze is what makes the archive answerable.** A year
+later the only question anybody asks of a filed application is what it was answering, and an
+application whose inputs are still moving cannot answer it.
+
+`frozen: true` on a `.view.md` is safe, and was not always. Two things make it so and they are
+independent: the compile no longer reads `tailoring/applications/` at all, and a View that does reach
+URS has the bundle's own bookkeeping stripped from it first — `frozen`, `frozen_date`,
+`superseded_by`, `title`, `description`, `timestamp`. A View on disk is an OKF concept; the View that
+reaches URS is pure URS. Until that was true, this instruction failed the record gate above on an
+unrecognised view key — not once, but on every run from the first application ever shipped, because
+the gate compiles the whole bundle and an archive never gets better.
+
+The frozen copies sit one directory deeper than the working ones, so a path in the `Application` that
+leaves its own directory carries one more `../`: `../../targets/…`, `../../../organisations/…`.
+`bundle-spec.md` has the full set.
 
 **The record is not copied, and does not need to be.** It compiles from concepts that are in git, so
 the resume this application sent can be rebuilt from the commit it was sent at. That is a stronger
@@ -132,6 +149,6 @@ status word and the prose beneath it stop agreeing the moment one is edited.
 
 ## 6. Log it
 
-Append a dated entry to `log.md`. Record the submission in `tailoring/applications/`, including any
-feedback that arrives later — after a handful of applications, patterns emerge about which evidence
-gets traction, and that belongs back in the rules.
+Append a dated entry to `log.md`. Record the submission in `tailoring/applications/<yyyy>/`,
+including any feedback that arrives later — after a handful of applications, patterns emerge about
+which evidence gets traction, and that belongs back in the rules.

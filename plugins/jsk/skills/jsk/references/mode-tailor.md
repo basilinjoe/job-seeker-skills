@@ -29,7 +29,32 @@ ranking, the checks — is a script, because none of it needs judgement.
 The resume is written **last**. There is no reason to author a document from a record you are about to
 change, and doing it at the end drops every wasted authoring pass.
 
-## 0. Get the posting
+## 0. Have they been here before?
+
+```bash
+python3 <skill-dir>/scripts/pipeline.py <bundle> --company "<name>"
+```
+
+**Before the posting is written down and before the analyst runs.** The match is a case-insensitive
+substring, so a partial name is fine and a wrong guess costs a second.
+
+`bundle-spec.md` calls applying twice ordinary, and that is exactly why this is a check rather than a
+prohibition: the second round is often the right move, and it is only ever the right move on purpose.
+Over a hundred-application search the mistake this catches is mundane and expensive — a company
+applied to eleven weeks ago, a screen that went quiet and was never closed out, a second application
+landing on the desk of a recruiter who already has one. None of that is visible in the posting, and by
+the time it surfaces the round has been paid for.
+
+If anything comes back, **show it**: the stem, the role it was for, the stage derived from its
+timeline, and when the last event was. Then stop. A rejection two years old, a screen that went silent
+last month and a live application to a different team at the same employer are three different
+situations and only one person can tell them apart. **That decision is theirs and it comes before the
+work**, the same as the fit verdict at step 2.
+
+Nothing back means nothing recorded, which is not quite the same as never applied — if they think they
+have been here before, that is a `pipeline` backlog item, not a reason to skip the round.
+
+## 1. Get the posting
 
 `$ARGUMENTS` may hold a URL, the text, or a path. **Fetch a URL yourself**; the analyst has no network
 tools. Job boards refuse often — LinkedIn and most Workday tenants sit behind a wall — so when a fetch
@@ -38,7 +63,7 @@ fails, say what happened and ask them to paste it. That is an ordinary outcome, 
 Write it to `tailoring/targets/<slug>.posting.md` with the advertisement verbatim in the body and the
 URL in the frontmatter. Keep the URL either way; the archive needs it.
 
-## 1. Assess
+## 2. Assess
 
 `jsk-tailor-analyst` writes the requirements into the posting's frontmatter and the assessment into
 `tailoring/targets/<slug>.gaps.md`, and returns the ranking.
@@ -51,7 +76,7 @@ is close between projects with materially different ownership verbs, a top-ranke
 unconfirmed content, eligibility fails, or the posting suggests the role may not be worth applying to
 at all. That last decision is theirs and it comes before the work.
 
-## 2. Ask the whole queue at once
+## 3. Ask the whole queue at once
 
 Present the ordered queue and take a bulk reply. Then go one at a time **only** for answers that came
 back ambiguous, incomplete, or that contradict what the record already says.
@@ -83,7 +108,7 @@ Then recompile, so everything after this reads the answers:
 python3 <skill-dir>/scripts/okf_compile.py <bundle> --quiet
 ```
 
-## 3. A second round only if a verdict moved
+## 4. A second round only if a verdict moved
 
 Run the analyst again **only when an answer changed what the record holds** — a metric arrived, an
 unevidenced claim got its evidence, a requirement that was indeterminate can now be judged.
@@ -103,7 +128,7 @@ rounds of a document nobody's answers changed is where the old procedure spent m
 **Say why it ended.** "Nothing left worth asking" and "you skipped with four things open" call for
 different next moves.
 
-## 4. Author, once
+## 5. Author, once
 
 `jsk-resume-author` writes the view and the prose. Three things carry that:
 
@@ -123,12 +148,12 @@ file: a format where invention is impossible beats a process where invention is 
 the posting wants something the record does not have, the view has nothing to point at — which is the
 honest outcome, and the thing to say out loud.
 
-## 5. Ship
+## 6. Ship
 
 `/jsk:ship`, or `references/mode-ship.md` inline. It renders, runs the four gates, freezes the archive
 and logs the submission. It never freezes a document that failed a gate.
 
-## 6. Tell them where they fall short
+## 7. Tell them where they fall short
 
 Every time, in chat, before they ask. By now this is a reading of the assessment rather than a
 judgement you are forming:

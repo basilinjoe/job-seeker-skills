@@ -49,12 +49,12 @@ two searches, and every path below is written out for the same reason.
 Compile the record — it is the bundle as the renderer reads it, and it takes under a second:
 
 ```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --dump-record record.json --quiet
+python3 <skill-dir>/scripts/okf_compile.py <bundle> --no-views --dump-record record.json --quiet
 ```
 
 **Read the record once, as a file, then open a concept only where the record cannot answer you.**
-The record is the entire bundle in about 48 KB — every id, every provenance status, every
-metric, and the bullet text itself wherever a bullet exists. Read it. Do not interrogate it
+The record is the whole bundle in a few tens of kilobytes — every id, every provenance status,
+every metric, and the bullet text itself wherever a bullet exists. Read it. Do not interrogate it
 with a run of `python -c "json.load(...)"` one-liners: that is the same information at ten
 times the cost, and each one is a round trip.
 
@@ -98,6 +98,11 @@ expensive mistake — a resume quietly loses a rule, and nothing fails.
 Read `references/urs-spec.md` first either way — the view format has no bundle-local
 variant. And read `framework/capability-vocabulary.md`, the person's own vocabulary, for the
 skills block.
+
+`--no-views` is why the record stays that size, and it is the rule below made structural rather
+than stated: a bundle with a hundred answered postings carries a hundred views, every one of them
+another posting's answer to another posting's question. Compiled without them, the template you
+are told not to copy is not there to copy.
 
 **Do not read `scripts/okf_compile.py` or `scripts/validate_urs.py`** — they restate the spec you
 have just read, and the validator enforces itself at runtime. **Do not read a view written for a

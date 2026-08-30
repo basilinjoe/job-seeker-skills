@@ -14,6 +14,18 @@ Skill(skill="jsk:jsk", args="tailor")
 
 That loads `references/mode-tailor.md`, which holds the procedure.
 
+**Ask the pipeline whether they have been here before, first.**
+
+```bash
+python3 <skill-dir>/scripts/pipeline.py <bundle> --company "<name>"
+```
+
+Before the posting is written down and before anything is scored. Applying twice is ordinary, which
+is why this is a check and not a prohibition - the second round is often right, and it is only right
+on purpose. If anything comes back, show the stem, the role, the stage derived from its timeline and
+the date of the last event, then stop and let them decide. That decision is theirs and it comes
+before the work.
+
 `$ARGUMENTS` may hold a posting URL, the description itself, or a path to a file. **Fetch a URL
 yourself** - the analyst has no network tools. Boards refuse often, so when a fetch fails say
 what happened and ask them to paste it. That is an ordinary outcome, not an error.
@@ -34,7 +46,8 @@ write. `jsk-resume-author` marks everything it wrote `inferred`, and a `provenan
 view will not render it until the person has confirmed each clause. Read those quotes back to them.
 
 Rendering is `/jsk:ship`, which runs all four gates and freezes the posting, the assessment and the
-record together.
+view together under `tailoring/applications/<yyyy>/`. The record is not copied: it compiles from
+concepts that are in git, so the resume this application sent rebuilds from the commit it was sent at.
 
 Finish by telling them where they fall short against this posting. Being flattered costs
 interviews.

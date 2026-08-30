@@ -25,6 +25,11 @@ cannot disagree, because the board decided nothing.*
 | `--all` | the full board, closed applications included |
 | `--company NAME` | every application to one employer — "have I been here before?" |
 | `--as-of DATE` | what the board looked like on a given day |
+| `--top N` | rows per block, default 15 — the board is a list of what to do today, not an inventory |
+| `--markdown` / `--json` | a table to paste into a file · the whole board, for something else to read |
+
+`--company` is the first thing `mode-tailor.md` runs, before a posting is even written down. It is
+cheap, and re-applying to a company mid-search is not.
 
 **Lead with the overdue items**, in your own words. The person does not need the table read out;
 they need to know which two things matter today.

@@ -125,15 +125,15 @@ skill, so a bare `scripts/…` will not resolve.
 |---|---|---|
 | `preflight.py [--verify]` | what this machine can do, and what each gap disables | — |
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
-| `validate_bundle.py <bundle-path>` | bundle is well-formed | `pyyaml` |
+| `validate_bundle.py <bundle> [--scope SUBDIR] [--exclude-archive] [--max-findings N]` | bundle is well-formed | `pyyaml` |
 | `migrate_bundle.py <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
-| `pipeline.py <bundle> [--all] [--company N] [--as-of D]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
+| `pipeline.py <bundle> [--all] [--company N] [--as-of D] [--top N] [--json]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
 | `check_ats.py resume.pdf [--strict]` | the rendered PDF (or the `.txt`) is safe to send | `pymupdf` for a PDF |
 | `check_prose.py resume.tex` | the writing rules `check_ats.py` cannot see | — |
-| `okf.py compile <bundle>` | the bundle as the record everything downstream reads | — |
+| `okf.py compile <bundle> [--view ID] [--no-views]` | the bundle as the record everything downstream reads — the concepts only, never the frozen archive | — |
 | `okf.py score <bundle> <posting.md>` | ranks the projects against the posting's requirements | — |
-| `validate_urs.py <bundle \| resume.json>` | the record is coherent, carries evidence, and lost nothing in compilation, before anything renders | `pyyaml` for a bundle |
-| `render_resume.py resume.json --out DIR [--view ID] [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt` | TeX engine for the PDF |
+| `validate_urs.py <bundle \| resume.json> [--strict] [--max-findings N]` | the record is coherent, carries evidence, and lost nothing in compilation, before anything renders | `pyyaml` for a bundle |
+| `render_resume.py <bundle \| resume.json> --out DIR --view ID [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt`; `--view` is required wherever the record holds more than one | TeX engine for the PDF |
 | `preview_templates.py resume.json --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` for thumbnails |
 | `fit_pages.py resume.tex --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
 
@@ -146,8 +146,10 @@ Use `python` or `py -3` on Windows, where `python3` is usually absent.
 Exit codes are uniform: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are
 required, not optional: the PDF is the only rendered deliverable, so without them there is nothing to
 send, nothing to check and nothing to measure. `render_resume.py --pdf` exits **non-zero** when no PDF
-was produced, *because a page count nobody measured is a page count nobody knows.* Everything else
-runs on a bare Python.
+was produced, and the page count it prints is counted off that PDF rather than repeated back from the
+view's budget — *because a page count nobody measured is a page count nobody knows.* Over budget is
+named, not failed: `fit_pages.py` owns that verdict and is the script that can act on it. Everything
+else runs on a bare Python.
 
 The scripts stay with the skill and a bundle never carries copies, so every bundle gets the current
 version. If they are genuinely missing — the skill was installed as `SKILL.md` alone — write them
@@ -156,7 +158,7 @@ into the bundle's `framework/` from the specifications in `references/ats-rules.
 
 ## Agents
 
-Six parts of this work are read-heavy or mechanical and need nobody in the room. Delegate those and
+Four parts of this work are read-heavy or mechanical and need nobody in the room. Delegate those and
 keep the conversation for the judgment.
 
 | Agent | Hand it | Get back |

@@ -2,7 +2,7 @@
 
 The skill runs these for you. This page is for running them yourself.
 
-All twelve live in `plugins/jsk/skills/jsk/scripts/`. Paths below assume you are in that
+All thirteen live in `plugins/jsk/skills/jsk/scripts/`. Paths below assume you are in that
 directory. On Windows use `python` or `py -3` in place of `python3`.
 
 ## One entry point: `okf.py`
@@ -12,6 +12,7 @@ If you would rather not remember thirteen names:
 ```bash
 python3 scripts/okf.py doctor                  # what works on this machine
 python3 scripts/okf.py new ./my-career --name "Your Name"
+python3 scripts/okf.py compile ./my-career     # the bundle as the record
 python3 scripts/okf.py validate resume.json         # a record
 python3 scripts/okf.py validate acme.posting.json  # or a posting
 python3 scripts/okf.py validate acme.gaps.json     # or an assessment
@@ -20,6 +21,9 @@ python3 scripts/okf.py render resume.json --out . --pdf
 python3 scripts/okf.py check resume.pdf        # both document gates, one pass
 python3 scripts/okf.py score record.json acme.posting.json
 python3 scripts/okf.py fit resume.tex --target-pages 2
+python3 scripts/okf.py preview resume.json --out ./looks
+python3 scripts/okf.py migrate ./my-career          # report; --apply to write
+python3 scripts/okf.py pipeline ./my-career         # the week's board
 ```
 
 Every subcommand forwards to the script below with the same arguments and the same exit code, so
@@ -79,11 +83,43 @@ Creates an empty bundle skeleton. No dependencies.
 
 ## The record
 
+### `okf_compile.py`
+
+```bash
+python3 scripts/okf_compile.py <bundle> --quiet
+python3 scripts/okf_compile.py <bundle> --dump-record record.json
+python3 scripts/okf_compile.py <bundle> --dump-record - --view view_acme
+python3 scripts/okf_compile.py <bundle> --dump-record - --no-views
+```
+
+Builds the record from the concepts, deterministically. Nothing is written unless `--dump-record`
+asks for it, and what it writes is for reading rather than editing: the next compile overwrites
+whatever you changed.
+
+**It never reads `tailoring/applications/`.** The archive is frozen and nothing downstream compiles
+from it — but the reason this is a rule rather than an optimisation is that a frozen
+`<stem>.view.md` declares the same view id as the live working copy it was made from, and the
+archived one won. A tailoring run rendered a selection made months earlier and nothing said so.
+Skipping the archive also took a compile of a hundred-application bundle from 0.94s to 0.44s, which
+is the smaller half of the argument.
+
+`--view ID` is repeatable; `--no-views` emits none. Both affect only what is emitted — every concept
+is still read. A bundle keeps one working view per target and retires none of them, so someone who
+has answered a hundred postings compiles a hundred views: half of `record.json` by volume, in a file
+several agents read on every run, and ninety-nine of them irrelevant to the application being worked
+on. Scoring and the pipeline read no view at all. Narrowing to one took `record.json` from 64,263
+bytes to 31,206.
+
+**The default is still every view**, deliberately: `validate_urs.py <bundle>` checks all of them, and
+a broken view nobody is rendering today is still a broken view. An unknown id fails and prints the
+ids that are on disk, capped at eight. Passing `--view` and `--no-views` together is exit 2.
+
 ### `validate_urs.py`
 
 ```bash
 python3 scripts/validate_urs.py <bundle | resume.json>
 python3 scripts/validate_urs.py <bundle | resume.json> --strict
+python3 scripts/validate_urs.py <bundle | resume.json> --max-findings 0
 ```
 
 The **record gate**. Run it before anything renders. Checks that the record is coherent and that
@@ -100,24 +136,37 @@ skills); only that a type present on disk produces something.
 Conservation needs the bundle, so it is skipped when the target is an archived `resume.json`.
 `--strict` promotes every warning to a failure.
 
+`--max-findings N` prints at most N failures and N warnings, default 25, `0` for every one — the same
+flag name, the same default and the same `... and N more` line as `validate_bundle.py`, because two
+gates that truncate differently are two gates people read differently. On the bundle that prompted
+it, the default took the gate's output from 42,425 characters to 2,252.
+
+**The header always carries the true `FAIL n   WARN n`.** Truncating a list is a reading aid;
+truncating a count is a lie, and a gate that under-reports its own findings is worse than one that
+scrolls.
+
 ### `render_resume.py`
 
 ```bash
-python3 scripts/render_resume.py <bundle | resume.json> --out DIR
-python3 scripts/render_resume.py <bundle | resume.json> --out DIR --pdf
 python3 scripts/render_resume.py <bundle | resume.json> --out DIR --view view_au_default
-python3 scripts/render_resume.py <bundle | resume.json> --out DIR --region au
-python3 scripts/render_resume.py <bundle | resume.json> --out DIR --pdf --ats-max
+python3 scripts/render_resume.py <bundle | resume.json> --out DIR --view view_acme --pdf
+python3 scripts/render_resume.py <bundle | resume.json> --out DIR --view view_acme --region au
+python3 scripts/render_resume.py <bundle | resume.json> --out DIR --view view_acme --pdf --ats-max
 ```
 
 One record to `.tex` (and PDF with `--pdf`) plus `.txt`. The PDF is the only rendered deliverable;
 `--ats-max` chooses which variant it holds rather than adding a second file.
 
+**`--view` is required wherever the record holds more than one**, and leaving it out is exit 2 with
+the ids listed — usage, not failure, because nothing is wrong with the record and the missing thing
+is the one decision only a person can make. A record holding exactly one view still renders without
+it.
+
 | Flag | Does |
 |---|---|
 | `--out DIR` | where to write (default `.`) |
 | `--pdf` | also run the TeX engine |
-| `--view ID` | render a tailored view |
+| `--view ID` | which view to render — required where the record holds more than one |
 | `--region CODE` | apply a region profile |
 | `--profile PATH` | a profile file directly |
 | `--format` | `all` (default), or one of `latex` / `txt` |
@@ -129,6 +178,18 @@ One record to `.tex` (and PDF with `--pdf`) plus `.txt`. The PDF is the only ren
 **With `--pdf`, a run that produced no PDF exits 1** and says **UNVERIFIED**. It used to record the
 failure as a passing note and exit 0, so a caller could ask for a PDF, be told in passing there wasn't
 one, and still see success.
+
+**The page count is measured off the PDF**, with `pymupdf`, and printed only with `--pdf`:
+
+```
+  pages  Priya_Raman_Resume.pdf: 1 page against a budget of 2
+```
+
+It used to print the budget alone, which is the number somebody asked for rather than the number they
+got — the resume that prompted the fix rendered on one page against a budget of two and said so
+nowhere. Over budget is named (`- OVER BUDGET, run fit_pages.py`) and not failed: `fit_pages.py` owns
+that verdict, and it is the script that can do something about it. Without `pymupdf` the line says
+the budget and says it was not measured, which is the honest version of the same sentence.
 
 `--template` and `--ats-max` are different axes and compose. The variant decides what the document
 says; the template decides how it looks. All five templates extract to identical text, so the choice
@@ -198,6 +259,9 @@ PDF, because a bullet is an unambiguous `\item` there and needs no library to fi
 
 ```bash
 python3 scripts/validate_bundle.py ./my-career
+python3 scripts/validate_bundle.py ./my-career --scope projects        # only that subtree
+python3 scripts/validate_bundle.py ./my-career --exclude-archive       # skip the frozen archive
+python3 scripts/validate_bundle.py ./my-career --max-findings 0        # print every one
 ```
 
 Bundle is well-formed. Needs `pyyaml`. Run it after any change to the bundle.
@@ -208,7 +272,29 @@ should not be, or a companion the layout requires and nobody wrote. It reports a
 superseded by a `.posting.md` and not marked, an assessment or view with no posting beside it, an
 application naming a frozen input that does not exist, an application that cannot name what it
 answered or rendered from, a `.resume.json` copied beside an application, and a stem that is not
-`<yyyy-mm-dd>-<company>-<role>`.
+`<yyyy-mm-dd>-<company>-<role>`. From revision 7 it also reports an application still sitting
+directly in `tailoring/applications/` and a subdirectory there that is not a year — both meaning the
+migration was never run. Below revision 7 neither fires, because the flat shape is correct there.
+
+| Flag | Does |
+|---|---|
+| `--scope SUBDIR` | validate one bundle-relative subtree, so a change to `projects/` is checked in a fraction of the time |
+| `--exclude-archive` | skip `tailoring/applications/`, which at a hundred applications is most of the files and none of the ones you just edited |
+| `--max-findings N` | print at most N errors and N warnings, default 25; `0` prints every one |
+
+**A finding on a frozen copy is a warning, not an error.** `<stem>.posting.md`, `<stem>.gaps.md`,
+`<stem>.view.md` and the r2-era `<stem>.target.md` may not be edited — `bundle-spec.md` says so, and
+an archive that can be edited is not an archive. An error in one is therefore a red nobody is
+permitted to clear, and *a gate that cannot go green is a gate people stop running*. The
+application's own `<stem>.md` stays an error: its `# Timeline` is appended to for as long as the
+process is live, so anything wrong in it is something somebody can fix.
+
+`--max-findings` exists because the first run against a large real bundle produced several hundred
+lines and the first error — the one that caused the rest — scrolled away. It caps warnings as well as
+errors, and the count of what was withheld is always printed: a truncated report that does not say it
+is truncated is worse than a long one. `--scope` reports what it could not cover for the same reason.
+A run that checked a tenth of the bundle and looks like a clean one is the failure both of these
+flags are built to avoid.
 
 ### `migrate_bundle.py`
 
@@ -230,6 +316,7 @@ because every bundle created before the stamp existed has no way to say so.
 | 4 | the posting is a UJD document, `<stem>.posting.json` — superseded by 5 |
 | 5 | roles and projects carry their relations in frontmatter, and the posting is `<stem>.posting.md` again |
 | 6 | the working posting r5 replaced is marked `superseded_by:`, and every live reference points at the posting |
+| 7 | the archive is partitioned by submission year — `tailoring/applications/<yyyy>/` |
 
 Revisions 4 and 5 collapse into one step. A bundle below either converts its postings straight to
 Markdown, because running revision 4's step first would write a document whose only reader was
@@ -242,6 +329,23 @@ trade a migration gets to make — but it could not say so on the file, so a mig
 documents per job and the indexes still pointed at the retired one. Revision 6 writes
 `superseded_by:` onto the source and moves every live reference to the posting. It still deletes
 nothing.
+
+Revision 7 files the archive by year. Four Markdown files and the documents sent, per submission, is
+several hundred files in one directory at a hundred applications, and nothing there can be found by
+looking. The step reads the year off the stem, falls back to the `submitted:` date where the stem
+predates that convention, and puts anything it cannot date in `undated/` — reported, never guessed.
+It writes the `index.md` for each year directory as it goes. A moved file is one directory deeper, so
+every relative path in it that leaves its own directory gains one `../`; the companions sharing its
+stem are beside it and are untouched. It does not partition by outcome, and `bundle-spec.md` says
+why: the outcome is derived from the timeline and has to stay derived.
+
+The sent documents are the hard part, because `<Name>_<Company>_Resume.pdf` shares no stem with the
+application it belongs to and no key in the `Application` concept names it. Three signals are tried,
+strongest first: the filename carries an application's stem, the application's log links to the file,
+or there is only one application it could possibly belong to. Anything still unclaimed is **left where it is
+and reported** for hand-filing. A resume filed under the wrong application is a worse record than one
+nobody moved, and company names in a filename are exactly close enough to make that mistake
+plausible.
 
 What counts as a live reference is deliberately narrow: path-valued frontmatter keys anywhere, and
 Markdown links in an `index.md`. Prose elsewhere is left alone, because a link in a project file or
@@ -273,7 +377,19 @@ python3 pipeline.py <bundle> --all             # the full board, closed applicat
 python3 pipeline.py <bundle> --company NAME    # every application to one employer
 python3 pipeline.py <bundle> --as-of DATE      # compute against a date rather than today
 python3 pipeline.py <bundle> --markdown        # a table, to paste into a file
+python3 pipeline.py <bundle> --top 30          # rows per block, default 15
+python3 pipeline.py <bundle> --json            # the whole board, for something else to read
 ```
+
+`--company` is the "have I burned this one already" query, matched as a case-insensitive substring.
+`mode-tailor.md` runs it as its first step, before a posting is written down: over a long search,
+finding out after the resume is written that this company was applied to eleven weeks ago is a round
+paid for twice.
+
+`--top` caps each block rather than the report, because the board is a list of what to do today and a
+hundred-row block is a list nobody reads. The default is 15 and the count of what was withheld is
+printed with it. `--all` and `--json` are unbounded: one of them is asking for everything, and the
+other is not being read by a person.
 
 **Exit 0 when nothing needs attention, 1 when something does**, 2 when called wrong — the same
 convention as `migrate_bundle.py`'s dry run, and what makes it usable as a scheduled check.

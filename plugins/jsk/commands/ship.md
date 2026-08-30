@@ -30,7 +30,8 @@ worked around by loosening a check. If the record gate fails on freshly authored
 `provenance_floor` doing its job: go back and get confirm-correct-or-cut on each clause.
 
 **Nothing is frozen until every gate passes.** An archive of a document that was not sendable is
-worse than no archive, because later it reads as though it was.
+worse than no archive, because later it reads as though it was. What is frozen - the posting, the
+assessment, the view and the files actually sent - is filed under `tailoring/applications/<yyyy>/`.
 
 **Before anything else, find the bundle.** Sessions do not share state, so never assume one exists
 because it did last time.

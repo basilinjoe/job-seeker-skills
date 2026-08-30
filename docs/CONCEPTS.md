@@ -21,8 +21,8 @@ never reach a resume before you agree with it.
 ## The rendering
 
 **URS (Universal Résumé Schema)** — the JSON your bundle compiles to before any document exists.
-*Why it matters:* every output format is emitted from this one file, so the PDF and the Word document
-cannot say different things about a date or a number.
+*Why it matters:* every output is emitted from this one record, so the PDF and the paste-in plain
+text cannot say different things about a date or a number.
 
 **View** — a tailored resume, expressed as a selection: it references evidence by id, orders it, and
 hides the rest.

@@ -296,6 +296,14 @@ This is the rule that earns the format its existence. Tailoring becomes auditabl
 and "the model embellished my resume" becomes structurally impossible rather than something you hope
 did not happen. A validator enforces it by rejecting any unknown free-text field inside a view.
 
+**A `.view.md` on disk is not this document.** It is an OKF concept whose frontmatter happens to be a
+view, so it also carries the bundle's own bookkeeping — `type`, `title`, `description`, `timestamp`,
+`status`, and `frozen`/`frozen_date` once an application has archived it. `okf_compile.py` strips
+those before a view reaches URS, which is why none of them appear above: what sits on disk is a
+concept, and what is validated here is a view. The two were once read as the same thing, and the
+result was that `frozen: true` — which `mode-ship.md` instructs on every shipped application —
+failed the record gate as an unknown view key, permanently.
+
 `provenance_floor` makes a view refuse content below a given status. `confirmed` is the default for
 anything a person will actually send.
 

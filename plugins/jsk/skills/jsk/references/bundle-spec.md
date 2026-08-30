@@ -19,7 +19,7 @@ career/
   framework/            capability-vocabulary · schema · concept-types · templates
   resume-generation/    open-questions, plus optional rule overrides: ats-rules ·
                         structure-rules · writing-rules · decisions-log
-  tailoring/            selection-method · targets/ · applications/
+  tailoring/            selection-method · targets/ · applications/<yyyy>/
 ```
 
 Every directory gets an `index.md` listing its contents. `index.md` and `log.md` are the only
@@ -63,6 +63,7 @@ way to say so.
 | 4 | the posting is a UJD document, `<stem>.posting.json`, not Markdown frontmatter |
 | 5 | roles and projects declare their relations in frontmatter, so the record compiles rather than being transcribed |
 | 6 | the working posting r5 replaced is marked `superseded_by:`, and every live reference points at the posting |
+| 7 | the archive is partitioned by submission year — `tailoring/applications/<yyyy>/` |
 
 `validate_bundle.py` warns on an older revision and never fails it. `migrate_bundle.py` moves a
 bundle forward, reports what it cannot establish, and marks anything it reconstructs
@@ -88,7 +89,19 @@ python3 <skill-dir>/scripts/okf_compile.py <bundle> --dump-record record.json
 ```
 
 `--dump-record` is for reading, never for editing: the next compile overwrites it. An edit made there
-is a claim with no concept behind it.
+is a claim with no concept behind it. `--view ID` (repeatable) and `--no-views` narrow what is
+emitted, and nothing else about the record changes: a bundle retires no working view, so a hundred
+answered postings compile to a hundred of them — half the file, in something several agents read on
+every run. The default stays every view, because `validate_urs.py <bundle>` checks all of them and a
+broken view nobody is rendering today is still a broken view.
+
+**The compile does not read `tailoring/applications/` at all.** The archive is frozen and nothing
+downstream compiles from it — the resume that was sent is rebuilt from the commit it was sent at, not
+from the copy beside it. Walking it was not merely wasted work: a frozen `<stem>.view.md` declares the
+same view id as the live `targets/` copy it was made from, and the archived one shadowed the live one,
+so a tailoring run rendered last quarter's selection from this quarter's record and nothing said a
+word. *A view compiled from two files is a view nobody chose.* This holds at every revision — an r3
+bundle with a flat archive is skipped exactly the same way.
 
 ## Postings on disk
 
@@ -115,7 +128,7 @@ recover; archived JSON postings stay readable, because an application that has b
 
 ## Applications on disk
 
-One submission is a **set of files sharing a stem**, all in `tailoring/applications/`. The stem is
+One submission is a **set of files sharing a stem**, all in one place. The stem is
 `<yyyy-mm-dd>-<company>-<role>`, the date being the day it was sent:
 
 | File | Is |
@@ -125,6 +138,53 @@ One submission is a **set of files sharing a stem**, all in `tailoring/applicati
 | `<stem>.gaps.md` | the assessment it was answering, frozen with it |
 | `<stem>.view.md` | the view it rendered from |
 | `<Name>_<Company>_Resume*.{pdf,tex,txt}` | the files actually sent |
+
+At revision 7 that place is `tailoring/applications/<yyyy>/`, the year it was submitted:
+
+```
+tailoring/applications/
+  index.md                          the year directories
+  2025/
+    index.md                        that year's applications
+    2025-11-03-acme-engineer.md          .posting.md · .gaps.md · .view.md
+    Priya_Raman_Acme_Resume.pdf
+  2026/
+    ...
+  undated/                          only where no year could be established
+```
+
+Four Markdown files and the documents sent, per submission — and a real search runs to a hundred
+submissions. Flat, that is four hundred concepts in one directory plus every PDF ever sent: nothing
+can be found by looking, and every tool that walks the archive walks all of it. The year is the
+cheapest cut that fixes both.
+
+**The partition is by year, and by nothing else.** The obvious alternative — `open/` and `closed/`,
+or an `archived:` flag — puts the outcome in the path, and this specification has already refused to
+put it in a key: there is no `outcome:`, *because a status word and the prose beneath it stop
+agreeing the moment one is edited*. A directory name is a status word with a rename attached, and it
+is wrong from the first rejection nobody filed. Stage is derived from the `# Timeline` and stays derived;
+`pipeline.py --all` answers "what is still live" on demand and cannot drift. The submission year is
+the opposite kind of fact — immutable, and already the first four characters of the stem — so
+partitioning by it stores nothing new that could disagree with anything.
+
+The year comes from the stem. A stem that does not start `<yyyy-mm-dd>-` — an r2-era `kestrel.md` —
+falls back to the year of its `submitted:` date; where that is absent, `false` or `unknown`, the file
+goes to `undated/` and the migration **says so** rather than guessing a year onto somebody's record.
+`undated/` is a legitimate directory to find in a real bundle, not a sign the migration failed: a
+year nobody recorded and a year somebody invented look identical a month later, and only one of them
+can be corrected. `migrate_bundle.py` writes each year's `index.md` as it files.
+
+The documents actually sent are the awkward case. `<Name>_<Company>_Resume.pdf` is named after the
+person and the employer, so it shares no stem with the application it belongs to and no key in the
+`Application` concept names it. A migration attributes one by its filename prefix, then by a link in
+the application's log, then — where there is only one application it could belong to — to that one,
+and leaves anything still unclaimed where it is, reported for hand-filing. A resume filed under the
+wrong application is a worse record than one nobody moved.
+
+**A filed application sits one directory deeper than it used to.** Every relative path in it that
+leaves its own directory gains exactly one `../` — `target_working_copy`, `company_ref`, and any
+Markdown link in the body. The companions sharing its stem are beside it and are unchanged.
+`migrate_bundle.py` rewrites them, which is the argument for letting it do the filing.
 
 **The date is in the stem because applying twice is ordinary.** A posting is re-advertised, a first
 attempt is superseded by a better one, a rejection is followed by a second round a year later. Each
@@ -136,6 +196,13 @@ slug, because there is only ever one live working copy of a job.
 and stay editable; the copies beside the application are the archive and do not. An application that
 links to a mutable posting cannot answer what it was answering.
 
+Which is why **`validate_bundle.py` reports a problem in a frozen copy as a warning rather than an
+error**. The rule above forbids editing `<stem>.posting.md`, `<stem>.gaps.md`, `<stem>.view.md` and
+the r2-era `<stem>.target.md`, so an error in one is a red nobody is permitted to clear — and *a gate
+that cannot go green is a gate people stop running*. The application's own `<stem>.md` is still an
+error: its `# Timeline` is appended to for as long as the process is live, so what is wrong in it is
+something somebody can put right.
+
 The record is not among them, and does not need to be. It compiles from concepts that are in git, so
 a resume sent last March rebuilds from the commit it was sent at — a stronger guarantee than a copy
 beside the application, which only ever proved what somebody wrote down.
@@ -145,9 +212,9 @@ The `Application` concept names both, and the distinction is the point:
 ```yaml
 posting: "<stem>.posting.md"                      # frozen - what was applied against
 assessment: "<stem>.gaps.md"                      # frozen - the gaps it answered
-target_working_copy: "../targets/<company>-<role>.posting.md"     # editable
+target_working_copy: "../../targets/<company>-<role>.posting.md"  # editable
 view_file: "<stem>.view.md"                       # frozen - what was rendered
-company_ref: "../../organisations/<company>.md"
+company_ref: "../../../organisations/<company>.md"
 view: view_<id>                                   # the id inside it
 submitted: 2026-08-26
 channel: "Workday portal"

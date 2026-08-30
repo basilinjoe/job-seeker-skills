@@ -52,7 +52,7 @@ what makes them testable in isolation. Import `plan`; the split is behind it.
 
 ## The agent boundary
 
-Six tasks are delegated to subagents. The line between an agent and the main conversation is
+Four tasks are delegated to subagents. The line between an agent and the main conversation is
 **Write versus Edit**: an agent writes its own analysis, and only the conversation edits the person's
 record. A `status` that flips without them saying so is the defect this framework exists to prevent.
 
@@ -113,7 +113,8 @@ plugins/jsk/
       migrate_bundle.py             moves an older bundle to the current layout revision
       pipeline.py                   the weekly board, derived from application timelines
       pipeline_model.py             what a timeline event means - the only module that decides
-tests/                              unittest, one file per script
+tests/                              unittest: one file per script, plus the manifest surface
+  fixtures.py                       temp bundles and records; nothing here is committed
 ```
 
 ## Where do I change X
@@ -148,25 +149,38 @@ story:
 2. **Bundle layout on disk.** Renaming `projects/` breaks every bundle already in existence.
    Layout *additions* are allowed, but only behind a revision: bump `CURRENT_REVISION` in
    `migrate_bundle.py`, teach it the step, and keep `validate_bundle.py` **warning** rather than
-   failing on the older shape. `BUNDLE_REVISION` in `init_bundle.py` must move in the same commit —
-   new bundles are born current, and a bundle that lies about its revision is worse than one that
-   carries no stamp at all.
+   failing on the older shape. `BUNDLE_REVISION` in `init_bundle.py` and `CURRENT_BUNDLE_REVISION`
+   in `validate_bundle.py` must move in the same commit — all three are pinned to each other by
+   `tests/test_plugin_surface.py`, because new bundles are born current and a bundle that lies about
+   its revision is worse than one that carries no stamp at all.
 3. **The compiled record's shape and gate behaviour.** What `okf_compile.py` hands the renderer
    stays wire-compatible with an archived `resume.json`, and a gate keeps failing on exactly what
    it fails on today.
 
-A fourth, discovered the hard way: **the tests assert on output text.** There are 108 `assertIn`
+A fourth, discovered the hard way: **the tests assert on output text.** There are over 240 `assertIn`
 calls against strings like `PASS - safe to send` and `DO NOT SEND`. You may *add* lines to a script's
 output. Rewording an existing verdict line breaks tests, and those tests are the gate on the gate.
 
 ## Tests
 
 ```bash
-python -m unittest discover -s tests
+python -m pytest tests -q                  # the whole suite, under two minutes
+python -m pytest tests/test_themes.py -q   # one file, while you are working on it
+python -m unittest discover -s tests       # the same tests, with no pytest installed
 ```
 
-Standard library `unittest`. Fixtures are generated into temp directories; nothing is committed.
-Every test pins a specific documented rule — the checker is the gate, so it does not go unchecked.
+The tests are standard-library `unittest` and import nothing from pytest; pytest is simply the
+pleasanter way to run a subset and read a failure. Either command works from anywhere — every path
+in `tests/fixtures.py` is resolved from the test file's own location, not from the working
+directory.
+
+Most of that time is TeX — 542 tests, and the ones that dominate the clock compile real PDFs and
+extract their text layers, because the claim they check — five templates, one document — cannot be
+checked any other way. Where a TeX engine or `pymupdf` is absent those tests skip themselves, so a
+bare-Python run finishes in seconds on fewer assertions rather than failing on the machine's setup.
+
+Fixtures are built into temp directories by `tests/fixtures.py`; nothing is committed. Every test
+pins a specific documented rule — the checker is the gate, so it does not go unchecked.
 
 A failing test after a refactor means the refactor was wrong. Do not edit a test to accommodate a
 change in behaviour unless the behaviour change is the point and it is written down.
