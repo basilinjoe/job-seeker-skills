@@ -154,5 +154,45 @@ class RevisionConstants(unittest.TestCase):
         self.assertEqual(described, set(range(1, current + 1)))
 
 
+class DocumentedSurface(unittest.TestCase):
+    """What the prose promises, against what is installed.
+
+    The constants above agree with each other and say nothing about the two revision
+    tables a person actually reads. Revision 7 had to be added to both by hand, and a
+    table that stops at 6 does not read as out of date - it reads as though 7 does not
+    exist, which is worse than no table.
+    """
+
+    REVISION_TABLES = (
+        SKILL / "references" / "bundle-spec.md",
+        REPO / "docs" / "SCRIPTS.md",
+    )
+
+    def current(self):
+        text = (SCRIPTS / "validate_bundle.py").read_text(encoding="utf-8")
+        return int(re.search(r"^CURRENT_BUNDLE_REVISION = (\d+)", text, re.M).group(1))
+
+    def test_every_revision_table_reaches_the_current_revision(self):
+        current = self.current()
+        for path in self.REVISION_TABLES:
+            with self.subTest(doc=path.name):
+                rows = re.findall(r"^\| (\d+) \|", path.read_text(encoding="utf-8"), re.M)
+                self.assertTrue(rows, f"{path.name}: no revision table found")
+                described = set(int(n) for n in rows)
+                self.assertEqual(
+                    described, set(range(1, current + 1)),
+                    f"{path.name} documents {sorted(described)}, "
+                    f"current revision is {current}")
+
+    def test_every_script_SKILL_md_names_is_installed(self):
+        """The script table is how an agent decides what it may run. A row naming a
+        file that is not there sends it to a command that cannot exist, and the
+        failure surfaces as a broken install rather than as a stale table."""
+        named = set(re.findall(r"`([a-z_]+\.py)", (SKILL / "SKILL.md").read_text(encoding="utf-8")))
+        self.assertTrue(named, "SKILL.md names no scripts")
+        missing = sorted(n for n in named if not (SCRIPTS / n).exists())
+        self.assertEqual(missing, [], f"SKILL.md names scripts that are not installed: {missing}")
+
+
 if __name__ == "__main__":
     unittest.main()
