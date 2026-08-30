@@ -52,10 +52,28 @@ Compile the record — it is the bundle as the renderer reads it, and it takes u
 python3 <skill-dir>/scripts/okf_compile.py <bundle> --dump-record record.json --quiet
 ```
 
-**Read the compiled record for evidence, and the concepts for prose.** The record gives you the ids you
-must reference and what is `confirmed`; the concept files give you the story behind them — the problem,
-the decision, what changed. You need both, and they cannot disagree, because one is built from the
-other.
+**Read the record once, as a file, then open a concept only where the record cannot answer you.**
+The record is the entire bundle in about 48 KB — every id, every provenance status, every
+metric, and the bullet text itself wherever a bullet exists. Read it. Do not interrogate it
+with a run of `python -c "json.load(...)"` one-liners: that is the same information at ten
+times the cost, and each one is a round trip.
+
+Which project concepts you then open follows from what the record holds for each:
+
+| the project's `achievements` | what to do |
+|---|---|
+| **non-empty** | Retune from the record. The clause is already written and already `confirmed`; this posting decides emphasis and order, not wording from scratch. Open the concept only when you are changing what a claim asserts and need the reasoning under it. |
+| **empty** | Open the concept. There is nothing to retune, so the narrative — the problem, the decision, what changed — is the only source, and you are writing that project's first bullets. |
+
+The difference is most of your reading budget. A project with bullets carries 2 to 3.5 KB in
+the record against 8 to 12 KB in its concept, and the concept's extra is largely provenance
+notes, dated confirmations and maintenance history that no resume can use.
+
+**The empty row should be rare, and it is not yours to absorb quietly.** `validate_urs.py`
+fails a project rated `strength: 4` or better with no evidence, so a bundle that reaches you
+with several of them skipped a step — authoring a project's first bullets inside a tailoring
+run is how a run costs eighteen minutes instead of five. Write the bullets, and say in your
+report which projects had none, so the person can put that work where it belongs.
 
 **Every rule set is read once, from whichever place owns it.** The skill ships defaults in
 `references/`; a bundle overrides them in `resume-generation/`, because somebody wrote that
