@@ -25,6 +25,23 @@ career/
 Every directory gets an `index.md` listing its contents. `index.md` and `log.md` are the only
 reserved filenames.
 
+### Rule overrides declare their scope
+
+`resume-generation/ats-rules.md`, `writing-rules.md` and `structure-rules.md` override the
+skill's `references/` defaults of the same name. An override **must say, in its opening
+lines, whether it replaces the default or extends it**, because that sentence is what an
+agent reads to decide whether to open the default at all:
+
+> **Bundle override — replaces `references/writing-rules.md` entirely.**
+
+> **Bundle override — extends `references/writing-rules.md`.** Its `## Titles` and
+> `## Summaries` sections still apply; everything else here wins.
+
+An override that says neither is treated as an extension and both files get read. That is the
+safe default and it is also the slow one: a bare "takes precedence" reads like a replacement
+and is not one, so a resume silently loses whichever sections the override never covered.
+`structure-rules.md` has no skill default, so the question does not arise for it.
+
 ## The layout revision
 
 The bundle root's `index.md` carries one extra key:

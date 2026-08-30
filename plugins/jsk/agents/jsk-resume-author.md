@@ -41,6 +41,11 @@ The **posting** (`tailoring/targets/<slug>.posting.md`), the **assessment**
 (`<slug>.gaps.md`), the **bundle path**, and the **skill directory** (absolute —
 `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install).
 
+The skill directory holds three things and no others: `references/` (the specs),
+`schema/` (the render profiles) and `scripts/`. **It has no `framework/`** — that
+directory belongs to the bundle. Guessing it has a mirror of one costs a failed read and
+two searches, and every path below is written out for the same reason.
+
 Compile the record — it is the bundle as the renderer reads it, and it takes under a second:
 
 ```bash
@@ -52,11 +57,29 @@ must reference and what is `confirmed`; the concept files give you the story beh
 the decision, what changed. You need both, and they cannot disagree, because one is built from the
 other.
 
-Two bundle files still beat the skill's defaults, because somebody wrote them deliberately:
-`resume-generation/*.md` for rule overrides, and `framework/capability-vocabulary.md` for the skills
-block.
+**Every rule set is read once, from whichever place owns it.** The skill ships defaults in
+`references/`; a bundle overrides them in `resume-generation/`, because somebody wrote that
+deliberately for this person. Look in `resume-generation/` first:
 
-Read `references/urs-spec.md`, `references/writing-rules.md` and `references/ats-rules.md` first.
+| bundle file | the default it speaks for |
+|---|---|
+| `resume-generation/writing-rules.md` | `references/writing-rules.md` |
+| `resume-generation/ats-rules.md` | `references/ats-rules.md` |
+| `resume-generation/structure-rules.md` | nothing — no skill default exists |
+
+An override says in its own opening lines whether it **replaces** the default or **extends**
+it. Replaces: read the bundle's file and not the skill's — reading both is how the last
+run spent 14 KB on rules that were superseded before it used them, and it leaves you holding
+two answers to one question. Extends: read both, and the named sections of the default still
+apply.
+
+**An override that says neither is an extension.** Silence means nobody has checked which of
+the default's sections it covers, and dropping a section nobody meant to drop is the more
+expensive mistake — a resume quietly loses a rule, and nothing fails.
+
+Read `references/urs-spec.md` first either way — the view format has no bundle-local
+variant. And read `framework/capability-vocabulary.md`, the person's own vocabulary, for the
+skills block.
 
 **Do not read `scripts/okf_compile.py` or `scripts/validate_urs.py`** — they restate the spec you
 have just read, and the validator enforces itself at runtime. **Do not read a view written for a
@@ -138,7 +161,7 @@ term the ranking ran on.
 position. Reordering roles by relevance reads as concealment and breaks date parsing.
 
 **Score governs allocation, and the recency ratio is a default rather than a constraint.**
-`bundle-spec.md` weights roughly 4:1 toward recent roles, and a bundle's own `structure-rules.md` may
+`references/bundle-spec.md` weights roughly 4:1 toward recent roles, and a bundle's own `structure-rules.md` may
 set its own. When the posting's best evidence sits mid-career the two pull against each other, and the
 ratio yields: it exists to stop a resume dwelling on decade-old work for no reason, not to bury the
 evidence this posting is asking for. **Say when you departed from it and why**, so the decision is
