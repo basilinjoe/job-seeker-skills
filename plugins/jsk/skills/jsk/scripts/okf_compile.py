@@ -2,6 +2,17 @@
 """okf_compile - build the record from the bundle, deterministically.
 
 Usage: python3 okf_compile.py BUNDLE [--dump-record FILE|-] [--quiet]
+                                    [--view ID]... [--no-views]
+
+`--view` names the view(s) to emit and is repeatable; `--no-views` emits none.
+Both affect only what is emitted - every concept is still read, and nothing else
+in the record changes. A bundle keeps one working view per target under
+tailoring/targets/ and retires none of them, so a person who has answered a
+hundred postings compiles a hundred views: half of record.json by volume, in a
+file several agents read on every run, and ninety-nine of them irrelevant to
+whichever application is being worked on. Scoring and the pipeline read no view
+at all. The default stays every view, because `validate_urs.py <bundle>` checks
+all of them and a broken view nobody is rendering today is still a broken view.
 
 The bundle is the source of truth. This reads its concepts and returns the record
 that `urs/resolve.py` already consumes - the same dict it used to be handed as a
@@ -44,6 +55,22 @@ except ImportError:
     sys.exit(2)
 
 SKIP_DIRS = {".git", "node_modules", "out", "resume-archive", ".build"}
+
+# tailoring/applications/ - the archive of what has already been sent. Matched by its
+# path from the bundle root rather than by name in SKIP_DIRS, because a directory
+# called `applications` anywhere else in the bundle is a person's own filing and must
+# still compile.
+ARCHIVE = ("tailoring", "applications")
+
+# Concept-level bookkeeping every OKF file may carry. A View is the one concept whose
+# frontmatter is already URS, so these are the keys that are *about* the file rather than
+# part of the document - they are stripped here so VIEW_KEYS stays the URS contract.
+# validate_bundle.py recommends title/description/timestamp on every concept; without this
+# strip, following that advice fails the record gate, and `frozen:` - which mode-ship.md
+# instructs - failed it outright.
+CONCEPT_KEYS = {"type", "title", "description", "timestamp", "status",
+                "frozen", "frozen_date", "superseded_by"}
+
 # Concept types that carry no resume content. Listed rather than inferred so that a
 # new type is a deliberate decision here, not silently dropped.
 NON_CONTENT = {"Index", "Log", "Guide", "Vocabulary", "Rule Set", "Schema", "Template",
@@ -78,10 +105,25 @@ def read_frontmatter(text):
 
 
 def concepts(root):
-    """Every concept in the bundle, as (stem, type, meta, body)."""
+    """Every concept in the bundle, as (stem, type, meta, body).
+
+    The archive is not read. Each sent application freezes a copy of the view it was
+    rendered from beside it, and that copy shares its id with the working copy in
+    tailoring/targets/ it was made from - `applications` sorts first, so the frozen
+    copy won the de-duplication in build_views() and every later render used the
+    settings of an application already posted rather than the one being edited. It is
+    also most of the record by volume: at a hundred applications the frozen views were
+    59% of record.json, in a file several agents read on every tailoring run. Nothing
+    downstream compiles from the archive - validate_bundle.py and pipeline.py read it
+    directly, as its own artefacts rather than as career record.
+    """
     out = []
+    archive = os.path.normcase(os.path.join(os.path.abspath(root), *ARCHIVE))
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in SKIP_DIRS and not d.startswith(".")
+            and os.path.normcase(os.path.abspath(os.path.join(dirpath, d))) != archive]
         for name in sorted(filenames):
             if not name.endswith(".md") or name == "index.md":
                 continue
@@ -404,9 +446,12 @@ def build_views(items):
     """`type: View` concepts - the tailoring views, beside the postings they answer.
 
     A view is the one concept that is already URS: its frontmatter is the document,
-    which is why every key but `type` passes through untranslated. That includes a
-    key nobody recognises, so that validate_urs.py fails on it - dropping a typo
-    here would turn a misspelt `provenance_floor` into a view with no floor at all.
+    which is why every key CONCEPT_KEYS does not claim passes through untranslated.
+    That includes a key nobody recognises, so that validate_urs.py fails on it -
+    dropping a typo here would turn a misspelt `provenance_floor` into a view with no
+    floor at all. CONCEPT_KEYS is the other side of that: bookkeeping the bundle asks
+    every concept to carry is about the file, not part of the document, so it is
+    stripped here rather than admitted into VIEW_KEYS.
 
     `views` used to be a hardcoded empty list, so `render_resume.py --view <id>`
     could not find a view sitting on disk, and `provenance_floor` never ran on
@@ -415,15 +460,46 @@ def build_views(items):
     """
     out, seen = [], set()
     for stem, meta, _ in items:
-        view = {k: v for k, v in meta.items() if k != "type"}
+        view = {k: v for k, v in meta.items() if k not in CONCEPT_KEYS}
         view.setdefault("id", f"view_{slug(stem)}")
         if view["id"] in seen:
-            # A view frozen beside a sent application and its working copy in
-            # targets/ share an id. The working copy is the one being edited.
+            # Two working copies under tailoring/targets/ that declare the same id.
+            # The frozen copies that used to collide here are no longer read at all -
+            # see concepts() - so this is now a bundle to fix rather than a shape to
+            # tolerate, and the first one read wins until someone renames one.
             continue
         seen.add(view["id"])
         out.append(view)
     return out
+
+
+def select_views(views, wanted):
+    """The views to emit: every one, none, or the ones named.
+
+    `wanted is None` is deliberately not the same as `wanted == []`. The record gate
+    compiles a bundle to check every view sitting on disk, and a view with a misspelt
+    `provenance_floor` is broken whether or not anyone is rendering it this week - so
+    "all" has to stay the default and "none" has to be something a caller asks for.
+    """
+    if wanted is None:
+        return views
+    by_id = {v.get("id"): v for v in views}
+    missing = [w for w in wanted if w not in by_id]
+    if missing:
+        # Emitting nothing for a name nobody recognises would compile clean and
+        # render an empty selection, which is the shape of a typo that costs a
+        # person an application. The list of what IS on disk is capped, because the
+        # bundles this flag exists for are the ones holding a hundred views and a
+        # hundred ids scrolling past is not an answer to a typo.
+        on_disk = sorted(by_id)
+        shown = ", ".join(on_disk[:8]) or "none"
+        if len(on_disk) > 8:
+            shown += f", and {len(on_disk) - 8} more in tailoring/targets/"
+        raise Problem(
+            f"no view {', '.join(repr(m) for m in missing)} in this bundle - "
+            f"on disk: {shown}\n"
+            f"      fix: name one of those, or drop --view to compile every view")
+    return [by_id[w] for w in wanted]
 
 
 def link_projects(engagements, projects):
@@ -634,11 +710,14 @@ def simple(items, prefix, fields):
     return out
 
 
-def load(root, notes=None):
+def load(root, notes=None, views=None):
     """The bundle, as the record every downstream tool already reads.
 
     `notes` collects what a person should know but that is not an error - a concept
     that yielded nothing where it might have been expected to yield something.
+
+    `views` narrows what is emitted, and nothing else: None for every view on disk,
+    [] for none, or the ids to keep. See select_views().
     """
     root = os.path.abspath(root)
     if not os.path.isdir(root):
@@ -671,7 +750,7 @@ def load(root, notes=None):
             by_type.get("Certification Status", []), notes),
         "skills": build_skills(by_type.get("Skill Set", [])),
         "narratives": build_narratives(by_type.get("Positioning", [])),
-        "views": build_views(by_type.get("View", [])),
+        "views": select_views(build_views(by_type.get("View", [])), views),
     }
     link_projects(doc["engagements"], doc["projects"])
 
@@ -679,6 +758,49 @@ def load(root, notes=None):
         if person_meta.get(key) is not None:
             doc[key] = person_meta[key]
     return doc
+
+
+def dump_record(doc, fh):
+    """Write the record as JSON, with what YAML gave us that JSON cannot express.
+
+    An unquoted `timestamp: 2026-08-30` in a concept's frontmatter is a date to YAML
+    and nothing at all to json, and one reaching a View's passthrough ended the whole
+    compile in a TypeError from inside the encoder - a bundle problem reported as a
+    crash. CONCEPT_KEYS strips the one key that carried it; `default=str` covers the
+    next such value, and the guard turns anything still unwritable into a Problem
+    naming what to do about it.
+    """
+    try:
+        json.dump(doc, fh, indent=2, ensure_ascii=False, default=str)
+    except (TypeError, ValueError) as exc:
+        raise Problem(f"the record holds a value JSON cannot express: {exc}\n"
+                      f"      fix: quote the frontmatter value it came from - a bare "
+                      f"2026-08-30 is a date to YAML, \"2026-08-30\" is text")
+
+
+def floor(root):
+    """What a bundle must hold before what it compiles to is a record.
+
+    A freshly scaffolded bundle printed `compiled bundle:` with nothing after the
+    colon and exited 0, which reads as success and is the state every downstream gate
+    then passes on - an empty list satisfies every check written about its elements.
+    The floor is a person and one thing to say about them; a bundle richer than that
+    is nobody's business here.
+    """
+    counts = census(root)
+    if not counts.get("Person"):
+        raise Problem(
+            f"{os.path.basename(os.path.abspath(root))}: no Person concept, so there "
+            f"is no record - a compile that reports success on this teaches every gate "
+            f"after it that an empty document is a passing one\n"
+            f"      fix: write profile/identity.md with `type: Person` and a "
+            f"`# Contact` table (init_bundle.py scaffolds it)")
+    if not counts.get("Role") and not counts.get("Project"):
+        raise Problem(
+            f"{os.path.basename(os.path.abspath(root))}: a Person and nothing else - "
+            f"no Role and no Project, so the record has nothing to say\n"
+            f"      fix: write one concept in roles/ or projects/ - see "
+            f"references/bundle-spec.md")
 
 
 def posting(path):
@@ -716,39 +838,70 @@ def posting(path):
     }
 
 
+# Flags that consume the token after them. Listed so a value can never be mistaken
+# for the bundle path: `--view view_x <bundle>` used to leave `view_x` sitting at
+# args[0] and the script would try to compile it.
+VALUE_FLAGS = {"--dump-record", "--view"}
+
+
+def parse(argv):
+    """(positional arguments, {flag: [values]}) - one pass, values kept in order."""
+    args, flags, pending = [], {}, None
+    for token in argv:
+        if pending:
+            flags.setdefault(pending, []).append(token)
+            pending = None
+        elif token.startswith("-"):
+            flags.setdefault(token, [])
+            pending = token if token in VALUE_FLAGS else None
+        else:
+            args.append(token)
+    return args, flags
+
+
 def main(argv):
-    args = [a for a in argv[1:] if not a.startswith("-")]
+    args, flags = parse(argv[1:])
     if not args:
-        print("usage: okf_compile.py <BUNDLE | posting.md> [--dump-record FILE|-]")
+        print("usage: okf_compile.py <BUNDLE | posting.md> [--dump-record FILE|-] "
+              "[--view ID] [--no-views]")
         return 2
     if args[0].endswith(".md"):
         try:
             doc = posting(args[0])
+            dump_record(doc, sys.stdout)
         except Problem as exc:
             print(f"FAIL  {exc}")
             return 1
-        json.dump(doc, sys.stdout, indent=2, ensure_ascii=False)
         return 0
-    quiet = "--quiet" in argv
+    quiet = "--quiet" in flags
     notes = []
+
+    dump = None
+    if "--dump-record" in flags:
+        dump = (flags["--dump-record"] or ["-"])[0]
+
+    views = flags.get("--view") or None
+    if "--no-views" in flags:
+        if views:
+            print("--no-views and --view name opposite things - pass one of them")
+            return 2
+        views = []
+
     try:
-        doc = load(args[0], notes)
+        doc = load(args[0], notes, views)
+        floor(args[0])
+        if dump == "-":
+            dump_record(doc, sys.stdout)
+            return 0
+        if dump:
+            with open(dump, "w", encoding="utf-8") as fh:
+                dump_record(doc, fh)
     except Problem as exc:
         print(f"FAIL  {exc}")
         return 1
 
-    dump = None
-    if "--dump-record" in argv:
-        i = argv.index("--dump-record")
-        dump = argv[i + 1] if len(argv) > i + 1 else "-"
-    if dump == "-":
-        json.dump(doc, sys.stdout, indent=2, ensure_ascii=False)
-        return 0
-    if dump:
-        with open(dump, "w", encoding="utf-8") as fh:
-            json.dump(doc, fh, indent=2, ensure_ascii=False)
-        if not quiet:
-            print(f"wrote {dump}  (a cache - edit the concept, not this)")
+    if dump and not quiet:
+        print(f"wrote {dump}  (a cache - edit the concept, not this)")
     if not quiet:
         # Notes are not failures. They exist because a concept yielding nothing
         # looks identical to a concept that was never written, and one of those

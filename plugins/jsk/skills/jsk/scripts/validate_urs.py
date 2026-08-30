@@ -2,7 +2,9 @@
 """Validate a URS document against references/urs-spec.md.
 
 Usage: python3 validate_urs.py <bundle-dir | resume.json> [--strict]
-       --strict   treat warnings as failures
+       --strict            treat warnings as failures
+       --max-findings N    print at most N failures and N warnings (default 25;
+                           0 prints every one)
 
 On Windows use `python` or `py -3` in place of `python3`.
 
@@ -27,6 +29,16 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA_DIR = os.path.normpath(os.path.join(HERE, "..", "schema"))
+
+# The same cap, flag name and default as validate_bundle.py. This gate is what
+# jsk-verifier runs and reports back verbatim, so its output lands in an agent's
+# context on every check - a bundle answering a hundred postings printed 381 lines
+# and ~10,600 tokens of it. Nothing is hidden by the cap: the header keeps printing
+# the true totals and the last line says how many were not listed.
+MAX_FINDINGS = 25
+
+# Flags that consume the token after them, so a value can never be read as the path.
+VALUE_FLAGS = {"--max-findings"}
 
 ID_PREFIX = {
     "organizations": "org", "engagements": "eng", "education": "edu",
@@ -409,12 +421,51 @@ def load_target(path):
     return okf_compile.load(path), os.path.basename(os.path.abspath(path)) + " (compiled)"
 
 
+def parse(argv):
+    """(positional arguments, {flag: value}) - a flag's value is never a positional."""
+    args, flags, pending = [], {}, None
+    for token in argv:
+        if pending:
+            flags[pending] = token
+            pending = None
+        elif token.startswith("-"):
+            flags.setdefault(token, None)
+            pending = token if token in VALUE_FLAGS else None
+        else:
+            args.append(token)
+    return args, flags
+
+
+def show(items, mark, limit):
+    """At most `limit` findings, then the count of what was not listed.
+
+    Truncating a gate's output is only safe while the total is still visible, so
+    the caller prints the real counts in the header and this says how many it left
+    out. Same wording as validate_bundle.py - two gates answering the same question
+    should not answer it differently.
+    """
+    for item in items[:limit or len(items)]:
+        print(f"  {mark}  {item}")
+    if limit and len(items) > limit:
+        print(f"  {mark}  ... and {len(items) - limit} more")
+
+
 def main(argv):
-    if len(argv) < 2:
-        print("usage: validate_urs.py <bundle-dir | resume.json> [--strict]")
+    args, flags = parse(argv[1:])
+    if not args:
+        print("usage: validate_urs.py <bundle-dir | resume.json> [--strict] "
+              "[--max-findings N]")
         return 2
-    path = argv[1]
-    strict = "--strict" in argv
+    path = args[0]
+    strict = "--strict" in flags
+    limit = MAX_FINDINGS
+    if "--max-findings" in flags:
+        raw = flags["--max-findings"]
+        if raw is None or not raw.isdigit():
+            print(f"--max-findings needs a whole number, got {raw!r}")
+            print("fix:  --max-findings 50   - or 0 to print every finding")
+            return 2
+        limit = int(raw) or None
     if not os.path.exists(path):
         print(f"file not found: {path}")
         return 2
@@ -466,10 +517,8 @@ def main(argv):
 
     print(f"checking: {label}   urs: {version}")
     print(f"\nFAIL {len(rep.fails)}   WARN {len(rep.warns)}")
-    for f in rep.fails:
-        print("  FAIL  " + f)
-    for w in rep.warns:
-        print("  warn  " + w)
+    show(rep.fails, "FAIL", limit)
+    show(rep.warns, "warn", limit)
     print("\nPASS - safe to render" if not rep.fails
           else "\nDO NOT RENDER - fix the failures above")
     return 1 if rep.fails else 0

@@ -174,14 +174,17 @@ def cmd_score(args):
         for arg, kind in ((args[0], "record"), (args[1], "posting")):
             if os.path.isdir(arg) or arg.endswith(".md"):
                 try:
-                    doc = (okf_compile.load(arg) if os.path.isdir(arg)
+                    # views=[]: the scorer reads requirements and projects and never a
+                    # view, and this call is on the tailor-analyst's hot path - a hundred
+                    # views it will not open is a hundred views it should not be handed.
+                    doc = (okf_compile.load(arg, views=[]) if os.path.isdir(arg)
                            else okf_compile.posting(arg))
                 except okf_compile.Problem as exc:
                     print(f"FAIL  {exc}")
                     return 1
                 path = os.path.join(tmp, kind + ".json")
                 with open(path, "w", encoding="utf-8") as fh:
-                    json.dump(doc, fh)
+                    json.dump(doc, fh, default=str)
                 paths.append(path)
             else:
                 paths.append(arg)
