@@ -35,7 +35,7 @@ if HERE not in sys.path:
 
 import pipeline_model  # noqa: E402
 
-CURRENT_REVISION = 5
+CURRENT_REVISION = 6
 
 REVISIONS = {
     1: "applications point at a mutable target file (`target:`) and carry `outcome:`",
@@ -45,7 +45,14 @@ REVISIONS = {
        "into Markdown",
     5: "roles and projects declare their relations in frontmatter so the record "
        "compiles, and the posting is `<stem>.posting.md` again",
+    6: "the working posting r5 replaced is marked `superseded_by:`, and every live "
+       "reference points at the posting",
 }
+
+# A frontmatter line carrying a single scalar. Lists and nested maps are skipped, which
+# is correct here: no path-valued key in the layout is ever a list.
+FM_SCALAR = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):[ \t]+(\S.*)$")
+LINK_TARGET = re.compile(r"\]\(([^)]+)\)")
 
 # `outcome:` values seen in the wild, mapped onto timeline events. `offer` maps to an
 # advancing event rather than a terminal one, because an old record saying "offer" does
@@ -814,6 +821,163 @@ def plan_r4_to_r5(root, changes, blocked):
         changes.append(Change("update", rel, "role: " + found, write_project))
 
 
+# ------------------------------------------- r5 -> r6: retiring the working posting
+
+
+def superseded_targets(root):
+    """`tailoring/targets/<stem>.md` that `<stem>.posting.md` has replaced.
+
+    r5 converted every working posting to `<stem>.posting.md` and deliberately left the
+    source where it was - deleting somebody's only copy of an advertisement is not a
+    trade a migration gets to make on their behalf. What it could not do was say so on
+    the file. So a migrated bundle holds two documents per job, nothing on either one
+    names the live copy, and the indexes still link to the retired one. This step
+    writes the relationship down; the file still is not deleted.
+    """
+    directory = os.path.join(root, "tailoring", "targets")
+    if not os.path.isdir(directory):
+        return {}
+    names = set(os.listdir(directory))
+    found = {}
+    for name in sorted(names):
+        if not name.endswith(".md") or name == "index.md":
+            continue
+        if name.endswith((".posting.md", ".gaps.md", ".view.md")):
+            continue
+        stem = name[: -len(".md")]
+        if stem + ".posting.md" in names:
+            found[stem] = "tailoring/targets/" + name
+    return found
+
+
+def repointed(rel, candidate, retired):
+    """`candidate` with `.posting.md` on it, when it names a retired working posting.
+
+    Resolved against the referring file rather than matched as a string: `../targets/x.md`
+    and `x.md` are the same document seen from two directories, and only one of them
+    looks like the path being retired.
+    """
+    if "://" in candidate or candidate.startswith(("mailto:", "#")):
+        return None
+    bare, _, anchor = candidate.partition("#")
+    if not bare.endswith(".md"):
+        return None
+    resolved = os.path.normpath(os.path.join(os.path.dirname(rel), bare))
+    if resolved.replace(os.sep, "/") not in retired:
+        return None
+    moved = bare[: -len(".md")] + ".posting.md"
+    return moved + ("#" + anchor if anchor else "")
+
+
+ARCHIVED_COMPANION = (".target.md", ".posting.md", ".gaps.md", ".view.md")
+
+
+def is_archive(rel, fm_lines):
+    """Whether this file was frozen when an application was sent."""
+    if fm_get(fm_lines, "frozen") == "true":
+        return True
+    directory, _, name = rel.rpartition("/")
+    return (directory.endswith("tailoring/applications")
+            and name.endswith(ARCHIVED_COMPANION))
+
+
+def plan_repoint(root, retired, changes):
+    """Every live reference to a retired working posting, moved onto the posting.
+
+    Both shapes matter. `target_working_copy:` is by definition the pointer to the
+    editable copy, so an application holding it on a retired file names a document
+    nobody maintains. Index links are how a person finds any of this at all.
+
+    **Archives are skipped**, and identified structurally rather than by `frozen: true`:
+    the snapshots the r1 -> r2 step wrote predate that key, so trusting it would rewrite
+    exactly the oldest archives. Everything beside an application except the Application
+    concept itself is frozen by the layout, whatever its frontmatter says.
+
+    **Prose is left alone outside an `index.md`.** A link in a project or in `log.md` is
+    a record of what somebody wrote at the time; the retired file still exists and now
+    names its successor in frontmatter, so the reader gets there in one hop. An index is
+    navigation and is meant to be current, which is the whole reason a stale one is worth
+    fixing.
+    """
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for name in sorted(filenames):
+            if not name.endswith(".md"):
+                continue
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, root).replace(os.sep, "/")
+            if rel in retired:
+                continue
+            parts = split_frontmatter(open(path, encoding="utf-8").read())
+            if not parts:
+                continue
+            fm_lines, body = parts
+            if is_archive(rel, fm_lines):
+                continue
+
+            moves = []
+            for line in fm_lines:
+                match = FM_SCALAR.match(line)
+                if not match:
+                    continue
+                value = scalar(match.group(2))
+                moved = repointed(rel, value, retired)
+                if moved:
+                    moves.append(("%s:" % match.group(1), value, moved))
+            links = []
+            for target in (LINK_TARGET.findall(body) if name == "index.md" else ()):
+                moved = repointed(rel, target, retired)
+                if moved:
+                    links.append((target, moved))
+            if not moves and not links:
+                continue
+
+            def write(p=path, keys=tuple(moves), body_links=tuple(links)):
+                fm_lines, body = split_frontmatter(open(p, encoding="utf-8").read())
+                for key, was, now in keys:
+                    for i, line in enumerate(fm_lines):
+                        if line.startswith(key) and was in line:
+                            fm_lines[i] = line.replace(was, now, 1)
+                            break
+                for was, now in body_links:
+                    body = body.replace("](%s)" % was, "](%s)" % now)
+                open(p, "w", encoding="utf-8").write(join_frontmatter(fm_lines, body))
+
+            detail = ", ".join(
+                ["%s %s -> %s" % (k, w, n) for k, w, n in moves]
+                + ["link %s -> %s" % (w, n) for w, n in links])
+            changes.append(Change("update", rel, detail, write))
+
+
+def plan_r5_to_r6(root, changes, blocked):
+    retired = superseded_targets(root)
+    for stem, rel in sorted(retired.items()):
+        path = os.path.join(root, rel)
+        parts = split_frontmatter(open(path, encoding="utf-8").read())
+        if not parts:
+            blocked.append("%s has no readable frontmatter, so it cannot be marked "
+                           "superseded. Compare it with %s.posting.md by hand and "
+                           "delete it if nothing in it is worth keeping." % (rel, stem))
+            continue
+        fm_lines, _ = parts
+        if fm_index(fm_lines, "superseded_by") != -1:
+            continue
+        target = stem + ".posting.md"
+
+        def write(p=path, value=target):
+            fm_lines, body = split_frontmatter(open(p, encoding="utf-8").read())
+            at = fm_index(fm_lines, "status")
+            if at == -1:
+                at = len(fm_lines) - 1
+            fm_lines.insert(at + 1, "superseded_by: " + value)
+            open(p, "w", encoding="utf-8").write(join_frontmatter(fm_lines, body))
+
+        changes.append(Change("update", rel, "superseded_by: " + target, write))
+
+    if retired:
+        plan_repoint(root, set(retired.values()), changes)
+
+
 # ------------------------------------------------------------------ the stamp
 
 def plan_stamp(root, revision, changes):
@@ -884,6 +1048,9 @@ def main(argv=None):
         print(f"\nr4 -> r5  {REVISIONS[5]}")
         plan_postings(root, changes, blocked)
         plan_r4_to_r5(root, changes, blocked)
+    if revision < 6 <= CURRENT_REVISION:
+        print(f"\nr5 -> r6  {REVISIONS[6]}")
+        plan_r5_to_r6(root, changes, blocked)
     plan_stamp(root, CURRENT_REVISION, changes)
 
     done = {"create": "created", "update": "updated", "stamp": "stamped"}

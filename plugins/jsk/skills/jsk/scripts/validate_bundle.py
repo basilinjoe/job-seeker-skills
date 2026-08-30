@@ -33,6 +33,7 @@ LIST_ITEM = re.compile(r"^\s*[-*]\s+")
 
 errors, warnings = [], []
 files, types, caps = [], {}, {}
+metas = {}   # bundle-relative path (forward slashes) -> frontmatter, for the layout checks
 
 for dp, dns, fn in os.walk(ROOT):
     dns[:] = [d for d in dns if not d.startswith(".")]   # prune hidden dirs, not whole paths
@@ -47,7 +48,7 @@ if not files:
 # A WARNING and never an ERROR: failing a bundle built on an earlier revision would break
 # every bundle already in existence, which the frozen surfaces rule out. Absent means r1,
 # because every bundle predating the stamp has no way to say so.
-CURRENT_BUNDLE_REVISION = 5
+CURRENT_BUNDLE_REVISION = 6
 revision = None
 index_path = os.path.join(ROOT, "index.md")
 if os.path.exists(index_path):
@@ -88,6 +89,7 @@ for rel in sorted(files):
         errors.append(f"{rel}: YAML parse error - {e}"); continue
     if not isinstance(meta, dict):
         errors.append(f"{rel}: frontmatter is not a mapping"); continue
+    metas[rel.replace(os.sep, "/")] = meta
 
     if not meta.get("type"):
         errors.append(f"{rel}: MISSING REQUIRED KEY 'type'")
@@ -159,6 +161,99 @@ for rel in sorted(files):
         p = os.path.normpath(os.path.join(os.path.dirname(rel), t))
         if not os.path.exists(os.path.join(ROOT, p)):
             errors.append(f"{rel}: BROKEN LINK -> {target}")
+
+# ------------------------------------------------------------- tailoring layout
+#
+# The link checker above catches a reference to a file that is not there. It cannot
+# catch the opposite - a file that is there and should not be, or a companion the
+# layout requires and nobody wrote. Those are what make a tailoring folder unreadable,
+# and neither shows up as a broken link.
+
+APPLICATION_STEM = re.compile(r"^\d{4}-\d{2}-\d{2}-.+$")
+TARGET_COMPANIONS = (".posting.md", ".gaps.md", ".view.md")
+
+
+def target_stem(name):
+    for suffix in TARGET_COMPANIONS:
+        if name.endswith(suffix):
+            return name[: -len(suffix)], suffix
+    return name[:-3] if name.endswith(".md") else None, ".md"
+
+
+targets_dir = os.path.join(ROOT, "tailoring", "targets")
+if os.path.isdir(targets_dir):
+    tnames = set(os.listdir(targets_dir))
+    for name in sorted(n for n in tnames if n.endswith(".md") and n != "index.md"):
+        stem, suffix = target_stem(name)
+        rel = f"tailoring/targets/{name}"
+        if suffix == ".md":
+            # A working posting r5 replaced. Marked, it is a retired copy somebody kept
+            # on purpose; unmarked, it is a second document for the same job with
+            # nothing to say which one the scorer should have read.
+            if stem + ".posting.md" not in tnames:
+                continue
+            if (metas.get(rel) or {}).get("superseded_by"):
+                continue
+            msg = (f"{rel}: superseded by {stem}.posting.md and not marked - two "
+                   "documents describe one job and neither says which is live")
+            if isinstance(revision, int) and revision >= 6:
+                errors.append(msg)
+            else:
+                warnings.append(msg)
+        elif suffix in (".gaps.md", ".view.md") and stem + ".posting.md" not in tnames:
+            errors.append(f"{rel}: no {stem}.posting.md beside it - an assessment or a "
+                          "view with no posting cannot say what it was answering")
+
+apps_dir = os.path.join(ROOT, "tailoring", "applications")
+if os.path.isdir(apps_dir):
+    anames = set(os.listdir(apps_dir))
+    for name in sorted(anames):
+        rel = f"tailoring/applications/{name}"
+        meta = metas.get(rel)
+        if not name.endswith(".md") or name == "index.md" or not meta:
+            continue
+        if meta.get("type") != "Application":
+            continue
+        stem = name[: -len(".md")]
+
+        if not APPLICATION_STEM.match(stem):
+            warnings.append(f"{rel}: stem is not <yyyy-mm-dd>-<company>-<role> - the "
+                            "date is what makes a second round at the same posting "
+                            "addressable")
+
+        # Declared and missing is the serious one: the application names the thing it
+        # was answering and the thing is not there.
+        for key, is_a in (("posting", "the posting it answered"),
+                          ("assessment", "the assessment it answered"),
+                          ("view_file", "the view it rendered from")):
+            named = meta.get(key)
+            if not named:
+                continue
+            if not os.path.exists(os.path.normpath(os.path.join(apps_dir, str(named)))):
+                errors.append(f"{rel}: {key}: {named} does not exist - {is_a} is "
+                              "named and not archived")
+
+        # Undeclared is the quieter one, and a warning for the same reason the revision
+        # check is: an application frozen before these keys existed is not broken, it is
+        # just less answerable than one frozen today. A file sitting beside the
+        # application counts even when frontmatter never names it, and `<stem>.target.md`
+        # is the r2 spelling of the frozen posting.
+        missing = []
+        for key, suffixes in (("posting", (".posting.md", ".target.md")),
+                              ("assessment", (".gaps.md",)),
+                              ("view_file", (".view.md",))):
+            if meta.get(key) or any(stem + s in anames for s in suffixes):
+                continue
+            missing.append("%s: (%s%s)" % (key, stem, suffixes[0]))
+        if missing:
+            warnings.append(f"{rel}: no {', no '.join(missing)} - the archive cannot say "
+                            "what this answered or what it rendered from")
+
+        if stem + ".resume.json" in anames:
+            warnings.append(f"{rel}: {stem}.resume.json sits beside it - the record is "
+                            "not copied into an application (bundle-spec.md); it "
+                            "compiles from concepts in git at the commit it was sent at")
+
 
 # capabilities must exist in the canonical vocabulary.
 # Only real list items count: the file's own prose and its fenced format example are

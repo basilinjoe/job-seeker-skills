@@ -45,6 +45,7 @@ way to say so.
 | 3 | an application's outcome is derived from an append-only `# Timeline` |
 | 4 | the posting is a UJD document, `<stem>.posting.json`, not Markdown frontmatter |
 | 5 | roles and projects declare their relations in frontmatter, so the record compiles rather than being transcribed |
+| 6 | the working posting r5 replaced is marked `superseded_by:`, and every live reference points at the posting |
 
 `validate_bundle.py` warns on an older revision and never fails it. `migrate_bundle.py` moves a
 bundle forward, reports what it cannot establish, and marks anything it reconstructs
@@ -82,6 +83,12 @@ The assessment of that posting against the record sits beside it as `<company>-<
 the view that renders from it as `<company>-<role>.view.md`. All three are working copies and stay
 editable until an application freezes them.
 
+A bundle migrated from an earlier revision also holds the file the posting replaced, under the
+bare `<company>-<role>.md`. It is kept — deleting somebody's only copy of an advertisement is not a
+trade a migration gets to make — and it carries `superseded_by:` naming the posting that took over.
+Nothing reads it. An unmarked one is a validation error, because two documents describing one job
+with nothing to say which is live is how a scorer ends up reading the wrong requirements.
+
 Revision 4 made the posting a JSON document because Markdown frontmatter could not say which
 requirements were demanded and which were merely preferred. That was true and it is worth one key per
 requirement, which is what `necessity` now is. The rest of that document — provenance spans on every
@@ -91,15 +98,22 @@ recover; archived JSON postings stay readable, because an application that has b
 
 ## Applications on disk
 
-One submission is a **set of files sharing a stem**, all in `tailoring/applications/`:
+One submission is a **set of files sharing a stem**, all in `tailoring/applications/`. The stem is
+`<yyyy-mm-dd>-<company>-<role>`, the date being the day it was sent:
 
 | File | Is |
 |---|---|
-| `<company>-<role>.md` | the log: what was sent, what was selected, what came back |
-| `<company>-<role>.posting.md` | the posting **frozen at submission** |
-| `<company>-<role>.gaps.md` | the assessment it was answering, frozen with it |
-| `<company>-<role>.view.md` | the view it rendered from |
+| `<stem>.md` | the log: what was sent, what was selected, what came back |
+| `<stem>.posting.md` | the posting **frozen at submission** |
+| `<stem>.gaps.md` | the assessment it was answering, frozen with it |
+| `<stem>.view.md` | the view it rendered from |
 | `<Name>_<Company>_Resume*.{pdf,tex,txt}` | the files actually sent |
+
+**The date is in the stem because applying twice is ordinary.** A posting is re-advertised, a first
+attempt is superseded by a better one, a rejection is followed by a second round a year later. Each
+of those is its own submission answering its own assessment, and without the date the second one has
+nowhere to go but on top of the first. The target it answers keeps the undated `<company>-<role>`
+slug, because there is only ever one live working copy of a job.
 
 **Every input is frozen, not just the view.** The files in `tailoring/targets/` are working copies
 and stay editable; the copies beside the application are the archive and do not. An application that
@@ -112,10 +126,10 @@ beside the application, which only ever proved what somebody wrote down.
 The `Application` concept names both, and the distinction is the point:
 
 ```yaml
-posting: "<company>-<role>.posting.md"            # frozen - what was applied against
-assessment: "<company>-<role>.gaps.md"            # frozen - the gaps it answered
+posting: "<stem>.posting.md"                      # frozen - what was applied against
+assessment: "<stem>.gaps.md"                      # frozen - the gaps it answered
 target_working_copy: "../targets/<company>-<role>.posting.md"     # editable
-view_file: "<company>-<role>.view.md"             # frozen - what was rendered
+view_file: "<stem>.view.md"                       # frozen - what was rendered
 company_ref: "../../organisations/<company>.md"
 view: view_<id>                                   # the id inside it
 submitted: 2026-08-26

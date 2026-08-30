@@ -99,14 +99,16 @@ was checked is not.*
 Only once every gate has passed. **A failing document is never frozen** — an archive of something
 that was not sendable is worse than no archive, because later it reads as though it was.
 
-One submission is a set of files sharing a stem in `tailoring/applications/`:
+One submission is a set of files sharing a stem in `tailoring/applications/`. The stem is
+`<yyyy-mm-dd>-<company>-<role>` - today's date, then the target's slug - because applying twice to
+one posting is ordinary and the second round needs somewhere to go that is not on top of the first:
 
 | File | Is |
 |---|---|
-| `<slug>.md` | the log: what was sent, what was selected, what came back |
-| `<slug>.posting.md` | the posting, frozen - the advertisement verbatim |
-| `<slug>.gaps.md` | the assessment it was answering, frozen |
-| `<slug>.view.md` | the view it rendered from |
+| `<stem>.md` | the log: what was sent, what was selected, what came back |
+| `<stem>.posting.md` | the posting, frozen - the advertisement verbatim |
+| `<stem>.gaps.md` | the assessment it was answering, frozen |
+| `<stem>.view.md` | the view it rendered from |
 | `<Name>_<Company>_Resume*.{pdf,tex,txt}` | the files actually sent |
 
 Copy all three out of `tailoring/targets/`, and set `frozen: true` with the date on each. The files

@@ -195,6 +195,14 @@ python3 scripts/validate_bundle.py ./my-career
 
 Bundle is well-formed. Needs `pyyaml`. Run it after any change to the bundle.
 
+It also checks the **tailoring layout**, which the link checker cannot see: a link only breaks when
+its target is missing, and what goes wrong in `tailoring/` is the opposite — a file that is there and
+should not be, or a companion the layout requires and nobody wrote. It reports a working posting
+superseded by a `.posting.md` and not marked, an assessment or view with no posting beside it, an
+application naming a frozen input that does not exist, an application that cannot name what it
+answered or rendered from, a `.resume.json` copied beside an application, and a stem that is not
+`<yyyy-mm-dd>-<company>-<role>`.
+
 ### `migrate_bundle.py`
 
 Brings a bundle built on an earlier layout up to the current one.
@@ -214,11 +222,26 @@ because every bundle created before the stamp existed has no way to say so.
 | 3 | an application's outcome is derived from an append-only `# Timeline` |
 | 4 | the posting is a UJD document, `<stem>.posting.json` — superseded by 5 |
 | 5 | roles and projects carry their relations in frontmatter, and the posting is `<stem>.posting.md` again |
+| 6 | the working posting r5 replaced is marked `superseded_by:`, and every live reference points at the posting |
 
 Revisions 4 and 5 collapse into one step. A bundle below either converts its postings straight to
 Markdown, because running revision 4's step first would write a document whose only reader was
 deleted along with the format. A posting already frozen beside a sent application is left exactly
 as it is.
+
+Revision 6 cleans up after 5. That step converted every working posting to `<stem>.posting.md` and
+left the source alone, which was right — deleting somebody's only copy of an advertisement is not a
+trade a migration gets to make — but it could not say so on the file, so a migrated bundle held two
+documents per job and the indexes still pointed at the retired one. Revision 6 writes
+`superseded_by:` onto the source and moves every live reference to the posting. It still deletes
+nothing.
+
+What counts as a live reference is deliberately narrow: path-valued frontmatter keys anywhere, and
+Markdown links in an `index.md`. Prose elsewhere is left alone, because a link in a project file or
+in `log.md` records what somebody wrote at the time, and the retired file still exists and now names
+its successor. Archives are skipped outright, identified by position rather than by `frozen: true` —
+the snapshots the r1 → r2 step wrote predate that key, so trusting it would rewrite the oldest
+archives first.
 
 Report mode **exits 1 when changes are pending**, which is what makes it usable as a check: an
 out-of-date bundle is detectable without writing to it. `--apply` exits 0 only when nothing is left

@@ -25,10 +25,15 @@ LibreOffice while the PDF was what got sent, the two disagreed, and a resume rep
 shipped as three. **`--ats-max` now chooses which variant the single PDF holds** rather than adding a
 second file.
 
-The JSON is also the durable artefact. Save it — `resume-generation/resume.json` for a general
-rebuild, `tailoring/applications/<company>-<role>.resume.json` for a tailored one. A month later the
-question is never "what did the resume look like", it is "what did it claim, and where did that come
-from", and only the record answers that.
+Save it as `resume-generation/resume.json` for a general rebuild. A month later the question is
+never "what did the resume look like", it is "what did it claim, and where did that come from", and
+the record answers that.
+
+**Do not copy it beside an application.** A tailored record is not archived, because it compiles from
+concepts that are in git: the resume sent last March rebuilds from the commit it was sent at, which
+is a stronger guarantee than a copied file, and the copy is one more thing to drift. `mode-ship.md`
+freezes the posting, the assessment and the view — the inputs, which are not recoverable — and
+nothing else.
 
 ## Output
 
