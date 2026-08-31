@@ -176,6 +176,91 @@ class IdentityAndReferences(UrsCase):
         self.assertFails(doc, "unknown id")
 
 
+class BulletIdsAViewNamesMustBeWrittenDown(UrsCase):
+    """The compensating control for bullet ids the compiler numbers by position.
+
+    okf_compile mints `ach_projects_<stem>_md_<n>` for a bullet whose concept wrote no
+    id down, so inserting a bullet above one shifts every id below it onto the next
+    sentence. Nothing fails - the id still resolves - so a view keeps rendering and
+    quietly quotes different work. Measured on a compiled bundle: `prj_care` with two
+    bullets gives `ach_projects_care_md_1` and `..._2`, and a bullet added above them
+    moves `..._1` onto what had been `..._2`.
+
+    The write layer materialises these ids before it mutates a concept, and there is
+    no migration, so a bundle nobody has written to stays exposed. This warning is
+    what makes that visible on the next `okf validate`.
+    """
+
+    NEEDLE = "points at a different sentence"
+
+    def bundle(self, aids, referenced=()):
+        doc = urs_doc()
+        # No `engagement` key: a project that names one must appear in that
+        # engagement's projects[], and a missing back-reference fails the document
+        # for a reason this test is not about. No numerals in the text either, for
+        # the same reason - an unbacked number is its own failure.
+        doc["projects"] = [{
+            "id": "prj_care",
+            "title": "Care coordination platform",
+            "strength": 5,
+            "provenance": {"status": "confirmed"},
+            "achievements": [
+                achievement(text, aid=aid) for text, aid in zip(
+                    ("Rebuilt the ingestion pipeline end to end.",
+                     "Led the compliance workstream to sign-off."), aids)],
+        }]
+        if referenced:
+            doc["views"][0]["include"] = [
+                {"ref": "prj_care", "achievements": list(referenced)}]
+        return doc
+
+    def warnings(self, out):
+        return [ln for ln in out.splitlines() if ln.startswith("  warn  ")]
+
+    def test_a_view_naming_a_positional_id_warns(self):
+        out = self.assertPasses(self.bundle(
+            ["ach_projects_care_md_1", "ach_projects_care_md_2"],
+            referenced=["ach_projects_care_md_1"]))
+        self.assertIn(self.NEEDLE, out)
+        # The finding has to name all three, or nobody can act on it.
+        self.assertIn("view_default", out)
+        self.assertIn("ach_projects_care_md_1", out)
+        self.assertIn("prj_care", out)
+
+    def test_an_id_the_concept_wrote_down_does_not_warn(self):
+        out = self.assertPasses(self.bundle(
+            ["ach_care_pipeline", "ach_care_compliance"],
+            referenced=["ach_care_pipeline"]))
+        self.assertNotIn(self.NEEDLE, out)
+        self.assertIn("WARN 0", out)
+
+    def test_a_positional_id_no_view_names_does_not_warn(self):
+        """An unmaterialised id nobody points at is not yet a hazard, and warning on
+        every numbered bullet would bury the ones that are."""
+        out = self.assertPasses(
+            self.bundle(["ach_projects_care_md_1", "ach_projects_care_md_2"]))
+        self.assertNotIn(self.NEEDLE, out)
+        self.assertIn("WARN 0", out)
+
+    def test_only_the_named_id_is_reported(self):
+        out = self.assertPasses(self.bundle(
+            ["ach_projects_care_md_1", "ach_projects_care_md_2"],
+            referenced=["ach_projects_care_md_2"]))
+        self.assertEqual(len(self.warnings(out)), 1, out)
+        self.assertIn("ach_projects_care_md_2", out)
+        self.assertNotIn("ach_projects_care_md_1", out)
+
+    def test_it_never_changes_the_exit_code(self):
+        """This is a warning about a hole, not a defect in the record: the ids resolve
+        and the document renders. A bundle that passed before must still pass."""
+        code, out = self.validate(self.bundle(
+            ["ach_projects_care_md_1", "ach_projects_care_md_2"],
+            referenced=["ach_projects_care_md_1", "ach_projects_care_md_2"]))
+        self.assertEqual(code, 0, out)
+        self.assertIn("FAIL 0", out)
+        self.assertIn("PASS - safe to render", out)
+
+
 class ProvenanceAndPlaceholders(UrsCase):
     def test_achievement_without_provenance_fails(self):
         doc = urs_doc()

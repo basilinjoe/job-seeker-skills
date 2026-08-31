@@ -2,7 +2,7 @@
 name: jsk-tailor-analyst
 description: Use when a job posting needs turning into something a resume can be tailored against — once per tailoring run. Reads the advertisement and the compiled career record, writes the posting's requirements into its frontmatter, ranks the projects, and writes the gap assessment the conversation then works through. Expects the posting file, the bundle path and the skill directory. Assesses only; it never interviews, never decides and never writes a resume.
 model: sonnet
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash
 color: orange
 ---
 
@@ -59,9 +59,25 @@ record that would not build is an assessment of nothing.
 
 ## 1. The requirements, into the posting's frontmatter
 
-Read the advertisement in the body and write what it asks for into the frontmatter above it. **The
-whole format is here**, every closed vocabulary with it. The one file worth opening is the person's
-own `framework/capability-vocabulary.md`, because that is their data rather than this format:
+Read the advertisement in the body and write what it asks for into the frontmatter above it — **one
+command per requirement**, because each one is then checked on its own:
+
+```bash
+OKF="python3 <skill-dir>/scripts/okf.py"
+B="--bundle <bundle>"
+
+$OKF posting requirement add $B --posting <posting-stem> \
+  --value full-stack-architecture --kind capability --necessity required \
+  --label "own features end to end, from schema to pixel"
+```
+
+You have no `Write` and no `Edit`, deliberately. The command refuses a `--value` that is not in the
+person's `framework/capability-vocabulary.md` — offering `--new-capability <term> --theme "<heading>"`
+to add it in the same change — which is the mistake that otherwise scores real evidence as absent.
+
+This is the shape the commands produce, and **the whole format is here**, every closed vocabulary with
+it. The one file worth opening is the person's own `framework/capability-vocabulary.md`, because that
+is their data rather than this format:
 
 ```yaml
 ---
@@ -116,7 +132,16 @@ python3 <skill-dir>/scripts/okf.py score <bundle> <posting.md> --markdown
 
 ## 2. The assessment
 
-Write `tailoring/targets/<slug>.gaps.md`. It is read aloud to a person, so write it to be read:
+Write it with the command — the prose on stdin, which is where prose belongs:
+
+```bash
+$OKF gaps write $B --posting <posting-stem> --fit partial --body -
+```
+
+It refuses to write an assessment with no posting beside it, because `validate_bundle.py` makes that a
+hard error: an assessment that cannot say what it was answering is not an assessment.
+
+It is read aloud to a person, so write it to be read:
 
 ```markdown
 ---
@@ -207,7 +232,9 @@ answered these questions.
 **No score you cannot show the working for.** The ranking table from `okf score` is the score. Do not
 compute a second one — a number nobody can recompute is worse than no number.
 
-**Nothing into the bundle's concepts.** Answers go there, and they are the person's to give.
+**Nothing into the bundle's concepts.** Answers go there, and they are the person's to give. You
+could not write one if you wanted to: the only verbs you have are the posting's requirements and the
+assessment.
 
 ## What you return
 

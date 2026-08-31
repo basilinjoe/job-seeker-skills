@@ -88,10 +88,68 @@ class Changeset:
 
     def __init__(self):
         self._writes = []      # (path, text, kind), in the order staged
+        self._removals = []    # (path, kind), in the order staged
         self.ids = {}
 
+    def remove(self, path, kind="concept"):
+        """Stage one file's deletion.
+
+        There is no temp file for a delete and nothing to fsync, so a removal
+        cannot be rolled back. **Every removal is therefore published after every
+        write**, which is not the ordering rule writes obey among themselves and is
+        the same principle behind it: the authored half is the half that cannot be
+        regenerated, so it is not destroyed until everything that had to be
+        written has landed. A `rm` whose index rewrite fails must leave the
+        concept on disk.
+
+        The state that tears is a concept its index no longer lists, which is
+        silent - `validate_bundle.py` checks that an index's links resolve, never
+        that it lists every concept beside it - and which `okf reindex` repairs.
+        The alternative is loud and destroys the file first, and a loud failure
+        over somebody's deleted work is the worse trade.
+
+        `kind` still orders removals among themselves. `retire` exists because
+        most removals should not be one of these at all: git is the undo for this
+        verb, and that is all this module asks of it.
+        """
+        if kind not in ORDER:
+            raise Refused(
+                f"{path}: staged for removal as `{kind!r}`, which is not a kind "
+                f"of file\n"
+                f"fix:  one of {', '.join(sorted(ORDER))}")
+        path = str(path)
+        if not os.path.exists(path):
+            raise Refused(f"{path}: staged for removal and is not there\n"
+                          f"fix:  nothing was changed - check the path")
+        if any(path == staged for staged, _, _ in self._writes):
+            raise Refused(
+                f"{path}: staged for both writing and removal in one change\n"
+                f"fix:  a command holding two intentions for one file cannot know "
+                f"which was meant")
+        if any(path == staged for staged, _ in self._removals):
+            raise Refused(f"{path}: staged for removal twice in one change\n"
+                          f"fix:  stage each file once")
+        self._removals.append((path, kind))
+
+    def copy(self, source, path, kind="companion"):
+        """Stage one file copied byte for byte - a PDF, a .tex, a frozen companion.
+
+        Read here rather than at publish time, so a source that cannot be read
+        fails while the bundle is still untouched. `application file` copies the
+        documents that were actually sent, and those are binary: a text-mode copy
+        would corrupt every one of them, silently, in the one directory whose
+        whole purpose is to hold what was sent.
+        """
+        try:
+            with open(str(source), "rb") as handle:
+                data = handle.read()
+        except OSError as exc:
+            raise Refused(f"{source}: could not be read - {exc.strerror}\n"
+                          f"fix:  nothing was changed. Check the path")
+        self.write(path, data, kind=kind)
+
     def write(self, path, text, kind="companion"):
-        """Stage one file's whole new text under one of ORDER's kinds."""
+        """Stage one file's whole new text, or its bytes, under one of ORDER's kinds."""
         if kind not in ORDER:
             # Named rather than defaulted: a typo'd kind silently sorted into
             # some arbitrary position is the ordering guarantee quietly going
@@ -100,15 +158,21 @@ class Changeset:
                 f"{path}: staged as `{kind!r}`, which is not a kind of file\n"
                 f"fix:  one of {', '.join(sorted(ORDER))} - the kind is what "
                 f"decides which file publishes first")
-        if not isinstance(text, str):
-            # bytes reached open(newline="") in text mode as a TypeError from
-            # inside the write loop, after other temp files had already been
-            # written. Refused here, where nothing has been staged to disk yet.
+        if not isinstance(text, (str, bytes)):
+            # Anything else reached open() as a TypeError from inside the write
+            # loop, after other temp files had already been written. Refused here,
+            # where nothing has been staged to disk yet. bytes are admitted for
+            # copy() alone - see the encoding branch in commit().
             raise Refused(
                 f"{path}: staged {type(text).__name__}, not text\n"
                 f"fix:  pass the file's whole new text as a str - concept.text() "
-                f"returns one")
+                f"returns one. Bytes are for copy(), which reads a file")
         path = str(path)
+        if any(path == staged for staged, _ in self._removals):
+            raise Refused(
+                f"{path}: staged for both writing and removal in one change\n"
+                f"fix:  a command holding two intentions for one file cannot know "
+                f"which was meant")
         if any(path == staged for staged, _, _ in self._writes):
             # Both entries derive one temp name from SUFFIX, so the first
             # replace consumed the temp and the second raised FileNotFoundError
@@ -140,6 +204,9 @@ class Changeset:
     def _ordered(self):
         return sorted(self._writes, key=lambda item: ORDER[item[2]])
 
+    def _ordered_removals(self):
+        return sorted(self._removals, key=lambda item: ORDER[item[1]])
+
 
 def commit(changeset, dry_run=False):
     """Write every file, then publish them in order. The payload --json prints.
@@ -150,9 +217,16 @@ def commit(changeset, dry_run=False):
     which files landed and which did not, rather than pretending either way.
     """
     ordered = changeset._ordered()
+    removals = changeset._ordered_removals()
     payload = {"changed": [path for path, _, _ in ordered],
                "ids": dict(changeset.ids),
                "dry_run": bool(dry_run)}
+    if removals:
+        # A separate list rather than folded into `changed`, because a caller
+        # reading --json has to be able to tell a file that now says something
+        # else from a file that is gone. Absent entirely when nothing is removed,
+        # so every existing caller's payload is unchanged.
+        payload["removed"] = [path for path, _ in removals]
     if dry_run:
         return payload
 
@@ -163,7 +237,23 @@ def commit(changeset, dry_run=False):
             # newline="" disables translation, so the bytes handed in are the
             # bytes that land. Text mode would rewrite every line ending in a
             # CRLF concept in order to change one key - see the module docstring.
-            with open(temp, "w", encoding="utf-8", newline="") as handle:
+            binary = isinstance(text, bytes)
+            # The target's directory, made here rather than by the caller. A
+            # command that had to mkdir first was doing part of its write outside
+            # the transaction - `okf application file` creates
+            # tailoring/applications/<yyyy>/ on a bundle's first filing of that
+            # year, and had to create it before staging anything into it, so a
+            # --dry-run that decided everything still left a directory behind.
+            #
+            # Safe for every other caller: exist_ok, and a path whose parent is
+            # already there costs one failed syscall. It cannot create a
+            # directory a write does not then land in, because the write is the
+            # next statement and a failure below discards the temp file.
+            parent = os.path.dirname(path)
+            if parent and not os.path.isdir(parent):
+                os.makedirs(parent, exist_ok=True)
+            with (open(temp, "wb") if binary else
+                  open(temp, "w", encoding="utf-8", newline="")) as handle:
                 handle.write(text)
                 handle.flush()
                 # Before any replace, not after all of them: a replace that
@@ -219,6 +309,25 @@ def commit(changeset, dry_run=False):
                      "files up to date - re-running the same command may refuse, "
                      "because the concept it would write is now there.")
         raise Refused("\n".join(lines))
+
+    # Last, and after every write is published. A removal cannot be undone, so it
+    # is the step to reach only once everything that had to be written has landed:
+    # a `rm` whose index rewrite failed must not have deleted the concept.
+    gone = []
+    for path, _ in removals:
+        try:
+            os.remove(path)
+        except OSError as exc:
+            pending = [p for p, _ in removals[len(gone):]]
+            lines = ["the change was published, and a file could not be removed"]
+            lines += [f"removed:     {path}" for path in gone]
+            lines += [f"not removed: {pending[0]} - {exc.strerror}"]
+            lines += [f"not removed: {path}" for path in pending[1:]]
+            lines.append("fix:  every write landed. Delete the listed files by hand, "
+                         "or clear whatever holds them open and run the command "
+                         "again - it will refuse only if it has nothing left to do.")
+            raise Refused("\n".join(lines))
+        gone.append(path)
     return payload
 
 

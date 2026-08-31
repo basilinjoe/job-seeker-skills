@@ -55,6 +55,17 @@ checksums, conformance levels and a reconcile pass all used to police.
 concepts, recompile. Only then does `jsk-resume-author` write the view, once.
 `references/mode-tailor.md` has the procedure.
 
+### Never `Write` or `Edit` a file inside a bundle
+
+**Every change you make to a bundle is an `okf` command** — the list under *Scripts* below, and
+`references/write-commands.md` for the rules. A bundle write is a several-file transaction; written
+by hand, four of the five files were checked by nothing, so *a half-finished write could go green*.
+
+**If a change cannot be expressed as a command, report that and stop** — a blocked write is a
+missing verb worth reporting, and a hand-edit is a bundle nobody can trust.
+
+This binds you, never the person: a hand-edited concept is a valid concept.
+
 ## Modes
 
 Route on what the user asked for. If they passed an argument (`braindump`, `resume`, `tailor`,
@@ -113,7 +124,7 @@ Load as needed rather than upfront:
 | `references/ats-rules.md` | hard rules, the two-variant strategy, keyword placement |
 | `references/urs-spec.md` | the shape the record compiles to, and the region profiles a view renders through |
 | `references/view-format.md` | the other half of that spec: every key a view may carry, and the rule that it may carry no prose |
-| `references/write-commands.md` | writing a concept with a command instead of by hand: the flags, the files one write implies, and where the commands stop |
+| `references/write-commands.md` | **the only way to change a bundle**: every noun and verb, the files one write implies, the refusals, and where the commands stop |
 | `references/rationale.md` | why the rules are what they are — read it when you need to *explain* one |
 
 ## Scripts
@@ -127,7 +138,7 @@ skill, so a bare `scripts/…` will not resolve.
 |---|---|---|
 | `preflight.py [--verify]` | what this machine can do, and what each gap disables | — |
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
-| `okf.py project add --bundle DIR --title T --role R [...]` | writes a Project concept **and** the index entry, log row and vocabulary term that implies; `--dry-run` decides everything and writes nothing | — |
+| `okf.py <noun> <verb> --bundle DIR [...]` | **every change to a bundle** — the nouns listed below | `pyyaml` to read back |
 | `validate_bundle.py <bundle> [--scope SUBDIR] [--exclude-archive] [--max-findings N]` | bundle is well-formed | `pyyaml` |
 | `migrate_bundle.py <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
 | `pipeline.py <bundle> [--all] [--company N] [--as-of D] [--top N] [--json]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
@@ -146,6 +157,23 @@ python3 <skill-dir>/scripts/check_ats.py resume.pdf --strict
 ```
 
 Use `python` or `py -3` on Windows, where `python3` is usually absent.
+
+### The write commands
+
+Each takes `--bundle DIR`, `--dry-run`, `--json`, `--set key=value`. `okf <noun>` lists its verbs;
+`references/write-commands.md` has the rules.
+
+- `okf project` · `okf role` · `okf org` · `okf education` — `add|set|retire|rm`
+- `okf bullet` · `okf skill` · `okf credential` — `add|set|rm|mv` — the claims inside a concept
+- `okf metric add|set` · `okf capability add` · `okf question add|resolve` · `okf log` · `okf reindex`
+- `okf posting add` · `okf posting requirement add` · `okf gaps write` · `okf view create|set|include`
+- `okf application file` · `okf application event`
+
+- **`retire` keeps the concept** and stops the compile emitting it; **`rm` deletes** and refuses
+  while anything still references it.
+- **Ids are written down.** A claim mutation first materialises the ids the compile derived from
+  position, so a view naming one cannot be repointed by a later insertion.
+- **A refusal names its cause and ends in `fix:`.** Read it rather than retrying.
 
 **`compile` narrows what it emits, never what it reads.** `--compact` drops the indentation;
 `--for score` emits projects with only the keys a ranking runs on. Together they take an agent's
@@ -243,10 +271,12 @@ Every concept carries `status`:
 precisely that it reads well — plausible, well-written, and indefensible when an interviewer asks a
 follow-up.*
 
-**`okf project add --status` defaults to `confirmed`.** Pass `--status inferred` for anything you
-reconstructed rather than heard. A concept you wrote and stamped `confirmed` has laundered your
-inference into a fact, and nothing downstream can tell — `provenance_floor` is enforced against what
-the frontmatter says, not against who typed it.
+**`add` defaults to `--status confirmed`; `set` re-stamps `inferred`.** Pass `--status inferred` on
+an `add` for anything you reconstructed rather than heard: a concept you wrote and stamped
+`confirmed` has laundered your inference into a fact, and nothing downstream can tell —
+`provenance_floor` is enforced against what the frontmatter says, not against who typed it. The
+`set` default is that rule from the other side, so confirmation is something you asked them for
+rather than something a claim inherits by nobody touching that line.
 
 **Never invent a credential**, or claim one is "in progress", unless they said so.
 

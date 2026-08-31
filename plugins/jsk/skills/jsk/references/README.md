@@ -23,7 +23,7 @@ what the current task needs.
 | `bundle-spec.md` | Bundle layout on disk, concept file format, frontmatter schema, selection keys, concept types |
 | `urs-spec.md` | The URS record: document shape, core types, region profiles, conformance levels |
 | `view-format.md` | The other half of URS: every key a view may carry, and the rule that it may carry no prose |
-| `write-commands.md` | Writing a concept with a command instead of by hand: `okf project add`, the files one write implies, and where the commands stop |
+| `write-commands.md` | **The only way to change a bundle**: every noun and verb, the files one write implies, the refusals, and where the commands stop |
 
 `urs-spec.md` and `view-format.md` are one specification in two files, split because
 `jsk-resume-author` writes views and never writes a record. **Neither restates the other**, and each

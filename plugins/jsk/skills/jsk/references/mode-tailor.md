@@ -60,8 +60,15 @@ have been here before, that is a `pipeline` backlog item, not a reason to skip t
 tools. Job boards refuse often — LinkedIn and most Workday tenants sit behind a wall — so when a fetch
 fails, say what happened and ask them to paste it. That is an ordinary outcome, not an error.
 
-Write it to `tailoring/targets/<slug>.posting.md` with the advertisement verbatim in the body and the
-URL in the frontmatter. Keep the URL either way; the archive needs it.
+Write it with the command, never by hand — the advertisement verbatim in the body, on stdin:
+
+```bash
+python3 <skill-dir>/scripts/okf.py posting add --bundle <bundle> \
+  --company "…" --title "…" --url "…" --seniority <term> --domain <domain> --body -
+```
+
+Keep the URL either way; the archive needs it. A posting with an empty body is refused: the
+advertisement is the thing a person re-reads and the thing the archive has to keep.
 
 ## 2. Assess
 
@@ -101,6 +108,17 @@ An answer edits **the concept it belongs to** — the project file, `achievement
 One place, because there is only one source now: the record recompiles from it. That is the whole
 reason the old procedure's "write it to both places, then reconcile" step is gone, along with the class
 of bug it existed to catch.
+
+**Every one of those edits is a command** — never `Write` or `Edit` inside the bundle:
+
+```bash
+$OKF metric add  $B --name "…" --value "…" --evidence <stem> --source "where it came from"
+$OKF bullet set  $B --project <stem> --id <ach id> --text "…" --status confirmed
+$OKF project set $B --slug <stem> --headline-metric "…" --status confirmed
+```
+
+**Pass `--status confirmed` when — and only when — they just confirmed it.** A `set` re-stamps
+`inferred` by default; here you have their answer, so the flag is earned.
 
 Then recompile, so everything after this reads the answers:
 

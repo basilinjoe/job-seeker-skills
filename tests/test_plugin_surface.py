@@ -111,6 +111,28 @@ class AgentFrontmatter(unittest.TestCase):
                 self.assertIn("Write", tools)
                 self.assertNotIn("Edit", tools)
 
+    def test_the_two_agents_that_author_hold_neither_write_nor_edit(self):
+        """The anti-invention guarantee, moved from an instruction into a tool grant.
+
+        Both of these used to carry `Write, Edit` and were told in prose to follow
+        bundle-spec.md. Everything they write is now an `okf` command, which checks
+        the shape and refuses what a gate would reject later - so the tools that
+        would let one hand-author a concept are gone, and "never invent" stops
+        being something a model has to remember.
+
+        This is the enforcement half of
+        docs/superpowers/specs/2026-08-31-okf-write-cli-design.md. Without it the
+        write layer is a convenience rather than a guarantee: the whole design is
+        worth what the change to what agents MAY do is worth.
+        """
+        for name in ("jsk-tailor-analyst", "jsk-resume-author"):
+            tools = frontmatter(PLUGIN / "agents" / f"{name}.md")["tools"]
+            with self.subTest(agent=name):
+                self.assertNotIn("Write", tools)
+                self.assertNotIn("Edit", tools)
+                # Bash stays, because that is how a command is run at all.
+                self.assertIn("Bash", tools)
+
 
 class Manifests(unittest.TestCase):
     def test_the_two_versions_agree(self):
@@ -241,21 +263,38 @@ class DocumentedSurface(unittest.TestCase):
     # the four files that command writes.
 
     def subcommands(self):
-        """Every subcommand `okf` answers to, read off its two dispatch tables."""
+        """Every subcommand `okf` answers to, read off its three dispatch tables.
+
+        WRITE_NOUNS is the third, and it is a tuple rather than a dict literal
+        because every one of its entries dispatches the same way - so the names are
+        listed once and HANDLERS is built from them. A test reading only the dict
+        literals saw none of the sixteen write commands.
+        """
         text = (SCRIPTS / "okf.py").read_text(encoding="utf-8")
         found = set()
         for table in ("SIMPLE", "HANDLERS"):
             block = re.search(rf"^{table} = \{{(.*?)^\}}", text, re.M | re.S)
             self.assertIsNotNone(block, f"okf.py: no {table} table found")
             found |= set(re.findall(r'^    "([a-z]+)":', block.group(1), re.M))
+        nouns = re.search(r"^WRITE_NOUNS = \((.*?)\)", text, re.M | re.S)
+        self.assertIsNotNone(nouns, "okf.py: no WRITE_NOUNS tuple found")
+        found |= set(re.findall(r'"([a-z]+)"', nouns.group(1)))
         self.assertTrue(found, "okf.py declares no subcommands")
         return found
 
     def test_the_help_text_lists_every_subcommand(self):
         """`okf --help` prints the module docstring, so a subcommand absent from it is
-        invisible to anyone who asks the command itself what it can do."""
-        listed = set(re.findall(r"^    okf ([a-z]+)", (SCRIPTS / "okf.py").read_text(
-            encoding="utf-8"), re.M))
+        invisible to anyone who asks the command itself what it can do.
+
+        A line may name several nouns that share a verb set - `okf project|role|org`
+        - because sixteen write commands one to a line would bury the twelve read
+        ones. Each alternative counts as listed; what is being checked is that
+        nothing is absent, not how densely the menu is packed.
+        """
+        listed = set()
+        for group in re.findall(r"^    okf ([a-z|]+)", (SCRIPTS / "okf.py").read_text(
+                encoding="utf-8"), re.M):
+            listed |= set(group.split("|"))
         missing = sorted(self.subcommands() - listed)
         self.assertEqual(missing, [],
                          f"okf.py's own help text does not list: {missing}")
@@ -271,7 +310,15 @@ class DocumentedSurface(unittest.TestCase):
     # Hand-maintained, because nothing in okf.py marks a subcommand as writing. Keep it
     # that way: the point is that adding a write command forces a decision about the
     # skill's own table, and a derived list would make that decision silently.
-    MUTATING = ("new", "migrate", "project")
+    #
+    # It grew from three to eighteen when the write layer landed its catalogue. That
+    # is the whole of the change being guarded: an agent that does not know a write
+    # verb exists hand-authors the file instead, and the index entry and log row the
+    # write implies are then left to be remembered.
+    MUTATING = ("new", "migrate", "project", "role", "org", "education",
+                "bullet", "skill", "credential", "metric", "capability",
+                "question", "log", "reindex", "posting", "gaps", "view",
+                "application")
 
     def test_SKILL_md_names_every_subcommand_that_writes_to_a_bundle(self):
         """A read command an agent does not know about costs a slower route to the same

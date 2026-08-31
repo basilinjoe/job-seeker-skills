@@ -37,14 +37,44 @@ tool everyone quietly depends on, a process they changed.
 
 ## Close what you can
 
-Walk `open-questions.md`. Some items are now answerable. Update the concept, flip to `confirmed`,
-remove the item. If something has been open across three refreshes, say so and suggest either
-resolving it properly or dropping the claim.
+Walk `open-questions.md`. Some items are now answerable:
+
+```bash
+$OKF <noun> set $B --slug <stem> --status confirmed [--<key> <new value>]
+$OKF question resolve $B --match "team size" --answer "Six engineers."
+```
+
+`question resolve` strikes the row and records the answer in `log.md`. It refuses a match that hits
+nothing and a match that hits more than one, so name enough of the question to be unambiguous.
+
+If something has been open across three refreshes, say so and suggest either resolving it properly
+or dropping the claim.
 
 ## Write it up
 
-Update concepts, `projects/index.md`, relevant roles, `achievements/metrics.md`, and
-`profile/career-progression.md` if the ladder changed. Append to `log.md`. Run the validator.
+**Every write is a command** — never `Write` or `Edit` inside the bundle. `okf <noun> --help` has
+the verbs; `references/write-commands.md` has the reasoning.
+
+```bash
+OKF="python3 <skill-dir>/scripts/okf.py"
+B="--bundle <bundle>"
+
+$OKF project add    $B --title "…" --role <role-stem> [...]        # new work
+$OKF bullet add     $B --project <stem> --text "…"                 # a line it earned
+$OKF metric add     $B --name "…" --value "…" --evidence <stem>    # a number that moved
+$OKF project set    $B --slug <stem> --strength 5                  # a claim that changed
+$OKF role set       $B --slug <stem> --end 2026-06 --state ended   # a job that ended
+$OKF project retire $B --slug <stem> --reason "no longer claimed"  # work being dropped
+$OKF log            $B --message "Quarterly refresh - what was covered."
+```
+
+**A `set` re-stamps `status: inferred`** unless you pass `--status confirmed`. That is the rule doing
+its job: a number you updated is a claim they have not yet re-confirmed. Ask, then pass the flag.
+
+If the ladder changed, `profile/career-progression.md` has no command and is still hand-written —
+say so rather than working around it.
+
+Then `okf validate <bundle>`, once, at the end.
 
 ## Close the loop
 

@@ -147,10 +147,22 @@ def key_text(key):
 
 
 def frontmatter(type_name, keys):
-    """The `---` block for a new concept. `type` leads; None values are dropped."""
+    """The `---` block for a new concept. `type` leads; None values are dropped.
+
+    A mapping, or a list of mappings, goes through structured() - so a posting's
+    `requirements` and a view's `include` can be written by the same call that
+    writes a title. Defined after structured() would read better and cannot be:
+    new() is called by init_bundle.py, and Python resolves the name at call time,
+    so the order here is only about which definition a reader meets first.
+    """
     lines = ["---", f"type: {type_name}"]
     for key, value in keys.items():
         if value is None:
+            continue
+        if isinstance(value, dict) or (
+                isinstance(value, (list, tuple))
+                and any(isinstance(item, dict) for item in value)):
+            lines.extend(structured(key, value))
             continue
         lines.append(f"{key_text(key)}: {scalar(value)}")
     lines.append("---")
@@ -340,16 +352,13 @@ def has_anchor(block):
     return False
 
 
-def locate(doc, key):
-    """Where `key`'s value sits: (line, first column, column after it). Or None.
+def _nodes(doc, key):
+    """`key`'s (key node, value node), or None. Refuses what cannot be spliced.
 
-    Columns rather than a line index, so a splice can keep the key exactly as
-    written and keep whatever follows the value - a trailing comment is the
-    author's, and rewriting the whole line threw it away.
-
-    `key` is matched as the text written in the file, not as the key `meta`
-    holds: safe_load constructs `yes` into True and `2019` into an int, and a
-    caller passing one of those back would not match the line that produced it.
+    Shared by locate() and extent(), which want the same two guards - no anchor
+    anywhere in the block, and this key written exactly once - and then disagree
+    about multi-line values: locate() refuses one, extent() is the function that
+    exists to measure one.
     """
     block = "\n".join(doc.lines)
     if has_anchor(block):
@@ -373,7 +382,24 @@ def locate(doc, key):
             f"{doc.path}: `{key}` appears {times}, at lines {rows}\n"
             f"fix:  delete the wrong one by hand - which is right is not "
             f"something this command can know")
-    key_node, value_node = found[0]
+    return found[0]
+
+
+def locate(doc, key):
+    """Where `key`'s value sits: (line, first column, column after it). Or None.
+
+    Columns rather than a line index, so a splice can keep the key exactly as
+    written and keep whatever follows the value - a trailing comment is the
+    author's, and rewriting the whole line threw it away.
+
+    `key` is matched as the text written in the file, not as the key `meta`
+    holds: safe_load constructs `yes` into True and `2019` into an int, and a
+    caller passing one of those back would not match the line that produced it.
+    """
+    nodes = _nodes(doc, key)
+    if nodes is None:
+        return None
+    key_node, value_node = nodes
     kline = key_node.start_mark.line
     start, end = value_node.start_mark, value_node.end_mark
     if start.line == end.line and start.column == end.column:
@@ -444,4 +470,123 @@ def set_key(doc, key, value):
     if cut_start == cut_end:
         rendered = " " + rendered      # an implicit null: nothing to replace
     lines[index] = line[:cut_start] + rendered + line[cut_end:]
+    return doc.text(lines)
+
+
+# --- structured values ----------------------------------------------------------
+#
+# Two keys in the format hold something scalar() cannot write: a posting's
+# `requirements` is a list of mappings, and a view's `target`, `include` and
+# `budget` are a mapping, a list of mappings and a mapping. urs/view-format.md
+# defines all four, and until this existed the write layer could not express a
+# posting or a view at all.
+#
+# Block style rather than flow, and that decision is about who reads them. A view
+# with six includes of four achievements each is one 300-character line in flow
+# style - valid YAML that no person will ever edit by hand, in a format sold on
+# any editor opening it. So these keys are the one place a value spans lines, and
+# set_structured() below is what makes a multi-line value amendable: it replaces
+# the key's whole extent, which is measured rather than guessed.
+#
+# `location` stays unwritable. It is a URS mapping validate_urs.py checks nowhere,
+# so writing one would be wrong shape that nothing catches - see schema.py.
+
+
+def structured(key, value, indent=0):
+    """One key whose value is a mapping, or a list of mappings, as lines.
+
+    Nested one level and no further, which is the whole of what the format uses.
+    A deeper structure raises rather than emitting something plausible: every
+    consumer of these keys - validate_urs.py's VIEW_KEYS, okf_compile.posting() -
+    reads exactly this shape, and inventing a third level would write a document
+    only this module understands.
+    """
+    pad = " " * indent
+    if isinstance(value, dict):
+        lines = [f"{pad}{key_text(key)}:"]
+        for name, item in value.items():
+            if item is None:
+                continue
+            lines.extend(_nested(name, item, indent + 2))
+        if len(lines) == 1:
+            # Every value was None, so the mapping is empty. `key:` alone reads
+            # back as null rather than as {}, which is a different document.
+            return [f"{pad}{key_text(key)}: {{}}"]
+        return lines
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return [f"{pad}{key_text(key)}: []"]
+        lines = [f"{pad}{key_text(key)}:"]
+        for entry in value:
+            if not isinstance(entry, dict):
+                # A flat list belongs in scalar(), which writes it in flow style
+                # like every other list in a bundle. Reaching here means a caller
+                # chose the wrong function, and guessing which it meant would put
+                # two shapes of list in one file.
+                raise ValueError(
+                    f"structured({key!r}): a list here holds mappings - a list of "
+                    f"scalars is scalar()'s, and flow style")
+            first = True
+            for name, item in entry.items():
+                if item is None:
+                    continue
+                rendered = _nested(name, item, indent + 4)
+                if first:
+                    rendered[0] = f"{pad}  - " + rendered[0].lstrip()
+                    first = False
+                lines.extend(rendered)
+            if first:
+                lines.append(f"{pad}  - {{}}")
+        return lines
+    return [f"{pad}{key_text(key)}: {scalar(value)}"]
+
+
+def _nested(key, value, indent):
+    """One key inside a structured value. Scalars and flat lists only."""
+    pad = " " * indent
+    if isinstance(value, dict) or (isinstance(value, (list, tuple))
+                                   and any(isinstance(v, dict) for v in value)):
+        raise ValueError(
+            f"structured: {key!r} nests a third level, which the format does not "
+            f"use - a posting's requirements and a view's include are one level deep")
+    return [f"{pad}{key_text(key)}: {scalar(value)}"]
+
+
+def extent(doc, key):
+    """(first line, last line) of `key` and its whole value, or None.
+
+    Where locate() refuses a value that does not end on the line it starts on,
+    this measures one. The measurement is the parser's rather than a rule about
+    indentation: pyyaml's end_mark for a block collection points at column 0 of
+    the line *after* it, so the last line is one above - and for a value that
+    ends mid-line it is that line itself.
+    """
+    nodes = _nodes(doc, key)
+    if nodes is None:
+        return None
+    key_node, value_node = nodes
+    first = key_node.start_mark.line
+    end = value_node.end_mark
+    last = end.line - 1 if end.column == 0 and end.line > first else end.line
+    return first, max(first, last)
+
+
+def set_structured(doc, key, value):
+    """The file's text with `key` set to a mapping or list of mappings.
+
+    The key's whole extent is replaced, so this reflows that key and no other. A
+    key being deliberately rewritten is the one place reflowing is not a liberty:
+    its value is new text either way.
+    """
+    lines = list(doc.lines)
+    rendered = structured(key, value)
+    span = extent(doc, key)
+    if span is None:
+        at = len(lines)
+        while at and not lines[at - 1].strip():
+            at -= 1
+        lines[at:at] = rendered
+        return doc.text(lines)
+    first, last = span
+    lines[first:last + 1] = rendered
     return doc.text(lines)

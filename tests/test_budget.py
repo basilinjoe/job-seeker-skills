@@ -36,7 +36,22 @@ class ResidentCost(unittest.TestCase):
     said what they want. It is the only file here nobody can opt out of."""
 
     def test_the_always_loaded_file_stays_small(self):
-        self.assertLess(tokens(SKILL / "SKILL.md"), 4800)
+        # 4800 -> 4900 when the write layer landed its catalogue. Moved
+        # deliberately, which is what this file asks for, and the reasoning is
+        # the one thing that makes it not a ratchet:
+        #
+        # SKILL.md has to NAME the write nouns. tests/test_plugin_surface.py
+        # asserts that every mutating subcommand appears here, because an agent
+        # that does not know a verb exists hand-authors the file instead - and
+        # the index entry, log row and vocabulary term that a write implies are
+        # then left to be remembered, which is the whole class of defect the
+        # write layer removes. So this is a read that buys back a correctness
+        # guarantee rather than one that merely explains something.
+        #
+        # Measured: 4391 before, 4825 after, having twice cut everything
+        # redundant with references/write-commands.md - which is where the
+        # explanation lives, loaded on demand. 4900 is that plus headroom.
+        self.assertLess(tokens(SKILL / "SKILL.md"), 4900)
 
 
 class AgentReadBudget(unittest.TestCase):
@@ -63,6 +78,81 @@ class AgentReadBudget(unittest.TestCase):
         paying for itself and should be reconsidered rather than quietly kept."""
         self.assertLess(tokens(REFS / "view-format.md"),
                         tokens(REFS / "urs-spec.md"))
+
+
+class TheWritePathReadsNoFormatSpecification(unittest.TestCase):
+    """Authoring a concept must not require reading the format's prose.
+
+    `mode-braindump.md` used to open its write section with "Follow
+    references/bundle-spec.md. Read two existing project concepts first so you match
+    house style" - about 5,330 tokens of specification plus two files off the person's
+    own disk, before writing a single frontmatter key. House style is structural now:
+    the command emits it, and refuses what it cannot emit correctly.
+
+    So this asserts the read is actually gone rather than merely discouraged, which
+    is the one measurement the write layer was sold on and the one most likely to
+    creep back the next time somebody documents a key.
+    """
+
+    WRITE_MODES = ("mode-braindump.md", "mode-refresh.md", "mode-gaps.md",
+                   "mode-tailor.md", "mode-ship.md", "mode-resume.md")
+
+    # An instruction to read something, as these files write one: the imperative
+    # at the start of a line or a bolded sentence. Deliberately narrow.
+    #
+    # A looser rule that matched "read" anywhere flagged mode-braindump.md's own
+    # disclaimer - "You do not need to read `bundle-spec.md` to author a concept" -
+    # which is the sentence that replaced the instruction. Reading a negation as
+    # the thing it negates is the one failure mode a check like this must not have,
+    # because the fix a person would reach for is to delete the disclaimer.
+    INSTRUCTION = ("Follow ", "Read ", "Open ", "**Follow ", "**Read ", "**Open ")
+
+    def mandated(self, name):
+        """The lines that tell a reader to open a file, not the ones about one."""
+        return [line for line in (REFS / name).read_text(encoding="utf-8").splitlines()
+                if line.strip().startswith(self.INSTRUCTION)]
+
+    def test_no_write_mode_tells_anyone_to_follow_the_bundle_spec(self):
+        for name in self.WRITE_MODES:
+            for line in self.mandated(name):
+                if "bundle-spec.md" not in line:
+                    continue
+                with self.subTest(mode=name):
+                    self.fail(f"{name} still sends a reader to bundle-spec.md to "
+                              f"write: {line.strip()!r}. The commands emit house "
+                              f"style; if a rule is missing from them, that is the "
+                              f"defect rather than the read.")
+
+    def test_the_braindump_path_stays_small(self):
+        """SKILL.md plus the mode file, which is the whole mandated read now.
+
+        Measured rather than estimated, because an estimate here was wrong by 450
+        tokens on the first try:
+
+            before  SKILL 4,391 + braindump 956 + bundle-spec 6,453 = 11,800
+            after   SKILL 4,825 + braindump 1,241              =  6,066
+
+        A 49% cut, and all of it is the specification no longer being read to write
+        a concept. bundle-spec.md is 6,453 tokens on its own - larger than the
+        design's own estimate of 5,330 - so it was more than half the cost of
+        recording one project. The mode file grew by 285 tokens to hold the
+        commands, which is the trade.
+        """
+        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-braindump.md"), 6400)
+
+    def test_the_write_reference_is_loaded_on_demand_and_not_by_a_mode(self):
+        """`write-commands.md` is the reference, and it is deliberately NOT a
+        mandated read: a mode names the commands it needs inline, and the reference
+        is there for the flags. Its size is therefore free, and it must stay off
+        every mode's required path or it becomes the read it replaced.
+        """
+        for name in self.WRITE_MODES:
+            for line in self.mandated(name):
+                if "write-commands.md" not in line:
+                    continue
+                with self.subTest(mode=name):
+                    self.fail(f"{name} mandates reading write-commands.md: "
+                              f"{line.strip()!r}. Name the command inline instead.")
 
 
 class TheAgentsCompileNarrowly(unittest.TestCase):
@@ -103,11 +193,21 @@ class TheMainThreadBudget(unittest.TestCase):
     so this is the ceiling most likely to be pushed by an honest change."""
 
     def test_a_tailoring_run_to_ship(self):
+        # 10400 -> 10700 with the write layer, and most of the rise is SKILL.md's
+        # - see ResidentCost above for why that one is load-bearing.
+        #
+        # The two mode files rose least and gave the most back. mode-ship.md lost
+        # its by-hand filing procedure entirely: `okf application file` performs
+        # it, so what is left is why the freeze matters rather than how to
+        # perform it, and bundle-spec.md holds the shape. That is the trade this
+        # design predicted - "bundle-spec.md stops being a mandated read on the
+        # write path" - and it is why the number moved by 300 rather than by the
+        # 800 the commands themselves cost to document.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
                    REFS / "mode-ship.md"),
-            10400)
+            10700)
 
 
 if __name__ == "__main__":

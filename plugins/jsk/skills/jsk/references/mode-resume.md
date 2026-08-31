@@ -78,8 +78,17 @@ maintained.
      declaration block or a salary expectation are emitted, and getting it wrong is not a formatting
      error — a date of birth on an Australian application is a liability, and its absence on a Gulf
      one reads as an incomplete file.
-   - Write one view per variant. A view **selects**: it references ids, orders them, redacts. It
-     never contains content text, and the validator rejects it if it does.
+   - Write one view per variant, **with the command** — never `Write` or `Edit` inside the bundle:
+
+     ```bash
+     $OKF view create $B --posting <stem> --format-profile ats-maximal --pages 2
+     $OKF view include $B --view <stem> --ref <engagement id> --order 1 \
+       --achievement <ach id> --achievement <ach id>
+     ```
+
+     A view **selects**: it references ids, orders them, redacts. It never contains content text,
+     the validator rejects it if it does, and `view include` refuses an id that does not resolve —
+     which is the mistake that would otherwise be caught after the view was written, if at all.
 
 5. **Validate before rendering — the gate in front of the gates:**
 

@@ -127,6 +127,42 @@ PLACEHOLDER = "Empty. Add concepts here."
 LIST_ITEM = re.compile(r"^\s*[-*+]\s")
 
 
+def index_repair(path, entries=(), drop=()):
+    """`index.md`'s whole new text after N additions and M removals, in one pass.
+
+    (text, added, dropped). `entries` is (filename, title, description) triples.
+
+    One call rather than a chain, because every function here takes a *path* and
+    returns text - so adding three rows meant feeding a function its own output,
+    and `stage.Changeset` refuses a path staged twice. The first caller wrote its
+    intermediate texts to a temp file to get around that, which is a lot of
+    machinery for "append three lines".
+
+    Removals run first: a row whose target is gone and a concept that needs a row
+    can be the same filename after a rename, and dropping then adding leaves it
+    listed once rather than twice.
+    """
+    text, newline = _read(path)
+    dropped = []
+    if drop:
+        wanted = {str(name) for name in drop}
+        rows = index_rows(text)
+        gone = {index for index, _, target in rows
+                if target.split("#")[0] in wanted}
+        if gone:
+            dropped = sorted(target for _, _, target in rows
+                             if target.split("#")[0] in wanted)
+            text = "\n".join(line for index, line in enumerate(text.split("\n"))
+                             if index not in gone)
+    added = []
+    for filename, title, description in entries:
+        after = _with_entry(text, filename, title, description)
+        if after != text:
+            added.append(filename)
+            text = after
+    return _restore(text, newline), added, dropped
+
+
 def index_entry(path, filename, title, description):
     """`index.md` with this concept listed, appended and never duplicated.
 
@@ -145,8 +181,18 @@ def index_entry(path, filename, title, description):
     judgement the append-don't-sort rule already refuses to make.
     """
     text, newline = _read(path)
+    return _restore(_with_entry(text, filename, title, description), newline)
+
+
+def _with_entry(text, filename, title, description):
+    """The same, over LF text rather than a path.
+
+    Split out so index_repair() can apply it several times without writing a file
+    between each - see its docstring. The path form stays because it is what every
+    single-row caller wants and what the tests name.
+    """
     if f"({filename})" in text:
-        return _restore(text, newline)
+        return text
     _refuse_unlinkable(filename)
     entry = f"- [{_one_line(title)}]({filename})"
     description = _one_line(description) if description else ""
@@ -163,7 +209,58 @@ def index_entry(path, filename, title, description):
         gap = ""
     else:
         gap = "" if LIST_ITEM.match(body.rstrip("\n").rsplit("\n", 1)[-1]) else "\n"
-    return _restore(body + gap + entry + "\n", newline)
+    return body + gap + entry + "\n"
+
+
+# The link in an index entry, as validate_bundle.py's own LINK regex reads it -
+# `\[([^\]]+)\]\(([^)]+)\)`. Borrowed rather than rewritten: an entry this module
+# could not see is a row it would leave behind, and the gate is the reader whose
+# opinion decides whether a link is broken.
+ENTRY_LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+
+def index_rows(text):
+    """Every list item in an index that links somewhere: (line, title, target).
+
+    The target is as written, so a row pointing at `../elsewhere.md` reports that
+    rather than a bare filename. Callers comparing against a directory listing
+    have to allow for it, which is why it is not normalised here: normalising
+    would make a row pointing outside the directory look like one pointing in.
+    """
+    out = []
+    for index, line, fenced in _scan(text.split("\n")):
+        if fenced or not LIST_ITEM.match(line):
+            continue
+        match = ENTRY_LINK.search(line)
+        if match:
+            out.append((index, match.group(1), match.group(2)))
+    return out
+
+
+def index_without(path, filenames):
+    """`index.md` with the rows linking to any of `filenames` removed.
+
+    Only ever called for a file that is being deleted, or for a row whose target
+    is already gone - which is the whole of the licence this module has to remove
+    a line somebody wrote. index_entry() will not rewrite an existing row for the
+    same reason: the row is the author's, and a command that reorders or retitles
+    one has changed something nobody asked it to.
+
+    A row carrying anything else on the line - a note after the description, a
+    second link - goes with it. The row is one list item and it names the file
+    that is going; keeping half of it would leave a sentence about nothing.
+    """
+    text, newline = _read(path)
+    wanted = {str(name) for name in filenames}
+    lines = text.split("\n")
+    drop = {index for index, _, target in index_rows(text)
+            if target.split("#")[0] in wanted}
+    if not drop:
+        return _restore(text, newline), []
+    kept = [line for index, line in enumerate(lines) if index not in drop]
+    return _restore("\n".join(kept), newline), sorted(
+        target for _, _, target in index_rows(text)
+        if target.split("#")[0] in wanted)
 
 
 HEADING = "## %s"
@@ -215,6 +312,23 @@ def _scan(lines):
             fenced = not fenced
 
 
+# A link that climbs out of its own directory. `log.md` sits at the bundle root, so
+# `../projects/x.md` copied into it from a file one level down resolves to nothing -
+# and validate_bundle.py makes a broken link a HARD error, in the one file whose job
+# is a truthful chronology.
+#
+# Only upward links are flattened, and that narrowness is the point: a log row
+# naming `tailoring/applications/2026/...` resolves perfectly well from the root and
+# is worth keeping as a link. Found by upkeep.py's author, whose `question resolve`
+# copied a struck row verbatim and turned the bundle red.
+CLIMBING_LINK = re.compile(r"\[([^\]]+)\]\(\.\.\/[^)]*\)")
+
+
+def unlinked(text):
+    """`text` with any upward-relative markdown link flattened to its label."""
+    return CLIMBING_LINK.sub(r"\1", str(text))
+
+
 def log_entry(path, message, today):
     """`log.md` with one line appended under today's `## <date>` heading.
 
@@ -232,7 +346,7 @@ def log_entry(path, message, today):
     """
     text, newline = _read(path)
     text = _newline_terminated(text)
-    row = "- " + _one_line(message)
+    row = "- " + unlinked(_one_line(message))
     lines = text.split("\n")
     marks = list(_scan(lines))
 

@@ -40,33 +40,57 @@ placeholder in a document they might send.**
 
 ## Write it up
 
-Follow `references/bundle-spec.md`. Read two existing project concepts first so you match house style
-and reuse existing `capabilities` values rather than inventing synonyms.
+**Every write is a command.** Never `Write` or `Edit` a file in the bundle —
+`references/write-commands.md` is the surface, and `okf <noun> --help` the flags. You do not need to
+read `bundle-spec.md` to author a concept: house style is structural now.
 
-**For a project, prefer the command over hand-authoring it:**
+A project heard in one sitting is usually four commands. In this order, because each refuses a
+reference the one before it establishes:
 
 ```bash
-echo "The project's prose." | python3 <skill-dir>/scripts/okf.py project add --bundle <bundle> \
-  --title "…" --role <role-stem> \
-  --strength 4 --recency 2026 --seniority hands-on-senior --domain <domain> \
-  --capability <term> --description "one line" --status inferred
+OKF="python3 <skill-dir>/scripts/okf.py"
+B="--bundle <bundle>"
+
+# 1. The employer and the job, if they are not already there.
+#    --description on every concept: validate_bundle.py warns without one.
+$OKF org add  $B --title "…" --description "one line" --relationship employer \
+                 --industry <domain> --body -
+$OKF role add $B --title "…" --description "one line" --organisation <org-stem> \
+                 --start 2023-01 --state ongoing --body -
+
+# 2. The number, before the bullet that rests on it.
+$OKF metric add $B --name "Claim latency" --value "4.2s to 380ms" \
+                   --evidence <project-stem> --source "the dashboard they named"
+
+# 3. The project.
+$OKF project add $B --title "…" --role <role-stem> \
+  --strength 4 --recency 2026 --seniority hands-on-senior \
+  --domain <domain> --capability <term> --description "one line" --status inferred --body -
+
+# 4. The lines it earned, one command each.
+$OKF bullet add $B --project <project-stem> --text "…" --metric "Claim latency" --status confirmed
 ```
 
-It writes the concept, the `projects/index.md` entry and the `log.md` row together, and refuses a
-`--role` that names no concept — which no gate catches and which aborts the next tailoring run.
-`--dry-run --json` shows what it would touch first. `references/write-commands.md` has the full flag
-list and the three rules it enforces.
+Each one writes the concept, its directory index entry and the `log.md` row together, and refuses
+what a gate would catch later — or worse, would not: a `--role` that names no concept aborts the
+next tailoring run and no gate reports it, and a `--metric` that names no row crashes the next
+compile.
 
-**Pipe the body in, or close stdin.** `--body` defaults to `-`, so with stdin left open the command
-waits forever and writes nothing. Add `< /dev/null` if the prose comes later.
+**Run the first one with `--dry-run --json`** if you are unsure what a command will touch. It
+decides everything and writes nothing.
 
-**Pass `--status inferred` for anything you wrote rather than heard.** The flag defaults to
-`confirmed`, which is right when they just told you and wrong in exactly the case that matters.
+**Pipe the body in, or close stdin.** `--body -` reads stdin to EOF, so with stdin left open the
+command waits forever and writes nothing. Add `< /dev/null` when the prose comes later — a concept
+with no body is perfectly valid, since the frontmatter is what compiles.
 
-Still yours either way: link from the relevant role concept, add numbers to
-`achievements/metrics.md`, and run the validator. Every other concept type is hand-written.
+**Pass `--status inferred` for anything you wrote rather than heard.** `add` defaults to
+`confirmed`, which is right when they just told you and wrong in exactly the case this framework
+exists to catch. Tell them which parts you inferred.
 
-Mark anything you inferred as `status: inferred` and tell them which parts those are.
+**If a change has no command, say so and stop.** Do not hand-edit around it. `--set key=value`
+covers a key the format does not model.
+
+Then run the validator: `okf validate <bundle>`. Once, at the end — not after every command.
 
 ## Look for what they undersold
 

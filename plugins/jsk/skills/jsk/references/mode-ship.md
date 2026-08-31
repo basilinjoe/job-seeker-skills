@@ -158,48 +158,61 @@ shown you.
 Only once every gate has passed. **A failing document is never frozen** — an archive of something
 that was not sendable is worse than no archive, because later it reads as though it was.
 
-One submission is a set of files sharing a stem, filed under `tailoring/applications/<yyyy>/` - the
-year it was sent. The stem is `<yyyy-mm-dd>-<company>-<role>` - today's date, then the target's slug -
-because applying twice to one posting is ordinary and the second round needs somewhere to go that is
-not on top of the first:
+**One command does the whole of it**, and it is the write with the least reason to be performed by a
+model:
 
-| File | Is |
-|---|---|
-| `<stem>.md` | the log: what was sent, what was selected, what came back |
-| `<stem>.posting.md` | the posting, frozen - the advertisement verbatim |
-| `<stem>.gaps.md` | the assessment it was answering, frozen |
-| `<stem>.view.md` | the view it rendered from |
-| `<Name>_<Company>_Resume*.{pdf,tex,txt}` | the files actually sent |
+```bash
+python3 <skill-dir>/scripts/okf.py application file <slug> --bundle <bundle> \
+  --submitted <yyyy-mm-dd> --channel "Workday portal" \
+  --document <out-dir>/<Name>_<Company>_Resume.pdf \
+  --document <out-dir>/<Name>_<Company>_Resume_ATS.txt
+```
 
-Copy all three out of `tailoring/targets/` into that year's directory, and set `frozen: true` with the
-date on each. The files in `targets/` stay editable — the same employer posts again, a listing is
-revised, an assessment is re-run — and every one of those edits would silently rewrite what a past
-application appears to have answered. **The freeze is what makes the archive answerable.** A year
-later the only question anybody asks of a filed application is what it was answering, and an
-application whose inputs are still moving cannot answer it.
+It copies the posting, the assessment and the view into that year's directory, freezes each copy,
+writes the `Application` concept and its `# Timeline`, creates the year index, copies the documents
+actually sent, appends to `log.md` - and **rewrites every relative path that leaves the directory to
+gain exactly one `../`**, because the frozen copies sit one directory deeper than the working ones.
 
-`frozen: true` on a `.view.md` is safe, and was not always. Two things make it so and they are
-independent: the compile no longer reads `tailoring/applications/` at all, and a View that does reach
-URS has the bundle's own bookkeeping stripped from it first — `frozen`, `frozen_date`,
-`superseded_by`, `title`, `description`, `timestamp`. A View on disk is an OKF concept; the View that
-reaches URS is pure URS. Until that was true, this instruction failed the record gate above on an
-unrecognised view key — not once, but on every run from the first application ever shipped, because
-the gate compiles the whole bundle and an archive never gets better.
+It refuses everything about that it would otherwise have to guess: a year it cannot establish, a
+missing working file, a company with no concept, a stem already filed under that date.
 
-The frozen copies sit one directory deeper than the working ones, so a path in the `Application` that
-leaves its own directory carries one more `../`: `../../targets/…`, `../../../organisations/…`.
-`bundle-spec.md` has the full set.
+`--submitted false` is for an application worked through and deliberately held back: it writes
+`submitted: false` and no `submitted` row. **Never write a `submitted` row to clear a validator
+error** - it trades an accurate red for a false green, and every stage derived from that timeline
+afterwards is wrong.
+
+Later events are one command each, append-only:
+
+```bash
+python3 <skill-dir>/scripts/okf.py application event <stem> --bundle <bundle> \
+  --date 2026-09-11 --event screen-scheduled --channel email --note "…" --due 2026-09-15
+```
+
+A correction is a new row. There is no `set` verb here, for the same reason `log.md` records mistakes
+rather than hiding them.
+
+One submission is a set of files sharing a stem — `<yyyy-mm-dd>-<company>-<role>`, because applying
+twice to one posting is ordinary and the second round needs somewhere to go that is not on top of the
+first. `bundle-spec.md`'s *Applications on disk* has the full shape; what matters here is why the
+command does what it does.
+
+**The freeze is what makes the archive answerable.** The files in `targets/` stay editable — the same
+employer posts again, a listing is revised, an assessment is re-run — and every one of those edits
+would silently rewrite what a past application appears to have answered. A year later the only
+question anybody asks of a filed application is what it was answering, and an application whose
+inputs are still moving cannot answer it.
 
 **The record is not copied, and does not need to be.** It compiles from concepts that are in git, so
-the resume this application sent can be rebuilt from the commit it was sent at. That is a stronger
-guarantee than a checksum over a copied file, and it costs nothing to keep.
+the resume this application sent can be rebuilt from the commit it was sent at — a stronger guarantee
+than a checksum over a copied file, and it costs nothing to keep.
 
-Write the `Application` concept with its `# Timeline`, per `bundle-spec.md`. Frontmatter carries only
-what was true at submission and never changes; the outcome is derived from the timeline, because a
-status word and the prose beneath it stop agreeing the moment one is edited.
+Frontmatter carries only what was true at submission and never changes. There is no `outcome:` key:
+the outcome is derived from the timeline, because a status word and the prose beneath it stop agreeing
+the moment one is edited.
 
 ## 6. Log it
 
+`okf application file` appends its own row. Anything else worth recording is `okf log --message "…"`.
 Append a dated entry to `log.md`. Record the submission in `tailoring/applications/<yyyy>/`,
 including any feedback that arrives later — after a handful of applications, patterns emerge about
 which evidence gets traction, and that belongs back in the rules.

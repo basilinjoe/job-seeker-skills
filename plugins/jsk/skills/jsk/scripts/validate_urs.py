@@ -380,6 +380,72 @@ def check_backrefs(doc, rep):
                      f"engagement's projects[] - its bullets reach no rendered document")
 
 
+def positional_bullet_ids(doc):
+    """{derived id: project id} for every bullet whose id the compiler numbered.
+
+    A project's id is `prj_<slug(stem)>` (okf_compile.ident) and the id its nth bullet
+    gets when the concept wrote none down is `ach_<slug("projects/<stem>.md")>_<n>`
+    (okf_compile.bullets) - so the stem slug recovered from the project id
+    reconstructs the exact string the compiler would have minted. That makes this an
+    equality test rather than a pattern guess. Measured on a compiled bundle:
+    `prj_care` with two bullets yields `ach_projects_care_md_1` and `..._2`, and
+    inserting a bullet above them moves `..._1` onto the sentence that was `..._2`.
+
+    Only `projects[]` is walked. Engagement achievements exist in the record, but
+    okf_compile calls bullets() from one place - build_projects - and gives every
+    engagement `achievements: []`, so no engagement bullet can carry a derived id.
+
+    A concept that declares its own `id:` in frontmatter breaks the reconstruction
+    and is skipped: under-reporting is the right way to be wrong here, because the
+    alternative is naming a bullet that was never at risk.
+    """
+    out = {}
+    for p in doc.get("projects") or []:
+        pid = p.get("id") or ""
+        if not pid.startswith("prj_"):
+            continue
+        stem_slug = pid[len("prj_"):]
+        for n, a in enumerate(p.get("achievements") or [], 1):
+            if isinstance(a, dict) and a.get("id") == f"ach_projects_{stem_slug}_md_{n}":
+                out[a["id"]] = pid
+    return out
+
+
+def check_unmaterialised_ids(doc, rep):
+    """A view pointing at a bullet id nobody wrote down.
+
+    The write layer materialises explicit ids before it mutates a concept's bullets,
+    so a bundle that has been written to is immune. There is no migration, which
+    leaves a bundle nobody has written to exposed: insert a bullet above one that a
+    view names positionally and every id below it shifts down a sentence. Nothing
+    fails, because the id still resolves - check_references is satisfied either way -
+    and the view quietly starts quoting different work.
+
+    Only ids a view actually names are reported. An unmaterialised id nobody points
+    at is not yet a hazard, and warning on every numbered bullet in the bundle would
+    bury the ones that are.
+    """
+    positional = positional_bullet_ids(doc)
+    if not positional:
+        return
+    seen = set()
+    for v in doc.get("views") or []:
+        for inc in v.get("include") or []:
+            for aid in inc.get("achievements") or []:
+                if aid not in positional or (v.get("id"), aid) in seen:
+                    continue
+                # One finding per view and id, not per mention: the same id named in
+                # two include blocks of one view is one hole, and printing it twice
+                # spends the finding cap saying so.
+                seen.add((v.get("id"), aid))
+                rep.warn(f"view {v.get('id')}: names achievement {aid!r} in project "
+                         f"{positional[aid]}, an id the compiler derived from that "
+                         f"bullet's position - inserting a bullet above it renumbers "
+                         f"the rest and this view points at a different sentence "
+                         f"(write the id down under the bullet in that concept's "
+                         f"`# Bullets` block)")
+
+
 def check_coverage(doc, rep):
     """A project the person called resume-worthy must have something to quote.
 
@@ -508,6 +574,7 @@ def main(argv):
     check_placeholders(doc, rep)
     check_coverage(doc, rep)
     check_backrefs(doc, rep)
+    check_unmaterialised_ids(doc, rep)
     if os.path.isdir(path):
         check_conservation(path, doc, rep)
 

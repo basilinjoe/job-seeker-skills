@@ -52,16 +52,29 @@ what makes them testable in isolation. Import `plan`; the split is behind it.
 
 ## The agent boundary
 
-Four tasks are delegated to subagents. The line between an agent and the main conversation is
-**Write versus Edit**: an agent writes its own analysis, and only the conversation edits the person's
-record. A `status` that flips without them saying so is the defect this framework exists to prevent.
+Four tasks are delegated to subagents. The line used to be **Write versus Edit**: an agent wrote its
+own analysis, and only the conversation edited the person's record. It is now narrower and structural
+— **nothing that touches a bundle holds either tool.** Every write is an `okf` command, so the two
+agents that author into the bundle carry no way to hand-write a file in it.
 
 | Agent | Has | Deliberately lacks |
 |---|---|---|
 | `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into the render |
 | `jsk-bundle-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit; a concept is the person's |
-| `jsk-tailor-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the posting's requirements and the assessment, never a concept |
-| `jsk-resume-author` | Read, Write, Edit, Glob, Grep, Bash | nothing structural — and it is the one that writes prose |
+| `jsk-tailor-analyst` | Read, Glob, Grep, Bash | Write and Edit — the posting's requirements and the assessment are commands |
+| `jsk-resume-author` | Read, Glob, Grep, Bash | Write and Edit — the bullets and the view are commands, and it is the one that writes prose |
+
+**The anti-invention guarantee moved from an instruction into a tool grant.** Both authoring agents
+used to be handed `Write, Edit` and told in prose to follow `bundle-spec.md`; the mechanical half of
+a concept written from memory is where the defects came from. `scripts/authoring/` is now the only
+path either has, and it refuses a dangling `role:`, a capability synonym, a bullet naming a metric
+that is not there, and a half-finished write that would otherwise go green. See
+`docs/superpowers/specs/2026-08-31-okf-write-cli-design.md`.
+
+The escape hatch matters as much as the grant: **if the CLI cannot express something, the agent
+reports that and stops.** A blocked write is a bug report naming a missing verb, which is the signal
+that keeps the layer honest. It is not permitted to degrade to a hand-edit, and it no longer has the
+tools to.
 
 `jsk-verifier` is the conditional one. `okf gates` runs the record, parse and prose gates in a single
 process and prints each one's output verbatim, so a clean ship reads that rather than spawning an
@@ -114,8 +127,21 @@ plugins/jsk/
       profiles/*.json               region profiles: default, au, in, ae
       profile.schema.json           what a region profile must contain
       example.resume.json           one complete worked record
-    scripts/                        the thirteen tools, plus the urs/ package
-      okf.py                        one entry point that forwards to the rest
+    scripts/                        the thirteen tools, plus the urs/ and authoring/ packages
+      okf.py                        one entry point: forwards the reads, dispatches the writes
+      authoring/                    the write layer - every change to a bundle goes through it
+        schema.py                   what each type takes, and what each value must satisfy
+        concept.py                  one concept's frontmatter: emit, or splice one key
+        body.py                     the authored blocks and the prose sections
+        bookkeeping.py              the derived companions: index entries, log rows
+        stage.py                    the transaction: stage, validate, publish in order
+        common.py                   the rules that need the bundle in hand
+        commands.py                 the CLI, and the one place a verb is dispatched
+        career.py                   project, role, org, education
+        claims.py                   bullet, skill, credential, metric
+        upkeep.py                   capability, question, log, reindex
+        tailoring.py                posting, gaps, view
+        archive.py                  application file, application event
       preview_templates.py          one record in every template, so the look is chosen by looking
       migrate_bundle.py             moves an older bundle to the current layout revision
       pipeline.py                   the weekly board, derived from application timelines
@@ -138,6 +164,9 @@ tests/                              unittest: one file per script, plus the mani
 | What a view may carry | `references/view-format.md` | `scripts/validate_urs.py`, `agents/jsk-resume-author.md` — never `references/urs-spec.md`, which defines no view key |
 | Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
 | **How a frontmatter value is quoted** | `scripts/authoring/concept.py` | never a caller, never a second emitter |
+| **What a concept type may carry** | `scripts/authoring/schema.py` | `references/bundle-spec.md` — the two are one rule in two languages, and a rule in one and not the other is a defect |
+| **How an authored block is read or written** | `scripts/authoring/body.py` | never a verb module — and it must keep agreeing with `okf_compile.blocks()`, which a test asserts |
+| A write verb, or a new one | `scripts/authoring/<tranche>.py` | `references/write-commands.md`, `WRITE_NOUNS` in `okf.py`, the `CATALOGUE` in `tests/test_okf_write_surface.py`, the write table in `SKILL.md` and `docs/SCRIPTS.md` |
 | What a migration does | `scripts/migrate_bundle.py` | `docs/SCRIPTS.md`, `tests/test_migrate_bundle.py` |
 | **What a timeline event means** | `scripts/pipeline_model.py` | never in a caller — `pipeline.py`, `validate_bundle.py` and `migrate_bundle.py` all read it |
 | How the record is built | `scripts/okf_compile.py` | `references/bundle-spec.md`, `tests/test_okf_compile.py` — and the render test, which is what a schema used to do |

@@ -905,12 +905,16 @@ class Schema(unittest.TestCase):
             schema.check("Project", dict(self.CLEAN_PROJECT, status="probably"))))
 
     def test_an_unknown_type_is_refused(self):
-        """bundle-spec.md lists twenty-six types and this layer defines three, so the
-        refusal must not present the three as the format's own. Somebody writing an
-        Education concept was told they had invented a near-synonym and handed three
-        alternatives, none of which was what they wanted.
+        """bundle-spec.md lists twenty-six types and this layer defines eleven, so the
+        refusal must not present the eleven as the format's own. Somebody writing a
+        Positioning concept was told they had invented a near-synonym and handed the
+        list this layer happens to implement, none of which was what they wanted.
+
+        The example used to be `Education`, which this layer now writes. The rule is
+        unchanged and the fixture had to move with the catalogue: a type nobody has
+        implemented is what this asserts about, so it names one.
         """
-        problems = "; ".join(schema.check("Education", {"title": "X"}))
+        problems = "; ".join(schema.check("Positioning", {"title": "X"}))
         self.assertIn("not a concept type this layer can write yet", problems)
         self.assertIn("bundle-spec.md lists the rest", problems)
 
@@ -1334,13 +1338,40 @@ class Staging(unittest.TestCase):
                          ["concept.md", "index.md"])
 
     def test_nothing_lands_when_a_later_write_fails(self):
+        # The failure used to be a missing directory, and commit() now creates
+        # one - see test_a_missing_directory_is_created below. So the second write
+        # is made to fail a way it still can: its parent is a *file*, which
+        # neither makedirs nor open can do anything with.
+        blocker = Path(self.dir) / "not-a-directory"
+        blocker.write_text("x\n", encoding="utf-8")
         change = stage.Changeset()
         change.write(self.path("a.md"), "one\n", kind="concept")
-        change.write(str(Path(self.dir) / "missing-dir" / "b.md"), "two\n",
-                     kind="companion")
+        change.write(str(blocker / "b.md"), "two\n", kind="companion")
         with self.assertRaises(stage.Refused):
             stage.commit(change)
         self.assertFalse(os.path.exists(self.path("a.md")))
+
+    def test_a_missing_directory_is_created(self):
+        """A command must not have to mkdir before it stages.
+
+        `okf application file` creates tailoring/applications/<yyyy>/ on a
+        bundle's first filing of that year. Making it beforehand put part of the
+        write outside the transaction, so a --dry-run that decided everything
+        still left a directory behind. Reported by archive.py's author.
+        """
+        target = Path(self.dir) / "2026" / "filed.md"
+        change = stage.Changeset()
+        change.write(str(target), "one\n", kind="concept")
+        stage.commit(change)
+        self.assertEqual(target.read_text(encoding="utf-8"), "one\n")
+
+    def test_a_dry_run_creates_no_directory(self):
+        """The other half of it: deciding everything must still write nothing."""
+        target = Path(self.dir) / "2026" / "filed.md"
+        change = stage.Changeset()
+        change.write(str(target), "one\n", kind="concept")
+        stage.commit(change, dry_run=True)
+        self.assertFalse(target.parent.exists())
 
     def test_no_temp_files_are_left_behind(self):
         change = stage.Changeset()
@@ -1785,6 +1816,132 @@ class BookkeepingPaths(unittest.TestCase):
                          os.path.join("/b", "projects", "index.md"))
 
 
+class BookkeepingLogLinks(unittest.TestCase):
+    """A log row may not carry a link that climbs out of its own directory.
+
+    `log.md` sits at the bundle root, so `../projects/x.md` - copied into a row from
+    a file one level down - resolves to nothing, and validate_bundle.py makes a
+    broken link a HARD error. In the one file whose job is a truthful chronology.
+
+    Found by upkeep.py's author: `question resolve` copied a struck row verbatim
+    into the log and turned a valid bundle red.
+
+    The rule is narrow on purpose, and this is the class that pins the narrowness -
+    which cannot be tested through a command, because `open-questions.md` lives in
+    `resume-generation/` and any target that resolves from the root does not
+    resolve from the file holding it.
+    """
+
+    def test_an_upward_link_is_flattened_to_its_label(self):
+        self.assertEqual(
+            bookkeeping.unlinked("Resolved - [care](../projects/care.md) - done"),
+            "Resolved - care - done")
+
+    def test_a_link_that_resolves_from_the_root_is_kept(self):
+        """A log row naming an application is worth keeping as a link."""
+        row = "Applied - [2026-08-26-acme](tailoring/applications/2026/x.md)"
+        self.assertEqual(bookkeeping.unlinked(row), row)
+
+    def test_an_absolute_and_a_bare_link_are_kept(self):
+        for row in ("see [the board](https://example.com/x)",
+                    "see [log](log.md)", "see [anchor](#today)"):
+            with self.subTest(row=row):
+                self.assertEqual(bookkeeping.unlinked(row), row)
+
+    def test_several_upward_links_in_one_row_all_go(self):
+        self.assertEqual(
+            bookkeeping.unlinked("[a](../x.md) and [b](../../y.md)"), "a and b")
+
+    def test_log_entry_applies_it_so_no_caller_has_to(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "log.md")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("---\ntype: Log\n---\n")
+            text = bookkeeping.log_entry(
+                path, "Resolved - [care](../projects/care.md)", "2026-08-31")
+        self.assertIn("- Resolved - care", text)
+        self.assertNotIn("../projects/care.md", text)
+
+
+class BookkeepingIndexRepair(unittest.TestCase):
+    """Several additions and removals over one index, in one pass.
+
+    Every other function here takes a path and returns text, so repairing an index
+    meant feeding a function its own output - and `stage.Changeset` refuses a path
+    staged twice, so the first caller wrote intermediate texts to a temp file to get
+    around it. Reported by upkeep.py's author.
+    """
+
+    def write(self, tmp, body):
+        # newline="" so the fixture is exactly these bytes. Text mode on Windows
+        # translates every LF to CRLF, which made the fixture CRLF and every
+        # assertion below about LF - a test failure that says nothing about the
+        # code, which preserves whatever convention it is handed.
+        path = os.path.join(tmp, "index.md")
+        with open(path, "w", encoding="utf-8", newline="") as handle:
+            handle.write(body)
+        return path
+
+    def test_several_rows_are_added_in_one_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write(tmp, "---\ntype: Index\n---\n\nProse.\n")
+            text, added, dropped = bookkeeping.index_repair(
+                path, entries=[("a.md", "A", "first"), ("b.md", "B", None)])
+        self.assertEqual(added, ["a.md", "b.md"])
+        self.assertEqual(dropped, [])
+        self.assertIn("- [A](a.md) - first\n", text)
+        self.assertIn("- [B](b.md)\n", text)
+
+    def test_a_row_already_there_is_not_added_twice_and_not_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write(tmp, "---\ntype: Index\n---\n\n- [A](a.md)\n")
+            text, added, _ = bookkeeping.index_repair(
+                path, entries=[("a.md", "Renamed", None)])
+        self.assertEqual(added, [])
+        self.assertEqual(text.count("(a.md)"), 1)
+        # And the row keeps the title its author gave it.
+        self.assertIn("- [A](a.md)", text)
+
+    def test_a_broken_row_is_dropped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write(tmp, "---\ntype: Index\n---\n\n- [A](a.md)\n"
+                                   "- [Gone](gone.md)\n")
+            text, added, dropped = bookkeeping.index_repair(path, drop=["gone.md"])
+        self.assertEqual(dropped, ["gone.md"])
+        self.assertNotIn("gone.md", text)
+        self.assertIn("- [A](a.md)", text)
+
+    def test_removals_run_first_so_a_rename_is_listed_once(self):
+        """The same filename can be both a drop and an add after a rename."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write(tmp, "---\ntype: Index\n---\n\n- [Old](a.md)\n")
+            text, added, dropped = bookkeeping.index_repair(
+                path, entries=[("a.md", "New", "now with a description")],
+                drop=["a.md"])
+        self.assertEqual((added, dropped), (["a.md"], ["a.md"]))
+        self.assertEqual(text.count("(a.md)"), 1)
+        self.assertIn("- [New](a.md) - now with a description", text)
+
+    def test_nothing_asked_for_changes_nothing(self):
+        body = "---\ntype: Index\n---\n\n- [A](a.md)\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self.write(tmp, body)
+            text, added, dropped = bookkeeping.index_repair(path)
+        self.assertEqual((text, added, dropped), (body, [], []))
+
+    def test_the_files_own_line_endings_survive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "index.md")
+            with open(path, "w", encoding="utf-8", newline="") as handle:
+                handle.write("---\r\ntype: Index\r\n---\r\n\r\n- [A](a.md)\r\n")
+            text, _, _ = bookkeeping.index_repair(
+                path, entries=[("b.md", "B", None)], drop=["a.md"])
+        # Every newline is a CRLF and none is a bare LF: a repair that rewrote the
+        # convention would rewrite every line in the file in order to change one.
+        self.assertEqual(text.count("\n"), text.count("\r\n"))
+        self.assertIn("- [B](b.md)\r\n", text)
+
+
 commands = authoring_module("authoring.commands")
 
 OKF = SCRIPTS / "okf.py"
@@ -2130,7 +2287,7 @@ class ProjectAddConsoleEncoding(BundleCase):
         console = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
         with contextlib.redirect_stdout(console):
             code = commands.main(
-                ["add", "--bundle", str(self.root),
+                ["project", "add", "--bundle", str(self.root),
                  "--title", "項目再構築"]
                 + self.flags(title=None) + ["--body", "x\n"])
         console.flush()
@@ -2204,7 +2361,8 @@ class ProjectAddPartialFailure(BundleCase):
     def call(self, *args):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            code = commands.main(["add", "--bundle", str(self.root)] + list(args)
+            code = commands.main(["project", "add", "--bundle", str(self.root)]
+                                 + list(args)
                                  + ["--body", "# The problem\n\nWhat happened.\n"])
         return code, buf.getvalue()
 

@@ -28,23 +28,57 @@ python3 scripts/okf.py migrate ./my-career          # report; --apply to write
 python3 scripts/okf.py pipeline ./my-career         # the week's board
 ```
 
-Every subcommand but one forwards to the script below with the same arguments and the same exit
-code, so everything documented here stays true through it. **The thirteen scripts remain the stable
-API** — this is a convenience layer, not a replacement, and nothing that works today stops working.
-The exception is `okf project`, which has no standalone script: the write layer is a package,
-`scripts/authoring/`, and `okf` is how it is called.
+Every read subcommand forwards to the script below with the same arguments and the same exit code,
+so everything documented here stays true through it. **The thirteen scripts remain the stable API**
+— this is a convenience layer, not a replacement, and nothing that works today stops working.
 
-Four subcommands do more than forward:
+The write subcommands are the exception: they have no standalone script. The write layer is a
+package, `scripts/authoring/`, and `okf` is how it is called.
 
-- `okf project add` is the write layer, and it lives in `scripts/authoring/` rather than in a script
-  of its own — it is the one subcommand with no standalone equivalent. It writes a Project concept
-  *and* the `projects/index.md` entry, the `log.md` row and, with `--new-capability`, the vocabulary
-  term. `--dry-run` decides everything and writes nothing; `--json` names every file it touched.
-  It refuses a `--role` that names no concept in `roles/`, which is worth its own mention: no gate
-  reports a dangling role, `okf_compile.py` refuses on one, and `okf score` compiles — so without
-  this check a bad reference surfaces as a crash in the middle of a tailoring run.
-  `plugins/jsk/skills/jsk/references/write-commands.md` has the full flag list, the publish order
-  and the boundary.
+### Writing to a bundle
+
+Sixteen nouns, each with its own verbs. Every one takes `--bundle DIR`, `--dry-run`, `--json` and
+`--set key=value`, and each derives the files a change implies — the directory index entry, the
+`log.md` row, the vocabulary term — rather than leaving them to be remembered.
+
+```bash
+python3 scripts/okf.py project add|set|retire|rm     --bundle ./my-career [...]
+python3 scripts/okf.py role add|set|retire|rm        --bundle ./my-career [...]
+python3 scripts/okf.py org add|set|retire|rm         --bundle ./my-career [...]
+python3 scripts/okf.py education add|set|retire|rm   --bundle ./my-career [...]
+python3 scripts/okf.py bullet add|set|rm|mv          --bundle ./my-career [...]
+python3 scripts/okf.py skill add|set|rm|mv           --bundle ./my-career [...]
+python3 scripts/okf.py credential add|set|rm|mv      --bundle ./my-career [...]
+python3 scripts/okf.py metric add|set                --bundle ./my-career [...]
+python3 scripts/okf.py capability add                --bundle ./my-career --term … --theme …
+python3 scripts/okf.py question add|resolve          --bundle ./my-career [...]
+python3 scripts/okf.py log                           --bundle ./my-career --message "…"
+python3 scripts/okf.py reindex                       --bundle ./my-career
+python3 scripts/okf.py posting add                   --bundle ./my-career [...]
+python3 scripts/okf.py posting requirement add       --bundle ./my-career [...]
+python3 scripts/okf.py gaps write                    --bundle ./my-career [...]
+python3 scripts/okf.py view create|set|include       --bundle ./my-career [...]
+python3 scripts/okf.py application file|event        --bundle ./my-career [...]
+```
+
+Three things about them are worth knowing before you read the reference:
+
+- **The refusals are the product.** `project add --role X` refuses when `roles/X.md` does not
+  exist, and that one is load-bearing: no gate reports a dangling role, `okf_compile.py` refuses on
+  one, and `okf score` compiles — so without the check a bad reference surfaces as a crash in the
+  middle of a tailoring run rather than as a red line at ship time. `bullet add --metric M` refuses
+  a metric that is not a row in `achievements/metrics.md`, for the same class of reason.
+- **A `set` re-stamps `status: inferred`** unless `--status confirmed` is passed. Change half a
+  sentence of a confirmed claim and the status would otherwise assert that somebody signed off on
+  text that no longer exists.
+- **Ids get written down.** Any bullet, skill or credential mutation first materialises the ids the
+  compile was deriving from position, so a view that names one cannot be silently repointed by a
+  later insertion above it.
+
+`plugins/jsk/skills/jsk/references/write-commands.md` has the whole surface, the publish order and
+the boundary.
+
+Three read subcommands also do more than forward:
 
 
 - `okf check` runs the parse gate *and* the prose gate on one file, and keeps going after the first

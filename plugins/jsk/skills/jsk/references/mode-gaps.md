@@ -100,16 +100,27 @@ rather than fixing one.
 
 ## Record and close
 
-Update the concept, set `confirmed`, add numbers to `achievements/metrics.md`, remove from
-`open-questions.md`, and set the question's `resolution` in the gap document. All six outcomes are
-real, and `unavailable` is one of them — a metric nobody can reconstruct resolves the question and
-should soften or cut the claim rather than leaving it pending forever.
+**Every write is a command** — never `Write` or `Edit` inside the bundle:
+
+```bash
+OKF="python3 <skill-dir>/scripts/okf.py"; B="--bundle <bundle>"
+
+$OKF metric add       $B --name "…" --value "…" --evidence <stem> --source "…"
+$OKF bullet set       $B --project <stem> --id <ach id> --text "…" --status confirmed
+$OKF project set      $B --slug <stem> --status confirmed
+$OKF question resolve $B --match "<enough of the question to be unambiguous>" --answer "…"
+```
+
+All six outcomes are real, and `unavailable` is one of them — a metric nobody can reconstruct
+resolves the question and should soften or cut the claim rather than leaving it pending forever.
+`question resolve` refuses a match that hits nothing and one that hits more than one, so it cannot
+strike the wrong row.
 
 **The concept is the only place to write.** The record compiles from it, so an answer that reaches
 the concept has reached everything downstream by construction. There is no second copy to keep in
 step, which is the whole reason this used to say the opposite.
 
-Append to `log.md` and run the validator.
+Then `okf validate <bundle>`, once, at the end.
 
 Report what resolved, what is still open, and **which claims should be softened or cut** because no
 evidence turned up. That last list is the valuable one — better to lose a bullet now than be asked

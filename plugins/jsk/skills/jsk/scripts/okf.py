@@ -14,7 +14,6 @@ will be. This exists so that nobody has to remember every name to get started.
 
     okf doctor                  what works on this machine
     okf new PATH --name NAME    scaffold a bundle
-    okf project add [...]       write a Project concept, and the files that implies
     okf compile BUNDLE          build the record from the concepts, deterministically
     okf validate TARGET         a record, posting or gaps .json, or a bundle
     okf render RECORD [...]     one record to a PDF and plain text
@@ -26,7 +25,24 @@ will be. This exists so that nobody has to remember every name to get started.
     okf migrate BUNDLE [--apply]  bring an older bundle up to the current layout
     okf pipeline BUNDLE [...]     what the job search needs from you this week
 
-Standard library only.
+Writing to a bundle is a typed command per noun. Every one takes --bundle, --dry-run,
+--json and --set key=value, and every one refuses rather than writing something a gate
+would reject later. `okf <noun>` lists its verbs; references/write-commands.md has the
+whole surface.
+
+    okf project|role|org|education add|set|retire|rm  the career concepts
+    okf bullet|skill|credential add|set|rm|mv         the claims inside them
+    okf metric add|set          a verified number, recorded once
+    okf capability add          a term in the vocabulary the ranking matches on
+    okf question add|resolve    the queue a person still has to answer
+    okf log --message "..."     a dated row, for a change no verb covers
+    okf reindex                 repair an index entry a torn write left behind
+    okf posting add|requirement the advertisement, and what it asks for
+    okf gaps write              the assessment it was answering
+    okf view create|set|include which evidence renders, and in what order
+    okf application file|event  freeze a submission, and record what came back
+
+Standard library only, and pyyaml to read a concept back.
 """
 
 import contextlib
@@ -455,27 +471,40 @@ def cmd_score(args):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def cmd_project(args):
-    """The write layer's Project commands, in this interpreter.
+# Every noun the write layer answers to. Listed here rather than imported from
+# authoring.commands, because `okf --help` and `okf <unknown>` have to name them
+# without paying for the import - and the import is the only thing in this script
+# that reaches pyyaml. `WriteNounsAreTheSameOnBothSides` in tests/test_okf.py
+# asserts this list and the parser's own subcommands cannot drift apart.
+WRITE_NOUNS = ("project", "role", "org", "education",
+               "bullet", "skill", "credential", "metric",
+               "capability", "question", "log", "reindex",
+               "posting", "gaps", "view", "application")
+
+
+def cmd_write(noun):
+    """One write noun, dispatched in this interpreter.
 
     Imported rather than spawned, for the same reason `okf gates` imports its gates:
     the whole point of a write command is that it costs about the interpreter floor,
     and a subprocess would double that to do nothing but forward.
     """
-    if HERE not in sys.path:
-        sys.path.insert(0, HERE)
-    from authoring import commands   # noqa: PLC0415 - only when the subcommand runs
-    return commands.main(list(args))
+    def run_write(args):
+        if HERE not in sys.path:
+            sys.path.insert(0, HERE)
+        from authoring import commands  # noqa: PLC0415 - only when a write runs
+        return commands.main([noun] + list(args))
+    return run_write
 
 
 HANDLERS = {
     "doctor": cmd_doctor,
-    "project": cmd_project,
     "validate": cmd_validate,
     "check": cmd_check,
     "gates": cmd_gates,
     "score": cmd_score,
 }
+HANDLERS.update({noun: cmd_write(noun) for noun in WRITE_NOUNS})
 
 
 def usage():

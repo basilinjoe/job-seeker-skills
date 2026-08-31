@@ -18,6 +18,14 @@ you, not yet signed off), `needs-verification` (a known gap).
 *Why it matters:* inferred text is the dangerous kind. It reads well, which is exactly why it must
 never reach a resume before you agree with it.
 
+**Write command** — how the assistant changes your bundle. Not by editing the files: every change is
+a typed command (`okf project add`, `okf bullet set`, `okf application file`) that derives the
+bookkeeping a change implies and refuses one a check would reject later.
+*Why it matters:* it is what stops a half-finished edit looking finished. **You are not bound by
+this** — the files are yours, any editor opens them, and every command tolerates whatever you wrote
+by hand. The rule exists because a model writing five files from memory forgets one, and the one it
+forgets is silent.
+
 ## The rendering
 
 **URS (Universal Résumé Schema)** — the JSON your bundle compiles to before any document exists.
