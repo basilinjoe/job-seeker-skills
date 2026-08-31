@@ -2026,6 +2026,39 @@ class ProjectAdd(BundleCase):
         self.assertIn("client_reference: ACM-19", text)
         self.assertIn('sequence: "007"', text)
 
+    def test_every_repeatable_term_flag_dedupes_the_same_way(self):
+        # `--capability` deduped and `--domain` did not, so the same mistake on two
+        # flags of one command produced two different files. One helper now, so the
+        # next repeatable flag inherits the rule rather than restating it.
+        code, out = self.add(
+            "--title", "Acme - care coordination platform",
+            "--role", "lead-engineer-acme", "--strength", "5", "--recency", "2026",
+            "--seniority", "architecture-ownership",
+            "--domain", "healthcare", "--domain", "healthcare",
+            "--capability", "ai-platform-architecture",
+            "--capability", "ai-platform-architecture",
+            "--technology", "bicep", "--technology", "bicep")
+        self.assertEqual(code, 0, out)
+        text = self.concept.read_text(encoding="utf-8")
+        self.assertIn("domains: [healthcare]", text)
+        self.assertIn("capabilities: [ai-platform-architecture]", text)
+        self.assertIn("technologies: [bicep]", text)
+
+    def test_the_order_a_term_was_given_in_is_the_order_it_is_written_in(self):
+        # Deduped, not sorted: the first domain is the one the person led with, and
+        # these lists are read by a person as well as by the scorer. Sorting these
+        # two would put `aged-care` first, so the assertion can tell them apart.
+        code, out = self.add(
+            "--title", "Acme - care coordination platform",
+            "--role", "lead-engineer-acme", "--strength", "5", "--recency", "2026",
+            "--seniority", "architecture-ownership",
+            "--domain", "healthcare", "--domain", "aged-care",
+            "--domain", "healthcare",
+            "--capability", "ai-platform-architecture")
+        self.assertEqual(code, 0, out)
+        self.assertIn("domains: [healthcare, aged-care]",
+                      self.concept.read_text(encoding="utf-8"))
+
     def test_a_bad_value_is_refused_with_the_schema_sentence(self):
         code, out = self.add(*self.flags(strength="6"))
         self.assertEqual(code, 1, out)
@@ -2194,6 +2227,16 @@ class ProjectAddPartialFailure(BundleCase):
         self.assertIn(f"not published: {self.log}", out)
         self.assertTrue(self.concept.exists())
         self.assertIn("fix:", out)
+        # The `fix:` used to say "run the same command again - it rewrites all of
+        # them", which is false for this command and for any `add`: the second run
+        # refuses with "already exists", and the concept carries a `timestamp` so a
+        # byte-identical rewrite is not available either. It now states what is
+        # always true - what landed is the authored half - and warns that the rerun
+        # may refuse. An instruction a person follows and watches fail costs more
+        # than no instruction at all.
+        self.assertIn("what landed is correct", out)
+        self.assertIn("re-running the same command may refuse", out)
+        self.assertNotIn("it rewrites all of them", out)
         # No orphan temp beside the file that never published.
         self.assertEqual(
             [p.name for p in (self.root / "projects").iterdir()

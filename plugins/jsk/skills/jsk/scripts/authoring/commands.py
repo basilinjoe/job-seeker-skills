@@ -45,6 +45,25 @@ from . import bookkeeping, concept, schema, stage
 SEPARATORS = re.compile(r"[^a-z0-9]+")
 
 
+def first_appearance(values):
+    """`values` with repeats dropped, keeping the order they were given in.
+
+    One helper rather than one rule per flag. `--capability` deduped and `--domain`
+    did not, so `--domain ops --domain ops` wrote `[ops, ops]` while the same
+    mistake on the flag beside it wrote `[ops]`. Two repeatable flags on one command
+    behaving differently is the kind of thing nobody notices until they are
+    debugging something else.
+
+    Order is the caller's, not sorted: `capabilities` and `domains` are read by a
+    person as well as by the scorer, and the first term is the one they led with.
+    """
+    out = []
+    for value in values:
+        if value not in out:
+            out.append(value)
+    return out
+
+
 def slug(text):
     """A file stem from a title.
 
@@ -234,10 +253,7 @@ def resolve_capabilities(bundle, given, minted, theme):
                 f"--new-capability {term} --theme \"<heading>\" adds it in this same "
                 f"change")
 
-    capabilities = []
-    for term in list(given) + list(minted):
-        if term not in capabilities:
-            capabilities.append(term)
+    capabilities = first_appearance(list(given) + list(minted))
     if not capabilities:
         raise stage.Refused(
             "a Project needs at least one capability\n"
@@ -397,9 +413,9 @@ def project_add(args):
         "strength": args.strength,
         "recency": args.recency,
         "seniority": args.seniority,
-        "domains": list(args.domain),
+        "domains": first_appearance(args.domain),
         "capabilities": capabilities,
-        "technologies": list(args.technology) if args.technology else None,
+        "technologies": first_appearance(args.technology) or None,
         "headline_metric": args.headline_metric,
     }
     values.update(extra)

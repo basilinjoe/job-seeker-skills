@@ -203,9 +203,21 @@ def commit(changeset, dry_run=False):
         lines += [f"published:     {path}" for path in published]
         lines += [f"not published: {pending[0]} - {exc.strerror}"]
         lines += [f"not published: {path}" for path in pending[1:]]
-        lines.append("fix:  the files above no longer agree with each other. Clear "
-                     "what blocked the write, then run the same command again - it "
-                     "rewrites all of them.")
+        # The `fix:` used to say "run the same command again - it rewrites all of
+        # them", and that is a claim about callers this module has no business
+        # making. Measured against the first real one: `okf project add` refuses the
+        # second run with "already exists", and a resume is not available to it
+        # either - the concept carries a `timestamp`, so a second run cannot produce
+        # the same bytes. So the instruction was false for the only command that
+        # could reach it. What is always true is the ordering guarantee above: the
+        # concept publishes first, so whatever landed is the authored half and
+        # whatever did not is derivable from it. The repair itself belongs to a
+        # command that does not exist yet - see the module docstring on reindex -
+        # and naming one nobody can run would only be the old lie in a new spelling.
+        lines.append("fix:  what landed is correct; what did not is derivable from "
+                     "it. Clear whatever blocked the write, then bring the listed "
+                     "files up to date - re-running the same command may refuse, "
+                     "because the concept it would write is now there.")
         raise Refused("\n".join(lines))
     return payload
 
