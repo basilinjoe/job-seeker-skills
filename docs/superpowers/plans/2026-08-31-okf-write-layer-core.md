@@ -995,10 +995,12 @@ class Staging(unittest.TestCase):
         self.assertEqual(Path(self.path("b.md")).read_text(encoding="utf-8"), "two\n")
 
     def test_the_concept_commits_before_its_companions(self):
-        # A partial failure must land on the repairable side: a concept with no
-        # index entry is a validate_bundle warning that okf reindex can fix. An
-        # index entry naming a file that never landed is a broken link, and
-        # nothing can regenerate the concept it wanted.
+        # A partial failure must land on the repairable side. Measured, not
+        # assumed: a concept with no index entry passes the gate silently -
+        # validate_bundle.py checks an index exists and that its links resolve,
+        # never that it lists every concept beside it. An index entry naming a
+        # file that never landed is a BROKEN LINK error. The order holds because
+        # the concept is the half that cannot be regenerated.
         change = stage.Changeset()
         change.write(self.path("index.md"), "listing\n", kind="companion")
         change.write(self.path("concept.md"), "body\n", kind="concept")

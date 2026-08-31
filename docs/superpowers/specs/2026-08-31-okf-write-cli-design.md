@@ -179,11 +179,30 @@ commits. `os.replace` is atomic per file and **not across files**, so a crash mi
 leave a partial write. That is a real limit, and stating it beats implying a transaction we do
 not have.
 
-The mitigation is ordering. **The concept commits first, its derived companions after**, so a
-partial failure lands on the repairable side: a concept with no index entry, which
-`validate_bundle.py` already reports as a warning and `okf reindex` rebuilds from the tree. The
-reverse order leaves an index entry pointing at a file that never landed — a broken link, an
-error, and nothing can regenerate the concept it wanted.
+The mitigation is ordering. **The concept commits first, its derived companions after.**
+
+The reason is not the one this document gave until the crash was actually simulated. Both sides
+were measured, on a real bundle, with the gate run over the wreckage:
+
+| left on disk | `validate_bundle.py` |
+|---|---|
+| concept landed, index stale — *the chosen order* | exit 0 · `ERRORS 0 \| WARNINGS 0` · `VALID` |
+| index landed, concept missing — *the reverse* | exit 1 · `x projects/index.md: BROKEN LINK -> care-platform.md` |
+
+So the repairable side is not a warning, as claimed here before. It is **silent** —
+`validate_bundle.py` checks that an `index.md` *exists* and that its links *resolve*, and never
+that it lists every concept beside it.
+
+The order still holds, for a better reason: **the concept is the half that cannot be
+regenerated.** An index entry is derivable from the tree; a concept is somebody's work. A partial
+publish must therefore lose the derivable half, never the authored half. That the gap is silent
+is an argument for `okf reindex` existing, not against this order.
+
+A related sentence elsewhere in this document is also not true end to end: deleting a directory's
+`index.md` from a scaffolded bundle produces *both* the documented warning *and* a `BROKEN LINK`
+error, because the root `index.md` map table links to every directory index. No command in this
+design can produce that state — they update indexes rather than deleting them — but the claim
+should not be repeated.
 
 ### Validation cost
 
