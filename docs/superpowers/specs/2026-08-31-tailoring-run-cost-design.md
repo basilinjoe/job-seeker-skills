@@ -38,9 +38,22 @@ Script wall clock, measured through the CLI as an agent invokes it:
 
 **The bundle is compiled seven times per run**: main's recompile after the answers, the
 analyst's `--dump-record`, `okf score` compiling again inside itself, the author's
-`--dump-record`, and `validate_urs <bundle>` compiling on each of its three invocations. At
-~1.1s each that is 7.7 seconds, of which **about 5.6 seconds is Python and `pyyaml` starting
-up** rather than any work. The compile is 0.44s in process.
+`--dump-record`, and `validate_urs <bundle>` compiling on each of its three invocations.
+
+The cost is not process startup. A compile of a *tiny* bundle costs 166ms, so that is the
+startup floor; the 100-job bundle costs 1,024ms, and the ~860ms difference is the walk itself.
+And the walk is the thing worth attacking, because of what it reads:
+
+| concept type parsed | count | read by `load()`? |
+|---|---|---|
+| Gap Assessment | 100 | **no** |
+| Job Posting | 100 | **no** |
+| View | 100 | only when views are asked for |
+| Project · Role · Organisation · Person · Metric Set · Skill Set · Vocabulary | 45 | yes |
+
+**The compile parses 345 concepts to build a record out of 41 of them.** `Gap Assessment` and
+`Job Posting` are absent from `NON_CONTENT`, so they are read, YAML-parsed, bucketed into
+`by_type` and then never looked at again.
 
 ## What is not on the table
 
@@ -59,32 +72,47 @@ large.
 the read may inform keyword placement and vocabulary mirroring while bullets are being
 written, and 2,396 tokens is not worth the risk of finding out otherwise in an interview.
 
-## Lever 1 — Kill the redundant compiles
+## Lever 1 — Stop walking what the record does not read
 
-*Pure latency. No behavioural change, so it goes first.*
+*Pure latency, no behavioural change, entirely inside `okf_compile.py`. It goes first.*
 
-**1a. `validate_urs.py --record <file>`.** It currently takes a bundle path and compiles.
-Both agents have already written `record.json` by the time they call it, and so has the ship
-sequence. Accepting the record removes three of the seven compiles.
+`concepts()` walks every `.md` in the bundle. Under `tailoring/` the only thing `load()` ever
+consumes is a `View`; postings and gap assessments are parsed and discarded.
 
-The bundle path must stay supported and stay the default. `okf validate <bundle>` is the
-documented entry point and a person running it by hand has no `record.json`.
+**1a. Under `tailoring/`, read only `*.view.md`.** Everywhere else is unchanged.
 
-**1b. `okf.py` dispatches in process where it safely can.** `run()` currently spawns
-`subprocess.call([sys.executable, path] + args)`, paying ~800ms of interpreter and `pyyaml`
-import per call. Where the target script exposes a clean `main(argv)` returning an exit code,
-import and call it instead.
+**1b. When views are not requested, skip `tailoring/` entirely.** `--no-views` is already how
+both agents compile, so both get this for free.
 
-`validate_bundle.py` is **not** import-safe: it executes at module level and calls
-`sys.exit()` directly. It stays a subprocess. The dispatcher decides per script from an
-explicit list rather than by trying and catching, because a script that half-ran before
-failing an import is worse than one that never started.
+Measured on the 100-application bundle, against today's already-archive-pruned walk:
 
-The scripts remain independently callable with unchanged arguments and exit codes. That is
-the documented API and `okf.py` says so in its own opening lines.
+| | concepts | walk |
+|---|---|---|
+| today | 345 | 412ms |
+| 1a — skip postings and gaps | 145 | 125ms (**70% faster**) |
+| 1a + 1b — skip `tailoring/` | 45 | 37ms (**91% faster**) |
 
-**Expected:** 7 compiles → 3. Script time 12.3s → ~7.9s; the remaining levers take it to ~6.6s.
-`render_resume --pdf` is 2.3s of that floor and is irreducible - it is a TeX compile.
+**The conservation check must not weaken.** `check_conservation` compares concept types on
+disk against record keys, and it exists because *every other check iterates that key, and an
+empty list satisfies all of them*. It is fed by `census()`, which today shares `concepts()`.
+If a narrowed walk would make `census()` blind to a type, `census()` does its own full walk
+instead. A faster compile that quietly stops noticing a dropped concept type is the exact
+defect this gate was written for.
+
+### Rejected: passing a pre-compiled record to `validate_urs`
+
+An earlier draft proposed `validate_urs.py --record <file>` to avoid recompiling. Measurement
+killed it twice over, and the reasoning is recorded so nobody proposes it again:
+
+- **It saves nothing.** `census()` costs 489ms against `load()`'s 425ms — both are dominated
+  by the same walk. Skipping the build while still paying the walk saves no measurable time.
+- **The naive form silently weakens a gate.** `validate_urs record.json` already works today,
+  and on the measured bundle reports 75 failures where `validate_urs <bundle>` reports 376,
+  because `check_conservation` only runs on the bundle path. Instructing the agents to pass
+  `record.json` would have looked like a pure speedup and quietly removed a gate.
+
+Process startup is also not worth chasing on its own: it is 166ms, and an earlier estimate of
+~846ms was wrong — it compared a cold CLI run against a warm in-process call.
 
 ## Lever 2 — Collapse the mechanical gates
 
@@ -192,8 +220,8 @@ stated in the test rather than left implicit.
 | | now | target |
 |---|---|---|
 | mandated reads per run | 42,867 tok | 29,974 tok |
-| script wall clock | 12.3s | ~6.6s |
-| compiles per run | 7 | 3 |
+| script wall clock | 12.3s | ~5.5s |
+| compiles per run | 7 | 7, each ~10x cheaper |
 | subagent spawns per clean ship | 3 | 2 |
 
 No change to any rendered resume, and 542 tests still green.
