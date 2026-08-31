@@ -16,6 +16,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import pipeline_model  # noqa: E402
+from authoring import concept  # noqa: E402
 
 BUNDLE_REVISION = 7   # keep in step with CURRENT_REVISION in migrate_bundle.py
 
@@ -66,13 +67,23 @@ stem. An outcome is not: it is derived from the application's `# Timeline`.
 # Years
 """
 
-def yq(s):
-    """Quote a YAML double-quoted scalar. Names really do contain quotes."""
-    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
+# Kept as module-level names because this file's callers and tests use them, and
+# because `yq` is the older name for what the write layer calls `scalar`. One
+# object under two names cannot drift; two functions can.
+yq = concept.scalar
+
 
 def fm(t, title, desc, ts, extra=""):
-    return (f"---\ntype: {t}\ntitle: {yq(title)}\ndescription: {yq(desc)}\n"
-            f"timestamp: {ts}\n{extra}---\n\n")
+    """The scaffolder's frontmatter, emitted by the write layer's emitter.
+
+    `extra` is a raw block the caller has already formatted - the bundle
+    revision stamp - so it is appended rather than passed through the emitter.
+    """
+    block = concept.frontmatter(t, {"title": title, "description": desc,
+                                    "timestamp": ts})
+    if extra:
+        block = block[:-len("---\n")] + extra + "---\n"
+    return block + "\n"
 
 def main():
     ap = argparse.ArgumentParser()

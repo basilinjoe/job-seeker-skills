@@ -9,9 +9,10 @@ a tool they stop running.
 import sys
 import unittest
 
-from fixtures import authoring_module
+from fixtures import INIT_BUNDLE, authoring_module, load_script
 
 concept = authoring_module("authoring.concept")
+init_bundle = load_script(INIT_BUNDLE)
 
 
 class Quoting(unittest.TestCase):
@@ -215,3 +216,24 @@ class BarePython(unittest.TestCase):
             builtins.__import__ = real_import
             del sys.modules["authoring.concept"]
             importlib.import_module("authoring.concept")
+
+
+class OneEmitter(unittest.TestCase):
+    """init_bundle.py must not define the format a second time.
+
+    The spec forbids a second definition. This is the mechanical form of that
+    rule: the scaffolder's emitter and the write layer's emitter are the same
+    object, so they cannot drift into quoting a title differently.
+    """
+
+    def test_init_bundle_uses_the_shared_quoter(self):
+        self.assertIs(init_bundle.yq, concept.scalar)
+
+    def test_scaffolded_frontmatter_matches_the_emitter(self):
+        self.assertEqual(
+            init_bundle.fm("Index", 'A "quoted" name', "Desc", "2026-01-01T00:00:00Z"),
+            concept.frontmatter("Index", {
+                "title": 'A "quoted" name',
+                "description": "Desc",
+                "timestamp": "2026-01-01T00:00:00Z",
+            }) + "\n")
