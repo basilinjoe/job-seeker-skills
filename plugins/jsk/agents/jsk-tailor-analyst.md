@@ -25,12 +25,34 @@ Start by compiling the record. It is the bundle as every downstream tool reads i
 second, and it is a cache — never edit it, edit the concept:
 
 ```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --dump-record record.json --no-views --quiet
+python3 <skill-dir>/scripts/okf_compile.py <bundle> --no-views --for score --compact --dump-record record.json --quiet
 ```
+
+Three flags, and each one names something you do not do.
 
 `--no-views` because nothing you do reads one. Scoring compares the posting's requirements against
 the projects, and a bundle that has answered a hundred postings carries a hundred views — half the
 file, none of it yours.
+
+`--for score` because **you rank projects and never read a bullet.** It emits each project with only
+the keys the ranking runs on — `id`, `title`, `capabilities`, `technologies`, `domains`,
+`seniority`, `strength`, `period`, `engagement` — and leaves `narratives`, `education` and
+`credentials` empty. `projects[]` is 80% of the record and 61% of it is achievement prose that no
+verdict in your table is computed from. `engagement` is there for a different reason: without it
+`engagements[].projects` would point at projects the record no longer describes.
+
+The projection is defined inside `okf_compile.py`, so there is one answer to what a scorer needs.
+Those are **record** keys, not the concept keys you read in a project file — a concept's `recency:`
+compiles to `period`, a URS Period, and that is what the scorer reads. If you find yourself wanting
+a key the projection does not emit, say so in your report rather than dropping the flag.
+
+`--compact` because `--dump-record` otherwise writes `indent=2` — a third of the read, for
+whitespace no model needs.
+
+Together the record you read falls from 32,190 bytes to 12,840, roughly 8,000 tokens to 3,200, and
+nothing you would have opened is missing from it. `score_projects.py` ranks identically off the
+sliced record, and **evidence ids still resolve**: a verdict citing `prj_unitng` or `eng_experion`
+reads back against this record exactly as before.
 
 If that fails it will name the concept that is wrong. Report that and stop: a gap assessment against a
 record that would not build is an assessment of nothing.

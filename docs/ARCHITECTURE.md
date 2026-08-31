@@ -63,6 +63,12 @@ record. A `status` that flips without them saying so is the defect this framewor
 | `jsk-tailor-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the posting's requirements and the assessment, never a concept |
 | `jsk-resume-author` | Read, Write, Edit, Glob, Grep, Bash | nothing structural — and it is the one that writes prose |
 
+`jsk-verifier` is the conditional one. `okf gates` runs the record, parse and prose gates in a single
+process and prints each one's output verbatim, so a clean ship reads that rather than spawning an
+agent to relay three checkers — and a script has no Write tool more thoroughly than an agent does.
+What the agent is kept for is the half a command cannot do: reading a `FAIL` line back to the concept
+it came from, and reading the PDF for the render gate.
+
 `jsk-resume-author` is the exception worth understanding. It authors the narrative, the retuned
 summary and the view, so restraint alone would not be enough. Everything it writes is marked
 `inferred`, and a view with `provenance_floor: confirmed` means `validate_urs.py` refuses to render
@@ -89,7 +95,7 @@ plugins/jsk/
     setup.md                        the four-phase setup procedure
     braindump|resume|tailor|...     thin delegations into the skill's modes
   agents/                           subagents the modes delegate to
-    jsk-verifier.md                 runs the four gates on rendered files, reports verbatim
+    jsk-verifier.md                 interprets a failed gate against the record; not spawned by a clean ship
     jsk-bundle-auditor.md           reads the whole bundle, writes a posting-less audit
     jsk-tailor-analyst.md           reads a posting and the compiled record, writes the assessment
     jsk-resume-author.md            authors the tailored record: narrative, summary, view
@@ -100,6 +106,7 @@ plugins/jsk/
       mode-*.md                     one procedure per mode
       bundle-spec.md                bundle layout, frontmatter schema, selection keys
       urs-spec.md                   the shape the record compiles to, and the region profiles
+      view-format.md                the other half of URS: every key a view may carry
       ats-rules.md                  hard rules, two-variant strategy, keyword placement
       writing-rules.md              X-Y-Z bullets, verb accuracy, phrases to cut
       rationale.md                  long-form reasoning, loaded to explain a rule
@@ -128,6 +135,7 @@ tests/                              unittest: one file per script, plus the mani
 | **How a document looks** | `scripts/urs/emit_*.py` | never `plan.py` |
 | **A palette, typeface or rule** | `scripts/urs/themes.py` | `references/templates.md`, `tests/test_themes.py` |
 | Support for a new market | `schema/profiles/<code>.json` | the region section of `references/urs-spec.md` |
+| What a view may carry | `references/view-format.md` | `scripts/validate_urs.py`, `agents/jsk-resume-author.md` — never `references/urs-spec.md`, which defines no view key |
 | Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
 | What a migration does | `scripts/migrate_bundle.py` | `docs/SCRIPTS.md`, `tests/test_migrate_bundle.py` |
 | **What a timeline event means** | `scripts/pipeline_model.py` | never in a caller — `pipeline.py`, `validate_bundle.py` and `migrate_bundle.py` all read it |

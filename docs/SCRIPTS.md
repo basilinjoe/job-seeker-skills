@@ -19,6 +19,7 @@ python3 scripts/okf.py validate acme.gaps.json     # or an assessment
 python3 scripts/okf.py validate ./my-career        # or a bundle - it dispatches
 python3 scripts/okf.py render resume.json --out . --pdf
 python3 scripts/okf.py check resume.pdf        # both document gates, one pass
+python3 scripts/okf.py gates . --view view_acme --bundle ./my-career  # all three mechanical gates
 python3 scripts/okf.py score record.json acme.posting.json
 python3 scripts/okf.py fit resume.tex --target-pages 2
 python3 scripts/okf.py preview resume.json --out ./looks
@@ -30,11 +31,15 @@ Every subcommand forwards to the script below with the same arguments and the sa
 everything documented here stays true through it. **The thirteen scripts remain the stable API** — this
 is a convenience layer, not a replacement, and nothing that works today stops working.
 
-Two subcommands do slightly more than forward:
+Three subcommands do more than forward:
 
 - `okf check` runs the parse gate *and* the prose gate on one file, and keeps going after the first
   one fails, because a document with parse problems usually has prose problems too. It exits with the
   worse of the two codes, and reminds you that the record and render gates are separate.
+- `okf gates` runs the record, parse and prose gates over a whole rendered output directory in one
+  process — the five invocations a hand-run verification used to make. It is documented in full
+  below, beside the checkers it calls. `okf check` is unchanged and stays: it is the right thing for
+  one file.
 - `okf validate` sends a directory to `validate_bundle.py` and a `.json` file to `validate_urs.py`.
   A `.posting.json` or `.gaps.json` is refused by name: those are archived UJD and UGS documents
   from an application already sent, both formats are retired, and a frozen document is meant to be
@@ -90,6 +95,8 @@ python3 scripts/okf_compile.py <bundle> --quiet
 python3 scripts/okf_compile.py <bundle> --dump-record record.json
 python3 scripts/okf_compile.py <bundle> --dump-record - --view view_acme
 python3 scripts/okf_compile.py <bundle> --dump-record - --no-views
+python3 scripts/okf_compile.py <bundle> --no-views --compact --dump-record record.json
+python3 scripts/okf_compile.py <bundle> --no-views --for score --compact --dump-record record.json
 ```
 
 Builds the record from the concepts, deterministically. Nothing is written unless `--dump-record`
@@ -114,6 +121,54 @@ bytes to 31,206.
 a broken view nobody is rendering today is still a broken view. An unknown id fails and prints the
 ids that are on disk, capped at eight. Passing `--view` and `--no-views` together is exit 2.
 
+`--compact` writes the record without `indent=2` and changes nothing else — the same object, parsed
+identically, a third smaller. On the hundred-application bundle, `--dump-record` fell from 32,190
+bytes to 20,310. Whitespace no model needs, in a file several agents read on every run.
+
+`--for score` emits each project with only the keys a ranking runs on — `id`, `title`,
+`capabilities`, `technologies`, `domains`, `seniority`, `strength`, `period`, `engagement` — and
+emits `narratives`, `education` and `credentials` empty. `projects[]` is 80% of the record and 61%
+of that is achievement prose no scorer reads a word of; with `--compact` the record falls to 12,840
+bytes, 60% off. `score_projects.py` ranks identically off it, which is the property that makes the
+flag a saving rather than a different answer.
+
+Those are **record** keys and not the concept keys of a project file — `title` is what
+`build_projects` writes, and a concept's `recency:` compiles into `period`, a URS Period, which is
+what the scorer actually reads. `engagement` is kept although the scorer never reads it, because
+without it `engagements[].projects` points at projects the record no longer describes.
+
+It implies nothing about views, so combine it with `--no-views`. **The projection is computed here
+rather than by the caller**, so there is exactly one definition of what a scorer needs — a second
+list of keys somewhere else is the transcription problem this format exists to avoid. `--for` takes
+one value today, `score`; an unknown value is exit 2 listing the valid ones, because a profile name
+that silently did nothing would read as a saving and be a missing field.
+
+**Do not reach for `--for score` from anything that writes prose.** It drops exactly the achievement
+text a bullet is retuned from, and a clause retuned from a record that does not hold it is a clause
+written from scratch.
+
+**The walk reads only what the record is built from.** Under `tailoring/` only `*.view.md` is
+opened — a Job Posting and a Gap Assessment are parsed by nobody downstream — and when no view is
+wanted at all, `tailoring/` is skipped entirely. On the hundred-application bundle that is 345
+concepts parsed to build a record out of 41, down to 45:
+
+| | before | after |
+|---|---|---|
+| `okf_compile <bundle>` | 973ms | 231ms |
+| `okf_compile --no-views` | 1,124ms | 143ms |
+| `okf_compile --no-views --for score --compact` | 1,089ms | 134ms |
+
+The default record and the `--no-views` record are byte-identical before and after. The one input
+whose record could change is a content concept filed under `tailoring/` and not named `*.view.md` —
+a `type: Project` sitting there no longer reaches the record. No documented bundle shape puts one
+there, and `bundle-spec.md` now says so plainly.
+
+**`census()` does its own full walk, deliberately**, and did not get faster. It feeds
+`validate_urs.py`'s conservation check, whose type map includes `View`: narrowing the shared walk
+would have left the census reading zero Views on disk under `--no-views`, and the gate would have
+cheerfully agreed that nothing had been dropped. That gate exists because a hardcoded `views: []`
+went unnoticed for months. A slower census and an honest gate is the right way round.
+
 ### `validate_urs.py`
 
 ```bash
@@ -132,6 +187,11 @@ empty, and warns below that; it also warns where an employer has no evidence und
 compiler emitted, and fails a concept type that produced an empty record key. Cardinality is not
 asserted, because it is legitimately not 1:1 (9 Roles compile to 4 engagements, 1 Skill Set to 83
 skills); only that a type present on disk produces something.
+
+Conservation buys its honesty with a full walk of its own, which is why this gate went from 1,082ms
+to 686ms rather than following the compile all the way down. **A census that sees only what the
+compile chose to read cannot notice what the compile stopped reading**, and noticing that is the
+entire job.
 
 Conservation needs the bundle, so it is skipped when the target is an archived `resume.json`.
 `--strict` promotes every warning to a failure.
@@ -252,6 +312,76 @@ The **prose gate** — the writing rules `check_ats.py` cannot see. Third person
 placeholders, sentences that stop before their object, phrases that read as junior, bullets repeated
 across projects, bullets that clear their throat before the verb. It reads the `.tex` rather than the
 PDF, because a bullet is an unambiguous `\item` there and needs no library to find. No dependencies.
+
+### `okf gates`
+
+```bash
+python3 scripts/okf.py gates <out-dir> --view <id>
+python3 scripts/okf.py gates <out-dir> --view <id> --bundle ./my-career --pages 2
+python3 scripts/okf.py gates <out-dir> --view <id> --json
+python3 scripts/okf.py gates <out-dir> --view <id> --max-findings 0
+```
+
+The record, parse and prose gates over one rendered output directory, in **one process**. It is the
+five invocations a hand-run verification used to make — `validate_urs.py` on the bundle,
+`check_ats.py` on the PDF and again on the `.txt` with `--strict`, `check_prose.py` on the `.tex`
+and again on the `.txt`. It imports the checkers rather than shelling out to them, and gives them
+the same arguments, so the findings and the exit code are the ones the five commands produce. That
+equivalence is what it is tested on.
+
+`check_ats.py` and `check_prose.py` grew a `main(argv)` entry point so it could: same CLI, same
+arguments, same output to the character, now callable without a subprocess. That entry point is
+load-bearing rather than incidental, so it is documented here beside their CLIs.
+
+What it saves is exactly four interpreter starts — about **0.6x** the wall clock:
+
+| | five commands | `okf gates` |
+|---|---|---|
+| 100-posting bundle | 723ms | 461ms |
+| ordinary bundle | 643ms | 381ms |
+
+What remains is the compile and the `pymupdf` import, and neither goes without a cache. There is no
+cache here and there is not going to be one: a copy of something that can disagree with its source
+is where every defect the 2.2.0 audit found came from. Read the ratio rather than the milliseconds —
+the absolutes move with the machine.
+
+The record gate is run against the **bundle**, which is what `--bundle` names. Not a dumped
+`record.json`: `validate_urs.py` runs its conservation check only on the bundle path, so pointing it
+at a record file would look like a pure speedup and quietly remove a gate — on the measured bundle,
+75 failures reported instead of 376.
+
+Three properties, each of them an existing rule here rather than a new one:
+
+- **Every gate's output is printed verbatim, never summarised.** The person should see the evidence
+  rather than take anyone's word for it. The section headers match `okf check`.
+- **A missing input is `SKIPPED` and a failure.** A gate that did not run is not a gate that passed.
+  Same behaviour and same wording as `okf check`. A path you *gave* that is not there is exit 2
+  instead — omitting `--bundle` and mistyping it are different mistakes, and reporting them
+  identically hides one. Both are non-zero.
+- **It never attempts the render gate**, and closes with a line saying somebody has to open the PDF
+  and read it. That gate is the one no command can have, and a command that exited 0 having silently
+  skipped it would be the most dangerous thing in this directory.
+
+`--view ID` is required and does no work. The record gate takes a bundle and the document gates take
+files named after the person, so nothing in the run reads it — it is required because this output is
+archived beside an application as evidence and nothing else in the output directory records which
+view was gated. Do not remove it later as dead weight.
+
+`--pages N` reports and never fails. It measures the PDF and prints `render_resume.py`'s own
+over-budget line, reused rather than restated. Over budget is named rather than failed everywhere in
+this pipeline, because `fit_pages.py` owns that verdict and is the script that can act on it.
+
+`--max-findings N` caps how many findings each gate lists — the same flag name and the same default
+as `validate_urs.py` and `validate_bundle.py`, because two gates that truncate differently are two
+gates people read differently. The header counts stay true regardless: truncating a list is a
+reading aid, truncating a count is a lie.
+
+`--json` carries each checker's whole text in `gates[].output`, beside `gate`, `command`, `status`
+and `exit`. It always includes a `render gate` entry with `status: "UNVERIFIED"` and `exit: null`,
+so **the machine-readable form cannot report the render gate as passed either.** That is what makes
+`--json` safe to consume here: it is the same evidence in a different envelope, never a summary.
+
+The exit code is the worst gate's: `0` all passed, `1` any failed, `2` called wrong.
 
 ## The bundle
 

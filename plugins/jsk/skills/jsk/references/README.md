@@ -21,7 +21,12 @@ what the current task needs.
 | File | Defines |
 |---|---|
 | `bundle-spec.md` | Bundle layout on disk, concept file format, frontmatter schema, selection keys, concept types |
-| `urs-spec.md` | The URS record: document shape, core types, views, region profiles, conformance levels |
+| `urs-spec.md` | The URS record: document shape, core types, region profiles, conformance levels |
+| `view-format.md` | The other half of URS: every key a view may carry, and the rule that it may carry no prose |
+
+`urs-spec.md` and `view-format.md` are one specification in two files, split because
+`jsk-resume-author` writes views and never writes a record. **Neither restates the other**, and each
+carries a pointer to its other half — a key belongs in exactly one of them.
 
 ## Rules — what good looks like
 

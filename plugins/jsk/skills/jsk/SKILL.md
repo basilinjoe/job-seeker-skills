@@ -112,6 +112,7 @@ Load as needed rather than upfront:
 | `references/writing-rules.md` | X-Y-Z bullets, verb accuracy, phrases that damage seniority |
 | `references/ats-rules.md` | hard rules, the two-variant strategy, keyword placement |
 | `references/urs-spec.md` | the shape the record compiles to, and the region profiles a view renders through |
+| `references/view-format.md` | the other half of that spec: every key a view may carry, and the rule that it may carry no prose |
 | `references/rationale.md` | why the rules are what they are — read it when you need to *explain* one |
 
 ## Scripts
@@ -128,9 +129,10 @@ skill, so a bare `scripts/…` will not resolve.
 | `validate_bundle.py <bundle> [--scope SUBDIR] [--exclude-archive] [--max-findings N]` | bundle is well-formed | `pyyaml` |
 | `migrate_bundle.py <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
 | `pipeline.py <bundle> [--all] [--company N] [--as-of D] [--top N] [--json]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
-| `check_ats.py resume.pdf [--strict]` | the rendered PDF (or the `.txt`) is safe to send | `pymupdf` for a PDF |
-| `check_prose.py resume.tex` | the writing rules `check_ats.py` cannot see | — |
-| `okf.py compile <bundle> [--view ID] [--no-views]` | the bundle as the record everything downstream reads — the concepts only, never the frozen archive | — |
+| `check_ats.py resume.pdf [--strict]` | the rendered PDF (or the `.txt`) is safe to send; also `main(argv)` for an in-process caller | `pymupdf` for a PDF |
+| `check_prose.py resume.tex` | the writing rules `check_ats.py` cannot see; also `main(argv)` | — |
+| `okf.py compile <bundle> [--view ID] [--no-views] [--compact] [--for score]` | the bundle as the record everything downstream reads — the concepts only, never the frozen archive | — |
+| `okf.py gates <out-dir> --view ID [--bundle DIR] [--pages N] [--json]` | the record, parse and prose gates in one process, each one's output verbatim; never the render gate | `pyyaml`, `pymupdf` for a PDF |
 | `okf.py score <bundle> <posting.md>` | ranks the projects against the posting's requirements | — |
 | `validate_urs.py <bundle \| resume.json> [--strict] [--max-findings N]` | the record is coherent, carries evidence, and lost nothing in compilation, before anything renders | `pyyaml` for a bundle |
 | `render_resume.py <bundle \| resume.json> --out DIR --view ID [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt`; `--view` is required wherever the record holds more than one | TeX engine for the PDF |
@@ -142,6 +144,18 @@ python3 <skill-dir>/scripts/check_ats.py resume.pdf --strict
 ```
 
 Use `python` or `py -3` on Windows, where `python3` is usually absent.
+
+**`compile` narrows what it emits, never what it reads.** `--compact` drops the indentation;
+`--for score` emits projects with only the keys a ranking runs on. Together they take an agent's
+record read from 32,190 bytes to 12,840 — but `--for score` drops the achievement prose with them,
+so it belongs to a caller that ranks projects and never to one that writes bullets.
+
+**`gates` is the five mechanical gate invocations as one**, at about 0.6x the wall clock — four
+interpreter starts saved — calling the same checkers with the same arguments. It prints each gate's
+output verbatim, treats a missing input as `SKIPPED` **and** a failure, and never attempts the render
+gate, in `--json` no less than in prose: a command that exited 0 having quietly skipped that one
+would be the most dangerous thing here. `--pages N` reports the page count and never fails on it;
+`fit_pages.py` still owns that verdict.
 
 Exit codes are uniform: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are
 required, not optional: the PDF is the only rendered deliverable, so without them there is nothing to
@@ -163,7 +177,7 @@ keep the conversation for the judgment.
 
 | Agent | Hand it | Get back |
 |---|---|---|
-| `jsk-verifier` | the rendered files, the view id, the page budget | every gate's verdict verbatim, and where in `resume.json` each defect is repaired |
+| `jsk-verifier` | the rendered files, the view id, the page budget — when a gate has failed, or the render gate needs reading | every gate's verdict verbatim, and the concept in which each defect is repaired |
 | `jsk-bundle-auditor` | the bundle path | what the bundle is missing, and a prioritised queue with the questions written ready to ask |
 | `jsk-tailor-analyst` | the posting file, the bundle path | the requirements written into the posting, the assessment, the ranking, the honest fit and the question queue |
 | `jsk-resume-author` | the posting, the gaps, the bundle path | the view, every clause it authored quoted, and what it cut |
@@ -194,12 +208,17 @@ parses, not that it is correct.*
 | **Prose** | Does it obey the writing rules? | `check_prose.py` on the `.tex` and on the plain text |
 | **Render** | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
 
+The first three run together as `okf.py gates <out-dir> --view ID`. The fourth is a person opening
+the PDF, and no command claims it.
+
 All gates must pass. Show the output — the person should see the evidence rather than take your word
 for it. Fix and re-run; never explain away a failure.
 
-`jsk-verifier` runs all four against files that already exist and reports what they said. It
-has no way to edit a document, which is deliberate: a defect is repaired in `resume.json` and
-re-rendered, never patched into the PDF.
+`jsk-verifier` is for a gate that failed and a failure that needs tracing back to the concept it came
+from. A clean ship runs `okf gates` and reads the output rather than spawning it — relaying three
+checkers is work a command does more cheaply, while turning a `FAIL` line into a repair site is work
+an agent does better. It has no way to edit a document, which is deliberate: a defect is repaired in
+the concept and re-rendered, never patched into the PDF.
 
 **If no PDF renderer is available**, say so and mark the resume unverified rather than treating a
 passing `check_ats.py` as sufficient. *An unverified resume the person knows about is fine; one they
