@@ -26,7 +26,9 @@
 4. **Anything that cannot run reports loudly and exits non-zero** rather than passing quietly.
 5. Comments in this codebase explain *why*, and often cite the defect that motivated the code. Match that. Do not write comments that restate the line beneath them.
 
-**Run the suite** with `python -m pytest tests -q` (about two minutes; TeX tests dominate and skip themselves where no TeX engine exists). A single file: `python -m pytest tests/test_authoring.py -q`.
+**Run the suite** with `python -m pytest tests -q` (about two minutes; TeX tests dominate and skip themselves where no TeX engine exists). A single file: `python -m pytest tests/test_authoring.py -q`. Use `python`, not `python3` — this is Windows.
+
+**Do not write these files with a shell heredoc.** The Bash tool collapses doubled backslashes in heredoc bodies *even when the delimiter is quoted* (`<<'EOF'`), so `"\\n"` lands as a real newline. Every file in this plan contains escape sequences, and the failure is silent: the source looks right and the tests fail on expectations that read correctly. Use the Write tool. This cost two separate cycles during Task 1 — once for the plan author, once for the implementer.
 
 **The frontmatter style you must match**, from a real bundle concept:
 
@@ -144,6 +146,32 @@ class Quoting(unittest.TestCase):
         # bundle-spec.md: "Quote the value if it contains a colon."
         self.assertEqual(concept.scalar("latency: 5 min"), '"latency: 5 min"')
 
+    def test_a_trailing_newline_does_not_escape_quoting(self):
+        # `$` matches before a trailing newline in Python, so a value ending in
+        # one used to be emitted bare and end its own frontmatter line early.
+        self.assertEqual(concept.scalar("abc\n"), '"abc\\n"')
+
+    def test_an_embedded_newline_stays_on_one_line(self):
+        # A quoted value spanning two physical lines breaks set_key(), which
+        # finds a key by scanning lines and would rewrite the wrong one.
+        self.assertEqual(concept.scalar("a\nb"), '"a\\nb"')
+
+    def test_a_tab_is_escaped(self):
+        self.assertEqual(concept.scalar("tab\there"), '"tab\\there"')
+
+    def test_a_backslash_is_escaped_before_anything_else(self):
+        self.assertEqual(concept.scalar("back\\slash"), '"back\\\\slash"')
+
+    def test_escaped_values_read_back_as_themselves(self):
+        # The emitter's contract: whatever pyyaml reads back must equal what was
+        # handed in, or a concept quietly stops saying what its author said.
+        import yaml
+        for raw in ("abc\n", "a\nb", "tab\there", 'say "hi"', "back\\slash",
+                    "latency: 5 min"):
+            with self.subTest(raw=raw):
+                parsed = yaml.safe_load("title: " + concept.scalar(raw))
+                self.assertEqual(parsed["title"], raw)
+
 
 class Emitting(unittest.TestCase):
     def test_new_concept_has_frontmatter_and_body(self):
@@ -205,7 +233,30 @@ import re
 # trailing space, or a leading indicator character does not. When in doubt this
 # quotes, because an over-quoted slug is ugly and an under-quoted colon is a
 # parse error in somebody's record.
-BARE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+#
+# `\Z` rather than `$`: in Python `$` also matches immediately before a trailing
+# newline, so "abc\n" matched BARE and was emitted bare, ending its own
+# frontmatter line early.
+BARE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
+
+# Ordered: the backslash rule must run first, or it re-escapes the backslashes
+# the later rules introduce. A value is always emitted as exactly one physical
+# line - a newline that survives into the block ends the value early, and
+# set_key() below finds a key by scanning lines and would then rewrite the
+# wrong one.
+ESCAPES = (
+    ("\\", "\\\\"),
+    ('"', '\\"'),
+    ("\n", "\\n"),
+    ("\r", "\\r"),
+    ("\t", "\\t"),
+)
+
+
+def _quoted(text):
+    for old, new in ESCAPES:
+        text = text.replace(old, new)
+    return '"' + text + '"'
 
 
 def scalar(value):
@@ -223,7 +274,7 @@ def scalar(value):
     text = str(value)
     if BARE.match(text):
         return text
-    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return _quoted(text)
 
 
 def frontmatter(type_name, keys):
@@ -248,7 +299,7 @@ def new(type_name, keys, body):
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run: `python -m pytest tests/test_authoring.py -q`
-Expected: PASS, 11 tests
+Expected: PASS, 15 tests
 
 - [ ] **Step 6: Commit**
 
