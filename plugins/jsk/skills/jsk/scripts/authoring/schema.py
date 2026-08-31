@@ -134,13 +134,17 @@ TYPES = {
         # presents it as the type's defining key, and an organisation that cannot say
         # whether they were an employer or a prospect is a record nobody can use.
         Key("relationship", "vocab:relationship", required=True),
-        Key("industry", "text"),
+        # A list, not text. build_organizations passes it straight through to URS,
+        # where schema/example.resume.json writes `"industry": ["healthcare",
+        # "aged-care"]` - so a bare string reached the record as a string where every
+        # consumer expects an array. `sector` and `size` beside it really are strings.
+        Key("industry", "slugs"),
         Key("sector", "text"),
         Key("size", "text"),
         Key("url", "text"),
         # Both read off the organisation by okf_compile.build_engagements.
         Key("employment", "vocab:engagement"),
-        Key("location", "text"),
+        Key("location", "unwritable"),
     ),
 }
 
@@ -257,6 +261,22 @@ def _value_problem(key, value):
 
     if kind == "slug":
         return _slug_problem(name, value)
+
+    if kind == "unwritable":
+        # A kind that exists to refuse, and is not dead code - do not delete it.
+        # urs-spec.md:169 and schema/example.resume.json both define `location` as
+        # {city, region, country, mode}; concept.py emits scalars and flow lists and
+        # deliberately not mappings; and validate_urs.py checks the shape nowhere -
+        # the string "location" does not appear in it. So a location written through
+        # this layer would be wrong URS that nothing would catch, and writing a value
+        # known to be the wrong shape is worse than not offering the key.
+        #
+        # The key stays listed so it is neither reported as unknown nor offered as a
+        # near-miss of something else, and so `--set` cannot loosen it: an extension
+        # declaration is ignored for any key this schema models.
+        return (f"`{name}` is a mapping this layer cannot write\n"
+                f"fix:  set it by hand in the concept - urs-spec.md has the shape, "
+                f"{{city, region, country, mode}}")
 
     if kind == "moment":
         # Not `text`. `timestamp: 2026-01-01T00:00:00Z` is the form bundle-spec.md

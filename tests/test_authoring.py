@@ -945,7 +945,7 @@ class Schema(unittest.TestCase):
                 ("Project", {"url": "https://example.test", "id": "prj_x"}),
                 ("Role", {"id": "pos_x"}),
                 ("Organisation", {"id": "org_x", "employment": "contract",
-                                  "location": "Melbourne"})):
+                                  "industry": ["healthcare"]})):
             base = (self.CLEAN_PROJECT if type_name == "Project"
                     else {"title": "X", "organisation": "acme"} if type_name == "Role"
                     else {"title": "Acme", "relationship": "employer"})
@@ -986,6 +986,36 @@ class Schema(unittest.TestCase):
             with self.subTest(typo=typo):
                 self.assertIsNone(schema._nearest(typo,
                                                   list(schema._kinds(type_name))))
+
+    def test_a_key_urs_defines_as_a_mapping_is_refused_not_written(self):
+        """`location` is {city, region, country, mode} in urs-spec.md and in
+        schema/example.resume.json, concept.py writes scalars and flow lists and not
+        mappings, and validate_urs.py never checks the shape. Writing a value known
+        to be wrong is worse than not offering the key, so the kind refuses and says
+        what the shape is.
+        """
+        problems = "; ".join(schema.check("Organisation", {
+            "title": "Acme", "relationship": "employer", "location": "Melbourne"}))
+        self.assertIn("cannot write", problems)
+        self.assertIn("{city, region, country, mode}", problems)
+
+    def test_the_refusal_survives_being_declared_an_extension(self):
+        # Same rule as a near-miss: --set cannot loosen a key this schema models,
+        # or the refusal would be one flag away from writing the wrong shape anyway.
+        self.assertNotEqual(
+            schema.check("Organisation",
+                         {"title": "Acme", "relationship": "employer",
+                          "location": "Melbourne"},
+                         extensions=("location",)), [])
+
+    def test_industry_is_a_list_because_urs_makes_it_one(self):
+        # example.resume.json: "industry": ["healthcare", "aged-care"]. A bare string
+        # reached the record as a string where every consumer expects an array.
+        base = {"title": "Acme", "relationship": "employer"}
+        self.assertIn("must be a list", "; ".join(
+            schema.check("Organisation", dict(base, industry="healthcare"))))
+        self.assertEqual(
+            schema.check("Organisation", dict(base, industry=["healthcare"])), [])
 
     def test_a_type_may_not_declare_one_key_as_two_kinds(self):
         """Repeating a name sharpens `required`; changing the kind disables a rule.
@@ -1063,9 +1093,8 @@ class SchemaAgreesWithTheGate(unittest.TestCase):
             "timestamp": "2026-01-01T00:00:00Z",
             "status": "confirmed",
             "relationship": "employer",
-            "industry": "healthcare",
+            "industry": ["healthcare"],
             "employment": "employment",
-            "location": "Melbourne",
         })
         self.write("roles", "lead-engineer-acme", "Role", {
             "title": "Lead Engineer",
