@@ -156,7 +156,6 @@ except ImportError:                                  # pragma: no cover
 
 
 SPLIT = re.compile(r"^---\n(.*?\n)---\n", re.S)
-KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):(.*)$")
 
 
 class Concept:
@@ -197,14 +196,15 @@ def read(path):
     somebody's concept in order to rewrite one key. A bundle scaffolded on
     Windows is entirely CRLF, so this is the common case, not the exotic one.
 
-    Known limit: a file with mixed endings - a CRLF block over an LF body, which
-    is what two tools disagreeing leaves behind - is rewritten wholly in the
-    ending that appears first. Every option rewrites something in a file that is
-    already inconsistent, and settling on the dominant one is the option that
-    leaves it consistent afterwards. Recorded as a decision, not an oversight.
+    Known limit: CRLF wins if it appears at all, so a file mixing the two - a
+    CRLF block over an LF body, which is what two tools disagreeing leaves
+    behind - is rewritten wholly in CRLF. Every option rewrites something in a
+    file that is already inconsistent, and this one at least leaves it
+    consistent afterwards. Recorded as a decision, not an oversight.
     """
     if yaml is None:
-        raise Unsplicable("reading a concept needs pyyaml:  pip install pyyaml")
+        raise Unsplicable("reading a concept needs pyyaml, which is not installed\n"
+                          "fix:  pip install pyyaml")
     with open(str(path), encoding="utf-8", newline="") as handle:
         raw = handle.read()
     newline = "\r\n" if "\r\n" in raw else "\n"
@@ -222,7 +222,10 @@ def read(path):
     if not match:
         raise Unsplicable(f"{path}: no frontmatter\n"
                           f"fix:  a concept opens with a --- block naming its type")
-    block = match.group(1).rstrip("\n")
+    # Exactly the one newline SPLIT captured, not rstrip("\n"): a blank line at
+    # the end of the block is the author's, and rstrip deleted it on every
+    # splice - the same defect as the gap below, one line further up.
+    block = match.group(1)[:-1]
     tail = raw[match.end():]
     gap = tail[:len(tail) - len(tail.lstrip("\n"))]
     body = tail.lstrip("\n")
@@ -237,20 +240,67 @@ def read(path):
     return Concept(path, block.split("\n"), meta, body, newline, gap)
 
 
-def locate(doc, key):
-    """The single line index defining `key`, or None. Refuses on ambiguity.
+def survey(block, path):
+    """Every top-level key, with the node that defines its value.
 
-    Ambiguity is a refusal rather than a first-match because both alternatives
-    silently do the wrong thing: taking the first leaves a second line still
-    saying something else, and taking the last is the same defect upside down.
+    Asked of the parser rather than worked out from the text, because no rule
+    written about one line can answer it. Reading the line after the key could
+    not tell a top-level key from a column-0 continuation of a flow scalar, so
+    `title: "a` over `b: c"` spliced into a file that still parsed and had
+    silently gained a key; and it could not tell a comment from a block
+    scalar's first content line. Neither fact is in the adjacent line. It is in
+    the parser, which is the thing that read them.
     """
-    found = []
-    for index, line in enumerate(doc.lines):
-        match = KEY.match(line)
-        if match and match.group(1) == key:
-            found.append(index)
+    node = yaml.compose(block, Loader=yaml.SafeLoader)
+    if node is None:
+        return {}
+    if not isinstance(node, yaml.MappingNode):
+        raise Unsplicable(f"{path}: frontmatter is not a mapping\n"
+                          f"fix:  a concept's block is `key: value` lines")
+    out = {}
+    for key_node, value_node in node.value:
+        if not isinstance(key_node, yaml.ScalarNode):
+            raise Unsplicable(
+                f"{path}: a key here is written in explicit `? key` form\n"
+                f"fix:  write it as `key: value` - this command places a value "
+                f"beside a key it can name, and cannot name that one")
+        out.setdefault(key_node.value, []).append((key_node, value_node))
+    return out
+
+
+def has_anchor(block):
+    """An anchor or alias anywhere in the block.
+
+    Splicing either end breaks the other - replacing `a: &x 1` leaves `b: *x`
+    pointing at nothing, which is a file pyyaml will not read - and a bundle has
+    no use for them, so the whole block is refused rather than the one key.
+    """
+    for event in yaml.parse(block, Loader=yaml.SafeLoader):
+        if getattr(event, "anchor", None):
+            return True
+    return False
+
+
+def locate(doc, key):
+    """Where `key`'s value sits: (line, first column, column after it). Or None.
+
+    Columns rather than a line index, so a splice can keep the key exactly as
+    written and keep whatever follows the value - a trailing comment is the
+    author's, and rewriting the whole line threw it away.
+    """
+    block = "\n".join(doc.lines)
+    if has_anchor(block):
+        raise Unsplicable(
+            f"{doc.path}: the block uses a YAML anchor or alias\n"
+            f"fix:  write the value out in full - replacing one end of an anchor "
+            f"leaves the other pointing at nothing, so this command will not "
+            f"touch the block at all")
+    found = survey(block, doc.path).get(key)
+    if not found:
+        return None
     if len(found) > 1:
-        rows = ", ".join(str(i + 2) for i in found)     # +2: the --- and 1-indexing
+        # +2: the --- above the block, and 1-indexing.
+        rows = ", ".join(str(k.start_mark.line + 2) for k, _ in found)
         # Counted rather than always "twice": "appears twice, at lines 3, 4, 5"
         # reads like a bug in the tool, which undermines a message whose whole
         # job is to be trusted. "twice" is kept where it is true, because it is
@@ -260,36 +310,55 @@ def locate(doc, key):
             f"{doc.path}: `{key}` appears {times}, at lines {rows}\n"
             f"fix:  delete the wrong one by hand - which is right is not "
             f"something this command can know")
-    if not found:
-        return None
-    index = found[0]
-    following = doc.lines[index + 1] if index + 1 < len(doc.lines) else ""
-    # A key is splicable only when its definition ends on its own line. Any
-    # continuation of a YAML node is indented, so it is neither a top-level KEY
-    # match nor blank nor a comment. Testing "nothing after the colon" instead
-    # caught `a:` and missed every value that *continues* - a wrapped flow list
-    # spliced into a ParserError, and a wrapped quoted value or a block scalar
-    # spliced into a file that still parses and says something nobody wrote.
-    if (following.strip() and not KEY.match(following)
-            and not following.lstrip().startswith("#")):
+    key_node, value_node = found[0]
+    kline = key_node.start_mark.line
+    start, end = value_node.start_mark, value_node.end_mark
+    if start.line == end.line and start.column == end.column:
+        # An implicit null - `title:` with nothing after it. There is no value
+        # text to replace, so the cut is the empty span just past the colon and
+        # the tail is kept. Tested as zero width rather than as an empty
+        # `value`, because `title: ""` is also an empty value and does have
+        # text: cutting nothing there would have written `title: New""`.
+        colon = doc.lines[kline].find(":", key_node.end_mark.column - 1)
+        return kline, colon + 1, colon + 1
+    if start.line != kline:
         raise Unsplicable(
             f"{doc.path}: `{key}` is written as a block, over several lines\n"
             f"fix:  this command writes flow style - [a, b] - and rewriting the "
             f"block would reflow lines nobody asked it to touch. Change it by hand.")
-    return index
+    # A value ending at a newline reports end_mark on the next line at column 0,
+    # and nothing on that line belongs to it. Anything else on a later line is a
+    # continuation, and cutting the first line of one orphans the rest.
+    if end.line > kline and not (end.line == kline + 1 and end.column == 0):
+        raise Unsplicable(
+            f"{doc.path}: `{key}`'s value does not end on the line it starts on\n"
+            f"fix:  this command writes flow style - [a, b] - on one line, and "
+            f"replacing only the first line of a wrapped value would leave the "
+            f"rest of it behind. Change it by hand.")
+    cut_end = end.column if end.line == kline else len(doc.lines[kline])
+    return kline, start.column, cut_end
 
 
 def set_key(doc, key, value):
     """The file's text with `key` set, and every other byte where it was."""
     lines = list(doc.lines)
-    index = locate(doc, key)
+    location = locate(doc, key)
     if value is None:
-        if index is not None:
-            del lines[index]
+        if location is not None:
+            del lines[location[0]]
         return doc.text(lines)
-    rendered = f"{key}: {scalar(value)}"
-    if index is None:
-        lines.append(rendered)
-    else:
-        lines[index] = rendered
+    rendered = scalar(value)
+    if location is None:
+        # Above any trailing blank line rather than after it: the blank line is
+        # the author's, and a key appended below it reads as a second stanza.
+        at = len(lines)
+        while at and not lines[at - 1].strip():
+            at -= 1
+        lines.insert(at, f"{key}: {rendered}")
+        return doc.text(lines)
+    index, cut_start, cut_end = location
+    line = lines[index]
+    if cut_start == cut_end:
+        rendered = " " + rendered      # an implicit null: nothing to replace
+    lines[index] = line[:cut_start] + rendered + line[cut_end:]
     return doc.text(lines)

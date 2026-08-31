@@ -348,6 +348,8 @@ class Reading(unittest.TestCase):
                 ("wide-gap", "---\ntype: Project\n---\n\n\n\n# Body\n"),
                 ("no-trailing-newline", "---\ntype: Project\n---\n\n# Body"),
                 ("empty-body", "---\ntype: Project\n---\n"),
+                ("one-trailing-blank", "---\ntype: Project\n\n---\n\n# Body\n"),
+                ("two-trailing-blanks", "---\ntype: Project\n\n\n---\n\n# Body\n"),
         ):
             with self.subTest(name=name):
                 path = Path(self.dir) / f"{name}.md"
@@ -459,6 +461,126 @@ class Splicing(unittest.TestCase):
         with self.assertRaises(concept.Unsplicable) as caught:
             concept.set_key(doc, "s", 9)
         self.assertIn("appears 3 times, at lines 3, 4, 5", str(caught.exception))
+
+    def test_a_continuation_that_looks_like_a_key_is_refused(self):
+        """The shapes that defeated reading the next line, rather than parsing.
+
+        A wrapped value can continue at column 0 and look exactly like a
+        top-level key. Splicing the first line then left the rest behind as a
+        line the parser read as a key, so the document silently *gained* a key
+        `b` and the tool reported success.
+        """
+        for name, block in (
+                ("dq", 'title: "a\nb: c"'),
+                ("sq", "title: 'a\nb: c'"),
+                ("flow-list", 'tags: [a,\nb: c]'),
+                ("flow-map", 'meta: {a: 1,\nb: c}'),
+        ):
+            with self.subTest(name=name):
+                path = write_lf(Path(self.dir) / f"{name}.md",
+                                f"---\ntype: Project\n{block}\n---\n\nx\n")
+                doc = concept.read(path)
+                key = block.split(":")[0]
+                with self.assertRaises(concept.Unsplicable) as caught:
+                    concept.set_key(doc, key, "New")
+                self.assertIn(f"{name}.md", str(caught.exception))
+
+    def test_a_block_scalar_is_refused_however_it_opens(self):
+        """Including the two shapes a comment test cannot tell from a comment.
+
+        A block scalar's first content line may be blank or may start with `#`.
+        Neither is a comment, and treating them as one spliced the key while
+        leaving the block behind as its new value.
+        """
+        for name, block in (
+                ("blank-first", "desc: |\n\n  real content"),
+                ("hash-first", "desc: |\n  # not a comment"),
+                ("comment-between", "desc: |\n  # one\n  two"),
+                ("folded", "desc: >\n  one\n  two"),
+        ):
+            with self.subTest(name=name):
+                path = write_lf(Path(self.dir) / f"bs-{name}.md",
+                                f"---\ntype: Project\n{block}\n---\n\nx\n")
+                doc = concept.read(path)
+                with self.assertRaises(concept.Unsplicable) as caught:
+                    concept.set_key(doc, "desc", "New")
+                self.assertIn(f"bs-{name}.md", str(caught.exception))
+
+    def test_an_anchor_or_alias_refuses_the_whole_block(self):
+        # Splicing either end breaks the other: replacing `a: &x 1` leaves
+        # `b: *x` pointing at nothing, which pyyaml will not read back.
+        for name, block in (
+                ("anchor", "a: &x 1\nb: *x"),
+                ("merge", "defaults: &d {s: 1}\n<<: *d"),
+        ):
+            with self.subTest(name=name):
+                path = write_lf(Path(self.dir) / f"anchor-{name}.md",
+                                f"---\ntype: Project\n{block}\n---\n\nx\n")
+                doc = concept.read(path)
+                with self.assertRaises(concept.Unsplicable) as caught:
+                    concept.set_key(doc, "type", "Role")
+                self.assertIn("anchor", str(caught.exception))
+
+    def test_keys_the_old_regex_could_not_see_are_spliced_not_duplicated(self):
+        """These three used to brick the file for the tool itself.
+
+        `KEY` matched none of them, so set_key appended a *second* definition
+        rather than replacing the one that was there - creating exactly the
+        duplicate that locate() then refuses to touch, forever, silently.
+        """
+        for name, line, key, want in (
+                ("dotted", "job.title: old", "job.title", "job.title: New"),
+                ("quoted", '"job title": old', "job title", '"job title": New'),
+                ("spaced", "strength : old", "strength", "strength : New"),
+        ):
+            with self.subTest(name=name):
+                path = write_lf(Path(self.dir) / f"key-{name}.md",
+                                f"---\ntype: Project\n{line}\n---\n\nx\n")
+                doc = concept.read(path)
+                after = concept.set_key(doc, key, "New")
+                self.assertEqual(
+                    after, f"---\ntype: Project\n{want}\n---\n\nx\n")
+
+    def test_a_trailing_comment_survives_the_splice(self):
+        # The comment is the author's. Rewriting the whole line threw it away.
+        for name, line, key, want in (
+                ("plain", "t: old  # note", "t", "t: New  # note"),
+                ("quoted-key", '"job title": old  # x', "job title",
+                 '"job title": New  # x'),
+                ("flow-with-colon", 't: [a, "b: c"] # tail', "t",
+                 't: [x] # tail'),
+                ("null-with-comment", "t:  # todo", "t", "t: New  # todo"),
+        ):
+            with self.subTest(name=name):
+                path = write_lf(Path(self.dir) / f"cmt-{name}.md",
+                                f"---\ntype: Project\n{line}\n---\n\nx\n")
+                doc = concept.read(path)
+                value = ["x"] if name == "flow-with-colon" else "New"
+                after = concept.set_key(doc, key, value)
+                self.assertEqual(
+                    after, f"---\ntype: Project\n{want}\n---\n\nx\n")
+                import yaml
+                self.assertEqual(
+                    yaml.safe_load(after.split("---\n")[1])[key],
+                    value if isinstance(value, list) else "New")
+
+    def test_an_empty_string_value_is_replaced_not_prefixed(self):
+        # `t: ""` is an empty value that *has* text. Treating it as the implicit
+        # null - which has none - would have written `t: New""`.
+        path = write_lf(Path(self.dir) / "empty-string.md",
+                        '---\ntype: Project\nt: ""\n---\n\nx\n')
+        doc = concept.read(path)
+        self.assertEqual(concept.set_key(doc, "t", "New"),
+                         "---\ntype: Project\nt: New\n---\n\nx\n")
+
+    def test_a_new_key_goes_above_a_trailing_blank_line(self):
+        # The blank line is the author's; a key appended below it reads as a
+        # second stanza rather than as part of the block.
+        path = write_lf(Path(self.dir) / "trailing-blank.md",
+                        "---\ntype: Project\n\n---\n\nx\n")
+        doc = concept.read(path)
+        self.assertEqual(concept.set_key(doc, "strength", 5),
+                         "---\ntype: Project\nstrength: 5\n\n---\n\nx\n")
 
     def test_the_gap_before_the_body_is_not_invented(self):
         # A hand-written concept with no blank line after its frontmatter used
