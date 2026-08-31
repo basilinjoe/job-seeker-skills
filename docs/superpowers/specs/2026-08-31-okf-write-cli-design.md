@@ -274,6 +274,29 @@ adds it to `capability-vocabulary.md` **in the same changeset**. `bundle-spec.md
 "add new values there in the same edit" — this is the CLI enforcing a rule the spec could only
 instruct.
 
+### Three rules the schema cannot check, and why they belong here
+
+`schema.py` judges one concept's values with no bundle in hand, deliberately. Exactly three rules
+need the rest of the bundle, so exactly three must live in the command layer. Measured:
+
+| a concept the schema calls clean | `validate_bundle.py` | `okf_compile.py` |
+|---|---|---|
+| `capabilities: [totally-made-up]` | **exit 1** | ok |
+| `role: no-such-role` | ok | **FAIL** — `role 'no-such-role' has no concept in roles/` |
+| `organisation: no-such-org` | ok | **FAIL** — `organisation … has no concept in organisations/` |
+
+**The referential pair is the dangerous one.** No gate catches either, so the first thing that
+notices is `okf_compile.load()` — which `okf score` calls on the tailor-analyst's hot path. A
+dangling `role` written today surfaces as a crash in the middle of a tailoring run, not as a red
+line at ship time.
+
+So `role add --organisation` gets the same existence refusal the table above gives
+`project add --role`, and both are load-bearing rather than convenience. Whether
+`--new-capability`'s create-in-the-same-changeset resolution should extend to
+`--new-organisation` is an open question for tranche 1: an organisation is a real concept with
+its own required keys, where a capability is one line in a vocabulary, so the answer is probably
+no.
+
 ### The command that pays for tranche 3
 
 `okf application file <slug> --submitted 2026-08-26 --channel "Workday portal"` copies the
