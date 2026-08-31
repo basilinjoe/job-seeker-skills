@@ -261,3 +261,15 @@ def write_urs(directory, doc, name="resume.json"):
     path = Path(directory) / name
     path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     return path
+
+
+def authoring_module(name):
+    """Import a module from the authoring package the write commands use.
+
+    Same shape as urs_module: the scripts directory is not on the path, because
+    these are CLIs rather than an installed package.
+    """
+    import importlib
+    if str(SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS))
+    return importlib.import_module(name)
