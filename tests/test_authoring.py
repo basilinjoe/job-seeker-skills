@@ -46,8 +46,9 @@ class Quoting(unittest.TestCase):
         self.assertEqual(concept.scalar("abc\n"), '"abc\\n"')
 
     def test_an_embedded_newline_stays_on_one_line(self):
-        # A quoted value spanning two physical lines breaks set_key(), which
-        # finds a key by scanning lines and would rewrite the wrong one.
+        # A value written over two physical lines is one set_key() refuses to
+        # touch, so emitting one would produce a key the write layer could no
+        # longer change. Keeping it on one line keeps it splicable.
         self.assertEqual(concept.scalar("a\nb"), '"a\\nb"')
 
     def test_a_tab_is_escaped(self):
@@ -337,9 +338,9 @@ class Reading(unittest.TestCase):
     def test_reading_and_rewriting_changes_nothing(self):
         """read() then text() with no edit must be byte-identical.
 
-        D2 was a blank line invented on every splice; D4 is one invented when a
-        block empties. Both are the same defect - a byte nobody asked about -
-        and one property catches every future member of the family.
+        D2 was a blank line invented on every splice. This covers the no-edit
+        path only - it never deletes, so it cannot speak to the blank line an
+        emptied block used to leave behind; Deleting pins that one.
         """
         for name, raw in (
                 ("lf", HAND_WRITTEN),
@@ -367,6 +368,9 @@ class Splicing(unittest.TestCase):
         after = concept.set_key(self.doc, "strength", 5)
         before_lines = HAND_WRITTEN.splitlines()
         after_lines = after.splitlines()
+        # Counts first: zip() stops at the shorter one, so an appended or
+        # deleted line would not register as a difference at all.
+        self.assertEqual(len(after_lines), len(before_lines))
         differing = [i for i, (a, b) in enumerate(zip(before_lines, after_lines))
                      if a != b]
         self.assertEqual(len(differing), 1)
@@ -417,7 +421,12 @@ class Splicing(unittest.TestCase):
         doc = concept.read(path)
         with self.assertRaises(concept.Unsplicable) as caught:
             concept.set_key(doc, "tags", ["three"])
-        self.assertIn("block.md", str(caught.exception))
+        message = str(caught.exception)
+        self.assertIn("block.md", message)
+        # Which refusal fired is the behaviour: five of them name a file, so
+        # asserting only the filename would pass on the anchor or duplicate
+        # message too.
+        self.assertIn("is written as a block, over several lines", message)
 
     def test_a_value_continuing_onto_the_next_line_is_refused(self):
         """Every shape whose value starts on the key's line and does not end there.
@@ -440,7 +449,9 @@ class Splicing(unittest.TestCase):
                 doc = concept.read(path)
                 with self.assertRaises(concept.Unsplicable) as caught:
                     concept.set_key(doc, key, "New")
-                self.assertIn(f"{name}.md", str(caught.exception))
+                message = str(caught.exception)
+                self.assertIn(f"{name}.md", message)
+                self.assertIn("does not end on the line it starts on", message)
 
     def test_a_null_key_on_one_line_is_spliced_not_refused(self):
         # `title:` with nothing after it is one line and not a block, so the
@@ -483,7 +494,9 @@ class Splicing(unittest.TestCase):
                 key = block.split(":")[0]
                 with self.assertRaises(concept.Unsplicable) as caught:
                     concept.set_key(doc, key, "New")
-                self.assertIn(f"{name}.md", str(caught.exception))
+                message = str(caught.exception)
+                self.assertIn(f"{name}.md", message)
+                self.assertIn("does not end on the line it starts on", message)
 
     def test_a_block_scalar_is_refused_however_it_opens(self):
         """Including the two shapes a comment test cannot tell from a comment.
@@ -504,7 +517,9 @@ class Splicing(unittest.TestCase):
                 doc = concept.read(path)
                 with self.assertRaises(concept.Unsplicable) as caught:
                     concept.set_key(doc, "desc", "New")
-                self.assertIn(f"bs-{name}.md", str(caught.exception))
+                message = str(caught.exception)
+                self.assertIn(f"bs-{name}.md", message)
+                self.assertIn("does not end on the line it starts on", message)
 
     def test_an_anchor_or_alias_refuses_the_whole_block(self):
         # Splicing either end breaks the other: replacing `a: &x 1` leaves
@@ -524,7 +539,8 @@ class Splicing(unittest.TestCase):
     def test_keys_the_old_regex_could_not_see_are_spliced_not_duplicated(self):
         """These three used to brick the file for the tool itself.
 
-        `KEY` matched none of them, so set_key appended a *second* definition
+        The line-matching regex the first version used matched none of them, so
+        set_key appended a *second* definition
         rather than replacing the one that was there - creating exactly the
         duplicate that locate() then refuses to touch, forever, silently.
         """
@@ -590,3 +606,239 @@ class Splicing(unittest.TestCase):
         doc = concept.read(path)
         self.assertEqual(concept.set_key(doc, "strength", 5),
                          "---\ntype: Project\nstrength: 5\n---\n# Body\n")
+
+    def test_a_key_containing_a_colon_is_spliced_correctly(self):
+        # `a::` defines the key `a:` with an implicit null. Searching the line
+        # for a colon found the one *inside* the key and wrote `a: New:`, which
+        # pyyaml then refused to read - written to disk, reported as success.
+        path = write_lf(Path(self.dir) / "colon-key.md",
+                        "---\ntype: Project\na::\n---\n\nx\n")
+        doc = concept.read(path)
+        after = concept.set_key(doc, "a:", "New")
+        self.assertEqual(after, '---\ntype: Project\na:: New\n---\n\nx\n')
+        import yaml
+        self.assertEqual(yaml.safe_load(after.split("---\n")[1])["a:"], "New")
+
+    def test_a_key_read_out_of_meta_is_refused_when_retyped(self):
+        """meta's keys are constructed; the file's keys are text.
+
+        safe_load turns `yes` into True and `2019` into an int. A command that
+        read a key out of meta and passed it back matched no line, so set_key
+        appended a second definition beside the first - the duplicate locate()
+        then refuses to touch forever.
+        """
+        path = write_lf(Path(self.dir) / "typed.md",
+                        "---\ntype: Project\nyes: 1\n2019: x\n---\n\nx\n")
+        doc = concept.read(path)
+        self.assertIn(True, doc.meta)
+        self.assertIn(2019, doc.meta)
+        for key in (True, 2019):
+            with self.subTest(key=key):
+                with self.assertRaises(concept.Unsplicable) as caught:
+                    concept.set_key(doc, key, "N")
+                self.assertIn("as it is written in the file",
+                              str(caught.exception))
+
+
+class Deleting(unittest.TestCase):
+    """set_key(doc, key, None) removes the key's line."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def write(self, name, raw):
+        return concept.read(write_lf(Path(self.dir) / name, raw))
+
+    def test_a_key_is_removed_with_its_line(self):
+        doc = self.write("d.md", "---\ntype: Project\nstrength: 1\n---\n\nx\n")
+        self.assertEqual(concept.set_key(doc, "strength", None),
+                         "---\ntype: Project\n---\n\nx\n")
+
+    def test_deleting_a_key_that_is_absent_changes_nothing(self):
+        raw = "---\ntype: Project\n---\n\nx\n"
+        doc = self.write("absent.md", raw)
+        self.assertEqual(concept.set_key(doc, "nope", None), raw)
+
+    def test_deleting_takes_the_trailing_comment_with_it(self):
+        # Defensible - the comment annotates the key that is going - but pinned
+        # rather than discovered, because it is the one case where deleting
+        # removes something the caller did not name.
+        doc = self.write("cmt.md",
+                         "---\ntype: Project\nt: 1  # why\n---\n\nx\n")
+        self.assertEqual(concept.set_key(doc, "t", None),
+                         "---\ntype: Project\n---\n\nx\n")
+
+    def test_emptying_the_block_leaves_no_blank_line(self):
+        # The general form emits `---\n` + the joined lines + `\n---\n`, which
+        # for no lines at all invented a blank line where the block had been.
+        doc = self.write("only.md", "---\ntype: Project\n---\n\nx\n")
+        self.assertEqual(concept.set_key(doc, "type", None), "---\n---\n\nx\n")
+
+    def test_deleting_keeps_the_other_lines_exactly(self):
+        doc = self.write("keep.md", HAND_WRITTEN)
+        after = concept.set_key(doc, "strength", None)
+        self.assertIn("# I keep the strength here so I remember to revisit it",
+                      after)
+        self.assertNotIn("strength:", after)
+        self.assertTrue(after.endswith("# The problem\n\nIt was slow.\n"))
+
+
+class Keys(unittest.TestCase):
+    """A key gets the same guarantee as a value: it reads back as itself."""
+
+    def test_a_key_that_yaml_would_retype_is_quoted(self):
+        # `{"yes": 3}` was emitted `yes: 3` and read back as `{True: 3}`.
+        for key in ("yes", "no", "true", "null", "on", "2019", "007", "1.0"):
+            with self.subTest(key=key):
+                self.assertEqual(concept.key_text(key), '"%s"' % key)
+
+    def test_a_key_that_would_break_the_line_is_quoted(self):
+        for key in ("a: b", "my key", "a\nb", "", "#c", " lead"):
+            with self.subTest(key=key):
+                self.assertTrue(concept.key_text(key).startswith('"'))
+
+    def test_an_ordinary_key_stays_bare(self):
+        # Every key the codebase actually writes must keep its current shape.
+        for key in ("type", "title", "okf_bundle", "headline_metric",
+                    "retired_reason", "functional_title", "job.title",
+                    "start", "end", "tags", "a-b", "x/y"):
+            with self.subTest(key=key):
+                self.assertEqual(concept.key_text(key), key)
+
+    def test_a_date_shaped_key_is_quoted_though_a_date_value_is_not(self):
+        # DATEISH is a concession made for values: a value of 2019 is meant to
+        # read as a year, a key of "2019" is meant to stay a string.
+        self.assertEqual(concept.scalar("2026-08-31"), "2026-08-31")
+        self.assertEqual(concept.key_text("2026-08-31"), '"2026-08-31"')
+
+    def test_every_emitted_key_reads_back_as_itself(self):
+        import yaml
+        for key in ("yes", "2019", "2026-08-31", "my key", "a: b", "007",
+                    "null", "a\nb", "", "type", "okf_bundle", "café"):
+            with self.subTest(key=key):
+                line = concept.key_text(key) + ": 1"
+                self.assertEqual(len(line.splitlines()), 1)
+                self.assertEqual(list(yaml.safe_load(line)), [key])
+
+    def test_the_scaffolder_emits_a_retyping_key_safely(self):
+        import yaml
+        text = concept.frontmatter("Project", {"yes": 3, "2019": "x"})
+        meta = yaml.safe_load(text.split("---")[1])
+        self.assertEqual(meta["yes"], 3)
+        self.assertEqual(meta["2019"], "x")
+
+    def test_an_appended_key_is_quoted_too(self):
+        import yaml
+        directory = tempfile.mkdtemp()
+        path = write_lf(Path(directory) / "app.md",
+                        "---\ntype: Project\n---\n\nx\n")
+        after = concept.set_key(concept.read(path), "yes", 3)
+        self.assertIn('"yes": 3', after)
+        self.assertEqual(yaml.safe_load(after.split("---\n")[1])["yes"], 3)
+
+
+class Refusals(unittest.TestCase):
+    """The messages are the behaviour, so they are pinned like behaviour."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def test_invalid_yaml_is_refused(self):
+        path = write_lf(Path(self.dir) / "bad.md",
+                        '---\ntype: Project\nt: "unterminated\n---\n\nx\n')
+        with self.assertRaises(concept.Unsplicable) as caught:
+            concept.read(path)
+        self.assertIn("frontmatter is not valid YAML", str(caught.exception))
+
+    def test_a_block_that_is_not_a_mapping_is_refused(self):
+        for name, block in (("list", "- a\n- b"), ("scalar", "just words")):
+            with self.subTest(name=name):
+                path = write_lf(Path(self.dir) / f"nm-{name}.md",
+                                f"---\n{block}\n---\n\nx\n")
+                with self.assertRaises(concept.Unsplicable) as caught:
+                    concept.read(path)
+                self.assertIn("frontmatter is not a mapping",
+                              str(caught.exception))
+
+    def test_a_mixed_ending_file_is_rewritten_in_crlf(self):
+        """The D3 decision, stated in read() and pinned by nothing until now.
+
+        CRLF wins if it appears at all. This is deliberate - every option
+        rewrites something in a file that is already inconsistent - so it is
+        pinned to make a later change to it a decision rather than an accident.
+        """
+        path = Path(self.dir) / "mixed.md"
+        path.write_bytes(b"---\r\ntype: Project\r\nt: 1\r\n---\r\n\r\nx\ny\n")
+        doc = concept.read(path)
+        self.assertEqual(doc.newline, "\r\n")
+        after = concept.set_key(doc, "t", 5)
+        self.assertNotIn("\n", after.replace("\r\n", ""))
+        self.assertIn("t: 5\r\n", after)
+
+    def test_every_refusal_carries_a_fix_line(self):
+        """A refusal a person cannot act on is barely better than a mangled file.
+
+        Every Unsplicable this module raises must say what to do about it, so
+        the shape is asserted across all of them at once rather than one test
+        at a time forgetting.
+        """
+        cases = [
+            ("no frontmatter", "# Just a heading\n", None),
+            ("bom", "\ufeff---\ntype: Project\n---\n\nx\n", None),
+            ("invalid yaml", '---\nt: "unterminated\n---\n\nx\n', None),
+            ("not a mapping", "---\n- a\n- b\n---\n\nx\n", None),
+            ("block", "---\ntype: P\na:\n  b: 1\n---\n\nx\n", ("a", "z")),
+            ("continues", '---\ntype: P\nt: "a\n  b"\n---\n\nx\n', ("t", "z")),
+            ("anchor", "---\ntype: P\na: &x 1\nb: *x\n---\n\nx\n", ("a", "z")),
+            ("duplicate", "---\ntype: P\ns: 1\ns: 2\n---\n\nx\n", ("s", "z")),
+            ("retyped key", "---\ntype: P\nyes: 1\n---\n\nx\n", (True, "z")),
+        ]
+        for name, raw, splice in cases:
+            with self.subTest(name=name):
+                path = write_lf(Path(self.dir) / f"fix-{name}.md", raw)
+                with self.assertRaises(concept.Unsplicable) as caught:
+                    doc = concept.read(path)
+                    concept.set_key(doc, *splice)
+                self.assertIn("\nfix:  ", str(caught.exception))
+
+    def test_the_missing_dependency_refusal_carries_a_fix_line(self):
+        # The one message raised before any file is opened, so it cannot name a
+        # path - but it still has to say what to do.
+        import builtins
+        import importlib
+        real_import = builtins.__import__
+
+        def blocked(name, *args, **kwargs):
+            if name == "yaml" or name.startswith("yaml."):
+                raise ImportError("pyyaml is blocked for this test")
+            return real_import(name, *args, **kwargs)
+
+        for name in [m for m in list(sys.modules) if m.startswith("yaml")]:
+            del sys.modules[name]
+        del sys.modules["authoring.concept"]
+        builtins.__import__ = blocked
+        try:
+            fresh = importlib.import_module("authoring.concept")
+            with self.assertRaises(fresh.Unsplicable) as caught:
+                fresh.parse("---\ntype: P\n---\n\nx\n", "x.md")
+            self.assertIn("\nfix:  pip install pyyaml", str(caught.exception))
+        finally:
+            builtins.__import__ = real_import
+            del sys.modules["authoring.concept"]
+            importlib.import_module("authoring.concept")
+
+
+class Parsing(unittest.TestCase):
+    """parse() is the seam a caller holding text uses instead of read()."""
+
+    def test_text_parses_without_touching_the_disk(self):
+        doc = concept.parse(HAND_WRITTEN, "in-memory.md")
+        self.assertEqual(doc.meta["strength"], 3)
+        self.assertEqual(doc.text(), HAND_WRITTEN)
+
+    def test_a_bad_block_refuses_rather_than_raising_yaml(self):
+        # Building a Concept by hand and meeting a raw YAMLError is the hole
+        # this seam closes: main() catches Unsplicable, not YAMLError.
+        with self.assertRaises(concept.Unsplicable):
+            concept.parse('---\nt: "unterminated\n---\n\nx\n', "in-memory.md")
+

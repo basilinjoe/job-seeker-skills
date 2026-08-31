@@ -16,6 +16,15 @@ on Windows is entirely CRLF, and rewriting one key must not rewrite every line.
 
 import re
 
+# Guarded, not unguarded: init_bundle.py imports this module and ARCHITECTURE.md
+# lists it among the scripts that run on a bare Python. Emitting needs no YAML;
+# only reading does, so the absence is reported by the readers rather than by an
+# ImportError at somebody else's import time.
+try:
+    import yaml
+except ImportError:                                  # pragma: no cover
+    yaml = None
+
 # A bare scalar is one YAML will read back as the string we wrote. Slugs, dates,
 # years and enum values qualify; anything with a colon, a quote, leading or
 # trailing space, or a leading indicator character does not. When in doubt this
@@ -118,13 +127,32 @@ def scalar(value):
     return _quoted(value)
 
 
+# A key needs the same guarantee as a value - that YAML reads back what was
+# written - but not the same rule. Underscores are ordinary in a key
+# (`headline_metric`, `okf_bundle`) and DATEISH does not apply: a value of 2019
+# is meant to read as a year, a key of "2019" is meant to stay a string. Keys
+# used to be interpolated raw, so `{"yes": 3}` was emitted `yes: 3` and read
+# back as `{True: 3}`, and a key containing a colon ended its own line early.
+BARE_KEY = re.compile(r"^[A-Za-z_][\w./-]*\Z")
+
+
+def key_text(key):
+    """One frontmatter key, as it should be written."""
+    if (BARE_KEY.match(key) and key.lower() not in KEYWORDS
+            and not NUMERIC.match(key)):
+        return key
+    # _quoted rather than scalar: the DATEISH exemption is a concession made for
+    # values, and a key that looks like a date is still just a key.
+    return _quoted(key)
+
+
 def frontmatter(type_name, keys):
     """The `---` block for a new concept. `type` leads; None values are dropped."""
     lines = ["---", f"type: {type_name}"]
     for key, value in keys.items():
         if value is None:
             continue
-        lines.append(f"{key}: {scalar(value)}")
+        lines.append(f"{key_text(key)}: {scalar(value)}")
     lines.append("---")
     return "\n".join(lines) + "\n"
 
@@ -145,17 +173,25 @@ class Unsplicable(Exception):
     """
 
 
-# Guarded, not unguarded: init_bundle.py imports this module and ARCHITECTURE.md
-# lists it among the scripts that run on a bare Python. Emitting needs no YAML;
-# only reading does, so the absence is reported by read() rather than by an
-# ImportError at somebody else's import time.
-try:
-    import yaml
-except ImportError:                                  # pragma: no cover
-    yaml = None
-
-
 SPLIT = re.compile(r"^---\n(.*?\n)---\n", re.S)
+
+# read() and survey() raise the same words for the same defect, so the text
+# lives once rather than in two copies that can drift apart.
+NOT_A_MAPPING = ("frontmatter is not a mapping\n"
+                 "fix:  a concept's block is `key: value` lines")
+
+
+def _need_yaml():
+    """The one place the missing dependency is reported.
+
+    Every reader calls it, rather than only read(): locate() reaches yaml too,
+    through a Concept a caller built by hand, and on a bare Python that used to
+    surface as an AttributeError on None instead of a line saying what to
+    install.
+    """
+    if yaml is None:
+        raise Unsplicable("reading a concept needs pyyaml, which is not installed\n"
+                          "fix:  pip install pyyaml")
 
 
 class Concept:
@@ -183,18 +219,35 @@ class Concept:
 
     def text(self, lines=None):
         """The whole file, in the line ending it arrived in."""
-        block = "\n".join(self.lines if lines is None else lines)
-        out = f"---\n{block}\n---\n{self.gap}{self.body}"
+        lines = self.lines if lines is None else lines
+        if lines:
+            out = f"---\n" + "\n".join(lines) + f"\n---\n{self.gap}{self.body}"
+        else:
+            # No keys left at all - every one deleted. The general form would
+            # emit `---\n\n---\n`, inventing a blank line where the block was.
+            out = f"---\n---\n{self.gap}{self.body}"
         return out if self.newline == "\n" else out.replace("\n", self.newline)
 
 
 def read(path):
-    """Parse one concept file, or refuse with a reason naming it.
+    """Open one concept file and parse it, or refuse with a reason naming it.
 
     `newline=""` rather than text mode: universal newlines would hand back "\\n"
     for a CRLF file, and writing that out again would change every line ending in
     somebody's concept in order to rewrite one key. A bundle scaffolded on
     Windows is entirely CRLF, so this is the common case, not the exotic one.
+    """
+    _need_yaml()
+    with open(str(path), encoding="utf-8", newline="") as handle:
+        return parse(handle.read(), path)
+
+
+def parse(raw, path):
+    """One concept's text, split into the parts a command needs.
+
+    Separate from read() so a caller that already has the text - a dry run, or a
+    command holding an edit it has not written yet - gets the same refusals
+    instead of building a Concept by hand and meeting a raw YAMLError.
 
     Known limit: CRLF wins if it appears at all, so a file mixing the two - a
     CRLF block over an LF body, which is what two tools disagreeing leaves
@@ -202,11 +255,7 @@ def read(path):
     file that is already inconsistent, and this one at least leaves it
     consistent afterwards. Recorded as a decision, not an oversight.
     """
-    if yaml is None:
-        raise Unsplicable("reading a concept needs pyyaml, which is not installed\n"
-                          "fix:  pip install pyyaml")
-    with open(str(path), encoding="utf-8", newline="") as handle:
-        raw = handle.read()
+    _need_yaml()
     newline = "\r\n" if "\r\n" in raw else "\n"
     raw = raw.replace("\r\n", "\n")
     # Named rather than folded into "no frontmatter", which is visibly untrue of
@@ -235,8 +284,7 @@ def read(path):
         raise Unsplicable(f"{path}: frontmatter is not valid YAML: {exc}\n"
                           f"fix:  open it and correct the block by hand")
     if not isinstance(meta, dict):
-        raise Unsplicable(f"{path}: frontmatter is not a mapping\n"
-                          f"fix:  a concept's block is `key: value` lines")
+        raise Unsplicable(f"{path}: {NOT_A_MAPPING}")
     return Concept(path, block.split("\n"), meta, body, newline, gap)
 
 
@@ -251,15 +299,19 @@ def survey(block, path):
     scalar's first content line. Neither fact is in the adjacent line. It is in
     the parser, which is the thing that read them.
     """
+    _need_yaml()
     node = yaml.compose(block, Loader=yaml.SafeLoader)
     if node is None:
         return {}
     if not isinstance(node, yaml.MappingNode):
-        raise Unsplicable(f"{path}: frontmatter is not a mapping\n"
-                          f"fix:  a concept's block is `key: value` lines")
+        raise Unsplicable(f"{path}: {NOT_A_MAPPING}")
     out = {}
     for key_node, value_node in node.value:
         if not isinstance(key_node, yaml.ScalarNode):
+            # Unreachable through read(): a mapping or sequence key is
+            # unhashable, so safe_load refuses the block first. Kept as the
+            # guard for a caller that composes its own, and noted so nobody
+            # writes a test they cannot make fire.
             raise Unsplicable(
                 f"{path}: a key here is written in explicit `? key` form\n"
                 f"fix:  write it as `key: value` - this command places a value "
@@ -271,10 +323,17 @@ def survey(block, path):
 def has_anchor(block):
     """An anchor or alias anywhere in the block.
 
-    Splicing either end breaks the other - replacing `a: &x 1` leaves `b: *x`
-    pointing at nothing, which is a file pyyaml will not read - and a bundle has
-    no use for them, so the whole block is refused rather than the one key.
+    Necessity rather than caution, so the reasoning survives a maintainer who
+    wants to handle one key at a time: a merge key folds the merged mapping's
+    keys into what safe_load constructs, and survey() cannot see them at all -
+    `<<: *defaults` leaves `s` in meta with no line anywhere defining it, so a
+    partial handler asked to set `s` appends a second definition. The weaker
+    argument, true as well, is that splicing either end of an anchor breaks the
+    other: replacing `a: &x 1` leaves `b: *x` pointing at nothing.
+
+    A bundle has no use for either, so the whole block is refused.
     """
+    _need_yaml()
     for event in yaml.parse(block, Loader=yaml.SafeLoader):
         if getattr(event, "anchor", None):
             return True
@@ -287,6 +346,10 @@ def locate(doc, key):
     Columns rather than a line index, so a splice can keep the key exactly as
     written and keep whatever follows the value - a trailing comment is the
     author's, and rewriting the whole line threw it away.
+
+    `key` is matched as the text written in the file, not as the key `meta`
+    holds: safe_load constructs `yes` into True and `2019` into an int, and a
+    caller passing one of those back would not match the line that produced it.
     """
     block = "\n".join(doc.lines)
     if has_anchor(block):
@@ -315,32 +378,52 @@ def locate(doc, key):
     start, end = value_node.start_mark, value_node.end_mark
     if start.line == end.line and start.column == end.column:
         # An implicit null - `title:` with nothing after it. There is no value
-        # text to replace, so the cut is the empty span just past the colon and
-        # the tail is kept. Tested as zero width rather than as an empty
-        # `value`, because `title: ""` is also an empty value and does have
-        # text: cutting nothing there would have written `title: New""`.
-        colon = doc.lines[kline].find(":", key_node.end_mark.column - 1)
-        return kline, colon + 1, colon + 1
+        # text to cut, so both edges sit where the value would have begun, which
+        # pyyaml puts immediately after the colon. Tested as zero width rather
+        # than as an empty `value`, because `title: ""` is also an empty value
+        # and does have text: cutting nothing there would have written
+        # `title: New""`. Searching the line for the colon instead used to find
+        # one inside a key that contained one, and wrote `a: New:` for `a::`.
+        return kline, start.column, start.column
     if start.line != kline:
         raise Unsplicable(
             f"{doc.path}: `{key}` is written as a block, over several lines\n"
-            f"fix:  this command writes flow style - [a, b] - and rewriting the "
-            f"block would reflow lines nobody asked it to touch. Change it by hand.")
-    # A value ending at a newline reports end_mark on the next line at column 0,
-    # and nothing on that line belongs to it. Anything else on a later line is a
-    # continuation, and cutting the first line of one orphans the rest.
-    if end.line > kline and not (end.line == kline + 1 and end.column == 0):
+            f"fix:  this command writes a value on one line, and rewriting the "
+            f"block would reflow lines nobody asked it to touch. Change it by "
+            f"hand.")
+    # Any value crossing the newline is a continuation, and cutting its first
+    # line orphans the rest. There is deliberately no exemption for a value
+    # ending exactly at column 0 of the next line: 1140 shape-by-context
+    # combinations produced no such node - a block scalar lands two lines down
+    # or further, and plain and flow scalars never cross at all - so the
+    # allowance that used to be here described nothing, and a node that did
+    # reach it would be a wrapped value this must refuse.
+    if end.line > kline:
         raise Unsplicable(
             f"{doc.path}: `{key}`'s value does not end on the line it starts on\n"
-            f"fix:  this command writes flow style - [a, b] - on one line, and "
-            f"replacing only the first line of a wrapped value would leave the "
-            f"rest of it behind. Change it by hand.")
-    cut_end = end.column if end.line == kline else len(doc.lines[kline])
-    return kline, start.column, cut_end
+            f"fix:  this command writes a value on one line, and replacing only "
+            f"the first line of a wrapped value would leave the rest of it "
+            f"behind. Change it by hand.")
+    return kline, start.column, end.column
 
 
 def set_key(doc, key, value):
-    """The file's text with `key` set, and every other byte where it was."""
+    """The file's text with `key` set, and every other byte where it was.
+
+    `value=None` deletes the key's whole line, including any comment trailing on
+    it - the comment annotates the key that is going, so it goes too. Deleting a
+    key that is not there changes nothing. Everything else replaces just the
+    value, or appends `key: value` if the block does not define it yet.
+    """
+    if not isinstance(key, str):
+        # `doc.meta`'s keys are what safe_load *constructed*: `yes` arrives as
+        # True and `2019` as an int. Passing one of those back matched no line,
+        # so set_key appended a second definition beside the first - the
+        # duplicate locate() then refuses to touch forever.
+        raise Unsplicable(
+            f"{doc.path}: `{key!r}` is a {type(key).__name__}, not a key\n"
+            f"fix:  pass the key as it is written in the file - a key read out "
+            f"of meta may have been constructed into something else")
     lines = list(doc.lines)
     location = locate(doc, key)
     if value is None:
@@ -354,7 +437,7 @@ def set_key(doc, key, value):
         at = len(lines)
         while at and not lines[at - 1].strip():
             at -= 1
-        lines.insert(at, f"{key}: {rendered}")
+        lines.insert(at, f"{key_text(key)}: {rendered}")
         return doc.text(lines)
     index, cut_start, cut_end = location
     line = lines[index]
