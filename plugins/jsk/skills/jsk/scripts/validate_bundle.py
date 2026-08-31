@@ -21,6 +21,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import pipeline_model  # noqa: E402
+from authoring import schema  # noqa: E402
 
 try:
     import yaml
@@ -71,9 +72,14 @@ def scoped(rel_dir):
             or SCOPE.startswith(rel_dir + "/"))
 
 
-STATUS = {"confirmed", "inferred", "needs-verification"}
-SENIORITY = {"architecture-ownership","product-ownership","platform-design","team-leadership",
-             "technical-ownership","hands-on-senior","hands-on","junior"}
+# The vocabularies live in authoring/schema.py, which is the single machine-readable
+# statement of the format. They used to be spelt out again here, so there were three
+# copies - these, the schema's, and bundle-spec.md's prose - and a vocabulary that has
+# drifted does not fail loudly: a synonym silently stops matching. Same objects, so a
+# test can prove it. schema.py is standard-library only, so this adds nothing to what
+# validate_bundle.py already needs.
+STATUS = schema.STATUS_VALUES
+SENIORITY = schema.SENIORITY_VALUES
 LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 LIST_ITEM = re.compile(r"^\s*[-*]\s+")
 

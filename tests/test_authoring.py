@@ -6,12 +6,14 @@ most are the ones about not touching what the command was not asked to touch: a
 person's bundle is hand-editable by design, and a tool that reflows their file is
 a tool they stop running.
 """
+import importlib.util
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import INIT_BUNDLE, PIPELINE_MODEL, authoring_module, load_script
+from fixtures import (INIT_BUNDLE, PIPELINE_MODEL, VALIDATE_BUNDLE,
+                      authoring_module, load_script, run)
 
 concept = authoring_module("authoring.concept")
 init_bundle = load_script(INIT_BUNDLE)
@@ -848,12 +850,30 @@ schema = authoring_module("authoring.schema")
 
 
 class Schema(unittest.TestCase):
+    # A Project that clears validate_bundle.py's selection-key gate. Named once
+    # because several tests assert a clean verdict, and five keys copied into each
+    # would drift apart until they stopped testing what they say.
+    CLEAN_PROJECT = {"title": "X", "role": "eng", "strength": 5, "recency": 2026,
+                     "seniority": "hands-on", "capabilities": ["ai-platform"],
+                     "domains": ["healthcare"]}
+
     def test_a_project_needs_a_title(self):
         problems = schema.check("Project", {"role": "eng"})
         self.assertIn("title is required", "; ".join(problems))
 
     def test_a_known_type_with_its_required_keys_is_clean(self):
-        self.assertEqual(schema.check("Project", {"title": "X", "role": "eng"}), [])
+        self.assertEqual(schema.check("Project", self.CLEAN_PROJECT), [])
+
+    def test_a_project_without_selection_keys_is_refused(self):
+        """validate_bundle.py:192 makes these five a hard error on every Project.
+
+        A write layer whose `clean` verdict produces a red gate is worse than no
+        write layer, because the person finds out at ship time instead of at
+        write time.
+        """
+        problems = "; ".join(schema.check("Project", {"title": "X", "role": "eng"}))
+        for key in ("strength", "recency", "seniority", "capabilities", "domains"):
+            self.assertIn(key, problems)
 
     def test_an_unknown_key_is_rejected_not_warned(self):
         problems = schema.check("Project",
@@ -875,17 +895,16 @@ class Schema(unittest.TestCase):
 
     def test_a_legal_seniority_passes(self):
         self.assertEqual(
-            schema.check("Project", {"title": "X", "role": "eng",
-                                     "seniority": "architecture-ownership"}), [])
+            schema.check("Project", dict(self.CLEAN_PROJECT,
+                                         seniority="architecture-ownership")), [])
 
     def test_strength_is_one_to_five(self):
         self.assertIn("strength", "; ".join(
-            schema.check("Project", {"title": "X", "role": "eng", "strength": 9})))
+            schema.check("Project", dict(self.CLEAN_PROJECT, strength=9))))
 
     def test_status_is_the_provenance_vocabulary(self):
         self.assertIn("status", "; ".join(
-            schema.check("Project", {"title": "X", "role": "eng",
-                                     "status": "probably"})))
+            schema.check("Project", dict(self.CLEAN_PROJECT, status="probably"))))
 
     def test_an_unknown_type_is_refused(self):
         self.assertIn("unknown concept type",
@@ -893,8 +912,7 @@ class Schema(unittest.TestCase):
 
     def test_extension_keys_are_allowed_when_declared(self):
         self.assertEqual(
-            schema.check("Project", {"title": "X", "role": "eng",
-                                     "custom_field": "v"},
+            schema.check("Project", dict(self.CLEAN_PROJECT, custom_field="v"),
                          extensions=("custom_field",)), [])
 
     def test_the_escape_hatch_does_not_swallow_a_typo(self):
@@ -904,3 +922,177 @@ class Schema(unittest.TestCase):
                                          "state": "ongoing", "startDate": "2026"},
                                 extensions=("startDate",))
         self.assertIn("did you mean `start`", "; ".join(problems))
+
+    def test_a_timestamp_read_back_off_disk_is_not_a_problem(self):
+        """`timestamp: 2026-01-01T00:00:00Z` is what bundle-spec.md prints, and
+        PyYAML resolves it to a datetime. Calling that a type error reported a false
+        problem on every correctly written concept read back off disk.
+        """
+        import datetime
+        for value in ("2026-01-01T00:00:00Z",
+                      datetime.datetime(2026, 1, 1),
+                      datetime.date(2026, 1, 1)):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    schema.check("Project", dict(self.CLEAN_PROJECT, timestamp=value)),
+                    [])
+
+    def test_the_keys_the_compiler_reads_are_not_refused(self):
+        # Each of these is read by okf_compile.py off the type it is listed under, so
+        # rejecting one refused a concept that compiles. Found by cross-checking
+        # TYPES against build_projects, build_engagements and build_organizations.
+        for type_name, values in (
+                ("Project", {"url": "https://example.test", "id": "prj_x"}),
+                ("Role", {"id": "pos_x"}),
+                ("Organisation", {"id": "org_x", "employment": "contract",
+                                  "location": "Melbourne"})):
+            base = (self.CLEAN_PROJECT if type_name == "Project"
+                    else {"title": "X", "organisation": "acme"} if type_name == "Role"
+                    else {"title": "Acme", "relationship": "employer"})
+            with self.subTest(type=type_name):
+                self.assertEqual(schema.check(type_name, dict(base, **values)), [])
+
+    def test_a_role_may_leave_state_to_be_derived(self):
+        # okf_compile.period() derives it from `end`, so a Role carrying only start
+        # and end is valid and requiring the key rejected it.
+        self.assertEqual(
+            schema.check("Role", {"title": "X", "organisation": "acme",
+                                  "start": 2019, "end": 2021}), [])
+
+    def test_the_american_spelling_is_named_rather_than_guessed_at(self):
+        # okf_compile.build_engagements reads both spellings, as a tolerance for
+        # bundles written before it settled. "did you mean" implies the writer erred.
+        problems = "; ".join(schema.check("Role", {"title": "X",
+                                                  "organization": "acme"}))
+        self.assertIn("this codebase spells it `organisation`", problems)
+
+    def test_a_key_with_a_type_word_appended_names_the_key_itself(self):
+        """`frozen_date` in COMMON made `end_date` score 0.737 against it and 0.545
+        against `end`, so difflib alone suggested the key that shared only the
+        suffix. A confidently wrong suggestion is worse than none.
+        """
+        for typo, wanted in (("end_date", "end"), ("startDate", "start")):
+            with self.subTest(typo=typo):
+                problems = "; ".join(schema.check(
+                    "Role", {"title": "X", "organisation": "acme", typo: "2026"}))
+                self.assertIn(f"did you mean `{wanted}`", problems)
+
+    def test_an_abbreviation_gets_no_suggestion_rather_than_a_wrong_one(self):
+        # SequenceMatcher divides by combined length, so `org` scores 0.400 against
+        # `organisation` and `tech` 0.500 against `technologies` - the same 0.500
+        # `tech` scores against `strength`. No usable cutoff reaches them, and one
+        # that did would name the wrong key. Silence is the correct answer here.
+        for type_name, typo in (("Role", "org"), ("Project", "tech")):
+            with self.subTest(typo=typo):
+                self.assertIsNone(schema._nearest(typo,
+                                                  list(schema._kinds(type_name))))
+
+    def test_a_type_may_not_declare_one_key_as_two_kinds(self):
+        """Repeating a name sharpens `required`; changing the kind disables a rule.
+
+        No test could otherwise see it - every value of that key would be checked
+        against the wrong kind and most would pass - so it is refused at import.
+        """
+        with self.assertRaises(ValueError) as caught:
+            schema.TYPES["Probe"] = (schema.Key("dup", "text"),
+                                     schema.Key("dup", "rank"))
+            try:
+                schema._assert_no_conflicting_duplicates()
+            finally:
+                del schema.TYPES["Probe"]
+        self.assertIn("never the kind", str(caught.exception))
+
+    def test_the_vocabularies_have_one_definition(self):
+        """Three copies existed: schema.py, validate_bundle.py, and prose.
+
+        The two in code are now one object. A test rather than a convention,
+        because a synonym does not fail loudly - it silently stops matching.
+
+        validate_bundle.py is a CLI with no main(): it parses argv, validates and
+        exits, all at import. So load_script() cannot be used - it needs an argv the
+        parser accepts and it raises SystemExit on the way out. Both are tolerated
+        here rather than worked around, because the constants are bound long before
+        the exit and every other test drives this script as a subprocess.
+        """
+        spec = importlib.util.spec_from_file_location("validate_bundle_probe",
+                                                     str(VALIDATE_BUNDLE))
+        module = importlib.util.module_from_spec(spec)
+        argv = sys.argv
+        with tempfile.TemporaryDirectory() as bundle:
+            sys.argv = ["validate_bundle.py", bundle]
+            try:
+                spec.loader.exec_module(module)
+            except SystemExit:
+                pass
+            finally:
+                sys.argv = argv
+        self.assertIs(module.STATUS, schema.STATUS_VALUES)
+        self.assertIs(module.SENIORITY, schema.SENIORITY_VALUES)
+
+
+class SchemaAgreesWithTheGate(unittest.TestCase):
+    """A concept schema.check() calls clean must clear validate_bundle.py.
+
+    The whole worth of a write-time schema is that its verdict predicts the gate's.
+    Something it approves that the gate then rejects sends the person to a red at ship
+    time, which is later and more expensive than a refusal at the keyboard. This was
+    argued in a table during review; it is asserted here instead, end to end, against
+    a real scaffolded bundle.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name) / "career"
+        code, out = run(INIT_BUNDLE, self.root, "--name", "Test Person")
+        self.assertEqual(code, 0, out)
+
+    def write(self, folder, stem, type_name, keys):
+        """A concept the schema approves, emitted by the emitter, on disk."""
+        self.assertEqual(schema.check(type_name, keys), [],
+                         f"{stem}: the schema refused what this test calls clean")
+        path = self.root / folder / f"{stem}.md"
+        path.write_text(concept.new(type_name, keys, "# Notes\n\nWhat happened.\n"),
+                        encoding="utf-8")
+        return path
+
+    def test_what_the_schema_approves_the_bundle_gate_accepts(self):
+        self.write("organisations", "acme-health", "Organisation", {
+            "title": "Acme Health",
+            "description": "Aged-care provider.",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "status": "confirmed",
+            "relationship": "employer",
+            "industry": "healthcare",
+            "employment": "employment",
+            "location": "Melbourne",
+        })
+        self.write("roles", "lead-engineer-acme", "Role", {
+            "title": "Lead Engineer",
+            "description": "Owned the platform.",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "status": "confirmed",
+            "organisation": "acme-health",
+            "start": "2019-04",
+            "end": "2021-12",
+            "state": "ended",
+            "seniority": "team-leadership",
+            "change": "promotion",
+        })
+        self.write("projects", "care-platform", "Project", {
+            "title": "Acme - care coordination platform",
+            "description": "Multi-tenant platform for aged-care providers.",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "status": "confirmed",
+            "role": "lead-engineer-acme",
+            "strength": 5,
+            "recency": 2026,
+            "seniority": "architecture-ownership",
+            "domains": ["healthcare", "aged-care"],
+            "capabilities": ["ai-platform-architecture", "data-sovereignty"],
+            "technologies": ["azure-ai-foundry", "bicep"],
+            "headline_metric": "event latency 5 min to under 1 s",
+        })
+        code, out = run(VALIDATE_BUNDLE, self.root)
+        self.assertEqual(code, 0, out)
+        self.assertIn("VALID", out)
