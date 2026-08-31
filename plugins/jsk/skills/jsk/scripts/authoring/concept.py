@@ -166,19 +166,26 @@ class Concept:
     it found it. `meta` is the same block parsed, for anything that needs to read
     a value rather than rewrite one. `newline` is the file's own convention,
     carried so that rewriting one key does not rewrite every line ending.
+
+    `gap` is whatever separated the closing `---` from the body, carried for the
+    same reason. Hardcoding one blank line invented one in a concept written
+    without it and swallowed the extras in a concept written with three - a byte
+    nobody asked about, on every splice, which is the defect this module exists
+    to avoid. It defaults to one blank line, which is the shape new() emits.
     """
 
-    def __init__(self, path, lines, meta, body, newline="\n"):
+    def __init__(self, path, lines, meta, body, newline="\n", gap="\n"):
         self.path = path
         self.lines = lines
         self.meta = meta
         self.body = body
         self.newline = newline
+        self.gap = gap
 
     def text(self, lines=None):
         """The whole file, in the line ending it arrived in."""
         block = "\n".join(self.lines if lines is None else lines)
-        out = f"---\n{block}\n---\n\n{self.body}"
+        out = f"---\n{block}\n---\n{self.gap}{self.body}"
         return out if self.newline == "\n" else out.replace("\n", self.newline)
 
 
@@ -189,6 +196,12 @@ def read(path):
     for a CRLF file, and writing that out again would change every line ending in
     somebody's concept in order to rewrite one key. A bundle scaffolded on
     Windows is entirely CRLF, so this is the common case, not the exotic one.
+
+    Known limit: a file with mixed endings - a CRLF block over an LF body, which
+    is what two tools disagreeing leaves behind - is rewritten wholly in the
+    ending that appears first. Every option rewrites something in a file that is
+    already inconsistent, and settling on the dominant one is the option that
+    leaves it consistent afterwards. Recorded as a decision, not an oversight.
     """
     if yaml is None:
         raise Unsplicable("reading a concept needs pyyaml:  pip install pyyaml")
@@ -196,12 +209,23 @@ def read(path):
         raw = handle.read()
     newline = "\r\n" if "\r\n" in raw else "\n"
     raw = raw.replace("\r\n", "\n")
+    # Named rather than folded into "no frontmatter", which is visibly untrue of
+    # a file whose first visible characters are --- and sends the reader looking
+    # at the wrong line. Notepad and PowerShell redirection both write one.
+    if raw.startswith("\ufeff"):
+        raise Unsplicable(
+            f"{path}: starts with a byte-order mark, so the --- is not the "
+            f"first thing in the file\n"
+            f"fix:  re-save it as UTF-8 without a BOM - the compiler skips a "
+            f"concept with one too, silently")
     match = SPLIT.match(raw)
     if not match:
         raise Unsplicable(f"{path}: no frontmatter\n"
                           f"fix:  a concept opens with a --- block naming its type")
     block = match.group(1).rstrip("\n")
-    body = raw[match.end():].lstrip("\n")
+    tail = raw[match.end():]
+    gap = tail[:len(tail) - len(tail.lstrip("\n"))]
+    body = tail.lstrip("\n")
     try:
         meta = yaml.safe_load(block) or {}
     except yaml.YAMLError as exc:
@@ -210,7 +234,7 @@ def read(path):
     if not isinstance(meta, dict):
         raise Unsplicable(f"{path}: frontmatter is not a mapping\n"
                           f"fix:  a concept's block is `key: value` lines")
-    return Concept(path, block.split("\n"), meta, body, newline)
+    return Concept(path, block.split("\n"), meta, body, newline, gap)
 
 
 def locate(doc, key):
@@ -227,14 +251,27 @@ def locate(doc, key):
             found.append(index)
     if len(found) > 1:
         rows = ", ".join(str(i + 2) for i in found)     # +2: the --- and 1-indexing
+        # Counted rather than always "twice": "appears twice, at lines 3, 4, 5"
+        # reads like a bug in the tool, which undermines a message whose whole
+        # job is to be trusted. "twice" is kept where it is true, because it is
+        # the word a person would use for the case that actually happens.
+        times = "twice" if len(found) == 2 else f"{len(found)} times"
         raise Unsplicable(
-            f"{doc.path}: `{key}` appears twice, at lines {rows}\n"
+            f"{doc.path}: `{key}` appears {times}, at lines {rows}\n"
             f"fix:  delete the wrong one by hand - which is right is not "
             f"something this command can know")
     if not found:
         return None
     index = found[0]
-    if not KEY.match(doc.lines[index]).group(2).strip():
+    following = doc.lines[index + 1] if index + 1 < len(doc.lines) else ""
+    # A key is splicable only when its definition ends on its own line. Any
+    # continuation of a YAML node is indented, so it is neither a top-level KEY
+    # match nor blank nor a comment. Testing "nothing after the colon" instead
+    # caught `a:` and missed every value that *continues* - a wrapped flow list
+    # spliced into a ParserError, and a wrapped quoted value or a block scalar
+    # spliced into a file that still parses and says something nobody wrote.
+    if (following.strip() and not KEY.match(following)
+            and not following.lstrip().startswith("#")):
         raise Unsplicable(
             f"{doc.path}: `{key}` is written as a block, over several lines\n"
             f"fix:  this command writes flow style - [a, b] - and rewriting the "

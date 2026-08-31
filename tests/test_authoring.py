@@ -324,6 +324,36 @@ class Reading(unittest.TestCase):
             concept.read(path)
         self.assertIn("no frontmatter", str(caught.exception))
 
+    def test_a_byte_order_mark_is_named_as_the_cause(self):
+        # Notepad and PowerShell redirection both write one. "no frontmatter" is
+        # visibly untrue of a file whose first visible characters are --- and
+        # sends the reader looking at the wrong line.
+        path = write_lf(Path(self.dir) / "bom.md",
+                        "\ufeff---\ntype: Project\n---\n\nx\n")
+        with self.assertRaises(concept.Unsplicable) as caught:
+            concept.read(path)
+        self.assertIn("byte-order mark", str(caught.exception))
+
+    def test_reading_and_rewriting_changes_nothing(self):
+        """read() then text() with no edit must be byte-identical.
+
+        D2 was a blank line invented on every splice; D4 is one invented when a
+        block empties. Both are the same defect - a byte nobody asked about -
+        and one property catches every future member of the family.
+        """
+        for name, raw in (
+                ("lf", HAND_WRITTEN),
+                ("crlf", HAND_WRITTEN.replace("\n", "\r\n")),
+                ("no-gap", "---\ntype: Project\n---\n# Body\n"),
+                ("wide-gap", "---\ntype: Project\n---\n\n\n\n# Body\n"),
+                ("no-trailing-newline", "---\ntype: Project\n---\n\n# Body"),
+                ("empty-body", "---\ntype: Project\n---\n"),
+        ):
+            with self.subTest(name=name):
+                path = Path(self.dir) / f"{name}.md"
+                path.write_bytes(raw.encode("utf-8"))
+                self.assertEqual(concept.read(path).text(), raw)
+
 
 class Splicing(unittest.TestCase):
     def setUp(self):
@@ -386,3 +416,55 @@ class Splicing(unittest.TestCase):
         with self.assertRaises(concept.Unsplicable) as caught:
             concept.set_key(doc, "tags", ["three"])
         self.assertIn("block.md", str(caught.exception))
+
+    def test_a_value_continuing_onto_the_next_line_is_refused(self):
+        """Every shape whose value starts on the key's line and does not end there.
+
+        Testing "nothing after the colon" caught `tags:` and missed all four of
+        these. The wrapped flow list spliced into a file pyyaml could no longer
+        parse; the other three spliced into a file that still parses and reports
+        a value neither the author nor the caller ever wrote - `title` came back
+        as 'New two"'. Silent, which is what makes it the worst of the family.
+        """
+        for name, block, key in (
+                ("wrapped-flow", "tags: [a,\n  b]", "tags"),
+                ("wrapped-quoted", 'title: "one\n  two"', "title"),
+                ("block-scalar", "desc: |\n  line one\n  line two", "desc"),
+                ("folded-scalar", "desc: >\n  line one\n  line two", "desc"),
+        ):
+            with self.subTest(name=name):
+                path = write_lf(Path(self.dir) / f"{name}.md",
+                                f"---\ntype: Project\n{block}\n---\n\nx\n")
+                doc = concept.read(path)
+                with self.assertRaises(concept.Unsplicable) as caught:
+                    concept.set_key(doc, key, "New")
+                self.assertIn(f"{name}.md", str(caught.exception))
+
+    def test_a_null_key_on_one_line_is_spliced_not_refused(self):
+        # `title:` with nothing after it is one line and not a block, so the
+        # "written as a block, over several lines" refusal was a false
+        # explanation for a file this command can change perfectly well.
+        path = write_lf(Path(self.dir) / "null.md",
+                        "---\ntype: Project\ntitle:\n---\n\nx\n")
+        doc = concept.read(path)
+        self.assertEqual(concept.set_key(doc, "title", "New"),
+                         "---\ntype: Project\ntitle: New\n---\n\nx\n")
+
+    def test_a_key_defined_three_times_says_three(self):
+        # "appears twice, at lines 3, 4, 5" reads like a bug in the tool, which
+        # undermines a message whose whole job is to be trusted.
+        path = write_lf(Path(self.dir) / "thrice.md",
+                        "---\ntype: Project\ns: 1\ns: 2\ns: 3\n---\n\nx\n")
+        doc = concept.read(path)
+        with self.assertRaises(concept.Unsplicable) as caught:
+            concept.set_key(doc, "s", 9)
+        self.assertIn("appears 3 times, at lines 3, 4, 5", str(caught.exception))
+
+    def test_the_gap_before_the_body_is_not_invented(self):
+        # A hand-written concept with no blank line after its frontmatter used
+        # to gain one on every splice.
+        path = write_lf(Path(self.dir) / "no-gap.md",
+                        "---\ntype: Project\nstrength: 1\n---\n# Body\n")
+        doc = concept.read(path)
+        self.assertEqual(concept.set_key(doc, "strength", 5),
+                         "---\ntype: Project\nstrength: 5\n---\n# Body\n")
