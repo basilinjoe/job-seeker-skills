@@ -1155,10 +1155,12 @@ class Staging(unittest.TestCase):
         self.assertEqual(Path(self.path("b.md")).read_text(encoding="utf-8"), "two\n")
 
     def test_the_concept_commits_before_its_companions(self):
-        # A partial failure must land on the repairable side: a concept with no
-        # index entry is a validate_bundle warning that okf reindex can fix. An
-        # index entry naming a file that never landed is a broken link, and
-        # nothing can regenerate the concept it wanted.
+        # A partial publish must lose the half that can be regenerated. An index
+        # entry is derivable from the tree; a concept is somebody's work. So the
+        # concept goes first, and what a crash leaves behind is a concept its
+        # index does not list - which a reindex can rebuild. The reverse order
+        # leaves an index entry naming a file that never landed, and nothing
+        # anywhere can regenerate the concept it wanted.
         change = stage.Changeset()
         change.write(self.path("index.md"), "listing\n", kind="companion")
         change.write(self.path("concept.md"), "body\n", kind="concept")
@@ -1200,3 +1202,43 @@ class Staging(unittest.TestCase):
         change.write(self.path("a.md"), "one\ntwo\n", kind="concept")
         stage.commit(change)
         self.assertEqual(Path(self.path("a.md")).read_bytes(), b"one\ntwo\n")
+
+    def test_a_failed_publish_names_what_landed_and_what_did_not(self):
+        # The realistic one: a read-only attribute on the target, an editor
+        # holding a handle, antivirus. It used to escape as a bare
+        # PermissionError, so the one failure that leaves a bundle half-changed
+        # was also the only one reporting itself as a traceback. Atomicity
+        # cannot be restored here, so the refusal says exactly what landed.
+        change = stage.Changeset()
+        change.write(self.path("a.md"), "one\n", kind="concept")
+        change.write(self.path("b.md"), "two\n", kind="companion")
+        real = os.replace
+
+        def refuse_the_second(src, dst):
+            if dst == self.path("b.md"):
+                raise PermissionError(13, "Permission denied", dst)
+            return real(src, dst)
+
+        stage.os.replace = refuse_the_second
+        try:
+            with self.assertRaises(stage.Refused) as caught:
+                stage.commit(change)
+        finally:
+            stage.os.replace = real
+        message = str(caught.exception)
+        self.assertIn(f"published:     {self.path('a.md')}", message)
+        self.assertIn(f"not published: {self.path('b.md')}", message)
+        self.assertIn("fix:", message)
+        # No orphan temp for the file that never published.
+        self.assertEqual(sorted(os.listdir(self.dir)), ["a.md"])
+
+    def test_the_same_path_staged_twice_is_refused(self):
+        # Both entries derive one temp name, so the first replace consumed it
+        # and the second raised FileNotFoundError halfway through publishing.
+        # A command staging one path twice holds two opinions about a file's
+        # contents, and nothing here can know which one it meant.
+        change = stage.Changeset()
+        change.write(self.path("a.md"), "one\n", kind="concept")
+        with self.assertRaises(stage.Refused):
+            change.write(self.path("a.md"), "two\n", kind="companion")
+        self.assertEqual(os.listdir(self.dir), [])
