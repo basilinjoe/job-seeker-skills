@@ -6,14 +6,18 @@ most are the ones about not touching what the command was not asked to touch: a
 person's bundle is hand-editable by design, and a tool that reflows their file is
 a tool they stop running.
 """
+import contextlib
 import importlib.util
+import io
+import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (INIT_BUNDLE, OKF_COMPILE, PIPELINE_MODEL,
+from fixtures import (INIT_BUNDLE, OKF_COMPILE, PIPELINE_MODEL, SCRIPTS,
                       VALIDATE_BUNDLE, authoring_module, load_script, run)
 
 concept = authoring_module("authoring.concept")
@@ -1779,3 +1783,503 @@ class BookkeepingPaths(unittest.TestCase):
     def test_index_path_is_the_reserved_filename(self):
         self.assertEqual(bookkeeping.index_path("/b", "projects"),
                          os.path.join("/b", "projects", "index.md"))
+
+
+commands = authoring_module("authoring.commands")
+
+OKF = SCRIPTS / "okf.py"
+
+STEM = "acme-care-coordination-platform"
+
+# A Role, written by hand rather than through a command, because `role add` does not
+# exist yet and `project add --role` refuses on the file's absence rather than on
+# anything inside it.
+ROLE = ("---\ntype: Role\ntitle: \"Lead Engineer\"\n"
+        "description: \"Owned the platform.\"\n"
+        "timestamp: \"2026-01-01T00:00:00Z\"\nstatus: confirmed\n"
+        "organisation: acme-health\nstart: 2019-04\nend: 2021-12\n"
+        "state: ended\nseniority: team-leadership\n---\n\n# Notes\n\nWhat happened.\n")
+
+ORGANISATION = ("---\ntype: Organisation\ntitle: \"Acme Health\"\n"
+                "description: \"Aged-care provider.\"\n"
+                "timestamp: \"2026-01-01T00:00:00Z\"\nstatus: confirmed\n"
+                "relationship: employer\nindustry: [healthcare]\n"
+                "employment: employment\n---\n\n# Notes\n\nWhat happened.\n")
+
+
+class BundleCase(unittest.TestCase):
+    """A scaffolded bundle with one Role in it, and the flags that fill a Project."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name) / "career"
+        code, out = run(INIT_BUNDLE, self.root, "--name", "Test Person")
+        self.assertEqual(code, 0, out)
+        (self.root / "roles" / "lead-engineer-acme.md").write_text(
+            ROLE, encoding="utf-8")
+        self.concept = self.root / "projects" / f"{STEM}.md"
+        self.index = self.root / "projects" / "index.md"
+        self.log = self.root / "log.md"
+        self.vocabulary = self.root / "framework" / "capability-vocabulary.md"
+
+    def populate(self, *terms):
+        """List `terms` under the scaffolder's first theme heading.
+
+        init_bundle.py puts its only example values INSIDE a fence, so a fresh
+        bundle's vocabulary is empty and validate_bundle.py's `if vocab and ...`
+        switches the capability check off. A test about an unlisted capability that
+        skips this step proves nothing.
+        """
+        text = self.vocabulary.read_text(encoding="utf-8")
+        rows = "".join(f"- `{term}`\n" for term in terms)
+        text = text.replace("# Architecture & design\n",
+                            "# Architecture & design\n\n" + rows)
+        self.vocabulary.write_text(text, encoding="utf-8")
+
+    def flags(self, capability="ai-platform-architecture", **over):
+        """The flags a complete `project add` takes. `None` drops one."""
+        values = {"title": "Acme - care coordination platform",
+                  "description": "Multi-tenant platform for aged-care providers.",
+                  "role": "lead-engineer-acme",
+                  "strength": "5",
+                  "recency": "2026",
+                  "seniority": "architecture-ownership"}
+        values.update(over)
+        out = []
+        for key, value in values.items():
+            if value is not None:
+                out += ["--" + key.replace("_", "-"), str(value)]
+        out += ["--domain", "healthcare", "--domain", "aged-care"]
+        if capability is not None:
+            out += ["--capability", capability]
+        return out
+
+    def add(self, *extra, body="# The problem\n\nWhat happened.\n"):
+        return run(OKF, "project", "add", "--bundle", self.root, *extra,
+                   "--body", body)
+
+
+class ProjectAdd(BundleCase):
+    """The first command, and the point where user input meets the schema, the
+    emitter and the transaction. Driven through okf.py as a subprocess, so the
+    wiring is covered by the same tests that cover the behaviour."""
+
+    def test_a_project_is_written_with_its_frontmatter_and_body(self):
+        code, out = self.add(*self.flags())
+        self.assertEqual(code, 0, out)
+        text = self.concept.read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("---\ntype: Project\n"), text)
+        self.assertIn('title: "Acme - care coordination platform"', text)
+        self.assertIn('description: "Multi-tenant platform for aged-care providers."',
+                      text)
+        self.assertIn("status: confirmed", text)
+        self.assertIn("role: lead-engineer-acme", text)
+        self.assertIn("strength: 5", text)
+        self.assertIn("recency: 2026", text)
+        self.assertIn("seniority: architecture-ownership", text)
+        self.assertIn("domains: [healthcare, aged-care]", text)
+        self.assertIn("capabilities: [ai-platform-architecture]", text)
+        self.assertTrue(text.endswith("# The problem\n\nWhat happened.\n"), text)
+
+    def test_the_body_arrives_on_stdin(self):
+        # `--body -` is the default, and the design's own example relies on it:
+        # frontmatter is mechanical and belongs in flags, prose is prose.
+        proc = subprocess.run(
+            [sys.executable, str(OKF), "project", "add", "--bundle", str(self.root)]
+            + self.flags(),
+            input="# The problem\n\nFrom stdin.\n",
+            capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertTrue(self.concept.read_text(encoding="utf-8")
+                        .endswith("# The problem\n\nFrom stdin.\n"))
+
+    def test_the_index_and_the_log_are_updated_in_the_same_run(self):
+        code, out = self.add(*self.flags())
+        self.assertEqual(code, 0, out)
+        self.assertIn(
+            f"- [Acme - care coordination platform]({STEM}.md) - "
+            f"Multi-tenant platform for aged-care providers.",
+            self.index.read_text(encoding="utf-8"))
+        self.assertIn(f"projects/{STEM}.md", self.log.read_text(encoding="utf-8"))
+        # The scaffolder's placeholder asserts something about the directory that is
+        # no longer true once a concept is listed.
+        self.assertNotIn("Empty. Add concepts here.",
+                         self.index.read_text(encoding="utf-8"))
+
+    def test_the_concept_is_named_in_the_output_with_its_id(self):
+        code, out = self.add(*self.flags())
+        self.assertEqual(code, 0, out)
+        self.assertIn(str(self.concept), out)
+        self.assertIn(f"project: {STEM}", out)
+
+    def test_a_role_that_does_not_exist_is_refused_and_nothing_is_written(self):
+        """The load-bearing refusal. validate_bundle.py does not check this at all;
+        okf_compile.py refuses on it, and `okf score` calls okf_compile.load() - so a
+        dangling role written today surfaces as a crash mid-tailoring-run."""
+        before = (self.index.read_bytes(), self.log.read_bytes())
+        code, out = self.add(*self.flags(role="no-such-role"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL", out)
+        self.assertIn(os.path.join("roles", "no-such-role.md"), out)
+        self.assertIn("fix:", out)
+        self.assertFalse(self.concept.exists())
+        self.assertEqual((self.index.read_bytes(), self.log.read_bytes()), before)
+
+    def test_a_capability_outside_a_populated_vocabulary_is_refused(self):
+        self.populate("ai-platform-architecture", "data-sovereignty")
+        code, out = self.add(*self.flags(capability="totally-made-up"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("totally-made-up", out)
+        self.assertIn(os.path.join("framework", "capability-vocabulary.md"), out)
+        self.assertIn("--new-capability", out)
+        self.assertFalse(self.concept.exists())
+
+    def test_a_capability_inside_a_populated_vocabulary_is_accepted(self):
+        self.populate("ai-platform-architecture", "data-sovereignty")
+        code, out = self.add(*self.flags(capability="data-sovereignty"))
+        self.assertEqual(code, 0, out)
+        self.assertIn("capabilities: [data-sovereignty]",
+                      self.concept.read_text(encoding="utf-8"))
+
+    def test_an_empty_vocabulary_leaves_capabilities_unchecked(self):
+        """A fresh bundle's vocabulary holds nothing, because the scaffolder's example
+        values sit inside a fence. validate_bundle.py's `if vocab and c not in vocab`
+        switches its own check off there, and this layer must switch off with it -
+        rejecting every value on a fresh bundle is the other half of the same bug."""
+        code, out = self.add(*self.flags(capability="whatever-they-called-it"))
+        self.assertEqual(code, 0, out)
+        self.assertIn("capabilities: [whatever-they-called-it]",
+                      self.concept.read_text(encoding="utf-8"))
+
+    def test_a_new_capability_lands_in_the_vocabulary_in_the_same_changeset(self):
+        # bundle-spec.md: "add new values there in the same edit". This is the CLI
+        # enforcing a rule the spec could only instruct.
+        self.populate("data-sovereignty")
+        code, out = self.add(*self.flags(capability=None),
+                             "--new-capability", "care-plan-modelling",
+                             "--theme", "Architecture & design")
+        self.assertEqual(code, 0, out)
+        vocabulary = self.vocabulary.read_text(encoding="utf-8")
+        self.assertIn("- `data-sovereignty`\n- `care-plan-modelling`\n", vocabulary)
+        self.assertIn("capabilities: [care-plan-modelling]",
+                      self.concept.read_text(encoding="utf-8"))
+        self.assertIn(str(self.vocabulary), out)
+
+    def test_a_new_capability_needs_a_theme(self):
+        code, out = self.add(*self.flags(capability=None),
+                             "--new-capability", "care-plan-modelling")
+        self.assertEqual(code, 1, out)
+        self.assertIn("--theme", out)
+        self.assertFalse(self.concept.exists())
+
+    def test_a_theme_that_names_no_heading_is_refused_with_the_ones_that_do(self):
+        code, out = self.add(*self.flags(capability=None),
+                             "--new-capability", "care-plan-modelling",
+                             "--theme", "Data")
+        self.assertEqual(code, 1, out)
+        self.assertIn("Architecture & design", out)
+        self.assertFalse(self.concept.exists())
+
+    def test_a_missing_required_flag_is_refused(self):
+        code, out = self.add(*self.flags(strength=None))
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("--strength", out)
+        self.assertFalse(self.concept.exists())
+
+    def test_a_project_with_no_capability_at_all_is_refused(self):
+        # The schema tolerates an empty list, deliberately, because validate_bundle.py
+        # does - so requiring a value is the CLI's own rule and has to live here.
+        code, out = self.add(*self.flags(capability=None))
+        self.assertEqual(code, 1, out)
+        self.assertIn("--capability", out)
+        self.assertFalse(self.concept.exists())
+
+    def test_a_near_miss_extension_key_is_refused_with_the_suggestion(self):
+        code, out = self.add(*self.flags(), "--set", "recency_year=2026")
+        self.assertEqual(code, 1, out)
+        self.assertIn("did you mean `recency`?", out)
+        self.assertFalse(self.concept.exists())
+
+    def test_a_set_pair_with_no_equals_is_refused(self):
+        code, out = self.add(*self.flags(), "--set", "justakey")
+        self.assertEqual(code, 1, out)
+        self.assertIn("key=value", out)
+        self.assertFalse(self.concept.exists())
+
+    def test_a_set_naming_a_key_with_its_own_flag_is_refused(self):
+        # Two sources for one key is two answers to one question, and the loser is
+        # decided by dict ordering rather than by anything a person could predict.
+        code, out = self.add(*self.flags(), "--set", "title=Something else")
+        self.assertEqual(code, 1, out)
+        self.assertIn("--title", out)
+        self.assertFalse(self.concept.exists())
+
+    def test_an_extension_key_is_written(self):
+        # A `--set` value stays a string, and the emitter decides its quoting: a bare
+        # one that YAML reads back as itself is written bare, and one that YAML would
+        # read back as a number is quoted so it survives the round trip.
+        code, out = self.add(*self.flags(), "--set", "client_reference=ACM-19",
+                             "--set", "sequence=007")
+        self.assertEqual(code, 0, out)
+        text = self.concept.read_text(encoding="utf-8")
+        self.assertIn("client_reference: ACM-19", text)
+        self.assertIn('sequence: "007"', text)
+
+    def test_a_bad_value_is_refused_with_the_schema_sentence(self):
+        code, out = self.add(*self.flags(strength="6"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("`strength` must be a whole number from 1 to 5", out)
+        self.assertFalse(self.concept.exists())
+
+    def test_dry_run_writes_nothing(self):
+        before = (self.index.read_bytes(), self.log.read_bytes())
+        code, out = self.add(*self.flags(), "--dry-run")
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.concept.exists())
+        self.assertEqual((self.index.read_bytes(), self.log.read_bytes()), before)
+        self.assertIn(str(self.concept), out)
+
+    def test_json_reports_the_stem(self):
+        code, out = self.add(*self.flags(), "--json")
+        self.assertEqual(code, 0, out)
+        payload = json.loads(out)
+        self.assertEqual(payload["ids"], {"project": STEM})
+        self.assertIn(str(self.concept), payload["changed"])
+        self.assertFalse(payload["dry_run"])
+
+    def test_json_and_dry_run_together_report_without_writing(self):
+        code, out = self.add(*self.flags(), "--json", "--dry-run")
+        self.assertEqual(code, 0, out)
+        payload = json.loads(out)
+        self.assertTrue(payload["dry_run"])
+        self.assertEqual(payload["ids"], {"project": STEM})
+        self.assertFalse(self.concept.exists())
+
+    def test_the_concept_publishes_before_its_companions(self):
+        code, out = self.add(*self.flags(), "--json")
+        self.assertEqual(code, 0, out)
+        changed = json.loads(out)["changed"]
+        self.assertEqual(changed[0], str(self.concept))
+
+    def test_adding_a_concept_that_already_exists_is_refused(self):
+        code, out = self.add(*self.flags())
+        self.assertEqual(code, 0, out)
+        before = self.concept.read_bytes()
+        code, out = self.add(*self.flags())
+        self.assertEqual(code, 1, out)
+        self.assertIn("okf project set", out)
+        self.assertEqual(self.concept.read_bytes(), before)
+
+    def test_an_explicit_slug_names_the_file(self):
+        code, out = self.add(*self.flags(), "--slug", "care-platform")
+        self.assertEqual(code, 0, out)
+        self.assertTrue((self.root / "projects" / "care-platform.md").exists())
+
+    def test_a_bundle_that_is_not_one_is_refused(self):
+        code, out = run(OKF, "project", "add", "--bundle", self.root / "log.md",
+                        *self.flags(), "--body", "x\n")
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL", out)
+        self.assertIn("fix:", out)
+
+
+class ProjectAddConsoleEncoding(BundleCase):
+    """A refusal a console cannot spell must still be a refusal.
+
+    A Windows console is cp1252, and a title, a path under a non-ASCII user name, or
+    a refusal quoting either can all carry a character it has no byte for. The `FAIL`
+    print raised UnicodeEncodeError inside the handler, so the one run with a refusal
+    worth reading printed a traceback instead of it.
+    """
+
+    def test_a_refusal_naming_a_title_the_console_cannot_spell(self):
+        console = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
+        with contextlib.redirect_stdout(console):
+            code = commands.main(
+                ["add", "--bundle", str(self.root),
+                 "--title", "項目再構築"]
+                + self.flags(title=None) + ["--body", "x\n"])
+        console.flush()
+        printed = console.buffer.getvalue()
+        self.assertEqual(code, 1, printed)
+        self.assertIn(b"FAIL", printed)
+        self.assertIn("項目再構築".encode("utf-8"), printed)
+
+
+class ProjectAddLineEndings(BundleCase):
+    """A bundle scaffolded on Windows is entirely CRLF, and one command must not
+    rewrite every line of four files in order to add one line to each."""
+
+    def crlf(self):
+        """Every file in the bundle in CRLF, whatever platform scaffolded it."""
+        for path in self.root.rglob("*.md"):
+            raw = path.read_bytes().replace(b"\r\n", b"\n")
+            path.write_bytes(raw.replace(b"\n", b"\r\n"))
+
+    # The one line a command is allowed to take away: the scaffolder's placeholder
+    # asserts the directory is empty, and leaving it above a real entry would make
+    # the file say something false about itself.
+    PLACEHOLDER = b"Empty. Add concepts here."
+
+    def test_crlf_files_keep_their_endings_and_no_other_line_moves(self):
+        self.crlf()
+        self.populate("data-sovereignty")
+        self.crlf()
+        before = {path: path.read_bytes()
+                  for path in (self.index, self.log, self.vocabulary)}
+        code, out = self.add(*self.flags(capability=None),
+                             "--new-capability", "care-plan-modelling",
+                             "--theme", "Architecture & design")
+        self.assertEqual(code, 0, out)
+        for path, original in before.items():
+            after = path.read_bytes()
+            with self.subTest(file=path.name):
+                # Every LF is part of a CRLF: a text-mode write would have
+                # translated a second time, or an LF-emitting one would have left
+                # the new line alone among CRLF neighbours.
+                self.assertEqual(after.count(b"\n"), after.count(b"\r\n"))
+                old = [line for line in original.split(b"\r\n") if line.strip()]
+                new = [line for line in after.split(b"\r\n") if line.strip()]
+                lost = [line for line in old
+                        if old.count(line) > new.count(line)
+                        and line != self.PLACEHOLDER]
+                self.assertEqual(lost, [])
+                self.assertGreater(len(new), len(old) - 1)
+        # And the new file joins the bundle in the bundle's own convention rather
+        # than being the one file in it that disagrees.
+        concept_bytes = self.concept.read_bytes()
+        self.assertEqual(concept_bytes.count(b"\n"), concept_bytes.count(b"\r\n"))
+
+    def test_an_lf_bundle_gets_an_lf_concept(self):
+        for path in self.root.rglob("*.md"):
+            path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
+        code, out = self.add(*self.flags())
+        self.assertEqual(code, 0, out)
+        self.assertNotIn(b"\r", self.concept.read_bytes())
+        self.assertNotIn(b"\r", self.index.read_bytes())
+
+
+class ProjectAddPartialFailure(BundleCase):
+    """stage.py's contract, exercised by its first real caller.
+
+    The concept publishes first because it is the half nothing can regenerate. When a
+    companion then fails to publish, the refusal must say exactly what landed - an
+    index somebody has to fix by hand is recoverable, and a silent half-write is not.
+    """
+
+    def call(self, *args):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = commands.main(["add", "--bundle", str(self.root)] + list(args)
+                                 + ["--body", "# The problem\n\nWhat happened.\n"])
+        return code, buf.getvalue()
+
+    def test_the_concept_lands_and_the_refusal_names_both_lists(self):
+        real = commands.stage.os.replace
+
+        def refuse_the_index(src, dst):
+            if os.path.basename(dst) == "index.md":
+                raise PermissionError(13, "Permission denied", dst)
+            return real(src, dst)
+
+        commands.stage.os.replace = refuse_the_index
+        try:
+            code, out = self.call(*self.flags())
+        finally:
+            commands.stage.os.replace = real
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"published:     {self.concept}", out)
+        self.assertIn(f"not published: {self.index}", out)
+        self.assertIn(f"not published: {self.log}", out)
+        self.assertTrue(self.concept.exists())
+        self.assertIn("fix:", out)
+        # No orphan temp beside the file that never published.
+        self.assertEqual(
+            [p.name for p in (self.root / "projects").iterdir()
+             if p.name.endswith(".okf-tmp")], [])
+
+
+class ProjectAddAgainstTheGates(BundleCase):
+    """The claim the whole write layer rests on: what a command writes, both gates
+    accept. A command that cheerfully writes a concept failing the bundle gate is not
+    a convenience - the person finds out at ship time instead of at the keyboard."""
+
+    def setUp(self):
+        super().setUp()
+        (self.root / "organisations" / "acme-health.md").write_text(
+            ORGANISATION, encoding="utf-8")
+
+    def assert_both_gates_are_clean(self):
+        code, out = run(VALIDATE_BUNDLE, self.root)
+        self.assertEqual(code, 0, out)
+        self.assertIn("VALID", out)
+        code, out = run(OKF_COMPILE, self.root)
+        self.assertEqual(code, 0, out)
+
+    def test_a_written_project_clears_the_bundle_gate_and_the_compile(self):
+        code, out = self.add(*self.flags())
+        self.assertEqual(code, 0, out)
+        self.assert_both_gates_are_clean()
+
+    def test_the_same_holds_with_the_vocabulary_populated(self):
+        # With the vocabulary empty the gate's capability check is switched off, so
+        # the test above says nothing about capabilities. This one switches it on.
+        self.populate("ai-platform-architecture", "data-sovereignty")
+        code, out = self.add(*self.flags(capability="data-sovereignty"))
+        self.assertEqual(code, 0, out)
+        self.assert_both_gates_are_clean()
+
+    def test_a_capability_created_in_the_same_changeset_clears_the_gate(self):
+        self.populate("data-sovereignty")
+        code, out = self.add(*self.flags(capability=None),
+                             "--new-capability", "care-plan-modelling",
+                             "--theme", "Architecture & design")
+        self.assertEqual(code, 0, out)
+        self.assert_both_gates_are_clean()
+
+
+class ProjectAddVocabulary(unittest.TestCase):
+    """Reading the capability vocabulary exactly as validate_bundle.py:405-410 does.
+
+    Getting this wrong in either direction is a bug: reject-everything on a fresh
+    bundle, or accept-anything on a populated one.
+    """
+
+    def terms(self, text):
+        return commands.vocabulary_terms(text)
+
+    def test_fenced_examples_are_not_vocabulary(self):
+        # init_bundle.py scaffolds the file with its example values inside a fence,
+        # which is why a fresh bundle's vocabulary is empty.
+        self.assertEqual(self.terms("```\n- `ai-platform-architecture`\n```\n"), set())
+
+    def test_list_items_outside_a_fence_are_vocabulary(self):
+        self.assertEqual(self.terms("# Theme\n\n- `data-sovereignty`\n"),
+                         {"data-sovereignty"})
+
+    def test_prose_naming_a_term_is_not_vocabulary(self):
+        self.assertEqual(self.terms("Check `data-sovereignty` before inventing one.\n"),
+                         set())
+
+    def test_the_scaffolded_file_yields_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "career"
+            code, out = run(INIT_BUNDLE, root, "--name", "Test Person")
+            self.assertEqual(code, 0, out)
+            text = (root / "framework" / "capability-vocabulary.md").read_text(
+                encoding="utf-8")
+            self.assertEqual(self.terms(text), set())
+
+
+class Slugging(unittest.TestCase):
+    def test_a_title_becomes_a_hyphenated_stem(self):
+        self.assertEqual(commands.slug("Acme - care coordination platform"),
+                         "acme-care-coordination-platform")
+
+    def test_punctuation_and_case_are_folded(self):
+        self.assertEqual(commands.slug("Ledger: rebuild (v2)!"), "ledger-rebuild-v2")
+
+    def test_accents_keep_their_letters(self):
+        # Dropping the letter rather than the accent turned "Café" into "caf".
+        self.assertEqual(commands.slug("Café résumé"), "cafe-resume")

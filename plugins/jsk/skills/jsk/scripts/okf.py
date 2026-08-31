@@ -14,6 +14,7 @@ will be. This exists so that nobody has to remember every name to get started.
 
     okf doctor                  what works on this machine
     okf new PATH --name NAME    scaffold a bundle
+    okf project add [...]       write a Project concept, and the files that implies
     okf compile BUNDLE          build the record from the concepts, deterministically
     okf validate TARGET         a record, posting or gaps .json, or a bundle
     okf render RECORD [...]     one record to a PDF and plain text
@@ -454,8 +455,22 @@ def cmd_score(args):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def cmd_project(args):
+    """The write layer's Project commands, in this interpreter.
+
+    Imported rather than spawned, for the same reason `okf gates` imports its gates:
+    the whole point of a write command is that it costs about the interpreter floor,
+    and a subprocess would double that to do nothing but forward.
+    """
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    from authoring import commands   # noqa: PLC0415 - only when the subcommand runs
+    return commands.main(list(args))
+
+
 HANDLERS = {
     "doctor": cmd_doctor,
+    "project": cmd_project,
     "validate": cmd_validate,
     "check": cmd_check,
     "gates": cmd_gates,

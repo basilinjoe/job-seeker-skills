@@ -17,7 +17,8 @@ OKF = SCRIPTS / "okf.py"
 EXAMPLE = SKILL_DIR / "schema" / "example.resume.json"
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
-SUBCOMMANDS = ["doctor", "new", "validate", "render", "check", "gates", "score", "fit"]
+SUBCOMMANDS = ["doctor", "new", "validate", "render", "check", "gates", "score", "fit",
+               "project"]
 
 
 class Usage(unittest.TestCase):
