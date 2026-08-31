@@ -137,6 +137,7 @@ tests/                              unittest: one file per script, plus the mani
 | Support for a new market | `schema/profiles/<code>.json` | the region section of `references/urs-spec.md` |
 | What a view may carry | `references/view-format.md` | `scripts/validate_urs.py`, `agents/jsk-resume-author.md` — never `references/urs-spec.md`, which defines no view key |
 | Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
+| **How a frontmatter value is quoted** | `scripts/authoring/concept.py` | never a caller, never a second emitter |
 | What a migration does | `scripts/migrate_bundle.py` | `docs/SCRIPTS.md`, `tests/test_migrate_bundle.py` |
 | **What a timeline event means** | `scripts/pipeline_model.py` | never in a caller — `pipeline.py`, `validate_bundle.py` and `migrate_bundle.py` all read it |
 | How the record is built | `scripts/okf_compile.py` | `references/bundle-spec.md`, `tests/test_okf_compile.py` — and the render test, which is what a schema used to do |

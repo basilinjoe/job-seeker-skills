@@ -9,10 +9,11 @@ a tool they stop running.
 import sys
 import unittest
 
-from fixtures import INIT_BUNDLE, authoring_module, load_script
+from fixtures import INIT_BUNDLE, PIPELINE_MODEL, authoring_module, load_script
 
 concept = authoring_module("authoring.concept")
 init_bundle = load_script(INIT_BUNDLE)
+pipeline_model = load_script(PIPELINE_MODEL)
 
 
 class Quoting(unittest.TestCase):
@@ -226,29 +227,48 @@ class OneEmitter(unittest.TestCase):
     object, so they cannot drift into quoting a title differently.
     """
 
-    def test_init_bundle_uses_the_shared_quoter(self):
-        self.assertIs(init_bundle.yq, concept.scalar)
-
     def test_scaffolded_frontmatter_matches_the_emitter(self):
         self.assertEqual(
-            init_bundle.fm("Index", 'A "quoted" name', "Desc", "2026-01-01T00:00:00Z"),
+            init_bundle.fm("Index", 'A "quoted" name', "Desc",
+                           "2026-01-01T00:00:00Z"),
             concept.frontmatter("Index", {
                 "title": 'A "quoted" name',
                 "description": "Desc",
                 "timestamp": "2026-01-01T00:00:00Z",
             }) + "\n")
 
+    def test_trailing_keys_go_through_the_emitter_too(self):
+        # The revision stamp and `status: needs-verification` used to be spliced
+        # in as a preformatted block, which meant two of the scaffolder's keys
+        # never met the emitter at all.
+        self.assertEqual(
+            init_bundle.fm("Index", "Root", "Desc", "2026-01-01T00:00:00Z",
+                           {"okf_bundle": 7}),
+            concept.frontmatter("Index", {
+                "title": "Root", "description": "Desc",
+                "timestamp": "2026-01-01T00:00:00Z", "okf_bundle": 7,
+            }) + "\n")
+
     def test_the_pipeline_vocabulary_uses_the_shared_emitter(self):
         """The last hand-formatted frontmatter block in the scaffolder.
 
         It emitted `timestamp:` bare, which safe_load returns as a datetime -
-        the shape okf_compile.py:854-858 records as having ended a compile in a
+        the shape okf_compile.dump_record records as having ended a compile in a
         TypeError. One definition of the format means this one too.
+
+        Both assertions earn their place: the block one pins the mechanism, and
+        a hand-written `timestamp: "..."` f-string would satisfy the round-trip
+        alone.
         """
         import yaml
-        from fixtures import PIPELINE_MODEL
-        model = load_script(PIPELINE_MODEL)
-        text = model.vocabulary_markdown("2026-01-01T00:00:00Z")
+        text = pipeline_model.vocabulary_markdown("2026-01-01T00:00:00Z")
+        self.assertTrue(text.startswith(concept.frontmatter("Vocabulary", {
+            "title": "Pipeline vocabulary",
+            "description": "The event values an application timeline may use. "
+                           "Exact strings.",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "status": "confirmed",
+        })))
         meta = yaml.safe_load(text.split("---")[1])
         self.assertIsInstance(meta["timestamp"], str)
         self.assertEqual(meta["timestamp"], "2026-01-01T00:00:00Z")

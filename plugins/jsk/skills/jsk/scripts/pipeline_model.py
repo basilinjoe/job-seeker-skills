@@ -5,13 +5,14 @@ checks it, `migrate_bundle.py` writes it - so exactly one of them is allowed to
 decide what an event signifies. That is this module. Re-deriving "is this stale"
 in each caller is how two of them end up disagreeing about a person's job search.
 
-Standard library only. Nothing here reads a file except `load_rules`, and nothing
-here writes one at all. The one frontmatter block it produces comes from the write
-layer's emitter rather than an f-string here, because there is one definition of
-the format and this file is not it. A hand-formatted block is exactly how this
-one's `timestamp` went out bare - a datetime to YAML rather than a string, the
-shape okf_compile.py records as having ended a compile in a TypeError.
-`authoring.concept` imports only `re`, so the no-dependency claim still holds.
+Standard library, plus authoring.concept - which imports only re, so the
+bare-Python claim in ARCHITECTURE.md still holds. Nothing here reads a file except
+`load_rules`, and nothing here writes one at all. The one frontmatter block it
+produces comes from that emitter rather than an f-string here, because there is
+one definition of the format and this file is not it. A hand-formatted block is
+exactly how this one's `timestamp` went out bare - a datetime to YAML rather than
+a string, the shape okf_compile.dump_record records as having ended a compile in
+a TypeError.
 """
 import datetime
 import os

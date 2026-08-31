@@ -40,6 +40,14 @@ SCRIPTS = [
 ]
 URS_MODULES = ["__init__.py", "plan.py", "profiles.py", "tex.py",
                "emit_latex.py", "emit_text.py"]
+
+# init_bundle.py and pipeline_model.py import this at module scope, and
+# pipeline_model.py is imported in turn by init_bundle.py, migrate_bundle.py,
+# pipeline.py and validate_bundle.py. So a truncated install missing this
+# directory takes out scaffolding, the pipeline board, validation and migration
+# while `scripts (12/12)` still reports green - a preflight with a blind spot
+# over five scripts, which is the failure this file exists to prevent.
+AUTHORING_MODULES = ["__init__.py", "concept.py"]
 SCHEMA_FILES = ["profile.schema.json", "example.resume.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
 
@@ -138,6 +146,14 @@ def gather(bundle_arg=None):
         disables=f"missing: {', '.join(missing_mod)}" if missing_mod
                  else "", detail=urs_dir))
 
+    authoring_dir = os.path.join(HERE, "authoring")
+    missing_auth = [m for m in AUTHORING_MODULES
+                    if not os.path.exists(os.path.join(authoring_dir, m))]
+    checks.append(Check(
+        "authoring package", not missing_auth,
+        disables=f"missing: {', '.join(missing_auth)}" if missing_auth
+                 else "", detail=authoring_dir))
+
     missing_schema = [f for f in SCHEMA_FILES if not os.path.exists(os.path.join(SCHEMA, f))]
     missing_prof = [p for p in PROFILES
                     if not os.path.exists(os.path.join(SCHEMA, "profiles", p))]
@@ -193,8 +209,8 @@ def gather(bundle_arg=None):
 # nicety. Now the PDF is the only rendered deliverable, so a machine without
 # them cannot produce a resume at all - reporting that as a degraded install
 # would be telling someone their toolchain works when it does not.
-REQUIRED = {"Python", "scripts", "urs renderer package", "URS schema",
-            "TeX engine", "pymupdf"}
+REQUIRED = {"Python", "scripts", "urs renderer package", "authoring package",
+            "URS schema", "TeX engine", "pymupdf"}
 
 
 def is_required(check):
