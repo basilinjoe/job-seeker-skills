@@ -354,15 +354,18 @@ Expected: FAIL — `init_bundle.yq` is a different function object
 
 - [ ] **Step 3: Replace the duplicate emitter in `init_bundle.py`**
 
-Delete `yq` and `fm` at `init_bundle.py:69-75` and put this in their place. The
-import block goes with the file's other imports at the top:
+`init_bundle.py:14-18` already inserts its own directory on `sys.path` and imports
+`pipeline_model` through it. Add one line beside that import — do **not** add a
+second path block:
 
 ```python
-import os
-import sys
+import pipeline_model  # noqa: E402
+from authoring import concept  # noqa: E402
+```
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from authoring import concept          # noqa: E402 - after the path insert
+Then delete `yq` and `fm` at `init_bundle.py:69-75` and put this in their place:
+
+```python
 
 # Kept as module-level names because this file's callers and tests use them, and
 # because `yq` is the older name for what the write layer calls `scalar`. One
@@ -391,6 +394,26 @@ Expected: PASS — both the new tests and every existing `test_init_bundle.py` t
 The existing scaffolder tests are the real check here. If any fails, the emitter
 changed a byte of what `init_bundle.py` writes, and that is a defect in this task
 rather than a test to update.
+
+**One byte does change, and it is a fix rather than a regression.** The timestamp
+was written bare and is now quoted, because it carries colons. Do not "restore"
+the bare form: `okf_compile.py:854-858` records the defect that came from exactly
+that shape —
+
+> An unquoted `timestamp: 2026-08-30` in a concept's frontmatter is a date to
+> YAML and nothing at all to json, and one reaching a View's passthrough ended
+> the whole compile in a TypeError — a bundle problem reported as a crash.
+
+— and its `fix:` line says to quote the value. The emitter now does that
+automatically for every bundle it scaffolds. No test asserts the bare form, so
+nothing breaks; say it in the commit message so the change is not mistaken for
+an accident later.
+
+Dates and years are the deliberate opposite: `start: 2019-04` stays bare, because
+`bundle-spec.md:315` documents all three precisions bare and `okf_compile.loose_date`
+normalises whatever YAML hands back. A timestamp is an ISO datetime with colons;
+a date is not. The two are different shapes and the emitter treats them differently
+on purpose.
 
 - [ ] **Step 5: Commit**
 
