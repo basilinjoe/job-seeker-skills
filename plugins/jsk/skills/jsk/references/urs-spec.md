@@ -266,49 +266,17 @@ another silo.
 
 ## Views — the tailoring model
 
-A view is a rendering instruction. It selects, orders, redacts and sets a budget.
+**This section now lives in `references/view-format.md`.** A view is a rendering instruction: it
+selects, orders, redacts and sets a budget. That file defines every key one may carry, including the
+normative rule that a view MUST NOT contain content text; this file defines everything a view points
+at.
 
-```json
-{ "id": "view_acme",
-  "label": "Principal Engineer @ Acme",
-  "format_profile": "ats-maximal",
-  "region_profile": "urs:profile:au/1",
-  "locale": "en-AU",
-  "target": { "title": "Principal Engineer", "ref": "tailoring/targets/acme.md" },
-  "narrative": "nar_acme",
-  "include": [ { "ref": "eng_1", "order": 1, "achievements": ["ach_latency", "ach_scale"] } ],
-  "redact": ["person.phone"],
-  "provenance_floor": "confirmed",
-  "budget": { "pages": 2 } }
-```
-
-**`order` orders achievements, never employers.** Within an `include` entry, the `achievements`
-list is rendered in the order written — that is how a bullet earns the top of a role. The entry's
-own `order` is read and then overridden: engagements always render by date, because a resume that
-reorders employers by relevance reads as concealment and breaks the date parsing every ATS does
-first. `render.order` in the region profile chooses which direction that date sort runs.
-
-**Normative: a view MUST NOT contain content text.** It may carry only references, ordering,
-redaction and presentation settings. `label` and `target` are metadata about the application, not
-resume content, and are never rendered into the document body.
-
-This is the rule that earns the format its existence. Tailoring becomes auditable by construction,
-and "the model embellished my resume" becomes structurally impossible rather than something you hope
-did not happen. A validator enforces it by rejecting any unknown free-text field inside a view.
-
-**A `.view.md` on disk is not this document.** It is an OKF concept whose frontmatter happens to be a
-view, so it also carries the bundle's own bookkeeping — `type`, `title`, `description`, `timestamp`,
-`status`, and `frozen`/`frozen_date` once an application has archived it. `okf_compile.py` strips
-those before a view reaches URS, which is why none of them appear above: what sits on disk is a
-concept, and what is validated here is a view. The two were once read as the same thing, and the
-result was that `frozen: true` — which `mode-ship.md` instructs on every shipped application —
-failed the record gate as an unknown view key, permanently.
-
-`provenance_floor` makes a view refuse content below a given status. `confirmed` is the default for
-anything a person will actually send.
-
-`format_profile` is `presentation`, `ats-maximal`, `plaintext` or `web`, matching the variants in
-`ats-rules.md`.
+It moved for `jsk-resume-author`, the one agent that writes a view by hand and needs almost nothing
+else here — it reads the compiled record rather than this schema. **It was a move, not a copy:** no
+view key is defined in this file, and no record key is defined in that one. Do not restate either
+half in the other. A specification split across two files that paraphrase each other stops agreeing
+the moment one is edited, and the first anyone hears of it is a validator rejecting a document the
+other half called legal.
 
 ## Region profiles
 

@@ -2,12 +2,15 @@
 you have not checked." These tests pin the failures it must catch, and — just as
 importantly — pin that a correct resume still passes.
 """
+import contextlib
+import io
 import tempfile
 import unittest
 from pathlib import Path
 
 from fixtures import (CHECK_ATS, CLEAN_RESUME, EXAMPLE_URS, RENDER_RESUME,
-                      build_pdf, build_text, resume_with, run, urs_module)
+                      build_pdf, build_text, load_script, resume_with, run,
+                      urs_module)
 
 tex = urs_module("urs.tex")
 
@@ -272,6 +275,44 @@ class ThePdfItself(CheckATSCase):
         self.assertEqual(code, 0, out)
         code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume_ATS.pdf", "--strict")
         self.assertPasses(out, code)
+
+
+class InProcessEntryPoint(CheckATSCase):
+    """`okf gates` calls main() instead of spawning a fifth interpreter to do it.
+
+    The CLI is the documented API - SKILL.md tells people to run this script
+    directly - so the two forms must not be able to disagree. These compare them on
+    the same file rather than asserting anything about either alone.
+    """
+
+    def in_process(self, *args):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = load_script(CHECK_ATS).main([str(a) for a in args])
+        return code, buf.getvalue()
+
+    def test_it_agrees_with_the_command_line_on_a_clean_resume(self):
+        path = build_text(self.tmp / "resume.txt", CLEAN_RESUME)
+        self.assertEqual(self.in_process(path), run(CHECK_ATS, path))
+
+    def test_it_agrees_with_the_command_line_on_a_failing_resume(self):
+        path = build_text(self.tmp / "resume.txt",
+                          resume_with((BODY, "Scaled to [NUMBER] tenants.")))
+        self.assertEqual(self.in_process(path), run(CHECK_ATS, path))
+
+    def test_strict_reaches_it_through_the_arguments_it_is_given(self):
+        """It read sys.argv, so --strict was picked up from the real command line
+        whatever it was handed. In-process that would have meant a caller's own flags
+        deciding the mode."""
+        path = build_text(self.tmp / "resume.txt", CLEAN_RESUME)
+        code, out = self.in_process(path, "--strict")
+        self.assertEqual(code, 0, out)
+        self.assertIn("mode: ATS-maximal (strict)", out)
+        code, out = self.in_process(path)
+        self.assertIn("mode: presentation", out)
+
+    def test_no_arguments_is_the_same_usage_error(self):
+        self.assertEqual(self.in_process(), run(CHECK_ATS))
 
 
 if __name__ == "__main__":

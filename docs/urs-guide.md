@@ -1,9 +1,10 @@
 # URS, explained
 
 A reading path into the résumé record format, for people rather than parsers. The normative
-definition — every type, every field, every MUST — is
-[`urs-spec.md`](../plugins/jsk/skills/jsk/references/urs-spec.md). Start here, go there
-when you need the exact rule.
+definition — every type, every field, every MUST — is in two files:
+[`urs-spec.md`](../plugins/jsk/skills/jsk/references/urs-spec.md) for the record and
+[`view-format.md`](../plugins/jsk/skills/jsk/references/view-format.md) for the view that selects
+from it. Start here, go there when you need the exact rule.
 
 ## The one idea
 
@@ -112,6 +113,8 @@ Six lines, and that is an entire resume: which market, which format, how many pa
 
 A view MUST NOT contain content text. That is a schema rule, not a guideline, and it is what makes
 "tailoring cannot invent" a structural property rather than a promise.
+[`view-format.md`](../plugins/jsk/skills/jsk/references/view-format.md) states it normatively, with
+every other key a view may carry.
 
 ## Region profiles
 
@@ -154,5 +157,6 @@ criterion reference, but it is a companion document rather than a resume section
 
 ---
 
-Next: [the normative spec](../plugins/jsk/skills/jsk/references/urs-spec.md) ·
+Next: [the record spec](../plugins/jsk/skills/jsk/references/urs-spec.md) ·
+[the view format](../plugins/jsk/skills/jsk/references/view-format.md) ·
 [Concepts](CONCEPTS.md) · [Why it works this way](WHY.md)

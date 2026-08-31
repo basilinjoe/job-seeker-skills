@@ -3,17 +3,21 @@ transparent: the same arguments, the same exit code, and the underlying script's
 output. These tests pin that transparency, because a dispatcher that quietly changes
 a verdict is worse than no dispatcher at all.
 """
+import contextlib
+import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import SCRIPTS, SKILL_DIR, CLEAN_RESUME, build_text, resume_with, run
+from fixtures import (SCRIPTS, SKILL_DIR, CLEAN_RESUME, INIT_BUNDLE, build_pdf,
+                      build_text, load_script, resume_with, run, write_concept)
 
 OKF = SCRIPTS / "okf.py"
 EXAMPLE = SKILL_DIR / "schema" / "example.resume.json"
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
-SUBCOMMANDS = ["doctor", "new", "validate", "render", "check", "score", "fit"]
+SUBCOMMANDS = ["doctor", "new", "validate", "render", "check", "gates", "score", "fit"]
 
 
 class Usage(unittest.TestCase):
@@ -137,6 +141,273 @@ class Check(unittest.TestCase):
         code, out = run(OKF, "check")
         self.assertEqual(code, 2, out)
         self.assertIn("usage:", out)
+
+
+TEX_PREAMBLE = "\\documentclass{article}\n\\begin{document}\n"
+
+
+class GatesCase(unittest.TestCase):
+    """A bundle and a directory of rendered files, the two things `okf gates` reads."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        self.bundle = self.tmp / "bundle"
+        code, out = run(INIT_BUNDLE, self.bundle, "--name", "Jane Doe")
+        self.assertEqual(code, 0, out)
+        self.out = self.tmp / "out"
+        self.out.mkdir()
+
+    def render(self, paragraphs=None, pages=1):
+        """The three files render_resume.py leaves behind, without needing a TeX engine.
+
+        The names are the ones jsk-verifier.md globs for, because that is what
+        decides which gate reads which file.
+        """
+        lines = CLEAN_RESUME if paragraphs is None else paragraphs
+        pdf = build_pdf(self.out / "Jane_Doe_Resume.pdf", lines)
+        if pages > 1:
+            import pymupdf
+            with pymupdf.open(pdf) as doc:
+                for _ in range(pages - 1):
+                    doc.new_page()
+                doc.save(str(self.out / "tmp.pdf"))
+            (self.out / "tmp.pdf").replace(self.out / "Jane_Doe_Resume.pdf")
+        build_text(self.out / "Jane_Doe_Resume_ATS.txt", lines)
+        (self.out / "Jane_Doe_Resume.tex").write_text(
+            TEX_PREAMBLE + "\n".join("\\item " + l for l in lines) + "\n\\end{document}\n",
+            encoding="utf-8")
+
+    def gates(self, *args):
+        return run(OKF, "gates", self.out, "--view", "view_default", *args)
+
+
+class GatesAgreement(GatesCase):
+    """The one test the whole subcommand rests on: same bundle, same files, same
+    verdicts and same exit code as running the five commands by hand.
+
+    A faster gate that disagrees with the slow one is worse than no change at all,
+    so the comparison is against the checkers' literal output rather than against a
+    remembered snapshot of it.
+    """
+
+    def five_commands(self):
+        pdf = self.out / "Jane_Doe_Resume.pdf"
+        tex = self.out / "Jane_Doe_Resume.tex"
+        txt = self.out / "Jane_Doe_Resume_ATS.txt"
+        return [
+            (SCRIPTS / "validate_urs.py", [self.bundle]),
+            (SCRIPTS / "check_ats.py", [pdf]),
+            (SCRIPTS / "check_ats.py", [txt, "--strict"]),
+            (SCRIPTS / "check_prose.py", [tex]),
+            (SCRIPTS / "check_prose.py", [txt]),
+        ]
+
+    def assertAgrees(self):
+        worst, outputs = 0, []
+        for script, args in self.five_commands():
+            code, out = run(script, *args)
+            worst = max(worst, code)
+            outputs.append((script.name, out))
+        code, combined = self.gates("--bundle", self.bundle)
+        self.assertEqual(code, worst, combined)
+        for name, out in outputs:
+            self.assertIn(out.strip(), combined,
+                          f"{name} said something okf gates did not repeat:\n{out}")
+        return combined
+
+    def test_a_clean_render_agrees(self):
+        self.render()
+        self.assertAgrees()
+
+    def test_a_failing_record_gate_agrees(self):
+        """A strength-5 project with nothing to quote fails the record gate and
+        nothing else, so this pins that one failing gate does not disturb the four
+        that passed."""
+        write_concept(self.bundle)
+        self.render()
+        combined = self.assertAgrees()
+        self.assertIn("DO NOT RENDER", combined)
+
+    def test_a_failing_document_gate_agrees(self):
+        self.render(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
+        combined = self.assertAgrees()
+        self.assertIn("DO NOT SEND", combined)
+
+    def test_every_gate_still_runs_after_an_earlier_one_fails(self):
+        """`okf check`'s rule, applied to five gates instead of two: a document with
+        a record defect can have prose defects too, and one pass should show them
+        all."""
+        write_concept(self.bundle)
+        self.render(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
+        code, out = self.gates("--bundle", self.bundle)
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out.count("--- parse gate"), 2, out)
+        self.assertEqual(out.count("--- prose gate"), 2, out)
+
+
+class GatesMissingInput(GatesCase):
+    """A gate that did not run is not a gate that passed. Every one of these must
+    leave a non-zero exit behind, because SKIPPED printed above an exit 0 is how a
+    resume goes out unchecked."""
+
+    def test_no_bundle_skips_the_record_gate_and_fails(self):
+        self.render()
+        code, out = self.gates()
+        self.assertEqual(code, 1, out)
+        self.assertIn("SKIPPED", out)
+        self.assertIn("A gate that did not run is not a gate that passed.", out)
+
+    def test_an_empty_directory_skips_both_document_gates_and_fails(self):
+        code, out = self.gates("--bundle", self.bundle)
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out.count("SKIPPED"), 2, out)
+        self.assertIn("--- parse gate", out)
+        self.assertIn("--- prose gate", out)
+
+    def test_a_bundle_path_that_is_wrong_is_a_call_error(self):
+        """Given-and-wrong is a different mistake from not-given, and reporting the
+        two the same way hides one of them."""
+        self.render()
+        code, out = self.gates("--bundle", self.tmp / "nope")
+        self.assertEqual(code, 2, out)
+        self.assertIn("fix:", out)
+
+
+class GatesRenderGate(GatesCase):
+    """The gate okf gates never runs. A command that exited 0 having quietly left it
+    out would be the most dangerous thing in this file."""
+
+    def test_a_clean_run_still_says_the_pdf_is_unread(self):
+        self.render()
+        code, out = self.gates("--bundle", self.bundle)
+        self.assertEqual(code, 0, out)
+        self.assertIn("UNVERIFIED", out)
+        self.assertIn("read every page", out)
+
+    def test_the_render_gate_is_never_reported_as_passed(self):
+        self.render()
+        code, out = self.gates("--bundle", self.bundle)
+        del code
+        render = out.split("--- render gate")[1]
+        self.assertNotIn("PASS", render)
+
+    def test_it_says_so_when_there_is_no_pdf_at_all(self):
+        self.render()
+        (self.out / "Jane_Doe_Resume.pdf").unlink()
+        code, out = self.gates("--bundle", self.bundle)
+        del code
+        self.assertIn("there is no PDF", out)
+
+    def test_the_json_form_carries_the_render_gate_too(self):
+        """--json is the form an agent parses, and it is the form most likely to be
+        read by machine and reported as a list of passes."""
+        self.render()
+        code, out = self.gates("--bundle", self.bundle, "--json")
+        self.assertEqual(code, 0, out)
+        report = json.loads(out)
+        render = [g for g in report["gates"] if g["gate"] == "render gate"]
+        self.assertEqual(len(render), 1, out)
+        self.assertEqual(render[0]["status"], "UNVERIFIED")
+
+
+class GatesOutput(GatesCase):
+    def test_json_carries_each_gates_output_whole(self):
+        """The evidence rule survives the machine-readable form: --json embeds what
+        each checker printed rather than a verdict word standing in for it."""
+        self.render()
+        code, out = self.gates("--bundle", self.bundle, "--json")
+        del code
+        report = json.loads(out)
+        record = [g for g in report["gates"] if g["gate"] == "record gate"][0]
+        self.assertIn("checking:", record["output"])
+        self.assertIn("PASS - safe to render", record["output"])
+
+    def test_the_ats_variant_is_held_to_the_ats_maximal_rules(self):
+        """The same rule render_resume.py prints after a render: the file aimed at a
+        parser is the one checked with --strict."""
+        self.render()
+        code, out = self.gates("--bundle", self.bundle)
+        del code
+        self.assertIn("check_ats.py Jane_Doe_Resume_ATS.txt --strict", out)
+        self.assertIn("mode: ATS-maximal (strict)", out)
+        self.assertIn("mode: presentation", out)
+
+    def test_max_findings_reaches_the_record_gate(self):
+        write_concept(self.bundle)
+        self.render()
+        code, out = self.gates("--bundle", self.bundle, "--max-findings", "0")
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("... and", out)
+
+
+class GatesPageBudget(GatesCase):
+    """--pages measures the PDF that exists. Over budget is reported and not failed,
+    because fit_pages.py owns that verdict and is the only thing that can act on it -
+    render_resume.py's page_report() already says it in those words."""
+
+    def test_it_prints_the_measured_count_against_the_budget(self):
+        self.render()
+        code, out = self.gates("--bundle", self.bundle, "--pages", "2")
+        self.assertEqual(code, 0, out)
+        self.assertIn("1 page against a budget of 2", out)
+
+    def test_over_budget_is_reported_and_does_not_change_the_exit_code(self):
+        self.render(pages=3)
+        code, out = self.gates("--bundle", self.bundle, "--pages", "2")
+        self.assertEqual(code, 0, out)
+        self.assertIn("OVER BUDGET", out)
+
+    def test_a_budget_with_no_pdf_says_it_was_not_measured(self):
+        self.render()
+        (self.out / "Jane_Doe_Resume.pdf").unlink()
+        code, out = self.gates("--bundle", self.bundle, "--pages", "2")
+        del code
+        self.assertIn("not measured", out)
+
+
+class GatesUsage(GatesCase):
+    def test_the_view_is_required(self):
+        code, out = run(OKF, "gates", self.out)
+        self.assertEqual(code, 2, out)
+        self.assertIn("--view", out)
+
+    def test_an_out_directory_that_does_not_exist_is_a_call_error(self):
+        code, out = run(OKF, "gates", self.tmp / "nowhere", "--view", "view_default")
+        self.assertEqual(code, 2, out)
+        self.assertIn("fix:", out)
+
+    def test_an_unknown_flag_is_a_call_error(self):
+        code, out = self.gates("--recheck")
+        self.assertEqual(code, 2, out)
+        self.assertIn("usage:", out)
+
+    def test_a_flag_left_without_its_value_is_a_call_error(self):
+        code, out = run(OKF, "gates", self.out, "--view")
+        self.assertEqual(code, 2, out)
+        self.assertIn("needs a value", out)
+
+    def test_pages_must_be_a_number(self):
+        code, out = self.gates("--pages", "two")
+        self.assertEqual(code, 2, out)
+        self.assertIn("fix:", out)
+
+
+class GatesEntryPoints(unittest.TestCase):
+    """okf gates imports the checkers instead of spawning them, so their in-process
+    entry points are part of the contract now, not an implementation detail."""
+
+    def test_both_document_gates_take_their_arguments_and_return_a_code(self):
+        for name in ("check_ats", "check_prose"):
+            module = load_script(SCRIPTS / f"{name}.py")
+            with tempfile.TemporaryDirectory() as tmp:
+                path = build_text(Path(tmp) / "resume.txt", CLEAN_RESUME)
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = module.main([path])
+            self.assertEqual(code, 0, f"{name}: {buf.getvalue()}")
+            self.assertIn("checking:", buf.getvalue())
 
 
 if __name__ == "__main__":

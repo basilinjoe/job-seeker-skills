@@ -109,16 +109,28 @@ python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view <view-id
 
 7. **Verify — not optional:**
 
-   Hand steps 7 to 9 to `jsk-verifier` — it runs every gate, measures the fit, reads the PDF,
-   and returns each verdict verbatim with the `resume.json` site for every defect. It cannot edit a
-   document, which is the point. Run the commands inline where no agent is available; the procedure
-   below is the same either way.
+   The three mechanical gates run as one command, and its output is what you show:
+
+```bash
+python3 <skill-dir>/scripts/okf.py gates . --view <id> --bundle <bundle> --pages N
+```
+
+   That is `validate_urs.py` on the bundle, `check_ats.py` on the PDF and again on the `.txt` with
+   `--strict`, and `check_prose.py` on the `.tex` and again on the `.txt` — five invocations in one
+   process, at about 0.6x the wall clock, each one's output printed verbatim. `--pages N` reports
+   the count and never fails on it; step 8 is still what fixes an overrun. It never attempts the
+   render gate and closes by saying so. The individual commands still work, and are the right thing
+   for re-checking one file after one repair:
 
 ```bash
 python3 <skill-dir>/scripts/check_ats.py <Name>_Resume.pdf
 python3 <skill-dir>/scripts/check_ats.py <Name>_Resume_ATS.txt --strict
 python3 <skill-dir>/scripts/check_prose.py <Name>_Resume.tex
 ```
+
+   **Hand it to `jsk-verifier` when a gate fails and you cannot see where the defect came from**, or
+   when step 9 needs a second pair of eyes. It quotes every verdict and names the concept each defect
+   is repaired in, and it cannot edit a document, which is the point. A clean pass does not need it.
 
 `<skill-dir>` is this skill's own directory — see the Scripts section of `SKILL.md`. On Windows use
 `python` or `py -3`.
@@ -162,9 +174,9 @@ the record, which is the point: next month's posting may want exactly what this 
 
 Fitting changes layout, so re-run `check_ats.py` on the fitted file before step 9.
 
-9. **Look at the render — the last gate, and not optional either.** `jsk-verifier` reads the
-   PDF as part of its run; if you are working inline, open it yourself. Nobody signs this one off
-   from a checker's exit code.
+9. **Look at the render — the last gate, and not optional either.** No command attempts it, and
+   `okf gates` closes by saying so. Open the PDF and read every page, or hand it to `jsk-verifier`,
+   which does. Nobody signs this one off from a checker's exit code.
 
 The checkers verify that a record is coherent, that a document parses, and that its prose obeys the
 rules. None of them can see what it *looks* like. Three defect classes have escaped them, all

@@ -99,7 +99,8 @@ translation layer. Keep it in a repo you control so it outlives any single tool,
 | [Scripts](docs/SCRIPTS.md) | The thirteen tools: flags, dependencies, exit codes |
 | [Architecture](docs/ARCHITECTURE.md) | For anyone editing this repo |
 | [URS, explained](docs/urs-guide.md) | The résumé record format, walked through a real document |
-| [URS spec](plugins/jsk/skills/jsk/references/urs-spec.md) | The normative definition: every type, every MUST |
+| [URS spec](plugins/jsk/skills/jsk/references/urs-spec.md) | The normative definition of the record: every type, every MUST |
+| [View format](plugins/jsk/skills/jsk/references/view-format.md) | The other half of that spec: every key a view may carry, and the rule that it may carry no prose |
 
 ### Tests
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """okf - one entry point for the jsk tools.
 
-A convenience layer, never a replacement. Each subcommand forwards to the script that
-does the work, with the same arguments and the same exit code, so anything documented
-for the underlying script is still true here:
+A convenience layer, never a replacement. Each subcommand reaches the script that does
+the work - forwarding to it, or calling it in this interpreter where several run
+together - with the same arguments and the same exit code, so anything documented for
+the underlying script is still true here:
 
     okf check resume.pdf      ==     check_ats.py resume.pdf
                                      check_prose.py resume.tex
@@ -18,6 +19,7 @@ will be. This exists so that nobody has to remember every name to get started.
     okf render RECORD [...]     one record to a PDF and plain text
     okf preview RECORD --out D  the same record in every template, to pick a look
     okf check PDF [--strict]    the parse gate and the prose gate, both
+    okf gates DIR --view ID     the record, parse and prose gates over one render
     okf score BUNDLE POSTING.md rank projects against a posting
     okf fit TEX [...]           fit a render to a page budget
     okf migrate BUNDLE [--apply]  bring an older bundle up to the current layout
@@ -26,6 +28,10 @@ will be. This exists so that nobody has to remember every name to get started.
 Standard library only.
 """
 
+import contextlib
+import glob
+import importlib
+import io
 import json
 import os
 import shutil
@@ -151,6 +157,261 @@ def cmd_check(args):
     return worst
 
 
+# --- okf gates ------------------------------------------------------------------
+#
+# The same gates jsk-verifier.md runs, in its order - record, parse, prose - but in
+# this interpreter rather than five child ones. On a 100-posting bundle the five
+# commands cost 723ms together and this costs 461ms (medians of 11); the difference
+# is four interpreter starts spent calling functions that return an int. What is
+# left is irreducible without a cache, and the design forbids one: 190ms of it is
+# the compile the record gate checks, and 164ms is pymupdf loading so the parse
+# gate can read the PDF.
+#
+# It is deliberately file-driven rather than a fixed list of five commands, because
+# the render profile decides which files exist: the default writes
+# <name>_Resume.{tex,pdf} beside <name>_Resume_ATS.txt, while --profile ats-maximal
+# writes <name>_Resume_ATS.{tex,pdf,txt} and nothing else.
+GATES_USAGE = ("usage: okf gates <out-dir> --view <id> [--bundle <dir>] [--pages N] "
+               "[--json] [--max-findings N]")
+
+DOC_GATES = [
+    ("parse gate", "check_ats.py", (".pdf", ".txt")),
+    ("prose gate", "check_prose.py", (".tex", ".txt")),
+]
+
+# The glob jsk-verifier.md already tells the agent to use when a file name is not
+# given. render_resume.py's stems all contain `_Resume`, so this finds a render and
+# nothing else that happens to be sitting in the directory.
+RENDERED = "*_Resume*"
+
+GATES_VALUE_FLAGS = ("--view", "--bundle", "--pages", "--max-findings")
+
+
+def parse_gates(args):
+    """((positional, flags), None) or (None, what was wrong with the call)."""
+    positional, flags, pending = [], {}, None
+    for token in args:
+        if pending:
+            flags[pending] = token
+            pending = None
+        elif token in GATES_VALUE_FLAGS:
+            pending = token
+        elif token == "--json":
+            flags[token] = True
+        elif token.startswith("-"):
+            return None, f"unknown flag: {token}"
+        else:
+            positional.append(token)
+    if pending:
+        return None, f"{pending} needs a value"
+    return (positional, flags), None
+
+
+def call_gate(script, args, argv0=False):
+    """(exit code, everything the gate printed). Imported, never spawned.
+
+    The output is captured so that --json can carry it whole; it is printed back
+    unchanged either way. A gate whose findings the caller cannot read is a gate
+    nobody checked, and summarising one here would be the same defect as an agent
+    paraphrasing it.
+
+    `argv0` because validate_urs.main() takes the whole argv where the two document
+    gates take the arguments alone. Normalised here rather than in those scripts:
+    their CLIs are the documented API and must not move to suit a caller.
+    """
+    name = script[:-3]
+    try:
+        module = importlib.import_module(name)
+    except ImportError as exc:
+        return 2, (f"FAIL  cannot load {script}: {exc}\n"
+                   f"fix:  the skill install is incomplete - expected it at "
+                   f"{os.path.join(HERE, script)}\n")
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            code = module.main(([script] if argv0 else []) + list(args))
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 2
+    except Exception as exc:                      # noqa: BLE001 - deliberately broad
+        # In-process gates share this interpreter, so an unhandled error inside one
+        # would print a traceback where a verdict belongs and take the other four
+        # gates down with it. Report it as its own failure and keep going.
+        return 2, buf.getvalue() + (
+            f"FAIL  {script} raised {type(exc).__name__}: {exc}\n"
+            f"fix:  run it directly to see the whole story - "
+            f"python {script} {' '.join(str(a) for a in args)}\n")
+    return (code if isinstance(code, int) else 0), buf.getvalue()
+
+
+def rendered_documents(out_dir, extensions):
+    """The files a render left in `out_dir` that one gate reads, in a fixed order."""
+    found = []
+    for ext in extensions:
+        found.extend(sorted(glob.glob(os.path.join(out_dir, RENDERED + ext))))
+    return found
+
+
+def skipped_gate(gate, command, why):
+    """A gate that had nothing to read. Same wording as `okf check`, deliberately."""
+    return {"gate": gate, "command": command, "status": "SKIPPED", "exit": 1,
+            "output": f"SKIPPED - {why}\n  A gate that did not run is not a gate "
+                      f"that passed.\n"}
+
+
+def gate_result(gate, command, code, output):
+    status = {0: "PASS", 1: "FAIL"}.get(code, "ERROR")
+    return {"gate": gate, "command": command, "status": status, "exit": code,
+            "output": output}
+
+
+def render_section(out_dir, pages):
+    """The gate this command will never run, said out loud.
+
+    Every other line of output here is a checker's. This one is not, and it is the
+    reason the command can be trusted: a resume whose parse and prose gates passed
+    has still been read by nobody. `mode-ship.md` calls this the gate nobody else
+    can run, and an `okf gates` that exited 0 without saying so would teach every
+    caller that the render gate is decorative - which is exactly the lesson
+    render_resume.py's UNVERIFIED exit was added to unteach.
+    """
+    lines = []
+    pdfs = rendered_documents(out_dir, (".pdf",))
+    if pages is not None:
+        if not pdfs:
+            lines.append(f"  pages  budget {pages}, not measured - there is no PDF "
+                         f"to count")
+        else:
+            # render_resume.py's own line, reused rather than restated. Over budget
+            # is reported and not failed there because fit_pages.py owns that
+            # verdict and is the only thing that can act on it; two places printing
+            # one measurement in different words is how they start disagreeing.
+            try:
+                import render_resume               # noqa: PLC0415 - only when asked
+            except ImportError as exc:
+                lines.append(f"  pages  budget {pages}, not measured - "
+                             f"render_resume.py would not load: {exc}")
+            else:
+                lines.extend(
+                    render_resume.page_report(os.path.basename(pdf),
+                                              render_resume.page_count(pdf), pages)
+                    for pdf in pdfs)
+    if pdfs:
+        lines.append(f"UNVERIFIED - open {os.path.basename(pdfs[0])} and read every page.")
+    else:
+        lines.append(f"UNVERIFIED - there is no PDF in {out_dir} for anyone to read.")
+    lines.append("  Does it look right, and is it true? Nothing above can see a stranded")
+    lines.append("  heading, a tofu box, or a verb that overstates ownership. The gates")
+    lines.append("  that passed say nothing about this one.")
+    return {"gate": "render gate", "command": None, "status": "UNVERIFIED",
+            "exit": None, "output": "\n".join(lines) + "\n"}
+
+
+def cmd_gates(args):
+    """The record, parse and prose gates over one rendered resume, in one process.
+
+    `okf check` covers two of them and spawns a child for each; this covers three
+    and spawns nothing. What it does not cover is the render gate - see
+    render_section() for why that is stated rather than silently omitted.
+    """
+    parsed, problem = parse_gates(args)
+    if problem:
+        print(problem)
+        print(GATES_USAGE)
+        return 2
+    positional, flags = parsed
+    if len(positional) != 1:
+        print(GATES_USAGE)
+        return 2
+    out_dir = positional[0]
+    view = flags.get("--view")
+    if not view:
+        print("--view is required")
+        print("fix:  name the view that was rendered - it is what the evidence below")
+        print("      belongs to, and nothing else in the directory records it")
+        return 2
+    if not os.path.isdir(out_dir):
+        print(f"not a directory: {out_dir}")
+        print("fix:  pass the directory render_resume.py --out wrote to")
+        return 2
+    bundle = flags.get("--bundle")
+    # A path that was given and is wrong is a call error; a path that was not given
+    # is a missing input, which is SKIPPED and a failure further down. The two are
+    # different mistakes and reporting them the same way hides one of them.
+    if bundle is not None and not os.path.isdir(bundle):
+        print(f"not a bundle directory: {bundle}")
+        print("fix:  --bundle takes the bundle the resume was compiled from")
+        return 2
+    pages = flags.get("--pages")
+    if pages is not None:
+        if not str(pages).isdigit() or int(pages) < 1:
+            print(f"--pages needs a whole number of pages, got {pages!r}")
+            print("fix:  --pages 2   - the budget the view asked for")
+            return 2
+        pages = int(pages)
+    limit = flags.get("--max-findings")
+    if limit is not None and not str(limit).isdigit():
+        print(f"--max-findings needs a whole number, got {limit!r}")
+        print("fix:  --max-findings 50   - or 0 to print every finding")
+        return 2
+
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+
+    results = []
+    if bundle is None:
+        results.append(skipped_gate("record gate", "validate_urs.py",
+                                    "no bundle given; pass --bundle <dir>."))
+    else:
+        record_args = [bundle] + (["--max-findings", str(limit)] if limit is not None
+                                  else [])
+        code, output = call_gate("validate_urs.py", record_args, argv0=True)
+        results.append(gate_result("record gate",
+                                   " ".join(["validate_urs.py"] + record_args),
+                                   code, output))
+
+    for gate, script, extensions in DOC_GATES:
+        found = rendered_documents(out_dir, extensions)
+        if not found:
+            results.append(skipped_gate(
+                gate, script,
+                f"no {' or '.join(extensions)} render in {out_dir}."))
+            continue
+        for path in found:
+            name = os.path.basename(path)
+            # The same rule render_resume.py prints after a render: the ATS-maximal
+            # variant is the one aimed at a parser, so it is the one held to the
+            # ATS-maximal rules.
+            strict = script == "check_ats.py" and "_ATS" in name
+            command = f"{script} {name}" + (" --strict" if strict else "")
+            code, output = call_gate(script, [path] + (["--strict"] if strict else []))
+            results.append(gate_result(gate, command, code, output))
+
+    results.append(render_section(out_dir, pages))
+    worst = max([r["exit"] for r in results if r["exit"] is not None] or [0])
+
+    if flags.get("--json"):
+        print(json.dumps({"out_dir": out_dir, "view": view, "bundle": bundle,
+                          "exit": worst, "gates": results}, indent=2))
+        return worst
+
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    print(f"gates: {out_dir}   view: {view}")
+    print()
+    for result in results:
+        header = result["gate"]
+        if result["command"]:
+            header += f": {result['command']}"
+        elif result["gate"] == "render gate":
+            header += ": nobody else can run this one"
+        print(f"--- {header}")
+        print(result["output"], end="" if result["output"].endswith("\n") else "\n")
+        print()
+    return worst
+
+
 def cmd_score(args):
     """Rank the bundle's projects against a posting.
 
@@ -197,6 +458,7 @@ HANDLERS = {
     "doctor": cmd_doctor,
     "validate": cmd_validate,
     "check": cmd_check,
+    "gates": cmd_gates,
     "score": cmd_score,
 }
 

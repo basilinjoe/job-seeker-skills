@@ -49,7 +49,7 @@ two searches, and every path below is written out for the same reason.
 Compile the record — it is the bundle as the renderer reads it, and it takes under a second:
 
 ```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --no-views --dump-record record.json --quiet
+python3 <skill-dir>/scripts/okf_compile.py <bundle> --no-views --compact --dump-record record.json --quiet
 ```
 
 **Read the record once, as a file, then open a concept only where the record cannot answer you.**
@@ -95,14 +95,24 @@ apply.
 the default's sections it covers, and dropping a section nobody meant to drop is the more
 expensive mistake — a resume quietly loses a rule, and nothing fails.
 
-Read `references/urs-spec.md` first either way — the view format has no bundle-local
-variant. And read `framework/capability-vocabulary.md`, the person's own vocabulary, for the
-skills block.
+Read `references/view-format.md` first either way — the view format has no bundle-local
+variant, and the view is the one URS document you write by hand. `references/urs-spec.md` holds the
+rest of the record's shape and you do not need it: you read the compiled record itself, which
+answers every question about the record that a schema would. And read
+`framework/capability-vocabulary.md`, the person's own vocabulary, for the skills block.
 
 `--no-views` is why the record stays that size, and it is the rule below made structural rather
 than stated: a bundle with a hundred answered postings carries a hundred views, every one of them
 another posting's answer to another posting's question. Compiled without them, the template you
 are told not to copy is not there to copy.
+
+`--compact` drops `indent=2` and changes nothing else — a third off the read, for whitespace no
+model needs: 32,190 bytes to 20,310 on the bundle this was measured on.
+
+**You do not pass `--for score`, and that is deliberate.** `jsk-tailor-analyst` does, because it
+ranks projects and never reads a bullet; its projection drops the achievement prose, which is 61%
+of `projects[]`. That prose is your material. Retuning a clause you cannot see is writing it from
+scratch, and writing from scratch is how a number moves.
 
 **Do not read `scripts/okf_compile.py` or `scripts/validate_urs.py`** — they restate the spec you
 have just read, and the validator enforces itself at runtime. **Do not read a view written for a

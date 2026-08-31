@@ -12,11 +12,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import SCRIPTS, run
+from fixtures import SCRIPTS, load_script, run
 
 COMPILE = SCRIPTS / "okf_compile.py"
 RENDER = SCRIPTS / "render_resume.py"
+SCORE = SCRIPTS / "score_projects.py"
 VALIDATE_URS = SCRIPTS / "validate_urs.py"
+
+okf_compile = load_script(COMPILE)
 
 PERSON = """---
 type: Person
@@ -165,6 +168,42 @@ provenance_floor: confirmed
 budget:
   pages: 2
 ---
+"""
+
+# The two concepts that sit beside a working view and that the record has never read
+# a field of. Both carry `type:`, so before the walk was narrowed they were opened,
+# YAML-parsed and bucketed by type on every compile.
+POSTING = """---
+type: Job Posting
+title: "Principal Engineer"
+company: "Meridian Health"
+seniority: architecture-ownership
+domains: [healthcare]
+requirements:
+  - value: ai-platform-architecture
+    kind: capability
+    necessity: required
+    label: "platform architecture"
+  - value: azure
+    kind: technology
+    necessity: preferred
+    label: "Azure"
+---
+
+# Advertisement
+
+Meridian Health is hiring a principal engineer for its care platform.
+"""
+
+GAPS = """---
+type: Gap Assessment
+title: "Meridian - what is missing"
+status: confirmed
+---
+
+# Verdict
+
+Strong fit.
 """
 
 VIEW_ARCHIVED_ONLY = """---
@@ -511,6 +550,176 @@ class Consumers(CompileCase):
         self.assertIn("Ada Vance", text)
         self.assertIn("Platform architect", text)
         self.assertNotIn("Somewhere St", text)
+
+
+class TailoredCase(CompileCase):
+    """A bundle with one answered target: a posting, its assessment, and a view."""
+
+    def setUp(self):
+        super().setUp()
+        targets = self.bundle / "tailoring" / "targets"
+        targets.mkdir(parents=True, exist_ok=True)
+        for name, text in (("meridian-principal.posting.md", POSTING),
+                           ("meridian-principal.gaps.md", GAPS),
+                           ("meridian-principal.view.md", VIEW_WORKING)):
+            (targets / name).write_text(text, encoding="utf-8")
+
+    def under_tailoring(self, *args, **kwargs):
+        """The stems concepts() read out of tailoring/, in whatever mode."""
+        return sorted(
+            stem for stem, _, _, _ in okf_compile.concepts(self.bundle, *args, **kwargs)
+            if stem.startswith("meridian-principal."))
+
+
+class TailoringIsNotCareerRecord(TailoredCase):
+    """A View is the only thing the record takes from tailoring/.
+
+    The posting and the gap assessment beside it were parsed on every compile and
+    then never read again: at a hundred answered targets that is 300 of the 341
+    concepts a compile walked to build a record out of 41, and 408ms of a 946ms run.
+    """
+
+    def test_only_a_view_is_read_under_tailoring(self):
+        self.assertEqual(self.under_tailoring(), ["meridian-principal.view"])
+
+    def test_asking_for_no_views_does_not_enter_the_directory(self):
+        self.assertEqual(self.under_tailoring(tailoring="none"), [])
+
+    def test_the_view_still_reaches_the_record(self):
+        """The narrowing is a walk that reads less, not a record that says less."""
+        self.assertEqual([v["id"] for v in self.compile()["views"]],
+                         ["view_meridian_principal"])
+
+    def test_a_narrowing_nobody_asked_for_is_refused(self):
+        """A typo in this argument reads less and says nothing - every check written
+        about what the walk found still passes on what it did not find."""
+        with self.assertRaises(ValueError):
+            okf_compile.concepts(self.bundle, tailoring="veiws")
+
+
+class TheCensusKeepsItsOwnEyes(TailoredCase):
+    """census() walks everything, including what the record stopped reading.
+
+    check_conservation in validate_urs.py is the only check that can see a whole
+    concept type go missing - every other one iterates a record key, and an empty list
+    satisfies each of them, which is how `views: []` passed for months. It compares
+    what census() found on disk against what the record emitted, so a census sharing
+    load()'s narrowed walk would read no views for a bundle full of them and agree
+    that nothing had been dropped.
+    """
+
+    def test_the_census_counts_what_the_record_never_reads(self):
+        counts = okf_compile.census(self.bundle)
+        self.assertEqual(counts.get("Job Posting"), 1)
+        self.assertEqual(counts.get("Gap Assessment"), 1)
+        self.assertEqual(counts.get("View"), 1)
+
+    def test_the_census_sees_views_the_compile_was_told_to_skip(self):
+        doc = okf_compile.load(self.bundle, views=[])
+        self.assertEqual(doc["views"], [])
+        self.assertEqual(okf_compile.census(self.bundle).get("View"), 1)
+
+    def test_a_type_that_compiles_to_nothing_still_fails_the_record_gate(self):
+        """The regression this gate exists for, run end to end: the bundle holds a
+        Skill Set, the record holds no skills, and nothing else in validate_urs.py can
+        tell that apart from a bundle that never had one."""
+        (self.bundle / "skills" / "competencies.md").write_text(
+            "---\ntype: Skill Set\ntitle: \"Core competencies\"\nstatus: confirmed\n"
+            "---\n\nNothing under a `# Skills` heading, so nothing compiles.\n",
+            encoding="utf-8")
+        self.assertEqual(self.compile()["skills"], [])
+        code, out = run(VALIDATE_URS, self.bundle)
+        self.assertEqual(code, 1, out)
+        self.assertIn("'Skill Set'", out)
+        self.assertIn("skills", out)
+
+
+class CompactRecords(TailoredCase):
+    """`--compact` drops the indentation and nothing else.
+
+    Every reader of a record parses it as JSON. On a hundred-target bundle the
+    indentation is 34% of the file - a third of an agent's read spent on whitespace.
+    """
+
+    def record_text(self, *args):
+        out = self.tmp / "record.json"
+        code, text = run(COMPILE, self.bundle, "--dump-record", out, "--quiet", *args)
+        self.assertEqual(code, 0, text)
+        return out.read_text(encoding="utf-8")
+
+    def test_compact_and_indented_records_parse_to_the_same_object(self):
+        self.assertEqual(json.loads(self.record_text("--compact")),
+                         json.loads(self.record_text()))
+
+    def test_compact_is_smaller_and_carries_no_indentation(self):
+        compact, indented = self.record_text("--compact"), self.record_text()
+        self.assertNotIn('\n  "urs"', compact)
+        self.assertIn('\n  "urs"', indented)
+        self.assertLess(len(compact), len(indented))
+
+
+class TheScorerProfile(TailoredCase):
+    """`--for score` emits the keys the ranking runs on, and nothing else.
+
+    projects[] is 80% of the record and the scorer slice is 39% of projects[], because
+    the rest is achievement prose score_projects.py does not read a word of. The
+    projection is computed here so there is one definition of what a scorer needs -
+    a second list of keys elsewhere is the transcription that drifts.
+    """
+
+    def scored(self, *args):
+        out = self.tmp / "score.json"
+        code, text = run(COMPILE, self.bundle, "--dump-record", out, "--quiet",
+                         "--for", "score", *args)
+        self.assertEqual(code, 0, text)
+        return json.loads(out.read_text(encoding="utf-8"))
+
+    def test_a_project_carries_only_what_the_ranking_reads(self):
+        project = self.scored()["projects"][0]
+        self.assertLessEqual(set(project), set(okf_compile.SCORE_PROJECT_KEYS))
+        for key in ("capabilities", "technologies", "domains", "seniority",
+                    "strength", "period", "title", "id"):
+            self.assertIn(key, project)
+
+    def test_no_achievement_prose_survives_the_projection(self):
+        self.assertNotIn("care-plan", json.dumps(self.scored()))
+        self.assertNotIn("Cut event propagation", json.dumps(self.scored()))
+
+    def test_narratives_education_and_credentials_are_emitted_empty(self):
+        doc = self.scored()
+        for key in ("narratives", "education", "credentials"):
+            self.assertEqual(doc[key], [], key)
+
+    def test_the_ranking_is_the_same_one(self):
+        """The claim that matters: a smaller record the scorer reads identically. If
+        the projection dropped a key score_projects.py scores on, the table would
+        still print - a term silently gone inert is what this test is here to catch."""
+        posting = self.tmp / "posting.json"
+        code, text = run(COMPILE,
+                         self.bundle / "tailoring" / "targets"
+                         / "meridian-principal.posting.md")
+        self.assertEqual(code, 0, text)
+        posting.write_text(text, encoding="utf-8")
+
+        full = self.tmp / "full.json"
+        run(COMPILE, self.bundle, "--dump-record", full, "--quiet", "--no-views")
+        narrow = self.tmp / "score.json"
+        run(COMPILE, self.bundle, "--dump-record", narrow, "--quiet", "--no-views",
+            "--for", "score")
+        self.assertEqual(run(SCORE, narrow, posting, "--as-of", "2026"),
+                         run(SCORE, full, posting, "--as-of", "2026"))
+
+    def test_the_projection_composes_with_compact(self):
+        self.assertEqual(self.scored("--compact"), self.scored())
+
+    def test_an_unknown_profile_is_refused_and_names_the_ones_there_are(self):
+        code, out = run(COMPILE, self.bundle, "--for", "scores")
+        self.assertEqual(code, 2, out)
+        self.assertIn("score", out)
+
+    def test_for_with_no_value_is_refused_rather_than_ignored(self):
+        code, out = run(COMPILE, self.bundle, "--for")
+        self.assertEqual(code, 2, out)
 
 
 if __name__ == "__main__":

@@ -95,6 +95,12 @@ answered postings compile to a hundred of them — half the file, in something s
 every run. The default stays every view, because `validate_urs.py <bundle>` checks all of them and a
 broken view nobody is rendering today is still a broken view.
 
+`--compact` and `--for score` narrow the same way and are documented in `docs/SCRIPTS.md`: the first
+drops the indentation, the second emits projects carrying only the keys a ranking runs on. **None of
+the four changes what is true.** They choose how much of the record is written out, never what the
+concepts say — a flag that could make a record claim something the bundle does not is a flag this
+format has no room for.
+
 **The compile does not read `tailoring/applications/` at all.** The archive is frozen and nothing
 downstream compiles from it — the resume that was sent is rebuilt from the commit it was sent at, not
 from the copy beside it. Walking it was not merely wasted work: a frozen `<stem>.view.md` declares the
@@ -112,6 +118,14 @@ vocabulary term the ranking runs on), `kind`, `necessity` and the posting's own 
 The assessment of that posting against the record sits beside it as `<company>-<role>.gaps.md`, and
 the view that renders from it as `<company>-<role>.view.md`. All three are working copies and stay
 editable until an application freezes them.
+
+**Career content never lives under `tailoring/`.** Those three companions are what the directory
+holds, and `validate_bundle.py` enforces them. A Project or a Role belongs in `projects/` or
+`roles/`, and one filed here does not reach the record: the compile reads only `*.view.md` under
+`tailoring/`, because a posting and an assessment are read by nobody downstream and walking them
+cost a hundred-application bundle most of its compile. A concept placed here would compile to
+nothing with no gate to say so — the directory is where a job description goes, not where evidence
+goes.
 
 A bundle migrated from an earlier revision also holds the file the posting replaced, under the
 bare `<company>-<role>.md`. It is kept — deleting somebody's only copy of an advertisement is not a

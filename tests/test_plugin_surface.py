@@ -184,6 +184,43 @@ class DocumentedSurface(unittest.TestCase):
                     f"{path.name} documents {sorted(described)}, "
                     f"current revision is {current}")
 
+    # ---- the URS specification is in two halves -------------------------------
+
+    REFS = SKILL / "references"
+
+    def test_the_view_format_lives_in_exactly_one_file(self):
+        """`urs-spec.md` defines what a view points at; `view-format.md` defines what a
+        view may carry. The split exists so jsk-resume-author reads 968 tokens instead
+        of 4,127, and it is only safe while it stays a split rather than a copy.
+
+        This cannot be checked key by key: `id`, `label`, `skills`, `target` and
+        `include` are legitimately both view keys and record keys, so "appears in both
+        files" is not evidence of anything. What is checkable is that the normative
+        view example lives in one file, and that neither half has quietly regrown a
+        Views section of its own."""
+        spec = (self.REFS / "urs-spec.md").read_text(encoding="utf-8")
+        view = (self.REFS / "view-format.md").read_text(encoding="utf-8")
+        self.assertIn('"provenance_floor"', view,
+                      "view-format.md no longer holds the normative view example")
+        self.assertNotIn('"provenance_floor"', spec,
+                         "urs-spec.md has regrown a view example - it was moved, not copied")
+
+    def test_each_half_says_where_the_other_one_is(self):
+        """A reader who lands in the wrong half has to be able to get to the right one.
+        The pointers are the whole mechanism holding the split together, so losing one
+        silently is the failure this guards."""
+        spec = (self.REFS / "urs-spec.md").read_text(encoding="utf-8")
+        view = (self.REFS / "view-format.md").read_text(encoding="utf-8")
+        self.assertIn("view-format.md", spec, "urs-spec.md does not point at its other half")
+        self.assertIn("urs-spec.md", view, "view-format.md does not point at its other half")
+
+    def test_the_author_is_pointed_at_the_half_it_needs(self):
+        """jsk-resume-author writes a view and reads the compiled record, so the record
+        schema is the half it does not need. Pointing it back at urs-spec.md would undo
+        the saving without anything failing."""
+        author = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
+        self.assertIn("view-format.md", author)
+
     def test_every_script_SKILL_md_names_is_installed(self):
         """The script table is how an agent decides what it may run. A row naming a
         file that is not there sends it to a command that cannot exist, and the
