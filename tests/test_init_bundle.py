@@ -5,7 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import INIT_BUNDLE, VALIDATE_BUNDLE, run, write_concept
+from fixtures import (INIT_BUNDLE, MIGRATE_BUNDLE, VALIDATE_BUNDLE, load_script, run,
+                      write_concept)
+
+CURRENT = load_script(MIGRATE_BUNDLE).CURRENT_REVISION
 
 
 class InitBundleCase(unittest.TestCase):
@@ -65,6 +68,53 @@ class GeneratedDocs(InitBundleCase):
                     self.assertFalse(
                         token.startswith(("framework/", "scripts/")) and not candidate.exists(),
                         f"{doc} names {token}, which does not exist in the bundle")
+
+
+class ScaffoldedConcepts(InitBundleCase):
+    """The two files without which a bundle compiles to nothing.
+
+    A fresh bundle validated clean and compiled to an empty record, so somebody could
+    get all the way to a render before finding out there had never been anything to
+    render. Both are scaffolded `needs-verification` and empty: setup mode then has
+    something to fill in rather than something to invent.
+    """
+
+    def compiled(self):
+        okf = load_script(
+            INIT_BUNDLE.parent / "okf_compile.py")   # read-only; owned elsewhere
+        return okf, okf.load(str(self.root))
+
+    def test_the_person_concept_exists_and_compiles(self):
+        identity = self.root / "profile" / "identity.md"
+        self.assertTrue(identity.exists(), "profile/identity.md - the Person concept")
+        self.assertIn("type: Person", identity.read_text(encoding="utf-8"))
+        _, doc = self.compiled()
+        self.assertEqual(doc["person"]["name"]["full"], "Test Person")
+
+    def test_the_person_stub_is_empty_not_invented(self):
+        """A placeholder headline would compile onto a resume as if someone wrote it."""
+        _, doc = self.compiled()
+        self.assertEqual(doc["person"]["contacts"], [])
+        self.assertNotIn("headline", doc["person"])
+        self.assertIn("status: needs-verification",
+                      (self.root / "profile" / "identity.md").read_text(encoding="utf-8"))
+
+    def test_the_metrics_table_exists_and_reads_as_empty(self):
+        metrics = self.root / "achievements" / "metrics.md"
+        self.assertTrue(metrics.exists(), "achievements/metrics.md")
+        okf, _ = self.compiled()
+        self.assertEqual(okf.metrics_table(str(self.root)), {})
+
+    def test_a_fresh_bundle_is_born_at_the_current_revision(self):
+        self.assertIn(f"okf_bundle: {CURRENT}",
+                      (self.root / "index.md").read_text(encoding="utf-8"))
+        code, out = run(MIGRATE_BUNDLE, self.root)
+        self.assertEqual(code, 0, out)
+        self.assertIn("nothing to do", out)
+
+    def test_the_archive_index_describes_the_year_partition(self):
+        text = (self.root / "tailoring/applications/index.md").read_text(encoding="utf-8")
+        self.assertIn("One directory per submission year", text)
 
 
 if __name__ == "__main__":

@@ -35,15 +35,12 @@ MIN_PYTHON = (3, 8)
 
 SCRIPTS = [
     "init_bundle.py", "validate_bundle.py", "check_ats.py", "check_prose.py",
-    "score_projects.py", "fit_pages.py", "validate_urs.py", "validate_ujd.py",
-    "validate_ugs.py", "render_resume.py", "migrate_bundle.py", "pipeline.py",
-    "pipeline_model.py",
+    "score_projects.py", "fit_pages.py", "validate_urs.py", "okf_compile.py",
+    "render_resume.py", "migrate_bundle.py", "pipeline.py", "pipeline_model.py",
 ]
 URS_MODULES = ["__init__.py", "plan.py", "profiles.py", "tex.py",
                "emit_latex.py", "emit_text.py"]
-SCHEMA_FILES = ["urs-v1.schema.json", "ujd-v1.schema.json", "ugs-v1.schema.json",
-                "profile.schema.json", "example.resume.json",
-                "example.posting.json", "example.gaps.json"]
+SCHEMA_FILES = ["profile.schema.json", "example.resume.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
 
 TEX_ENGINES = ["tectonic", "latexmk", "pdflatex", "xelatex", "lualatex"]
@@ -219,7 +216,7 @@ def verify(tmp):
         return steps
 
     run("validate the example record",
-        [os.path.join(HERE, "validate_urs.py"), EXAMPLE, "--level", "2"])
+        [os.path.join(HERE, "validate_urs.py"), EXAMPLE])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the resolver works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",

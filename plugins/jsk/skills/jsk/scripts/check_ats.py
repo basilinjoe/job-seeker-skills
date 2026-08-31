@@ -90,18 +90,25 @@ def has_phone(txt):
     return False
 
 
-def main():
+def main(argv=None):
+    """The gate, as an exit code. `argv` is the arguments alone, as check_prose.py takes them.
+
+    It read `sys.argv` directly until `okf gates` needed to call it in-process
+    rather than pay a fresh interpreter to do the same work. The CLI is the
+    documented API and has not moved: the default reproduces it exactly.
+    """
+    argv = sys.argv[1:] if argv is None else list(argv)
     # The non-ASCII findings would otherwise be unprintable on a cp1252 console.
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
 
-    if len(sys.argv) < 2:
+    if not argv:
         print("usage: check_ats.py resume.pdf | resume.txt [--strict]")
         return 2
-    path = sys.argv[1]
-    strict = "--strict" in sys.argv
+    path = argv[0]
+    strict = "--strict" in argv
     if not os.path.exists(path):
         print(f"file not found: {path}")
         return 2

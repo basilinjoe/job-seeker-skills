@@ -22,6 +22,12 @@ from fixtures import (CHECK_ATS, EXAMPLE_URS, RENDER_RESUME, SCRIPTS, run,
 
 CHECK_PROSE = SCRIPTS / "check_prose.py"
 
+# example.resume.json carries three views, and a record holding more than one now
+# refuses to render without being told which - the fallback to views[0] was silently
+# picking one. Every claim in this file is about the text layer, so which view renders
+# is irrelevant to the assertion and only has to be held constant.
+THEME_VIEW = "view_au_default"
+
 planner = urs_package()
 emit_latex = urs_module("urs.emit_latex")
 themes = urs_module("urs.themes")
@@ -121,6 +127,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
     def render(self, name):
         out = self.tmp / name
         code, output = run(RENDER_RESUME, EXAMPLE_URS, "--out", out,
+                           "--view", THEME_VIEW,
                            "--template", name, "--format", "latex", "--pdf")
         self.assertEqual(code, 0, output)
         return next(out.glob("*.pdf"))
@@ -172,7 +179,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         import json
 
         with open(EXAMPLE_URS, encoding="utf8") as fh:
-            plan = planner.build(json.load(fh))
+            plan = planner.build(json.load(fh), view_id=THEME_VIEW)
         for name in themes.names():
             text = self.extract(self.render(name))
             self.assertIn(plan["name"], text, f"{name}: the name is not in the text layer")

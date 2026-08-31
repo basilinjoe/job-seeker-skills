@@ -95,8 +95,19 @@ class MigrateCase(unittest.TestCase):
             (root / "tailoring/applications/vanished-co.md").write_text(ORPHAN, encoding="utf-8")
         return root
 
+    def archived(self, root, name):
+        """One file in the archive, wherever revision 7 filed it.
+
+        The tests below are about what the earlier revision steps write, not about
+        which year directory it ends up in - that has its own case. Looking it up
+        keeps them saying the one thing each was written to say.
+        """
+        found = sorted((root / "tailoring/applications").rglob(name))
+        self.assertEqual(len(found), 1, f"{name}: {found}")
+        return found[0]
+
     def frozen(self, root):
-        return root / "tailoring/applications/kestrel.target.md"
+        return self.archived(root, "kestrel.target.md")
 
     # ------------------------------------------------------------------ shape
 
@@ -124,7 +135,7 @@ class MigrateCase(unittest.TestCase):
         code, out = run(MIGRATE_BUNDLE, root)
         self.assertEqual(code, 1, out)
         self.assertIn("DRY RUN", out)
-        self.assertFalse(self.frozen(root).exists())
+        self.assertEqual(list((root / "tailoring/applications").rglob("*.target.md")), [])
         self.assertEqual((root / "tailoring/applications/kestrel.md")
                          .read_text(encoding="utf-8"), before)
 
@@ -154,20 +165,28 @@ class MigrateCase(unittest.TestCase):
         self.assertIn("submitted on 2020-03-04", frozen)
 
     def test_pointers_name_which_copy_they_mean(self):
+        """`posting:` is the frozen companion beside it; `target_working_copy:` is the
+        live posting, which r6 moved onto `.posting.md` and r7 put two levels up."""
         root = self.make_r1()
         run(MIGRATE_BUNDLE, root, "--apply")
-        app = (root / "tailoring/applications/kestrel.md").read_text(encoding="utf-8")
+        app = self.archived(root, "kestrel.md").read_text(encoding="utf-8")
         self.assertIn('posting: "kestrel.target.md"', app)
-        self.assertIn('target_working_copy: "../targets/kestrel.md"', app)
+        self.assertIn('target_working_copy: "../../targets/kestrel.posting.md"', app)
         self.assertNotRegex(app, r"(?m)^target:")
 
     def test_the_working_copy_survives(self):
-        """Nothing is deleted - the next application to this company starts from it."""
+        """Nothing is deleted - the next application to this company starts from it.
+
+        r6 marks it superseded and touches nothing else: the advertisement is still
+        there word for word, which is the whole reason it was not removed.
+        """
         root = self.make_r1()
         run(MIGRATE_BUNDLE, root, "--apply")
         working = root / "tailoring/targets/kestrel.md"
         self.assertTrue(working.exists())
-        self.assertEqual(working.read_text(encoding="utf-8"), TARGET)
+        text = working.read_text(encoding="utf-8")
+        self.assertIn("superseded_by: kestrel.posting.md", text)
+        self.assertEqual(text.replace("superseded_by: kestrel.posting.md\n", ""), TARGET)
 
     def test_index_is_stamped(self):
         root = self.make_r1()
@@ -198,7 +217,7 @@ class MigrateCase(unittest.TestCase):
         read as if the freeze had resolved. Regression: it used to write one."""
         root = self.make_r1(with_orphan=True)
         run(MIGRATE_BUNDLE, root, "--apply")
-        orphan = (root / "tailoring/applications/vanished-co.md").read_text(encoding="utf-8")
+        orphan = self.archived(root, "vanished-co.md").read_text(encoding="utf-8")
         self.assertNotIn("posting:", orphan)
 
     def test_migrated_bundle_still_validates(self):
@@ -218,7 +237,7 @@ class MigrateCase(unittest.TestCase):
             + "\n# Outcome\n\nRejected after first interview, 2026-07-02.\n",
             encoding="utf-8")
         run(MIGRATE_BUNDLE, root, "--apply")
-        text = app.read_text(encoding="utf-8")
+        text = self.archived(root, "kestrel.md").read_text(encoding="utf-8")
         self.assertIn("# Timeline", text)
         self.assertIn("| 2020-03-04 | submitted |", text)
         self.assertIn("| 2026-07-02 | rejected |", text)
@@ -231,7 +250,7 @@ class MigrateCase(unittest.TestCase):
             APPLICATION.replace("outcome: pending", "outcome: rejected-at-screen"),
             encoding="utf-8")
         run(MIGRATE_BUNDLE, root, "--apply")
-        text = app.read_text(encoding="utf-8")
+        text = self.archived(root, "kestrel.md").read_text(encoding="utf-8")
         self.assertIn("| unknown | rejected |", text)
         self.assertIn("[reconstructed at migration", text)
 
@@ -243,14 +262,14 @@ class MigrateCase(unittest.TestCase):
             + "\n# Selection\n\nRanked on 2026-04-01.\n\n# Outcome\n\nWithdrawn.\n",
             encoding="utf-8")
         run(MIGRATE_BUNDLE, root, "--apply")
-        text = app.read_text(encoding="utf-8")
+        text = self.archived(root, "kestrel.md").read_text(encoding="utf-8")
         self.assertIn("| unknown | withdrawn |", text)
         self.assertNotIn("| 2026-04-01 | withdrawn |", text)
 
     def test_outcome_is_deprecated_not_deleted(self):
         root = self.make_r1()
         run(MIGRATE_BUNDLE, root, "--apply")
-        text = (root / "tailoring/applications/kestrel.md").read_text(encoding="utf-8")
+        text = self.archived(root, "kestrel.md").read_text(encoding="utf-8")
         self.assertIn("outcome: pending", text)
         self.assertIn("DEPRECATED at r3", text)
 
@@ -295,116 +314,149 @@ status: confirmed
         self.assertIn("migrate_bundle.py", out)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
-class R3ToR4(MigrateCase):
-    """The posting becomes a UJD document, and the one unrecoverable fact is said.
+class Postings(MigrateCase):
+    """A working posting becomes `<stem>.posting.md`, and the one unrecoverable
+    fact is said.
 
     A Job Target file held a single list of requirements with no required-versus-
-    preferred modifier. Promoting all of them to must-have is the only reading that
+    preferred modifier. Promoting all of them to `required` is the only reading that
     does not silently discard a distinction - but it is still a promotion, so it is
     reported rather than performed quietly.
     """
 
+    OUT = "tailoring/targets/kestrel.posting.md"
+
     def migrate(self, root):
-        code, out = run(MIGRATE_BUNDLE, root, "--apply")
-        return code, out
+        return run(MIGRATE_BUNDLE, root, "--apply")
 
-    def posting(self, root, rel="tailoring/targets/kestrel.posting.json"):
-        import json
-        path = root / rel
-        self.assertTrue(path.exists(), f"{rel} was not written")
-        return json.loads(path.read_text(encoding="utf-8"))
-
-    def test_a_target_becomes_a_ujd_document(self):
+    def make_r1_migrated(self):
         root = self.make_r1()
         self.migrate(root)
-        doc = self.posting(root)
-        self.assertEqual(doc["ujd"], "1.0.0")
-        self.assertEqual(doc["posting"]["title"], "Principal Platform Architect")
-        self.assertEqual(doc["organization"]["name"], "Kestrel Health")
+        return root
+
+    def posting(self, root, rel=None):
+        path = root / (rel or self.OUT)
+        self.assertTrue(path.exists(), f"{rel or self.OUT} was not written")
+        return path.read_text(encoding="utf-8")
+
+    def frontmatter(self, root, rel=None):
+        text = self.posting(root, rel)
+        self.assertTrue(text.startswith("---"), text[:40])
+        return text.split("---", 2)[1]
+
+    def requirements(self, root, rel=None):
+        """The `requirements:` blocks as dicts, without a YAML parser.
+
+        Everything above the first `- ` is a scalar key, so it lands nowhere.
+        """
+        out = []
+        for line in self.frontmatter(root, rel).splitlines():
+            stripped = line.strip()
+            if stripped.startswith("- "):
+                out.append({})
+                stripped = stripped[2:]
+            if out and ": " in stripped:
+                key, value = stripped.split(": ", 1)
+                out[-1][key] = value.split("#")[0].strip().strip('"')
+        return out
+
+    def test_a_target_becomes_a_markdown_posting(self):
+        fm = self.frontmatter(self.make_r1_migrated())
+        self.assertIn("type: Job Posting", fm)
+        self.assertIn("title: Principal Platform Architect", fm)
+        self.assertIn("company: Kestrel Health", fm)
 
     def test_requirements_carry_their_kind_and_value(self):
-        root = self.make_r1()
-        self.migrate(root)
-        doc = self.posting(root)
-        pairs = {(r["kind"], r["value"]) for r in doc["requirements"]}
-        self.assertEqual(pairs, {("capability", "integration-architecture"),
-                                 ("technology", "azure")})
+        reqs = self.requirements(self.make_r1_migrated())
+        self.assertEqual({(r["value"], r["kind"]) for r in reqs},
+                         {("integration-architecture", "capability"),
+                          ("azure", "technology")})
 
     def test_role_axes_carry_over(self):
-        root = self.make_r1()
-        self.migrate(root)
-        doc = self.posting(root)
-        self.assertEqual(doc["role"]["domains"], ["healthcare"])
-        self.assertEqual(doc["role"]["seniority"], "architecture-ownership")
+        fm = self.frontmatter(self.make_r1_migrated())
+        self.assertIn("domains: [healthcare]", fm)
+        self.assertIn("seniority: architecture-ownership", fm)
 
     def test_necessity_is_promoted_and_the_promotion_is_reported(self):
         root = self.make_r1()
         _, out = self.migrate(root)
-        doc = self.posting(root)
-        self.assertTrue(all(r["necessity"] == "must-have" for r in doc["requirements"]))
-        self.assertTrue(all(r["provenance"]["status"] == "needs-verification"
-                            for r in doc["requirements"]))
-        self.assertIn("nothing here can tell which", out)
+        fm = self.frontmatter(root)
+        self.assertEqual(fm.count("necessity: required"), 2)
+        self.assertIn("status: needs-verification", fm)
+        self.assertIn("no required-versus-preferred modifier", out)
 
     def test_the_advertisement_is_kept_and_nothing_else_is(self):
         """Only the `# Posting` section. The ranking below it was our own output,
-        and carrying it into raw_text would let a span check pass against text that
-        was never in the advertisement."""
+        and carrying it over would leave someone re-reading this framework's guesses
+        as though the employer had written them."""
         root = self.make_r1()
         (root / "tailoring/targets/kestrel.md").write_text(
             TARGET + "\n# Evidence ranking\n\n| rank | score |\n|---|---|\n| 1 | 19 |\n"
             "\n# Gaps\n\nNo Terraform evidence.\n", encoding="utf-8")
         self.migrate(root)
-        raw = self.posting(root)["source"]["raw_text"]
-        self.assertIn("Own the clinical integration platform across 60 sites.", raw)
-        self.assertNotIn("Evidence ranking", raw)
-        self.assertNotIn("Terraform", raw)
+        body = self.posting(root).split("---", 2)[2]
+        self.assertIn("Own the clinical integration platform across 60 sites.", body)
+        self.assertNotIn("Evidence ranking", body)
+        self.assertNotIn("Terraform", body)
 
-    def test_the_frozen_application_target_is_converted_too(self):
-        root = self.make_r1()
-        self.migrate(root)
-        doc = self.posting(root, "tailoring/applications/kestrel.posting.json")
-        self.assertEqual(doc["organization"]["name"], "Kestrel Health")
+    def test_the_frozen_application_target_is_left_alone(self):
+        """It is already Markdown, and it is already frozen. Rewriting it to match a
+        convention that postdates the application is what an archive exists to
+        prevent."""
+        root = self.make_r1_migrated()
+        self.assertTrue(self.archived(root, "kestrel.target.md").exists())
+        self.assertEqual(
+            list((root / "tailoring/applications").rglob("*.posting.md")), [])
 
     def test_the_application_log_is_not_mistaken_for_a_posting(self):
-        """In applications/ only the frozen `.target.md` is a posting; the bare
-        `<stem>.md` is the log, and converting it would invent a posting."""
-        root = self.make_r1()
-        self.migrate(root)
-        self.assertTrue((root / "tailoring/applications/kestrel.md").exists())
-        self.assertEqual(
-            len(list((root / "tailoring/applications").glob("*.posting.json"))), 1)
+        root = self.make_r1_migrated()
+        self.assertTrue(self.archived(root, "kestrel.md").exists())
 
-    def test_the_markdown_is_left_in_place(self):
-        root = self.make_r1()
-        self.migrate(root)
+    def test_the_markdown_source_is_left_in_place(self):
+        root = self.make_r1_migrated()
         self.assertTrue((root / "tailoring/targets/kestrel.md").exists())
 
     def test_it_does_not_overwrite_a_posting_that_already_exists(self):
-        root = self.make_r1()
-        self.migrate(root)
-        target = root / "tailoring/targets/kestrel.posting.json"
-        target.write_text('{"ujd": "1.0.0", "mine": true}', encoding="utf-8")
+        root = self.make_r1_migrated()
+        target = root / self.OUT
+        target.write_text("---\ntype: Job Posting\nmine: true\n---\n",
+                          encoding="utf-8")
         run(MIGRATE_BUNDLE, root, "--apply")
         self.assertIn("mine", target.read_text(encoding="utf-8"))
 
-    def test_the_produced_document_validates_as_ujd(self):
-        from fixtures import VALIDATE_UJD
+    def test_a_ujd_posting_is_converted_too(self):
+        """A bundle stopped at revision 4 has JSON postings and no reader for them."""
+        import json
         root = self.make_r1()
+        (root / "tailoring/targets/heron.posting.json").write_text(json.dumps({
+            "ujd": "1.0.0",
+            "posting": {"title": "Staff Engineer", "url": "https://example.com/j/1"},
+            "organization": {"name": "Heron Labs"},
+            "role": {"domains": ["fintech"], "seniority": "platform-design"},
+            "requirements": [
+                {"kind": "technology", "value": "kubernetes", "necessity": "must-have",
+                 "provenance": {"source": {"text": "deep Kubernetes experience"}}},
+                {"kind": "capability", "value": "observability",
+                 "necessity": "nice-to-have"},
+            ],
+            "source": {"raw_text": "Run the platform team."},
+        }), encoding="utf-8")
         self.migrate(root)
-        code, out = run(VALIDATE_UJD, root / "tailoring/targets/kestrel.posting.json")
-        self.assertEqual(code, 0, out)
-
-    def test_the_missing_record_is_reported_rather_than_invented(self):
-        """Transcribing prose into evidence is not a text substitution."""
-        root = self.make_r1()
-        _, out = self.migrate(root)
-        self.assertIn("record.json does not exist yet", out)
-        self.assertFalse((root / "resume-generation" / "record.json").exists())
+        text = self.posting(root, "tailoring/targets/heron.posting.md")
+        fm, body = text.split("---", 2)[1], text.split("---", 2)[2]
+        self.assertIn("title: Staff Engineer", fm)
+        self.assertIn("company: Heron Labs", fm)
+        # A URL holds a colon, which is the one thing bare YAML cannot carry.
+        self.assertIn('url: "https://example.com/j/1"', fm)
+        self.assertIn("domains: [fintech]", fm)
+        self.assertIn("Run the platform team.", body)
+        reqs = self.requirements(root, "tailoring/targets/heron.posting.md")
+        self.assertEqual(reqs, [
+            {"value": "kubernetes", "kind": "technology", "necessity": "required",
+             "label": "deep Kubernetes experience"},
+            {"value": "observability", "kind": "capability",
+             "necessity": "preferred"},
+        ])
 
     def test_a_target_with_no_frontmatter_is_reported_not_guessed(self):
         root = self.make_r1()
@@ -412,11 +464,319 @@ class R3ToR4(MigrateCase):
             "# Just a posting\n\nSome text.\n", encoding="utf-8")
         _, out = self.migrate(root)
         self.assertIn("no readable frontmatter", out)
-        self.assertFalse((root / "tailoring/targets/bare.posting.json").exists())
+        self.assertFalse((root / "tailoring/targets/bare.posting.md").exists())
 
     def test_a_dry_run_writes_nothing(self):
         root = self.make_r1()
         code, out = run(MIGRATE_BUNDLE, root)
         self.assertEqual(code, 1)
         self.assertIn("would create", out)
-        self.assertFalse((root / "tailoring/targets/kestrel.posting.json").exists())
+        self.assertFalse((root / self.OUT).exists())
+
+
+class Supersession(MigrateCase):
+    """r5 -> r6 has to mark the working posting r5 itself replaced.
+
+    It read only the filesystem, so on a bundle coming from r1 the `<stem>.posting.md`
+    it was looking for had not been written yet - nothing looked superseded, nothing was
+    marked, and `--apply` produced a bundle validate_bundle.py rejects on the very rule
+    this step exists to satisfy. SKILL.md offers this migration to everyone arriving
+    with an existing bundle, so that was the first thing the skill did to a real record.
+    """
+
+    def test_the_posting_it_created_supersedes_the_target_it_read(self):
+        root = self.make_r1()
+        run(MIGRATE_BUNDLE, root, "--apply")
+        self.assertIn("superseded_by: kestrel.posting.md",
+                      (root / "tailoring/targets/kestrel.md").read_text(encoding="utf-8"))
+
+    def test_a_posting_already_beside_an_unmarked_target_is_marked_too(self):
+        """The other way in: r5 ran at some point, r6 never did."""
+        root = self.make_r1()
+        (root / "tailoring/targets/kestrel.posting.md").write_text(
+            '---\ntype: Job Posting\ntitle: "Kestrel"\nstatus: confirmed\n---\n\n'
+            "# Posting\n\nOwn the platform.\n", encoding="utf-8")
+        run(MIGRATE_BUNDLE, root, "--apply")
+        self.assertIn("superseded_by: kestrel.posting.md",
+                      (root / "tailoring/targets/kestrel.md").read_text(encoding="utf-8"))
+
+
+ORG = """---
+type: Organisation
+title: "Acme Health"
+description: "Aged care provider."
+timestamp: 2026-01-01T00:00:00Z
+status: confirmed
+relationship: employer
+---
+
+# About
+
+Aged care.
+"""
+
+LIVE_POSTING = """---
+type: Job Posting
+title: "Staff Engineer"
+description: "Run the platform team."
+timestamp: 2026-01-01T00:00:00Z
+status: confirmed
+company: "Acme Health"
+---
+
+# Posting
+
+Run the platform team.
+"""
+
+
+def r6_application(stem, submitted, extra=""):
+    """An application in the flat r6 archive, with a reference at every depth.
+
+    `posting:` is a companion in the same directory, `target_working_copy:` is one
+    level up and `company_ref:` is two - which is exactly the set r7 has to rebase.
+    """
+    return """---
+type: Application
+title: "Acme Health - Staff Engineer"
+description: "Submitted via Workday."
+timestamp: 2026-01-01T00:00:00Z
+status: confirmed
+posting: "%(stem)s.posting.md"
+view_file: "%(stem)s.view.md"
+target_working_copy: "../targets/acme.posting.md"
+company_ref: "../../organisations/acme.md"
+%(extra)s---
+
+# What was sent
+
+Rendered from [the view](%(stem)s.view.md) against
+[the live posting](../targets/acme.posting.md) for [Acme](../../organisations/acme.md).
+
+# Timeline
+
+| Date | Event | Channel | Note | Due |
+|---|---|---|---|---|
+| %(submitted)s | submitted | workday |  |  |
+""" % {"stem": stem, "submitted": submitted, "extra": extra}
+
+
+FROZEN = """---
+type: %s
+title: "Acme Health - Staff Engineer"
+description: "Frozen at submission."
+timestamp: 2026-01-01T00:00:00Z
+status: confirmed
+frozen: true
+---
+
+# Posting
+
+Run the platform team.
+"""
+
+
+class Revision7(MigrateCase):
+    """The archive is partitioned by submission year.
+
+    A flat archive is four hundred files by the hundredth application, and the frozen
+    `.view.md` copies in it collide with the live views they were taken from. The year
+    is immutable and already in the stem, which is why it - and not the outcome - is
+    what the layout partitions on.
+    """
+
+    ACME = "2025-11-03-acme-engineer"
+    HERON = "2026-02-01-heron-architect"
+
+    def make_r6(self):
+        root = self.make_bundle()
+        index = root / "index.md"
+        index.write_text(
+            re.sub(r"okf_bundle: \d+", "okf_bundle: 6", index.read_text(encoding="utf-8")),
+            encoding="utf-8")
+        (root / "organisations/acme.md").write_text(ORG, encoding="utf-8")
+        (root / "tailoring/targets/acme.posting.md").write_text(LIVE_POSTING, encoding="utf-8")
+        apps = root / "tailoring/applications"
+        for stem, submitted in ((self.ACME, "2025-11-03"), (self.HERON, "2026-02-01")):
+            (apps / f"{stem}.md").write_text(
+                r6_application(stem, submitted, f"submitted: {submitted}\n"),
+                encoding="utf-8")
+            (apps / f"{stem}.posting.md").write_text(FROZEN % "Source Document",
+                                                     encoding="utf-8")
+            (apps / f"{stem}.view.md").write_text(FROZEN % "View", encoding="utf-8")
+        # A stem from before the date convention, whose date is in frontmatter.
+        (apps / "legacy.md").write_text(
+            r6_application("legacy", "2019-06-04", "submitted: 2019-06-04\n"),
+            encoding="utf-8")
+        (apps / "legacy.posting.md").write_text(FROZEN % "Source Document", encoding="utf-8")
+        (apps / "legacy.view.md").write_text(FROZEN % "View", encoding="utf-8")
+        # And one where nothing records when it was sent.
+        (apps / "kestrel.md").write_text(
+            r6_application("kestrel", "unknown", "submitted: unknown\n"), encoding="utf-8")
+        (apps / "kestrel.posting.md").write_text(FROZEN % "Source Document", encoding="utf-8")
+        (apps / "kestrel.view.md").write_text(FROZEN % "View", encoding="utf-8")
+        return root
+
+    def migrate(self, root):
+        return run(MIGRATE_BUNDLE, root, "--apply")
+
+    # ------------------------------------------------------------- the layout
+
+    def test_an_application_lands_in_the_year_its_stem_names(self):
+        root = self.make_r6()
+        self.migrate(root)
+        apps = root / "tailoring/applications"
+        self.assertTrue((apps / f"2025/{self.ACME}.md").exists())
+        self.assertTrue((apps / f"2026/{self.HERON}.md").exists())
+        self.assertFalse((apps / f"{self.ACME}.md").exists())
+
+    def test_the_whole_file_set_moves_not_just_the_log(self):
+        root = self.make_r6()
+        self.migrate(root)
+        year = root / "tailoring/applications/2025"
+        for suffix in (".md", ".posting.md", ".view.md"):
+            self.assertTrue((year / (self.ACME + suffix)).exists(), suffix)
+
+    def test_a_stem_with_no_date_falls_back_to_the_frontmatter(self):
+        """`kestrel.md` predates the dated stem. `submitted:` still knows the year."""
+        root = self.make_r6()
+        self.migrate(root)
+        self.assertTrue((root / "tailoring/applications/2019/legacy.md").exists())
+
+    def test_an_application_with_no_derivable_year_is_filed_undated_and_reported(self):
+        root = self.make_r6()
+        code, out = self.migrate(root)
+        self.assertEqual(code, 1, out)
+        self.assertTrue((root / "tailoring/applications/undated/kestrel.md").exists())
+        self.assertIn("undated", out)
+        self.assertIn("rather than into a guessed year", out)
+
+    # -------------------------------------------------------------- the links
+
+    def test_a_relative_link_out_of_a_moved_file_still_resolves(self):
+        root = self.make_r6()
+        self.migrate(root)
+        moved = root / "tailoring/applications/2025" / (self.ACME + ".md")
+        text = moved.read_text(encoding="utf-8")
+        self.assertIn('target_working_copy: "../../targets/acme.posting.md"', text)
+        self.assertIn('company_ref: "../../../organisations/acme.md"', text)
+        self.assertIn("(../../targets/acme.posting.md)", text)
+        self.assertIn("(../../../organisations/acme.md)", text)
+        for target in re.findall(r"\]\(([^)]+)\)", text):
+            self.assertTrue((moved.parent / target).resolve().exists(), target)
+
+    def test_a_companion_in_the_same_directory_is_left_alone(self):
+        """It moved with the file that names it, so the path between them is unchanged."""
+        root = self.make_r6()
+        self.migrate(root)
+        text = (root / "tailoring/applications/2025" / (self.ACME + ".md")).read_text(
+            encoding="utf-8")
+        self.assertIn('posting: "%s.posting.md"' % self.ACME, text)
+        self.assertIn('view_file: "%s.view.md"' % self.ACME, text)
+
+    def test_a_link_from_outside_the_archive_is_rebased(self):
+        """r5 -> r6 leaves prose links alone because the file is still there. Here it
+        is not, so a link nobody rebases is a broken link."""
+        root = self.make_r6()
+        log = root / "log.md"
+        log.write_text(log.read_text(encoding="utf-8")
+                       + f"\n# 2025-11-03 - Applied\n\nSee "
+                         f"[the application](tailoring/applications/{self.ACME}.md).\n",
+                       encoding="utf-8")
+        self.migrate(root)
+        self.assertIn(f"(tailoring/applications/2025/{self.ACME}.md)",
+                      log.read_text(encoding="utf-8"))
+
+    # ------------------------------------------------------------ the indexes
+
+    def test_every_year_directory_gets_an_index(self):
+        root = self.make_r6()
+        self.migrate(root)
+        apps = root / "tailoring/applications"
+        for year in ("2019", "2025", "2026", "undated"):
+            self.assertTrue((apps / year / "index.md").exists(), year)
+        listing = (apps / "2025/index.md").read_text(encoding="utf-8")
+        self.assertIn(f"({self.ACME}.md)", listing)
+
+    def test_the_archive_index_lists_the_year_directories(self):
+        root = self.make_r6()
+        self.migrate(root)
+        text = (root / "tailoring/applications/index.md").read_text(encoding="utf-8")
+        for year in ("2019", "2025", "2026", "undated"):
+            self.assertIn(f"({year}/index.md)", text)
+
+    # ------------------------------------------------ what it must not do
+
+    def test_the_dry_run_reports_the_moves_and_writes_nothing(self):
+        root = self.make_r6()
+        code, out = run(MIGRATE_BUNDLE, root)
+        self.assertEqual(code, 1, out)
+        self.assertIn("would move", out)
+        self.assertIn("2025/", out)
+        self.assertTrue((root / "tailoring/applications" / (self.ACME + ".md")).exists())
+        self.assertFalse((root / "tailoring/applications/2025").exists())
+
+    def test_it_refuses_to_write_over_a_file_already_in_the_year_directory(self):
+        root = self.make_r6()
+        year = root / "tailoring/applications/2025"
+        year.mkdir()
+        (year / (self.ACME + ".md")).write_text(
+            '---\ntype: Application\ntitle: "Mine"\nsubmitted: false\n---\n\n'
+            "# Timeline\n\n| Date | Event | Channel | Note | Due |\n|---|---|---|---|---|\n",
+            encoding="utf-8")
+        code, out = self.migrate(root)
+        self.assertEqual(code, 1, out)
+        self.assertIn("already exists", out)
+        self.assertIn("Mine", (year / (self.ACME + ".md")).read_text(encoding="utf-8"))
+
+    def test_a_migrated_r6_bundle_validates(self):
+        root = self.make_r6()
+        self.migrate(root)
+        code, out = run(VALIDATE_BUNDLE, root)
+        self.assertEqual(code, 0, out)
+
+    def test_running_it_again_has_nothing_to_do(self):
+        root = self.make_r6()
+        self.migrate(root)
+        code, out = run(MIGRATE_BUNDLE, root, "--apply")
+        self.assertEqual(code, 0, out)
+        self.assertIn("nothing to do", out)
+
+
+    # ----------------------------------------------------------- loose files
+    #
+    # A sent resume is named after the person and the company, not the application, so
+    # it cannot be grouped by its own filename - and filing it under the wrong
+    # application is a worse record than leaving it where somebody can see it.
+
+    def test_a_resume_the_application_links_moves_with_it(self):
+        root = self.make_r6()
+        apps = root / "tailoring/applications"
+        (apps / "Test_Person_Acme_Resume.txt").write_text("Test Person\n", encoding="utf-8")
+        app = apps / (self.ACME + ".md")
+        app.write_text(app.read_text(encoding="utf-8")
+                       + "\n# Sent\n\n[The resume](Test_Person_Acme_Resume.txt)\n",
+                       encoding="utf-8")
+        self.migrate(root)
+        self.assertTrue((apps / "2025/Test_Person_Acme_Resume.txt").exists())
+
+    def test_a_resume_named_after_the_stem_moves_with_it(self):
+        root = self.make_r6()
+        apps = root / "tailoring/applications"
+        (apps / (self.ACME + "_Resume.txt")).write_text("Test Person\n", encoding="utf-8")
+        self.migrate(root)
+        self.assertTrue((apps / "2025" / (self.ACME + "_Resume.txt")).exists())
+
+    def test_a_resume_nothing_claims_is_left_alone_and_reported(self):
+        root = self.make_r6()
+        apps = root / "tailoring/applications"
+        (apps / "Test_Person_Vanished_Resume.txt").write_text("Test Person\n",
+                                                              encoding="utf-8")
+        code, out = self.migrate(root)
+        self.assertEqual(code, 1, out)
+        self.assertTrue((apps / "Test_Person_Vanished_Resume.txt").exists())
+        self.assertIn("belongs to no application this migration can name", out)
+
+
+if __name__ == "__main__":
+    unittest.main()

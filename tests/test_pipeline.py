@@ -5,6 +5,8 @@ it through a subprocess would say much less about it. The CLI tests cover what o
 CLI can get wrong - grouping, exit codes, and the date the report is computed against.
 """
 import datetime
+import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -170,7 +172,16 @@ class ParseCase(unittest.TestCase):
         self.assertIn("no timeline", s.flags)
 
 
-class CliCase(unittest.TestCase):
+class BundleFixture(unittest.TestCase):
+    """A seeded bundle plus a way to put an application into it.
+
+    `revision` and `subdir` say which archive shape a case writes. Both are stamped
+    explicitly so the tests do not inherit whatever init_bundle.py seeds today.
+    """
+
+    revision = 6
+    subdir = ""
+
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
@@ -178,9 +189,19 @@ class CliCase(unittest.TestCase):
         self.root = self.tmp / "my-career"
         code, out = run(INIT_BUNDLE, self.root, "--name", "Test Person")
         self.assertEqual(code, 0, out)
+        index = self.root / "index.md"
+        text, hits = re.subn(r"^okf_bundle: \d+$", f"okf_bundle: {self.revision}",
+                             index.read_text(encoding="utf-8"), count=1, flags=re.M)
+        self.assertEqual(hits, 1, "bundle root index.md no longer carries okf_bundle")
+        index.write_text(text, encoding="utf-8")
 
-    def application(self, stem, company, role, *rows):
-        (self.root / "tailoring/applications" / f"{stem}.md").write_text(
+    def application(self, stem, company, role, *rows, subdir=None):
+        where = self.root / "tailoring/applications"
+        subdir = self.subdir if subdir is None else subdir
+        if subdir:
+            where = where / subdir
+            where.mkdir(parents=True, exist_ok=True)
+        (where / f"{stem}.md").write_text(
             f"""---
 type: Application
 title: "{company} - {role}"
@@ -193,6 +214,11 @@ submitted: {rows[0][0]}
 ---
 
 """ + timeline(*rows), encoding="utf-8")
+
+
+class CliCase(BundleFixture):
+    """What only the CLI can get wrong - grouping, exit codes, and the date the
+    report is computed against."""
 
     def test_an_empty_bundle_says_so(self):
         code, out = run(PIPELINE, self.root)
@@ -253,6 +279,132 @@ submitted: {rows[0][0]}
         code, out = run(VALIDATE_BUNDLE, self.root)
         self.assertEqual(code, 0, out)
         self.assertIn("VALID", out)
+
+
+class YearPartitionedCase(BundleFixture):
+    """Revision 7 moved the archive into applications/<yyyy>/. A flat listdir found
+    nothing there and the board silently reported an empty search."""
+
+    revision = 7
+    subdir = "2026"
+
+    def test_an_application_in_a_year_directory_is_found(self):
+        self.application("2026-08-01-kestrel-architect", "Kestrel Health",
+                         "Principal Architect", ("2026-08-01", "submitted"))
+        code, out = run(PIPELINE, self.root, "--as-of", "2026-09-18")
+        self.assertEqual(code, 1, out)
+        self.assertIn("NEEDS YOU (1)", out)
+        self.assertNotIn("no applications yet", out)
+
+    def test_both_shapes_are_found_in_one_bundle(self):
+        """A bundle is never obliged to migrate, so the r6 shape has to keep working."""
+        self.application("2026-08-01-kestrel-architect", "Kestrel Health",
+                         "Principal Architect", ("2026-08-01", "submitted"))
+        self.application("harbourline", "Harbourline", "Solution Architect",
+                         ("2026-08-02", "submitted"), subdir="")
+        _, out = run(PIPELINE, self.root, "--as-of", "2026-09-18")
+        self.assertIn("ACTION 2 | LIVE 2 | CLOSED 0", out)
+
+    def test_the_file_path_reported_is_the_one_on_disk(self):
+        self.application("2026-08-01-kestrel-architect", "Kestrel Health",
+                         "Principal Architect", ("2026-08-01", "submitted"))
+        _, out = run(PIPELINE, self.root, "--as-of", "2026-09-18", "--company", "kestrel")
+        self.assertIn("tailoring/applications/2026/2026-08-01-kestrel-architect.md", out)
+
+
+class CompanionCase(BundleFixture):
+    """The frozen copies beside an application were opened and YAML-parsed only to be
+    discarded on a type check - three needless reads per application, over bodies that
+    hold a verbatim advertisement."""
+
+    def companion(self, stem, suffix, text):
+        path = self.root / "tailoring/applications" / f"{stem}{suffix}"
+        path.write_bytes(text)
+        return path
+
+    def test_a_companion_is_not_read_at_all(self):
+        """A posting pasted from a Windows-1252 source is not UTF-8, and reading it
+        ended the run in a UnicodeDecodeError nobody could act on."""
+        self.application("kestrel", "Kestrel Health", "Principal Architect",
+                         ("2026-09-15", "submitted"))
+        for suffix in (".posting.md", ".gaps.md", ".view.md"):
+            self.companion("kestrel", suffix, b"---\ntype: Posting\n---\n\nSalary \x93120k\x94.\n")
+        code, out = run(PIPELINE, self.root, "--as-of", "2026-09-18")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Traceback", out)
+        self.assertIn("LIVE 1", out)
+
+
+class BoundedOutput(BundleFixture):
+    """Ten kilobytes of board every time an agent looks at it, and mode-pipeline.md
+    frames this as a weekly review a person acts on."""
+
+    def overdue(self, n):
+        for i in range(n):
+            self.application(f"2026-01-0{i % 9 + 1}-company-{i}", f"Company {i}",
+                             "Engineer", ("2026-01-01", "submitted"))
+
+    def rows(self, out):
+        return [l for l in out.splitlines() if l.startswith("  overdue")]
+
+    def test_the_needs_you_block_is_bounded_by_default(self):
+        self.overdue(20)
+        code, out = run(PIPELINE, self.root, "--as-of", "2026-09-18")
+        self.assertEqual(code, 1, out)
+        self.assertIn("NEEDS YOU (20)", out)
+        self.assertEqual(len(self.rows(out)), 15)
+        self.assertIn("... and 5 more", out)
+
+    def test_top_sets_the_bound(self):
+        self.overdue(20)
+        _, out = run(PIPELINE, self.root, "--as-of", "2026-09-18", "--top", "4")
+        self.assertEqual(len(self.rows(out)), 4)
+        self.assertIn("... and 16 more", out)
+
+    def test_all_lifts_the_bound(self):
+        self.overdue(20)
+        _, out = run(PIPELINE, self.root, "--as-of", "2026-09-18", "--all")
+        self.assertEqual(len(self.rows(out)), 20)
+        self.assertNotIn("... and", out)
+
+    def test_the_waiting_block_is_bounded_too(self):
+        for i in range(20):
+            self.application(f"2026-09-1{i % 5}-company-{i}", f"Company {i}",
+                             "Engineer", ("2026-09-15", "submitted"))
+        code, out = run(PIPELINE, self.root, "--as-of", "2026-09-18")
+        self.assertEqual(code, 0, out)
+        self.assertIn("WAITING (20)", out)
+        self.assertIn("... and 5 more", out)
+
+
+class JsonCase(BundleFixture):
+    def test_json_is_the_whole_board_and_parses(self):
+        self.application("kestrel", "Kestrel Health", "Principal Architect",
+                         ("2026-08-01", "submitted"))
+        self.application("harbourline", "Harbourline", "Solution Architect",
+                         ("2026-01-01", "submitted"), ("2026-02-01", "rejected"))
+        code, out = run(PIPELINE, self.root, "--as-of", "2026-09-18", "--json")
+        self.assertEqual(code, 1, out)
+        doc = json.loads(out)
+        self.assertEqual(doc["as_of"], "2026-09-18")
+        self.assertEqual(doc["counts"], {"action": 1, "live": 1, "closed": 1})
+        by_company = {a["company"]: a for a in doc["applications"]}
+        self.assertEqual(by_company["Kestrel Health"]["group"], "needs")
+        self.assertEqual(by_company["Harbourline"]["terminal"], "rejected")
+        self.assertEqual(by_company["Kestrel Health"]["stage"], "submitted")
+
+    def test_json_is_not_bounded_by_top(self):
+        """--top is a reading aid, and a parser does not read."""
+        for i in range(20):
+            self.application(f"2026-01-0{i % 9 + 1}-company-{i}", f"Company {i}",
+                             "Engineer", ("2026-01-01", "submitted"))
+        _, out = run(PIPELINE, self.root, "--as-of", "2026-09-18", "--json")
+        self.assertEqual(len(json.loads(out)["applications"]), 20)
+
+    def test_an_empty_bundle_is_still_valid_json(self):
+        code, out = run(PIPELINE, self.root, "--json")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(json.loads(out)["applications"], [])
 
 
 if __name__ == "__main__":

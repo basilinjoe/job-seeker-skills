@@ -154,5 +154,82 @@ class RevisionConstants(unittest.TestCase):
         self.assertEqual(described, set(range(1, current + 1)))
 
 
+class DocumentedSurface(unittest.TestCase):
+    """What the prose promises, against what is installed.
+
+    The constants above agree with each other and say nothing about the two revision
+    tables a person actually reads. Revision 7 had to be added to both by hand, and a
+    table that stops at 6 does not read as out of date - it reads as though 7 does not
+    exist, which is worse than no table.
+    """
+
+    REVISION_TABLES = (
+        SKILL / "references" / "bundle-spec.md",
+        REPO / "docs" / "SCRIPTS.md",
+    )
+
+    def current(self):
+        text = (SCRIPTS / "validate_bundle.py").read_text(encoding="utf-8")
+        return int(re.search(r"^CURRENT_BUNDLE_REVISION = (\d+)", text, re.M).group(1))
+
+    def test_every_revision_table_reaches_the_current_revision(self):
+        current = self.current()
+        for path in self.REVISION_TABLES:
+            with self.subTest(doc=path.name):
+                rows = re.findall(r"^\| (\d+) \|", path.read_text(encoding="utf-8"), re.M)
+                self.assertTrue(rows, f"{path.name}: no revision table found")
+                described = set(int(n) for n in rows)
+                self.assertEqual(
+                    described, set(range(1, current + 1)),
+                    f"{path.name} documents {sorted(described)}, "
+                    f"current revision is {current}")
+
+    # ---- the URS specification is in two halves -------------------------------
+
+    REFS = SKILL / "references"
+
+    def test_the_view_format_lives_in_exactly_one_file(self):
+        """`urs-spec.md` defines what a view points at; `view-format.md` defines what a
+        view may carry. The split exists so jsk-resume-author reads 968 tokens instead
+        of 4,127, and it is only safe while it stays a split rather than a copy.
+
+        This cannot be checked key by key: `id`, `label`, `skills`, `target` and
+        `include` are legitimately both view keys and record keys, so "appears in both
+        files" is not evidence of anything. What is checkable is that the normative
+        view example lives in one file, and that neither half has quietly regrown a
+        Views section of its own."""
+        spec = (self.REFS / "urs-spec.md").read_text(encoding="utf-8")
+        view = (self.REFS / "view-format.md").read_text(encoding="utf-8")
+        self.assertIn('"provenance_floor"', view,
+                      "view-format.md no longer holds the normative view example")
+        self.assertNotIn('"provenance_floor"', spec,
+                         "urs-spec.md has regrown a view example - it was moved, not copied")
+
+    def test_each_half_says_where_the_other_one_is(self):
+        """A reader who lands in the wrong half has to be able to get to the right one.
+        The pointers are the whole mechanism holding the split together, so losing one
+        silently is the failure this guards."""
+        spec = (self.REFS / "urs-spec.md").read_text(encoding="utf-8")
+        view = (self.REFS / "view-format.md").read_text(encoding="utf-8")
+        self.assertIn("view-format.md", spec, "urs-spec.md does not point at its other half")
+        self.assertIn("urs-spec.md", view, "view-format.md does not point at its other half")
+
+    def test_the_author_is_pointed_at_the_half_it_needs(self):
+        """jsk-resume-author writes a view and reads the compiled record, so the record
+        schema is the half it does not need. Pointing it back at urs-spec.md would undo
+        the saving without anything failing."""
+        author = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
+        self.assertIn("view-format.md", author)
+
+    def test_every_script_SKILL_md_names_is_installed(self):
+        """The script table is how an agent decides what it may run. A row naming a
+        file that is not there sends it to a command that cannot exist, and the
+        failure surfaces as a broken install rather than as a stale table."""
+        named = set(re.findall(r"`([a-z_]+\.py)", (SKILL / "SKILL.md").read_text(encoding="utf-8")))
+        self.assertTrue(named, "SKILL.md names no scripts")
+        missing = sorted(n for n in named if not (SCRIPTS / n).exists())
+        self.assertEqual(missing, [], f"SKILL.md names scripts that are not installed: {missing}")
+
+
 if __name__ == "__main__":
     unittest.main()

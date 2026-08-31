@@ -22,15 +22,20 @@ That loads `references/mode-ship.md`, which holds the procedure.
 PDF holds - reach for it when the posting names a portal known to parse badly, or when the target is
 a form rather than a person.
 
-**Four gates, all of them, every time.** `jsk-verifier` runs them and reports each verdict verbatim.
-Show that output rather than summarising it. Passing one gate says nothing about the others.
+**Four gates, all of them, every time.** `okf gates` runs the three mechanical ones in a single pass
+and prints each verdict verbatim; the render gate is a person opening the PDF, and no command claims
+it. Show that output rather than summarising it. Passing one gate says nothing about the others.
+
+`jsk-verifier` is for a failure that needs tracing back to the concept it came from, not for a clean
+pass — relaying three checkers is work the command does more cheaply.
 
 A defect is repaired in `resume.json` and re-rendered - never patched into the `.tex` and never
 worked around by loosening a check. If the record gate fails on freshly authored prose, that is the
 `provenance_floor` doing its job: go back and get confirm-correct-or-cut on each clause.
 
 **Nothing is frozen until every gate passes.** An archive of a document that was not sendable is
-worse than no archive, because later it reads as though it was.
+worse than no archive, because later it reads as though it was. What is frozen - the posting, the
+assessment, the view and the files actually sent - is filed under `tailoring/applications/<yyyy>/`.
 
 **Before anything else, find the bundle.** Sessions do not share state, so never assume one exists
 because it did last time.

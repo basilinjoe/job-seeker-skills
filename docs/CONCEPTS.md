@@ -21,26 +21,28 @@ never reach a resume before you agree with it.
 ## The rendering
 
 **URS (Universal Résumé Schema)** — the JSON your bundle compiles to before any document exists.
-*Why it matters:* every output format is emitted from this one file, so the PDF and the Word document
-cannot say different things about a date or a number.
+*Why it matters:* every output is emitted from this one record, so the PDF and the paste-in plain
+text cannot say different things about a date or a number.
 
 **View** — a tailored resume, expressed as a selection: it references evidence by id, orders it, and
 hides the rest.
 *Why it matters:* the validator rejects free text inside a view. Tailoring can therefore emphasise,
 but it structurally cannot invent.
 
-**Record** — `resume-generation/record.json`, the standing URS transcription of the whole bundle.
+**Record** — the bundle compiled into URS, in memory, by `okf_compile.py`. Never stored, never
+hand-edited: every field in it is a frontmatter key or a table cell in a concept, so it is current
+by construction rather than by anyone remembering to rebuild it.
 *Why it matters:* the ranking, the gap analysis and the author all read it. When each read something
 different, two of them could disagree about what your record held and nothing would have said so.
 
-**UJD (Universal Job Description)** — the posting, as JSON. Every requirement carries whether it was
+**Posting** — the advertisement verbatim, with its requirements in frontmatter. Each carries whether it was
 *required* or merely *preferred*, what the advertisement actually said, and the sentence it was read
 from.
 *Why it matters:* a flat list of keywords cannot say "a degree **and** six years, **or** a
 postgraduate qualification". Flattened one way it scores a master's holder as unqualified; flattened
 the other, a bare degree passes. Both are wrong, so the boolean structure is modelled.
 
-**UGS (Universal Gap Schema)** — the join between a posting and your record: one verdict per
+**Assessment** — the join between a posting and your record, written to be read aloud: one verdict per
 requirement, the evidence behind it, and how far short it falls on a *named* axis.
 *Why it matters:* it distinguishes "you don't have it" from "you have it and never wrote it down"
 from "you claimed it with nothing behind it". Those need opposite responses, and only the last one

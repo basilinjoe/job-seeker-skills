@@ -462,6 +462,12 @@ def build(doc, view_id=None, region=None, fmt=None):
 
     `region` and `fmt` override the view's own settings, so one authored view
     can be rendered for another market without editing the record.
+
+    Which view is not guessed. A record with several of them and no `view_id` used
+    to resolve `views[0]` - whichever view happened to sort first - and the caller
+    announced it exactly as it announces one that was asked for, so a person with
+    three live targets got an arbitrary one of them and was told nothing. One view
+    is unambiguous and still resolves silently; none synthesises a default.
     """
     views = doc.get("views") or []
     view = None
@@ -469,6 +475,10 @@ def build(doc, view_id=None, region=None, fmt=None):
         view = next((v for v in views if v.get("id") == view_id), None)
         if view is None:
             raise KeyError(f"no view {view_id!r} in this document")
+    elif len(views) > 1:
+        named = ", ".join(str(v.get("id")) for v in views)
+        raise ValueError(
+            f"this record holds {len(views)} views and none was named: {named}")
     elif views:
         view = views[0]
     else:

@@ -1,7 +1,7 @@
 {
   "name": "jsk",
   "displayName": "Job Seeker Skill",
-  "version": "1.5.0",
+  "version": "2.3.0",
   "description": "Build a portable career knowledge base in Open Knowledge Format, then generate ATS-safe resumes from it. Interview once; regenerate resumes, tailored variants and interview briefs forever.",
   "author": {
     "name": "Basilin Joe",

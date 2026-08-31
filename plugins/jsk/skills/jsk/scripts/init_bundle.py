@@ -17,7 +17,7 @@ if HERE not in sys.path:
 
 import pipeline_model  # noqa: E402
 
-BUNDLE_REVISION = 4   # keep in step with CURRENT_REVISION in migrate_bundle.py
+BUNDLE_REVISION = 7   # keep in step with CURRENT_REVISION in migrate_bundle.py
 
 DIRS = ["profile","organisations","roles","projects","achievements","skills","education",
         "open-source","sources","framework","resume-generation","tailoring",
@@ -37,10 +37,34 @@ BLURB = {
  "resume-generation":"Rules governing how this bundle renders into a resume, plus "
                      "record.json - the standing URS transcription everything else reads.",
  "tailoring":"Turning a job description into a targeted resume.",
- "tailoring/targets":"Captured job postings as UJD documents, and the gap analysis "
-                     "of each against your record.",
- "tailoring/applications":"Submissions, evidence selected, and outcomes.",
+ "tailoring/targets":"Captured job postings, and the gap analysis of each against "
+                     "your record.",
+ "tailoring/applications":"Submissions, evidence selected, and outcomes, in one "
+                          "directory per submission year.",
 }
+
+# What the archive looks like once something has been sent. Written into the index
+# rather than mkdir'd as an empty `<year>/`: a year directory with nothing in it is a
+# directory git will not even carry, and it would claim an application that never was.
+APPLICATIONS_INDEX = """# Layout
+
+One directory per submission year, created the first time something is sent that year:
+
+```
+2026/
+  index.md
+  2026-03-04-acme-engineer.md          the log: what was sent, what came back
+  2026-03-04-acme-engineer.posting.md  the advertisement, frozen
+  2026-03-04-acme-engineer.gaps.md     the assessment it answered, frozen
+  2026-03-04-acme-engineer.view.md     the view it rendered from
+  Your_Name_Acme_Resume.pdf            the files actually sent
+```
+
+The year is what the archive partitions on because it is immutable and already in the
+stem. An outcome is not: it is derived from the application's `# Timeline`.
+
+# Years
+"""
 
 def yq(s):
     """Quote a YAML double-quoted scalar. Names really do contain quotes."""
@@ -65,8 +89,10 @@ def main():
     for d in DIRS:
         os.makedirs(os.path.join(root, d), exist_ok=True)
         slug = d.split("/")[-1].replace("-", " ").title()
+        body = (APPLICATIONS_INDEX if d == "tailoring/applications"
+                else "Empty. Add concepts here.\n")
         with open(os.path.join(root, d, "index.md"), "w", encoding="utf-8") as f:
-            f.write(fm("Index", slug, BLURB.get(d, slug), ts) + "Empty. Add concepts here.\n")
+            f.write(fm("Index", slug, BLURB.get(d, slug), ts) + body)
 
     with open(os.path.join(root, "index.md"), "w", encoding="utf-8") as f:
         # The layout revision, stamped once, on the bundle root only. migrate_bundle.py
@@ -191,6 +217,49 @@ are empty, capability checking stays off.
     # someone's own work, so the list is not theirs to invent.
     with open(os.path.join(root, "framework", "pipeline-vocabulary.md"), "w", encoding="utf-8") as f:
         f.write(pipeline_model.vocabulary_markdown(ts))
+
+    # The two files without which a bundle compiles to nothing. Scaffolded empty and
+    # marked needs-verification rather than left out: a bundle that validates clean and
+    # renders a blank page sends someone all the way to the render before they find out
+    # there was never anything to render, and an absent file gives setup mode nothing to
+    # fill in - only something to invent. Every value here is blank for the same reason:
+    # a placeholder headline would be compiled onto a resume as though somebody wrote it.
+    with open(os.path.join(root, "profile", "identity.md"), "w", encoding="utf-8") as f:
+        f.write(fm("Person", name, "", ts, "status: needs-verification\n"))
+        f.write("""# Contact
+
+Fill each value in, then set `status: confirmed`. `description` in the frontmatter is
+the headline a resume leads with - one line, what you do and at what level.
+
+| Field | Value |
+|---|---|
+| Name | %s |
+| Location | |
+| Email | |
+| Phone | |
+| LinkedIn | |
+
+# Never render
+
+Anything below this heading is here so the bundle holds it, not so a resume prints it -
+home address, date of birth, government identifiers. The compile reads the contact table
+above and nothing else.
+""" % name)
+
+    with open(os.path.join(root, "achievements", "metrics.md"), "w", encoding="utf-8") as f:
+        f.write(fm("Metric Set", "Verified numbers",
+                   "Every quantified outcome, recorded once, with where it came from.",
+                   ts, "status: needs-verification\n"))
+        f.write("""Each number lives here once and a resume bullet names the row rather than restating it.
+That is what stops a rewritten clause inflating it - "cut latency 62%" becoming "by over
+60%" becoming "by two thirds".
+
+`Evidence` links the project concept the number came out of. `Source` is how it was
+established: a dashboard, an invoice, a post-incident review, the person's own recall.
+
+| Metric | Value | Evidence | Source |
+|---|---|---|---|
+""")
 
     with open(os.path.join(root, "resume-generation", "open-questions.md"), "w", encoding="utf-8") as f:
         f.write(fm("Open Questions", "Verify before publishing",

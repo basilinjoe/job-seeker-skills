@@ -20,7 +20,7 @@ SCORE_PROJECTS = SCRIPTS / "score_projects.py"
 sp = load_script(SCORE_PROJECTS)
 
 
-def requirement(rid, kind, value, necessity="must-have"):
+def requirement(rid, kind, value, necessity="required"):
     return {"id": rid, "kind": kind, "necessity": necessity, "value": value,
             "provenance": {"status": "confirmed", "source": {"kind": "posting-text"}}}
 
@@ -141,6 +141,50 @@ class ImplicitRequirementsAreExcluded(unittest.TestCase):
         without = sp.score_one(vendor, want_from(self.IMPLICIT), 2026, set())
         with_it = sp.score_one(vendor, want_from(self.IMPLICIT, True), 2026, set())
         self.assertEqual(with_it["score"] - without["score"], 3.0)
+
+
+class NecessityVocabulary(unittest.TestCase):
+    """`required` is what a posting is written with. `must-have` is what UJD said.
+
+    Both have to score, and anything else has to be reported rather than quietly
+    treated as an inference - an unrecognised word falling through to `implicit`
+    drops the entire primary axis without saying so.
+    """
+
+    def scored(self, necessity):
+        return want_from({"requirements": [
+            requirement("req_one", "capability", "integration-architecture", necessity)]})
+
+    def test_required_is_scored(self):
+        self.assertEqual(self.scored("required")["capabilities"],
+                         {"integration-architecture"})
+
+    def test_the_ujd_word_still_scores(self):
+        """A posting migrated out of an archived UJD document carries it."""
+        self.assertEqual(self.scored("must-have")["capabilities"],
+                         {"integration-architecture"})
+        self.assertEqual(self.scored("nice-to-have")["capabilities"],
+                         {"integration-architecture"})
+
+    def test_preferred_is_scored(self):
+        self.assertEqual(self.scored("preferred")["capabilities"],
+                         {"integration-architecture"})
+
+    def test_implicit_is_dropped_and_is_not_reported_as_unknown(self):
+        want = self.scored("implicit")
+        self.assertEqual(want["capabilities"], set())
+        self.assertEqual(want["dropped_implicit"], 1)
+        self.assertEqual(want["unknown_necessity"], [])
+
+    def test_a_word_nobody_knows_is_named(self):
+        want = self.scored("mandatory")
+        self.assertEqual(want["capabilities"], set())
+        self.assertEqual(want["unknown_necessity"], ["mandatory"])
+
+    def test_a_missing_necessity_is_named_too(self):
+        want = want_from({"requirements": [
+            {"id": "req_one", "kind": "capability", "value": "integration-architecture"}]})
+        self.assertEqual(want["unknown_necessity"], ["None"])
 
 
 class DomainMatch(unittest.TestCase):

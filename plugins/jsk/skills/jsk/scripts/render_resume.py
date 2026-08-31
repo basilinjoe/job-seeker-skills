@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Render a URS document into a .tex (and PDF), or plain text.
+"""Render a bundle - or an archived URS document - into a .tex (and PDF), or plain text.
 
 Usage:
-  python3 render_resume.py resume.json --out DIR [options]
+  python3 render_resume.py <bundle-dir | resume.json> --out DIR [options]
 
-  --view ID          which view to render (default: the first one)
+  --view ID          which view to render; required where the record holds more
+                     than one, because there is no sensible way to pick for you
   --format F         latex | txt | all             (default: all)
   --region CC        override the view's region profile, e.g. AU, IN, AE
   --profile P        override format_profile: presentation | ats-maximal | plaintext
@@ -95,6 +96,41 @@ def list_templates():
     return 0
 
 
+def page_count(pdf):
+    """Pages in the PDF just written, or None if it cannot be measured.
+
+    Optional here in the way it is not in fit_pages.py, which exits 2 without it:
+    that script's whole job is the page count, where this one reports it beside the
+    budget. Same import guard, different consequence.
+    """
+    try:
+        import pymupdf                              # noqa: PLC0415 - optional dependency
+    except ImportError:
+        return None
+    try:
+        with pymupdf.open(pdf) as doc:
+            return doc.page_count
+    except Exception:                               # noqa: BLE001 - reported, never fatal
+        return None
+
+
+def page_report(name, count, budget):
+    """One line about what was actually produced, against what was asked for.
+
+    This printed the budget alone, which is a number nobody measured - the resume
+    that prompted the fix rendered on one page against a budget of two and said so
+    nowhere. Over budget is reported rather than failed: fit_pages.py owns that
+    verdict, and it is the script that can do something about it.
+    """
+    if count is None:
+        return (f"  pages  {name}: budget {budget}, not measured - "
+                f"pip install pymupdf to have this checked")
+    measured = f"{count} page{'' if count == 1 else 's'} against a budget of {budget}"
+    if count > budget:
+        return f"  pages  {name}: {measured} - OVER BUDGET, run fit_pages.py"
+    return f"  pages  {name}: {measured}"
+
+
 def arg(argv, flag, default=None):
     if flag in argv:
         try:
@@ -137,8 +173,19 @@ def main(argv):
         print(f"usage: {e.args[0]}")
         return 2
 
-    with open(src, encoding="utf8") as fh:
-        doc = json.load(fh)
+    if os.path.isdir(src):
+        # The ordinary case: compile the bundle. A document path still works, because
+        # an archived application is frozen JSON and has to stay renderable.
+        sys.path.insert(0, HERE)
+        import okf_compile
+        try:
+            doc = okf_compile.load(src)
+        except okf_compile.Problem as exc:
+            print(f"FAIL  {exc}")
+            return 1
+    else:
+        with open(src, encoding="utf8") as fh:
+            doc = json.load(fh)
 
     base = arg(argv, "--name") or safe_name(
         ((doc.get("person") or {}).get("name") or {}).get("full"))
@@ -146,6 +193,7 @@ def main(argv):
     targets = select_targets(fmt, profile)
 
     written, warnings, notes, first = [], [], [], None
+    pages = []
     unverified = False
     for variant, kind, stem in targets:
         try:
@@ -153,6 +201,12 @@ def main(argv):
         except KeyError as e:
             print(f"FAIL  {e}")
             return 1
+        except ValueError as e:
+            # Several views and none named. Exit 2, not 1: nothing is wrong with the
+            # record, the call left out the one thing only the person can decide.
+            print(f"FAIL  {e}")
+            print("      fix: name the one to render with --view <id>")
+            return 2
         if first is None:
             first = rendered
         warnings.extend(f"[{variant}/{kind}] {w}" for w in rendered["warnings"])
@@ -169,6 +223,8 @@ def main(argv):
                 notes.append(note)
                 if pdf:
                     written.append(pdf)
+                    pages.append(page_report(os.path.basename(pdf),
+                                             page_count(pdf), rendered["pages"]))
                 else:
                     unverified = True
         elif kind == "txt":
@@ -184,6 +240,8 @@ def main(argv):
           f"page budget: {first['pages']}   template: {template or themes.DEFAULT}")
     for path in written:
         print(f"  wrote  {os.path.relpath(path, out_dir)}")
+    for line in pages:
+        print(line)
     for note in notes:
         print(f"  note   {note}")
 

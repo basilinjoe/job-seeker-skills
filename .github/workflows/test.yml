@@ -1,0 +1,86 @@
+name: tests
+
+# The suite this guards was deleted once, in 7d42326, and five defects shipped in the
+# release that followed - every one of them covered by an assertion that was sitting in
+# the deleted files. A suite nobody runs is a suite that gets deleted again, so it runs
+# here on every push rather than on somebody's machine when they remember.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Two jobs, because the suite deliberately covers both worlds. Four tests are
+  # skipUnless(tex.available_engine()) and two more are the mirror image - they run only
+  # when no engine is present, checking that the tooling says so rather than pretending
+  # a resume was verified. Running one job would always skip one of those sets, and the
+  # no-engine path is the one a new contributor actually hits.
+  suite:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: with a TeX engine
+            tex: true
+          - name: without a TeX engine
+            tex: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pyyaml jsonschema pymupdf
+
+      - name: Install tectonic
+        if: matrix.tex
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
+          sudo mv tectonic /usr/local/bin/
+
+      # A silently failed install would turn this job into a duplicate of the other one,
+      # and the four engine-gated tests would skip in both while the log still claimed
+      # they ran. This repo's own rule: a gate that did not run is not a gate that passed.
+      - name: Assert the engine is really there
+        if: matrix.tex
+        run: tectonic --version
+
+      - name: Assert there is no engine
+        if: ${{ !matrix.tex }}
+        run: |
+          for engine in tectonic xelatex pdflatex lualatex latexmk; do
+            if command -v "$engine" >/dev/null; then
+              echo "FAIL  $engine is on PATH - this job covers the no-engine path"
+              exit 1
+            fi
+          done
+          echo "ok    no TeX engine on PATH"
+
+      # preflight is the script that tells a person what this machine can do. If it
+      # disagrees with the machine, every gap it reports afterwards is untrustworthy -
+      # so it runs first and its output is the log's header.
+      - name: Preflight
+        run: python plugins/jsk/skills/jsk/scripts/preflight.py
+
+      - name: Tests
+        run: python -m pytest tests -q -rs
+
+# The manifest surface - the two versions agreeing, the three revision constants
+# agreeing, both documented revision tables reaching the current one, every script
+# SKILL.md names being installed - is pinned by tests/test_plugin_surface.py rather
+# than by a job here. It belongs in the suite: a contributor gets the failure on their
+# own machine, and there is only ever one copy of the rule to keep true.

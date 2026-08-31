@@ -36,10 +36,12 @@ class UrsCase(unittest.TestCase):
 
 
 class ShippedExample(UrsCase):
-    def test_example_document_is_valid_at_level_2(self):
-        code, out = run(VALIDATE_URS, EXAMPLE_URS, "--level", "2")
+    def test_example_document_is_still_valid(self):
+        """The shipped example is a frozen archive shape: no schema, no conformance
+        level, and still every invariant that stops a resume inventing something."""
+        code, out = run(VALIDATE_URS, EXAMPLE_URS)
         self.assertEqual(code, 0, out)
-        self.assertIn("conformance: level 2", out)
+        self.assertIn("PASS", out)
 
     def test_baseline_fixture_is_valid(self):
         self.assertPasses(urs_doc())
@@ -72,10 +74,15 @@ class NumeralsMustBeBacked(UrsCase):
         ]
         self.assertPasses(self.bullet("Rolled out to 42 sites, cutting cost 31%.", metrics))
 
-    def test_quantified_prose_without_any_metric_only_warns(self):
-        code, out = self.validate(self.bullet("Rolled out to 42 sites."))
-        self.assertEqual(code, 0, out)
-        self.assertIn("machine mirror", out)
+    def test_quantified_prose_without_any_metric_fails(self):
+        """This warned and skipped the check, which inverted the threat: a bullet
+        whose number disagreed with its own metric failed, while one that invented a
+        number and attached nothing passed and rendered. The second is what tailoring
+        produces - prose written fresh against a posting - so it is the case worth
+        failing, and the message names the row to add."""
+        out = self.assertFails(self.bullet("Rolled out to 42 sites."),
+                               "carries no metrics at all")
+        self.assertIn("achievements/metrics.md", out)
 
     def test_standard_designators_are_not_quantities(self):
         # ISO 27001 and SOC 2 are names. Counting them would make the gate noise.
@@ -188,18 +195,95 @@ class ProvenanceAndPlaceholders(UrsCase):
         self.assertPasses(doc)
 
 
-class ConformanceLevels(UrsCase):
-    def test_level_assertion_fails_when_unreached(self):
+class StrictMode(UrsCase):
+    """--strict is for the pass before an application goes out, where anything
+    worth a second look is worth stopping for.
+
+    It used to be tested against the unbacked-numeral warning, which is now a
+    failure in its own right - so the test was proving nothing about --strict. An
+    employer with no evidence anywhere beneath it is a warning that still exists,
+    and is exactly the kind of thing a person wants stopped before sending."""
+
+    def empty_employer(self):
         doc = urs_doc()
-        doc["skills"][0].pop("evidence")
-        for a in doc["engagements"][0]["achievements"]:
-            a["metrics"] = []
-        self.assertFails(doc, "conformance level 0, asserted 2", "--level", "2")
+        doc["engagements"][0]["achievements"] = []
+        # The skill's evidence points at a bullet that has just gone, and a
+        # dangling reference would fail the document for an unrelated reason.
+        doc["skills"][0]["evidence"] = []
+        return doc
+
+    def test_an_employer_with_nothing_beneath_it_only_warns(self):
+        out = self.assertPasses(self.empty_employer())
+        self.assertIn("renders with nothing beneath it", out)
 
     def test_strict_promotes_warnings_to_failures(self):
+        self.assertFails(self.empty_employer(), "renders with nothing beneath it",
+                         "--strict")
+
+
+class OutputIsBounded(UrsCase):
+    """jsk-verifier runs this gate and reports what it printed, verbatim.
+
+    A bundle that has answered a hundred postings printed 381 lines of findings -
+    about 10,600 tokens landing in an agent's context every time a resume is
+    checked. The cap is validate_bundle.py's, to the flag name and the default,
+    because two gates answering the same question must not answer it differently.
+    """
+
+    def many_failures(self, n=40):
         doc = urs_doc()
-        doc["engagements"][0]["achievements"][1]["text"] = "Rebuilt 9 pipelines."
-        self.assertFails(doc, "machine mirror", "--strict")
+        # One unbacked numeral per bullet, small enough not to read as a year.
+        doc["engagements"][0]["achievements"] = [
+            achievement(f"Rolled out to {v} sites.", aid=f"ach_{v}")
+            for v in range(3, 3 + n)]
+        doc["skills"][0]["evidence"] = []
+        return doc
+
+    def many_warnings(self, n=40):
+        doc = urs_doc()
+        doc["organizations"] += [{"id": f"acme_{i}", "name": f"Acme {i}"}
+                                 for i in range(n)]
+        return doc
+
+    def lines(self, out, mark):
+        return [ln for ln in out.splitlines() if ln.startswith(f"  {mark}  ")]
+
+    def test_failures_are_capped_at_twenty_five_by_default(self):
+        code, out = self.validate(self.many_failures())
+        self.assertEqual(code, 1, out)
+        self.assertEqual(len(self.lines(out, "FAIL")), 26)   # 25 findings + the tally
+        self.assertIn("... and 15 more", out)
+
+    def test_warnings_are_capped_the_same_way(self):
+        code, out = self.validate(self.many_warnings())
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len(self.lines(out, "warn")), 26)
+        self.assertIn("... and 15 more", out)
+
+    def test_the_header_still_counts_every_finding(self):
+        """Truncation is only safe while the total is visible."""
+        _, out = self.validate(self.many_failures())
+        self.assertIn("FAIL 40", out)
+
+    def test_zero_prints_every_one(self):
+        _, out = self.validate(self.many_failures(), "--max-findings", "0")
+        self.assertEqual(len(self.lines(out, "FAIL")), 40)
+        self.assertNotIn("more", out)
+
+    def test_an_explicit_cap_is_honoured(self):
+        _, out = self.validate(self.many_failures(), "--max-findings", "5")
+        self.assertEqual(len(self.lines(out, "FAIL")), 6)
+        self.assertIn("... and 35 more", out)
+
+    def test_a_cap_that_is_not_a_number_is_a_usage_error(self):
+        code, out = self.validate(urs_doc(), "--max-findings", "lots")
+        self.assertEqual(code, 2, out)
+        self.assertIn("fix:", out)
+
+    def test_the_cap_value_is_not_mistaken_for_the_document(self):
+        path = write_urs(self.tmp, urs_doc())
+        code, out = run(VALIDATE_URS, "--max-findings", "5", path)
+        self.assertEqual(code, 0, out)
 
 
 class Malformed(UrsCase):

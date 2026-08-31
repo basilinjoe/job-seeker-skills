@@ -96,7 +96,7 @@ Close the loop on theirs.
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/validate_urs.py <bundle>/resume-generation/resume.json
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/render_resume.py <bundle>/resume-generation/resume.json --out . --pdf
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/render_resume.py <bundle>/resume-generation/resume.json --out . --view <id> --pdf
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_ats.py <Name>_Resume.pdf
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_prose.py <Name>_Resume.tex
 ```

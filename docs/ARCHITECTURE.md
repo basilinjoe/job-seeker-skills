@@ -52,18 +52,22 @@ what makes them testable in isolation. Import `plan`; the split is behind it.
 
 ## The agent boundary
 
-Six tasks are delegated to subagents. The line between an agent and the main conversation is
+Four tasks are delegated to subagents. The line between an agent and the main conversation is
 **Write versus Edit**: an agent writes its own analysis, and only the conversation edits the person's
 record. A `status` that flips without them saying so is the defect this framework exists to prevent.
 
 | Agent | Has | Deliberately lacks |
 |---|---|---|
 | `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into the render |
-| `jsk-bundle-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes a UGS audit document; a concept is the person's |
-| `jsk-posting-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the UJD posting and never `resume.json` |
-| `jsk-record-builder` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it transcribes into `record.json` and writes no view, narrative or new prose |
-| `jsk-gap-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the UGS assessment and never touches the bundle |
+| `jsk-bundle-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit; a concept is the person's |
+| `jsk-tailor-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing structural; it writes the posting's requirements and the assessment, never a concept |
 | `jsk-resume-author` | Read, Write, Edit, Glob, Grep, Bash | nothing structural — and it is the one that writes prose |
+
+`jsk-verifier` is the conditional one. `okf gates` runs the record, parse and prose gates in a single
+process and prints each one's output verbatim, so a clean ship reads that rather than spawning an
+agent to relay three checkers — and a script has no Write tool more thoroughly than an agent does.
+What the agent is kept for is the half a command cannot do: reading a `FAIL` line back to the concept
+it came from, and reading the PDF for the render gate.
 
 `jsk-resume-author` is the exception worth understanding. It authors the narrative, the retuned
 summary and the view, so restraint alone would not be enough. Everything it writes is marked
@@ -91,11 +95,9 @@ plugins/jsk/
     setup.md                        the four-phase setup procedure
     braindump|resume|tailor|...     thin delegations into the skill's modes
   agents/                           subagents the modes delegate to
-    jsk-verifier.md                 runs the four gates on rendered files, reports verbatim
-    jsk-bundle-auditor.md           reads the whole bundle, writes a posting-less UGS audit
-    jsk-posting-analyst.md          decomposes a posting into UJD, runs the scorer
-    jsk-record-builder.md           transcribes the bundle into record.json, ids kept stable
-    jsk-gap-analyst.md              joins posting to record, writes the UGS assessment
+    jsk-verifier.md                 interprets a failed gate against the record; not spawned by a clean ship
+    jsk-bundle-auditor.md           reads the whole bundle, writes a posting-less audit
+    jsk-tailor-analyst.md           reads a posting and the compiled record, writes the assessment
     jsk-resume-author.md            authors the tailored record: narrative, summary, view
   skills/jsk/
     SKILL.md                        the agent's entry point: routing + hard rules
@@ -103,25 +105,23 @@ plugins/jsk/
       README.md                     index of everything below
       mode-*.md                     one procedure per mode
       bundle-spec.md                bundle layout, frontmatter schema, selection keys
-      urs-spec.md                   the normative record format
-      ujd-spec.md                   the normative posting format the scorer reads
-      ugs-spec.md                   the normative assessment format: the join between the two
+      urs-spec.md                   the shape the record compiles to, and the region profiles
+      view-format.md                the other half of URS: every key a view may carry
       ats-rules.md                  hard rules, two-variant strategy, keyword placement
       writing-rules.md              X-Y-Z bullets, verb accuracy, phrases to cut
       rationale.md                  long-form reasoning, loaded to explain a rule
     schema/
-      urs-v1.schema.json            JSON Schema for the record
-      ujd-v1.schema.json            JSON Schema for the posting
-      ugs-v1.schema.json            JSON Schema for the assessment
       profiles/*.json               region profiles: default, au, in, ae
-      example.{resume,posting,gaps}.json   three complete worked documents
-    scripts/                        the fourteen tools, plus the urs/ package
+      profile.schema.json           what a region profile must contain
+      example.resume.json           one complete worked record
+    scripts/                        the thirteen tools, plus the urs/ package
       okf.py                        one entry point that forwards to the rest
       preview_templates.py          one record in every template, so the look is chosen by looking
       migrate_bundle.py             moves an older bundle to the current layout revision
       pipeline.py                   the weekly board, derived from application timelines
       pipeline_model.py             what a timeline event means - the only module that decides
-tests/                              unittest, one file per script
+tests/                              unittest: one file per script, plus the manifest surface
+  fixtures.py                       temp bundles and records; nothing here is committed
 ```
 
 ## Where do I change X
@@ -130,17 +130,18 @@ tests/                              unittest, one file per script
 |---|---|---|
 | What the parse gate rejects | `scripts/check_ats.py` | `references/ats-rules.md`, `tests/test_check_ats.py` |
 | What the prose gate rejects | `scripts/check_prose.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
-| What makes a record invalid | `scripts/validate_urs.py` | `schema/urs-v1.schema.json`, `references/urs-spec.md` |
+| What makes a record invalid | `scripts/validate_urs.py` | `references/urs-spec.md`, `tests/test_validate_urs.py` |
 | **What content is selected** | `scripts/urs/plan.py` | never an emitter |
 | **How a document looks** | `scripts/urs/emit_*.py` | never `plan.py` |
 | **A palette, typeface or rule** | `scripts/urs/themes.py` | `references/templates.md`, `tests/test_themes.py` |
 | Support for a new market | `schema/profiles/<code>.json` | the region section of `references/urs-spec.md` |
+| What a view may carry | `references/view-format.md` | `scripts/validate_urs.py`, `agents/jsk-resume-author.md` — never `references/urs-spec.md`, which defines no view key |
 | Bundle layout | `scripts/init_bundle.py` | `scripts/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
 | What a migration does | `scripts/migrate_bundle.py` | `docs/SCRIPTS.md`, `tests/test_migrate_bundle.py` |
 | **What a timeline event means** | `scripts/pipeline_model.py` | never in a caller — `pipeline.py`, `validate_bundle.py` and `migrate_bundle.py` all read it |
-| How postings are scored | `scripts/score_projects.py` | `references/ujd-spec.md`, `tests/test_score_projects.py` |
-| What makes a posting invalid | `scripts/validate_ujd.py` | `schema/ujd-v1.schema.json`, `references/ujd-spec.md` |
-| **What an assessment must prove** | `scripts/validate_ugs.py` | `schema/ugs-v1.schema.json`, `references/ugs-spec.md` — and note what `--recompute` can and cannot re-derive |
+| How the record is built | `scripts/okf_compile.py` | `references/bundle-spec.md`, `tests/test_okf_compile.py` — and the render test, which is what a schema used to do |
+| How postings are scored | `scripts/score_projects.py` | `agents/jsk-tailor-analyst.md` (it writes the requirements), `tests/test_score_projects.py` |
+| A posting's or assessment's shape | `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` — the format is written out in the agent, so it is one place |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
@@ -156,24 +157,38 @@ story:
 2. **Bundle layout on disk.** Renaming `projects/` breaks every bundle already in existence.
    Layout *additions* are allowed, but only behind a revision: bump `CURRENT_REVISION` in
    `migrate_bundle.py`, teach it the step, and keep `validate_bundle.py` **warning** rather than
-   failing on the older shape. `BUNDLE_REVISION` in `init_bundle.py` must move in the same commit —
-   new bundles are born current, and a bundle that lies about its revision is worse than one that
-   carries no stamp at all.
-3. **The URS schema and gate behaviour.** `urs-v1.schema.json` stays wire-compatible, and a gate
-   keeps failing on exactly what it fails on today.
+   failing on the older shape. `BUNDLE_REVISION` in `init_bundle.py` and `CURRENT_BUNDLE_REVISION`
+   in `validate_bundle.py` must move in the same commit — all three are pinned to each other by
+   `tests/test_plugin_surface.py`, because new bundles are born current and a bundle that lies about
+   its revision is worse than one that carries no stamp at all.
+3. **The compiled record's shape and gate behaviour.** What `okf_compile.py` hands the renderer
+   stays wire-compatible with an archived `resume.json`, and a gate keeps failing on exactly what
+   it fails on today.
 
-A fourth, discovered the hard way: **the tests assert on output text.** There are 108 `assertIn`
+A fourth, discovered the hard way: **the tests assert on output text.** There are over 240 `assertIn`
 calls against strings like `PASS - safe to send` and `DO NOT SEND`. You may *add* lines to a script's
 output. Rewording an existing verdict line breaks tests, and those tests are the gate on the gate.
 
 ## Tests
 
 ```bash
-python -m unittest discover -s tests
+python -m pytest tests -q                  # the whole suite, under two minutes
+python -m pytest tests/test_themes.py -q   # one file, while you are working on it
+python -m unittest discover -s tests       # the same tests, with no pytest installed
 ```
 
-Standard library `unittest`. Fixtures are generated into temp directories; nothing is committed.
-Every test pins a specific documented rule — the checker is the gate, so it does not go unchecked.
+The tests are standard-library `unittest` and import nothing from pytest; pytest is simply the
+pleasanter way to run a subset and read a failure. Either command works from anywhere — every path
+in `tests/fixtures.py` is resolved from the test file's own location, not from the working
+directory.
+
+Most of that time is TeX — 542 tests, and the ones that dominate the clock compile real PDFs and
+extract their text layers, because the claim they check — five templates, one document — cannot be
+checked any other way. Where a TeX engine or `pymupdf` is absent those tests skip themselves, so a
+bare-Python run finishes in seconds on fewer assertions rather than failing on the machine's setup.
+
+Fixtures are built into temp directories by `tests/fixtures.py`; nothing is committed. Every test
+pins a specific documented rule — the checker is the gate, so it does not go unchecked.
 
 A failing test after a refactor means the refactor was wrong. Do not edit a test to accommodate a
 change in behaviour unless the behaviour change is the point and it is written down.

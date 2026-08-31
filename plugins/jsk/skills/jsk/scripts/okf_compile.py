@@ -1,0 +1,1036 @@
+#!/usr/bin/env python3
+"""okf_compile - build the record from the bundle, deterministically.
+
+Usage: python3 okf_compile.py BUNDLE [--dump-record FILE|-] [--quiet]
+                                    [--view ID]... [--no-views]
+                                    [--compact] [--for score]
+
+`--view` names the view(s) to emit and is repeatable; `--no-views` emits none.
+Nothing else in the record changes. A bundle keeps one working view per target
+under tailoring/targets/ and retires none of them, so a person who has answered a
+hundred postings compiles a hundred views: half of record.json by volume, in a
+file several agents read on every run, and ninety-nine of them irrelevant to
+whichever application is being worked on. Scoring and the pipeline read no view
+at all. The default stays every view, because `validate_urs.py <bundle>` checks
+all of them and a broken view nobody is rendering today is still a broken view.
+`--no-views` also skips the walk of tailoring/ - see concepts().
+
+`--compact` writes the record without indentation, and `--for score` narrows
+every project to the keys the ranking runs on. Both cut what an agent reads and
+neither changes what any of it says.
+
+The bundle is the source of truth. This reads its concepts and returns the record
+that `urs/resolve.py` already consumes - the same dict it used to be handed as a
+`record.json` written by a model.
+
+Nothing is written unless --dump-record asks for it, and what it writes is for
+reading, never for editing: the next compile overwrites whatever you changed. A
+record on disk is a cache, and a cache of a file you can regenerate in under a
+second is a liability rather than an asset.
+
+    from okf_compile import load
+    doc = load(bundle_root)          # -> the dict resolve.build() takes
+
+Why this is a script and not an agent: every field here is a frontmatter key or a
+table cell. A model transcribing them adds no judgement, and a transcription that
+can drift is what checksums, conformance levels and a reconcile pass all existed to
+police. None of that is needed once the mapping is mechanical.
+
+What is NOT compiled: achievement prose. Bullets are written, not derived, so they
+live in their concept's `# Bullets` block with their own provenance and are read
+from there - see `references/bundle-spec.md`.
+
+On Windows use `python` or `py -3` in place of `python3`.
+
+Exit 0 = compiled. Exit 1 = the bundle is missing something required. Exit 2 = called wrong.
+
+Needs pyyaml, like every other script that reads the bundle rather than a document.
+"""
+import json
+import os
+import re
+import sys
+
+try:
+    import yaml
+except ImportError:
+    # Same message as validate_bundle.py: a traceback here reads as a broken install
+    # rather than a missing package.
+    print("okf_compile.py needs pyyaml:  pip install pyyaml")
+    sys.exit(2)
+
+SKIP_DIRS = {".git", "node_modules", "out", "resume-archive", ".build"}
+
+# tailoring/applications/ - the archive of what has already been sent. Matched by its
+# path from the bundle root rather than by name in SKIP_DIRS, because a directory
+# called `applications` anywhere else in the bundle is a person's own filing and must
+# still compile.
+ARCHIVE = ("tailoring", "applications")
+
+# tailoring/ - the postings, the gap assessments and the views that render from them.
+# Matched by its path from the bundle root for the same reason ARCHIVE is.
+TAILORING = "tailoring"
+
+# What concepts() reads under tailoring/. Spelt out rather than passed as a flag
+# because the wrong value here is invisible: it makes a walk read less and every check
+# written about what it found still passes.
+TAILORING_MODES = ("views", "none", "all")
+
+# Concept-level bookkeeping every OKF file may carry. A View is the one concept whose
+# frontmatter is already URS, so these are the keys that are *about* the file rather than
+# part of the document - they are stripped here so VIEW_KEYS stays the URS contract.
+# validate_bundle.py recommends title/description/timestamp on every concept; without this
+# strip, following that advice fails the record gate, and `frozen:` - which mode-ship.md
+# instructs - failed it outright.
+CONCEPT_KEYS = {"type", "title", "description", "timestamp", "status",
+                "frozen", "frozen_date", "superseded_by"}
+
+# Concept types that carry no resume content. Listed rather than inferred so that a
+# new type is a deliberate decision here, not silently dropped.
+NON_CONTENT = {"Index", "Log", "Guide", "Vocabulary", "Rule Set", "Schema", "Template",
+               "Decision Log", "Open Questions", "Source Document", "Source Interview",
+               "Application", "Positioning", "Career Progression", "Preference", "Method"}
+
+DATE = re.compile(r"^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$")
+LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+
+class Problem(Exception):
+    """Something the bundle must say and does not."""
+
+
+def read_frontmatter(text):
+    """The parser pipeline.py uses, so a concept reads the same way everywhere."""
+    if not text.startswith("---\n") and not text.startswith("---\r\n"):
+        return None, text
+    end = text.find("\n---\n", 3)
+    if end == -1:
+        end = text.find("\r\n---\r\n", 3)
+        if end == -1:
+            return None, text
+        head, body = text[4:end], text[end + 7:]
+    else:
+        head, body = text[4:end], text[end + 5:]
+    try:
+        meta = yaml.safe_load(head)
+    except Exception:
+        return None, body
+    return (meta if isinstance(meta, dict) else None), body
+
+
+def concepts(root, tailoring="views"):
+    """Every concept in the bundle, as (stem, type, meta, body).
+
+    The archive is not read. Each sent application freezes a copy of the view it was
+    rendered from beside it, and that copy shares its id with the working copy in
+    tailoring/targets/ it was made from - `applications` sorts first, so the frozen
+    copy won the de-duplication in build_views() and every later render used the
+    settings of an application already posted rather than the one being edited. It is
+    also most of the record by volume: at a hundred applications the frozen views were
+    59% of record.json, in a file several agents read on every tailoring run. Nothing
+    downstream compiles from the archive - validate_bundle.py and pipeline.py read it
+    directly, as its own artefacts rather than as career record.
+
+    `tailoring` says what to read under tailoring/targets/, and exists because a View
+    is the only thing load() takes from there. A bundle of a hundred answered postings
+    parsed 341 concepts to build a record out of 41: a posting and a gap assessment per
+    target, opened, YAML-parsed, bucketed by type and then never read again - 408ms of
+    a 946ms compile. "views" reads only `*.view.md`; "none" does not enter the
+    directory at all, which is what --no-views and `okf score` are already asking for;
+    "all" is every file, and belongs to census(), which has to be able to see a type
+    the record does not emit.
+    """
+    if tailoring not in TAILORING_MODES:
+        raise ValueError(f"concepts(tailoring={tailoring!r}): one of {TAILORING_MODES}")
+    out = []
+    top = os.path.abspath(root)
+    archive = os.path.normcase(os.path.join(top, *ARCHIVE))
+    tailored = os.path.normcase(os.path.join(top, TAILORING))
+    for dirpath, dirnames, filenames in os.walk(top):
+        keep = []
+        for d in dirnames:
+            if d in SKIP_DIRS or d.startswith("."):
+                continue
+            child = os.path.normcase(os.path.abspath(os.path.join(dirpath, d)))
+            if child == archive or (child == tailored and tailoring == "none"):
+                continue
+            keep.append(d)
+        dirnames[:] = keep
+        here = os.path.normcase(os.path.abspath(dirpath))
+        views_only = tailoring == "views" and (
+            here == tailored or here.startswith(tailored + os.sep))
+        for name in sorted(filenames):
+            if not name.endswith(".md") or name == "index.md":
+                continue
+            if views_only and not name.endswith(".view.md"):
+                continue
+            path = os.path.join(dirpath, name)
+            with open(path, encoding="utf-8") as fh:
+                meta, body = read_frontmatter(fh.read())
+            if not meta or not meta.get("type"):
+                continue
+            out.append((name[:-3], meta.get("type"), meta, body))
+    return out
+
+
+def census(root):
+    """How many concepts of each type the bundle holds, before anything is built.
+
+    The counterpart to load(): what was read, against what was emitted. A compiler
+    that drops a whole type cannot be caught by any check written about the
+    survivors - every one of those checks iterates a list that is empty, and passes.
+    `views` was a hardcoded `[]` for months for exactly that reason.
+
+    So it walks everything, including the tailoring/ concepts load() stopped reading.
+    Sharing load()'s narrowed walk would cost a second or so less and blind the only
+    check that can see a type disappear: `check_conservation` compares a type on disk
+    against the record key it feeds, and against a compile that emits no views it would
+    read zero Views on disk and agree that nothing had been dropped. Slower census,
+    honest gate.
+    """
+    out = {}
+    for _, ctype, _, _ in concepts(root, tailoring="all"):
+        out[ctype] = out.get(ctype, 0) + 1
+    return out
+
+
+def slug(text):
+    return re.sub(r"[^a-z0-9]+", "_", str(text).lower()).strip("_")
+
+
+def ident(meta, stem, prefix):
+    """The concept's id: what it declares, else derived from its filename.
+
+    Derivation keeps ids stable without anyone maintaining them, and the override
+    exists so a bundle that already published an id can keep it.
+    """
+    return str(meta.get("id") or f"{prefix}_{slug(stem)}")
+
+
+def date(value, where):
+    """A URS date. Precision is read from what was written, never assumed."""
+    if value is None:
+        return None
+    m = DATE.match(str(value).strip())
+    if not m:
+        raise Problem(f"{where}: {value!r} is not a date - write 2019, 2019-04 or 2019-04-01")
+    year, month, day = m.groups()
+    if day:
+        return {"value": f"{year}-{month}-{day}", "precision": "day"}
+    if month:
+        return {"value": f"{year}-{month}", "precision": "month"}
+    return {"value": year, "precision": "year"}
+
+
+def period(meta, where):
+    """start/end/state as URS wants them, with ongoing and ended kept distinct."""
+    state = str(meta.get("state") or ("ongoing" if not meta.get("end") else "ended"))
+    out = {"state": state}
+    start = date(meta.get("start"), f"{where}.start")
+    if start:
+        out["start"] = start
+    end = date(meta.get("end"), f"{where}.end")
+    if end and state == "ongoing":
+        raise Problem(f"{where}: state is ongoing but an end date is set - one of them is wrong")
+    if end:
+        out["end"] = end
+    if state == "ended" and not end:
+        raise Problem(f"{where}: state is ended but no end date is set")
+    return out
+
+
+def provenance(meta):
+    return {"status": str(meta.get("status") or "needs-verification")}
+
+
+def metrics_table(root):
+    """achievements/metrics.md, one row per verified number.
+
+    Keyed by a slug of the metric name so a bullet can name the number it rests on
+    rather than restating it, which is what stops a rewritten clause inflating it.
+    """
+    path = os.path.join(root, "achievements", "metrics.md")
+    if not os.path.exists(path):
+        return {}
+    rows = {}
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            if not line.startswith("|") or "---" in line[:8]:
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) < 3 or not cells[0] or cells[0].lower() == "metric":
+                continue
+            name, value = cells[0], cells[1]
+            link = LINK.search(cells[2])
+            target = link.group(2) if link else cells[2]
+            rows[slug(name)] = {
+                "id": f"met_{slug(name)}",
+                "label": name,
+                "value": re.sub(r"\*\*", "", value),
+                "project": os.path.basename(str(target)).replace(".md", ""),
+                "source": cells[3] if len(cells) > 3 else "",
+            }
+    return rows
+
+
+MONTHS = {m: "%02d" % i for i, m in enumerate(
+    ["january", "february", "march", "april", "may", "june",
+     "july", "august", "september", "october", "november", "december"], 1)}
+
+
+def loose_date(text):
+    """"July 2011", "Jul 2011", "2011-07" and "2011" all mean the same thing here."""
+    text = str(text or "").strip().strip("*").strip()
+    if not text or text.lower() in ("present", "now", "current", "ongoing"):
+        return None
+    m = re.match(r"^([A-Za-z]+)\.?\s+(\d{4})$", text)
+    if m:
+        for name, num in MONTHS.items():
+            if name.startswith(m.group(1).lower()[:3]):
+                return "%s-%s" % (m.group(2), num)
+    m = re.match(r"^(\d{4})(?:-(\d{2}))?", text)
+    if m:
+        return "%s-%s" % (m.group(1), m.group(2)) if m.group(2) else m.group(1)
+    return None
+
+
+def kv_table(body, heading=None):
+    """A two-column `| Field | Value |` table, as a dict.
+
+    The bundle writes contact details and metrics this way, so the compile reads them
+    that way rather than asking anyone to write them twice.
+    """
+    if heading:
+        m = re.search(r"^#+\s*%s\s*$(.*?)(?=^#\s|\Z)" % heading, body, re.M | re.S)
+        if not m:
+            return {}
+        body = m.group(1)
+    out = {}
+    for line in body.splitlines():
+        if not line.startswith("|") or set(line.strip()) <= set("|- "):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 2 or cells[0].lower() in ("field", "dimension"):
+            continue
+        out[cells[0].lower().strip("*")] = cells[1]
+    return out
+
+
+def labelled(body):
+    """`- **Institute:** Mahatma Gandhi University` items, as a dict."""
+    return {m.group(1).strip().lower(): m.group(2).strip()
+            for m in re.finditer(r"^\s*[-*]\s+\*\*([^:*]+):?\*\*:?\s*(.+)$", body, re.M)}
+
+
+def blocks(body, heading, keys):
+    """The `- item` entries under one heading, each with its own `key: value` lines.
+
+    Authored content - bullets and skills - reads this way. It is the one shape in the
+    bundle a script cannot derive, so it is written down plainly and parsed the same way
+    wherever it appears.
+    """
+    out = []
+    match = re.search(r"^#+\s*%s\s*$(.*?)(?=^#\s|\Z)" % heading, body, re.M | re.S)
+    if not match:
+        return out
+    for block in re.split(r"^\s*-\s+", match.group(1), flags=re.M)[1:]:
+        lines = [ln.strip() for ln in block.strip().splitlines() if ln.strip()]
+        if not lines:
+            continue
+        fields, text = {}, []
+        for line in lines:
+            kv = re.match(r"^(%s)\s*:\s*(.+)$" % "|".join(keys), line)
+            if kv:
+                fields[kv.group(1)] = kv.group(2).strip()
+            else:
+                text.append(line)
+        if text:
+            out.append((" ".join(text), fields))
+    return out
+
+
+def bullets(body, where, metrics):
+    """A concept's `# Bullets` block: written, never derived.
+
+    Each item carries its own provenance, because a bullet authored for a posting is
+    `inferred` until the person has confirmed it - and `provenance_floor` on a view is
+    what stops an unconfirmed one rendering.
+    """
+    out = []
+    for n, (text, fields) in enumerate(
+            blocks(body, "Bullets", ("status", "metric", "for", "id")), 1):
+        item = {
+            "id": fields.get("id") or f"ach_{slug(where)}_{n}",
+            "text": text,
+            "provenance": {"status": fields.get("status") or "inferred"},
+        }
+        key = slug(fields["metric"]) if fields.get("metric") else None
+        if key and key in metrics:
+            item["metrics"] = [{"id": metrics[key]["id"],
+                                "label": metrics[key]["label"],
+                                "value": metrics[key]["value"]}]
+        elif key:
+            raise Problem(f"{where}: bullet names metric {fields['metric']!r}, "
+                          f"which is not a row in achievements/metrics.md")
+        out.append(item)
+    return out
+
+
+def build_organizations(items):
+    out = []
+    for stem, meta, _ in items:
+        out.append({k: v for k, v in {
+            "id": ident(meta, stem, "org"),
+            "name": meta.get("title") or stem,
+            "description": meta.get("description"),
+            "industry": meta.get("industry"),
+            "sector": meta.get("sector"),
+            "size": meta.get("size"),
+            "url": meta.get("url"),
+        }.items() if v is not None})
+    return out
+
+
+def build_engagements(roles, orgs_by_stem):
+    """Roles grouped by organisation, each becoming a position in one history.
+
+    The grouping is what puts a promotion on the resume as progression inside one
+    employer rather than as two unrelated jobs.
+    """
+    groups = {}
+    for stem, meta, _ in roles:
+        org = meta.get("organisation") or meta.get("organization")
+        if not org:
+            raise Problem(f"roles/{stem}.md: no organisation - see bundle-spec.md, "
+                          f"'The relational keys'")
+        if org not in orgs_by_stem:
+            raise Problem(f"roles/{stem}.md: organisation {org!r} has no concept in "
+                          f"organisations/ - a role cannot be for a company the bundle "
+                          f"does not know")
+        groups.setdefault(org, []).append((stem, meta))
+
+    out = []
+    for org, members in groups.items():
+        members.sort(key=lambda m: str(m[1].get("start") or ""))
+        positions = []
+        org_name = str(orgs_by_stem[org][1].get("title") or "")
+        for stem, meta in members:
+            title = str(meta.get("title") or stem).strip().strip('"')
+            # A bundle often writes the employer into the role title. The engagement
+            # already names the organisation, so repeating it renders as "Lead Engineer -
+            # Experion" under a heading that says Experion. Stripped only when it matches
+            # the organisation this role is already known to belong to - a comparison
+            # against a known value, not a guess at what a dash means.
+            if org_name and title.lower().endswith(" - " + org_name.lower()):
+                title = title[: -(len(org_name) + 3)].strip()
+            pos = {
+                "id": ident(meta, stem, "pos"),
+                "title": title,
+                "period": period(meta, f"roles/{stem}.md"),
+            }
+            if meta.get("functional_title"):
+                pos["functional_title"] = meta["functional_title"]
+            if meta.get("seniority"):
+                pos["seniority"] = meta["seniority"]
+            pos["change"] = meta.get("change") or ("hire" if not positions else "promotion")
+            positions.append(pos)
+        span = {"state": positions[-1]["period"]["state"]}
+        if positions[0]["period"].get("start"):
+            span["start"] = positions[0]["period"]["start"]
+        if positions[-1]["period"].get("end"):
+            span["end"] = positions[-1]["period"]["end"]
+        eng_meta = orgs_by_stem[org][1]
+        out.append({k: v for k, v in {
+            "id": f"eng_{slug(org)}",
+            "organization": ident(eng_meta, org, "org"),
+            # employment unless the organisation says otherwise. A contract or a
+            # freelance engagement reads differently on a resume and the difference is
+            # the company's to declare, not this script's to infer from a job title.
+            "kind": str(eng_meta.get("employment") or "employment"),
+            "period": span,
+            "location": eng_meta.get("location"),
+            "positions": positions,
+            "achievements": [],
+        }.items() if v is not None})
+    return out
+
+
+def build_projects(items, roles_by_stem, metrics):
+    out = []
+    for stem, meta, body in items:
+        role = meta.get("role")
+        if role and role not in roles_by_stem:
+            raise Problem(f"projects/{stem}.md: role {role!r} has no concept in roles/")
+        entry = {
+            "id": ident(meta, stem, "prj"),
+            "title": meta.get("title") or stem,
+            "description": meta.get("description"),
+            "provenance": provenance(meta),
+        }
+        if role:
+            org = roles_by_stem[role].get("organisation") or roles_by_stem[role].get("organization")
+            entry["engagement"] = f"eng_{slug(org)}"
+        for key in ("strength", "seniority", "domains", "capabilities", "technologies", "url"):
+            if meta.get(key) is not None:
+                entry[key] = meta[key]
+        # `recency` is the year the work was last touched, not a span, and the scorer
+        # reads a Period. So the year becomes an end and the start stays absent, which
+        # is the honest reading: we know when it last ran and nobody wrote down when it
+        # began. Inventing a start to fill the shape is the failure this whole exercise
+        # is about.
+        if meta.get("recency") is not None:
+            entry["period"] = {"state": "ended",
+                               "end": date(meta["recency"], f"projects/{stem}.md")}
+        entry["achievements"] = bullets(body, f"projects/{stem}.md", metrics)
+        out.append({k: v for k, v in entry.items() if v is not None})
+    return out
+
+
+def build_views(items):
+    """`type: View` concepts - the tailoring views, beside the postings they answer.
+
+    A view is the one concept that is already URS: its frontmatter is the document,
+    which is why every key CONCEPT_KEYS does not claim passes through untranslated.
+    That includes a key nobody recognises, so that validate_urs.py fails on it -
+    dropping a typo here would turn a misspelt `provenance_floor` into a view with no
+    floor at all. CONCEPT_KEYS is the other side of that: bookkeeping the bundle asks
+    every concept to carry is about the file, not part of the document, so it is
+    stripped here rather than admitted into VIEW_KEYS.
+
+    `views` used to be a hardcoded empty list, so `render_resume.py --view <id>`
+    could not find a view sitting on disk, and `provenance_floor` never ran on
+    anything. A floor that never runs is the guardrail against unconfirmed prose
+    reaching a resume, so this was not a missing feature but an absent check.
+    """
+    out, seen = [], set()
+    for stem, meta, _ in items:
+        view = {k: v for k, v in meta.items() if k not in CONCEPT_KEYS}
+        view.setdefault("id", f"view_{slug(stem)}")
+        if view["id"] in seen:
+            # Two working copies under tailoring/targets/ that declare the same id.
+            # The frozen copies that used to collide here are no longer read at all -
+            # see concepts() - so this is now a bundle to fix rather than a shape to
+            # tolerate, and the first one read wins until someone renames one.
+            continue
+        seen.add(view["id"])
+        out.append(view)
+    return out
+
+
+def select_views(views, wanted):
+    """The views to emit: every one, none, or the ones named.
+
+    `wanted is None` is deliberately not the same as `wanted == []`. The record gate
+    compiles a bundle to check every view sitting on disk, and a view with a misspelt
+    `provenance_floor` is broken whether or not anyone is rendering it this week - so
+    "all" has to stay the default and "none" has to be something a caller asks for.
+    """
+    if wanted is None:
+        return views
+    by_id = {v.get("id"): v for v in views}
+    missing = [w for w in wanted if w not in by_id]
+    if missing:
+        # Emitting nothing for a name nobody recognises would compile clean and
+        # render an empty selection, which is the shape of a typo that costs a
+        # person an application. The list of what IS on disk is capped, because the
+        # bundles this flag exists for are the ones holding a hundred views and a
+        # hundred ids scrolling past is not an answer to a typo.
+        on_disk = sorted(by_id)
+        shown = ", ".join(on_disk[:8]) or "none"
+        if len(on_disk) > 8:
+            shown += f", and {len(on_disk) - 8} more in tailoring/targets/"
+        raise Problem(
+            f"no view {', '.join(repr(m) for m in missing)} in this bundle - "
+            f"on disk: {shown}\n"
+            f"      fix: name one of those, or drop --view to compile every view")
+    return [by_id[w] for w in wanted]
+
+
+# What a scorer reads off a project, and the whole of it. score_projects.py ranks on
+# capabilities, technologies, domains, seniority, strength and the period `recency:`
+# compiles to, labels each row with the title, and reads not one word of the
+# achievement prose that is 61% of projects[] by volume. `engagement` stays because
+# without it engagements[].projects points at projects the record no longer describes.
+SCORE_PROJECT_KEYS = ("id", "title", "capabilities", "technologies", "domains",
+                      "seniority", "strength", "period", "engagement")
+
+# The profiles `--for` knows. One, deliberately: a profile is a claim about what a
+# consumer reads, and the only consumer anybody has measured is the ranking.
+PROFILES = ("score",)
+
+
+def profile(doc, name):
+    """The record with everything the named consumer does not read taken out.
+
+    Computed here rather than by the caller, so there is one definition of what a
+    scorer needs. A second list of keys - in the scorer, in an agent's instructions -
+    is the transcription that drifts, and drifting transcriptions are what this whole
+    format exists to stop: the list that fell behind would quietly stop feeding the
+    ranking a key it still scores on, and a ranking missing a term still prints a
+    table.
+    """
+    if name not in PROFILES:
+        raise Problem(f"no profile {name!r} - valid: {', '.join(PROFILES)}")
+    out = dict(doc)
+    out["projects"] = [{k: p[k] for k in SCORE_PROJECT_KEYS if k in p}
+                       for p in doc.get("projects") or []]
+    # Emitted empty rather than dropped: a reader that iterates a key it expects to
+    # find is a different failure from one that reads an empty list, and only one of
+    # them is a crash in something downstream of a flag it never asked for.
+    for key in ("narratives", "education", "credentials"):
+        out[key] = []
+    return out
+
+
+def link_projects(engagements, projects):
+    """`engagement.projects[]`, inverted from the pointer each project carries.
+
+    `resolve.py` walks `engagement["projects"]` and nothing else to find a project's
+    bullets, so while this was never populated every project achievement was dropped
+    from every render - a resume with roles, dates and no evidence, which passed the
+    record gate because a missing back-reference is not an invalid document. The
+    forward pointer was always there: `build_projects` writes `engagement` on every
+    project whose concept names a role.
+    """
+    by_engagement = {}
+    for p in projects:
+        if p.get("engagement"):
+            by_engagement.setdefault(p["engagement"], []).append(p["id"])
+    for e in engagements:
+        ids = by_engagement.get(e["id"])
+        if ids:
+            e["projects"] = ids
+    return engagements
+
+
+def build_skills(items):
+    """A Skill Set concept's `# Skills` block.
+
+    Written, not derived, and deliberately so: naming a competency "C# / .NET" rather
+    than "dotnet", and deciding that ASP.NET Core is an alias of it rather than a skill
+    beside it, is editorial judgement. The project frontmatter's `capabilities` and
+    `technologies` are the matching vocabulary and a different thing - they compare as
+    exact strings, where these are read by a person.
+    """
+    out, seen = [], set()
+    for stem, meta, body in items:
+        for name, fields in blocks(body, "Skills", ("id", "category", "aliases", "last_used")):
+            sid = fields.get("id") or f"skill_{slug(name)}"
+            if sid in seen:
+                continue
+            seen.add(sid)
+            entry = {"id": sid, "name": name}
+            if fields.get("category"):
+                entry["category"] = fields["category"]
+            if fields.get("aliases"):
+                entry["aliases"] = [a.strip() for a in fields["aliases"].split(",") if a.strip()]
+            if fields.get("last_used"):
+                entry["last_used"] = date(fields["last_used"], f"{stem}.md skill {sid}")
+            out.append(entry)
+    return out
+
+
+def build_narratives(items):
+    """Each `# Summary ...` section of a Positioning concept is one narrative.
+
+    A bundle usually holds several - positioning-led, constraint-led, keyword-dense -
+    because which one belongs on a resume depends on the posting. A view names the one
+    it wants, so they all compile and the choice stays with the view.
+    """
+    out = []
+    for stem, meta, body in items:
+        for head, section in re.findall(r"^#+\s*(Summary[^\n]*)$(.*?)(?=^#\s|\Z)",
+                                        body, re.M | re.S):
+            # The summary is what is quoted. Everything else in the section is
+            # commentary *about* it - which variant to use, when it was confirmed - and
+            # a compile that swept that up would print the annotation on the resume.
+            text = " ".join(ln.strip().lstrip("> ").strip()
+                            for ln in section.splitlines() if ln.strip().startswith(">"))
+            if not text.strip():
+                continue
+            label = re.sub(r"^summary\s*(variant)?\s*", "", head.strip(), flags=re.I)
+            out.append({
+                "id": f"nar_{slug(label) or slug(stem)}",
+                "kind": "summary",
+                "text": " ".join(text.split()),
+                "audience": label.strip(" -") or None,
+                "provenance": provenance(meta),
+            })
+    return out
+
+
+def build_person(items):
+    """The Person concept's `# Contact` table.
+
+    Only the table. The identity concept also carries a home address marked *never
+    render on a resume*, and a compile that swept up every field in the file would put
+    it one careless view away from being printed.
+    """
+    if not items:
+        return {}
+    stem, meta, body = items[0]
+    fields = kv_table(body, "Contact")
+    contacts, seen = [], set()
+    for key, kind in (("email (personal)", "email"), ("email", "email"),
+                      ("phone", "phone"), ("linkedin", "linkedin"), ("github", "github")):
+        if fields.get(key) and kind not in seen:
+            seen.add(kind)
+            contacts.append({"kind": kind, "value": fields[key]})
+    person = {"name": {"full": fields.get("name") or str(meta.get("title") or "").strip('"')}}
+    if fields.get("location"):
+        person["location"] = {"label": fields["location"]}
+    if meta.get("description"):
+        person["headline"] = meta["description"]
+    person["contacts"] = contacts
+    return person
+
+
+def build_education(items):
+    """Education concepts. Institute and period are written as a labelled list."""
+    out = []
+    for stem, meta, body in items:
+        fields = labelled(body)
+        entry = {"id": ident(meta, stem, "edu"), "provenance": provenance(meta)}
+        entry["qualification"] = str(meta.get("title") or stem).strip('"')
+        institution = fields.get("institute") or fields.get("institution")
+        if institution:
+            entry["institution"] = institution
+        span = fields.get("period") or ""
+        parts = [p.strip() for p in re.split(r"\s+[-–]\s+", span) if p.strip()]
+        start = loose_date(parts[0]) if parts else None
+        end = loose_date(parts[1]) if len(parts) > 1 else None
+        if start:
+            entry["period"] = {"state": "ended" if end else "ongoing",
+                               "start": date(start, f"{stem}.md")}
+            if end:
+                entry["period"]["end"] = date(end, f"{stem}.md")
+        for key in ("level", "field", "location"):
+            if meta.get(key):
+                entry[key] = meta[key]
+        out.append(entry)
+    return out
+
+
+def build_credentials(items, notes=None):
+    """Certification Status concepts - the ones that actually hold a certification.
+
+    The type name is the whole point: a `Certification Status` concept reports a
+    *status*, and "none held" is a legitimate one. This used to emit one credential
+    per concept named after the concept's own title, so a file whose entire subject
+    was that nothing had been earned compiled to a held credential called
+    "Certifications - none held" - and a resume is exactly where that must never
+    appear. A credential is now emitted only where the concept evidences one.
+
+    Two shapes count as evidence. A `# Held` block, one entry per certification,
+    which is the same shape `# Bullets` and `# Skills` use:
+
+        # Held
+
+        - Azure Solutions Architect Expert
+          issuer: Microsoft
+          issued: 2024-05
+          status: active
+
+    Or, for a concept that is about a single certification, an `- **Issuer:**` line
+    in the body. Anything else - a gap note, a list of certifications someone is
+    considering - yields nothing, and says so rather than passing silently.
+    """
+    out = []
+    for stem, meta, body in items:
+        held = blocks(body, "Held", ("issuer", "issued", "expires", "status", "id"))
+        for n, (name, fields) in enumerate(held, 1):
+            # Two different `status` fields meet here and must not be conflated.
+            # `provenance.status` is how well the bundle knows the claim, and comes
+            # from the concept's frontmatter. The credential's own `status` is
+            # whether the certification is current.
+            entry = {"id": fields.get("id") or f"cred_{slug(stem)}_{n}",
+                     "name": name,
+                     "kind": "certification",
+                     "status": fields.get("status") or "active",
+                     "provenance": provenance(meta)}
+            if fields.get("issuer"):
+                entry["issuer"] = fields["issuer"]
+            if fields.get("issued"):
+                entry["issued"] = date(fields["issued"], f"{stem}.md issued")
+            if fields.get("expires"):
+                entry["expires"] = date(fields["expires"], f"{stem}.md expires")
+            out.append(entry)
+        if held:
+            continue
+
+        # The single-certification concept: one `- **Issuer:**` line is the claim.
+        fields = labelled(body)
+        if fields.get("issuer"):
+            entry = {"id": ident(meta, stem, "cred"),
+                     "name": str(meta.get("title") or stem).strip('"'),
+                     "issuer": fields["issuer"],
+                     "kind": "certification",
+                     "provenance": provenance(meta)}
+            out.append(entry)
+            continue
+
+        if notes is not None:
+            notes.append(
+                f"education/{stem}.md is a Certification Status concept naming no "
+                f"certification held - no credential compiled. If one has been "
+                f"earned, list it under a `# Held` heading with its issuer.")
+    return out
+
+
+def simple(items, prefix, fields):
+    out = []
+    for stem, meta, _ in items:
+        entry = {"id": ident(meta, stem, prefix), "provenance": provenance(meta)}
+        for key in fields:
+            if meta.get(key) is not None:
+                entry[key] = meta[key]
+        if meta.get("start") or meta.get("end"):
+            entry["period"] = period(meta, f"{stem}.md")
+        out.append(entry)
+    return out
+
+
+def load(root, notes=None, views=None):
+    """The bundle, as the record every downstream tool already reads.
+
+    `notes` collects what a person should know but that is not an error - a concept
+    that yielded nothing where it might have been expected to yield something.
+
+    `views` narrows what is emitted, and nothing else: None for every view on disk,
+    [] for none, or the ids to keep. See select_views().
+
+    It also narrows the walk. A View is the only thing under tailoring/ that reaches
+    the record, so a caller wanting none of them is asking for a directory that never
+    has to be opened - which on a bundle of a hundred targets is 300 of the 341
+    concepts the compile used to parse.
+    """
+    root = os.path.abspath(root)
+    if not os.path.isdir(root):
+        raise Problem(f"not a directory: {root}")
+    by_type = {}
+    for stem, ctype, meta, body in concepts(root, "none" if views == [] else "views"):
+        by_type.setdefault(ctype, []).append((stem, meta, body))
+
+    metrics = metrics_table(root)
+    orgs_by_stem = {stem: (stem, meta) for stem, meta, _ in by_type.get("Organisation", [])}
+    roles_by_stem = {stem: meta for stem, meta, _ in by_type.get("Role", [])}
+
+    person_items = by_type.get("Person", [])
+    person_meta = person_items[0][1] if person_items else {}
+
+    doc = {
+        "urs": "1.0.0",
+        "meta": {
+            "id": f"urn:urs:{slug(os.path.basename(root))}",
+            "lang": person_meta.get("lang", "en"),
+            "generator": "okf_compile",
+            "bundle": os.path.basename(root),
+        },
+        "person": build_person(person_items),
+        "organizations": build_organizations(by_type.get("Organisation", [])),
+        "engagements": build_engagements(by_type.get("Role", []), orgs_by_stem),
+        "projects": build_projects(by_type.get("Project", []), roles_by_stem, metrics),
+        "education": build_education(by_type.get("Education", [])),
+        "credentials": build_credentials(
+            by_type.get("Certification Status", []), notes),
+        "skills": build_skills(by_type.get("Skill Set", [])),
+        "narratives": build_narratives(by_type.get("Positioning", [])),
+        "views": select_views(build_views(by_type.get("View", [])), views),
+    }
+    link_projects(doc["engagements"], doc["projects"])
+
+    for key in ("languages", "work_authorization", "availability"):
+        if person_meta.get(key) is not None:
+            doc[key] = person_meta[key]
+    return doc
+
+
+def dump_record(doc, fh, compact=False):
+    """Write the record as JSON, with what YAML gave us that JSON cannot express.
+
+    `compact` drops the indentation and changes nothing else. Every reader of a record
+    parses it as JSON, and on the hundred-target bundle the indentation is 34% of the
+    file - a third of an agent's read spent on whitespace no model needs.
+
+    An unquoted `timestamp: 2026-08-30` in a concept's frontmatter is a date to YAML
+    and nothing at all to json, and one reaching a View's passthrough ended the whole
+    compile in a TypeError from inside the encoder - a bundle problem reported as a
+    crash. CONCEPT_KEYS strips the one key that carried it; `default=str` covers the
+    next such value, and the guard turns anything still unwritable into a Problem
+    naming what to do about it.
+    """
+    try:
+        json.dump(doc, fh, indent=None if compact else 2, ensure_ascii=False,
+                  default=str)
+    except (TypeError, ValueError) as exc:
+        raise Problem(f"the record holds a value JSON cannot express: {exc}\n"
+                      f"      fix: quote the frontmatter value it came from - a bare "
+                      f"2026-08-30 is a date to YAML, \"2026-08-30\" is text")
+
+
+def floor(root, doc=None):
+    """What a bundle must hold before what it compiles to is a record.
+
+    A freshly scaffolded bundle printed `compiled bundle:` with nothing after the
+    colon and exited 0, which reads as success and is the state every downstream gate
+    then passes on - an empty list satisfies every check written about its elements.
+    The floor is a person and one thing to say about them; a bundle richer than that
+    is nobody's business here.
+
+    `doc` is a record the caller has already compiled, read in place of a second walk.
+    The three counts asked for here cannot disagree with it: a Person concept always
+    yields a person, a Project always yields a project, and a Role either joins an
+    engagement or has already stopped the compile in build_engagements(). Counting
+    from disk instead would put census()'s full walk on top of load()'s narrowed one
+    and spend the whole saving on a question the answer is already in hand for.
+    """
+    if doc is None:
+        counts = census(root)
+        person = counts.get("Person")
+        evidence = counts.get("Role") or counts.get("Project")
+    else:
+        person = doc.get("person")
+        evidence = doc.get("engagements") or doc.get("projects")
+    if not person:
+        raise Problem(
+            f"{os.path.basename(os.path.abspath(root))}: no Person concept, so there "
+            f"is no record - a compile that reports success on this teaches every gate "
+            f"after it that an empty document is a passing one\n"
+            f"      fix: write profile/identity.md with `type: Person` and a "
+            f"`# Contact` table (init_bundle.py scaffolds it)")
+    if not evidence:
+        raise Problem(
+            f"{os.path.basename(os.path.abspath(root))}: a Person and nothing else - "
+            f"no Role and no Project, so the record has nothing to say\n"
+            f"      fix: write one concept in roles/ or projects/ - see "
+            f"references/bundle-spec.md")
+
+
+def posting(path):
+    """A posting.md, as the object score_projects.py reads.
+
+    The advertisement stays in the body, verbatim, because that is the thing a person
+    re-reads and the thing the archive has to keep. Only what the ranking runs on is
+    lifted into frontmatter: a requirement's vocabulary term, whether it is a capability
+    or a technology, and whether the posting demanded it or merely preferred it.
+
+    That last one is the single distinction Markdown postings could not make before
+    revision 4, and it is one key per requirement.
+    """
+    with open(path, encoding="utf-8") as fh:
+        meta, body = read_frontmatter(fh.read())
+    if not meta:
+        raise Problem(f"{os.path.basename(path)}: no frontmatter - a posting needs "
+                      f"requirements[] with value, kind and necessity")
+    reqs = []
+    for n, item in enumerate(meta.get("requirements") or [], 1):
+        if not isinstance(item, dict):
+            raise Problem(f"{os.path.basename(path)}: requirement {n} is not a mapping")
+        if not item.get("value") or not item.get("kind"):
+            raise Problem(f"{os.path.basename(path)}: requirement {n} needs a value and "
+                          f"a kind (capability or technology)")
+        reqs.append(item)
+    return {
+        "title": meta.get("title"),
+        "company": meta.get("company"),
+        "url": meta.get("url"),
+        "requirements": reqs,
+        "role": {"domains": meta.get("domains") or [],
+                 "seniority": meta.get("seniority")},
+        "source": {"raw_text": body.strip()},
+    }
+
+
+# Flags that consume the token after them. Listed so a value can never be mistaken
+# for the bundle path: `--view view_x <bundle>` used to leave `view_x` sitting at
+# args[0] and the script would try to compile it.
+VALUE_FLAGS = {"--dump-record", "--view", "--for"}
+
+
+def parse(argv):
+    """(positional arguments, {flag: [values]}) - one pass, values kept in order."""
+    args, flags, pending = [], {}, None
+    for token in argv:
+        if pending:
+            flags.setdefault(pending, []).append(token)
+            pending = None
+        elif token.startswith("-"):
+            flags.setdefault(token, [])
+            pending = token if token in VALUE_FLAGS else None
+        else:
+            args.append(token)
+    return args, flags
+
+
+def main(argv):
+    args, flags = parse(argv[1:])
+    if not args:
+        print("usage: okf_compile.py <BUNDLE | posting.md> [--dump-record FILE|-] "
+              "[--view ID] [--no-views] [--compact] [--for score] [--quiet]")
+        return 2
+    if args[0].endswith(".md"):
+        try:
+            doc = posting(args[0])
+            dump_record(doc, sys.stdout)
+        except Problem as exc:
+            print(f"FAIL  {exc}")
+            return 1
+        return 0
+    quiet = "--quiet" in flags
+    notes = []
+
+    dump = None
+    if "--dump-record" in flags:
+        dump = (flags["--dump-record"] or ["-"])[0]
+
+    views = flags.get("--view") or None
+    if "--no-views" in flags:
+        if views:
+            print("--no-views and --view name opposite things - pass one of them")
+            return 2
+        views = []
+
+    wanted = None
+    if "--for" in flags:
+        wanted = (flags["--for"] or [None])[0]
+        if wanted not in PROFILES:
+            # Exit 2 rather than compiling the whole record: a misspelt profile that
+            # fell through to the default would hand a scorer a record 3x the size it
+            # asked for and say nothing, which is the shape of a flag nobody notices
+            # has stopped working.
+            print(f"--for takes one of: {', '.join(PROFILES)}"
+                  + (f" - not {wanted!r}" if wanted else ""))
+            return 2
+
+    compact = "--compact" in flags
+    try:
+        doc = load(args[0], notes, views)
+        floor(args[0], doc)
+        if wanted:
+            doc = profile(doc, wanted)
+        if dump == "-":
+            dump_record(doc, sys.stdout, compact)
+            return 0
+        if dump:
+            with open(dump, "w", encoding="utf-8") as fh:
+                dump_record(doc, fh, compact)
+    except Problem as exc:
+        print(f"FAIL  {exc}")
+        return 1
+
+    if dump and not quiet:
+        print(f"wrote {dump}  (a cache - edit the concept, not this)")
+    if not quiet:
+        # Notes are not failures. They exist because a concept yielding nothing
+        # looks identical to a concept that was never written, and one of those
+        # is worth a person's attention.
+        for note in notes:
+            print(f"  note  {note}")
+        counts = ", ".join(f"{len(v)} {k}" for k, v in doc.items()
+                           if isinstance(v, list) and v)
+        print(f"compiled {os.path.basename(os.path.abspath(args[0]))}: {counts}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -310,6 +310,21 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("view_nonexistent", out)
 
+    def test_omitting_the_view_where_there_are_several_is_a_usage_error(self):
+        """It used to render views[0] - whichever sorted first - and announce it
+        exactly as it announces a view that was asked for. With a bundle of live
+        targets that is an arbitrary resume, sent under the wrong tailoring."""
+        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp, "--format", "txt")
+        self.assertEqual(code, 2, out)
+        self.assertIn("view_au_default", out)
+        self.assertIn("--view", out)
+        self.assertEqual(list(self.tmp.glob("*.txt")), [])
+
+    def test_one_view_is_unambiguous_and_still_needs_no_flag(self):
+        path = write_urs(self.tmp, urs_doc(), "resume.json")
+        code, out = run(RENDER_RESUME, path, "--out", self.tmp, "--format", "txt")
+        self.assertEqual(code, 0, out)
+
     def test_absent_tex_engine_is_reported_not_assumed(self):
         if tex.available_engine():
             self.skipTest("a TeX engine is installed, so there is nothing to report")
@@ -370,6 +385,43 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
         code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
                         "--view", "view_au_default")
         self.assertEqual(code, 0, out)
+
+
+class ThePageCountIsMeasured(unittest.TestCase):
+    """The render printed the page *budget* and stopped there.
+
+    So a resume that came out on one page against a budget of two said nothing, and
+    one that came out on three said nothing either - and the rule this repo renders
+    under is that a page count nobody measured is a page count nobody knows.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        self.report = load_script(RENDER_RESUME).page_report
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
+    def test_the_render_reports_the_pages_it_actually_produced(self):
+        import pymupdf
+
+        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
+                        "--view", "view_au_default", "--pdf")
+        self.assertEqual(code, 0, out)
+        with pymupdf.open(self.tmp / "Priya_Raman_Resume.pdf") as pdf:
+            actual = pdf.page_count
+        self.assertIn(f"pages  Priya_Raman_Resume.pdf: {actual} page", out)
+        self.assertIn("against a budget of 2", out)
+
+    def test_over_budget_is_named_rather_than_left_to_be_noticed(self):
+        self.assertIn("OVER BUDGET", self.report("Resume.pdf", 3, 2))
+        self.assertNotIn("OVER BUDGET", self.report("Resume.pdf", 2, 2))
+        self.assertNotIn("OVER BUDGET", self.report("Resume.pdf", 1, 2))
+
+    def test_an_unmeasurable_render_says_so_instead_of_reporting_the_budget(self):
+        """Reported, not fatal: fit_pages.py exits 2 without pymupdf because
+        measuring is its whole job. Here it costs one line of the report."""
+        self.assertIn("not measured", self.report("Resume.pdf", None, 2))
 
 
 class PaperSizeFollowsTheRegion(unittest.TestCase):
