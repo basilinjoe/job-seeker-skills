@@ -7,6 +7,7 @@ person's bundle is hand-editable by design, and a tool that reflows their file i
 a tool they stop running.
 """
 import importlib.util
+import os
 import sys
 import tempfile
 import unittest
@@ -1125,3 +1126,77 @@ class SchemaAgreesWithTheGate(unittest.TestCase):
         code, out = run(VALIDATE_BUNDLE, self.root)
         self.assertEqual(code, 0, out)
         self.assertIn("VALID", out)
+
+
+stage = authoring_module("authoring.stage")
+
+
+class Staging(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def path(self, name):
+        return str(Path(self.dir) / name)
+
+    def test_dry_run_writes_nothing(self):
+        change = stage.Changeset()
+        change.write(self.path("a.md"), "content\n", kind="concept")
+        result = stage.commit(change, dry_run=True)
+        self.assertFalse(os.path.exists(self.path("a.md")))
+        self.assertEqual(result["changed"], [self.path("a.md")])
+        self.assertTrue(result["dry_run"])
+
+    def test_commit_writes_every_file(self):
+        change = stage.Changeset()
+        change.write(self.path("a.md"), "one\n", kind="concept")
+        change.write(self.path("b.md"), "two\n", kind="companion")
+        stage.commit(change)
+        self.assertEqual(Path(self.path("a.md")).read_text(encoding="utf-8"), "one\n")
+        self.assertEqual(Path(self.path("b.md")).read_text(encoding="utf-8"), "two\n")
+
+    def test_the_concept_commits_before_its_companions(self):
+        # A partial failure must land on the repairable side: a concept with no
+        # index entry is a validate_bundle warning that okf reindex can fix. An
+        # index entry naming a file that never landed is a broken link, and
+        # nothing can regenerate the concept it wanted.
+        change = stage.Changeset()
+        change.write(self.path("index.md"), "listing\n", kind="companion")
+        change.write(self.path("concept.md"), "body\n", kind="concept")
+        self.assertEqual([os.path.basename(p) for p in change.ordered()],
+                         ["concept.md", "index.md"])
+
+    def test_nothing_lands_when_a_later_write_fails(self):
+        change = stage.Changeset()
+        change.write(self.path("a.md"), "one\n", kind="concept")
+        change.write(str(Path(self.dir) / "missing-dir" / "b.md"), "two\n",
+                     kind="companion")
+        with self.assertRaises(stage.Refused):
+            stage.commit(change)
+        self.assertFalse(os.path.exists(self.path("a.md")))
+
+    def test_no_temp_files_are_left_behind(self):
+        change = stage.Changeset()
+        change.write(self.path("a.md"), "one\n", kind="concept")
+        stage.commit(change)
+        self.assertEqual(sorted(os.listdir(self.dir)), ["a.md"])
+
+    def test_json_payload_reports_ids(self):
+        change = stage.Changeset()
+        change.write(self.path("a.md"), "one\n", kind="concept")
+        change.record_id("project", "care-platform")
+        result = stage.commit(change)
+        self.assertEqual(result["ids"], {"project": "care-platform"})
+
+    def test_crlf_survives_the_commit(self):
+        # concept.text() puts the file's own line ending back; a text-mode write
+        # here would translate again and change every line ending in the file.
+        change = stage.Changeset()
+        change.write(self.path("a.md"), "one\r\ntwo\r\n", kind="concept")
+        stage.commit(change)
+        self.assertEqual(Path(self.path("a.md")).read_bytes(), b"one\r\ntwo\r\n")
+
+    def test_lf_survives_the_commit(self):
+        change = stage.Changeset()
+        change.write(self.path("a.md"), "one\ntwo\n", kind="concept")
+        stage.commit(change)
+        self.assertEqual(Path(self.path("a.md")).read_bytes(), b"one\ntwo\n")
