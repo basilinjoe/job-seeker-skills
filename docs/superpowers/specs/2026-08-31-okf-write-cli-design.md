@@ -338,6 +338,48 @@ behavioural test that moves is a defect in the change.
 
 No change to any rendered resume, and no change to what a person may do with their own files.
 
+## Found while implementing: `migrate_bundle.py` still defines the format
+
+Recorded here rather than fixed, because it is outside this spec's scope — the
+migrator is not the write layer — and because it is pre-existing rather than
+introduced. It is written down because "one definition of the format" is this
+design's central claim, and the claim is not true while these stand.
+
+A sweep of `scripts/` after the emitter landed found the rest of the tree clean.
+Everything below is in `migrate_bundle.py`.
+
+**1. `quote()` at 473-477 is a second, divergent quoter.** Its docstring states the
+same intent as `concept.scalar` — *quoted only when leaving it bare would change
+it* — and it does not achieve it. Measured head to head:
+
+| value | `migrate.quote` reads back as | `concept.scalar` |
+|---|---|---|
+| `yes` · `no` · `true` · `on` | `bool` | the string |
+| `null` | `None` | the string |
+| `007` · `12_000` · `0x1f` · `5.` | `int` / `float` | the string |
+| a value containing a newline | a literal line break inside the quotes | `\n` escape |
+
+Called from `target_to_posting` and `ujd_to_posting`, so a company or requirement
+value of `Yes` or `null` stops being a string when a bundle is migrated.
+
+**2. `year_index()` at 1143-1144 hand-formats a `---` block** and emits
+`timestamp:` bare, which `safe_load` returns as a `datetime`. That is the shape
+`okf_compile.py:854-868` records as having ended a compile in a `TypeError`, and
+it is being written by the tool whose job is to bring old bundles up to current
+shape. `write_root()` at 1304-1306 does the same through `join_frontmatter`.
+
+**3. `freeze_text()` at 187-200** interpolates `snapshot_of: "{working}"` with no
+escaping, so a stem containing a quote or backslash corrupts the block.
+
+The fix is mechanical — route all four through `concept.frontmatter` and
+`concept.scalar` — but it changes migrated output, and 114 tests in
+`tests/test_migrate_bundle.py` guard that output. It wants its own task, its own
+before-and-after diff over a real migration, and its own review.
+
+Note `migrate_bundle.py:95` defines a `scalar()` that is a frontmatter *parser*,
+unrelated to `concept.scalar` despite the name. Whoever consolidates these should
+rename it.
+
 ## Stated limitations
 
 1. **Cross-file atomicity is not real.** Ordering makes a partial failure repairable; it does not
