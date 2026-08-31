@@ -6,10 +6,26 @@ decide what an event signifies. That is this module. Re-deriving "is this stale"
 in each caller is how two of them end up disagreeing about a person's job search.
 
 Standard library only. Nothing here reads a file except `load_rules`, and nothing
-here writes one at all.
+here writes one at all. The one frontmatter block it produces comes from the write
+layer's emitter rather than an f-string here, because there is one definition of
+the format and this file is not it. A hand-formatted block is exactly how this
+one's `timestamp` went out bare - a datetime to YAML rather than a string, the
+shape okf_compile.py records as having ended a compile in a TypeError.
+`authoring.concept` imports only `re`, so the no-dependency claim still holds.
 """
 import datetime
+import os
 import re
+import sys
+
+# pipeline_model.py is imported by file path - tests/test_pipeline.py loads it
+# standalone - so the scripts directory is not reliably on sys.path by the time
+# this runs. The same guard init_bundle.py carries, for the same reason.
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+from authoring import concept  # noqa: E402
 
 # Ordered, because "the last advancing event" is the stage and the order is what a
 # reader expects a pipeline to move through. Membership matters to the code; the
@@ -272,14 +288,13 @@ def vocabulary_markdown(timestamp):
     def rows(events, advances, resets):
         return "\n".join(f"- `{e}` - {advances}, {resets}" for e in events)
 
-    return f"""---
-type: Vocabulary
-title: "Pipeline vocabulary"
-description: "The event values an application timeline may use. Exact strings."
-timestamp: {timestamp}
-status: confirmed
----
-
+    return concept.frontmatter("Vocabulary", {
+        "title": "Pipeline vocabulary",
+        "description": "The event values an application timeline may use. "
+                       "Exact strings.",
+        "timestamp": timestamp,
+        "status": "confirmed",
+    }) + f"""
 The `Event` column of an application's `# Timeline` table. `pipeline.py` derives the stage and the
 staleness from these strings, and `validate_bundle.py` rejects anything absent from this file, so a
 synonym is not a small mistake - it is a row that stops counting.

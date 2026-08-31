@@ -237,3 +237,18 @@ class OneEmitter(unittest.TestCase):
                 "description": "Desc",
                 "timestamp": "2026-01-01T00:00:00Z",
             }) + "\n")
+
+    def test_the_pipeline_vocabulary_uses_the_shared_emitter(self):
+        """The last hand-formatted frontmatter block in the scaffolder.
+
+        It emitted `timestamp:` bare, which safe_load returns as a datetime -
+        the shape okf_compile.py:854-858 records as having ended a compile in a
+        TypeError. One definition of the format means this one too.
+        """
+        import yaml
+        from fixtures import PIPELINE_MODEL
+        model = load_script(PIPELINE_MODEL)
+        text = model.vocabulary_markdown("2026-01-01T00:00:00Z")
+        meta = yaml.safe_load(text.split("---")[1])
+        self.assertIsInstance(meta["timestamp"], str)
+        self.assertEqual(meta["timestamp"], "2026-01-01T00:00:00Z")
