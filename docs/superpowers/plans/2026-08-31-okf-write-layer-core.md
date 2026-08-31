@@ -429,6 +429,19 @@ git commit -m "init_bundle: use the write layer's emitter rather than its own"
 This is the task that decides whether people keep using their own editor. A splice
 changes the lines for one key and no other byte of the file.
 
+**Line endings are part of "no other byte", and this is the trap.** A bundle
+scaffolded on Windows is entirely CRLF — measured on this machine, 38 CRLF and 0
+bare LF in a fresh `index.md`. Reading in ordinary text mode applies universal
+newlines and hands you `\n`; writing with `newline="\n"` disables translation and
+emits bare LF. Do both and a spliced file comes back with **every line ending
+changed**, which is a whole-file diff in git and the exact defect this design
+exists to prevent.
+
+So `read()` opens with `newline=""` to see the real endings, records which the
+file uses, normalises to `\n` for parsing, and `text()` converts back on the way
+out. `stage.py` (Task 5) then writes with `newline=""` so the bytes it is handed
+are the bytes that land.
+
 **Files:**
 - Modify: `plugins/jsk/skills/jsk/scripts/authoring/concept.py`
 - Test: `tests/test_authoring.py`
@@ -521,6 +534,22 @@ class Splicing(unittest.TestCase):
         self.assertIn("dupe.md", message)
         self.assertIn("appears twice", message)
 
+    def test_a_crlf_file_keeps_its_line_endings(self):
+        # A bundle scaffolded on Windows is entirely CRLF. Rewriting one key
+        # must not rewrite every line ending - that is a whole-file diff in git
+        # and the loudest possible version of touching what nobody asked for.
+        path = Path(self.dir) / "crlf.md"
+        path.write_bytes(HAND_WRITTEN.replace("\n", "\r\n").encode("utf-8"))
+        doc = concept.read(path)
+        after = concept.set_key(doc, "strength", 5)
+        self.assertEqual(after.count("\r\n"), HAND_WRITTEN.count("\n"))
+        self.assertNotIn("\n\n", after.replace("\r\n", "\r\r"))
+        self.assertIn("strength: 5\r\n", after)
+
+    def test_an_lf_file_keeps_its_line_endings(self):
+        after = concept.set_key(self.doc, "strength", 5)
+        self.assertNotIn("\r", after)
+
     def test_a_block_list_is_refused_rather_than_reflowed(self):
         path = Path(self.dir) / "block.md"
         path.write_text("---\ntype: Project\ntags:\n  - one\n  - two\n---\n\nx\n",
@@ -562,30 +591,43 @@ KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):(.*)$")
 
 
 class Concept:
-    """One concept file, split into the three parts a command needs.
+    """One concept file, split into the parts a command needs.
 
     `lines` is the frontmatter as written, so a splice can put a line back where
     it found it. `meta` is the same block parsed, for anything that needs to read
-    a value rather than rewrite one.
+    a value rather than rewrite one. `newline` is the file's own convention,
+    carried so that rewriting one key does not rewrite every line ending.
     """
 
-    def __init__(self, path, lines, meta, body):
+    def __init__(self, path, lines, meta, body, newline="\n"):
         self.path = path
         self.lines = lines
         self.meta = meta
         self.body = body
+        self.newline = newline
 
     def text(self, lines=None):
+        """The whole file, in the line ending it arrived in."""
         block = "\n".join(self.lines if lines is None else lines)
-        return f"---\n{block}\n---\n\n{self.body}"
+        out = f"---\n{block}\n---\n\n{self.body}"
+        return out if self.newline == "\n" else out.replace("\n", self.newline)
 
 
 def read(path):
-    """Parse one concept file, or refuse with a reason naming it."""
+    """Parse one concept file, or refuse with a reason naming it.
+
+    `newline=""` rather than text mode: universal newlines would hand back "\\n"
+    for a CRLF file, and writing that out again would change every line ending in
+    somebody's concept to rewrite one key. A bundle scaffolded on Windows is
+    entirely CRLF, so this is the common case rather than the exotic one.
+    """
     if yaml is None:
         raise Unsplicable(
             "reading a concept needs pyyaml:  pip install pyyaml")
-    raw = open(str(path), encoding="utf-8").read()
+    with open(str(path), encoding="utf-8", newline="") as handle:
+        raw = handle.read()
+    newline = "\r\n" if "\r\n" in raw else "\n"
+    raw = raw.replace("\r\n", "\n")
     match = SPLIT.match(raw)
     if not match:
         raise Unsplicable(
@@ -601,7 +643,7 @@ def read(path):
     if not isinstance(meta, dict):
         raise Unsplicable(f"{path}: frontmatter is not a mapping\n"
                           f"fix:  a concept's block is `key: value` lines")
-    return Concept(path, block.split("\n"), meta, body)
+    return Concept(path, block.split("\n"), meta, body, newline)
 
 
 def locate(doc, key):
@@ -1061,7 +1103,11 @@ def commit(changeset, dry_run=False):
     try:
         for _, path, text in sorted(changeset._files, key=lambda f: f[0]):
             temp = path + SUFFIX
-            with open(temp, "w", encoding="utf-8", newline="\n") as handle:
+            # newline="" so the bytes handed in are the bytes that land. Text
+            # mode would translate, and concept.py has already put each file's
+            # own convention back - translating again would change every line
+            # ending in a concept in order to rewrite one key.
+            with open(temp, "w", encoding="utf-8", newline="") as handle:
                 handle.write(text)
                 handle.flush()
                 os.fsync(handle.fileno())
