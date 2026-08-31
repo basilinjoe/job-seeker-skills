@@ -8,8 +8,10 @@ copied, because the spec this implements forbids a second definition of the
 format - and two emitters disagreeing about quoting is exactly how a bundle
 acquires a file that reads differently from every other file in it.
 
-This module emits LF. `okf_compile.read_frontmatter` handles CRLF, so CRLF
-bundles exist in the wild; the caller owns the file's line convention.
+`new()` emits LF and the caller owns the file's line convention. The splice path
+does not have that luxury: it is handed a file that already exists, so read()
+records the convention it found and text() writes it back. A bundle scaffolded
+on Windows is entirely CRLF, and rewriting one key must not rewrite every line.
 """
 
 import re
@@ -133,3 +135,124 @@ def new(type_name, keys, body):
     if body and not body.endswith("\n"):
         body += "\n"
     return frontmatter(type_name, keys) + "\n" + body
+
+
+class Unsplicable(Exception):
+    """This file cannot be changed safely, and saying so beats guessing.
+
+    Carries the `fix:` line the rest of the tooling prints, because a refusal a
+    person cannot act on is only marginally better than a mangled file.
+    """
+
+
+# Guarded, not unguarded: init_bundle.py imports this module and ARCHITECTURE.md
+# lists it among the scripts that run on a bare Python. Emitting needs no YAML;
+# only reading does, so the absence is reported by read() rather than by an
+# ImportError at somebody else's import time.
+try:
+    import yaml
+except ImportError:                                  # pragma: no cover
+    yaml = None
+
+
+SPLIT = re.compile(r"^---\n(.*?\n)---\n", re.S)
+KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):(.*)$")
+
+
+class Concept:
+    """One concept file, split into the parts a command needs.
+
+    `lines` is the frontmatter as written, so a splice can put a line back where
+    it found it. `meta` is the same block parsed, for anything that needs to read
+    a value rather than rewrite one. `newline` is the file's own convention,
+    carried so that rewriting one key does not rewrite every line ending.
+    """
+
+    def __init__(self, path, lines, meta, body, newline="\n"):
+        self.path = path
+        self.lines = lines
+        self.meta = meta
+        self.body = body
+        self.newline = newline
+
+    def text(self, lines=None):
+        """The whole file, in the line ending it arrived in."""
+        block = "\n".join(self.lines if lines is None else lines)
+        out = f"---\n{block}\n---\n\n{self.body}"
+        return out if self.newline == "\n" else out.replace("\n", self.newline)
+
+
+def read(path):
+    """Parse one concept file, or refuse with a reason naming it.
+
+    `newline=""` rather than text mode: universal newlines would hand back "\\n"
+    for a CRLF file, and writing that out again would change every line ending in
+    somebody's concept in order to rewrite one key. A bundle scaffolded on
+    Windows is entirely CRLF, so this is the common case, not the exotic one.
+    """
+    if yaml is None:
+        raise Unsplicable("reading a concept needs pyyaml:  pip install pyyaml")
+    with open(str(path), encoding="utf-8", newline="") as handle:
+        raw = handle.read()
+    newline = "\r\n" if "\r\n" in raw else "\n"
+    raw = raw.replace("\r\n", "\n")
+    match = SPLIT.match(raw)
+    if not match:
+        raise Unsplicable(f"{path}: no frontmatter\n"
+                          f"fix:  a concept opens with a --- block naming its type")
+    block = match.group(1).rstrip("\n")
+    body = raw[match.end():].lstrip("\n")
+    try:
+        meta = yaml.safe_load(block) or {}
+    except yaml.YAMLError as exc:
+        raise Unsplicable(f"{path}: frontmatter is not valid YAML: {exc}\n"
+                          f"fix:  open it and correct the block by hand")
+    if not isinstance(meta, dict):
+        raise Unsplicable(f"{path}: frontmatter is not a mapping\n"
+                          f"fix:  a concept's block is `key: value` lines")
+    return Concept(path, block.split("\n"), meta, body, newline)
+
+
+def locate(doc, key):
+    """The single line index defining `key`, or None. Refuses on ambiguity.
+
+    Ambiguity is a refusal rather than a first-match because both alternatives
+    silently do the wrong thing: taking the first leaves a second line still
+    saying something else, and taking the last is the same defect upside down.
+    """
+    found = []
+    for index, line in enumerate(doc.lines):
+        match = KEY.match(line)
+        if match and match.group(1) == key:
+            found.append(index)
+    if len(found) > 1:
+        rows = ", ".join(str(i + 2) for i in found)     # +2: the --- and 1-indexing
+        raise Unsplicable(
+            f"{doc.path}: `{key}` appears twice, at lines {rows}\n"
+            f"fix:  delete the wrong one by hand - which is right is not "
+            f"something this command can know")
+    if not found:
+        return None
+    index = found[0]
+    if not KEY.match(doc.lines[index]).group(2).strip():
+        raise Unsplicable(
+            f"{doc.path}: `{key}` is written as a block, over several lines\n"
+            f"fix:  this command writes flow style - [a, b] - and rewriting the "
+            f"block would reflow lines nobody asked it to touch. Change it by hand.")
+    return index
+
+
+def set_key(doc, key, value):
+    """The file's text with `key` set, and every other byte where it was."""
+    lines = list(doc.lines)
+    index = locate(doc, key)
+    if value is None:
+        if index is not None:
+            del lines[index]
+        return doc.text(lines)
+    rendered = f"{key}: {scalar(value)}"
+    if index is None:
+        lines.append(rendered)
+    else:
+        lines[index] = rendered
+    return doc.text(lines)

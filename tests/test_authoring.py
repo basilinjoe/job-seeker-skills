@@ -7,7 +7,9 @@ person's bundle is hand-editable by design, and a tool that reflows their file i
 a tool they stop running.
 """
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 
 from fixtures import INIT_BUNDLE, PIPELINE_MODEL, authoring_module, load_script
 
@@ -272,3 +274,115 @@ class OneEmitter(unittest.TestCase):
         meta = yaml.safe_load(text.split("---")[1])
         self.assertIsInstance(meta["timestamp"], str)
         self.assertEqual(meta["timestamp"], "2026-01-01T00:00:00Z")
+
+
+HAND_WRITTEN = """---
+type: Project
+# I keep the strength here so I remember to revisit it
+title: "Care platform"
+strength: 3
+capabilities: [ai-platform-architecture]
+
+status: confirmed
+---
+
+# The problem
+
+It was slow.
+"""
+
+
+def write_lf(path, text):
+    """Write `text` with its line endings intact.
+
+    write_text() goes through text mode, which on Windows turns every "\\n" into
+    "\\r\\n" - so the LF fixtures below were landing on disk as CRLF and the tests
+    that pin LF behaviour were silently exercising the CRLF path instead. Bytes,
+    so a fixture that says LF is LF on every platform.
+    """
+    path.write_bytes(text.encode("utf-8"))
+    return path
+
+
+class Reading(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.path = write_lf(Path(self.dir) / "care-platform.md", HAND_WRITTEN)
+
+    def test_meta_is_parsed(self):
+        doc = concept.read(self.path)
+        self.assertEqual(doc.meta["type"], "Project")
+        self.assertEqual(doc.meta["strength"], 3)
+
+    def test_body_is_kept_verbatim(self):
+        doc = concept.read(self.path)
+        self.assertEqual(doc.body, "# The problem\n\nIt was slow.\n")
+
+    def test_missing_frontmatter_is_refused(self):
+        path = write_lf(Path(self.dir) / "bare.md", "# Just a heading\n")
+        with self.assertRaises(concept.Unsplicable) as caught:
+            concept.read(path)
+        self.assertIn("no frontmatter", str(caught.exception))
+
+
+class Splicing(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.path = write_lf(Path(self.dir) / "care-platform.md", HAND_WRITTEN)
+        self.doc = concept.read(self.path)
+
+    def test_changing_one_key_changes_one_line(self):
+        after = concept.set_key(self.doc, "strength", 5)
+        before_lines = HAND_WRITTEN.splitlines()
+        after_lines = after.splitlines()
+        differing = [i for i, (a, b) in enumerate(zip(before_lines, after_lines))
+                     if a != b]
+        self.assertEqual(len(differing), 1)
+        self.assertEqual(after_lines[differing[0]], "strength: 5")
+
+    def test_comments_and_blank_lines_survive(self):
+        after = concept.set_key(self.doc, "strength", 5)
+        self.assertIn("# I keep the strength here so I remember to revisit it", after)
+        self.assertIn("capabilities: [ai-platform-architecture]\n\nstatus: confirmed",
+                      after)
+
+    def test_body_is_untouched(self):
+        after = concept.set_key(self.doc, "strength", 5)
+        self.assertTrue(after.endswith("# The problem\n\nIt was slow.\n"))
+
+    def test_a_new_key_is_appended_to_the_block(self):
+        after = concept.set_key(self.doc, "recency", 2026)
+        self.assertIn("status: confirmed\nrecency: 2026\n---\n", after)
+
+    def test_a_duplicated_key_is_refused_rather_than_guessed(self):
+        path = write_lf(Path(self.dir) / "dupe.md",
+                        "---\ntype: Project\nstrength: 1\nstrength: 2\n---\n\nx\n")
+        doc = concept.read(path)
+        with self.assertRaises(concept.Unsplicable) as caught:
+            concept.set_key(doc, "strength", 5)
+        message = str(caught.exception)
+        self.assertIn("dupe.md", message)
+        self.assertIn("appears twice", message)
+
+    def test_a_crlf_file_keeps_its_line_endings(self):
+        # A bundle scaffolded on Windows is entirely CRLF. Rewriting one key must
+        # not rewrite every line ending - that is a whole-file diff in git and
+        # the loudest possible version of touching what nobody asked for.
+        path = Path(self.dir) / "crlf.md"
+        path.write_bytes(HAND_WRITTEN.replace("\n", "\r\n").encode("utf-8"))
+        doc = concept.read(path)
+        after = concept.set_key(doc, "strength", 5)
+        self.assertEqual(after.count("\r\n"), HAND_WRITTEN.count("\n"))
+        self.assertIn("strength: 5\r\n", after)
+
+    def test_an_lf_file_keeps_its_line_endings(self):
+        after = concept.set_key(self.doc, "strength", 5)
+        self.assertNotIn("\r", after)
+
+    def test_a_block_list_is_refused_rather_than_reflowed(self):
+        path = write_lf(Path(self.dir) / "block.md",
+                        "---\ntype: Project\ntags:\n  - one\n  - two\n---\n\nx\n")
+        doc = concept.read(path)
+        with self.assertRaises(concept.Unsplicable) as caught:
+            concept.set_key(doc, "tags", ["three"])
+        self.assertIn("block.md", str(caught.exception))
