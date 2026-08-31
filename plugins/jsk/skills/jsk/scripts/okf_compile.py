@@ -3,16 +3,21 @@
 
 Usage: python3 okf_compile.py BUNDLE [--dump-record FILE|-] [--quiet]
                                     [--view ID]... [--no-views]
+                                    [--compact] [--for score]
 
 `--view` names the view(s) to emit and is repeatable; `--no-views` emits none.
-Both affect only what is emitted - every concept is still read, and nothing else
-in the record changes. A bundle keeps one working view per target under
-tailoring/targets/ and retires none of them, so a person who has answered a
+Nothing else in the record changes. A bundle keeps one working view per target
+under tailoring/targets/ and retires none of them, so a person who has answered a
 hundred postings compiles a hundred views: half of record.json by volume, in a
 file several agents read on every run, and ninety-nine of them irrelevant to
 whichever application is being worked on. Scoring and the pipeline read no view
 at all. The default stays every view, because `validate_urs.py <bundle>` checks
 all of them and a broken view nobody is rendering today is still a broken view.
+`--no-views` also skips the walk of tailoring/ - see concepts().
+
+`--compact` writes the record without indentation, and `--for score` narrows
+every project to the keys the ranking runs on. Both cut what an agent reads and
+neither changes what any of it says.
 
 The bundle is the source of truth. This reads its concepts and returns the record
 that `urs/resolve.py` already consumes - the same dict it used to be handed as a
@@ -62,6 +67,15 @@ SKIP_DIRS = {".git", "node_modules", "out", "resume-archive", ".build"}
 # still compile.
 ARCHIVE = ("tailoring", "applications")
 
+# tailoring/ - the postings, the gap assessments and the views that render from them.
+# Matched by its path from the bundle root for the same reason ARCHIVE is.
+TAILORING = "tailoring"
+
+# What concepts() reads under tailoring/. Spelt out rather than passed as a flag
+# because the wrong value here is invisible: it makes a walk read less and every check
+# written about what it found still passes.
+TAILORING_MODES = ("views", "none", "all")
+
 # Concept-level bookkeeping every OKF file may carry. A View is the one concept whose
 # frontmatter is already URS, so these are the keys that are *about* the file rather than
 # part of the document - they are stripped here so VIEW_KEYS stays the URS contract.
@@ -104,7 +118,7 @@ def read_frontmatter(text):
     return (meta if isinstance(meta, dict) else None), body
 
 
-def concepts(root):
+def concepts(root, tailoring="views"):
     """Every concept in the bundle, as (stem, type, meta, body).
 
     The archive is not read. Each sent application freezes a copy of the view it was
@@ -116,16 +130,39 @@ def concepts(root):
     59% of record.json, in a file several agents read on every tailoring run. Nothing
     downstream compiles from the archive - validate_bundle.py and pipeline.py read it
     directly, as its own artefacts rather than as career record.
+
+    `tailoring` says what to read under tailoring/targets/, and exists because a View
+    is the only thing load() takes from there. A bundle of a hundred answered postings
+    parsed 341 concepts to build a record out of 41: a posting and a gap assessment per
+    target, opened, YAML-parsed, bucketed by type and then never read again - 408ms of
+    a 946ms compile. "views" reads only `*.view.md`; "none" does not enter the
+    directory at all, which is what --no-views and `okf score` are already asking for;
+    "all" is every file, and belongs to census(), which has to be able to see a type
+    the record does not emit.
     """
+    if tailoring not in TAILORING_MODES:
+        raise ValueError(f"concepts(tailoring={tailoring!r}): one of {TAILORING_MODES}")
     out = []
-    archive = os.path.normcase(os.path.join(os.path.abspath(root), *ARCHIVE))
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [
-            d for d in dirnames
-            if d not in SKIP_DIRS and not d.startswith(".")
-            and os.path.normcase(os.path.abspath(os.path.join(dirpath, d))) != archive]
+    top = os.path.abspath(root)
+    archive = os.path.normcase(os.path.join(top, *ARCHIVE))
+    tailored = os.path.normcase(os.path.join(top, TAILORING))
+    for dirpath, dirnames, filenames in os.walk(top):
+        keep = []
+        for d in dirnames:
+            if d in SKIP_DIRS or d.startswith("."):
+                continue
+            child = os.path.normcase(os.path.abspath(os.path.join(dirpath, d)))
+            if child == archive or (child == tailored and tailoring == "none"):
+                continue
+            keep.append(d)
+        dirnames[:] = keep
+        here = os.path.normcase(os.path.abspath(dirpath))
+        views_only = tailoring == "views" and (
+            here == tailored or here.startswith(tailored + os.sep))
         for name in sorted(filenames):
             if not name.endswith(".md") or name == "index.md":
+                continue
+            if views_only and not name.endswith(".view.md"):
                 continue
             path = os.path.join(dirpath, name)
             with open(path, encoding="utf-8") as fh:
@@ -143,9 +180,16 @@ def census(root):
     that drops a whole type cannot be caught by any check written about the
     survivors - every one of those checks iterates a list that is empty, and passes.
     `views` was a hardcoded `[]` for months for exactly that reason.
+
+    So it walks everything, including the tailoring/ concepts load() stopped reading.
+    Sharing load()'s narrowed walk would cost a second or so less and blind the only
+    check that can see a type disappear: `check_conservation` compares a type on disk
+    against the record key it feeds, and against a compile that emits no views it would
+    read zero Views on disk and agree that nothing had been dropped. Slower census,
+    honest gate.
     """
     out = {}
-    for _, ctype, _, _ in concepts(root):
+    for _, ctype, _, _ in concepts(root, tailoring="all"):
         out[ctype] = out.get(ctype, 0) + 1
     return out
 
@@ -502,6 +546,42 @@ def select_views(views, wanted):
     return [by_id[w] for w in wanted]
 
 
+# What a scorer reads off a project, and the whole of it. score_projects.py ranks on
+# capabilities, technologies, domains, seniority, strength and the period `recency:`
+# compiles to, labels each row with the title, and reads not one word of the
+# achievement prose that is 61% of projects[] by volume. `engagement` stays because
+# without it engagements[].projects points at projects the record no longer describes.
+SCORE_PROJECT_KEYS = ("id", "title", "capabilities", "technologies", "domains",
+                      "seniority", "strength", "period", "engagement")
+
+# The profiles `--for` knows. One, deliberately: a profile is a claim about what a
+# consumer reads, and the only consumer anybody has measured is the ranking.
+PROFILES = ("score",)
+
+
+def profile(doc, name):
+    """The record with everything the named consumer does not read taken out.
+
+    Computed here rather than by the caller, so there is one definition of what a
+    scorer needs. A second list of keys - in the scorer, in an agent's instructions -
+    is the transcription that drifts, and drifting transcriptions are what this whole
+    format exists to stop: the list that fell behind would quietly stop feeding the
+    ranking a key it still scores on, and a ranking missing a term still prints a
+    table.
+    """
+    if name not in PROFILES:
+        raise Problem(f"no profile {name!r} - valid: {', '.join(PROFILES)}")
+    out = dict(doc)
+    out["projects"] = [{k: p[k] for k in SCORE_PROJECT_KEYS if k in p}
+                       for p in doc.get("projects") or []]
+    # Emitted empty rather than dropped: a reader that iterates a key it expects to
+    # find is a different failure from one that reads an empty list, and only one of
+    # them is a crash in something downstream of a flag it never asked for.
+    for key in ("narratives", "education", "credentials"):
+        out[key] = []
+    return out
+
+
 def link_projects(engagements, projects):
     """`engagement.projects[]`, inverted from the pointer each project carries.
 
@@ -718,12 +798,17 @@ def load(root, notes=None, views=None):
 
     `views` narrows what is emitted, and nothing else: None for every view on disk,
     [] for none, or the ids to keep. See select_views().
+
+    It also narrows the walk. A View is the only thing under tailoring/ that reaches
+    the record, so a caller wanting none of them is asking for a directory that never
+    has to be opened - which on a bundle of a hundred targets is 300 of the 341
+    concepts the compile used to parse.
     """
     root = os.path.abspath(root)
     if not os.path.isdir(root):
         raise Problem(f"not a directory: {root}")
     by_type = {}
-    for stem, ctype, meta, body in concepts(root):
+    for stem, ctype, meta, body in concepts(root, "none" if views == [] else "views"):
         by_type.setdefault(ctype, []).append((stem, meta, body))
 
     metrics = metrics_table(root)
@@ -760,8 +845,12 @@ def load(root, notes=None, views=None):
     return doc
 
 
-def dump_record(doc, fh):
+def dump_record(doc, fh, compact=False):
     """Write the record as JSON, with what YAML gave us that JSON cannot express.
+
+    `compact` drops the indentation and changes nothing else. Every reader of a record
+    parses it as JSON, and on the hundred-target bundle the indentation is 34% of the
+    file - a third of an agent's read spent on whitespace no model needs.
 
     An unquoted `timestamp: 2026-08-30` in a concept's frontmatter is a date to YAML
     and nothing at all to json, and one reaching a View's passthrough ended the whole
@@ -771,14 +860,15 @@ def dump_record(doc, fh):
     naming what to do about it.
     """
     try:
-        json.dump(doc, fh, indent=2, ensure_ascii=False, default=str)
+        json.dump(doc, fh, indent=None if compact else 2, ensure_ascii=False,
+                  default=str)
     except (TypeError, ValueError) as exc:
         raise Problem(f"the record holds a value JSON cannot express: {exc}\n"
                       f"      fix: quote the frontmatter value it came from - a bare "
                       f"2026-08-30 is a date to YAML, \"2026-08-30\" is text")
 
 
-def floor(root):
+def floor(root, doc=None):
     """What a bundle must hold before what it compiles to is a record.
 
     A freshly scaffolded bundle printed `compiled bundle:` with nothing after the
@@ -786,16 +876,29 @@ def floor(root):
     then passes on - an empty list satisfies every check written about its elements.
     The floor is a person and one thing to say about them; a bundle richer than that
     is nobody's business here.
+
+    `doc` is a record the caller has already compiled, read in place of a second walk.
+    The three counts asked for here cannot disagree with it: a Person concept always
+    yields a person, a Project always yields a project, and a Role either joins an
+    engagement or has already stopped the compile in build_engagements(). Counting
+    from disk instead would put census()'s full walk on top of load()'s narrowed one
+    and spend the whole saving on a question the answer is already in hand for.
     """
-    counts = census(root)
-    if not counts.get("Person"):
+    if doc is None:
+        counts = census(root)
+        person = counts.get("Person")
+        evidence = counts.get("Role") or counts.get("Project")
+    else:
+        person = doc.get("person")
+        evidence = doc.get("engagements") or doc.get("projects")
+    if not person:
         raise Problem(
             f"{os.path.basename(os.path.abspath(root))}: no Person concept, so there "
             f"is no record - a compile that reports success on this teaches every gate "
             f"after it that an empty document is a passing one\n"
             f"      fix: write profile/identity.md with `type: Person` and a "
             f"`# Contact` table (init_bundle.py scaffolds it)")
-    if not counts.get("Role") and not counts.get("Project"):
+    if not evidence:
         raise Problem(
             f"{os.path.basename(os.path.abspath(root))}: a Person and nothing else - "
             f"no Role and no Project, so the record has nothing to say\n"
@@ -841,7 +944,7 @@ def posting(path):
 # Flags that consume the token after them. Listed so a value can never be mistaken
 # for the bundle path: `--view view_x <bundle>` used to leave `view_x` sitting at
 # args[0] and the script would try to compile it.
-VALUE_FLAGS = {"--dump-record", "--view"}
+VALUE_FLAGS = {"--dump-record", "--view", "--for"}
 
 
 def parse(argv):
@@ -863,7 +966,7 @@ def main(argv):
     args, flags = parse(argv[1:])
     if not args:
         print("usage: okf_compile.py <BUNDLE | posting.md> [--dump-record FILE|-] "
-              "[--view ID] [--no-views]")
+              "[--view ID] [--no-views] [--compact] [--for score] [--quiet]")
         return 2
     if args[0].endswith(".md"):
         try:
@@ -887,15 +990,30 @@ def main(argv):
             return 2
         views = []
 
+    wanted = None
+    if "--for" in flags:
+        wanted = (flags["--for"] or [None])[0]
+        if wanted not in PROFILES:
+            # Exit 2 rather than compiling the whole record: a misspelt profile that
+            # fell through to the default would hand a scorer a record 3x the size it
+            # asked for and say nothing, which is the shape of a flag nobody notices
+            # has stopped working.
+            print(f"--for takes one of: {', '.join(PROFILES)}"
+                  + (f" - not {wanted!r}" if wanted else ""))
+            return 2
+
+    compact = "--compact" in flags
     try:
         doc = load(args[0], notes, views)
-        floor(args[0])
+        floor(args[0], doc)
+        if wanted:
+            doc = profile(doc, wanted)
         if dump == "-":
-            dump_record(doc, sys.stdout)
+            dump_record(doc, sys.stdout, compact)
             return 0
         if dump:
             with open(dump, "w", encoding="utf-8") as fh:
-                dump_record(doc, fh)
+                dump_record(doc, fh, compact)
     except Problem as exc:
         print(f"FAIL  {exc}")
         return 1
