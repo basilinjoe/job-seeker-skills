@@ -1404,3 +1404,129 @@ class Staging(unittest.TestCase):
         with self.assertRaises(stage.Refused):
             change.write(self.path("a.md"), "two\n", kind="companion")
         self.assertEqual(os.listdir(self.dir), [])
+
+
+bookkeeping = authoring_module("authoring.bookkeeping")
+
+INDEX = """---
+type: Index
+title: "Projects"
+---
+
+# Contents
+
+- [Ledger rebuild](ledger-rebuild.md) - the general ledger migration
+"""
+
+LOG = """---
+type: Log
+title: "Log"
+---
+
+# History
+
+## 2026-08-01
+
+- Captured the ledger rebuild.
+"""
+
+
+class Bookkeeping(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.projects = Path(self.dir) / "projects"
+        self.projects.mkdir()
+        write_lf(self.projects / "index.md", INDEX)
+        write_lf(Path(self.dir) / "log.md", LOG)
+
+    def test_index_entry_is_appended_in_order(self):
+        text = bookkeeping.index_entry(
+            self.projects / "index.md", "care-platform.md", "Care platform",
+            "Multi-tenant platform for aged-care providers.")
+        self.assertIn("- [Ledger rebuild](ledger-rebuild.md)", text)
+        self.assertIn("- [Care platform](care-platform.md) - Multi-tenant platform",
+                      text)
+        self.assertLess(text.index("Ledger rebuild"), text.index("Care platform"))
+
+    def test_an_entry_already_present_is_not_duplicated(self):
+        once = bookkeeping.index_entry(
+            self.projects / "index.md", "ledger-rebuild.md", "Ledger rebuild", "x")
+        self.assertEqual(once.count("ledger-rebuild.md"), 1)
+
+    def test_log_row_is_appended_under_a_dated_heading(self):
+        text = bookkeeping.log_entry(Path(self.dir) / "log.md",
+                                     "Added the care platform project.", "2026-08-31")
+        self.assertIn("## 2026-08-31", text)
+        self.assertIn("- Added the care platform project.", text)
+
+    def test_log_keeps_what_was_already_there(self):
+        text = bookkeeping.log_entry(Path(self.dir) / "log.md", "New thing.",
+                                     "2026-08-31")
+        self.assertIn("- Captured the ledger rebuild.", text)
+        self.assertLess(text.index("2026-08-01"), text.index("2026-08-31"))
+
+    def test_a_second_entry_on_one_day_reuses_the_heading(self):
+        first = bookkeeping.log_entry(Path(self.dir) / "log.md", "One.", "2026-08-31")
+        write_lf(Path(self.dir) / "log.md", first)
+        second = bookkeeping.log_entry(Path(self.dir) / "log.md", "Two.", "2026-08-31")
+        self.assertEqual(second.count("## 2026-08-31"), 1)
+        self.assertIn("- One.\n- Two.", second)
+
+
+class BookkeepingLineEndings(unittest.TestCase):
+    """These functions read a whole file and return its whole new text.
+
+    That puts them in exactly concept.read()'s position, and the same defect is
+    available to them: a bundle scaffolded on Windows is entirely CRLF, and
+    returning LF text for a CRLF file rewrites every line ending in it to add one
+    line - a whole-file diff in git, and the loudest possible version of touching
+    what nobody asked to touch.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def crlf(self, name, text):
+        path = Path(self.dir) / name
+        path.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
+        return path
+
+    def test_a_crlf_index_keeps_its_line_endings(self):
+        text = bookkeeping.index_entry(self.crlf("index.md", INDEX),
+                                       "care-platform.md", "Care platform", "Desc.")
+        self.assertNotIn("\n", text.replace("\r\n", ""))
+        self.assertIn("- [Care platform](care-platform.md) - Desc.\r\n", text)
+        self.assertEqual(text.count("\r\n"), INDEX.count("\n") + 1)
+
+    def test_a_crlf_log_keeps_its_line_endings(self):
+        text = bookkeeping.log_entry(self.crlf("log.md", LOG), "New thing.",
+                                     "2026-08-31")
+        self.assertNotIn("\n", text.replace("\r\n", ""))
+        self.assertIn("## 2026-08-31\r\n", text)
+        self.assertIn("- New thing.\r\n", text)
+
+    def test_a_crlf_log_reuses_the_heading_it_wrote(self):
+        # The round trip is where a half-converted file would show up: the second
+        # call reads back what the first one returned, so a heading written in one
+        # convention and looked for in the other would silently duplicate.
+        path = self.crlf("log.md", LOG)
+        path.write_bytes(bookkeeping.log_entry(path, "One.", "2026-08-31")
+                         .encode("utf-8"))
+        text = bookkeeping.log_entry(path, "Two.", "2026-08-31")
+        self.assertEqual(text.count("## 2026-08-31"), 1)
+        self.assertIn("- One.\r\n- Two.\r\n", text)
+        self.assertNotIn("\n", text.replace("\r\n", ""))
+
+    def test_an_lf_index_and_log_stay_lf(self):
+        index = write_lf(Path(self.dir) / "index.md", INDEX)
+        log = write_lf(Path(self.dir) / "log.md", LOG)
+        self.assertNotIn("\r", bookkeeping.index_entry(index, "a.md", "A", "d"))
+        self.assertNotIn("\r", bookkeeping.log_entry(log, "m", "2026-08-31"))
+
+    def test_an_unchanged_index_is_returned_in_its_own_endings(self):
+        # The early return for an entry already listed used to be the one path
+        # that never met the conversion, so a no-op on a CRLF index handed back LF
+        # text - which stage.py would then write, rewriting the whole file.
+        path = self.crlf("index.md", INDEX)
+        text = bookkeeping.index_entry(path, "ledger-rebuild.md", "Ledger rebuild", "x")
+        self.assertEqual(text, INDEX.replace("\n", "\r\n"))
