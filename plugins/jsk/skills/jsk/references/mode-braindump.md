@@ -43,8 +43,28 @@ placeholder in a document they might send.**
 Follow `references/bundle-spec.md`. Read two existing project concepts first so you match house style
 and reuse existing `capabilities` values rather than inventing synonyms.
 
-Then: update `projects/index.md`, link from the relevant role concept, add numbers to
-`achievements/metrics.md`, append to `log.md`, run the validator.
+**For a project, prefer the command over hand-authoring it:**
+
+```bash
+echo "The project's prose." | python3 <skill-dir>/scripts/okf.py project add --bundle <bundle> \
+  --title "…" --role <role-stem> \
+  --strength 4 --recency 2026 --seniority hands-on-senior --domain <domain> \
+  --capability <term> --description "one line" --status inferred
+```
+
+It writes the concept, the `projects/index.md` entry and the `log.md` row together, and refuses a
+`--role` that names no concept — which no gate catches and which aborts the next tailoring run.
+`--dry-run --json` shows what it would touch first. `references/write-commands.md` has the full flag
+list and the three rules it enforces.
+
+**Pipe the body in, or close stdin.** `--body` defaults to `-`, so with stdin left open the command
+waits forever and writes nothing. Add `< /dev/null` if the prose comes later.
+
+**Pass `--status inferred` for anything you wrote rather than heard.** The flag defaults to
+`confirmed`, which is right when they just told you and wrong in exactly the case that matters.
+
+Still yours either way: link from the relevant role concept, add numbers to
+`achievements/metrics.md`, and run the validator. Every other concept type is hand-written.
 
 Mark anything you inferred as `status: inferred` and tell them which parts those are.
 

@@ -113,6 +113,7 @@ Load as needed rather than upfront:
 | `references/ats-rules.md` | hard rules, the two-variant strategy, keyword placement |
 | `references/urs-spec.md` | the shape the record compiles to, and the region profiles a view renders through |
 | `references/view-format.md` | the other half of that spec: every key a view may carry, and the rule that it may carry no prose |
+| `references/write-commands.md` | writing a concept with a command instead of by hand: the flags, the files one write implies, and where the commands stop |
 | `references/rationale.md` | why the rules are what they are — read it when you need to *explain* one |
 
 ## Scripts
@@ -126,6 +127,7 @@ skill, so a bare `scripts/…` will not resolve.
 |---|---|---|
 | `preflight.py [--verify]` | what this machine can do, and what each gap disables | — |
 | `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
+| `okf.py project add --bundle DIR --title T --role R [...]` | writes a Project concept **and** the index entry, log row and vocabulary term that implies; `--dry-run` decides everything and writes nothing | — |
 | `validate_bundle.py <bundle> [--scope SUBDIR] [--exclude-archive] [--max-findings N]` | bundle is well-formed | `pyyaml` |
 | `migrate_bundle.py <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
 | `pipeline.py <bundle> [--all] [--company N] [--as-of D] [--top N] [--json]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
@@ -240,6 +242,11 @@ Every concept carries `status`:
 **Never let `inferred` content reach a resume without asking them to confirm it.** *The danger is
 precisely that it reads well — plausible, well-written, and indefensible when an interviewer asks a
 follow-up.*
+
+**`okf project add --status` defaults to `confirmed`.** Pass `--status inferred` for anything you
+reconstructed rather than heard. A concept you wrote and stamped `confirmed` has laundered your
+inference into a fact, and nothing downstream can tell — `provenance_floor` is enforced against what
+the frontmatter says, not against who typed it.
 
 **Never invent a credential**, or claim one is "in progress", unless they said so.
 

@@ -12,6 +12,7 @@ If you would rather not remember thirteen names:
 ```bash
 python3 scripts/okf.py doctor                  # what works on this machine
 python3 scripts/okf.py new ./my-career --name "Your Name"
+python3 scripts/okf.py project add --bundle ./my-career --title "…" --role … # write a concept
 python3 scripts/okf.py compile ./my-career     # the bundle as the record
 python3 scripts/okf.py validate resume.json         # a record
 python3 scripts/okf.py validate acme.posting.json  # or a posting
@@ -27,11 +28,24 @@ python3 scripts/okf.py migrate ./my-career          # report; --apply to write
 python3 scripts/okf.py pipeline ./my-career         # the week's board
 ```
 
-Every subcommand forwards to the script below with the same arguments and the same exit code, so
-everything documented here stays true through it. **The thirteen scripts remain the stable API** — this
-is a convenience layer, not a replacement, and nothing that works today stops working.
+Every subcommand but one forwards to the script below with the same arguments and the same exit
+code, so everything documented here stays true through it. **The thirteen scripts remain the stable
+API** — this is a convenience layer, not a replacement, and nothing that works today stops working.
+The exception is `okf project`, which has no standalone script: the write layer is a package,
+`scripts/authoring/`, and `okf` is how it is called.
 
-Three subcommands do more than forward:
+Four subcommands do more than forward:
+
+- `okf project add` is the write layer, and it lives in `scripts/authoring/` rather than in a script
+  of its own — it is the one subcommand with no standalone equivalent. It writes a Project concept
+  *and* the `projects/index.md` entry, the `log.md` row and, with `--new-capability`, the vocabulary
+  term. `--dry-run` decides everything and writes nothing; `--json` names every file it touched.
+  It refuses a `--role` that names no concept in `roles/`, which is worth its own mention: no gate
+  reports a dangling role, `okf_compile.py` refuses on one, and `okf score` compiles — so without
+  this check a bad reference surfaces as a crash in the middle of a tailoring run.
+  `plugins/jsk/skills/jsk/references/write-commands.md` has the full flag list, the publish order
+  and the boundary.
+
 
 - `okf check` runs the parse gate *and* the prose gate on one file, and keeps going after the first
   one fails, because a document with parse problems usually has prose problems too. It exits with the

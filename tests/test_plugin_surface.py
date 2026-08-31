@@ -230,6 +230,75 @@ class DocumentedSurface(unittest.TestCase):
         missing = sorted(n for n in named if not (SCRIPTS / n).exists())
         self.assertEqual(missing, [], f"SKILL.md names scripts that are not installed: {missing}")
 
+    # ---- the okf subcommand menu ----------------------------------------------
+    #
+    # The check above runs one way only - named, therefore installed - and the other
+    # direction is the one that drifted. `scripts/authoring/` landed as five modules
+    # and some 2,100 lines behind `okf project add`, and every document a reader picks
+    # a command from still described a bundle as a thing only a person writes. Nothing
+    # failed, because a missing row does not read as out of date: it reads as though
+    # the command does not exist, and an agent holding the skill went on hand-authoring
+    # the four files that command writes.
+
+    def subcommands(self):
+        """Every subcommand `okf` answers to, read off its two dispatch tables."""
+        text = (SCRIPTS / "okf.py").read_text(encoding="utf-8")
+        found = set()
+        for table in ("SIMPLE", "HANDLERS"):
+            block = re.search(rf"^{table} = \{{(.*?)^\}}", text, re.M | re.S)
+            self.assertIsNotNone(block, f"okf.py: no {table} table found")
+            found |= set(re.findall(r'^    "([a-z]+)":', block.group(1), re.M))
+        self.assertTrue(found, "okf.py declares no subcommands")
+        return found
+
+    def test_the_help_text_lists_every_subcommand(self):
+        """`okf --help` prints the module docstring, so a subcommand absent from it is
+        invisible to anyone who asks the command itself what it can do."""
+        listed = set(re.findall(r"^    okf ([a-z]+)", (SCRIPTS / "okf.py").read_text(
+            encoding="utf-8"), re.M))
+        missing = sorted(self.subcommands() - listed)
+        self.assertEqual(missing, [],
+                         f"okf.py's own help text does not list: {missing}")
+
+    def test_the_scripts_page_lists_every_subcommand(self):
+        """docs/SCRIPTS.md opens with the whole menu, for a person running these by
+        hand. It is the one page that promises to be exhaustive."""
+        text = (REPO / "docs" / "SCRIPTS.md").read_text(encoding="utf-8")
+        listed = set(re.findall(r"okf\.py ([a-z]+)", text))
+        missing = sorted(self.subcommands() - listed)
+        self.assertEqual(missing, [], f"docs/SCRIPTS.md does not list: {missing}")
+
+    # Hand-maintained, because nothing in okf.py marks a subcommand as writing. Keep it
+    # that way: the point is that adding a write command forces a decision about the
+    # skill's own table, and a derived list would make that decision silently.
+    MUTATING = ("new", "migrate", "project")
+
+    def test_SKILL_md_names_every_subcommand_that_writes_to_a_bundle(self):
+        """A read command an agent does not know about costs a slower route to the same
+        answer. A *write* command it does not know about costs correctness: it
+        hand-authors the concept, and the index entry and log row that a write implies
+        are then left to be remembered, which is the failure bookkeeping.py exists to
+        remove.
+
+        Either spelling counts. `okf new` and `okf migrate` forward to a script, and the
+        table has always named those by filename - that is the stable, documented API,
+        not a stale row. What is being checked is that the write exists on the menu at
+        all, not which of its two names appears there."""
+        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+        okf = (SCRIPTS / "okf.py").read_text(encoding="utf-8")
+        simple = dict(re.findall(r'^    "([a-z]+)": \("([a-z_]+\.py)"', okf, re.M))
+        for sub in self.MUTATING:
+            with self.subTest(subcommand=sub):
+                self.assertIn(sub, self.subcommands(),
+                              f"MUTATING names '{sub}', which okf.py no longer has")
+                names = [rf"okf(?:\.py)? {sub}\b"]
+                if sub in simple:                   # forwards, so its script name counts
+                    names.append(re.escape(simple[sub]))
+                self.assertTrue(
+                    any(re.search(n, text) for n in names),
+                    f"SKILL.md names neither `okf {sub}` nor its script, and it writes "
+                    f"into the bundle")
+
 
 if __name__ == "__main__":
     unittest.main()
