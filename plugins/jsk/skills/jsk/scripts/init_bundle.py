@@ -16,6 +16,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import pipeline_model  # noqa: E402
+from authoring import concept  # noqa: E402
 
 BUNDLE_REVISION = 7   # keep in step with CURRENT_REVISION in migrate_bundle.py
 
@@ -66,13 +67,15 @@ stem. An outcome is not: it is derived from the application's `# Timeline`.
 # Years
 """
 
-def yq(s):
-    """Quote a YAML double-quoted scalar. Names really do contain quotes."""
-    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-def fm(t, title, desc, ts, extra=""):
-    return (f"---\ntype: {t}\ntitle: {yq(title)}\ndescription: {yq(desc)}\n"
-            f"timestamp: {ts}\n{extra}---\n\n")
+def fm(t, title, desc, ts, extra=None):
+    """The scaffolder's frontmatter. The emitter is the write layer's; this only
+    orders the keys the scaffolder always writes ahead of the ones it sometimes
+    does - the revision stamp on the root index, `status: needs-verification` on
+    every concept a person still has to fill in.
+    """
+    keys = {"title": title, "description": desc, "timestamp": ts}
+    keys.update(extra or {})
+    return concept.frontmatter(t, keys) + "\n"
 
 def main():
     ap = argparse.ArgumentParser()
@@ -100,7 +103,7 @@ def main():
         # every bundle created before the stamp existed predates it.
         f.write(fm("Index", f"{name} - Career Knowledge Bundle",
                    "Portable career knowledge base: roles, projects, evidence and resume rules.", ts,
-                   extra=f"okf_bundle: {BUNDLE_REVISION}\n"))
+                   extra={"okf_bundle": BUNDLE_REVISION}))
         f.write(f"""# Purpose
 
 Everything needed to regenerate a resume, LinkedIn profile or interview brief for {name} without
@@ -225,7 +228,7 @@ are empty, capability checking stays off.
     # fill in - only something to invent. Every value here is blank for the same reason:
     # a placeholder headline would be compiled onto a resume as though somebody wrote it.
     with open(os.path.join(root, "profile", "identity.md"), "w", encoding="utf-8") as f:
-        f.write(fm("Person", name, "", ts, "status: needs-verification\n"))
+        f.write(fm("Person", name, "", ts, {"status": "needs-verification"}))
         f.write("""# Contact
 
 Fill each value in, then set `status: confirmed`. `description` in the frontmatter is
@@ -249,7 +252,7 @@ above and nothing else.
     with open(os.path.join(root, "achievements", "metrics.md"), "w", encoding="utf-8") as f:
         f.write(fm("Metric Set", "Verified numbers",
                    "Every quantified outcome, recorded once, with where it came from.",
-                   ts, "status: needs-verification\n"))
+                   ts, {"status": "needs-verification"}))
         f.write("""Each number lives here once and a resume bullet names the row rather than restating it.
 That is what stops a rewritten clause inflating it - "cut latency 62%" becoming "by over
 60%" becoming "by two thirds".
@@ -264,7 +267,7 @@ established: a dashboard, an invoice, a post-incident review, the person's own r
     with open(os.path.join(root, "resume-generation", "open-questions.md"), "w", encoding="utf-8") as f:
         f.write(fm("Open Questions", "Verify before publishing",
                    "Unresolved facts, missing metrics and inferred claims requiring confirmation.",
-                   ts, "status: needs-verification\n"))
+                   ts, {"status": "needs-verification"}))
         f.write("# Blocking\n\n# Missing metrics\n\n# Not yet explored\n")
 
     print(f"created bundle at {root}")
