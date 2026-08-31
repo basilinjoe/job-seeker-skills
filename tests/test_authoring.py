@@ -842,3 +842,65 @@ class Parsing(unittest.TestCase):
         with self.assertRaises(concept.Unsplicable):
             concept.parse('---\nt: "unterminated\n---\n\nx\n', "in-memory.md")
 
+
+
+schema = authoring_module("authoring.schema")
+
+
+class Schema(unittest.TestCase):
+    def test_a_project_needs_a_title(self):
+        problems = schema.check("Project", {"role": "eng"})
+        self.assertIn("title is required", "; ".join(problems))
+
+    def test_a_known_type_with_its_required_keys_is_clean(self):
+        self.assertEqual(schema.check("Project", {"title": "X", "role": "eng"}), [])
+
+    def test_an_unknown_key_is_rejected_not_warned(self):
+        problems = schema.check("Project",
+                                {"title": "X", "role": "eng", "startDate": "2026"})
+        joined = "; ".join(problems)
+        self.assertIn("startDate", joined)
+
+    def test_the_typo_suggests_the_key_it_meant(self):
+        # startDate for start is the defect validate_urs.py gained a hand-written
+        # check for. Catching it at write time is the point of this layer.
+        problems = schema.check("Role", {"title": "X", "organisation": "acme",
+                                         "state": "ongoing", "startDate": "2026"})
+        self.assertIn("did you mean `start`", "; ".join(problems))
+
+    def test_seniority_is_a_closed_vocabulary(self):
+        problems = schema.check("Project", {"title": "X", "role": "eng",
+                                            "seniority": "very-senior"})
+        self.assertIn("seniority", "; ".join(problems))
+
+    def test_a_legal_seniority_passes(self):
+        self.assertEqual(
+            schema.check("Project", {"title": "X", "role": "eng",
+                                     "seniority": "architecture-ownership"}), [])
+
+    def test_strength_is_one_to_five(self):
+        self.assertIn("strength", "; ".join(
+            schema.check("Project", {"title": "X", "role": "eng", "strength": 9})))
+
+    def test_status_is_the_provenance_vocabulary(self):
+        self.assertIn("status", "; ".join(
+            schema.check("Project", {"title": "X", "role": "eng",
+                                     "status": "probably"})))
+
+    def test_an_unknown_type_is_refused(self):
+        self.assertIn("unknown concept type",
+                      "; ".join(schema.check("Widget", {"title": "X"})))
+
+    def test_extension_keys_are_allowed_when_declared(self):
+        self.assertEqual(
+            schema.check("Project", {"title": "X", "role": "eng",
+                                     "custom_field": "v"},
+                         extensions=("custom_field",)), [])
+
+    def test_the_escape_hatch_does_not_swallow_a_typo(self):
+        # Declaring a near-miss as an extension must not launder it. This is the
+        # hole a --set that accepted anything would open.
+        problems = schema.check("Role", {"title": "X", "organisation": "acme",
+                                         "state": "ongoing", "startDate": "2026"},
+                                extensions=("startDate",))
+        self.assertIn("did you mean `start`", "; ".join(problems))
