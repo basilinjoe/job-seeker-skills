@@ -18,6 +18,7 @@ MIGRATE_BUNDLE = SCRIPTS / "migrate_bundle.py"
 PIPELINE = SCRIPTS / "pipeline.py"
 PIPELINE_MODEL = SCRIPTS / "pipeline_model.py"
 FIT_PAGES = SCRIPTS / "fit_pages.py"
+OKF_COMPILE = SCRIPTS / "okf_compile.py"
 
 
 def load_script(path):

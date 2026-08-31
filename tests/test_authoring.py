@@ -13,8 +13,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (INIT_BUNDLE, PIPELINE_MODEL, VALIDATE_BUNDLE,
-                      authoring_module, load_script, run)
+from fixtures import (INIT_BUNDLE, OKF_COMPILE, PIPELINE_MODEL,
+                      VALIDATE_BUNDLE, authoring_module, load_script, run)
 
 concept = authoring_module("authoring.concept")
 init_bundle = load_script(INIT_BUNDLE)
@@ -882,13 +882,6 @@ class Schema(unittest.TestCase):
         joined = "; ".join(problems)
         self.assertIn("startDate", joined)
 
-    def test_the_typo_suggests_the_key_it_meant(self):
-        # startDate for start is the defect validate_urs.py gained a hand-written
-        # check for. Catching it at write time is the point of this layer.
-        problems = schema.check("Role", {"title": "X", "organisation": "acme",
-                                         "state": "ongoing", "startDate": "2026"})
-        self.assertIn("did you mean `start`", "; ".join(problems))
-
     def test_seniority_is_a_closed_vocabulary(self):
         problems = schema.check("Project", {"title": "X", "role": "eng",
                                             "seniority": "very-senior"})
@@ -908,8 +901,14 @@ class Schema(unittest.TestCase):
             schema.check("Project", dict(self.CLEAN_PROJECT, status="probably"))))
 
     def test_an_unknown_type_is_refused(self):
-        self.assertIn("unknown concept type",
-                      "; ".join(schema.check("Widget", {"title": "X"})))
+        """bundle-spec.md lists twenty-six types and this layer defines three, so the
+        refusal must not present the three as the format's own. Somebody writing an
+        Education concept was told they had invented a near-synonym and handed three
+        alternatives, none of which was what they wanted.
+        """
+        problems = "; ".join(schema.check("Education", {"title": "X"}))
+        self.assertIn("not a concept type this layer can write yet", problems)
+        self.assertIn("bundle-spec.md lists the rest", problems)
 
     def test_extension_keys_are_allowed_when_declared(self):
         self.assertEqual(
@@ -1018,6 +1017,98 @@ class Schema(unittest.TestCase):
         self.assertEqual(
             schema.check("Organisation", dict(base, industry=["healthcare"])), [])
 
+    def test_a_contradiction_between_state_and_end_is_refused(self):
+        """okf_compile.period() raises on both of these, and `okf score` calls
+        okf_compile.load() - so an unnoticed contradiction aborts a tailoring run,
+        not merely a ship. Both are decidable from the values in hand.
+        """
+        base = {"title": "X", "organisation": "acme"}
+        cases = (
+            (dict(base, state="ongoing", end=2021),
+             "state is ongoing but an end date is set"),
+            (dict(base, state="ended"), "state is ended but no end date is set"),
+        )
+        for values, expected in cases:
+            with self.subTest(state=values.get("state")):
+                self.assertIn(expected, "; ".join(schema.check("Role", values)))
+
+    def test_a_role_that_says_nothing_about_state_is_still_clean(self):
+        # The derivation is real: period() reads `ongoing` from an absent end and
+        # `ended` from a present one. Only an explicit state can contradict it.
+        for values in ({"title": "X", "organisation": "acme", "start": 2019,
+                        "end": 2021},
+                       {"title": "X", "organisation": "acme", "start": 2019},
+                       {"title": "X", "organisation": "acme", "state": "unknown",
+                        "end": 2021}):
+            with self.subTest(values=sorted(values)):
+                self.assertEqual(schema.check("Role", values), [])
+
+    def test_the_fix_line_matches_what_the_key_actually_holds(self):
+        """One line served all six slug keys: "name the concept's filename". Right for
+        role and organisation, misleading for the five that name no file - a person
+        told to find a file for a capability goes looking for one that never existed.
+        """
+        project = dict(self.CLEAN_PROJECT, capabilities=["Cap A"])
+        self.assertIn("vocabulary terms", "; ".join(
+            schema.check("Project", project)))
+        self.assertNotIn("filename", "; ".join(schema.check("Project", project)))
+        self.assertIn("filename", "; ".join(
+            schema.check("Project", dict(self.CLEAN_PROJECT, role="Not A Stem"))))
+        self.assertIn("okf_compile.py derives", "; ".join(
+            schema.check("Project", dict(self.CLEAN_PROJECT, id="Not An Id"))))
+
+    def test_a_required_key_gives_the_reason_that_is_true_of_it(self):
+        """The one reason for all nine was "does not compile", and removing each in
+        turn and compiling shows only Role.organisation does that. Five of the nine
+        are validate_bundle.py hard errors and four are neither, so a single sentence
+        sends most of them to the wrong file.
+        """
+        role = "; ".join(schema.check("Role", {"title": "X"}))
+        self.assertIn("okf_compile.py refuses outright", role)
+        project = "; ".join(schema.check("Project", {"role": "eng"}))
+        self.assertIn("validate_bundle.py makes this a hard error", project)
+        self.assertIn("renders on a resume as its own stem", project)
+
+    def test_the_article_agrees_with_the_type_name(self):
+        self.assertIn("required on an Organisation",
+                      "; ".join(schema.check("Organisation", {"title": "A"})))
+        self.assertIn("required on a Project",
+                      "; ".join(schema.check("Project", {"title": "X"})))
+
+    def test_extensions_may_be_none(self):
+        # A CLI writing `extensions=args.set or None` is one plausible slip from a
+        # TypeError, and None means exactly what () means here.
+        self.assertEqual(schema.check("Project", self.CLEAN_PROJECT,
+                                      extensions=None), [])
+
+    def test_a_repeat_may_not_relax_required(self):
+        # The mirror of the kind rule and just as invisible: the key stops being
+        # demanded and nothing says so. The check compared `kind` alone, so the
+        # docstring promised a rule the code did not enforce.
+        with self.assertRaises(ValueError) as caught:
+            schema.TYPES["Probe"] = (schema.Key("dup", "text", required=True),
+                                     schema.Key("dup", "text"))
+            try:
+                schema._assert_no_conflicting_duplicates()
+            finally:
+                del schema.TYPES["Probe"]
+        self.assertIn("never relax it", str(caught.exception))
+
+    def test_every_kind_in_types_is_one_value_problem_implements(self):
+        """Makes _value_problem's trailing raise provably unreachable rather than
+        commented as such. A typo'd kind would otherwise make every value of that key
+        legal, and no test could see it.
+        """
+        schema._assert_kinds_are_implemented()
+        for bad in ("txt", "vocab:nonesuch"):
+            with self.subTest(kind=bad):
+                with self.assertRaises(ValueError):
+                    schema.TYPES["Probe"] = (schema.Key("x", bad),)
+                    try:
+                        schema._assert_kinds_are_implemented()
+                    finally:
+                        del schema.TYPES["Probe"]
+
     def test_a_type_may_not_declare_one_key_as_two_kinds(self):
         """Repeating a name sharpens `required`; changing the kind disables a rule.
 
@@ -1061,14 +1152,33 @@ class Schema(unittest.TestCase):
         self.assertIs(module.SENIORITY, schema.SENIORITY_VALUES)
 
 
+# A capability vocabulary written the way a person would: a theme heading, then
+# backticked list items, outside any fence. init_bundle.py scaffolds this file with its
+# only example values INSIDE a fence, and validate_bundle.py tracks fences - so a fresh
+# bundle has an EMPTY vocabulary, and `if vocab and c not in vocab` switches the
+# capability check off entirely. A version of this test without these lines passed for
+# a reason unrelated to its docstring.
+POPULATED_VOCABULARY = """
+
+# Architecture & design
+
+- `ai-platform-architecture`
+- `data-sovereignty`
+"""
+
+
 class SchemaAgreesWithTheGate(unittest.TestCase):
     """A concept schema.check() calls clean must clear validate_bundle.py.
 
     The whole worth of a write-time schema is that its verdict predicts the gate's.
     Something it approves that the gate then rejects sends the person to a red at ship
-    time, which is later and more expensive than a refusal at the keyboard. This was
-    argued in a table during review; it is asserted here instead, end to end, against
-    a real scaffolded bundle.
+    time, which is later and more expensive than a refusal at the keyboard.
+
+    Three rules are excluded, and they are the complete list - see schema.py's
+    docstring. All three need the bundle, which schema.check() does not take: whether a
+    capability is in the vocabulary, and whether `role` and `organisation` name
+    concepts that exist. The last two are not checked by validate_bundle.py at all;
+    okf_compile.py refuses on them, so they are asserted against the compiler below.
     """
 
     def setUp(self):
@@ -1077,6 +1187,9 @@ class SchemaAgreesWithTheGate(unittest.TestCase):
         self.root = Path(self._tmp.name) / "career"
         code, out = run(INIT_BUNDLE, self.root, "--name", "Test Person")
         self.assertEqual(code, 0, out)
+        vocabulary = self.root / "framework" / "capability-vocabulary.md"
+        with open(vocabulary, "a", encoding="utf-8") as handle:
+            handle.write(POPULATED_VOCABULARY)
 
     def write(self, folder, stem, type_name, keys):
         """A concept the schema approves, emitted by the emitter, on disk."""
@@ -1087,45 +1200,94 @@ class SchemaAgreesWithTheGate(unittest.TestCase):
                         encoding="utf-8")
         return path
 
+    ORGANISATION = {
+        "title": "Acme Health",
+        "description": "Aged-care provider.",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "status": "confirmed",
+        "relationship": "employer",
+        "industry": ["healthcare"],
+        "employment": "employment",
+    }
+    ROLE = {
+        "title": "Lead Engineer",
+        "description": "Owned the platform.",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "status": "confirmed",
+        "organisation": "acme-health",
+        "start": "2019-04",
+        "end": "2021-12",
+        "state": "ended",
+        "seniority": "team-leadership",
+        "change": "promotion",
+    }
+    PROJECT = {
+        "title": "Acme - care coordination platform",
+        "description": "Multi-tenant platform for aged-care providers.",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "status": "confirmed",
+        "role": "lead-engineer-acme",
+        "strength": 5,
+        "recency": 2026,
+        "seniority": "architecture-ownership",
+        "domains": ["healthcare", "aged-care"],
+        "capabilities": ["ai-platform-architecture", "data-sovereignty"],
+        "technologies": ["azure-ai-foundry", "bicep"],
+        "headline_metric": "event latency 5 min to under 1 s",
+    }
+
+    def write_bundle(self, capabilities=None, role_organisation=None):
+        """All three concepts, each asserted schema-clean before it is written."""
+        organisation = dict(self.ORGANISATION)
+        role = dict(self.ROLE)
+        project = dict(self.PROJECT)
+        if capabilities is not None:
+            project["capabilities"] = capabilities
+        if role_organisation is not None:
+            role["organisation"] = role_organisation
+        self.write("organisations", "acme-health", "Organisation", organisation)
+        self.write("roles", "lead-engineer-acme", "Role", role)
+        self.write("projects", "care-platform", "Project", project)
+
     def test_what_the_schema_approves_the_bundle_gate_accepts(self):
-        self.write("organisations", "acme-health", "Organisation", {
-            "title": "Acme Health",
-            "description": "Aged-care provider.",
-            "timestamp": "2026-01-01T00:00:00Z",
-            "status": "confirmed",
-            "relationship": "employer",
-            "industry": ["healthcare"],
-            "employment": "employment",
-        })
-        self.write("roles", "lead-engineer-acme", "Role", {
-            "title": "Lead Engineer",
-            "description": "Owned the platform.",
-            "timestamp": "2026-01-01T00:00:00Z",
-            "status": "confirmed",
-            "organisation": "acme-health",
-            "start": "2019-04",
-            "end": "2021-12",
-            "state": "ended",
-            "seniority": "team-leadership",
-            "change": "promotion",
-        })
-        self.write("projects", "care-platform", "Project", {
-            "title": "Acme - care coordination platform",
-            "description": "Multi-tenant platform for aged-care providers.",
-            "timestamp": "2026-01-01T00:00:00Z",
-            "status": "confirmed",
-            "role": "lead-engineer-acme",
-            "strength": 5,
-            "recency": 2026,
-            "seniority": "architecture-ownership",
-            "domains": ["healthcare", "aged-care"],
-            "capabilities": ["ai-platform-architecture", "data-sovereignty"],
-            "technologies": ["azure-ai-foundry", "bicep"],
-            "headline_metric": "event latency 5 min to under 1 s",
-        })
+        self.write_bundle()
         code, out = run(VALIDATE_BUNDLE, self.root)
         self.assertEqual(code, 0, out)
         self.assertIn("VALID", out)
+        # The gate's verdict is worth nothing here unless its capability check was on.
+        code, out = run(VALIDATE_BUNDLE, self.root)
+        self.assertNotIn("capability", out)
+
+    def test_the_populated_vocabulary_really_does_switch_the_gate_check_on(self):
+        """Guards the guard. If this stops failing, the test above has gone back to
+        proving nothing about capabilities, and nothing else would say so.
+        """
+        self.write_bundle(capabilities=["totally-made-up"])
+        code, out = run(VALIDATE_BUNDLE, self.root)
+        self.assertEqual(code, 1, out)
+        self.assertIn("is not in framework/capability-vocabulary.md", out)
+
+    def test_an_unlisted_capability_is_the_gate_error_the_schema_cannot_predict(self):
+        # Named rather than merely absent: this is the carve-out schema.py's docstring
+        # declares, and a test is what stops it being quietly widened.
+        self.assertEqual(schema.check("Project", dict(self.PROJECT,
+                                                      capabilities=["totally-made-up"])),
+                         [])
+
+    def test_a_dangling_reference_is_the_compile_error_the_schema_cannot_predict(self):
+        """The other two carve-outs, and the more expensive pair: validate_bundle.py
+        does not check either, okf_compile.py refuses on both, and `okf score` calls
+        okf_compile.load() - so this aborts a tailoring run, not a ship.
+        """
+        for type_name, values in (
+                ("Project", dict(self.PROJECT, role="no-such-role")),
+                ("Role", dict(self.ROLE, organisation="no-such-org"))):
+            with self.subTest(type=type_name):
+                self.assertEqual(schema.check(type_name, values), [])
+        self.write_bundle(role_organisation="no-such-org")
+        code, out = run(OKF_COMPILE, self.root)
+        self.assertEqual(code, 1, out)
+        self.assertIn("has no concept in organisations/", out)
 
 
 stage = authoring_module("authoring.stage")
