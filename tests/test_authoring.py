@@ -1523,6 +1523,15 @@ class BookkeepingLineEndings(unittest.TestCase):
         self.assertNotIn("\r", bookkeeping.index_entry(index, "a.md", "A", "d"))
         self.assertNotIn("\r", bookkeeping.log_entry(log, "m", "2026-08-31"))
 
+    def test_a_crlf_scaffolded_index_loses_its_placeholder_without_moving_a_line(self):
+        # The placeholder strip is a *deletion*, and a deletion is the one edit that
+        # could rejoin the surrounding lines in the wrong convention.
+        path = self.crlf("index.md", SCAFFOLDED_INDEX)
+        text = bookkeeping.index_entry(path, "a.md", "A", "d")
+        self.assertNotIn("\n", text.replace("\r\n", ""))
+        self.assertNotIn("Empty. Add concepts here.", text)
+        self.assertIn("---\r\n\r\n- [A](a.md) - d\r\n", text)
+
     def test_an_unchanged_index_is_returned_in_its_own_endings(self):
         # The early return for an entry already listed used to be the one path
         # that never met the conversion, so a no-op on a CRLF index handed back LF
@@ -1530,3 +1539,243 @@ class BookkeepingLineEndings(unittest.TestCase):
         path = self.crlf("index.md", INDEX)
         text = bookkeeping.index_entry(path, "ledger-rebuild.md", "Ledger rebuild", "x")
         self.assertEqual(text, INDEX.replace("\n", "\r\n"))
+
+
+# What init_bundle.py actually writes, byte for byte apart from the timestamp. The
+# fixtures above were written from memory and neither matched: a directory index has no
+# `# Contents` heading, only one sentence of prose, and log.md opens with a level-one
+# heading carrying a suffix rather than the `## <date>` this module writes. Both shapes
+# are pinned here because both are what every real bundle starts as.
+SCAFFOLDED_INDEX = """---
+type: Index
+title: Projects
+description: "One concept per engagement or product. This is the evidence a resume is built from."
+timestamp: "2026-08-31T09:44:01Z"
+---
+
+Empty. Add concepts here.
+"""
+
+SCAFFOLDED_LOG = """---
+type: Log
+title: "Bundle change log"
+description: "Chronological history of this bundle."
+timestamp: "2026-08-31T09:44:01Z"
+---
+
+# 2026-08-31 - Bundle created
+
+Skeleton generated. Concepts not yet populated.
+"""
+
+
+class BookkeepingAgainstTheScaffolder(unittest.TestCase):
+    """The shapes init_bundle.py really produces, not the ones a fixture imagined."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def test_the_placeholder_is_replaced_by_the_first_entry(self):
+        # `Empty. Add concepts here.` is written to be replaced. Left above a list of
+        # real concepts it makes the file assert something false about itself.
+        path = write_lf(Path(self.dir) / "index.md", SCAFFOLDED_INDEX)
+        text = bookkeeping.index_entry(path, "care-platform.md", "Care platform",
+                                       "Multi-tenant platform.")
+        self.assertNotIn("Empty. Add concepts here.", text)
+        self.assertIn("- [Care platform](care-platform.md) - Multi-tenant platform.",
+                      text)
+        # A blank line between frontmatter and list, not a list interrupting prose.
+        self.assertTrue(text.endswith(
+            "---\n\n- [Care platform](care-platform.md) - Multi-tenant platform.\n"))
+
+    def test_a_body_written_round_the_placeholder_is_left_alone(self):
+        # The strip is the exact line and nothing else - this module lists a concept,
+        # it is not a general-purpose index rewriter.
+        path = write_lf(Path(self.dir) / "index.md",
+                        "---\ntype: Index\n---\n\n# Contents\n\n"
+                        "Empty. Add concepts here.\n\nRead these newest first.\n")
+        text = bookkeeping.index_entry(path, "a.md", "A", "d")
+        self.assertNotIn("Empty. Add concepts here.", text)
+        self.assertIn("# Contents", text)
+        self.assertIn("Read these newest first.", text)
+
+    def test_a_first_entry_does_not_interrupt_a_paragraph(self):
+        path = write_lf(Path(self.dir) / "index.md",
+                        "---\ntype: Index\n---\n\n# Years\n")
+        self.assertTrue(bookkeeping.index_entry(path, "a.md", "A", "d")
+                        .endswith("# Years\n\n- [A](a.md) - d\n"))
+
+    def test_day_one_joins_the_scaffolders_own_heading(self):
+        # Two headings for one date at two levels is the scaffolder and this module
+        # disagreeing in the person's file. `# 2026-08-31 - Bundle created` is that
+        # day's heading, so today's row belongs under it.
+        path = write_lf(Path(self.dir) / "log.md", SCAFFOLDED_LOG)
+        text = bookkeeping.log_entry(path, "Added project Care platform.",
+                                     "2026-08-31")
+        self.assertNotIn("## 2026-08-31", text)
+        self.assertEqual(text.count("2026-08-31 - Bundle created"), 1)
+        self.assertTrue(text.endswith(
+            "Skeleton generated. Concepts not yet populated.\n\n"
+            "- Added project Care platform.\n"))
+
+    def test_a_different_day_still_opens_its_own_heading(self):
+        path = write_lf(Path(self.dir) / "log.md", SCAFFOLDED_LOG)
+        text = bookkeeping.log_entry(path, "Later.", "2026-09-01")
+        self.assertIn("# 2026-08-31 - Bundle created", text)
+        self.assertTrue(text.endswith("## 2026-09-01\n\n- Later.\n"))
+
+
+class BookkeepingFences(unittest.TestCase):
+    """A `## <date>` inside a fence is an example, not this file's own heading.
+
+    mode-pipeline.md tells people to record mistakes rather than hide them, so a log
+    quoting an earlier log - or showing the shape a day's entries take - is ordinary.
+    Before the toggle, the row landed under the closing fence, above the real sections,
+    and the genuine heading was never created.
+    """
+
+    FENCED = ("---\ntype: Log\n---\n\n# History\n\n"
+              "Format of a day's entries:\n\n"
+              "```\n## 2026-08-31\n\n- what happened\n```\n\n"
+              "## 2026-08-01\n\n- Captured the ledger rebuild.\n")
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def write(self, text):
+        return write_lf(Path(self.dir) / "log.md", text)
+
+    def test_a_heading_inside_a_fence_is_not_this_days_heading(self):
+        text = bookkeeping.log_entry(self.write(self.FENCED), "Real entry.",
+                                     "2026-08-31")
+        self.assertIn("```\n## 2026-08-31\n\n- what happened\n```\n", text)
+        self.assertTrue(text.endswith("## 2026-08-31\n\n- Real entry.\n"))
+        self.assertLess(text.index("## 2026-08-01"),
+                        text.index("## 2026-08-31\n\n- Real entry."))
+
+    def test_a_decoy_in_a_fence_does_not_win_over_the_real_heading(self):
+        # The half of the rule a "not inside a fence" test cannot see on its own: the
+        # scan must keep going and answer at the genuine heading below.
+        text = bookkeeping.log_entry(
+            self.write(self.FENCED + "\n## 2026-08-31\n\n- One.\n"),
+            "Two.", "2026-08-31")
+        self.assertEqual(text.count("## 2026-08-31"), 2)   # the decoy, and the real one
+        self.assertIn("- One.\n- Two.\n", text)
+        self.assertIn("```\n## 2026-08-31\n\n- what happened\n```\n", text)
+
+    def test_a_fenced_sample_under_todays_heading_keeps_the_row_below_it(self):
+        # A fence is content, so a day ending in one must not have the row inserted
+        # above it. Only headings are what fences hide.
+        text = bookkeeping.log_entry(
+            self.write("---\ntype: Log\n---\n\n## 2026-08-31\n\n- One.\n\n"
+                       "```\nokf project add\n```\n"),
+            "Two.", "2026-08-31")
+        self.assertTrue(text.endswith("```\nokf project add\n```\n\n- Two.\n"))
+
+
+class BookkeepingRefusals(unittest.TestCase):
+    """A filename that cannot be written as a plain link is refused, not escaped."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.path = write_lf(Path(self.dir) / "index.md", INDEX)
+
+    def test_a_filename_that_breaks_the_link_is_refused_by_name(self):
+        # `care(old).md` reaches validate_bundle.py's LINK regex - `\(([^)]+)\)` - as
+        # the target `care(old`, so the gate reports a broken link to a file sitting
+        # right beside the index. A space needs <> or %20 to survive CommonMark at all.
+        for filename, char in (("care platform.md", "' '"),
+                               ("care(old).md", "'('"),
+                               ("care)old(.md", "')'"),
+                               ("care<1>.md", "'<'"),
+                               ("care\tx.md", "'\\t'")):
+            with self.subTest(filename=filename):
+                with self.assertRaises(stage.Refused) as caught:
+                    bookkeeping.index_entry(self.path, filename, "Care", "d")
+                message = str(caught.exception)
+                self.assertIn(char, message)
+                self.assertIn("\nfix:  ", message)
+
+    def test_an_ordinary_stem_is_not_refused(self):
+        self.assertIn("- [Care](care-platform.md)",
+                      bookkeeping.index_entry(self.path, "care-platform.md",
+                                              "Care", "d"))
+
+    def test_a_filename_already_listed_is_answered_before_it_is_judged(self):
+        # The no-op path must stay a no-op. An index somebody hand-wrote a bad link
+        # into is not a reason to refuse a command that changes nothing.
+        path = write_lf(Path(self.dir) / "odd.md",
+                        "---\ntype: Index\n---\n\n- [Old](care(old).md)\n")
+        self.assertEqual(bookkeeping.index_entry(path, "care(old).md", "Old", "d"),
+                         "---\ntype: Index\n---\n\n- [Old](care(old).md)\n")
+
+
+class BookkeepingOneLine(unittest.TestCase):
+    """A newline in prose split the entry into a second line outside the list.
+
+    concept.scalar escapes newlines for the same reason. The difference is that a
+    markdown line has no escape for one, so the only repair is to not have one.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def test_a_description_spanning_lines_is_collapsed(self):
+        path = write_lf(Path(self.dir) / "index.md", INDEX)
+        text = bookkeeping.index_entry(path, "a.md", "A\ntitle", "one\n\ntwo   three")
+        self.assertTrue(text.endswith("- [A title](a.md) - one two three\n"))
+
+    def test_a_message_spanning_lines_is_collapsed(self):
+        path = write_lf(Path(self.dir) / "log.md", LOG)
+        text = bookkeeping.log_entry(path, "one\ntwo\tthree ", "2026-08-31")
+        self.assertTrue(text.endswith("## 2026-08-31\n\n- one two three\n"))
+
+
+class BookkeepingBlockShape(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def write(self, text):
+        return write_lf(Path(self.dir) / "log.md", text)
+
+    def test_a_heading_with_nothing_under_it_gets_its_blank_line(self):
+        # The branch that creates a heading writes one; the branch that reuses one
+        # did not, so which branch ran was visible in the person's file.
+        text = bookkeeping.log_entry(
+            self.write("---\ntype: Log\n---\n\n## 2026-08-31\n"), "New.", "2026-08-31")
+        self.assertTrue(text.endswith("## 2026-08-31\n\n- New.\n"))
+
+    def test_a_row_joining_prose_gets_a_blank_line_and_one_joining_a_list_does_not(self):
+        text = bookkeeping.log_entry(
+            self.write("---\ntype: Log\n---\n\n## 2026-08-31\n\nRan the migration.\n"),
+            "New.", "2026-08-31")
+        self.assertTrue(text.endswith("Ran the migration.\n\n- New.\n"))
+
+    def test_a_date_written_twice_is_answered_at_the_last_one(self):
+        # bundle-spec.md: "chronological history, newest appended".
+        text = bookkeeping.log_entry(
+            self.write("---\ntype: Log\n---\n\n## 2026-08-31\n\n- One.\n\n"
+                       "## 2026-08-31\n\n- Two.\n"), "Three.", "2026-08-31")
+        self.assertTrue(text.endswith("- Two.\n- Three.\n"))
+
+    def test_a_later_date_keeps_its_place(self):
+        # Ordered by when it was written, not sorted by date. Re-sorting somebody's
+        # log is a larger liberty than leaving it as they left it.
+        text = bookkeeping.log_entry(
+            self.write("---\ntype: Log\n---\n\n## 2026-09-15\n\n- Later.\n"),
+            "Today.", "2026-08-31")
+        self.assertTrue(text.endswith("- Later.\n\n## 2026-08-31\n\n- Today.\n"))
+
+    def test_a_subheading_under_a_day_does_not_end_it(self):
+        # `###` and below are a person's own structure inside one day; breaking there
+        # would put the new row above it.
+        text = bookkeeping.log_entry(
+            self.write("---\ntype: Log\n---\n\n## 2026-08-31\n\n- One.\n\n"
+                       "### Detail\n\n- Two.\n"), "Three.", "2026-08-31")
+        self.assertTrue(text.endswith("### Detail\n\n- Two.\n- Three.\n"))
+
+
+class BookkeepingPaths(unittest.TestCase):
+    def test_index_path_is_the_reserved_filename(self):
+        self.assertEqual(bookkeeping.index_path("/b", "projects"),
+                         os.path.join("/b", "projects", "index.md"))
