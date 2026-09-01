@@ -60,7 +60,9 @@ that arrives fragmented.
 - **No ligatures in the ATS-maximal render.** T1 Computer Modern turns `fi` into U+FB01 and `ffi`
   into U+FB03 — one codepoint each — so a parser reading "efficiency" gets a word that is not there.
   `emit_latex.py` breaks the pairs for the ASCII variants. This never showed up under `.docx`,
-  because nothing ever looked at a rendered page.
+  because nothing ever looked at a rendered page. `check_ats.py` fails on a ligature under
+  `--strict` and warns on the presentation render, naming the words it hides — for a while the rule
+  was written down here and checked nowhere, and the default render shipped them.
 - **Section headings must contain the literal words** Summary, Skills, Experience, Education. A
   heading like "Core Competencies" is invisible to a parser matching on "Skills".
 - **Bullet markers a parser maps:** `•` in the presentation render, `-` in the ATS-maximal one.

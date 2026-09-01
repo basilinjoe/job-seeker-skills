@@ -1385,8 +1385,10 @@ def main(argv=None):
     ap.add_argument("--apply", action="store_true", help="make the changes (default: report only)")
     try:
         args = ap.parse_args(argv)
-    except SystemExit:
-        return 2
+    except SystemExit as exc:
+        # argparse raises SystemExit(0) for --help and (2) for a usage error.
+        # Collapsing both to 2 reported "called wrong" for asking a question.
+        return exc.code if isinstance(exc.code, int) else 2
 
     root = args.bundle
     if not os.path.isdir(root):

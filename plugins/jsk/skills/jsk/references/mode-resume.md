@@ -87,6 +87,24 @@ maintained.
        --achievement <ach id> --achievement <ach id>
      ```
 
+     **`--posting` is required, and a general rebuild has no posting.** A view is written beside
+     the advertisement it selects for, and `validate_bundle.py` makes a `.view.md` with no
+     `.posting.md` next to it an error — so there is no `view create` for this mode. Two honest
+     ways forward, and the first is usually right:
+
+     - **Render with no view at all.** `okf render <bundle> --out DIR --pdf` synthesises
+       `view_default`: presentation profile, region-neutral, the whole record, no provenance
+       floor, budget from the profile. That is the correct document for "rebuild my resume",
+       and it is what the person asked for.
+     - **If they need a selection** — a floor, a redaction, a region profile, a chosen subset —
+       then what they are describing is a target, even an informal one, and it belongs in
+       `mode-tailor.md` with a posting written first.
+
+     Persisting a view for a general resume is a gap, not a trick you have not found: say so
+     rather than inventing a placeholder posting to hang one on. A fabricated advertisement in
+     `tailoring/targets/` corrupts the pipeline view and the application archive, which read
+     that directory as the record of jobs actually applied for.
+
      A view **selects**: it references ids, orders them, redacts. It never contains content text,
      the validator rejects it if it does, and `view include` refuses an id that does not resolve —
      which is the mistake that would otherwise be caught after the view was written, if at all.
@@ -196,6 +214,14 @@ Fitting changes layout, so re-run `check_ats.py` on the fitted file before step 
 9. **Look at the render — the last gate, and not optional either.** No command attempts it, and
    `okf gates` closes by saying so. Open the PDF and read every page, or hand it to `jsk-verifier`,
    which does. Nobody signs this one off from a checker's exit code.
+
+   **Half of this gate is not yours to close.** The checklist below splits at the last item: you can
+   settle page count, glyphs, fonts and orphans by looking, and `jsk-verifier` settles them the same
+   way. Whether a bullet is *true*, and whether a verb matches what they actually owned, is theirs
+   alone — you wrote some of those clauses, so you are the last one who should be attesting to them.
+   Report the half you checked, name the half you could not, and say the resume is **unverified**
+   until they have read it. An agent that reads the layout and reports "all four gates pass" has
+   closed a gate nobody stood at.
 
 The checkers verify that a record is coherent, that a document parses, and that its prose obeys the
 rules. None of them can see what it *looks* like. Three defect classes have escaped them, all

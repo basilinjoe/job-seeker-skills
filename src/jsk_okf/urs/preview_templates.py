@@ -33,6 +33,7 @@ import sys
 import tempfile
 
 
+from ..cliutil import docstring_usage, wants_help
 from . import themes
 from .tex import available_engine
 
@@ -68,8 +69,9 @@ def thumbnail(pdf, png, dpi=110):
 
 def main(argv):
     if len(argv) < 2 or argv[1].startswith("--"):
-        print(__doc__.strip().split("\n\n")[1])
-        return 2
+        print(docstring_usage(__doc__))
+        # Asking for help is not calling the command wrong; only a real misuse is.
+        return 0 if wants_help(argv) else 2
     src = argv[1]
     if not os.path.exists(src):
         print(f"file not found: {src}")

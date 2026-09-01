@@ -26,6 +26,10 @@ import sys, os, re, html, unicodedata
 # A heading is short and unpunctuated. Longer than this is prose, whatever it says.
 HEADING_MAX = 40
 
+# The Latin typographic ligatures a TeX engine emits by default. Each is one
+# codepoint standing in for the two or three ASCII letters a parser is matching on.
+LIGATURES = "ﬀﬁﬂﬃﬄﬅﬆ"
+
 # Heuristic used only to warn that a role line may not name an employer. Software
 # titles by default - edit this list for other fields.
 ROLE_WORDS = ("Architect", "Engineer", "Lead", "Developer", "Manager", "Consultant")
@@ -205,6 +209,24 @@ def main(argv=None):
             "arrow glyph in text - if stripped, adjacent job titles run together; "
             "spell the progression out")
 
+    # --- typographic ligatures: one codepoint where a parser expects two ---
+    # ats-rules.md has carried this rule since the T1 Computer Modern era and
+    # nothing checked it, so the default render shipped `figures` as f-i-g-u-r-e-s
+    # with a U+FB01 in the middle - a word no keyword search will ever match.
+    # emit_latex.py breaks the pairs for the ATS-maximal variant, which is why this
+    # is fatal there and a warning on the presentation one: the rule is that the
+    # variant a parser reads must not contain them.
+    found = sorted(set(c for c in txt if c in LIGATURES))
+    if found:
+        hidden = sorted({w for w in re.findall(r"\S+", txt) if any(c in w for c in found)})
+        shown = ", ".join(repr(unicodedata.normalize("NFKC", w)) for w in hidden[:3])
+        more = f" and {len(hidden) - 3} more" if len(hidden) > 3 else ""
+        (fails if strict else warns).append(
+            f"ligature{'s' if len(found) > 1 else ''} in text: "
+            + ", ".join(codepoint(c) for c in found)
+            + f" - a search for {shown}{more} will not match this document"
+        )
+
     # --- fonts: informational on the presentation variant ---
     # The old allowlist warned on anything outside a set of Office fonts. One
     # template now decides the typeface, so a name check would warn on every
@@ -212,7 +234,9 @@ def main(argv=None):
 
     # --- strict / ATS-maximal ---
     if strict:
-        na = sorted(set(c for c in txt if ord(c) > 127))
+        # Ligatures are non-ASCII too, but the check above already named them and
+        # said which words they hide; repeating them here is the same defect twice.
+        na = sorted(set(c for c in txt if ord(c) > 127 and c not in LIGATURES))
         if na:
             fails.append("non-ASCII characters present: "
                          + ", ".join(codepoint(c) for c in na[:8]))

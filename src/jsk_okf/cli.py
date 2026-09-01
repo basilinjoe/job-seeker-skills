@@ -70,6 +70,7 @@ import sys
 import tempfile
 
 from . import __version__
+from .cliutil import wants_help
 
 # subcommand -> (script, what it does)
 SIMPLE = {
@@ -192,10 +193,16 @@ def cmd_doctor(args):
 FROZEN = (".posting.json", ".gaps.json")
 
 
+VALIDATE_USAGE = "usage: okf validate <bundle-directory | resume.json> [...]"
+
+
 def cmd_validate(args):
     """A bundle or a record - dispatch on the target."""
+    if wants_help(args):
+        print(VALIDATE_USAGE)
+        return 0
     if not args:
-        print("usage: okf validate <bundle-directory | resume.json> [...]")
+        print(VALIDATE_USAGE)
         return 2
     target = args[0]
     if os.path.isdir(target):
@@ -247,7 +254,7 @@ def cmd_check(args):
         del args[at:at + 2]
     if not args or args[0].startswith("-"):
         print(CHECK_USAGE)
-        return 2
+        return 0 if wants_help(args) else 2
     target = args[0]
     strict = "--strict" in args
     gates = [gate for gate in CHECK_GATES if only is None or gate[0] == only]
@@ -438,6 +445,10 @@ def cmd_gates(args):
     and spawns nothing. What it does not cover is the render gate - see
     render_section() for why that is stated rather than silently omitted.
     """
+    if wants_help(args):
+        # Before parse_gates, which would otherwise read --help as an unknown flag.
+        print(GATES_USAGE)
+        return 0
     parsed, problem = parse_gates(args)
     if problem:
         print(problem)
@@ -446,7 +457,7 @@ def cmd_gates(args):
     positional, flags = parsed
     if len(positional) != 1:
         print(GATES_USAGE)
-        return 2
+        return 0 if wants_help(args) else 2
     out_dir = positional[0]
     view = flags.get("--view")
     if not view:
@@ -544,7 +555,7 @@ def cmd_score(args):
     """
     if len(args) < 2:
         print("usage: okf score <bundle-dir | record.json> <posting.md | posting.json> [...]")
-        return 2
+        return 0 if wants_help(args) else 2
     try:
         from . import okf_compile
     except SystemExit:
@@ -637,8 +648,11 @@ def usage():
 
 def main(argv):
     args = argv[1:]
-    if not args or args[0] in ("-h", "--help", "help"):
+    if not args:
         return usage()
+    if args[0] in ("-h", "--help", "help"):
+        usage()
+        return 0
     if args[0] in ("--version", "-V", "version"):
         print(f"jsk-okf {__version__}")
         return 0

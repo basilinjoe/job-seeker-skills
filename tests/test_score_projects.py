@@ -346,6 +346,39 @@ class CapabilityThatMatchesNothing(RecordCase):
         _, out = self.score()
         self.assertIn("primary axis is empty", out)
 
+    def test_a_near_miss_names_the_term_the_record_actually_carries(self):
+        """The analyst mints a requirement's term fresh while the project carries
+        the bundle's own word for the same thing, and the two never meet. Both
+        halves scored zero and the warning could not say which had happened."""
+        self.project("streams", capabilities=["event-driven-architecture"])
+        self.posting(requirements=[
+            requirement("req_evt", "capability", "event-streaming-architecture")])
+        _, out = self.score()
+        self.assertIn("event-driven-architecture", out)
+        self.assertIn("tag the project", out)
+
+    def test_a_genuine_absence_suggests_nothing(self):
+        """A suggestion here reads as "tag this project with that capability", so a
+        wrong one invites exactly the invented evidence the exact-match rule exists
+        to stop. 'engineer-mentoring' and 'data-engineering' score 0.65 on
+        SequenceMatcher and share no whole word."""
+        self.project("pipelines", capabilities=["data-engineering"])
+        self.posting(requirements=[
+            requirement("req_men", "capability", "engineer-mentoring")])
+        _, out = self.score()
+        self.assertIn("appears on no project in the record", out)
+        self.assertNotIn("tag the project", out)
+
+    def test_a_ranking_no_capability_reached_says_it_decided_nothing(self):
+        """Every requirement missing its term leaves the order decided by strength
+        and recency alone. The column of zeroes looks like a verdict on the
+        evidence when it is a verdict on the vocabulary."""
+        self.project("pipelines", capabilities=["data-engineering"])
+        self.posting(requirements=[
+            requirement("req_men", "capability", "engineer-mentoring")])
+        _, out = self.score()
+        self.assertIn("contributed nothing to this ranking", out)
+
 
 class NoTechnologiesNamed(RecordCase):
     """The case mode-tailor.md left undefined, on a x2 term."""

@@ -52,6 +52,7 @@ import re
 import sys
 
 from . import markup
+from .cliutil import wants_help
 
 try:
     import yaml
@@ -959,7 +960,8 @@ def main(argv):
     if not args:
         print("usage: okf_compile.py <BUNDLE | posting.md> [--dump-record FILE|-] "
               "[--view ID] [--no-views] [--compact] [--for score] [--quiet]")
-        return 2
+        # Asking for help is not calling the command wrong; only a real misuse is.
+        return 0 if wants_help(argv[1:]) else 2
     if args[0].endswith(".md"):
         try:
             doc = posting(args[0])

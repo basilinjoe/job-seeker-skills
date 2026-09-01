@@ -24,12 +24,21 @@ SUBCOMMANDS = ["doctor", "new", "validate", "render", "check", "gates", "score",
 
 
 class Usage(unittest.TestCase):
-    """Called with nothing useful, it must say what it can do - and exit 2, the
-    documented code for "you called it wrong"."""
+    """Called with nothing useful, it must say what it can do.
+
+    The exit code splits on whether the caller asked. `--help` is a question that
+    got its answer, so it exits 0; a bare invocation is a call with nothing in it,
+    so it stays 2, the documented code for "you called it wrong".
+
+    Both used to return 2. That was wrong in one direction and inconsistent in the
+    other: the argparse-backed write commands have always exited 0 for `--help`, so
+    the same question answered by `okf project add --help` and `okf render --help`
+    reported success and failure respectively.
+    """
 
     def test_help_lists_every_subcommand(self):
         code, out = run(OKF, "--help")
-        self.assertEqual(code, 2, out)
+        self.assertEqual(code, 0, out)
         for sub in SUBCOMMANDS:
             self.assertIn(sub, out)
 
@@ -37,6 +46,28 @@ class Usage(unittest.TestCase):
         code, out = run(OKF)
         self.assertEqual(code, 2, out)
         self.assertIn("okf check", out)
+
+    def test_every_subcommand_answers_help_the_same_way(self):
+        """One contract across the surface, whichever kind of command you reached.
+
+        The hand-rolled entry points printed their usage and returned 2, so an agent
+        or script checking exit codes saw a failure for reading the documentation
+        SKILL.md tells it to read.
+        """
+        for sub in SUBCOMMANDS + ["compile", "preview", "pipeline", "migrate", "search"]:
+            with self.subTest(subcommand=sub):
+                code, out = run(OKF, sub, "--help")
+                self.assertEqual(code, 0, f"okf {sub} --help exited {code}: {out}")
+                self.assertTrue(out.strip(), f"okf {sub} --help printed nothing")
+
+    def test_render_help_names_its_flags(self):
+        """`okf render --help` printed the two-line invocation and stopped, so the
+        flags SKILL.md sends a reader here to look up were documented nowhere the
+        command itself would show them."""
+        code, out = run(OKF, "render", "--help")
+        self.assertEqual(code, 0, out)
+        for flag in ("--view", "--pdf", "--ats-max", "--template"):
+            self.assertIn(flag, out)
 
     def test_unknown_subcommand_names_the_real_ones(self):
         code, out = run(OKF, "frobnicate")

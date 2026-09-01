@@ -33,7 +33,7 @@ import json
 import os
 import sys
 
-
+from ..cliutil import docstring_usage, wants_help
 from . import emit_latex, emit_text, plan as planner, themes
 from .tex import compile_pdf
 
@@ -146,8 +146,13 @@ def main(argv):
     if "--list-templates" in argv:
         return list_templates()
     if len(argv) < 2 or argv[1].startswith("--"):
-        print(__doc__.strip().split("\n\n")[1])
-        return 2
+        # Everything from the usage line down to the Windows note: paragraph [1] is
+        # the bare invocation and [2] is the flag list, so printing only [1] left
+        # `--view`, `--pdf`, `--ats-max` and `--template` undocumented at the one
+        # place SKILL.md sends a reader to look them up.
+        print(docstring_usage(__doc__))
+        # Asking for help is not calling the command wrong; only a real misuse is.
+        return 0 if wants_help(argv) else 2
     src = argv[1]
     if not os.path.exists(src):
         print(f"file not found: {src}")

@@ -55,14 +55,17 @@ checksums, conformance levels and a reconcile pass all used to police.
 concepts, recompile. Only then does `jsk-resume-author` write the view, once.
 `references/mode-tailor.md` has the procedure.
 
-### Never `Write` or `Edit` a file inside a bundle
+### Where a command exists, it is the only way in
 
-**Every change you make to a bundle is an `okf` command** — the list under *Scripts* below, and
-`references/write-commands.md` for the rules. A bundle write is a several-file transaction; written
-by hand, four of the five files were checked by nothing, so *a half-finished write could go green*.
+**Every change to a concept the write layer covers is an `okf` command** — the list under *Scripts*
+below, and `references/write-commands.md` for the rules. A bundle write is a several-file
+transaction; written by hand, four of the five files were checked by nothing, so *a half-finished
+write could go green*. Going around a refusal turns a caught error into a silent one.
 
-**If a change cannot be expressed as a command, report that and stop** — a blocked write is a
-missing verb worth reporting, and a hand-edit is a bundle nobody can trust.
+**Eleven concept types have verbs; the other fifteen are hand-written by design.** For those —
+Person, Positioning, Source — write the file. `profile/identity.md` is the case that matters: the
+parse gate fails without an email and phone, so a bundle nobody hand-edits can never render a
+sendable resume. Say what you wrote, then `okf validate <bundle>`, which checks it like any other.
 
 This binds you, never the person: a hand-edited concept is a valid concept.
 
@@ -190,8 +193,8 @@ Each takes `--bundle DIR`, `--dry-run`, `--json`, `--set key=value`. `okf <noun>
 record read from 32,190 bytes to 12,840 — but `--for score` drops the achievement prose with them,
 so it belongs to a caller that ranks projects and never to one that writes bullets.
 
-**`gates` is the five mechanical gate invocations as one**, at about 0.6x the wall clock — four
-interpreter starts saved — calling the same checkers with the same arguments. It prints each gate's
+**`gates` is the five mechanical gate invocations as one**, at about 0.6x the wall clock, calling
+the same checkers with the same arguments. It prints each gate's
 output verbatim, treats a missing input as `SKIPPED` **and** a failure, and never attempts the render
 gate, in `--json` no less than in prose: a command that exited 0 having quietly skipped that one
 would be the most dangerous thing here. `--pages N` reports the page count and never fails on it;
@@ -205,10 +208,8 @@ view's budget — *because a page count nobody measured is a page count nobody k
 named, not failed: `okf fit` owns that verdict and is the command that can act on it. Everything
 else runs on a bare Python.
 
-The scripts stay with the skill and a bundle never carries copies, so every bundle gets the current
-version. If they are genuinely missing — the skill was installed as `SKILL.md` alone — write them
-into the bundle's `framework/` from the specifications in `references/ats-rules.md` and
-`references/bundle-spec.md`. *A rule nobody checks stops being true.*
+The toolchain is the installed package, never a copy inside a bundle, so every bundle gets the
+current version. *A rule nobody checks stops being true.*
 
 ## Agents
 
@@ -248,8 +249,10 @@ parses, not that it is correct.*
 | **Prose** | Does it obey the writing rules? | `okf check --only prose` on the `.tex` and on the plain text |
 | **Render** | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
 
-The first three run together as `okf gates <out-dir> --view ID`. The fourth is a person opening
-the PDF, and no command claims it.
+The first three run together as `okf gates <out-dir> --view ID`. The fourth is a person opening the
+PDF, and it asks two questions: **you can check it looks right; only they can confirm it is true.**
+Reading the layout leaves it half open — hand the PDF back naming what you could not check, and call
+the resume unverified until they have.
 
 All gates must pass. Show the output — the person should see the evidence rather than take your word
 for it. Fix and re-run; never explain away a failure.

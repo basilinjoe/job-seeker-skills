@@ -190,8 +190,10 @@ def main(argv):
     parser = build_parser()
     try:
         args = parser.parse_args(list(argv))
-    except SystemExit:
-        return 2
+    except SystemExit as exc:
+        # argparse raises SystemExit(0) for --help and (2) for a usage error.
+        # Collapsing both to 2 reported "called wrong" for asking a question.
+        return exc.code if isinstance(exc.code, int) else 2
     if not args.verb:                                     # pragma: no cover - guard
         parser.print_help()
         return 2

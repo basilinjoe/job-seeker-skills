@@ -58,7 +58,8 @@ somebody has to do by hand. If something turns up, `okf project set` extends the
 exists rather than adding a rival to it.
 
 A project heard in one sitting is usually four commands. In this order, because each refuses a
-reference the one before it establishes:
+reference the one before it establishes — including the pair that reads backwards: `metric add
+--evidence` needs the project on disk, so the number comes *after* the thing it measures:
 
 ```bash
 OKF="okf"
@@ -71,14 +72,15 @@ $OKF org add  $B --title "…" --description "one line" --relationship employer 
 $OKF role add $B --title "…" --description "one line" --organisation <org-stem> \
                  --start 2023-01 --state ongoing --body -
 
-# 2. The number, before the bullet that rests on it.
-$OKF metric add $B --name "Claim latency" --value "4.2s to 380ms" \
-                   --evidence <project-stem> --source "the dashboard they named"
-
-# 3. The project.
+# 2. The project. `--headline-metric` may name a metric step 3 has yet to write.
 $OKF project add $B --title "…" --role <role-stem> \
   --strength 4 --recency 2026 --seniority hands-on-senior \
-  --domain <domain> --capability <term> --description "one line" --status inferred --body -
+  --domain <domain> --capability <term> --description "one line" \
+  --headline-metric "Claim latency" --status inferred --body -
+
+# 3. The number, before the bullet that rests on it.
+$OKF metric add $B --name "Claim latency" --value "4.2s to 380ms" \
+                   --evidence <project-stem> --source "the dashboard they named"
 
 # 4. The lines it earned, one command each.
 $OKF bullet add $B --project <project-stem> --text "…" --metric "Claim latency" --status confirmed

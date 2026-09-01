@@ -25,6 +25,7 @@ Exit 0 = scored. Exit 1 = nothing to score. Exit 2 = usage error.
 """
 import argparse
 import datetime
+import difflib
 import json
 import os
 import re
@@ -51,6 +52,31 @@ SCORED_NECESSITY = {"required", "preferred"}
 KNOWN_NECESSITY = SCORED_NECESSITY | {"implicit"} | set(LEGACY_NECESSITY)
 
 YEAR = re.compile(r"^(\d{4})")
+
+
+def near_terms(term, pool, limit=2):
+    """Terms in `pool` that plausibly name the same thing as `term`.
+
+    Deliberately conservative, because a wrong suggestion here is worse than none:
+    it reads as "tag this project with that capability", and tagging a project with
+    a capability it does not have is the one thing the exact-match rule exists to
+    prevent. String similarity alone is not enough - 'engineer-mentoring' and
+    'data-engineering' score 0.65 on SequenceMatcher and share no whole word.
+
+    So: two shared words, or near-identical spelling. 'event-streaming-architecture'
+    and 'event-driven-architecture' clear the first; a typo clears the second;
+    'regulated-systems-design' and 'api-design', which share only the generic tail
+    'design', clear neither.
+    """
+    words = set(term.split("-"))
+    scored = []
+    for other in pool:
+        shared = words & set(other.split("-"))
+        ratio = difflib.SequenceMatcher(None, term, other).ratio()
+        if len(shared) >= 2 or ratio >= 0.8:
+            scored.append((len(shared), round(ratio, 3), other))
+    scored.sort(reverse=True)
+    return [other for _, _, other in scored[:limit]]
 
 
 def as_set(value):
@@ -302,10 +328,31 @@ def main(argv=None):
     everywhere = set()
     for _, project in projects:
         everywhere |= as_set(project.get("capabilities"))
-    for capability in sorted(want["capabilities"] - everywhere):
+    missing = sorted(want["capabilities"] - everywhere)
+    for capability in missing:
+        near = near_terms(capability, everywhere)
+        hint = ""
+        if near:
+            # The two responses this warning could not previously distinguish. A near
+            # miss is almost always the posting's term and the bundle's term for one
+            # thing - `event-streaming-architecture` against `event-driven-architecture`
+            # - which is a tagging job, not missing evidence.
+            hint = (f"; the record carries {', '.join(repr(n) for n in near)}"
+                    f" - if that is the same thing, tag the project with"
+                    f" {capability!r} rather than renaming the requirement")
         warns.append(f"required capability {capability!r} appears on no project in the "
                      f"record - it scores zero everywhere, which looks identical to "
-                     f"absent evidence")
+                     f"absent evidence{hint}")
+
+    # Every requirement missing its term means the ranking below was decided entirely
+    # by strength, recency and seniority. That can still order the projects correctly,
+    # which is exactly why it needs saying: the column of zeroes looks like a verdict
+    # on the evidence, and it is a verdict on the vocabulary.
+    if want["capabilities"] and not (want["capabilities"] & everywhere):
+        warns.append(f"none of the {len(want['capabilities'])} required capabilities "
+                     f"matches any term in the record, so capability scoring "
+                     f"contributed nothing to this ranking - read the order as "
+                     f"strength and recency alone until the tagging is reconciled")
 
     title = (posting.get("posting") or {}).get("title") or ""
     organization = (posting.get("organization") or {}).get("name") or ""
