@@ -51,6 +51,8 @@ import os
 import re
 import sys
 
+from . import markup
+
 try:
     import yaml
 except ImportError:
@@ -92,7 +94,7 @@ NON_CONTENT = {"Index", "Log", "Guide", "Vocabulary", "Rule Set", "Schema", "Tem
                "Application", "Positioning", "Career Progression", "Preference", "Method"}
 
 DATE = re.compile(r"^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$")
-LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+LINK = markup.LINK
 
 
 class Problem(Exception):
@@ -100,22 +102,13 @@ class Problem(Exception):
 
 
 def read_frontmatter(text):
-    """The parser pipeline.py uses, so a concept reads the same way everywhere."""
-    if not text.startswith("---\n") and not text.startswith("---\r\n"):
-        return None, text
-    end = text.find("\n---\n", 3)
-    if end == -1:
-        end = text.find("\r\n---\r\n", 3)
-        if end == -1:
-            return None, text
-        head, body = text[4:end], text[end + 7:]
-    else:
-        head, body = text[4:end], text[end + 5:]
-    try:
-        meta = yaml.safe_load(head)
-    except Exception:
-        return None, body
-    return (meta if isinstance(meta, dict) else None), body
+    """The parser pipeline.py uses, so a concept reads the same way everywhere.
+
+    That sentence used to be false. pipeline.py had a second, weaker copy of this - no
+    CRLF arm - and had done since it was written. Both call markup.read_frontmatter
+    now, so the claim is one a reader can check.
+    """
+    return markup.read_frontmatter(text, yaml)
 
 
 def concepts(root, tailoring="views"):
@@ -194,8 +187,7 @@ def census(root):
     return out
 
 
-def slug(text):
-    return re.sub(r"[^a-z0-9]+", "_", str(text).lower()).strip("_")
+slug = markup.id_slug
 
 
 def ident(meta, stem, prefix):

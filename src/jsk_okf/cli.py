@@ -98,19 +98,34 @@ def gate_target(path, accepts):
     return None
 
 
-# The three that live in the urs package rather than at the top level. Rendering, the
-# preview and the page fitter are all one module with the record->document pipeline
-# they drive: between them and the rest of the package there are exactly two import
-# edges, and both are lazy. Kept as a table here rather than as a rename, because the
-# file names are what every comment, doc heading and shell history calls them.
-IN_URS = {"render_resume.py", "preview_templates.py", "fit_pages.py"}
+# Which subpackage each script lives in. The tables above are keyed by the documented
+# script names - what docs/SCRIPTS.md, every comment in the codebase and every shell
+# history call them - so the file moves and the name does not.
+#
+# Both groupings were measured before they were made, because a package whose members
+# do not import each other is a folder, not a module:
+#
+#   urs/    rendering, the preview and the page fitter, over the record->document
+#           pipeline they drive. Two edges leave it, both lazy.
+#   gates/  the record, parse and prose gates. Two edges leave it, both lazy, both
+#           validate_urs's; one edge inside, check_prose borrowing its numeral detector.
+#
+# `bundle/` and `pipeline/` were measured too and rejected - see docs/ARCHITECTURE.md.
+SUBPACKAGE = {
+    "render_resume.py": "urs",
+    "preview_templates.py": "urs",
+    "fit_pages.py": "urs",
+    "check_ats.py": "gates",
+    "check_prose.py": "gates",
+    "validate_urs.py": "gates",
+}
 
 
 def module_for(script):
-    """`check_ats.py` -> `jsk_okf.check_ats`. The tables are keyed by the documented
-    script names, which are still what docs/SCRIPTS.md and every mode file call them."""
+    """`check_ats.py` -> `jsk_okf.gates.check_ats`."""
     stem = script[:-3]
-    return f"{__package__}.urs.{stem}" if script in IN_URS else f"{__package__}.{stem}"
+    where = SUBPACKAGE.get(script)
+    return f"{__package__}.{where}.{stem}" if where else f"{__package__}.{stem}"
 
 
 def run(script, args):

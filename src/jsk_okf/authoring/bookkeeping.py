@@ -36,6 +36,7 @@ Known limits, measured rather than assumed, and left alone deliberately:
 import os
 import re
 
+from .. import markup
 from . import stage
 
 
@@ -264,7 +265,7 @@ def index_without(path, filenames):
 
 
 HEADING = "## %s"
-FENCE = "```"
+FENCE = markup.FENCE
 
 
 def _day_heading(today):
@@ -289,9 +290,10 @@ DAY_BOUNDARY = re.compile(r"^#{1,2}[ \t]")
 def _scan(lines):
     """Every line, with whether it sits inside a ``` fence.
 
-    The toggle validate_bundle.py uses twice - at :163-169 and :405-410 - and that
-    pipeline_model.py:263-269 repeats. Borrowed rather than reinvented, because a
-    fourth idiom for one rule is how three of them come to disagree.
+    markup.scan, re-exported under the name this module's callers already use. It was
+    a fourth copy of a toggle validate_bundle.py had twice and pipeline_model.py had
+    once - borrowed rather than reinvented, said the comment, which is how a codebase
+    ends up with four of something and no definition of it.
 
     A log is the file in the bundle most exposed to this: mode-pipeline.md tells
     people to record mistakes rather than hide them, so a log quoting an earlier
@@ -304,12 +306,7 @@ def _scan(lines):
     The fence delimiters report as fenced themselves, so a heading can never be
     the line that opens or closes one.
     """
-    fenced = False
-    for index, line in enumerate(lines):
-        opener = line.lstrip().startswith(FENCE)
-        yield index, line, fenced or opener
-        if opener:
-            fenced = not fenced
+    return markup.scan(lines)
 
 
 # A link that climbs out of its own directory. `log.md` sits at the bundle root, so

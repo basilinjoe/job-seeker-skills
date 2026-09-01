@@ -22,13 +22,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (CLI, INIT_BUNDLE, OKF_COMPILE, VALIDATE_BUNDLE,
+from fixtures import (CLI, INIT_BUNDLE, OKF_COMPILE, VALIDATE_BUNDLE, VALIDATE_URS,
                       authoring_module, child_env, run)
 
 commands = authoring_module("authoring.commands")
 
 OKF = CLI
-VALIDATE_URS = "jsk_okf.validate_urs"
 
 # noun -> its verbs. An empty tuple means the noun IS the verb - `okf log --message`,
 # `okf reindex` - because a single-purpose noun with a verb level would be a word

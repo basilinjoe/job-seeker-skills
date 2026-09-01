@@ -9,9 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import load_script, run
+from fixtures import CHECK_PROSE, load_script, run
 
-CHECK_PROSE = "jsk_okf.check_prose"
 cp = load_script(CHECK_PROSE)
 
 # A resume whose prose satisfies every documented rule. The regression guard.

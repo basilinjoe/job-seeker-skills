@@ -29,7 +29,7 @@ finds it with `^CURRENT_BUNDLE_REVISION = (\\d+)`, so it has to keep starting a 
 import argparse, os, re, sys
 
 
-from . import pipeline_model
+from . import markup, pipeline_model
 from .authoring import schema
 
 try:
@@ -51,8 +51,8 @@ ARCHIVE = "tailoring/applications"
 # validate_bundle.py already needs.
 STATUS = schema.STATUS_VALUES
 SENIORITY = schema.SENIORITY_VALUES
-LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-LIST_ITEM = re.compile(r"^\s*[-*]\s+")
+LINK = markup.LINK
+LIST_ITEM = markup.LIST_ITEM
 
 # The copies archived beside an application. bundle-spec.md is explicit that the files in
 # tailoring/targets/ stay editable and "the copies beside the application are the archive
@@ -191,13 +191,8 @@ def main(argv=None):
     pipeline_vocab = set()
     pv_path = os.path.join(ROOT, "framework", "pipeline-vocabulary.md")
     if os.path.exists(pv_path):
-        fenced = False
         with open(pv_path, encoding="utf-8") as f:
-            for line in f:
-                if line.lstrip().startswith("```"):
-                    fenced = not fenced; continue
-                if not fenced and LIST_ITEM.match(line):
-                    pipeline_vocab.update(re.findall(r"`([a-z0-9-]+)`", line))
+            pipeline_vocab = markup.terms(f)
 
     for rel in sorted(files):
         key = rel.replace(os.sep, "/")
@@ -421,13 +416,8 @@ def main(argv=None):
         vocab_path = os.path.join(ROOT, "framework", "capability_vocabulary.md")
     vocab = set()
     if os.path.exists(vocab_path):
-        fenced = False
         with open(vocab_path, encoding="utf-8") as f:
-            for line in f:
-                if line.lstrip().startswith("```"):
-                    fenced = not fenced; continue
-                if not fenced and LIST_ITEM.match(line):
-                    vocab.update(re.findall(r"`([a-z0-9-]+)`", line))
+            vocab = markup.terms(f)
     unknown = sorted(c for c in caps if vocab and c not in vocab)
     for c in unknown:
         errors.append(f"capability '{c}' is not in framework/capability-vocabulary.md - add it there or reuse an existing value")

@@ -135,9 +135,13 @@ src/jsk_okf/                        THE CLI. one installed package, `okf` on the
     render_resume.py                `okf render` - one record to .tex/PDF plus .txt
     preview_templates.py            `okf preview` - every template, so the look is chosen by looking
     fit_pages.py                    `okf fit` - fits a render to a page budget
+  gates/                            the three mechanical gates `okf gates` runs
+    validate_urs.py                 the record gate - before anything is rendered
+    check_ats.py                    the parse gate        check_prose.py    the prose gate
+  markup.py                         how a bundle's Markdown is read - frontmatter,
+                                    fences, links, list items, terms, the id slug
   okf_compile.py                    bundle -> record
-  validate_bundle.py                the bundle gate       validate_urs.py   the record gate
-  check_ats.py                      the parse gate        check_prose.py    the prose gate
+  validate_bundle.py                the bundle gate
   score_projects.py                 ranks projects against a posting
   init_bundle.py                    scaffolds a bundle    migrate_bundle.py revision steps
   pipeline.py                       the weekly board      pipeline_model.py what an event means
@@ -176,18 +180,43 @@ installed from PyPI as `jsk-okf`; `plugins/jsk/` is markdown that calls `okf`. T
 to be one tree - the scripts lived at `plugins/jsk/skills/jsk/scripts/` and every mode
 file invoked them by absolute path. Fifteen paths to get right became one command.
 
+## What is a package here, and what is not
+
+Two subpackages, and both were measured before they were made. The test is whether the
+members import *each other* more than they import outward - a group whose members share
+no edges is a folder with a theme, not a module.
+
+| Proposed | Edges crossing the boundary | Edges inside | Verdict |
+|---|---|---|---|
+| `urs/` — rendering, preview, page fitter, over the record→document pipeline | **2**, both lazy | many | **made** |
+| `gates/` — record, parse, prose | **2**, both lazy, both `validate_urs`'s | 1 | **made** |
+| `bundle/` — compile, validate, init, migrate | 8 | **0** | rejected |
+| `pipeline/` — board and model | 5 | 1 | rejected |
+
+`bundle/` is the instructive one: the four modules that all operate on a bundle import
+each other **zero** times. Grouping them would have added eight boundary crossings and
+bought nothing but a directory named after a noun they have in common.
+
+`pipeline_model.py` is imported by four modules outside any group it could belong to —
+`init_bundle`, `migrate_bundle`, `validate_bundle` and `authoring/archive`. That makes
+it a shared foundation like `markup.py` and `paths.py`, not a member of a `pipeline/`
+package. It stays at the top level, which is where the things everything reads belong.
+
+`cli.SUBPACKAGE` is the one map from a documented script name to where its module lives,
+and `tests/fixtures.load_script` reads that map rather than keeping a second copy.
+
 ## Where do I change X
 
 | To change | Edit | And also |
 |---|---|---|
-| What the parse gate rejects | `src/jsk_okf/check_ats.py` | `references/ats-rules.md`, `tests/test_check_ats.py` |
-| What the prose gate rejects | `src/jsk_okf/check_prose.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
-| What makes a record invalid | `src/jsk_okf/validate_urs.py` | `references/urs-spec.md`, `tests/test_validate_urs.py` |
+| What the parse gate rejects | `src/jsk_okf/gates/check_ats.py` | `references/ats-rules.md`, `tests/test_check_ats.py` |
+| What the prose gate rejects | `src/jsk_okf/gates/check_prose.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
+| What makes a record invalid | `src/jsk_okf/gates/validate_urs.py` | `references/urs-spec.md`, `tests/test_validate_urs.py` |
 | **What content is selected** | `src/jsk_okf/urs/plan.py` | never an emitter |
 | **How a document looks** | `src/jsk_okf/urs/emit_*.py` | never `plan.py` |
 | **A palette, typeface or rule** | `src/jsk_okf/urs/themes.py` | `references/templates.md`, `tests/test_themes.py` |
 | Support for a new market | `schema/profiles/<code>.json` | the region section of `references/urs-spec.md` |
-| What a view may carry | `references/view-format.md` | `src/jsk_okf/validate_urs.py`, `agents/jsk-resume-author.md` — never `references/urs-spec.md`, which defines no view key |
+| What a view may carry | `references/view-format.md` | `src/jsk_okf/gates/validate_urs.py`, `agents/jsk-resume-author.md` — never `references/urs-spec.md`, which defines no view key |
 | Bundle layout | `src/jsk_okf/init_bundle.py` | `src/jsk_okf/validate_bundle.py`, `references/bundle-spec.md`, **a new revision in `migrate_bundle.py`** |
 | **How a frontmatter value is quoted** | `src/jsk_okf/authoring/concept.py` | never a caller, never a second emitter |
 | **What a concept type may carry** | `src/jsk_okf/authoring/schema.py` | `references/bundle-spec.md` — the two are one rule in two languages, and a rule in one and not the other is a defect |

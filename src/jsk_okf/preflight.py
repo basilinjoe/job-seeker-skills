@@ -39,10 +39,10 @@ MIN_PYTHON = (3, 8)
 # module can be present and unimportable - a syntax error, a missing dependency of
 # its own, a half-finished editable checkout - and find_spec is what notices.
 MODULES = [
-    "init_bundle", "validate_bundle", "check_ats", "check_prose",
-    "score_projects", "validate_urs", "okf_compile",
-    "migrate_bundle", "pipeline", "pipeline_model",
+    "init_bundle", "validate_bundle", "score_projects", "okf_compile",
+    "migrate_bundle", "pipeline", "pipeline_model", "markup", "paths",
 ]
+GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.validate_urs"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken urs package takes all
 # three with it and reporting them separately would name three symptoms of one cause.
@@ -172,6 +172,12 @@ def gather(bundle_arg=None):
         disables=f"missing: {', '.join(missing_mod)}" if missing_mod
                  else "", detail=os.path.join(HERE, "urs")))
 
+    missing_gates = present(GATE_MODULES)
+    checks.append(Check(
+        "gates package", not missing_gates,
+        disables=f"missing: {', '.join(missing_gates)}" if missing_gates
+                 else "", detail=os.path.join(HERE, "gates")))
+
     missing_auth = present(AUTHORING_MODULES)
     checks.append(Check(
         "authoring package", not missing_auth,
@@ -233,7 +239,8 @@ def gather(bundle_arg=None):
 # nicety. Now the PDF is the only rendered deliverable, so a machine without
 # them cannot produce a resume at all - reporting that as a degraded install
 # would be telling someone their toolchain works when it does not.
-REQUIRED = {"Python", "modules", "urs renderer package", "authoring package",
+REQUIRED = {"Python", "modules", "urs renderer package", "gates package",
+            "authoring package",
             "URS schema", "TeX engine", "pymupdf"}
 
 
@@ -257,7 +264,7 @@ def verify(tmp):
         return steps
 
     run("validate the example record",
-        [f"{__package__}.validate_urs", EXAMPLE])
+        [f"{__package__}.gates.validate_urs", EXAMPLE])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the resolver works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",
@@ -269,10 +276,10 @@ def verify(tmp):
     pdf = os.path.join(tmp, "Priya_Raman_Resume.pdf")
     tex = os.path.join(tmp, "Priya_Raman_Resume.tex")
     txt = os.path.join(tmp, "Priya_Raman_Resume_ATS.txt")
-    run("parse gate, rendered PDF", [f"{__package__}.check_ats", pdf])
+    run("parse gate, rendered PDF", [f"{__package__}.gates.check_ats", pdf])
     run("parse gate, plain text (strict)",
-        [f"{__package__}.check_ats", txt, "--strict"])
-    run("prose gate", [f"{__package__}.check_prose", tex])
+        [f"{__package__}.gates.check_ats", txt, "--strict"])
+    run("prose gate", [f"{__package__}.gates.check_prose", tex])
     return steps
 
 

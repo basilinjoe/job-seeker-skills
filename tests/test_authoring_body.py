@@ -247,11 +247,23 @@ class Sections(unittest.TestCase):
 
 
 class IdsMatchTheCompiler(unittest.TestCase):
-    """The ids this module writes down are the ids the compile was deriving."""
+    """The ids this module writes down are the ids the compile was deriving.
+
+    The slug rule under both used to be two copies - `okf_compile.slug` and a
+    `compile_slug` here - because importing a 1,000-line CLI for one regex was the
+    wrong price on the hot path of every write. They are one object in `markup.py`
+    now, which imports nothing, so the corpus below checks the *id builders* on top of
+    it and `test_the_slug_rule_is_one_object` checks there is nothing left to drift.
+    """
 
     STEMS = ["care-platform", "care_platform", "Care Platform", "aged-care-events",
              "a", "project.v2", "ünïcode-stem", "two--hyphens", "-leading",
              "trailing-", "MiXeD-Case", "9-lives"]
+
+    def test_the_slug_rule_is_one_object(self):
+        markup = load_script("markup")
+        self.assertIs(body.compile_slug, markup.id_slug)
+        self.assertIs(okf_compile.slug, markup.id_slug)
 
     def test_a_bullet_id_matches_what_the_compile_derives(self):
         for stem in self.STEMS:

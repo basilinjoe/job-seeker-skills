@@ -235,7 +235,7 @@ went unnoticed for months. A slower census and an honest gate is the right way r
 
 ### `okf validate`
 
-The `jsk_okf.validate_urs` module.
+The `jsk_okf.gates.validate_urs` module.
 
 ```bash
 okf validate <bundle | resume.json>
@@ -356,7 +356,7 @@ break too. Exit 2 = usage, or no TeX engine.
 
 ### `okf check --only parse`
 
-The `jsk_okf.check_ats` module.
+The `jsk_okf.gates.check_ats` module.
 
 ```bash
 okf check --only parse resume.pdf             # the rendered deliverable
@@ -375,7 +375,7 @@ PDF; the `.txt` path is standard library only.
 
 ### `okf check --only prose`
 
-The `jsk_okf.check_prose` module.
+The `jsk_okf.gates.check_prose` module.
 
 ```bash
 okf check --only prose resume.tex

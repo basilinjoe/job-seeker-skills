@@ -30,6 +30,7 @@ import os
 import sys
 
 
+from . import markup
 from . import pipeline_model as model
 
 try:
@@ -58,16 +59,12 @@ class Application:
 
 
 def read_frontmatter(text):
-    if not text.startswith("---\n"):
-        return None, text
-    end = text.find("\n---\n", 3)
-    if end == -1:
-        return None, text
-    try:
-        meta = yaml.safe_load(text[4:end])
-    except Exception:
-        return None, text[end + 5:]
-    return (meta if isinstance(meta, dict) else None), text[end + 5:]
+    """okf_compile's parser, so a concept reads the same way in the board and the record.
+
+    This was a second copy, and a weaker one - it had no CRLF arm - sitting under a
+    docstring in okf_compile.py that claimed this module used *that* one. It does now.
+    """
+    return markup.read_frontmatter(text, yaml)
 
 
 def collect(root, as_of, rules):

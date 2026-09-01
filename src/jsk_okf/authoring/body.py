@@ -49,6 +49,7 @@ tool they never run again.
 
 import re
 
+from .. import markup
 from . import bookkeeping, concept
 
 # blocks()' own three patterns, as this module needs them.
@@ -467,15 +468,17 @@ def prose_lines(text):
 # Written down here so that a mutation can materialise them - see claims.py. The
 # derivation is okf_compile's and must stay identical to it: an id this layer
 # wrote down that differed by one character from the one the compile derives
-# would repoint every view that named it. `IdsMatchTheCompiler` in
-# tests/test_authoring_body.py asserts the two agree over a corpus of stems, in
-# place of importing okf_compile.py - which is a 1,000-line CLI that a write
-# costing about the interpreter floor has no business loading.
+# would repoint every view that named it. It was a copy, because importing
+# okf_compile.py - a 1,000-line CLI - was the wrong price for one regex on the
+# hot path of every write. markup.py imports nothing at all, so the price is gone
+# and there is no copy left to drift.
 
 
-def compile_slug(text):
-    """okf_compile.slug: how that module turns anything into an id fragment."""
-    return re.sub(r"[^a-z0-9]+", "_", str(text).lower()).strip("_")
+# One definition now, in markup.py - which imports nothing, so the write layer pays
+# no more for it than it did for the copy. `IdsMatchTheCompiler` in
+# tests/test_authoring_body.py asserted the two agreed over a corpus of stems; they
+# are the same object, so it now asserts identity.
+compile_slug = markup.id_slug
 
 
 def derived_bullet_id(stem, n):

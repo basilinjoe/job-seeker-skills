@@ -17,10 +17,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (CHECK_ATS, EXAMPLE_URS, RENDER_RESUME, child_env, run, urs_doc, urs_module, urs_package,
+from fixtures import (CHECK_ATS, CHECK_PROSE, EXAMPLE_URS, RENDER_RESUME,
+                      child_env, run, urs_doc, urs_module, urs_package,
                       write_urs)
 
-CHECK_PROSE = "jsk_okf.check_prose"
 
 # example.resume.json carries three views, and a record holding more than one now
 # refuses to render without being told which - the fallback to views[0] was silently

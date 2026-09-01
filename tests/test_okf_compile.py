@@ -10,12 +10,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import RENDER_RESUME, load_script, run
+from fixtures import RENDER_RESUME, VALIDATE_URS, load_script, run
 
 COMPILE = "jsk_okf.okf_compile"
 RENDER = RENDER_RESUME
 SCORE = "jsk_okf.score_projects"
-VALIDATE_URS = "jsk_okf.validate_urs"
 
 okf_compile = load_script(COMPILE)
 

@@ -10,7 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (CLI, CLEAN_RESUME, EXAMPLE_URS, INIT_BUNDLE, SCRIPTS,
+from fixtures import (CHECK_ATS, CHECK_PROSE, CLI, CLEAN_RESUME, EXAMPLE_URS,
+                      INIT_BUNDLE, SCRIPTS, VALIDATE_URS,
                       build_pdf, build_text, load_script, resume_with, run,
                       write_concept)
 
@@ -270,11 +271,11 @@ class GatesAgreement(GatesCase):
         tex = self.out / "Jane_Doe_Resume.tex"
         txt = self.out / "Jane_Doe_Resume_ATS.txt"
         return [
-            ("jsk_okf.validate_urs", [self.bundle]),
-            ("jsk_okf.check_ats", [pdf]),
-            ("jsk_okf.check_ats", [txt, "--strict"]),
-            ("jsk_okf.check_prose", [tex]),
-            ("jsk_okf.check_prose", [txt]),
+            (VALIDATE_URS, [self.bundle]),
+            (CHECK_ATS, [pdf]),
+            (CHECK_ATS, [txt, "--strict"]),
+            (CHECK_PROSE, [tex]),
+            (CHECK_PROSE, [txt]),
         ]
 
     def assertAgrees(self):

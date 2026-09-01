@@ -19,6 +19,7 @@ import re
 import sys
 import unicodedata
 
+from .. import markup
 from . import bookkeeping, concept, schema, stage
 
 # A file stem: lowercase words joined by hyphens, which is the shape bookkeeping.py
@@ -224,12 +225,12 @@ VOCABULARY_NAMES = ("capability-vocabulary.md", "capability_vocabulary.md")
 # - which admits `+` bullets and a bullet with no space after it. A term this layer
 # read and the gate did not would be a capability accepted here and refused there,
 # which is the one failure mode a write-time check must not have.
-VOCABULARY_ITEM = re.compile(r"^\s*[-*]\s+")
+VOCABULARY_ITEM = markup.LIST_ITEM
 
 # The term inside backticks, as the gate extracts it.
-TERM = re.compile(r"`([a-z0-9-]+)`")
+TERM = markup.TERM
 
-HEADING = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*$")
+HEADING = markup.HEADING
 
 
 def vocabulary_path(bundle):
@@ -244,9 +245,10 @@ def vocabulary_path(bundle):
 def vocabulary_terms(text):
     """Every capability the file lists - list items outside a fence, and nothing else.
 
-    The fence toggle is bookkeeping's, which is validate_bundle.py's, which is
-    pipeline_model.py's: borrowed rather than reinvented because a fifth idiom for one
-    rule is how four of them come to disagree.
+    markup.terms, under the name this layer's callers already use. The fence toggle
+    inside it was borrowed from bookkeeping, which borrowed it from validate_bundle,
+    which had it twice - "a fifth idiom for one rule is how four of them come to
+    disagree", said this docstring, correctly, while adding the fifth.
 
     init_bundle.py scaffolds this file with its example values INSIDE a fence, so a
     fresh bundle yields nothing here - and yields nothing to the gate either, whose
@@ -254,11 +256,7 @@ def vocabulary_terms(text):
     the whole point: rejecting every value on a fresh bundle and accepting every value
     on a populated one are the same bug wearing opposite signs.
     """
-    terms = set()
-    for _, line, fenced in bookkeeping._scan(text.split("\n")):
-        if not fenced and VOCABULARY_ITEM.match(line):
-            terms.update(TERM.findall(line))
-    return terms
+    return markup.terms(text)
 
 
 def vocabulary_with(path, terms, theme):

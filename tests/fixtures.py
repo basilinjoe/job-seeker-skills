@@ -26,7 +26,7 @@ if str(SRC) not in sys.path:
 # `from . import ...` fails on the way in. `run()` invokes them with `-m`.
 SCRIPTS = REPO_ROOT / "src" / PACKAGE      # for tests that read a module's source text
 CLI = f"{PACKAGE}.cli"
-CHECK_ATS = f"{PACKAGE}.check_ats"
+CHECK_ATS = f"{PACKAGE}.gates.check_ats"
 VALIDATE_BUNDLE = f"{PACKAGE}.validate_bundle"
 INIT_BUNDLE = f"{PACKAGE}.init_bundle"
 MIGRATE_BUNDLE = f"{PACKAGE}.migrate_bundle"
@@ -43,11 +43,20 @@ def load_script(name):
     scripts were CLIs sitting outside any importable path. They are a package now, so
     an import is an import - and two modules reached the same way are the same object,
     which the file-loading version could not promise.
+
+    A caller may name a module three ways: fully qualified, as a bare stem, or as the
+    documented script filename that most of the codebase's comments still use. Which
+    subpackage a filename lives in is `cli.SUBPACKAGE`'s answer and not a second copy
+    here - that map is what `okf` itself dispatches on, so a module that moves without
+    it being updated fails in the CLI before it fails in a test.
     """
-    if not str(name).startswith(PACKAGE):
-        # A Path, or a bare module name, from a caller written before the move.
-        name = f"{PACKAGE}.{Path(str(name)).stem}"
-    return importlib.import_module(str(name))
+    name = str(name)
+    if not name.startswith(PACKAGE):
+        from jsk_okf.cli import SUBPACKAGE          # noqa: PLC0415 - test helper
+        stem = Path(name).stem
+        where = SUBPACKAGE.get(f"{stem}.py")
+        name = f"{PACKAGE}.{where}.{stem}" if where else f"{PACKAGE}.{stem}"
+    return importlib.import_module(name)
 
 
 def build_text(path, paragraphs=(), trailing=()):
@@ -181,11 +190,11 @@ def write_concept(bundle, name="care-platform.md", text=CONCEPT):
 PLUGIN = REPO_ROOT / "plugins" / "jsk"
 SKILL_DIR = PLUGIN / "skills" / "jsk"
 SCHEMA_DIR = SRC / PACKAGE / "data" / "schema"
-VALIDATE_URS = f"{PACKAGE}.validate_urs"
+VALIDATE_URS = f"{PACKAGE}.gates.validate_urs"
 RENDER_RESUME = f"{PACKAGE}.urs.render_resume"
 PREVIEW_TEMPLATES = f"{PACKAGE}.urs.preview_templates"
 SCORE_PROJECTS = f"{PACKAGE}.score_projects"
-CHECK_PROSE = f"{PACKAGE}.check_prose"
+CHECK_PROSE = f"{PACKAGE}.gates.check_prose"
 PREFLIGHT = f"{PACKAGE}.preflight"
 EXAMPLE_URS = SCHEMA_DIR / "example.resume.json"
 
