@@ -13,5 +13,4 @@ dist/
 *.egg-info/
 .ruff_cache/
 
-# skill-creator eval runs
 jsk-eval-workspace/
