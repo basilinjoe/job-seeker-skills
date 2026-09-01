@@ -120,7 +120,7 @@ count nobody knows.
 
 ### `okf doctor`
 
-The `preflight.py` module.
+The `jsk_okf.preflight` module.
 
 ```bash
 okf doctor                 # what works on this machine
@@ -140,7 +140,7 @@ that needs installing first is not a preflight.
 
 ### `okf new`
 
-The `init_bundle.py` module.
+The `jsk_okf.init_bundle` module.
 
 ```bash
 okf new ./my-career --name "Your Name"
@@ -152,7 +152,7 @@ Creates an empty bundle skeleton. No dependencies.
 
 ### `okf compile`
 
-The `okf_compile.py` module.
+The `jsk_okf.okf_compile` module.
 
 ```bash
 okf compile <bundle> --quiet
@@ -235,7 +235,7 @@ went unnoticed for months. A slower census and an honest gate is the right way r
 
 ### `okf validate`
 
-The `validate_urs.py` module.
+The `jsk_okf.validate_urs` module.
 
 ```bash
 okf validate <bundle | resume.json>
@@ -273,7 +273,7 @@ scrolls.
 
 ### `okf render`
 
-The `render_resume.py` module.
+The `jsk_okf.urs.render_resume` module.
 
 ```bash
 okf render <bundle | resume.json> --out DIR --view view_au_default
@@ -327,7 +327,7 @@ looked at — and it would look perfectly fine. See `references/templates.md`.
 
 ### `okf preview`
 
-The `preview_templates.py` module.
+The `jsk_okf.urs.preview_templates` module.
 
 ```bash
 okf preview resume.json --out DIR
@@ -356,7 +356,7 @@ break too. Exit 2 = usage, or no TeX engine.
 
 ### `okf check --only parse`
 
-The `check_ats.py` module.
+The `jsk_okf.check_ats` module.
 
 ```bash
 okf check --only parse resume.pdf             # the rendered deliverable
@@ -375,7 +375,7 @@ PDF; the `.txt` path is standard library only.
 
 ### `okf check --only prose`
 
-The `check_prose.py` module.
+The `jsk_okf.check_prose` module.
 
 ```bash
 okf check --only prose resume.tex
@@ -461,7 +461,7 @@ The exit code is the worst gate's: `0` all passed, `1` any failed, `2` called wr
 
 ### `okf validate`
 
-The `validate_bundle.py` module.
+The `jsk_okf.validate_bundle` module.
 
 ```bash
 okf validate ./my-career
@@ -504,7 +504,7 @@ flags are built to avoid.
 
 ### `okf migrate`
 
-The `migrate_bundle.py` module.
+The `jsk_okf.migrate_bundle` module.
 
 Brings a bundle built on an earlier layout up to the current one.
 
@@ -577,7 +577,7 @@ parser, so comments, key order and quoting style survive and the change is legib
 
 ### `okf pipeline`
 
-The `pipeline.py` module.
+The `jsk_okf.pipeline` module.
 
 What the job search needs from you this week, derived from every application's `# Timeline`.
 
@@ -616,7 +616,7 @@ Needs `pyyaml`.
 
 ### `okf score`
 
-The `score_projects.py` module.
+The `jsk_okf.score_projects` module.
 
 ```bash
 okf score record.json acme.posting.json
@@ -640,7 +640,7 @@ Standard library only.
 
 ### `okf fit`
 
-The `fit_pages.py` module.
+The `jsk_okf.urs.fit_pages` module.
 
 ```bash
 okf fit resume.tex --target-pages 2

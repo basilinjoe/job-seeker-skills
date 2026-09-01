@@ -98,10 +98,19 @@ def gate_target(path, accepts):
     return None
 
 
+# The three that live in the urs package rather than at the top level. Rendering, the
+# preview and the page fitter are all one module with the record->document pipeline
+# they drive: between them and the rest of the package there are exactly two import
+# edges, and both are lazy. Kept as a table here rather than as a rename, because the
+# file names are what every comment, doc heading and shell history calls them.
+IN_URS = {"render_resume.py", "preview_templates.py", "fit_pages.py"}
+
+
 def module_for(script):
     """`check_ats.py` -> `jsk_okf.check_ats`. The tables are keyed by the documented
     script names, which are still what docs/SCRIPTS.md and every mode file call them."""
-    return f"{__package__}.{script[:-3]}"
+    stem = script[:-3]
+    return f"{__package__}.urs.{stem}" if script in IN_URS else f"{__package__}.{stem}"
 
 
 def run(script, args):
@@ -376,7 +385,7 @@ def render_section(out_dir, pages):
             # verdict and is the only thing that can act on it; two places printing
             # one measurement in different words is how they start disagreeing.
             try:
-                from . import render_resume               # noqa: PLC0415 - only when asked
+                from .urs import render_resume           # noqa: PLC0415 - only when asked
             except ImportError as exc:
                 lines.append(f"  pages  budget {pages}, not measured - "
                              f"render_resume.py would not load: {exc}")

@@ -34,8 +34,8 @@ import os
 import sys
 
 
-from .urs import emit_latex, emit_text, plan as planner, themes
-from .urs.tex import compile_pdf
+from . import emit_latex, emit_text, plan as planner, themes
+from .tex import compile_pdf
 
 # One record, one rendered deliverable, plus the paste-in-box text. Which
 # variant the PDF holds is a choice at the call site, not a second file.
@@ -173,7 +173,7 @@ def main(argv):
     if os.path.isdir(src):
         # The ordinary case: compile the bundle. A document path still works, because
         # an archived application is frozen JSON and has to stay renderable.
-        from . import okf_compile
+        from .. import okf_compile
         try:
             doc = okf_compile.load(src)
         except okf_compile.Problem as exc:

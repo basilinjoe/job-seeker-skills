@@ -40,11 +40,15 @@ MIN_PYTHON = (3, 8)
 # its own, a half-finished editable checkout - and find_spec is what notices.
 MODULES = [
     "init_bundle", "validate_bundle", "check_ats", "check_prose",
-    "score_projects", "fit_pages", "validate_urs", "okf_compile",
-    "render_resume", "migrate_bundle", "pipeline", "pipeline_model",
+    "score_projects", "validate_urs", "okf_compile",
+    "migrate_bundle", "pipeline", "pipeline_model",
 ]
+# Rendering, the preview and the page fitter moved in here: they drive the
+# record->document pipeline and import nothing else, so a broken urs package takes all
+# three with it and reporting them separately would name three symptoms of one cause.
 URS_MODULES = ["urs", "urs.plan", "urs.profiles", "urs.tex",
-               "urs.emit_latex", "urs.emit_text"]
+               "urs.emit_latex", "urs.emit_text",
+               "urs.render_resume", "urs.preview_templates", "urs.fit_pages"]
 
 # init_bundle and pipeline_model import this at module scope, and pipeline_model is
 # imported in turn by init_bundle, migrate_bundle, pipeline and validate_bundle. So a
@@ -257,7 +261,7 @@ def verify(tmp):
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the resolver works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",
-             [f"{__package__}.render_resume", EXAMPLE, "--out", tmp,
+             [f"{__package__}.urs.render_resume", EXAMPLE, "--out", tmp,
               "--view", "view_au_default", "--pdf"])
     if not ok:
         return steps

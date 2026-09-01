@@ -46,6 +46,12 @@ yourself making a formatting decision inside the plan, it belongs in an emitter.
 | `profiles.py` | region profile loading and the gate that applies it |
 | `emit_*.py` | markup only |
 | `themes.py` | *appearance* only: palette, typeface, rhythm. Below `emit_latex.py`, and it cannot reach the text |
+| `render_resume.py` · `preview_templates.py` · `fit_pages.py` | the CLIs — `okf render`, `okf preview`, `okf fit`. They orchestrate the modules above and decide nothing themselves |
+
+They sat at the top of the package until the boundary was measured. Between this package and the
+rest of `jsk_okf` there are exactly **two** import edges, and both are lazy: `render_resume` reaches
+for `okf_compile` to turn a bundle into a record, and `profiles` reaches for the packaged schema
+path. 2,388 lines behind two edges is one subject, so it is one package.
 
 `formatting.py` holds pure functions over single values — no view, no profile, no record — which is
 what makes them testable in isolation. Import `plan`; the split is behind it.
@@ -121,13 +127,17 @@ src/jsk_okf/                        THE CLI. one installed package, `okf` on the
     upkeep.py                       capability, question, log, reindex
     tailoring.py                    posting, gaps, view
     archive.py                      application file, application event
-  urs/                              record -> document; plan decides, emitters only mark up
+  urs/                              record -> document, and the three CLIs that drive it
+    plan.py                         every content decision, made exactly once
+    resolve.py                      *what* the document says   formatting.py *how* one value reads
+    profiles.py                     region profiles            themes.py     appearance only
+    emit_latex.py  emit_text.py     markup only                tex.py        the engine
+    render_resume.py                `okf render` - one record to .tex/PDF plus .txt
+    preview_templates.py            `okf preview` - every template, so the look is chosen by looking
+    fit_pages.py                    `okf fit` - fits a render to a page budget
   okf_compile.py                    bundle -> record
   validate_bundle.py                the bundle gate       validate_urs.py   the record gate
   check_ats.py                      the parse gate        check_prose.py    the prose gate
-  render_resume.py                  one record to .tex/PDF plus .txt
-  preview_templates.py              one record in every template, so the look is chosen by looking
-  fit_pages.py                      fits a render to a page budget
   score_projects.py                 ranks projects against a posting
   init_bundle.py                    scaffolds a bundle    migrate_bundle.py revision steps
   pipeline.py                       the weekly board      pipeline_model.py what an event means

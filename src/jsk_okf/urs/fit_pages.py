@@ -34,7 +34,7 @@ import sys
 import tempfile
 
 
-from .urs.tex import available_engine, compile_pdf
+from .tex import available_engine, compile_pdf
 
 MARGIN_FLOOR_IN = 0.5
 FONT_FLOOR_PT = 10.0

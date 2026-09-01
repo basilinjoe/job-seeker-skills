@@ -33,8 +33,8 @@ import sys
 import tempfile
 
 
-from .urs import themes
-from .urs.tex import available_engine
+from . import themes
+from .tex import available_engine
 
 # `-m`, not a file path: a module inside a package run as a loose file gets no package
 # context, so render_resume's own relative imports would fail on the way in.
