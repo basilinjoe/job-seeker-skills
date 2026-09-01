@@ -162,13 +162,16 @@ class TheAgentsCompileNarrowly(unittest.TestCase):
     """
 
     def compile_command(self, name):
-        """The `okf_compile.py` line the agent is told to run - not the prose around
-        it. Both files discuss the flags they do and do not pass, so searching the
-        whole file finds an argument against a flag and reads it as the flag."""
+        """The `okf compile` line the agent is told to run - not the prose around it.
+
+        Both files discuss the flags they do and do not pass, so searching the whole
+        file finds an argument against a flag and reads it as the flag. The command
+        used to be spelt `okf_compile.py`; it is a subcommand now.
+        """
         for line in (AGENTS / name).read_text(encoding="utf-8").splitlines():
-            if "okf_compile.py" in line and "--dump-record" in line:
+            if "okf compile" in line and "--dump-record" in line:
                 return line
-        self.fail(f"{name}: no okf_compile.py --dump-record command found")
+        self.fail(f"{name}: no `okf compile --dump-record` command found")
 
     def test_the_analyst_compiles_without_views_or_prose(self):
         """It ranks projects against requirements and never reads a bullet."""

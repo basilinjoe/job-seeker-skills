@@ -17,7 +17,7 @@ That loads `references/mode-tailor.md`, which holds the procedure.
 **Ask the pipeline whether they have been here before, first.**
 
 ```bash
-python3 <skill-dir>/scripts/pipeline.py <bundle> --company "<name>"
+okf pipeline <bundle> --company "<name>"
 ```
 
 Before the posting is written down and before anything is scored. Applying twice is ordinary, which

@@ -14,6 +14,7 @@ the gates. That is the design's actual promise: *the only path an agent has to c
 a bundle*. If a bundle cannot be built this way, the promise is not kept, whatever the
 per-verb tests say.
 """
+import importlib
 import os
 import subprocess
 import sys
@@ -21,13 +22,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (INIT_BUNDLE, OKF_COMPILE, SCRIPTS, VALIDATE_BUNDLE,
-                      authoring_module, run)
+from fixtures import (CLI, INIT_BUNDLE, OKF_COMPILE, VALIDATE_BUNDLE,
+                      authoring_module, child_env, run)
 
 commands = authoring_module("authoring.commands")
 
-OKF = SCRIPTS / "okf.py"
-VALIDATE_URS = SCRIPTS / "validate_urs.py"
+OKF = CLI
+VALIDATE_URS = "jsk_okf.validate_urs"
 
 # noun -> its verbs. An empty tuple means the noun IS the verb - `okf log --message`,
 # `okf reindex` - because a single-purpose noun with a verb level would be a word
@@ -115,20 +116,24 @@ class TheSurfaceIsTheDesignsCatalogue(unittest.TestCase):
                     for flag in CROSS_CUTTING:
                         self.assertIn(flag, flags, f"`okf {name}` has no {flag}")
 
-    def test_okf_py_answers_to_every_noun(self):
-        """okf.py lists the nouns itself, so `okf --help` need not import the parser.
+    def test_okf_answers_to_every_noun(self):
+        """cli.py lists the nouns itself, so `okf --help` need not import the parser.
         Two lists, and they must not drift.
+
+        This used to exec the source with a forged `__file__`, because the only way to
+        read the tables without dragging in the write layer was not to import at all.
+        An import is now enough on its own, and it asserts the property directly: the
+        module is in `sys.modules` and `jsk_okf.authoring.commands` is not.
         """
-        # Executed rather than imported, so this reads okf.py's own tables without
-        # importing the write layer - which is the property okf.py is carrying them
-        # for. `__file__` has to be supplied: the script computes HERE from it.
-        okf = {"__file__": str(OKF)}
-        with open(OKF, encoding="utf-8") as handle:
-            source = handle.read()
-        exec(compile(source.split("if __name__")[0], str(OKF), "exec"), okf)
-        self.assertEqual(sorted(okf["WRITE_NOUNS"]), sorted(CATALOGUE))
+        for name in [m for m in list(sys.modules) if m.startswith("jsk_okf")]:
+            del sys.modules[name]
+        cli = importlib.import_module("jsk_okf.cli")
+        self.assertNotIn("jsk_okf.authoring.commands", sys.modules,
+                         "importing the dispatcher pulled in the write layer - the "
+                         "nouns are duplicated in cli.py precisely to avoid that")
+        self.assertEqual(sorted(cli.WRITE_NOUNS), sorted(CATALOGUE))
         for noun in CATALOGUE:
-            self.assertIn(noun, okf["HANDLERS"], f"okf.py does not dispatch {noun!r}")
+            self.assertIn(noun, cli.HANDLERS, f"okf does not dispatch {noun!r}")
 
 
 class BundleCase(unittest.TestCase):
@@ -144,8 +149,9 @@ class BundleCase(unittest.TestCase):
     def okf(self, *args, stdin=""):
         """One write command through okf.py, as an agent would run it."""
         result = subprocess.run(
-            [sys.executable, str(OKF)] + [str(a) for a in args],
-            input=stdin, capture_output=True, text=True, encoding="utf-8")
+            [sys.executable, "-m", str(OKF)] + [str(a) for a in args],
+            input=stdin, capture_output=True, text=True, encoding="utf-8",
+            env=child_env())
         return result.returncode, (result.stdout or "") + (result.stderr or "")
 
     def must(self, *args, stdin=""):
@@ -232,8 +238,8 @@ class OneBundleBuiltEntirelyByCommands(BundleCase):
         """
         import json
         result = subprocess.run(
-            [sys.executable, str(OKF_COMPILE), str(self.root), "--dump-record"],
-            capture_output=True, text=True, encoding="utf-8")
+            [sys.executable, "-m", str(OKF_COMPILE), str(self.root), "--dump-record"],
+            capture_output=True, text=True, encoding="utf-8", env=child_env())
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 

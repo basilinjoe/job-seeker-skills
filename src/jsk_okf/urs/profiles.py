@@ -24,9 +24,16 @@ PRIVATE_BY_DEFAULT = (
 
 
 def schema_dir(start=None):
-    """The skill's own schema/ directory, found relative to this file."""
-    here = os.path.dirname(os.path.abspath(start or __file__))
-    return os.path.normpath(os.path.join(here, "..", "..", "schema"))
+    """The packaged schema/ directory. `start` overrides it, for a caller with its own.
+
+    The `..` arithmetic this did against `__file__` is now one constant in paths.py -
+    three modules were computing the same directory from three different depths.
+    """
+    if start is not None:
+        here = os.path.dirname(os.path.abspath(start))
+        return os.path.normpath(os.path.join(here, "..", "..", "data", "schema"))
+    from ..paths import SCHEMA_DIR      # noqa: PLC0415 - avoids a package-level cycle
+    return SCHEMA_DIR
 
 
 def load(ref, base=None):

@@ -11,12 +11,9 @@ concepts afterwards by interviewing the person.
 """
 import os, sys, argparse, datetime
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
 
-import pipeline_model  # noqa: E402
-from authoring import concept  # noqa: E402
+from . import pipeline_model
+from .authoring import concept
 
 BUNDLE_REVISION = 7   # keep in step with CURRENT_REVISION in migrate_bundle.py
 

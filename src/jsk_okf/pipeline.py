@@ -29,11 +29,8 @@ import json
 import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
 
-import pipeline_model as model  # noqa: E402
+from . import pipeline_model as model
 
 try:
     import yaml

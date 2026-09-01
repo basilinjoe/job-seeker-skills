@@ -16,8 +16,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (INIT_BUNDLE, OKF_COMPILE, SCRIPTS, VALIDATE_BUNDLE,
-                      VALIDATE_URS, authoring_module, run)
+from fixtures import (CLI, INIT_BUNDLE, OKF_COMPILE, VALIDATE_BUNDLE,
+                      VALIDATE_URS, authoring_module, load_script, run)
 
 commands = authoring_module("authoring.commands")
 tailoring = authoring_module("authoring.tailoring")
@@ -25,7 +25,7 @@ body = authoring_module("authoring.body")
 concept = authoring_module("authoring.concept")
 schema = authoring_module("authoring.schema")
 
-OKF = SCRIPTS / "okf.py"
+OKF = CLI
 
 ORGANISATION = """---
 type: Organisation
@@ -1119,13 +1119,16 @@ class Suffixes(unittest.TestCase):
     """The one fact this module and validate_bundle.py must agree about."""
 
     def test_the_suffixes_are_the_gates_own_companions(self):
-        # Read as text rather than imported: validate_bundle.py runs its checks at
-        # import and calls sys.exit, so there is no constant to import out of it.
-        source = (SCRIPTS / "validate_bundle.py").read_text(encoding="utf-8")
-        self.assertIn(
-            'TARGET_COMPANIONS = (".posting.md", ".gaps.md", ".view.md")', source)
-        self.assertEqual(set(tailoring.SUFFIXES.values()),
+        # Compared as values. This asserted on the literal text of the source until
+        # validate_bundle.py gained a main(argv) - before that, importing it walked a
+        # bundle and called sys.exit, so there was no constant to reach. Pinning the
+        # two to each other rather than each to a hardcoded set is the point: a suffix
+        # this layer writes that the gate does not recognise is the failure.
+        validate_bundle = load_script(VALIDATE_BUNDLE)
+        self.assertEqual(set(validate_bundle.TARGET_COMPANIONS),
                          {".posting.md", ".gaps.md", ".view.md"})
+        self.assertEqual(set(tailoring.SUFFIXES.values()),
+                         set(validate_bundle.TARGET_COMPANIONS))
 
     def test_the_nouns_registered_are_the_ones_common_py_names(self):
         # common.NOUNS is the noun-to-type map the rest of the layer reads, and

@@ -21,7 +21,7 @@ pipeline exists to prevent.*
 ## 1. The record gate, before anything renders
 
 ```bash
-python3 <skill-dir>/scripts/validate_urs.py <bundle>
+okf validate <bundle>
 ```
 
 It compiles the bundle and checks the result: ids resolve, periods are coherent, every view
@@ -44,7 +44,7 @@ it. That is the guardrail working: go back and get confirm-correct-or-cut on eac
 ## 2. Render
 
 ```bash
-python3 <skill-dir>/scripts/render_resume.py <bundle> --out . --view <id> --pdf
+okf render <bundle> --out . --view <id> --pdf
 ```
 
 **The template defaults to the ink-only default**, and `--template NAME` is the only way to get
@@ -71,7 +71,7 @@ nobody measured is a page count nobody knows.*
 ## 3. Fit, if it overran
 
 ```bash
-python3 <skill-dir>/scripts/fit_pages.py <resume>.tex --target-pages N
+okf fit <resume>.tex --target-pages N
 ```
 
 It fits to a budget without breaching the typographic floors, and exits non-zero if the target is
@@ -83,7 +83,7 @@ cut evidence deliberately rather than shrinking the document until it stops bein
 Three of them are mechanical. One command runs all three:
 
 ```bash
-python3 <skill-dir>/scripts/okf.py gates . --view <id> --bundle <bundle> --pages N
+okf gates . --view <id> --bundle <bundle> --pages N
 ```
 
 The first argument is the directory the render wrote into. It runs the record, parse and prose gates
@@ -162,7 +162,7 @@ that was not sendable is worse than no archive, because later it reads as though
 model:
 
 ```bash
-python3 <skill-dir>/scripts/okf.py application file <slug> --bundle <bundle> \
+okf application file <slug> --bundle <bundle> \
   --submitted <yyyy-mm-dd> --channel "Workday portal" \
   --document <out-dir>/<Name>_<Company>_Resume.pdf \
   --document <out-dir>/<Name>_<Company>_Resume_ATS.txt
@@ -184,7 +184,7 @@ afterwards is wrong.
 Later events are one command each, append-only:
 
 ```bash
-python3 <skill-dir>/scripts/okf.py application event <stem> --bundle <bundle> \
+okf application event <stem> --bundle <bundle> \
   --date 2026-09-11 --event screen-scheduled --channel email --note "…" --due 2026-09-15
 ```
 

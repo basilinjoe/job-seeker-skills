@@ -33,11 +33,8 @@ import re
 import sys
 import tempfile
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
 
-from urs.tex import available_engine, compile_pdf  # noqa: E402
+from .urs.tex import available_engine, compile_pdf
 
 MARGIN_FLOOR_IN = 0.5
 FONT_FLOOR_PT = 10.0

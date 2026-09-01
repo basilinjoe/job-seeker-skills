@@ -1,38 +1,54 @@
-"""Builders and helpers for the jsk script tests.
+"""Builders and helpers for the jsk-okf tests.
 
-Standard library only, matching the scripts under test. Every artefact is written
+Standard library only, matching the package under test. Every artefact is written
 to a caller-supplied temp directory, so nothing lands in the repo and .gitignore's
 `*.pdf` rule never comes into it.
+
+`src/` is put on the path here rather than requiring an install, so that
+`python -m pytest tests` and `python -m unittest discover -s tests` both work from a
+bare checkout - which is what ARCHITECTURE.md promises and what CI relies on.
 """
-import importlib.util
+import importlib
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS = REPO_ROOT / "plugins" / "jsk" / "skills" / "jsk" / "scripts"
-CHECK_ATS = SCRIPTS / "check_ats.py"
-VALIDATE_BUNDLE = SCRIPTS / "validate_bundle.py"
-INIT_BUNDLE = SCRIPTS / "init_bundle.py"
-MIGRATE_BUNDLE = SCRIPTS / "migrate_bundle.py"
-PIPELINE = SCRIPTS / "pipeline.py"
-PIPELINE_MODEL = SCRIPTS / "pipeline_model.py"
-FIT_PAGES = SCRIPTS / "fit_pages.py"
-OKF_COMPILE = SCRIPTS / "okf_compile.py"
+SRC = REPO_ROOT / "src"
+PACKAGE = "jsk_okf"
+
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+# The modules the tests drive as commands. These are module names, not file paths: a
+# module inside a package run as a loose file has no package context, so its own
+# `from . import ...` fails on the way in. `run()` invokes them with `-m`.
+SCRIPTS = REPO_ROOT / "src" / PACKAGE      # for tests that read a module's source text
+CLI = f"{PACKAGE}.cli"
+CHECK_ATS = f"{PACKAGE}.check_ats"
+VALIDATE_BUNDLE = f"{PACKAGE}.validate_bundle"
+INIT_BUNDLE = f"{PACKAGE}.init_bundle"
+MIGRATE_BUNDLE = f"{PACKAGE}.migrate_bundle"
+PIPELINE = f"{PACKAGE}.pipeline"
+PIPELINE_MODEL = f"{PACKAGE}.pipeline_model"
+FIT_PAGES = f"{PACKAGE}.fit_pages"
+OKF_COMPILE = f"{PACKAGE}.okf_compile"
 
 
-def load_script(path):
-    """Import a script as a module, so its pure functions can be tested directly.
+def load_script(name):
+    """Import one of the package's modules, so its pure functions can be tested directly.
 
-    The scripts are CLIs, not packages, and live outside any importable path. The
-    parts worth unit-testing — XML transforms, scoring, geometry — are pure, and
-    exercising them through a subprocess would say much less about them.
+    This used to exec a loose file through `spec_from_file_location`, because the
+    scripts were CLIs sitting outside any importable path. They are a package now, so
+    an import is an import - and two modules reached the same way are the same object,
+    which the file-loading version could not promise.
     """
-    path = Path(path)
-    spec = importlib.util.spec_from_file_location(path.stem, str(path))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    if not str(name).startswith(PACKAGE):
+        # A Path, or a bare module name, from a caller written before the move.
+        name = f"{PACKAGE}.{Path(str(name)).stem}"
+    return importlib.import_module(str(name))
+
 
 def build_text(path, paragraphs=(), trailing=()):
     """Write the extracted-text form of a resume: one paragraph per line.
@@ -102,11 +118,29 @@ def resume_with(*replacements, base=None):
     return lines
 
 
-def run(script, *args):
-    """Run a script as the CLI does. Returns (exit_code, combined_output)."""
+def child_env():
+    """An environment where the child interpreter can import the package.
+
+    Without this every `run()` would need the package installed, and the promise that
+    the suite works from a bare checkout would quietly stop being true - the tests
+    would pass against whatever version happened to be installed instead of the one in
+    the working tree, which is the worse of the two failures.
+    """
+    env = dict(os.environ)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(SRC) + (os.pathsep + existing if existing else "")
+    return env
+
+
+def run(module, *args):
+    """Run a module as the CLI does, in a child interpreter.
+
+    Returns (exit_code, combined_output). `-m` rather than a file path, because these
+    modules live in a package and their relative imports need the package context.
+    """
     proc = subprocess.run(
-        [sys.executable, str(script)] + [str(a) for a in args],
-        capture_output=True, text=True,
+        [sys.executable, "-m", str(module)] + [str(a) for a in args],
+        capture_output=True, text=True, env=child_env(),
     )
     return proc.returncode, proc.stdout + proc.stderr
 
@@ -141,18 +175,29 @@ def write_concept(bundle, name="care-platform.md", text=CONCEPT):
 
 # --- URS -------------------------------------------------------------------
 
-SKILL_DIR = REPO_ROOT / "plugins" / "jsk" / "skills" / "jsk"
-SCHEMA_DIR = SKILL_DIR / "schema"
-VALIDATE_URS = SCRIPTS / "validate_urs.py"
-RENDER_RESUME = SCRIPTS / "render_resume.py"
+# The skill still exists and still has references/ and its mode files; what moved out
+# of it is the code and the schema. test_plugin_surface.py reads the skill, the tests
+# below read the package.
+PLUGIN = REPO_ROOT / "plugins" / "jsk"
+SKILL_DIR = PLUGIN / "skills" / "jsk"
+SCHEMA_DIR = SRC / PACKAGE / "data" / "schema"
+VALIDATE_URS = f"{PACKAGE}.validate_urs"
+RENDER_RESUME = f"{PACKAGE}.render_resume"
+PREVIEW_TEMPLATES = f"{PACKAGE}.preview_templates"
+SCORE_PROJECTS = f"{PACKAGE}.score_projects"
+CHECK_PROSE = f"{PACKAGE}.check_prose"
+PREFLIGHT = f"{PACKAGE}.preflight"
 EXAMPLE_URS = SCHEMA_DIR / "example.resume.json"
 
 
 def urs_module(name):
-    """Import a module from the urs package the renderer itself uses."""
-    import importlib
-    if str(SCRIPTS) not in sys.path:
-        sys.path.insert(0, str(SCRIPTS))
+    """Import a module from the urs package the renderer itself uses.
+
+    `urs.plan` and `jsk_okf.urs.plan` name the same module now, so the bare spelling
+    callers already use is qualified here rather than at every call site.
+    """
+    if not name.startswith(PACKAGE):
+        name = f"{PACKAGE}.{name}"
     return importlib.import_module(name)
 
 
@@ -267,10 +312,8 @@ def write_urs(directory, doc, name="resume.json"):
 def authoring_module(name):
     """Import a module from the authoring package the write commands use.
 
-    Same shape as urs_module: the scripts directory is not on the path, because
-    these are CLIs rather than an installed package.
+    Same shape as urs_module, and the same reason for qualifying the name here.
     """
-    import importlib
-    if str(SCRIPTS) not in sys.path:
-        sys.path.insert(0, str(SCRIPTS))
+    if not name.startswith(PACKAGE):
+        name = f"{PACKAGE}.{name}"
     return importlib.import_module(name)

@@ -18,7 +18,7 @@ empty, ask.
 The skill directory is `${CLAUDE_PLUGIN_ROOT}/skills/jsk`. Run:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/preflight.py --verify
+okf doctor
 ```
 
 On Windows use `python` or `py -3`. `--verify` renders the shipped example document end to end and
@@ -76,7 +76,7 @@ from an existing resume. Two things worth getting right while it runs:
 Then validate:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/validate_bundle.py <bundle>
+okf validate <bundle>
 ```
 
 ## Phase 4: Prove it, on their data
@@ -95,10 +95,9 @@ Close the loop on theirs.
 3. Validate, render, gate:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/validate_urs.py <bundle>/resume-generation/resume.json
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/render_resume.py <bundle>/resume-generation/resume.json --out . --view <id> --pdf
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_ats.py <Name>_Resume.pdf
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/jsk/scripts/check_prose.py <Name>_Resume.tex
+okf validate <bundle>/resume-generation/resume.json
+okf render <bundle>/resume-generation/resume.json --out . --view <id> --pdf
+okf check <Name>_Resume.pdf
 ```
 
 Show every gate's output. If the PDF step reports the resume **unverified**, say so plainly rather

@@ -1,0 +1,103 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jsk-okf"
+dynamic = ["version"]
+description = "Keep a career in plain Markdown, compile it to one record, and render verified ATS-safe resumes from it"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [{ name = "Basilin Joe" }]
+keywords = [
+    "resume", "cv", "ats", "career", "job-search",
+    "okf", "open-knowledge-format", "tailoring", "urs", "latex", "pdf",
+]
+
+# Deliberately empty. Every dependency this toolchain has is optional and imported at
+# the point of use, so a bare `pip install jsk-okf` gives a working write layer,
+# compile, prose gate and .txt parse gate. That is what lets `okf doctor` report on a
+# machine before anything has been installed on it - and preflight.py's founding rule
+# is that a preflight needing an install first is not a preflight.
+dependencies = []
+
+[project.optional-dependencies]
+# What each one buys is spelt out in `okf doctor`, which reports a missing package as
+# the capability it costs you rather than as a package name.
+bundle = ["pyyaml"]              # reading a bundle at all
+pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
+schema = ["jsonschema"]          # full record validation
+all = ["pyyaml", "pymupdf", "jsonschema"]
+dev = ["pyyaml", "pymupdf", "jsonschema", "pytest", "pytest-xdist", "ruff"]
+
+[project.scripts]
+# Two names for one entry point. `okf` is what every mode file and all of
+# docs/SCRIPTS.md already call it; `jsk-okf` is the unambiguous spelling, because an
+# unrelated `okf` package exists on PyPI and may already own that name on a machine.
+okf = "jsk_okf.cli:main_console"
+jsk-okf = "jsk_okf.cli:main_console"
+
+[project.urls]
+Homepage = "https://github.com/basilinjoe/job-seeker-skills"
+Repository = "https://github.com/basilinjoe/job-seeker-skills"
+
+[tool.hatch.version]
+path = "src/jsk_okf/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jsk_okf"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/jsk_okf", "tests", "README.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Deliberately not `-n auto`. The suite is dominated by TeX - the render tests compile
+# real PDFs and read their text layers back - and the tests share nothing but temp
+# directories they create themselves, so `python -m pytest tests -n auto` is the way to
+# run it while working: measured 4m58s serial against 2m17s parallel, 1420 tests, on an
+# 8-core Windows box. It is not in addopts because pytest-xdist is a dev extra: putting
+# it here makes every bare checkout fail on an unrecognised flag, and the suite has to
+# keep running on a plain interpreter.
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Scoped so that `ruff check src tests` is CLEAN today, which is the only thing that
+# makes it a gate rather than a wall of pre-existing noise nobody runs. This codebase
+# predates any linter; a config that reported 257 findings on arrival would have been
+# switched off within a week.
+#
+# `E,F,W` catch the things that are actually wrong - an undefined name, an unused
+# import, a redefinition. Those are worth failing a build over from now on.
+select = ["E", "F", "W"]
+ignore = [
+    "E501",     # line-length is set above; what is left over is prose inside strings
+    "E741",
+    # 16 f-strings with no placeholder, all of them refusal messages sitting in a block
+    # of siblings that do interpolate. Removing the `f` one line at a time makes the
+    # block harder to read than leaving it.
+    "F541",
+    "E702", "E701", "E401",   # `if x: continue` and paired imports, used deliberately
+]
+
+# Deferred, each its own commit, none of them a correctness problem:
+#
+#   UP031    96x  %-formatting. Mechanical, and a big diff across every module.
+#   I001     40x  import order. Same.
+#   PLC0415  38x  lazy imports - DELIBERATE and documented at every site: a command
+#                 must not pay for a module it never reaches, which is what keeps a
+#                 write at about the interpreter floor. If PL is ever selected, this
+#                 one stays ignored permanently.
+#   BLE001         blind excepts - also deliberate, and also documented: they are what
+#                 turn a would-be traceback into a verdict a person can act on.
+#   PLW1510   9x  subprocess.run without check= - every call site reads returncode.
+#   PLR09xx        argument and branch counts. These are CLIs; that is the job.
+
+[tool.ruff.lint.per-file-ignores]
+# The tests assert on exact output text, so their long string literals are the point.
+"tests/*" = ["E501", "PLR2004"]

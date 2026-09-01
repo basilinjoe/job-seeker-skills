@@ -28,7 +28,7 @@ reading, never for editing: the next compile overwrites whatever you changed. A
 record on disk is a cache, and a cache of a file you can regenerate in under a
 second is a liability rather than an asset.
 
-    from okf_compile import load
+    from .okf_compile import load
     doc = load(bundle_root)          # -> the dict resolve.build() takes
 
 Why this is a script and not an agent: every field here is a frontmatter key or a

@@ -17,10 +17,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (CHECK_ATS, EXAMPLE_URS, RENDER_RESUME, SCRIPTS, run,
-                      urs_doc, urs_module, urs_package, write_urs)
+from fixtures import (CHECK_ATS, EXAMPLE_URS, RENDER_RESUME, child_env, run, urs_doc, urs_module, urs_package,
+                      write_urs)
 
-CHECK_PROSE = SCRIPTS / "check_prose.py"
+CHECK_PROSE = "jsk_okf.check_prose"
 
 # example.resume.json carries three views, and a record holding more than one now
 # refuses to render without being told which - the fallback to views[0] was silently
@@ -196,8 +196,9 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         a claim, and check_ats.py is the thing that answers it."""
         for name in themes.names():
             pdf = self.render(name)
-            proc = subprocess.run([sys.executable, str(CHECK_ATS), str(pdf)],
-                                  capture_output=True, text=True)
+            proc = subprocess.run([sys.executable, "-m", str(CHECK_ATS), str(pdf)],
+                                      capture_output=True, text=True,
+                                      env=child_env())
             self.assertEqual(proc.returncode, 0, f"{name}:\n{proc.stdout}")
 
     def test_no_template_emits_something_the_prose_gate_reads_as_a_placeholder(self):
@@ -218,8 +219,8 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
                 self.assertEqual(code, 0, out)
                 tex_file = next(Path(tmp).glob("*.tex"))
                 proc = subprocess.run(
-                    [sys.executable, str(CHECK_PROSE), str(tex_file)],
-                    capture_output=True, text=True)
+                    [sys.executable, "-m", str(CHECK_PROSE), str(tex_file)],
+                    capture_output=True, text=True, env=child_env())
                 self.assertNotIn("unresolved placeholder", proc.stdout,
                                  f"{name} emitted LaTeX the prose gate reads as text")
 

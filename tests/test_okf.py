@@ -10,11 +10,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (SCRIPTS, SKILL_DIR, CLEAN_RESUME, INIT_BUNDLE, build_pdf,
-                      build_text, load_script, resume_with, run, write_concept)
+from fixtures import (CLI, CLEAN_RESUME, EXAMPLE_URS, INIT_BUNDLE, SCRIPTS,
+                      build_pdf, build_text, load_script, resume_with, run,
+                      write_concept)
 
-OKF = SCRIPTS / "okf.py"
-EXAMPLE = SKILL_DIR / "schema" / "example.resume.json"
+OKF = CLI
+EXAMPLE = EXAMPLE_URS
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
 SUBCOMMANDS = ["doctor", "new", "validate", "render", "check", "gates", "score", "fit",
@@ -144,6 +145,77 @@ class Check(unittest.TestCase):
         self.assertIn("usage:", out)
 
 
+class CheckOnly(unittest.TestCase):
+    """`--only` runs one document gate by name.
+
+    mode-resume.md calls a single gate when one file has been repaired and only that
+    gate needs re-running - "the right thing for re-checking one file after one
+    repair". Without this flag those lines had to reach past okf.py to check_ats.py
+    and check_prose.py directly, which is exactly the coupling okf.py exists to remove.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def document(self, paragraphs=None, name="resume.txt"):
+        return build_text(self.tmp / name,
+                          CLEAN_RESUME if paragraphs is None else paragraphs)
+
+    def test_only_prose_does_not_run_the_parse_gate(self):
+        code, out = run(OKF, "check", self.document(), "--only", "prose")
+        self.assertEqual(code, 0, out)
+        self.assertIn("prose gate", out)
+        self.assertNotIn("parse gate", out)
+
+    def test_only_parse_does_not_run_the_prose_gate(self):
+        code, out = run(OKF, "check", self.document(), "--only", "parse")
+        del code
+        self.assertIn("parse gate", out)
+        self.assertNotIn("prose gate", out)
+
+    def test_only_parse_still_forwards_strict(self):
+        code, out = run(OKF, "check", self.document(), "--only", "parse", "--strict")
+        del code
+        self.assertIn("--strict", out)
+
+    def test_one_gate_passing_never_reads_as_both(self):
+        """The load-bearing assertion. `okf check` closes with "Both document gates
+        passed", and printing that after running one would be the false green the
+        wording exists to prevent."""
+        code, out = run(OKF, "check", self.document(), "--only", "prose")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Both document gates passed", out)
+        self.assertIn("Three gates did not run", out)
+        self.assertIn("the other document gate", out)
+
+    def test_an_unknown_gate_is_refused_by_name(self):
+        code, out = run(OKF, "check", self.document(), "--only", "bogus")
+        self.assertEqual(code, 2, out)
+        self.assertIn("bogus", out)
+        self.assertIn("parse, prose", out)
+
+    def test_only_with_no_value_is_refused(self):
+        code, out = run(OKF, "check", self.document(), "--only")
+        self.assertEqual(code, 2, out)
+        self.assertIn("--only needs a value", out)
+
+    def test_the_flag_may_precede_the_file(self):
+        """`--only prose resume.txt` has to work: the target is found after the flag
+        and its value are removed, not by position in the raw argv."""
+        code, out = run(OKF, "check", "--only", "prose", self.document())
+        self.assertEqual(code, 0, out)
+        self.assertIn("prose gate", out)
+
+    def test_the_help_names_the_flag(self):
+        """A flag the skill cannot discover is a flag the skill will not use - the
+        mode files read `okf --help` for the surface."""
+        code, out = run(OKF, "--help")
+        del code
+        self.assertIn("--only parse|prose", out)
+
+
 TEX_PREAMBLE = "\\documentclass{article}\n\\begin{document}\n"
 
 
@@ -198,11 +270,11 @@ class GatesAgreement(GatesCase):
         tex = self.out / "Jane_Doe_Resume.tex"
         txt = self.out / "Jane_Doe_Resume_ATS.txt"
         return [
-            (SCRIPTS / "validate_urs.py", [self.bundle]),
-            (SCRIPTS / "check_ats.py", [pdf]),
-            (SCRIPTS / "check_ats.py", [txt, "--strict"]),
-            (SCRIPTS / "check_prose.py", [tex]),
-            (SCRIPTS / "check_prose.py", [txt]),
+            ("jsk_okf.validate_urs", [self.bundle]),
+            ("jsk_okf.check_ats", [pdf]),
+            ("jsk_okf.check_ats", [txt, "--strict"]),
+            ("jsk_okf.check_prose", [tex]),
+            ("jsk_okf.check_prose", [txt]),
         ]
 
     def assertAgrees(self):
@@ -210,7 +282,7 @@ class GatesAgreement(GatesCase):
         for script, args in self.five_commands():
             code, out = run(script, *args)
             worst = max(worst, code)
-            outputs.append((script.name, out))
+            outputs.append((script, out))
         code, combined = self.gates("--bundle", self.bundle)
         self.assertEqual(code, worst, combined)
         for name, out in outputs:

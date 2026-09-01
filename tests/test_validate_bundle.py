@@ -1,4 +1,6 @@
 """validate_bundle.py must never report VALID when it has not actually looked."""
+import contextlib
+import io
 import re
 import tempfile
 import unittest
@@ -443,6 +445,69 @@ class DirectoryIndex(BundleCase):
         self.application(root, subdir="2026")
         out = self.assertValid(root)
         self.assertIn("tailoring/applications/2026/index.md: absent", out)
+
+
+class ImportableModule(BundleCase):
+    """This gate is a module, not just a script.
+
+    It ran everything at import - parser at module scope, the walk on the way in, a
+    bare `sys.exit` as the last line - so it could not be imported at all. Three tests
+    paid for that: two read constants out of the source with a regex because there was
+    nothing to import, and one exec'd the module against a temp directory with a
+    forged `sys.argv` and swallowed the SystemExit. `okf validate` had to spawn a whole
+    second interpreter to reach it, where every other gate `okf` runs is imported.
+
+    So the shape is the rule, and these pin it: importing must do nothing, and
+    `main(argv)` must return its verdict rather than raise it.
+    """
+
+    def module(self):
+        from fixtures import load_script
+        return load_script(VALIDATE_BUNDLE)
+
+    def test_importing_it_does_not_run_it(self):
+        """The failure this replaced: an import walked the current directory and
+        exited. If it ever regresses, load_script() raises SystemExit here."""
+        module = self.module()
+        self.assertTrue(callable(module.main))
+
+    def test_main_returns_zero_on_a_valid_bundle(self):
+        root = self.make_bundle()
+        with contextlib.redirect_stdout(io.StringIO()) as captured:
+            code = self.module().main([str(root)])
+        self.assertEqual(code, 0, captured.getvalue())
+        self.assertIn("VALID", captured.getvalue())
+
+    def test_main_returns_one_rather_than_exiting_on_failure(self):
+        """A gate that raises SystemExit cannot be one of several run in a single
+        process - it takes the others down with it. `okf gates` is built on that."""
+        root = self.make_bundle()
+        (Path(root) / "projects" / "broken.md").write_text(
+            "no frontmatter here\n", encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()) as captured:
+            code = self.module().main([str(root)])
+        self.assertEqual(code, 1, captured.getvalue())
+        self.assertIn("FAILED", captured.getvalue())
+
+    def test_a_bad_scope_returns_two_rather_than_exiting(self):
+        root = self.make_bundle()
+        with contextlib.redirect_stdout(io.StringIO()) as captured:
+            code = self.module().main([str(root), "--scope", "/etc"])
+        self.assertEqual(code, 2, captured.getvalue())
+
+    def test_the_constants_the_other_tests_pin_are_reachable(self):
+        """tests/test_plugin_surface.py and tests/test_authoring_tailoring.py both
+        want these. They are importable now; the revision pin still reads the source,
+        because it compares three files and one regex covers all of them."""
+        module = self.module()
+        self.assertEqual(module.CURRENT_BUNDLE_REVISION, 7)
+        self.assertEqual(set(module.TARGET_COMPANIONS),
+                         {".posting.md", ".gaps.md", ".view.md"})
+
+    def test_the_parser_names_itself_not_its_caller(self):
+        """Called in-process, argparse would otherwise take prog from sys.argv[0] and
+        print `okf.py` into this gate's own usage and error lines."""
+        self.assertEqual(self.module().build_parser().prog, "validate_bundle.py")
 
 
 if __name__ == "__main__":

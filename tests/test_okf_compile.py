@@ -6,18 +6,16 @@ itself" but "does the thing that consumes it work". These tests compile a bundle
 then render it, which is the only claim that matters.
 """
 import json
-import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import SCRIPTS, load_script, run
+from fixtures import load_script, run
 
-COMPILE = SCRIPTS / "okf_compile.py"
-RENDER = SCRIPTS / "render_resume.py"
-SCORE = SCRIPTS / "score_projects.py"
-VALIDATE_URS = SCRIPTS / "validate_urs.py"
+COMPILE = "jsk_okf.okf_compile"
+RENDER = "jsk_okf.render_resume"
+SCORE = "jsk_okf.score_projects"
+VALIDATE_URS = "jsk_okf.validate_urs"
 
 okf_compile = load_script(COMPILE)
 

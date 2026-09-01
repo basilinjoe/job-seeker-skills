@@ -25,7 +25,7 @@ Start by compiling the record. It is the bundle as every downstream tool reads i
 second, and it is a cache — never edit it, edit the concept:
 
 ```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --no-views --for score --compact --dump-record record.json --quiet
+okf compile <bundle> --no-views --for score --compact --dump-record record.json --quiet
 ```
 
 Three flags, and each one names something you do not do.
@@ -63,7 +63,7 @@ Read the advertisement in the body and write what it asks for into the frontmatt
 command per requirement**, because each one is then checked on its own:
 
 ```bash
-OKF="python3 <skill-dir>/scripts/okf.py"
+OKF="okf"
 B="--bundle <bundle>"
 
 $OKF posting requirement add $B --posting <posting-stem> \
@@ -127,7 +127,7 @@ never into `requirements`.
 Then rank:
 
 ```bash
-python3 <skill-dir>/scripts/okf.py score <bundle> <posting.md> --markdown
+okf score <bundle> <posting.md> --markdown
 ```
 
 ## 2. The assessment

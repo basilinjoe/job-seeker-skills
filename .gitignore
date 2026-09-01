@@ -6,3 +6,9 @@ __pycache__/
 *.zip
 *.skill
 .venv/
+
+# packaging
+build/
+dist/
+*.egg-info/
+.ruff_cache/

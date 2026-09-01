@@ -56,7 +56,7 @@ or dropping the claim.
 the verbs; `references/write-commands.md` has the reasoning.
 
 ```bash
-OKF="python3 <skill-dir>/scripts/okf.py"
+OKF="okf"
 B="--bundle <bundle>"
 
 $OKF project add    $B --title "…" --role <role-stem> [...]        # new work

@@ -33,12 +33,9 @@ import json
 import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
 
-from urs import emit_latex, emit_text, plan as planner, themes  # noqa: E402
-from urs.tex import compile_pdf  # noqa: E402
+from .urs import emit_latex, emit_text, plan as planner, themes
+from .urs.tex import compile_pdf
 
 # One record, one rendered deliverable, plus the paste-in-box text. Which
 # variant the PDF holds is a choice at the call site, not a second file.
@@ -176,8 +173,7 @@ def main(argv):
     if os.path.isdir(src):
         # The ordinary case: compile the bundle. A document path still works, because
         # an archived application is frozen JSON and has to stay renderable.
-        sys.path.insert(0, HERE)
-        import okf_compile
+        from . import okf_compile
         try:
             doc = okf_compile.load(src)
         except okf_compile.Problem as exc:

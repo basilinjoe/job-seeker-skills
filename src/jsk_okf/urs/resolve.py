@@ -9,7 +9,6 @@ That is the guarantee the pipeline exists to provide. The PDF and the plain
 text built from the same view cannot disagree, because neither of them chose
 what to say.
 """
-import re
 
 from . import profiles
 from .formatting import (fold_ascii, fmt_grade, fmt_instant, fmt_period,

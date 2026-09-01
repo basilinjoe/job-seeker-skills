@@ -27,8 +27,7 @@ import os
 import re
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-SCHEMA_DIR = os.path.normpath(os.path.join(HERE, "..", "schema"))
+from .paths import SCHEMA_DIR
 
 # The same cap, flag name and default as validate_bundle.py. This gate is what
 # jsk-verifier runs and reports back verbatim, so its output lands in an agent's
@@ -354,7 +353,7 @@ def check_conservation(root, doc, rep):
     This is the only check that can see a type go missing, and it needs the bundle,
     so it does not run against an archived document.
     """
-    import okf_compile
+    from . import okf_compile
     counts = okf_compile.census(root)
     for ctype, key in TYPE_TO_KEY.items():
         n = counts.get(ctype, 0)
@@ -482,8 +481,7 @@ def load_target(path):
     if not os.path.isdir(path):
         with open(path, encoding="utf8") as fh:
             return json.load(fh), os.path.basename(path)
-    sys.path.insert(0, HERE)
-    import okf_compile
+    from . import okf_compile
     return okf_compile.load(path), os.path.basename(os.path.abspath(path)) + " (compiled)"
 
 

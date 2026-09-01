@@ -409,7 +409,7 @@ Neither a bug nor a plan; just the boundary, so nobody waits for a command that 
 
 ## The two halves of the schema
 
-`scripts/authoring/schema.py` is the only machine-readable statement of which keys a type takes
+`jsk_okf/authoring/schema.py` is the only machine-readable statement of which keys a type takes
 and what each value must satisfy. `bundle-spec.md` is its prose counterpart. **They are meant
 to be read together, and a rule in one but not the other is a defect in whichever is missing
 it.**

@@ -7,7 +7,6 @@ person's bundle is hand-editable by design, and a tool that reflows their file i
 a tool they stop running.
 """
 import contextlib
-import importlib.util
 import io
 import json
 import os
@@ -17,8 +16,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (INIT_BUNDLE, OKF_COMPILE, PIPELINE_MODEL, SCRIPTS,
-                      VALIDATE_BUNDLE, authoring_module, load_script, run)
+from fixtures import (CLI, INIT_BUNDLE, OKF_COMPILE, PIPELINE_MODEL, VALIDATE_BUNDLE, authoring_module, child_env, load_script,
+                      run)
 
 concept = authoring_module("authoring.concept")
 init_bundle = load_script(INIT_BUNDLE)
@@ -217,16 +216,16 @@ class BarePython(unittest.TestCase):
 
         for name in [m for m in list(sys.modules) if m.startswith("yaml")]:
             del sys.modules[name]
-        del sys.modules["authoring.concept"]
+        del sys.modules["jsk_okf.authoring.concept"]
         builtins.__import__ = blocked
         try:
-            fresh = importlib.import_module("authoring.concept")
+            fresh = importlib.import_module("jsk_okf.authoring.concept")
             self.assertEqual(fresh.scalar("architecture-ownership"),
                              "architecture-ownership")
         finally:
             builtins.__import__ = real_import
-            del sys.modules["authoring.concept"]
-            importlib.import_module("authoring.concept")
+            del sys.modules["jsk_okf.authoring.concept"]
+            importlib.import_module("jsk_okf.authoring.concept")
 
 
 class OneEmitter(unittest.TestCase):
@@ -822,17 +821,17 @@ class Refusals(unittest.TestCase):
 
         for name in [m for m in list(sys.modules) if m.startswith("yaml")]:
             del sys.modules[name]
-        del sys.modules["authoring.concept"]
+        del sys.modules["jsk_okf.authoring.concept"]
         builtins.__import__ = blocked
         try:
-            fresh = importlib.import_module("authoring.concept")
+            fresh = importlib.import_module("jsk_okf.authoring.concept")
             with self.assertRaises(fresh.Unsplicable) as caught:
                 fresh.parse("---\ntype: P\n---\n\nx\n", "x.md")
             self.assertIn("\nfix:  pip install pyyaml", str(caught.exception))
         finally:
             builtins.__import__ = real_import
-            del sys.modules["authoring.concept"]
-            importlib.import_module("authoring.concept")
+            del sys.modules["jsk_okf.authoring.concept"]
+            importlib.import_module("jsk_okf.authoring.concept")
 
 
 class Parsing(unittest.TestCase):
@@ -1138,24 +1137,12 @@ class Schema(unittest.TestCase):
         The two in code are now one object. A test rather than a convention,
         because a synonym does not fail loudly - it silently stops matching.
 
-        validate_bundle.py is a CLI with no main(): it parses argv, validates and
-        exits, all at import. So load_script() cannot be used - it needs an argv the
-        parser accepts and it raises SystemExit on the way out. Both are tolerated
-        here rather than worked around, because the constants are bound long before
-        the exit and every other test drives this script as a subprocess.
+        This used to exec the module with a forged `sys.argv` pointing at a temp
+        directory and swallow the SystemExit on the way out, because
+        validate_bundle.py parsed argv, walked the bundle and exited all at import.
+        It has a `main(argv)` now, so the import is just an import.
         """
-        spec = importlib.util.spec_from_file_location("validate_bundle_probe",
-                                                     str(VALIDATE_BUNDLE))
-        module = importlib.util.module_from_spec(spec)
-        argv = sys.argv
-        with tempfile.TemporaryDirectory() as bundle:
-            sys.argv = ["validate_bundle.py", bundle]
-            try:
-                spec.loader.exec_module(module)
-            except SystemExit:
-                pass
-            finally:
-                sys.argv = argv
+        module = load_script(VALIDATE_BUNDLE)
         self.assertIs(module.STATUS, schema.STATUS_VALUES)
         self.assertIs(module.SENIORITY, schema.SENIORITY_VALUES)
 
@@ -1944,7 +1931,7 @@ class BookkeepingIndexRepair(unittest.TestCase):
 
 commands = authoring_module("authoring.commands")
 
-OKF = SCRIPTS / "okf.py"
+OKF = CLI
 
 STEM = "acme-care-coordination-platform"
 
@@ -2043,10 +2030,10 @@ class ProjectAdd(BundleCase):
         # `--body -` is the default, and the design's own example relies on it:
         # frontmatter is mechanical and belongs in flags, prose is prose.
         proc = subprocess.run(
-            [sys.executable, str(OKF), "project", "add", "--bundle", str(self.root)]
+            [sys.executable, "-m", str(OKF), "project", "add", "--bundle", str(self.root)]
             + self.flags(),
             input="# The problem\n\nFrom stdin.\n",
-            capture_output=True, text=True)
+            capture_output=True, text=True, env=child_env())
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertTrue(self.concept.read_text(encoding="utf-8")
                         .endswith("# The problem\n\nFrom stdin.\n"))

@@ -240,7 +240,7 @@ class EmittersDoNotDiverge(PlanCase):
     """The point of the narrow waist: the same bullets in every format."""
 
     def test_latex_and_text_carry_the_same_bullets(self):
-        from urs import emit_latex, emit_text  # noqa
+        from jsk_okf.urs import emit_latex, emit_text  # noqa
         plan = self.plan()
         bullets = plan["sections"][2]["entries"][0]["bullets"]
         tex = emit_latex.emit(plan)
@@ -250,7 +250,7 @@ class EmittersDoNotDiverge(PlanCase):
             self.assertIn(bullet.replace("%", r"\%"), tex)
 
     def test_latex_escapes_specials(self):
-        from urs import emit_latex
+        from jsk_okf.urs import emit_latex
         doc = urs_doc()
         doc["engagements"][0]["achievements"] = [achievement(
             "Raised margin by 30% on R&D spend under $2 budgets.",

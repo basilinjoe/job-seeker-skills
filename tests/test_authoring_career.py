@@ -29,7 +29,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from fixtures import (INIT_BUNDLE, OKF_COMPILE, VALIDATE_BUNDLE,
+from fixtures import (CLI, INIT_BUNDLE, OKF_COMPILE, VALIDATE_BUNDLE,
                       authoring_module, load_script, run)
 
 career = authoring_module("authoring.career")
@@ -1587,8 +1587,7 @@ class ThroughTheRealCli(CareerCase):
         self.assertIn("項目再構築".encode("utf-8"), printed)
 
     def test_okf_py_dispatches_every_one_of_these_nouns(self):
-        okf_py = (Path(__file__).resolve().parent.parent / "plugins" / "jsk"
-                  / "skills" / "jsk" / "scripts" / "okf.py")
+        okf_py = CLI
         # In dependency order, because two of the four carry a relational refusal.
         for noun in ("org", "role", "project", "education"):
             with self.subTest(noun=noun):

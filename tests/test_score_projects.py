@@ -16,7 +16,7 @@ from pathlib import Path
 
 from fixtures import SCRIPTS, load_script, run
 
-SCORE_PROJECTS = SCRIPTS / "score_projects.py"
+SCORE_PROJECTS = "jsk_okf.score_projects"
 sp = load_script(SCORE_PROJECTS)
 
 
@@ -457,7 +457,7 @@ class BadInput(RecordCase):
 class NoYamlDependency(unittest.TestCase):
     def test_the_scorer_does_not_import_yaml(self):
         """Both sides are JSON now, so pyyaml stopped being a requirement."""
-        source = SCORE_PROJECTS.read_text(encoding="utf-8")
+        source = (SCRIPTS / "score_projects.py").read_text(encoding="utf-8")
         self.assertNotIn("import yaml", source)
         self.assertNotIn("pyyaml", source.lower())
 

@@ -18,9 +18,6 @@ No third-party dependencies.
 """
 import sys, os, re
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
 
 try:
     # Reused rather than reimplemented. validate_urs.numerals() already knows
@@ -30,7 +27,7 @@ try:
     # 2019. This gate stays runnable where that file is absent - SKILL.md's
     # "installed as SKILL.md alone" case - by dropping the coverage line
     # rather than failing.
-    from validate_urs import numerals
+    from .validate_urs import numerals
 except ImportError:                                          # pragma: no cover
     numerals = None
 

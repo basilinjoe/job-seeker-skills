@@ -19,6 +19,7 @@ will be. This exists so that nobody has to remember every name to get started.
     okf render RECORD [...]     one record to a PDF and plain text
     okf preview RECORD --out D  the same record in every template, to pick a look
     okf check PDF [--strict]    the parse gate and the prose gate, both
+      ... --only parse|prose    one of them, for re-checking one repaired file
     okf gates DIR --view ID     the record, parse and prose gates over one render
     okf score BUNDLE POSTING.md rank projects against a posting
     okf fit TEX [...]           fit a render to a page budget
@@ -48,6 +49,7 @@ Standard library only, and pyyaml to read a concept back.
 import contextlib
 import glob
 import importlib
+import importlib.util          # find_spec: `import importlib` alone does not bind it
 import io
 import json
 import os
@@ -56,7 +58,7 @@ import subprocess
 import sys
 import tempfile
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+from . import __version__
 
 # subcommand -> (script, what it does)
 SIMPLE = {
@@ -77,9 +79,12 @@ SIMPLE = {
 # an \item rather than a glyph that a text extractor may or may not have kept. Pass
 # either one and the other is found beside it.
 CHECK_GATES = [
-    ("check_ats.py", "parse gate", True, (".pdf", ".txt")),   # True: forward --strict
-    ("check_prose.py", "prose gate", False, (".tex", ".txt")),
+    # key for --only, script, label, forwards --strict, extensions it reads
+    ("parse", "check_ats.py", "parse gate", True, (".pdf", ".txt")),
+    ("prose", "check_prose.py", "prose gate", False, (".tex", ".txt")),
 ]
+
+CHECK_USAGE = "usage: okf check <resume.pdf> [--strict] [--only parse|prose]"
 
 
 def gate_target(path, accepts):
@@ -93,17 +98,48 @@ def gate_target(path, accepts):
     return None
 
 
+def module_for(script):
+    """`check_ats.py` -> `jsk_okf.check_ats`. The tables are keyed by the documented
+    script names, which are still what docs/SCRIPTS.md and every mode file call them."""
+    return f"{__package__}.{script[:-3]}"
+
+
 def run(script, args):
-    """Forward to a sibling script. Returns its exit code, unchanged."""
-    path = os.path.join(HERE, script)
-    if not os.path.exists(path):
+    """Forward to a sibling module in a child interpreter. Exit code unchanged.
+
+    `-m` rather than a file path: inside a package a module run as a loose file has no
+    package context, so its own `from . import ...` would fail on the way in.
+    """
+    module = module_for(script)
+    if importlib.util.find_spec(module) is None:
         print(f"FAIL  missing script: {script}")
-        print(f"fix:  the skill install is incomplete - expected it at {path}")
+        print(f"fix:  the install is incomplete - expected the module {module}")
         return 2
     # The child writes to this console directly. Without a flush our own buffered
     # output lands after it, which puts every heading under the wrong section.
     sys.stdout.flush()
-    return subprocess.call([sys.executable, path] + list(args))
+    return subprocess.call([sys.executable, "-m", module] + list(args))
+
+
+def run_in_process(script, args, argv0=False):
+    """Call a sibling script's main() in this interpreter and print what it said.
+
+    The import-instead-of-spawn that `okf gates` already does, for the commands that
+    dispatch to exactly one script. call_gate() - defined further down, beside the
+    gates that first needed it - does the loading, the argv0 normalisation and the
+    two failure modes an in-process call adds: a module that will not import, and one
+    that raises where it should have returned a verdict.
+    """
+    # A path or a title under a non-ASCII name reaches a cp1252 console as a
+    # UnicodeEncodeError from inside the print, which loses the whole verdict. The
+    # same two lines cmd_gates and authoring/commands.py carry, for the same reason.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:                                        # pragma: no cover
+        pass
+    code, output = call_gate(script, args, argv0=argv0)
+    print(output, end="" if output.endswith("\n") else "\n")
+    return code
 
 
 def cmd_doctor(args):
@@ -128,7 +164,10 @@ def cmd_validate(args):
         return 2
     target = args[0]
     if os.path.isdir(target):
-        return run("validate_bundle.py", args)
+        # In-process since validate_bundle.py gained a main(argv). It ran everything at
+        # import and exited from module scope before that, so this was the one dispatch
+        # here that had no choice but to spawn.
+        return run_in_process("validate_bundle.py", args)
     if not os.path.exists(target):
         print(f"file not found: {target}")
         return 2
@@ -139,21 +178,47 @@ def cmd_validate(args):
         print("      frozen document is meant to be read, not re-checked.")
         return 2
     if target.endswith(".json"):
-        return run("validate_urs.py", args)
+        # argv0: validate_urs.main() reads argv[1:], where validate_bundle.main() takes
+        # the arguments alone. call_gate() carries that difference so neither script's
+        # CLI - the documented API - has to move to suit this caller.
+        return run_in_process("validate_urs.py", args, argv0=True)
     print(f"FAIL  cannot validate: {target}")
     print("fix:  pass a bundle directory, or an archived resume.json")
     return 2
 
 
 def cmd_check(args):
-    """Both document gates, in one pass, on one file."""
-    if not args:
-        print("usage: okf check <resume.pdf> [--strict]")
+    """Both document gates, in one pass, on one file - or one of them, with --only.
+
+    `--only` is here because mode-resume.md names a single gate when one file has been
+    repaired and only that gate needs re-running: "the right thing for re-checking one
+    file after one repair". That was the one call `okf` could not express, so those
+    lines reached past it to check_ats.py and check_prose.py directly.
+    """
+    args = list(args)
+    only = None
+    if "--only" in args:
+        at = args.index("--only")
+        if at + 1 >= len(args):
+            print("--only needs a value")
+            print("fix:  --only parse   or   --only prose")
+            return 2
+        only = args[at + 1]
+        keys = [gate[0] for gate in CHECK_GATES]
+        if only not in keys:
+            print(f"unknown gate: {only}")
+            print(f"fix:  one of {', '.join(keys)} - or leave --only off to run both")
+            return 2
+        del args[at:at + 2]
+    if not args or args[0].startswith("-"):
+        print(CHECK_USAGE)
         return 2
     target = args[0]
     strict = "--strict" in args
+    gates = [gate for gate in CHECK_GATES if only is None or gate[0] == only]
+    ran = None
     worst = 0
-    for script, label, takes_strict, accepts in CHECK_GATES:
+    for _, script, label, takes_strict, accepts in gates:
         path = gate_target(target, accepts)
         if not path:
             print(f"--- {label}: {script}")
@@ -166,9 +231,18 @@ def cmd_check(args):
         gate_args = [path] + (["--strict"] if strict and takes_strict else [])
         code = run(script, gate_args)
         worst = max(worst, code)
+        ran = label
         print()
     if worst == 0:
-        print("Both document gates passed. The record and render gates are separate:")
+        # Naming what did not run is the whole point of this trailer, so --only has to
+        # count the gate it skipped. Saying "both gates passed" after running one is
+        # the exact false green the wording exists to prevent.
+        if only is None:
+            print("Both document gates passed. The record and render gates are separate:")
+        else:
+            print(f"The {ran} passed. Three gates did not run:")
+            # Padded to the same column as the two fixed lines below it.
+            print(f"  {'okf check ' + os.path.basename(target):<30} the other document gate")
         print("  okf validate <record>.json     before rendering")
         print("  open the PDF and read it       nobody else can do this one")
     return worst
@@ -236,13 +310,12 @@ def call_gate(script, args, argv0=False):
     gates take the arguments alone. Normalised here rather than in those scripts:
     their CLIs are the documented API and must not move to suit a caller.
     """
-    name = script[:-3]
+    name = module_for(script)
     try:
         module = importlib.import_module(name)
     except ImportError as exc:
         return 2, (f"FAIL  cannot load {script}: {exc}\n"
-                   f"fix:  the skill install is incomplete - expected it at "
-                   f"{os.path.join(HERE, script)}\n")
+                   f"fix:  the install is incomplete - expected the module {name}\n")
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
@@ -303,7 +376,7 @@ def render_section(out_dir, pages):
             # verdict and is the only thing that can act on it; two places printing
             # one measurement in different words is how they start disagreeing.
             try:
-                import render_resume               # noqa: PLC0415 - only when asked
+                from . import render_resume               # noqa: PLC0415 - only when asked
             except ImportError as exc:
                 lines.append(f"  pages  budget {pages}, not measured - "
                              f"render_resume.py would not load: {exc}")
@@ -371,9 +444,6 @@ def cmd_gates(args):
         print("fix:  --max-findings 50   - or 0 to print every finding")
         return 2
 
-    if HERE not in sys.path:
-        sys.path.insert(0, HERE)
-
     results = []
     if bundle is None:
         results.append(skipped_gate("record gate", "validate_urs.py",
@@ -440,9 +510,8 @@ def cmd_score(args):
     if len(args) < 2:
         print("usage: okf score <bundle-dir | record.json> <posting.md | posting.json> [...]")
         return 2
-    sys.path.insert(0, HERE)
     try:
-        import okf_compile
+        from . import okf_compile
     except SystemExit:
         return 2
 
@@ -490,9 +559,7 @@ def cmd_write(noun):
     and a subprocess would double that to do nothing but forward.
     """
     def run_write(args):
-        if HERE not in sys.path:
-            sys.path.insert(0, HERE)
-        from authoring import commands  # noqa: PLC0415 - only when a write runs
+        from .authoring import commands  # noqa: PLC0415 - only when a write runs
         return commands.main([noun] + list(args))
     return run_write
 
@@ -516,6 +583,9 @@ def main(argv):
     args = argv[1:]
     if not args or args[0] in ("-h", "--help", "help"):
         return usage()
+    if args[0] in ("--version", "-V", "version"):
+        print(f"jsk-okf {__version__}")
+        return 0
     sub, rest = args[0], args[1:]
     if sub in HANDLERS:
         return HANDLERS[sub](rest)
@@ -525,6 +595,16 @@ def main(argv):
     known = sorted(list(HANDLERS) + list(SIMPLE))
     print(f"fix:  one of {', '.join(known)} - or run okf --help")
     return 2
+
+
+def main_console():
+    """The `okf` and `jsk-okf` console scripts.
+
+    Separate from main() because main() takes the whole argv the way a script's does -
+    that is the documented shape every in-process caller here already uses, and the
+    generated console wrapper passes no arguments at all.
+    """
+    return main(sys.argv)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (INIT_BUNDLE, MIGRATE_BUNDLE, VALIDATE_BUNDLE, load_script, run,
+from fixtures import (INIT_BUNDLE, MIGRATE_BUNDLE, SCRIPTS, VALIDATE_BUNDLE, load_script, run,
                       write_concept)
 
 CURRENT = load_script(MIGRATE_BUNDLE).CURRENT_REVISION
@@ -81,7 +81,7 @@ class ScaffoldedConcepts(InitBundleCase):
 
     def compiled(self):
         okf = load_script(
-            INIT_BUNDLE.parent / "okf_compile.py")   # read-only; owned elsewhere
+            SCRIPTS / "okf_compile.py")      # read-only; owned elsewhere
         return okf, okf.load(str(self.root))
 
     def test_the_person_concept_exists_and_compiles(self):

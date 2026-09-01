@@ -11,9 +11,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import SCRIPTS, load_script, run
+from fixtures import PLUGIN, PREFLIGHT, load_script, run
 
-PREFLIGHT = SCRIPTS / "preflight.py"
 preflight = load_script(PREFLIGHT)
 
 
@@ -80,7 +79,9 @@ class RequiredVersusOptional(unittest.TestCase):
     def test_the_shipped_toolchain_is_required(self):
         checks, _ = preflight.gather()
         required = [c.name for c in checks if preflight.is_required(c)]
-        self.assertTrue(any(n.startswith("scripts") for n in required))
+        # "modules (12/12)" since these became a package: preflight asks whether each
+        # one can be imported, not whether a file of that name is on disk.
+        self.assertTrue(any(n.startswith("modules") for n in required))
         self.assertTrue(any(n.startswith("urs renderer") for n in required))
         self.assertTrue(any(n.startswith("URS schema") for n in required))
 
@@ -181,7 +182,7 @@ class CommandFileIsWiredUp(unittest.TestCase):
     """The slash command is the entry point, so its wiring is worth pinning."""
 
     def setUp(self):
-        self.command = SCRIPTS.parent.parent.parent / "commands" / "setup.md"
+        self.command = PLUGIN / "commands" / "setup.md"
 
     def test_the_command_file_exists_where_plugins_look_for_it(self):
         self.assertTrue(self.command.exists(), self.command)
@@ -191,15 +192,29 @@ class CommandFileIsWiredUp(unittest.TestCase):
         self.assertIn("description:", head)
 
     def test_it_runs_preflight_before_anything_else(self):
+        """`okf doctor` since preflight became a subcommand. Bare `okf doctor` is the
+        verifying run - cmd_doctor adds --verify unless given --quick - so the flag
+        that used to have to be present is now the one that must be absent."""
         body = self.command.read_text(encoding="utf-8")
-        self.assertIn("preflight.py --verify", body)
-        self.assertLess(body.index("preflight.py"), body.index("mode-setup.md"))
+        self.assertIn("okf doctor", body)
+        self.assertNotIn("okf doctor --quick", body,
+                         "setup must run the verifying preflight, not the quick one")
+        self.assertLess(body.index("okf doctor"), body.index("mode-setup.md"))
 
-    def test_every_script_it_invokes_exists(self):
-        body = self.command.read_text(encoding="utf-8")
+    def test_every_command_it_invokes_is_real(self):
+        """It checked that each `scripts/X.py` it named was on disk. The scripts are one
+        CLI now, so the equivalent claim is that each `okf <verb>` it names is a verb
+        `okf` dispatches - otherwise the command file sends setup at something that
+        cannot run, and the failure reads as a broken install."""
         import re
-        for name in set(re.findall(r"scripts/(\w+\.py)", body)):
-            self.assertTrue((SCRIPTS / name).exists(), name)
+
+        from jsk_okf import cli
+        body = self.command.read_text(encoding="utf-8")
+        named = set(re.findall(r"`?okf ([a-z]+)", body))
+        self.assertTrue(named, "the setup command invokes no okf subcommand")
+        known = set(cli.HANDLERS) | set(cli.SIMPLE)
+        unknown = sorted(n for n in named if n not in known)
+        self.assertEqual(unknown, [], f"setup.md names unknown subcommands: {unknown}")
 
 
 if __name__ == "__main__":

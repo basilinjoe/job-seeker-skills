@@ -42,14 +42,14 @@ The **posting** (`tailoring/targets/<slug>.posting.md`), the **assessment**
 `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install).
 
 The skill directory holds three things and no others: `references/` (the specs),
-`schema/` (the render profiles) and `scripts/`. **It has no `framework/`** — that
+`references/` and nothing else. **It has no `framework/`** — that
 directory belongs to the bundle. Guessing it has a mirror of one costs a failed read and
 two searches, and every path below is written out for the same reason.
 
 Compile the record — it is the bundle as the renderer reads it, and it takes under a second:
 
 ```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --no-views --compact --dump-record record.json --quiet
+okf compile <bundle> --no-views --compact --dump-record record.json --quiet
 ```
 
 **Read the record once, as a file, then open a concept only where the record cannot answer you.**
@@ -114,7 +114,7 @@ ranks projects and never reads a bullet; its projection drops the achievement pr
 of `projects[]`. That prose is your material. Retuning a clause you cannot see is writing it from
 scratch, and writing from scratch is how a number moves.
 
-**Do not read `scripts/okf_compile.py` or `scripts/validate_urs.py`** — they restate the spec you
+**Do not read `okf_compile.py` or `validate_urs.py` in the `jsk-okf` package** — they restate the spec you
 have just read, and the validator enforces itself at runtime. **Do not read a view written for a
 different posting**: it is another posting's answer to another posting's question, and read as a
 reference it becomes a template to copy, which is how a tailored resume stops being tailored.
@@ -128,7 +128,7 @@ no `Edit`, deliberately: everything you author arrives through a verb that check
 what a gate would reject later. `references/write-commands.md` is the surface.
 
 ```bash
-OKF="python3 <skill-dir>/scripts/okf.py"
+OKF="okf"
 B="--bundle <bundle>"
 ```
 
@@ -235,7 +235,7 @@ thing, with a much cheaper fix, and it is invisible to anyone reading only the r
 ## Before you return
 
 ```bash
-python3 <skill-dir>/scripts/validate_urs.py <bundle>
+okf validate <bundle>
 ```
 
 It must pass. Do not render — that is `/jsk:ship`, after the person has confirmed your prose.

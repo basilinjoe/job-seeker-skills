@@ -12,7 +12,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 PLUGIN = REPO / "plugins" / "jsk"
 SKILL = PLUGIN / "skills" / "jsk"
-SCRIPTS = SKILL / "scripts"
+# The code left the skill: it is a package at the repo root now, installed as
+# jsk-okf. This file reads both - the skill for its markdown, the package for the
+# constants and dispatch tables the markdown has to agree with.
+SCRIPTS = REPO / "src" / "jsk_okf"
 
 try:
     import yaml
@@ -243,14 +246,22 @@ class DocumentedSurface(unittest.TestCase):
         author = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
         self.assertIn("view-format.md", author)
 
-    def test_every_script_SKILL_md_names_is_installed(self):
-        """The script table is how an agent decides what it may run. A row naming a
-        file that is not there sends it to a command that cannot exist, and the
-        failure surfaces as a broken install rather than as a stale table."""
-        named = set(re.findall(r"`([a-z_]+\.py)", (SKILL / "SKILL.md").read_text(encoding="utf-8")))
-        self.assertTrue(named, "SKILL.md names no scripts")
-        missing = sorted(n for n in named if not (SCRIPTS / n).exists())
-        self.assertEqual(missing, [], f"SKILL.md names scripts that are not installed: {missing}")
+    def test_every_command_SKILL_md_names_is_a_real_subcommand(self):
+        """The command table is how an agent decides what it may run. A row naming a
+        subcommand that does not exist sends it to a command that cannot work, and the
+        failure surfaces as a broken install rather than as a stale table.
+
+        This checked for installed *files* until the scripts became one CLI. Same
+        guarantee, one level up: what SKILL.md names has to be something `okf`
+        dispatches.
+        """
+        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+        named = set(re.findall(r"`okf ([a-z]+)", text))
+        self.assertTrue(named, "SKILL.md names no okf subcommands")
+        known = self.subcommands() | {"doctor", "new"}
+        unknown = sorted(n for n in named if n not in known)
+        self.assertEqual(unknown, [],
+                         f"SKILL.md names subcommands okf does not dispatch: {unknown}")
 
     # ---- the okf subcommand menu ----------------------------------------------
     #
@@ -270,7 +281,7 @@ class DocumentedSurface(unittest.TestCase):
         listed once and HANDLERS is built from them. A test reading only the dict
         literals saw none of the sixteen write commands.
         """
-        text = (SCRIPTS / "okf.py").read_text(encoding="utf-8")
+        text = (SCRIPTS / "cli.py").read_text(encoding="utf-8")
         found = set()
         for table in ("SIMPLE", "HANDLERS"):
             block = re.search(rf"^{table} = \{{(.*?)^\}}", text, re.M | re.S)
@@ -292,7 +303,7 @@ class DocumentedSurface(unittest.TestCase):
         nothing is absent, not how densely the menu is packed.
         """
         listed = set()
-        for group in re.findall(r"^    okf ([a-z|]+)", (SCRIPTS / "okf.py").read_text(
+        for group in re.findall(r"^    okf ([a-z|]+)", (SCRIPTS / "cli.py").read_text(
                 encoding="utf-8"), re.M):
             listed |= set(group.split("|"))
         missing = sorted(self.subcommands() - listed)
@@ -303,7 +314,9 @@ class DocumentedSurface(unittest.TestCase):
         """docs/SCRIPTS.md opens with the whole menu, for a person running these by
         hand. It is the one page that promises to be exhaustive."""
         text = (REPO / "docs" / "SCRIPTS.md").read_text(encoding="utf-8")
-        listed = set(re.findall(r"okf\.py ([a-z]+)", text))
+        # `okf <verb>` since the scripts became one installed CLI - the page used to
+        # spell every line `python3 scripts/okf.py <verb>`.
+        listed = set(re.findall(r"\bokf ([a-z]+)", text))
         missing = sorted(self.subcommands() - listed)
         self.assertEqual(missing, [], f"docs/SCRIPTS.md does not list: {missing}")
 
@@ -332,7 +345,7 @@ class DocumentedSurface(unittest.TestCase):
         not a stale row. What is being checked is that the write exists on the menu at
         all, not which of its two names appears there."""
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-        okf = (SCRIPTS / "okf.py").read_text(encoding="utf-8")
+        okf = (SCRIPTS / "cli.py").read_text(encoding="utf-8")
         simple = dict(re.findall(r'^    "([a-z]+)": \("([a-z_]+\.py)"', okf, re.M))
         for sub in self.MUTATING:
             with self.subTest(subcommand=sub):

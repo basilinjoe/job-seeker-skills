@@ -85,7 +85,7 @@ The bundle is in git, so a resume sent last March rebuilds from the commit it wa
 stronger guarantee than a checksum over a copied file, and it costs nothing to keep.
 
 ```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --dump-record record.json
+okf compile <bundle> --dump-record record.json
 ```
 
 `--dump-record` is for reading, never for editing: the next compile overwrites it. An edit made there

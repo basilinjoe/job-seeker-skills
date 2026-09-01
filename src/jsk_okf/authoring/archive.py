@@ -118,15 +118,8 @@ def _model():
     of the vocabulary and a fifth timeline parser. Imported inside the call and
     not at the top of the file for the reason common.item_ids imports body that
     way: an `okf project add` should not pay for a module it never reaches.
-
-    The sys.path guard is the one validate_bundle.py and pipeline_model.py both
-    carry: the scripts directory is not reliably importable, because these are
-    CLIs rather than an installed package.
     """
-    scripts = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if scripts not in sys.path:                          # pragma: no cover - path
-        sys.path.insert(0, scripts)
-    import pipeline_model                                # noqa: PLC0415 - see above
+    from .. import pipeline_model                        # noqa: PLC0415 - see above
     return pipeline_model
 
 

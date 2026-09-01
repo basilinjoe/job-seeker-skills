@@ -33,11 +33,8 @@ import posixpath
 import re
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
 
-import pipeline_model  # noqa: E402
+from . import pipeline_model
 
 CURRENT_REVISION = 7
 

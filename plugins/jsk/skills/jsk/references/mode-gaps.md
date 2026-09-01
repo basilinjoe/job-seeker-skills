@@ -103,7 +103,7 @@ rather than fixing one.
 **Every write is a command** — never `Write` or `Edit` inside the bundle:
 
 ```bash
-OKF="python3 <skill-dir>/scripts/okf.py"; B="--bundle <bundle>"
+OKF="okf"; B="--bundle <bundle>"
 
 $OKF metric add       $B --name "…" --value "…" --evidence <stem> --source "…"
 $OKF bullet set       $B --project <stem> --id <ach id> --text "…" --status confirmed

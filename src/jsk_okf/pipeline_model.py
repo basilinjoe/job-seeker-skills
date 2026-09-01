@@ -17,16 +17,12 @@ a TypeError.
 import datetime
 import os
 import re
-import sys
 
 # pipeline_model.py is imported by file path - tests/test_pipeline.py loads it
 # standalone - so the scripts directory is not reliably on sys.path by the time
 # this runs. The same guard init_bundle.py carries, for the same reason.
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
 
-from authoring import concept  # noqa: E402
+from .authoring import concept
 
 # Ordered, because "the last advancing event" is the stage and the order is what a
 # reader expects a pipeline to move through. Membership matters to the code; the
@@ -254,7 +250,6 @@ def load_rules(bundle_root, os_module=None):
     A bundle's own rules win - the same contract every other rule file here has.
     Rows look like:  | `submitted` | 21 |
     """
-    import os
     os_module = os_module or os
     path = os_module.path.join(bundle_root, "resume-generation", "pipeline-rules.md")
     rules = dict(DEFAULT_RULES)

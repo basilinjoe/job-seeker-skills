@@ -9,8 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (EXAMPLE_URS, VALIDATE_URS, achievement, ended, ongoing,
-                      run, urs_doc, write_urs)
+from fixtures import (EXAMPLE_URS, VALIDATE_URS, achievement, ended, run, urs_doc, write_urs)
 
 
 class UrsCase(unittest.TestCase):

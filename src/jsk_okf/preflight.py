@@ -19,6 +19,7 @@ unverified, which is the one worth knowing about before you need it.
 Standard library only. A preflight that needs installing first is not a
 preflight.
 """
+import importlib.util
 import json
 import os
 import shutil
@@ -26,28 +27,32 @@ import subprocess
 import sys
 import tempfile
 
+from . import __version__
+from .paths import EXAMPLE_RECORD as EXAMPLE, SCHEMA_DIR as SCHEMA
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-SKILL = os.path.normpath(os.path.join(HERE, ".."))
-SCHEMA = os.path.join(SKILL, "schema")
-EXAMPLE = os.path.join(SCHEMA, "example.resume.json")
 
 MIN_PYTHON = (3, 8)
 
-SCRIPTS = [
-    "init_bundle.py", "validate_bundle.py", "check_ats.py", "check_prose.py",
-    "score_projects.py", "fit_pages.py", "validate_urs.py", "okf_compile.py",
-    "render_resume.py", "migrate_bundle.py", "pipeline.py", "pipeline_model.py",
+# Module names rather than filenames since these became a package. A filename check
+# answered "is this file on disk", which stopped being the interesting question: a
+# module can be present and unimportable - a syntax error, a missing dependency of
+# its own, a half-finished editable checkout - and find_spec is what notices.
+MODULES = [
+    "init_bundle", "validate_bundle", "check_ats", "check_prose",
+    "score_projects", "fit_pages", "validate_urs", "okf_compile",
+    "render_resume", "migrate_bundle", "pipeline", "pipeline_model",
 ]
-URS_MODULES = ["__init__.py", "plan.py", "profiles.py", "tex.py",
-               "emit_latex.py", "emit_text.py"]
+URS_MODULES = ["urs", "urs.plan", "urs.profiles", "urs.tex",
+               "urs.emit_latex", "urs.emit_text"]
 
-# init_bundle.py and pipeline_model.py import this at module scope, and
-# pipeline_model.py is imported in turn by init_bundle.py, migrate_bundle.py,
-# pipeline.py and validate_bundle.py. So a truncated install missing this
-# directory takes out scaffolding, the pipeline board, validation and migration
-# while `scripts (12/12)` still reports green - a preflight with a blind spot
-# over five scripts, which is the failure this file exists to prevent.
-AUTHORING_MODULES = ["__init__.py", "concept.py"]
+# init_bundle and pipeline_model import this at module scope, and pipeline_model is
+# imported in turn by init_bundle, migrate_bundle, pipeline and validate_bundle. So a
+# truncated install missing this package takes out scaffolding, the pipeline board,
+# validation and migration while `modules (12/12)` still reports green - a preflight
+# with a blind spot over five commands, which is the failure this file exists to
+# prevent.
+AUTHORING_MODULES = ["authoring", "authoring.concept"]
 SCHEMA_FILES = ["profile.schema.json", "example.resume.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
 
@@ -78,6 +83,24 @@ def module_available(name):
         return True
     except Exception:
         return False
+
+
+def present(names):
+    """Which of this package's own modules cannot be found, without importing them.
+
+    `find_spec` on a submodule imports its parent, so a broken subpackage raises here
+    rather than returning None - which is the same finding and has to be reported the
+    same way.
+    """
+    missing = []
+    for name in names:
+        full = f"{__package__}.{name}"
+        try:
+            if importlib.util.find_spec(full) is None:
+                missing.append(name)
+        except Exception:
+            missing.append(name)
+    return missing
 
 
 def which_any(names):
@@ -133,26 +156,23 @@ def gather(bundle_arg=None):
         disables="everything - this toolchain needs Python "
                  f"{'.'.join(str(v) for v in MIN_PYTHON)} or newer"))
 
-    missing = [s for s in SCRIPTS if not os.path.exists(os.path.join(HERE, s))]
+    missing = present(MODULES)
     checks.append(Check(
-        f"scripts ({len(SCRIPTS) - len(missing)}/{len(SCRIPTS)})", not missing,
+        f"modules ({len(MODULES) - len(missing)}/{len(MODULES)})", not missing,
         disables=f"missing: {', '.join(missing)}" if missing else "",
         detail=HERE))
 
-    urs_dir = os.path.join(HERE, "urs")
-    missing_mod = [m for m in URS_MODULES if not os.path.exists(os.path.join(urs_dir, m))]
+    missing_mod = present(URS_MODULES)
     checks.append(Check(
         "urs renderer package", not missing_mod,
         disables=f"missing: {', '.join(missing_mod)}" if missing_mod
-                 else "", detail=urs_dir))
+                 else "", detail=os.path.join(HERE, "urs")))
 
-    authoring_dir = os.path.join(HERE, "authoring")
-    missing_auth = [m for m in AUTHORING_MODULES
-                    if not os.path.exists(os.path.join(authoring_dir, m))]
+    missing_auth = present(AUTHORING_MODULES)
     checks.append(Check(
         "authoring package", not missing_auth,
         disables=f"missing: {', '.join(missing_auth)}" if missing_auth
-                 else "", detail=authoring_dir))
+                 else "", detail=os.path.join(HERE, "authoring")))
 
     missing_schema = [f for f in SCHEMA_FILES if not os.path.exists(os.path.join(SCHEMA, f))]
     missing_prof = [p for p in PROFILES
@@ -209,7 +229,7 @@ def gather(bundle_arg=None):
 # nicety. Now the PDF is the only rendered deliverable, so a machine without
 # them cannot produce a resume at all - reporting that as a degraded install
 # would be telling someone their toolchain works when it does not.
-REQUIRED = {"Python", "scripts", "urs renderer package", "authoring package",
+REQUIRED = {"Python", "modules", "urs renderer package", "authoring package",
             "URS schema", "TeX engine", "pymupdf"}
 
 
@@ -222,21 +242,22 @@ def verify(tmp):
     steps = []
 
     def run(label, args):
-        proc = subprocess.run([sys.executable] + args, capture_output=True, text=True)
+        proc = subprocess.run([sys.executable, "-m"] + args, capture_output=True, text=True)
         steps.append((label, proc.returncode == 0,
                       (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]))
         return proc.returncode == 0
 
     if not os.path.exists(EXAMPLE):
-        steps.append(("example document present", False, ["schema/example.resume.json missing"]))
+        steps.append(("example document present", False,
+                      [f"{EXAMPLE} missing"]))
         return steps
 
     run("validate the example record",
-        [os.path.join(HERE, "validate_urs.py"), EXAMPLE])
+        [f"{__package__}.validate_urs", EXAMPLE])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the resolver works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",
-             [os.path.join(HERE, "render_resume.py"), EXAMPLE, "--out", tmp,
+             [f"{__package__}.render_resume", EXAMPLE, "--out", tmp,
               "--view", "view_au_default", "--pdf"])
     if not ok:
         return steps
@@ -244,10 +265,10 @@ def verify(tmp):
     pdf = os.path.join(tmp, "Priya_Raman_Resume.pdf")
     tex = os.path.join(tmp, "Priya_Raman_Resume.tex")
     txt = os.path.join(tmp, "Priya_Raman_Resume_ATS.txt")
-    run("parse gate, rendered PDF", [os.path.join(HERE, "check_ats.py"), pdf])
+    run("parse gate, rendered PDF", [f"{__package__}.check_ats", pdf])
     run("parse gate, plain text (strict)",
-        [os.path.join(HERE, "check_ats.py"), txt, "--strict"])
-    run("prose gate", [os.path.join(HERE, "check_prose.py"), tex])
+        [f"{__package__}.check_ats", txt, "--strict"])
+    run("prose gate", [f"{__package__}.check_prose", tex])
     return steps
 
 
@@ -281,11 +302,12 @@ def main(argv):
         return 1 if blocked or any(not s[1] for s in steps) else 0
 
     print("jsk preflight")
-    print(f"skill: {SKILL}\n")
+    print(f"jsk-okf {__version__}")
+    print(f"package: {HERE}\n")
     for c in checks:
         mark = "ok  " if c.ok else ("FAIL" if is_required(c) else "gap ")
         print(f"  {mark}  {c.name}")
-        if c.ok and c.detail and c.detail != SKILL:
+        if c.ok and c.detail and c.detail != HERE:
             print(f"           {c.detail}")
         if not c.ok and c.disables:
             print(f"           {c.disables}")

@@ -12,7 +12,7 @@ still counted as live six weeks after it died.
 ## Run the script first
 
 ```bash
-python3 <skill-dir>/scripts/pipeline.py <bundle>
+okf pipeline <bundle>
 ```
 
 It reads every application's timeline and derives the stage, the staleness and the next action.

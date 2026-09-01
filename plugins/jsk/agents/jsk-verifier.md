@@ -50,7 +50,7 @@ Never substitute one for another.
 The first three run together, in one process, and print each one's output verbatim:
 
 ```bash
-python3 <skill-dir>/scripts/okf.py gates <out-dir> --view <id> --bundle <bundle> --pages N
+okf gates <out-dir> --view <id> --bundle <bundle> --pages N
 ```
 
 Prefer it — it is the five invocations above in one, at about 0.6x the wall clock, calling the same
@@ -66,7 +66,7 @@ fixes an overrun, and still what you run after one.
 Then the page budget, if one was given:
 
 ```bash
-python3 <skill-dir>/scripts/fit_pages.py <Name>_Resume.tex --target-pages 2
+okf fit <Name>_Resume.tex --target-pages 2
 ```
 
 Exit codes are uniform: `0` passed, `1` failed, `2` called wrong. A `2` is your mistake — fix the
@@ -100,7 +100,7 @@ The caller has to show this evidence to a person, and your output is not shown t
 **quote the verdict lines verbatim.** A summary of a checker is not the checker's output.
 
 ```
-COMMAND: python3 .../check_ats.py Jane_Doe_Resume_ATS.txt --strict
+COMMAND: okf check Jane_Doe_Resume_ATS.txt --only parse --strict
 EXIT: 1
 <the verdict lines, copied exactly>
 ```

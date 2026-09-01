@@ -2,38 +2,42 @@
 
 The skill runs these for you. This page is for running them yourself.
 
-All thirteen live in `plugins/jsk/skills/jsk/scripts/`. Paths below assume you are in that
-directory. On Windows use `python` or `py -3` in place of `python3`.
+It is all one command. `pip install 'jsk-okf[all]'` puts `okf` on your PATH; `python3 -m jsk_okf` is
+the same entry point where it is importable but not on PATH, and on Windows use `python` or `py -3`
+in place of `python3`.
 
-## One entry point: `okf.py`
+Every subcommand below also exists as a module you can run or import directly —
+`python3 -m jsk_okf.check_ats resume.pdf`, `from jsk_okf.okf_compile import load`. The headings name
+both. Fifteen loose scripts under the skill directory is what this used to be; there is no path to
+get right any more.
 
-If you would rather not remember thirteen names:
+## The whole surface
 
 ```bash
-python3 scripts/okf.py doctor                  # what works on this machine
-python3 scripts/okf.py new ./my-career --name "Your Name"
-python3 scripts/okf.py project add --bundle ./my-career --title "…" --role … # write a concept
-python3 scripts/okf.py compile ./my-career     # the bundle as the record
-python3 scripts/okf.py validate resume.json         # a record
-python3 scripts/okf.py validate acme.posting.json  # or a posting
-python3 scripts/okf.py validate acme.gaps.json     # or an assessment
-python3 scripts/okf.py validate ./my-career        # or a bundle - it dispatches
-python3 scripts/okf.py render resume.json --out . --pdf
-python3 scripts/okf.py check resume.pdf        # both document gates, one pass
-python3 scripts/okf.py gates . --view view_acme --bundle ./my-career  # all three mechanical gates
-python3 scripts/okf.py score record.json acme.posting.json
-python3 scripts/okf.py fit resume.tex --target-pages 2
-python3 scripts/okf.py preview resume.json --out ./looks
-python3 scripts/okf.py migrate ./my-career          # report; --apply to write
-python3 scripts/okf.py pipeline ./my-career         # the week's board
+okf doctor                  # what works on this machine
+okf new ./my-career --name "Your Name"
+okf project add --bundle ./my-career --title "…" --role … # write a concept
+okf compile ./my-career     # the bundle as the record
+okf validate resume.json         # a record
+okf validate acme.posting.json  # or a posting
+okf validate acme.gaps.json     # or an assessment
+okf validate ./my-career        # or a bundle - it dispatches
+okf render resume.json --out . --pdf
+okf check resume.pdf        # both document gates, one pass
+okf gates . --view view_acme --bundle ./my-career  # all three mechanical gates
+okf score record.json acme.posting.json
+okf fit resume.tex --target-pages 2
+okf preview resume.json --out ./looks
+okf migrate ./my-career          # report; --apply to write
+okf pipeline ./my-career         # the week's board
 ```
 
-Every read subcommand forwards to the script below with the same arguments and the same exit code,
-so everything documented here stays true through it. **The thirteen scripts remain the stable API**
-— this is a convenience layer, not a replacement, and nothing that works today stops working.
+Each read subcommand reaches the module documented below it with the same arguments and the same
+exit code, so everything on this page is true through `okf`. Some are called in this interpreter and
+some in a child one; that is an implementation detail and never changes a verdict.
 
-The write subcommands are the exception: they have no standalone script. The write layer is a
-package, `scripts/authoring/`, and `okf` is how it is called.
+The write subcommands have no separate module of their own. The write layer is a package,
+`jsk_okf/authoring/`, and `okf` is how it is called.
 
 ### Writing to a bundle
 
@@ -42,23 +46,23 @@ Sixteen nouns, each with its own verbs. Every one takes `--bundle DIR`, `--dry-r
 `log.md` row, the vocabulary term — rather than leaving them to be remembered.
 
 ```bash
-python3 scripts/okf.py project add|set|retire|rm     --bundle ./my-career [...]
-python3 scripts/okf.py role add|set|retire|rm        --bundle ./my-career [...]
-python3 scripts/okf.py org add|set|retire|rm         --bundle ./my-career [...]
-python3 scripts/okf.py education add|set|retire|rm   --bundle ./my-career [...]
-python3 scripts/okf.py bullet add|set|rm|mv          --bundle ./my-career [...]
-python3 scripts/okf.py skill add|set|rm|mv           --bundle ./my-career [...]
-python3 scripts/okf.py credential add|set|rm|mv      --bundle ./my-career [...]
-python3 scripts/okf.py metric add|set                --bundle ./my-career [...]
-python3 scripts/okf.py capability add                --bundle ./my-career --term … --theme …
-python3 scripts/okf.py question add|resolve          --bundle ./my-career [...]
-python3 scripts/okf.py log                           --bundle ./my-career --message "…"
-python3 scripts/okf.py reindex                       --bundle ./my-career
-python3 scripts/okf.py posting add                   --bundle ./my-career [...]
-python3 scripts/okf.py posting requirement add       --bundle ./my-career [...]
-python3 scripts/okf.py gaps write                    --bundle ./my-career [...]
-python3 scripts/okf.py view create|set|include       --bundle ./my-career [...]
-python3 scripts/okf.py application file|event        --bundle ./my-career [...]
+okf project add|set|retire|rm     --bundle ./my-career [...]
+okf role add|set|retire|rm        --bundle ./my-career [...]
+okf org add|set|retire|rm         --bundle ./my-career [...]
+okf education add|set|retire|rm   --bundle ./my-career [...]
+okf bullet add|set|rm|mv          --bundle ./my-career [...]
+okf skill add|set|rm|mv           --bundle ./my-career [...]
+okf credential add|set|rm|mv      --bundle ./my-career [...]
+okf metric add|set                --bundle ./my-career [...]
+okf capability add                --bundle ./my-career --term … --theme …
+okf question add|resolve          --bundle ./my-career [...]
+okf log                           --bundle ./my-career --message "…"
+okf reindex                       --bundle ./my-career
+okf posting add                   --bundle ./my-career [...]
+okf posting requirement add       --bundle ./my-career [...]
+okf gaps write                    --bundle ./my-career [...]
+okf view create|set|include       --bundle ./my-career [...]
+okf application file|event        --bundle ./my-career [...]
 ```
 
 Three things about them are worth knowing before you read the reference:
@@ -84,18 +88,24 @@ Three read subcommands also do more than forward:
 - `okf check` runs the parse gate *and* the prose gate on one file, and keeps going after the first
   one fails, because a document with parse problems usually has prose problems too. It exits with the
   worse of the two codes, and reminds you that the record and render gates are separate.
+  `--only parse` or `--only prose` runs one of them — for re-checking a single file after a single
+  repair, which is the call that used to have to reach past `okf` to `check_ats.py` directly. A
+  single-gate run never closes by saying both passed; it names the three gates that did not run.
 - `okf gates` runs the record, parse and prose gates over a whole rendered output directory in one
   process — the five invocations a hand-run verification used to make. It is documented in full
   below, beside the checkers it calls. `okf check` is unchanged and stays: it is the right thing for
   one file.
-- `okf validate` sends a directory to `validate_bundle.py` and a `.json` file to `validate_urs.py`.
+- `okf validate` sends a directory to `validate_bundle.py` and a `.json` file to `validate_urs.py`,
+  both in this interpreter rather than a child one. `validate_bundle.py` ran its whole check at
+  import and exited from module scope until it grew a `main(argv)`, which is why this dispatch alone
+  used to spawn: 204 ms to 132 ms on a fresh bundle, medians of 11.
   A `.posting.json` or `.gaps.json` is refused by name: those are archived UJD and UGS documents
   from an application already sent, both formats are retired, and a frozen document is meant to be
   re-read by a person rather than re-checked by a tool.
 
 ## Exit codes
 
-Uniform across every script:
+Uniform across every subcommand:
 
 | Code | Means |
 |---|---|
@@ -103,18 +113,20 @@ Uniform across every script:
 | `1` | failed — a real finding, or a dependency missing that makes the answer unknowable |
 | `2` | you called it wrong — bad usage, or a file that is not there |
 
-A script never passes quietly when it could not do its job. A page count nobody measured is a page
+Nothing here passes quietly when it could not do its job. A page count nobody measured is a page
 count nobody knows.
 
 ## Start here
 
-### `preflight.py`
+### `okf doctor`
+
+The `preflight.py` module.
 
 ```bash
-python3 scripts/preflight.py                 # what works on this machine
-python3 scripts/preflight.py --verify        # prove it, end to end
-python3 scripts/preflight.py --json          # machine-readable
-python3 scripts/preflight.py --bundle PATH   # also check a bundle
+okf doctor                 # what works on this machine
+okf doctor --verify        # prove it, end to end
+okf doctor --json          # machine-readable
+okf doctor --bundle PATH   # also check a bundle
 ```
 
 `--verify` renders the shipped example document and runs the parse and prose gates on the result, so
@@ -126,25 +138,29 @@ is present but failed its own gates — that is a bug in the skill, not in your 
 Gaps are reported by what they *disable*, not by package name. Runs on a bare Python: a preflight
 that needs installing first is not a preflight.
 
-### `init_bundle.py`
+### `okf new`
+
+The `init_bundle.py` module.
 
 ```bash
-python3 scripts/init_bundle.py ./my-career --name "Your Name"
+okf new ./my-career --name "Your Name"
 ```
 
 Creates an empty bundle skeleton. No dependencies.
 
 ## The record
 
-### `okf_compile.py`
+### `okf compile`
+
+The `okf_compile.py` module.
 
 ```bash
-python3 scripts/okf_compile.py <bundle> --quiet
-python3 scripts/okf_compile.py <bundle> --dump-record record.json
-python3 scripts/okf_compile.py <bundle> --dump-record - --view view_acme
-python3 scripts/okf_compile.py <bundle> --dump-record - --no-views
-python3 scripts/okf_compile.py <bundle> --no-views --compact --dump-record record.json
-python3 scripts/okf_compile.py <bundle> --no-views --for score --compact --dump-record record.json
+okf compile <bundle> --quiet
+okf compile <bundle> --dump-record record.json
+okf compile <bundle> --dump-record - --view view_acme
+okf compile <bundle> --dump-record - --no-views
+okf compile <bundle> --no-views --compact --dump-record record.json
+okf compile <bundle> --no-views --for score --compact --dump-record record.json
 ```
 
 Builds the record from the concepts, deterministically. Nothing is written unless `--dump-record`
@@ -217,12 +233,14 @@ would have left the census reading zero Views on disk under `--no-views`, and th
 cheerfully agreed that nothing had been dropped. That gate exists because a hardcoded `views: []`
 went unnoticed for months. A slower census and an honest gate is the right way round.
 
-### `validate_urs.py`
+### `okf validate`
+
+The `validate_urs.py` module.
 
 ```bash
-python3 scripts/validate_urs.py <bundle | resume.json>
-python3 scripts/validate_urs.py <bundle | resume.json> --strict
-python3 scripts/validate_urs.py <bundle | resume.json> --max-findings 0
+okf validate <bundle | resume.json>
+okf validate <bundle | resume.json> --strict
+okf validate <bundle | resume.json> --max-findings 0
 ```
 
 The **record gate**. Run it before anything renders. Checks that the record is coherent and that
@@ -253,13 +271,15 @@ it, the default took the gate's output from 42,425 characters to 2,252.
 truncating a count is a lie, and a gate that under-reports its own findings is worse than one that
 scrolls.
 
-### `render_resume.py`
+### `okf render`
+
+The `render_resume.py` module.
 
 ```bash
-python3 scripts/render_resume.py <bundle | resume.json> --out DIR --view view_au_default
-python3 scripts/render_resume.py <bundle | resume.json> --out DIR --view view_acme --pdf
-python3 scripts/render_resume.py <bundle | resume.json> --out DIR --view view_acme --region au
-python3 scripts/render_resume.py <bundle | resume.json> --out DIR --view view_acme --pdf --ats-max
+okf render <bundle | resume.json> --out DIR --view view_au_default
+okf render <bundle | resume.json> --out DIR --view view_acme --pdf
+okf render <bundle | resume.json> --out DIR --view view_acme --region au
+okf render <bundle | resume.json> --out DIR --view view_acme --pdf --ats-max
 ```
 
 One record to `.tex` (and PDF with `--pdf`) plus `.txt`. The PDF is the only rendered deliverable;
@@ -305,11 +325,13 @@ is about the reader and never about the parse. An unknown name is a usage error 
 fall back to the default, because a resume rendered in a template nobody chose is a resume nobody has
 looked at — and it would look perfectly fine. See `references/templates.md`.
 
-### `preview_templates.py`
+### `okf preview`
+
+The `preview_templates.py` module.
 
 ```bash
-python3 scripts/preview_templates.py resume.json --out DIR
-python3 scripts/preview_templates.py resume.json --out DIR --view view_acme --only meridian,ember
+okf preview resume.json --out DIR
+okf preview resume.json --out DIR --view view_acme --only meridian,ember
 ```
 
 The same record rendered in every template, with the page count for each, so the look is chosen by
@@ -332,11 +354,13 @@ break too. Exit 2 = usage, or no TeX engine.
 
 ## The gates on the document
 
-### `check_ats.py`
+### `okf check --only parse`
+
+The `check_ats.py` module.
 
 ```bash
-python3 scripts/check_ats.py resume.pdf             # the rendered deliverable
-python3 scripts/check_ats.py resume_ATS.txt --strict  # the ASCII variant
+okf check --only parse resume.pdf             # the rendered deliverable
+okf check --only parse resume_ATS.txt --strict  # the ASCII variant
 ```
 
 The **parse gate**. Reads the PDF's text layer (or the `.txt`) for what makes applicant tracking
@@ -349,11 +373,13 @@ template produces every render and cannot express any of them, so the check move
 a golden-file test on the template, where it is proved rather than sampled. Needs `pymupdf` for a
 PDF; the `.txt` path is standard library only.
 
-### `check_prose.py`
+### `okf check --only prose`
+
+The `check_prose.py` module.
 
 ```bash
-python3 scripts/check_prose.py resume.tex
-python3 scripts/check_prose.py resume_ATS.txt
+okf check --only prose resume.tex
+okf check --only prose resume_ATS.txt
 ```
 
 The **prose gate** — the writing rules `check_ats.py` cannot see. Third person, unresolved
@@ -364,10 +390,10 @@ PDF, because a bullet is an unambiguous `\item` there and needs no library to fi
 ### `okf gates`
 
 ```bash
-python3 scripts/okf.py gates <out-dir> --view <id>
-python3 scripts/okf.py gates <out-dir> --view <id> --bundle ./my-career --pages 2
-python3 scripts/okf.py gates <out-dir> --view <id> --json
-python3 scripts/okf.py gates <out-dir> --view <id> --max-findings 0
+okf gates <out-dir> --view <id>
+okf gates <out-dir> --view <id> --bundle ./my-career --pages 2
+okf gates <out-dir> --view <id> --json
+okf gates <out-dir> --view <id> --max-findings 0
 ```
 
 The record, parse and prose gates over one rendered output directory, in **one process**. It is the
@@ -433,13 +459,15 @@ The exit code is the worst gate's: `0` all passed, `1` any failed, `2` called wr
 
 ## The bundle
 
-### `validate_bundle.py`
+### `okf validate`
+
+The `validate_bundle.py` module.
 
 ```bash
-python3 scripts/validate_bundle.py ./my-career
-python3 scripts/validate_bundle.py ./my-career --scope projects        # only that subtree
-python3 scripts/validate_bundle.py ./my-career --exclude-archive       # skip the frozen archive
-python3 scripts/validate_bundle.py ./my-career --max-findings 0        # print every one
+okf validate ./my-career
+okf validate ./my-career --scope projects        # only that subtree
+okf validate ./my-career --exclude-archive       # skip the frozen archive
+okf validate ./my-career --max-findings 0        # print every one
 ```
 
 Bundle is well-formed. Needs `pyyaml`. Run it after any change to the bundle.
@@ -474,13 +502,15 @@ is truncated is worse than a long one. `--scope` reports what it could not cover
 A run that checked a tenth of the bundle and looks like a clean one is the failure both of these
 flags are built to avoid.
 
-### `migrate_bundle.py`
+### `okf migrate`
+
+The `migrate_bundle.py` module.
 
 Brings a bundle built on an earlier layout up to the current one.
 
 ```bash
-python3 migrate_bundle.py <bundle>            # report what would change
-python3 migrate_bundle.py <bundle> --apply    # make the changes
+okf migrate <bundle>            # report what would change
+okf migrate <bundle> --apply    # make the changes
 ```
 
 `index.md` carries `okf_bundle:`, an integer layout revision. An absent stamp means revision 1,
@@ -545,18 +575,20 @@ prevent, and the tool is not exempt from its own rule.
 Standard library only. Frontmatter is edited line by line rather than round-tripped through a YAML
 parser, so comments, key order and quoting style survive and the change is legible in a diff.
 
-### `pipeline.py`
+### `okf pipeline`
+
+The `pipeline.py` module.
 
 What the job search needs from you this week, derived from every application's `# Timeline`.
 
 ```bash
-python3 pipeline.py <bundle>                   # what needs attention, most urgent first
-python3 pipeline.py <bundle> --all             # the full board, closed applications included
-python3 pipeline.py <bundle> --company NAME    # every application to one employer
-python3 pipeline.py <bundle> --as-of DATE      # compute against a date rather than today
-python3 pipeline.py <bundle> --markdown        # a table, to paste into a file
-python3 pipeline.py <bundle> --top 30          # rows per block, default 15
-python3 pipeline.py <bundle> --json            # the whole board, for something else to read
+okf pipeline <bundle>                   # what needs attention, most urgent first
+okf pipeline <bundle> --all             # the full board, closed applications included
+okf pipeline <bundle> --company NAME    # every application to one employer
+okf pipeline <bundle> --as-of DATE      # compute against a date rather than today
+okf pipeline <bundle> --markdown        # a table, to paste into a file
+okf pipeline <bundle> --top 30          # rows per block, default 15
+okf pipeline <bundle> --json            # the whole board, for something else to read
 ```
 
 `--company` is the "have I burned this one already" query, matched as a case-insensitive substring.
@@ -582,14 +614,16 @@ decides what an event means, so the board and the application files cannot disag
 
 Needs `pyyaml`.
 
-### `score_projects.py`
+### `okf score`
+
+The `score_projects.py` module.
 
 ```bash
-python3 scripts/score_projects.py record.json acme.posting.json
-python3 scripts/score_projects.py record.json acme.posting.json --markdown
-python3 scripts/score_projects.py record.json acme.posting.json --as-of 2026
-python3 scripts/score_projects.py record.json acme.posting.json --include-implicit
-python3 scripts/score_projects.py record.json acme.posting.json --assume-technologies "python,aws"
+okf score record.json acme.posting.json
+okf score record.json acme.posting.json --markdown
+okf score record.json acme.posting.json --as-of 2026
+okf score record.json acme.posting.json --include-implicit
+okf score record.json acme.posting.json --assume-technologies "python,aws"
 ```
 
 Ranks the record's `projects[]` against the posting's `requirements[]`. Both sides are JSON, and that
@@ -604,13 +638,15 @@ Standard library only.
 
 ## Fitting
 
-### `fit_pages.py`
+### `okf fit`
+
+The `fit_pages.py` module.
 
 ```bash
-python3 scripts/fit_pages.py resume.tex --target-pages 2
-python3 scripts/fit_pages.py resume.tex --dry-run
-python3 scripts/fit_pages.py resume.tex --in-place
-python3 scripts/fit_pages.py resume.tex -o fitted.tex
+okf fit resume.tex --target-pages 2
+okf fit resume.tex --dry-run
+okf fit resume.tex --in-place
+okf fit resume.tex -o fitted.tex
 ```
 
 Rewrites the density knobs in the `.tex`, recompiles, and measures the PDF that comes out. It applies

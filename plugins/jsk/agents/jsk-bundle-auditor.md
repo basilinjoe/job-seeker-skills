@@ -51,7 +51,7 @@ Confirm the bundle still compiles before you return, because a question about a 
 not build is the wrong question:
 
 ```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --quiet
+okf compile <bundle> --quiet
 ```
 
 Report its output verbatim.
@@ -76,7 +76,7 @@ On Windows `python3` is usually absent — fall back to `python`, then `py -3`.
 Then:
 
 ```bash
-python3 <skill-dir>/scripts/validate_bundle.py <bundle-path>
+okf validate <bundle-path>
 ```
 
 Report its output verbatim. `validate_bundle.py` needs `pyyaml`; if that is missing the script says

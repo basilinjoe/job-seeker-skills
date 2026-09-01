@@ -8,7 +8,7 @@ this file is phase 3; do not re-run preflight. When they arrive here directly, r
 a bundle built on a toolchain that cannot render is a bundle nobody can use yet:
 
 ```bash
-python3 <skill-dir>/scripts/preflight.py
+okf doctor --quick
 ```
 
 ## Ask two things
@@ -20,7 +20,7 @@ python3 <skill-dir>/scripts/preflight.py
 ## Create the skeleton
 
 ```bash
-python3 <skill-dir>/scripts/init_bundle.py <path> --name "Their Name"
+okf new <path> --name "Their Name"
 ```
 
 That creates directories, index files and an empty capability vocabulary — nothing else. The rules

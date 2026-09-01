@@ -44,7 +44,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pyyaml jsonschema pymupdf
+          pip install -e '.[dev]'
 
       - name: Install tectonic
         if: matrix.tex
@@ -70,14 +70,22 @@ jobs:
           done
           echo "ok    no TeX engine on PATH"
 
-      # preflight is the script that tells a person what this machine can do. If it
-      # disagrees with the machine, every gap it reports afterwards is untrustworthy -
-      # so it runs first and its output is the log's header.
+      # A linter that is not run is a linter that is switched off. Scoped in
+      # pyproject.toml to the rules that pass clean today, so a new finding here is a
+      # new problem rather than a pre-existing one.
+      - name: Lint
+        run: python -m ruff check src tests
+
+      # `okf doctor` is what tells a person what this machine can do. If it disagrees
+      # with the machine, every gap it reports afterwards is untrustworthy - so it runs
+      # before the tests and its output is the log's header. `--quick` because the
+      # verifying run renders a PDF, which the no-engine job cannot do and the tests
+      # cover anyway.
       - name: Preflight
-        run: python plugins/jsk/skills/jsk/scripts/preflight.py
+        run: okf doctor --quick
 
       - name: Tests
-        run: python -m pytest tests -q -rs
+        run: python -m pytest tests -q -rs -n auto
 
 # The manifest surface - the two versions agreeing, the three revision constants
 # agreeing, both documented revision tables reaching the current one, every script

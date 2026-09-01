@@ -48,7 +48,7 @@ A project heard in one sitting is usually four commands. In this order, because 
 reference the one before it establishes:
 
 ```bash
-OKF="python3 <skill-dir>/scripts/okf.py"
+OKF="okf"
 B="--bundle <bundle>"
 
 # 1. The employer and the job, if they are not already there.

@@ -32,7 +32,7 @@ change, and doing it at the end drops every wasted authoring pass.
 ## 0. Have they been here before?
 
 ```bash
-python3 <skill-dir>/scripts/pipeline.py <bundle> --company "<name>"
+okf pipeline <bundle> --company "<name>"
 ```
 
 **Before the posting is written down and before the analyst runs.** The match is a case-insensitive
@@ -63,7 +63,7 @@ fails, say what happened and ask them to paste it. That is an ordinary outcome, 
 Write it with the command, never by hand — the advertisement verbatim in the body, on stdin:
 
 ```bash
-python3 <skill-dir>/scripts/okf.py posting add --bundle <bundle> \
+okf posting add --bundle <bundle> \
   --company "…" --title "…" --url "…" --seniority <term> --domain <domain> --body -
 ```
 
@@ -123,7 +123,7 @@ $OKF project set $B --slug <stem> --headline-metric "…" --status confirmed
 Then recompile, so everything after this reads the answers:
 
 ```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --quiet
+okf compile <bundle> --quiet
 ```
 
 ## 4. A second round only if a verdict moved

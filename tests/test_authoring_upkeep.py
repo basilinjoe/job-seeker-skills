@@ -16,7 +16,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (CONCEPT, INIT_BUNDLE, SCRIPTS, VALIDATE_BUNDLE,
+from fixtures import (CLI, CONCEPT, INIT_BUNDLE, VALIDATE_BUNDLE,
                       authoring_module, run)
 
 upkeep = authoring_module("authoring.upkeep")
@@ -24,7 +24,7 @@ commands = authoring_module("authoring.commands")
 common = authoring_module("authoring.common")
 concept = authoring_module("authoring.concept")
 stage = authoring_module("authoring.stage")
-OKF = SCRIPTS / "okf.py"
+OKF = CLI
 
 
 def _parser():

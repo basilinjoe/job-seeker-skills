@@ -16,7 +16,7 @@ bundle (Markdown)  ->  resume.json (URS)  ->  render plan  ->  .tex -> .pdf   (t
 The reason is not tidiness. Two hand-built documents have to agree about every date, every bullet and
 every number, and they stop agreeing the moment one is edited — usually silently, usually in the copy
 that gets sent. One record with two emitters cannot drift, because no emitter decides what the
-document says. `scripts/urs/plan.py` makes every content decision exactly once; the emitters only
+document says. `jsk_okf/urs/plan.py` makes every content decision exactly once; the emitters only
 choose markup.
 
 There used to be a third and fourth file: a presentation `.docx` and an ATS-maximal `.docx`. They
@@ -93,7 +93,7 @@ maintained.
 5. **Validate before rendering — the gate in front of the gates:**
 
 ```bash
-python3 <skill-dir>/scripts/validate_urs.py resume.json --level 2
+okf validate resume.json --level 2
 ```
 
    Nothing is rendered from a document that fails. A defect in the record becomes a defect in every
@@ -102,7 +102,7 @@ python3 <skill-dir>/scripts/validate_urs.py resume.json --level 2
 6. **Render every format from that one file:**
 
 ```bash
-python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view <view-id> --pdf
+okf render resume.json --out . --view <view-id> --pdf
 ```
 
    Add `--ats-max` for the ATS-maximal variant. That writes the `.tex`, compiles it to the PDF, and
@@ -113,7 +113,7 @@ python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view <view-id
    `--template NAME` chooses the look. The default, `monolith`, is ink-only and conservative; four
    others use colour and typography to build a stronger visual hierarchy. All five say the same
    words in the same order and extract to identical text, so this is a question about the reader,
-   never about the parse. `--list-templates` describes them and `preview_templates.py` renders all
+   never about the parse. `--list-templates` describes them and `okf preview` renders all
    five from the record — nobody picks a resume design from a sentence. See `templates.md`.
 
 7. **Verify — not optional:**
@@ -121,21 +121,23 @@ python3 <skill-dir>/scripts/render_resume.py resume.json --out . --view <view-id
    The three mechanical gates run as one command, and its output is what you show:
 
 ```bash
-python3 <skill-dir>/scripts/okf.py gates . --view <id> --bundle <bundle> --pages N
+okf gates . --view <id> --bundle <bundle> --pages N
 ```
 
-   That is `validate_urs.py` on the bundle, `check_ats.py` on the PDF and again on the `.txt` with
-   `--strict`, and `check_prose.py` on the `.tex` and again on the `.txt` — five invocations in one
+   That is the record gate on the bundle, the parse gate on the PDF and again on the `.txt` with
+   `--strict`, and the prose gate on the `.tex` and again on the `.txt` — five invocations in one
    process, at about 0.6x the wall clock, each one's output printed verbatim. `--pages N` reports
    the count and never fails on it; step 8 is still what fixes an overrun. It never attempts the
    render gate and closes by saying so. The individual commands still work, and are the right thing
    for re-checking one file after one repair:
 
 ```bash
-python3 <skill-dir>/scripts/check_ats.py <Name>_Resume.pdf
-python3 <skill-dir>/scripts/check_ats.py <Name>_Resume_ATS.txt --strict
-python3 <skill-dir>/scripts/check_prose.py <Name>_Resume.tex
+okf check <Name>_Resume.pdf --only parse
+okf check <Name>_Resume_ATS.txt --only parse --strict
+okf check <Name>_Resume.tex --only prose
 ```
+
+   A single-gate run never closes by saying both passed — it names the three gates that did not.
 
    **Hand it to `jsk-verifier` when a gate fails and you cannot see where the defect came from**, or
    when step 9 needs a second pair of eyes. It quotes every verdict and names the concept each defect
@@ -163,7 +165,7 @@ puts the record and the document out of step, which is the failure this pipeline
 8. **Fit to the page budget** — measure, do not guess:
 
 ```bash
-python3 <skill-dir>/scripts/fit_pages.py <Name>_Resume.tex --target-pages 2
+okf fit <Name>_Resume.tex --target-pages 2
 ```
 
 It rewrites the `.tex`, recompiles it, counts, reports per-page fill, and — when the document runs over — names the block that

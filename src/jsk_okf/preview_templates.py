@@ -32,14 +32,13 @@ import subprocess
 import sys
 import tempfile
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
 
-from urs import themes  # noqa: E402
-from urs.tex import available_engine  # noqa: E402
+from .urs import themes
+from .urs.tex import available_engine
 
-RENDER = os.path.join(HERE, "render_resume.py")
+# `-m`, not a file path: a module inside a package run as a loose file gets no package
+# context, so render_resume's own relative imports would fail on the way in.
+RENDER = f"{__package__}.render_resume"
 
 
 def arg(argv, flag, default=None):
@@ -112,7 +111,7 @@ def main(argv):
         # times, and the last would win silently.
         with tempfile.TemporaryDirectory() as stage:
             proc = subprocess.run(
-                [sys.executable, RENDER, src, "--out", stage, "--template", name,
+                [sys.executable, "-m", RENDER, src, "--out", stage, "--template", name,
                  "--format", "latex", "--pdf", "--name", name] + passthrough,
                 capture_output=True, text=True)
             pdf = os.path.join(stage, f"{name}_Resume.pdf")

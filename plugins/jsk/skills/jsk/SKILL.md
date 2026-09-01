@@ -42,7 +42,7 @@ procedure.
 | Thing | Is | Made by |
 |---|---|---|
 | the bundle — `projects/`, `roles/`, `achievements/`, … | the source of truth, hand-written Markdown | the person |
-| the record | the bundle as URS, in memory, in under a second | `okf_compile.py` |
+| the record | the bundle as URS, in memory, in under a second | `okf compile` |
 | `<slug>.posting.md` | the advertisement verbatim, plus its requirements in frontmatter | `jsk-tailor-analyst` |
 | `<slug>.gaps.md` | verdicts, shortfalls and the question queue, written to be read aloud | `jsk-tailor-analyst` |
 | `<slug>.view.md` | which evidence appears, in what order, and the prose retuned for this posting | `jsk-resume-author` |
@@ -94,7 +94,7 @@ the name. Read its `index.md` then `log.md` — they orient you.
 revision, means the bundle predates the current layout:
 
 ```bash
-python3 <skill-dir>/scripts/migrate_bundle.py <bundle>
+okf migrate <bundle>
 ```
 
 Report mode writes nothing. Say what it found and **offer** the `--apply` run — never migrate
@@ -127,36 +127,31 @@ Load as needed rather than upfront:
 | `references/write-commands.md` | **the only way to change a bundle**: every noun and verb, the files one write implies, the refusals, and where the commands stop |
 | `references/rationale.md` | why the rules are what they are — read it when you need to *explain* one |
 
-## Scripts
+## The `okf` command
 
-They live in `scripts/`, **relative to this skill's own directory** — the absolute path you were
-given when this skill loaded, or `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install.
-Always invoke them by that absolute path. The working directory is the person's project, not the
-skill, so a bare `scripts/…` will not resolve.
+Everything this skill runs is one command, `okf`, from the `jsk-okf` package. There is no longer
+a path to get right. **Run `okf --version` before the first call in a session.** If the command is
+not found, `python3 -m jsk_okf` is the same entry point (`python` or `py -3` on Windows). If neither
+resolves, say so and stop — nothing here can run, and guessing at a path fails quietly.
 
-| Script | Does | Needs |
+| Command | Does | Needs |
 |---|---|---|
-| `preflight.py [--verify]` | what this machine can do, and what each gap disables | — |
-| `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
-| `okf.py <noun> <verb> --bundle DIR [...]` | **every change to a bundle** — the nouns listed below | `pyyaml` to read back |
-| `validate_bundle.py <bundle> [--scope SUBDIR] [--exclude-archive] [--max-findings N]` | bundle is well-formed | `pyyaml` |
-| `migrate_bundle.py <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
-| `pipeline.py <bundle> [--all] [--company N] [--as-of D] [--top N] [--json]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
-| `check_ats.py resume.pdf [--strict]` | the rendered PDF (or the `.txt`) is safe to send; also `main(argv)` for an in-process caller | `pymupdf` for a PDF |
-| `check_prose.py resume.tex` | the writing rules `check_ats.py` cannot see; also `main(argv)` | — |
-| `okf.py compile <bundle> [--view ID] [--no-views] [--compact] [--for score]` | the bundle as the record everything downstream reads — the concepts only, never the frozen archive | — |
-| `okf.py gates <out-dir> --view ID [--bundle DIR] [--pages N] [--json]` | the record, parse and prose gates in one process, each one's output verbatim; never the render gate | `pyyaml`, `pymupdf` for a PDF |
-| `okf.py score <bundle> <posting.md>` | ranks the projects against the posting's requirements | — |
-| `validate_urs.py <bundle \| resume.json> [--strict] [--max-findings N]` | the record is coherent, carries evidence, and lost nothing in compilation, before anything renders | `pyyaml` for a bundle |
-| `render_resume.py <bundle \| resume.json> --out DIR --view ID [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt`; `--view` is required wherever the record holds more than one | TeX engine for the PDF |
-| `preview_templates.py resume.json --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` for thumbnails |
-| `fit_pages.py resume.tex --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
+| `okf doctor [--quick]` | what this machine can do, and what each gap disables; `--quick` skips the end-to-end render | — |
+| `okf new <path> --name "Their Name"` | creates an empty bundle skeleton | — |
+| `okf <noun> <verb> --bundle DIR [...]` | **every change to a bundle** — the nouns listed below | `pyyaml` to read back |
+| `okf validate <bundle> [--scope SUBDIR] [--exclude-archive] [--max-findings N]` | bundle is well-formed | `pyyaml` |
+| `okf validate <resume.json> [--strict] [--level N] [--max-findings N]` | the record is coherent, carries evidence, and lost nothing in compilation, before anything renders | — |
+| `okf migrate <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
+| `okf pipeline <bundle> [--all] [--company N] [--as-of D] [--top N] [--json]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
+| `okf check <file> [--strict] [--only parse\|prose]` | both document gates on one file, or one of them — `--only parse` for the PDF and the `.txt`, `--only prose` for the `.tex` | `pymupdf` for a PDF |
+| `okf compile <bundle> [--view ID] [--no-views] [--compact] [--for score]` | the bundle as the record everything downstream reads — the concepts only, never the frozen archive | — |
+| `okf gates <out-dir> --view ID [--bundle DIR] [--pages N] [--json]` | the record, parse and prose gates in one process, each one's output verbatim; never the render gate | `pyyaml`, `pymupdf` for a PDF |
+| `okf score <bundle> <posting.md>` | ranks the projects against the posting's requirements | — |
+| `okf render <bundle \| resume.json> --out DIR --view ID [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt`; `--view` is required wherever the record holds more than one | TeX engine for the PDF |
+| `okf preview <resume.json> --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` for thumbnails |
+| `okf fit <resume.tex> --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
 
-```bash
-python3 <skill-dir>/scripts/check_ats.py resume.pdf --strict
-```
-
-Use `python` or `py -3` on Windows, where `python3` is usually absent.
+`okf --help` is the whole surface — read it rather than guessing at a flag.
 
 ### The write commands
 
@@ -185,14 +180,14 @@ interpreter starts saved — calling the same checkers with the same arguments. 
 output verbatim, treats a missing input as `SKIPPED` **and** a failure, and never attempts the render
 gate, in `--json` no less than in prose: a command that exited 0 having quietly skipped that one
 would be the most dangerous thing here. `--pages N` reports the page count and never fails on it;
-`fit_pages.py` still owns that verdict.
+`okf fit` still owns that verdict.
 
 Exit codes are uniform: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are
 required, not optional: the PDF is the only rendered deliverable, so without them there is nothing to
-send, nothing to check and nothing to measure. `render_resume.py --pdf` exits **non-zero** when no PDF
+send, nothing to check and nothing to measure. `okf render --pdf` exits **non-zero** when no PDF
 was produced, and the page count it prints is counted off that PDF rather than repeated back from the
 view's budget — *because a page count nobody measured is a page count nobody knows.* Over budget is
-named, not failed: `fit_pages.py` owns that verdict and is the script that can act on it. Everything
+named, not failed: `okf fit` owns that verdict and is the command that can act on it. Everything
 else runs on a bare Python.
 
 The scripts stay with the skill and a bundle never carries copies, so every bundle gets the current
@@ -233,12 +228,12 @@ parses, not that it is correct.*
 
 | Gate | Question | How |
 |---|---|---|
-| **Record** | Is the source coherent, and does every number trace to a metric? | `validate_urs.py` on `resume.json`, before anything renders |
-| **Parse** | Will an ATS read this without mangling it? | `check_ats.py` on the rendered `.pdf`, and `--strict` on the `.txt` (or on an ATS-maximal PDF) |
-| **Prose** | Does it obey the writing rules? | `check_prose.py` on the `.tex` and on the plain text |
+| **Record** | Is the source coherent, and does every number trace to a metric? | `okf validate resume.json`, before anything renders |
+| **Parse** | Will an ATS read this without mangling it? | `okf check` on the rendered `.pdf`, and `--strict` on the `.txt` (or on an ATS-maximal PDF) |
+| **Prose** | Does it obey the writing rules? | `okf check --only prose` on the `.tex` and on the plain text |
 | **Render** | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
 
-The first three run together as `okf.py gates <out-dir> --view ID`. The fourth is a person opening
+The first three run together as `okf gates <out-dir> --view ID`. The fourth is a person opening
 the PDF, and no command claims it.
 
 All gates must pass. Show the output — the person should see the evidence rather than take your word
@@ -251,10 +246,10 @@ an agent does better. It has no way to edit a document, which is deliberate: a d
 the concept and re-rendered, never patched into the PDF.
 
 **If no PDF renderer is available**, say so and mark the resume unverified rather than treating a
-passing `check_ats.py` as sufficient. *An unverified resume the person knows about is fine; one they
+passing the parse gate as sufficient. *An unverified resume the person knows about is fine; one they
 think was checked is not.*
 
-Run `validate_bundle.py` after any change to the bundle.
+Run `okf validate <bundle>` after any change to the bundle.
 
 `references/rationale.md` holds the three real resumes that passed the parse gate and should not
 have. Read it when someone asks why there are four gates.

@@ -25,6 +25,14 @@ Four things make it different:
 
 ### Install
 
+The toolchain is a Python package, and the skill drives it:
+
+```
+pip install 'jsk-okf[all]'
+```
+
+Then the plugin:
+
 ```
 /plugin marketplace add basilinjoe/job-seeker-skills
 /plugin install jsk@job-seeker-skills
@@ -96,7 +104,7 @@ translation layer. Keep it in a repo you control so it outlives any single tool,
 | [Quickstart](docs/QUICKSTART.md) | Install to first resume, ten minutes |
 | [Concepts](docs/CONCEPTS.md) | The vocabulary, on one screen |
 | [Why it works this way](docs/WHY.md) | The reasoning behind every design decision |
-| [Scripts](docs/SCRIPTS.md) | The thirteen tools: flags, dependencies, exit codes |
+| [Scripts](docs/SCRIPTS.md) | The `okf` command: every subcommand, flags, dependencies, exit codes |
 | [Architecture](docs/ARCHITECTURE.md) | For anyone editing this repo |
 | [URS, explained](docs/urs-guide.md) | The résumé record format, walked through a real document |
 | [URS spec](plugins/jsk/skills/jsk/references/urs-spec.md) | The normative definition of the record: every type, every MUST |
@@ -105,11 +113,15 @@ translation layer. Keep it in a repo you control so it outlives any single tool,
 ### Tests
 
 ```bash
-python -m pytest tests -q          # the whole suite, under two minutes
+python -m pytest tests -n auto         # the whole suite in parallel, about two minutes
+python -m pytest tests -q              # serially, about five
 python -m unittest discover -s tests   # the same tests, with no pytest installed
 ```
 
-Standard library `unittest`; fixtures are generated into temp directories, nothing is committed.
+Standard library `unittest`, run against `src/` directly — so the suite always tests the working
+tree, never whatever `jsk-okf` happens to be installed. Install `.[dev]` first: `pyyaml` is needed
+to read a bundle and most tests build one. Fixtures are generated into temp directories, nothing is
+committed.
 Every test pins a specific documented rule — the checker is the gate, so it does not go unchecked.
 Most of the runtime is TeX: the render tests compile real PDFs, and they skip themselves rather than
 fail where no TeX engine or `pymupdf` is installed.
