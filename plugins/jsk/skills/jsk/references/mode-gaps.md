@@ -28,10 +28,15 @@ makes it easy to leave in and hard to defend when someone asks a follow-up.
 
 ## Run it
 
-**Scan first, then talk.** Send `jsk-bundle-auditor` the bundle path. It reads every concept and
-writes `resume-generation/audit.gaps.md` — the gaps already ordered, each with the question written
-ready to ask. That keeps a full-bundle read out of the conversation and leaves you the part that
-needs a person.
+**Scan first, then talk.** Send `jsk-bundle-auditor` the bundle path. It writes
+`resume-generation/audit.gaps.md` — the gaps already ordered, each with the question written ready
+to ask. That keeps a full-bundle read out of the conversation and leaves you the part that needs a
+person.
+
+For a quick look without spawning anything, `okf list <bundle> unconfirmed` is the same queue in one
+command: every `inferred` and `needs-verification` claim, with its id and its file, ordered by the
+priority below. It is derived, so it cannot miss one — and it cannot judge one either, which is why
+the auditor still exists.
 
 A record audit carries `purpose: self-assessment` and **no requirements table and no verdicts**. A
 verdict is a judgement against something a posting asked for, and there is no posting here — nothing

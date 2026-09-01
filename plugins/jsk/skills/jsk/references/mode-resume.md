@@ -81,6 +81,7 @@ maintained.
    - Write one view per variant, **with the command** — never `Write` or `Edit` inside the bundle:
 
      ```bash
+     $OKF list <bundle> bullets     # the achievement ids, and each one's provenance
      $OKF view create $B --posting <stem> --format-profile ats-maximal --pages 2
      $OKF view include $B --view <stem> --ref <engagement id> --order 1 \
        --achievement <ach id> --achievement <ach id>
@@ -89,6 +90,13 @@ maintained.
      A view **selects**: it references ids, orders them, redacts. It never contains content text,
      the validator rejects it if it does, and `view include` refuses an id that does not resolve —
      which is the mistake that would otherwise be caught after the view was written, if at all.
+
+     **`okf list <bundle> bullets` is where the `<ach id>` values come from.** They are derived
+     from position — `ach_projects_care_platform_md_2` — so they are not written in the concept
+     unless a claim mutation has materialised them, and guessing one is how a view selects the
+     bullet above the one intended. The listing prints each bullet's own provenance beside its
+     id, which is the other half of what you need: a view carrying `provenance_floor: confirmed`
+     will not render an `inferred` bullet, and discovering that at render time costs the round.
 
 5. **Validate before rendering — the gate in front of the gates:**
 

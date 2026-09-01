@@ -43,6 +43,17 @@ whole surface.
     okf view create|set|include which evidence renders, and in what order
     okf application file|event  freeze a submission, and record what came back
 
+Reading a bundle is five verbs, and not one of them compiles. Each walks the concepts
+as they sit on disk, skips the frozen archive unless --archive asks for it, takes
+--json, and exits 0 whether or not it found anything: a query reports what is there
+and leaves the verdicts to the gates.
+
+    okf search BUNDLE [TEXT]    find text or metadata anywhere in the record
+    okf list BUNDLE NOUN        an inventory - projects, bullets, views, orphans, ...
+    okf show BUNDLE ID          what one compiled id names, and the file to read it in
+    okf refs BUNDLE ID|STEM     everything that still points at one thing
+    okf stats BUNDLE            what the bundle holds, counted
+
 Standard library only, and pyyaml to read a concept back.
 """
 
@@ -588,6 +599,26 @@ def cmd_write(noun):
     return run_write
 
 
+# Every verb the read layer answers to. Listed here for the same reason WRITE_NOUNS is:
+# `okf --help` and `okf <unknown>` have to name them without paying for the import.
+# `subcommands()` in tests/test_plugin_surface.py reads this tuple by name - a verb
+# added to the layer and not to this list is a verb the documentation tests cannot see.
+QUERY_VERBS = ("search", "list", "show", "refs", "stats")
+
+
+def cmd_query(verb):
+    """One read verb, dispatched in this interpreter.
+
+    Same shape as cmd_write and for the same reason. A query is meant to be the cheap
+    way to answer a question - cheaper than the compile it replaces - and a subprocess
+    would spend an interpreter start doing nothing but forwarding.
+    """
+    def run_query(args):
+        from .query import commands  # noqa: PLC0415 - only when a query runs
+        return commands.main([verb] + list(args))
+    return run_query
+
+
 HANDLERS = {
     "doctor": cmd_doctor,
     "validate": cmd_validate,
@@ -596,6 +627,7 @@ HANDLERS = {
     "score": cmd_score,
 }
 HANDLERS.update({noun: cmd_write(noun) for noun in WRITE_NOUNS})
+HANDLERS.update({verb: cmd_query(verb) for verb in QUERY_VERBS})
 
 
 def usage():

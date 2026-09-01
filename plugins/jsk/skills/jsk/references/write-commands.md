@@ -38,8 +38,17 @@ Four flags are on every one of them:
 | `--json` | prints the files changed, the files removed, and every id written or minted |
 | `--set KEY=VALUE` | an extension key, repeatable — for a key the format does not model |
 
-`--json` is how you learn an id you did not already know: a command that mints one reports it,
-so there is no `list` verb and no need to reopen the file.
+`--json` is how you learn the id of something you just wrote: a command that mints one reports
+it, so **no write verb needs a companion read** and there is never a reason to reopen the file
+you have this moment written.
+
+That is a claim about writing, and it stays true. It is not a claim that a bundle cannot be
+asked a question — finding a bullet you wrote four months ago is a different need, and `okf
+list <bundle> bullets`, `okf search` and `okf show` are what answer it. The read layer is
+documented in `docs/SCRIPTS.md`; the one you will want most is `okf list <bundle> bullets`,
+because `okf view include` names a bullet id and this is how you see the ids the compile
+derived. Nothing there writes, and nothing there is a substitute for `--json` on the write you
+are currently making.
 
 Exit codes are the same everywhere in this skill: `0` did it, `1` refused, `2` called wrong.
 **Every refusal names its cause and ends in a `fix:` line.** Read it; it is the whole of what

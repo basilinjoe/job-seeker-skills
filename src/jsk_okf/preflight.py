@@ -57,6 +57,14 @@ URS_MODULES = ["urs", "urs.plan", "urs.profiles", "urs.tex",
 # with a blind spot over five commands, which is the failure this file exists to
 # prevent.
 AUTHORING_MODULES = ["authoring", "authoring.concept"]
+
+# The read layer, checked for the same reason and with the same blind spot in mind. Every
+# query verb imports its module lazily, so a truncated install missing this package leaves
+# `okf --help` listing five commands that cannot run, and the failure surfaces at the
+# first `okf search` as a refusal rather than here. `walk` and `ids` are named rather than
+# the package alone because they are what the other seven modules are built on: a
+# `query/` directory with only `__init__.py` in it imports cleanly and answers nothing.
+QUERY_MODULES = ["query", "query.walk", "query.ids"]
 SCHEMA_FILES = ["profile.schema.json", "example.resume.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
 
@@ -183,6 +191,12 @@ def gather(bundle_arg=None):
         "authoring package", not missing_auth,
         disables=f"missing: {', '.join(missing_auth)}" if missing_auth
                  else "", detail=os.path.join(HERE, "authoring")))
+
+    missing_query = present(QUERY_MODULES)
+    checks.append(Check(
+        "query package", not missing_query,
+        disables=f"missing: {', '.join(missing_query)}" if missing_query
+                 else "", detail=os.path.join(HERE, "query")))
 
     missing_schema = [f for f in SCHEMA_FILES if not os.path.exists(os.path.join(SCHEMA, f))]
     missing_prof = [p for p in PROFILES

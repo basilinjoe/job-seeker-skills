@@ -51,7 +51,28 @@ class ResidentCost(unittest.TestCase):
         # Measured: 4391 before, 4825 after, having twice cut everything
         # redundant with references/write-commands.md - which is where the
         # explanation lives, loaded on demand. 4900 is that plus headroom.
-        self.assertLess(tokens(SKILL / "SKILL.md"), 4900)
+        #
+        # 4900 -> 5200 when the read layer landed - `okf search|list|show|refs|
+        # stats`. Measured: 4789 before, 5128 after, the addition being five table
+        # rows, the fourteen `list` nouns, and the four sentences that say to reach
+        # for these before `Grep` or a record dump.
+        #
+        # This one is a *net saving* and that is the argument for it, rather than
+        # the correctness argument the write nouns rest on. An agent that does not
+        # know `okf list <bundle> bullets` exists gets a bullet id the only other
+        # way there is: `okf compile --dump-record`, which docs/SCRIPTS.md measures
+        # at 32,190 bytes on a hundred-target bundle - about 8,000 tokens, and
+        # `--for score` cannot narrow it because that flag drops the achievements
+        # the ids belong to. So 339 resident tokens replace roughly 8,000 per run,
+        # the first time it is needed. `okf list unconfirmed` is the same trade
+        # against jsk-bundle-auditor's whole-bundle read.
+        #
+        # It also buys a smaller correctness guarantee, which is worth naming
+        # because it is not measurable: a `Grep` for a phrase cannot see that the
+        # bullet it found is `inferred`, and an agent that reaches for `Grep`
+        # because it does not know `okf search` exists gets an answer with the
+        # provenance stripped off.
+        self.assertLess(tokens(SKILL / "SKILL.md"), 5200)
 
 
 class AgentReadBudget(unittest.TestCase):
@@ -137,8 +158,19 @@ class TheWritePathReadsNoFormatSpecification(unittest.TestCase):
         design's own estimate of 5,330 - so it was more than half the cost of
         recording one project. The mode file grew by 285 tokens to hold the
         commands, which is the trade.
+
+        6400 -> 6700 with the read layer. 6,050 before, 6,562 after: 339 of it is
+        SKILL.md's five rows (see ResidentCost) and 173 is the `okf search` dedupe
+        check this mode now opens its write section with.
+
+        That 173 is the cheapest thing in this file. People re-tell the same work
+        months apart in different words, and neither telling mentions the other; a
+        second concept for one project splits its bullets across two files, so the
+        ranking sees two weak projects where there was one strong one. One search
+        before the first write costs 173 resident tokens and a command; finding it
+        after a resume is written is a merge somebody does by hand.
         """
-        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-braindump.md"), 6400)
+        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-braindump.md"), 6700)
 
     def test_the_write_reference_is_loaded_on_demand_and_not_by_a_mode(self):
         """`write-commands.md` is the reference, and it is deliberately NOT a
@@ -206,11 +238,18 @@ class TheMainThreadBudget(unittest.TestCase):
         # design predicted - "bundle-spec.md stops being a mandated read on the
         # write path" - and it is why the number moved by 300 rather than by the
         # 800 the commands themselves cost to document.
+        #
+        # 10700 -> 10900 with the read layer. The whole 339-token rise is
+        # SKILL.md's; neither mode file here gained a line. `mode-tailor.md` was
+        # deliberately left alone - `jsk-tailor-analyst` compiles with
+        # `--no-views --for score --compact` because a ranking needs the whole
+        # projection, and no query replaces that. A read command documented where
+        # it would not be used is a resident cost with nothing behind it.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
                    REFS / "mode-ship.md"),
-            10700)
+            10900)
 
 
 if __name__ == "__main__":

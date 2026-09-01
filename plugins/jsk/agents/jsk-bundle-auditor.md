@@ -65,11 +65,33 @@ narrowing and say what you skipped.
 
 On Windows `python3` is usually absent — fall back to `python`, then `py -3`.
 
+## Start with what is already derived
+
+Three commands answer most of the mechanical half before you open a single concept, and they
+answer it the same way every time:
+
+```bash
+okf stats <bundle-path>                     # what is here, and the provenance mix
+okf list <bundle-path> unconfirmed          # every inferred and needs-verification claim
+okf list <bundle-path> orphans              # uncited metrics, unused vocabulary, un-included bullets
+```
+
+`okf list unconfirmed` is the queue this agent used to build by reading every concept. Start from
+it. It is ordered by what unblocks most, it carries each claim's id and file, and it cannot miss
+one the way a read can. **What it cannot do is judge** — whether a `needs-verification` number is
+worth chasing, whether a title is illegible to an outsider, whether a project is under-tagged. That
+is the whole of what you are for, and it is why the reading below still happens.
+
+`okf search <bundle-path> "<term>"` is the right tool for a specific suspicion — a capability named
+in prose but absent from frontmatter, a number that appears in two places. It reports the line and
+the provenance of the claim the hit sits in.
+
 ## Read in this order
 
 1. `index.md` and `log.md` — they orient you, and `log.md` dates the last pass
-2. `open-questions.md` — the standing list
-3. All of `projects/`, then `profile/`, `achievements/metrics.md`, and the role concepts
+2. `open-questions.md` — the standing list. `okf list <bundle> questions` is the same list, derived
+3. All of `projects/`, then `profile/`, `achievements/metrics.md`, and the role concepts —
+   this is the judgement pass, over material the commands above have already inventoried
 4. `framework/capability-vocabulary.md` — you need the controlled vocabulary to spot a synonym
 5. `resume-generation/*.md` if present — **a bundle's own rules beat the skill's defaults**
 

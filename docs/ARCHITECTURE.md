@@ -127,6 +127,16 @@ src/jsk_okf/                        THE CLI. one installed package, `okf` on the
     upkeep.py                       capability, question, log, reindex
     tailoring.py                    posting, gaps, view
     archive.py                      application file, application event
+  query/                            the read layer - asking a bundle a question
+    walk.py                         the one walk: path, line offset, frozen-ness
+    ids.py                          a compiled id -> the file it came from
+    filters.py                      what a filter flag means, for every command
+    render.py                       the tables, the row cap, the --json envelope
+    search.py                       text and metadata matching
+    listing.py                      the `okf list` nouns and their columns
+    refs.py                         what still points at one thing
+    audit.py                        unconfirmed, orphans, and the stats census
+    commands.py                     the CLI: search | list | show | refs | stats
   urs/                              record -> document, and the three CLIs that drive it
     plan.py                         every content decision, made exactly once
     resolve.py                      *what* the document says   formatting.py *how* one value reads
@@ -182,16 +192,32 @@ file invoked them by absolute path. Fifteen paths to get right became one comman
 
 ## What is a package here, and what is not
 
-Two subpackages, and both were measured before they were made. The test is whether the
-members import *each other* more than they import outward - a group whose members share
-no edges is a folder with a theme, not a module.
+Three subpackages, and every one was measured before it was made. The test is whether
+the members import *each other* more than they import outward - a group whose members
+share no edges is a folder with a theme, not a module.
 
 | Proposed | Edges crossing the boundary | Edges inside | Verdict |
 |---|---|---|---|
 | `urs/` — rendering, preview, page fitter, over the record→document pipeline | **2**, both lazy | many | **made** |
 | `gates/` — record, parse, prose | **2**, both lazy, both `validate_urs`'s | 1 | **made** |
+| `query/` — search, list, show, refs, stats, over one walk | **9** | **24** | **made** |
 | `bundle/` — compile, validate, init, migrate | 8 | **0** | rejected |
 | `pipeline/` — board and model | 5 | 1 | rejected |
+
+`query/` is the one with a high absolute count on both sides, so it is worth saying why
+it passes rather than resting on the ratio. Nine of its edges leave, and every one of
+them exists to *avoid a second implementation* of something this package already
+decides: `okf_compile.ident` and `slug` for how an id is built, `okf_compile.metrics_table`
+for what a metric is called, `okf_compile.census` for what a type census counts,
+`authoring.body` for how a claim block parses, `authoring.common.vocabulary_terms` for
+what counts as vocabulary, and `authoring.career.references` for what points at a
+concept. Removing any of those edges means copying the rule, and a copied rule here is
+a query that disagrees with the compile about what the bundle says.
+
+The twenty-four inside are the real argument. Seven of the nine modules import `walk`,
+`render` or both, because there is exactly one walk and exactly one output contract, and
+that is the whole reason the group is a module rather than five commands that happen to
+read Markdown.
 
 `bundle/` is the instructive one: the four modules that all operate on a bundle import
 each other **zero** times. Grouping them would have added eight boundary crossings and

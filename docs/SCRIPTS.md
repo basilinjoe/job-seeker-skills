@@ -30,6 +30,11 @@ okf fit resume.tex --target-pages 2
 okf preview resume.json --out ./looks
 okf migrate ./my-career          # report; --apply to write
 okf pipeline ./my-career         # the week's board
+okf search ./my-career "latency"   # every mention, with the line to open
+okf list ./my-career bullets     # an inventory of one kind of thing
+okf show ./my-career prj_care    # what one compiled id names, and where
+okf refs ./my-career care        # what still points at it
+okf stats ./my-career            # what the bundle holds, counted
 ```
 
 Each read subcommand reaches the module documented below it with the same arguments and the same
@@ -635,6 +640,184 @@ exclusion is printed. `--include-implicit` scores them and prints that instead. 
 moves a ×3 term is an invented requirement, so neither choice is made silently.
 
 Standard library only.
+
+## Asking the bundle
+
+Five verbs that read a bundle and answer a question about it, in the `jsk_okf.query` package.
+There is no module per verb below: the package is one read layer and `okf` is how it is called,
+the same arrangement the write commands have.
+
+```bash
+okf search <bundle> "latency"              # every mention, with the line to open
+okf search <bundle> --capability azure-ai --strength 4+   # metadata, no text
+okf list <bundle> bullets                  # an inventory of one kind of thing
+okf show <bundle> ach_projects_care_md_2   # what one compiled id names
+okf refs <bundle> care-platform            # what still points at it
+okf stats <bundle>                         # what the bundle holds, counted
+```
+
+Three things hold across all five, and each of them is a decision rather than an accident.
+
+**Nothing here compiles.** `okf compile` walks the tree, parses every concept, resolves every
+relation and refuses a bundle it does not like. Ids are derived instead, out of the same helpers
+the compile derives them with, and `tests/test_query.py` pins the two against each other: every id
+in a compiled record resolves through `okf show`.
+
+Two things follow, and only one of them is speed. **A query answers on a bundle `okf compile`
+would refuse** — a dangling `role:`, a date that does not parse — which is exactly the state a
+bundle is in while somebody is working on it, and exactly when the question gets asked. And these
+answer questions the record does not contain at all: a claim's own provenance, a metric nothing
+cites, a bullet no view includes.
+
+On speed, be precise, because the honest figure depends on the question. A **targeted** query is
+dramatically cheaper: `okf show <id>` is about 11ms against a 549ms compile on a 235-file bundle,
+because the candidate filter and `must_contain` skip the YAML parse — which is five sixths of a
+walk — for every file that cannot hold the answer. A **whole-bundle** query costs about one walk,
+and so does a compile: `load()` is `concepts()` plus dict-building, and the dict-building is nearly
+free. So `okf list unconfirmed` is not meaningfully faster than compiling; it is a walk, which is
+the floor. What it is instead is *answerable* — a compile cannot tell you which claims are
+`inferred`, at any price.
+
+**The frozen archive is not read** unless `--archive` asks for it. `tailoring/applications/` holds
+the copies frozen beside each sent application, the compile skips them, and a hit in one may not be
+acted on: editing it changes the record of what was already posted. Every archived row is marked
+`FROZEN` and says so. `okf refs` is the one exception and explains itself — see below.
+
+**Exit 0 when it ran, 2 when you called it wrong, and never 1.** A query has no findings. It
+reports what is there, and whether that is a *problem* is a gate's judgement — an `inferred` claim
+is a legitimate state, and a search that matched nothing has still answered the question. `okf
+pipeline` exits 1 and is not a counter-example: it derives urgency against a date, which is a
+judgement it was built to make.
+
+Every verb takes `--json`, and `--json` is never truncated by `--top`: the cap is a reading aid and
+a parser does not read.
+
+### `okf search`
+
+```bash
+okf search <bundle> "event propagation"        # folded, plain text
+okf search <bundle> "p9[59]" --regex           # a pattern
+okf search <bundle> "Azure" --case-sensitive
+okf search <bundle> "latency" --scope projects # one subtree
+okf search <bundle> "latency" --frontmatter    # or --body
+okf search <bundle> --status inferred          # filters alone, no text
+okf search <bundle> --capability event-driven-architecture --strength 4+ --recency 2023+
+```
+
+A hit reports the file and **the line to open**, the concept it is in, and — where the match landed
+inside a `# Bullets`, `# Skills` or `# Held` item — that claim's own id and its own provenance. That
+last part is the reason this exists rather than `grep`: a match in an `inferred` bullet and a match
+in a confirmed one look identical to a text search, and only one of them may reach a resume.
+
+**With filters and no text it is the tailoring query.** `--capability X --strength 4+ --recency
+2023+` selects projects without compiling, which is what `okf score` needs a record for and what an
+agent was previously dumping 32KB of JSON to answer.
+
+The matching axes compare as **exact strings** — `capabilities` is the primary matching axis,
+`bundle-spec.md` says a synonym silently breaks matching, and `okf validate` errors on a term absent
+from the vocabulary. A filter here that matched loosely would hand back a project the *scorer* will
+not match, which is worse than handing back nothing: it reads as evidence a ranking is about to use.
+Free text is the opposite case and is folded, because somebody typing `latency` is not asserting a
+case. Repeats of one flag read as "carries all of these".
+
+`--regex` and `--case-sensitive` both give up a speed optimisation and say so in the code: an
+exact-case literal lets the walk skip the YAML parse on any file that cannot match, and neither of
+those two can be pre-filtered soundly. A search that quietly missed a file is the one failure a
+search must not have.
+
+### `okf list`
+
+```bash
+okf list <bundle> projects        # roles orgs education
+okf list <bundle> bullets         # skills credentials metrics
+okf list <bundle> views           # postings questions capabilities
+okf list <bundle> unconfirmed     # orphans
+```
+
+An inventory of one kind of thing, with the columns that kind is chosen by. The metadata filters
+apply where they mean something: `okf list <bundle> projects --capability X --strength 4+`.
+
+**`bullets` is the one with a blocker behind it.** `okf view include` names a bullet id, and until
+this existed the only way to see `ach_projects_care_platform_md_2` was to dump the whole record. The
+ids it prints are the ids the write layer accepts — asserted against `authoring.common.item_ids`,
+which is what `view include` validates against, so a printed id cannot be one that command then
+refuses.
+
+`metrics` counts how many bullets cite each number, and `capabilities` how many projects carry each
+vocabulary term, marking the ones on three or more: `bundle-spec.md` calls those the ones safe to
+claim as a through-line in a summary.
+
+`unconfirmed` is every claim that is `inferred` or `needs-verification`, ordered by what unblocks
+most — `mode-gaps.md`'s own priority order. It replaces a whole-bundle read: `jsk-bundle-auditor`
+was specified as "reads every concept" to find exactly this.
+
+`orphans` reports only what **nothing else checks** — a vocabulary term no project carries, a metric
+no bullet cites, a bullet no view includes, a project with no `role:`, a posting missing its
+`.gaps.md` or `.view.md` companion. It deliberately does *not* report a capability missing from the
+vocabulary, because `okf validate` already errors on that: a query that repeats a gate's finding
+teaches people the gate is optional.
+
+### `okf show`
+
+```bash
+okf show <bundle> prj_care_platform
+okf show <bundle> ach_projects_care_platform_md_2
+okf show <bundle> prj_care_platform --path      # the path alone, to feed to a reader
+```
+
+What one compiled id names, which file it came from, the line it is on, and what the file says about
+it. Every prefix the compile mints resolves: `prj_` `pos_` `org_` `eng_` `edu_` `cred_` `ach_`
+`skill_` `met_` `nar_` `view_`.
+
+It mints nothing the record does not carry, and that restraint is load-bearing. A `Certification
+Status` concept with a `# Held` block does not compile to `cred_<stem>`, so that id is not offered —
+an id that resolved here and existed nowhere in the record would be written into a view's
+`include[].ref` by somebody who trusted this command, and the view would then render nothing with no
+gate to name the phantom.
+
+An unknown id exits 2 and names the near misses. These ids are long, derived and typed from memory,
+so a typo is the overwhelmingly likely cause and silence would send somebody looking for a concept
+they never wrote.
+
+### `okf refs`
+
+```bash
+okf refs <bundle> care-platform          # a file stem
+okf refs <bundle> prj_care_platform      # or its compiled id - either spelling
+okf refs <bundle> met_event_propagation_latency
+```
+
+Everything that still points at one thing: a `role:` or `organisation:` key, a Markdown link, a
+view's `include[].ref`, a bullet's `metric:`, an archived application's relative paths.
+
+This is the question `okf project rm` already answers in its refusal, and until now nobody could
+*ask* it. It calls the same function that builds that refusal, so the two cannot disagree — a query
+that said a delete was safe where `rm` refuses, or the reverse, would be worse than no query at all.
+
+When nothing points at the target it says so plainly, and that is the practical value of the whole
+command: it is the sentence that tells you `okf <noun> rm` will permit the delete.
+
+### `okf stats`
+
+```bash
+okf stats <bundle>
+```
+
+What the bundle holds, counted: concepts by type, the provenance mix, the counts of projects,
+bullets, skills, metrics, views, postings and applications, the date span, and the capability
+histogram.
+
+The type counts **agree with `okf_compile.census()`**, and a test asserts the equality rather than
+leaving it to be believed. They are counted over a `tailoring="all"` walk — everything except the
+frozen archive, which is `census()`' own boundary — because calling `census()` *as well* meant
+walking those 435 files twice to produce numbers a test already holds to being identical.
+
+That boundary is wider than the other four verbs use, and deliberately: `census()` exists so that a
+compiler dropping a whole type is visible, and every check written about the survivors of such a
+drop iterates an empty list and passes. `census()` remains the definition these counts may not
+drift from; the equality test is what stops them.
+
+Needs `pyyaml`.
 
 ## Fitting
 

@@ -150,8 +150,23 @@ resolves, say so and stop — nothing here can run, and guessing at a path fails
 | `okf render <bundle \| resume.json> --out DIR --view ID [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt`; `--view` is required wherever the record holds more than one | TeX engine for the PDF |
 | `okf preview <resume.json> --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` for thumbnails |
 | `okf fit <resume.tex> --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
+| `okf search <bundle> [TEXT] [filters]` | a mention, with the line to open and the provenance of the claim it sits in; filters with no TEXT select projects without compiling | `pyyaml` |
+| `okf list <bundle> <noun>` | an inventory of one kind of thing | `pyyaml` |
+| `okf show <bundle> <id>` | what a compiled id names, and where to read it | `pyyaml` |
+| `okf refs <bundle> <id>` | what still points at it, so you know whether `rm` would permit a delete | `pyyaml` |
+| `okf stats <bundle>` | what the bundle holds, counted | `pyyaml` |
 
 `okf --help` is the whole surface — read it rather than guessing at a flag.
+
+### The read commands
+
+`okf list` nouns: `projects` `roles` `orgs` `education` `skills` `bullets` `credentials`
+`metrics` `views` `postings` `questions` `capabilities` `unconfirmed` `orphans`.
+
+None compiles, all take `--json` and `--archive`, and all exit 0 whether or not they found
+anything. **Reach for these before `Grep` or a record dump:** `okf list <bundle> bullets` shows
+the ids `view include` takes, and `okf list <bundle> unconfirmed` is the gap queue without
+reading every concept.
 
 ### The write commands
 

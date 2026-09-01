@@ -44,6 +44,19 @@ placeholder in a document they might send.**
 `references/write-commands.md` is the surface, and `okf <noun> --help` the flags. You do not need to
 read `bundle-spec.md` to author a concept: house style is structural now.
 
+**Check it is not already there first.** One command, before the first write:
+
+```bash
+okf search <bundle> "<a distinctive phrase from what they described>"
+```
+
+People re-tell the same work months apart, in different words, and neither telling mentions the
+other. A second concept for one project is the failure that costs most later: the ranking sees two
+weak projects where there was one strong one, and the bullets are split across both so neither
+reads as evidence. Finding it now is one command; finding it after a resume is written is a merge
+somebody has to do by hand. If something turns up, `okf project set` extends the concept that
+exists rather than adding a rival to it.
+
 A project heard in one sitting is usually four commands. In this order, because each refuses a
 reference the one before it establishes:
 

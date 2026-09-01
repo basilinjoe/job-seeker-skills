@@ -273,25 +273,63 @@ class DocumentedSurface(unittest.TestCase):
     # the command does not exist, and an agent holding the skill went on hand-authoring
     # the four files that command writes.
 
-    def subcommands(self):
-        """Every subcommand `okf` answers to, read off its three dispatch tables.
+    # The tuples HANDLERS is built from rather than spelt with. Each exists because
+    # every one of its entries dispatches identically, so the names are listed once -
+    # and each is therefore invisible to a test that reads only the dict literals.
+    # WRITE_NOUNS was the first: a test reading the literals alone saw none of the
+    # sixteen write commands. QUERY_VERBS is the second, and the failure it would
+    # have had is the same one this class exists to prevent - the two tests below
+    # would have gone on passing while naming none of the five read commands, so
+    # `okf search` would have been absent from the help text and from
+    # docs/SCRIPTS.md with nothing to say so.
+    DISPATCH_TUPLES = ("WRITE_NOUNS", "QUERY_VERBS")
 
-        WRITE_NOUNS is the third, and it is a tuple rather than a dict literal
-        because every one of its entries dispatches the same way - so the names are
-        listed once and HANDLERS is built from them. A test reading only the dict
-        literals saw none of the sixteen write commands.
-        """
+    def subcommands(self):
+        """Every subcommand `okf` answers to, read off its four dispatch tables."""
         text = (SCRIPTS / "cli.py").read_text(encoding="utf-8")
         found = set()
         for table in ("SIMPLE", "HANDLERS"):
             block = re.search(rf"^{table} = \{{(.*?)^\}}", text, re.M | re.S)
             self.assertIsNotNone(block, f"okf.py: no {table} table found")
             found |= set(re.findall(r'^    "([a-z]+)":', block.group(1), re.M))
-        nouns = re.search(r"^WRITE_NOUNS = \((.*?)\)", text, re.M | re.S)
-        self.assertIsNotNone(nouns, "okf.py: no WRITE_NOUNS tuple found")
-        found |= set(re.findall(r'"([a-z]+)"', nouns.group(1)))
+        for name in self.DISPATCH_TUPLES:
+            tuple_block = re.search(rf"^{name} = \((.*?)\)", text, re.M | re.S)
+            self.assertIsNotNone(tuple_block, f"okf.py: no {name} tuple found")
+            found |= set(re.findall(r'"([a-z]+)"', tuple_block.group(1)))
         self.assertTrue(found, "okf.py declares no subcommands")
         return found
+
+    def test_SKILL_md_lists_every_list_noun(self):
+        """`okf list` is useless without knowing the nouns, so SKILL.md spells them -
+        and a hand-copied list of fourteen is exactly the kind of thing that goes stale
+        the first time a fifteenth is added. A missing noun does not read as an
+        out-of-date table: it reads as a noun that does not exist, and an agent then
+        reaches for `Grep` or a record dump to answer what it would have answered.
+        """
+        from jsk_okf.query import commands as query_commands
+
+        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+        missing = sorted(noun for noun in query_commands.NOUNS
+                         if f"`{noun}`" not in text)
+        self.assertEqual(missing, [], f"SKILL.md does not name these list nouns: "
+                                      f"{missing}")
+
+    def test_the_scripts_page_documents_every_list_noun(self):
+        """docs/SCRIPTS.md is the page that promises to be exhaustive."""
+        from jsk_okf.query import commands as query_commands
+
+        text = (REPO / "docs" / "SCRIPTS.md").read_text(encoding="utf-8")
+        missing = sorted(noun for noun in query_commands.NOUNS if noun not in text)
+        self.assertEqual(missing, [], f"docs/SCRIPTS.md does not list: {missing}")
+
+    def test_every_dispatch_tuple_reaches_the_handlers_table(self):
+        """A tuple listed above that HANDLERS is not built from would be a set of
+        names this test class asserts documentation for and `okf` cannot run."""
+        text = (SCRIPTS / "cli.py").read_text(encoding="utf-8")
+        for name in self.DISPATCH_TUPLES:
+            self.assertIn(f"for verb in {name}" if name == "QUERY_VERBS"
+                          else f"for noun in {name}", text,
+                          f"cli.py declares {name} but HANDLERS is not built from it")
 
     def test_the_help_text_lists_every_subcommand(self):
         """`okf --help` prints the module docstring, so a subcommand absent from it is

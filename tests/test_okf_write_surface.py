@@ -123,8 +123,28 @@ class TheSurfaceIsTheDesignsCatalogue(unittest.TestCase):
         read the tables without dragging in the write layer was not to import at all.
         An import is now enough on its own, and it asserts the property directly: the
         module is in `sys.modules` and `jsk_okf.authoring.commands` is not.
+
+        **The clean slate is restored afterwards, and that is not tidiness.** Emptying
+        `jsk_okf*` out of `sys.modules` and leaving it emptied means every later import
+        builds a *second generation* of these modules, while any test module that bound
+        one at import time still holds the first. Two generations of `filters.Bad` are
+        two different classes, so an `except filters.Bad` in one no longer catches the
+        one raised in the other: a refusal that must exit 2 escapes as a traceback
+        instead. It shows up only in a whole-suite run, only in whichever files happen
+        to sort after this one, and it reads as a bug in those files - which is exactly
+        where it was hunted for.
         """
-        for name in [m for m in list(sys.modules) if m.startswith("jsk_okf")]:
+        first = {name: module for name, module in sys.modules.items()
+                 if name.startswith("jsk_okf")}
+
+        def restore():
+            for name in [m for m in list(sys.modules) if m.startswith("jsk_okf")]:
+                del sys.modules[name]
+            sys.modules.update(first)
+
+        # Registered before the deletion, so a failure below still restores.
+        self.addCleanup(restore)
+        for name in first:
             del sys.modules[name]
         cli = importlib.import_module("jsk_okf.cli")
         self.assertNotIn("jsk_okf.authoring.commands", sys.modules,
