@@ -153,6 +153,52 @@ class AgentFrontmatter(unittest.TestCase):
                 self.assertIn("Bash", tools)
 
 
+class TheTemplateAndTheSpecAgree(unittest.TestCase):
+    """`jsk new` writes the headings; `kb-spec.md` says what goes under each.
+
+    They are one rule in two languages and in two repositories' worth of distance from
+    each other - the template is Python in `src/`, the spec is Markdown in `plugins/`.
+    A heading in one and not the other is the whole failure: the skill writes a section
+    the file does not have, or the file carries one nothing is ever written into.
+
+    The headings are also the contract with every knowledge base already on disk.
+    `kb-spec.md` says never to rename or reorder one, and this is what makes that
+    enforceable rather than merely stated.
+    """
+
+    def headings(self, text):
+        return re.findall(r"^## (.+)$", text, re.M)
+
+    def test_the_scaffold_writes_every_heading_the_spec_documents(self):
+        from jsk.kb import TEMPLATE
+
+        spec = (SKILL / "references" / "kb-spec.md").read_text(encoding="utf-8")
+        written = self.headings(TEMPLATE)
+        self.assertTrue(written, "the template has no headings")
+        # The spec names each one in its section table as `## Identity` and friends.
+        documented = set(re.findall(r"`## ([A-Za-z ]+)`", spec))
+        missing = sorted(h for h in written if h not in documented)
+        self.assertEqual(missing, [],
+                         f"jsk new writes headings kb-spec.md does not document: {missing}")
+
+    def test_the_scaffold_leaves_no_heading_empty_of_guidance(self):
+        """Every section a person opens to an empty file has to say what goes in it.
+
+        Guidance in a template somebody is looking at gets read; guidance in a
+        specification they have to go and find does not - and this file is the one
+        thing between a blank document and an abandoned one.
+        """
+        from jsk.kb import TEMPLATE
+
+        sections = re.split(r"^## ", TEMPLATE, flags=re.M)[1:]
+        for section in sections:
+            name = section.split("\n", 1)[0]
+            with self.subTest(heading=name):
+                self.assertTrue(
+                    "<!--" in section or "```" in section or "|" in section,
+                    f"## {name} offers neither guidance, a block, nor a table")
+
+
 class Manifests(unittest.TestCase):
     def test_the_two_versions_agree(self):
         plugin = json.loads((PLUGIN / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))

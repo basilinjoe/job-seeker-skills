@@ -76,19 +76,19 @@ jobs:
       - name: Lint
         run: python -m ruff check src tests
 
-      # `okf doctor` is what tells a person what this machine can do. If it disagrees
+      # `jsk doctor` is what tells a person what this machine can do. If it disagrees
       # with the machine, every gap it reports afterwards is untrustworthy - so it runs
       # before the tests and its output is the log's header. `--quick` because the
       # verifying run renders a PDF, which the no-engine job cannot do and the tests
       # cover anyway.
       - name: Preflight
-        run: okf doctor --quick
+        run: jsk doctor --quick
 
       - name: Tests
         run: python -m pytest tests -q -rs -n auto
 
-# The manifest surface - the two versions agreeing, the three revision constants
-# agreeing, both documented revision tables reaching the current one, every script
-# SKILL.md names being installed - is pinned by tests/test_plugin_surface.py rather
+# The manifest surface - the two plugin versions agreeing, every subcommand `jsk`
+# dispatches being named in SKILL.md and docs/SCRIPTS.md, the agent boundary still
+# being written in the agent files - is pinned by tests/test_plugin_surface.py rather
 # than by a job here. It belongs in the suite: a contributor gets the failure on their
 # own machine, and there is only ever one copy of the rule to keep true.

@@ -184,6 +184,25 @@ _None recorded yet._
 
 ## Education
 
+<!-- One `###` per qualification, most recent first.
+
+### Master of Engineering, Computer Science `edu_meng`
+
+```yaml
+id: edu_meng
+institution: Anna University
+qualification: Master of Engineering
+field: Computer Science
+level: isced-7              # isced-5 diploma - 6 bachelor - 7 master - 8 doctorate
+start: 2010
+end: 2012
+grade:                      # only where the market expects it - India and the Gulf do
+  scheme: in-cgpa-10
+  value: 8.4
+status: confirmed
+```
+-->
+
 _None recorded yet._
 
 ## Certifications
@@ -194,6 +213,16 @@ _None recorded yet._
 _None held._
 
 ## Open source
+
+<!-- Public code, and what their part in it actually was. A maintainer, a regular
+     contributor and somebody with one merged typo fix are three different claims, and
+     only the first two belong on a resume.
+
+- carbon-aware-scheduler `os_carbon_scheduler`
+  - url: https://github.com/example/carbon-aware-scheduler
+  - role: maintainer          # maintainer | contributor | author
+  - status: confirmed
+-->
 
 _None recorded yet._
 
