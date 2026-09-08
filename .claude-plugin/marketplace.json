@@ -1,5 +1,6 @@
 {
   "name": "job-seeker-skills",
+  "description": "Claude skills for job seekers: keep a career in one Markdown file and render verified, ATS-safe resumes from it.",
   "owner": {
     "name": "Basilin Joe",
     "url": "https://github.com/basilinjoe"
