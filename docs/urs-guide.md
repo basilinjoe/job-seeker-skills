@@ -17,7 +17,7 @@ already in the record — so a renderer that cannot invent text is a renderer th
 ```
 media type   application/resume+json
 file         *.resume.json
-compiler     scripts/okf_compile.py
+written by   the skill, out of user-knowledgebase.md
 profiles     schema/profiles/<region>.json
 ```
 
@@ -37,7 +37,7 @@ costs nothing and is reversible.
 
 ## A walk through a real record
 
-[`schema/example.resume.json`](../plugins/jsk/skills/jsk/schema/example.resume.json) is
+[`schema/example.resume.json`](../src/jsk/data/schema/example.resume.json) is
 a complete, valid document. Its top level:
 
 ```

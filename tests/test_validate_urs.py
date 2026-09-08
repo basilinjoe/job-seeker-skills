@@ -176,18 +176,20 @@ class IdentityAndReferences(UrsCase):
 
 
 class BulletIdsAViewNamesMustBeWrittenDown(UrsCase):
-    """The compensating control for bullet ids the compiler numbers by position.
+    """The compensating control for an achievement id that encodes a position.
 
-    okf_compile mints `ach_projects_<stem>_md_<n>` for a bullet whose concept wrote no
-    id down, so inserting a bullet above one shifts every id below it onto the next
-    sentence. Nothing fails - the id still resolves - so a view keeps rendering and
-    quietly quotes different work. Measured on a compiled bundle: `prj_care` with two
-    bullets gives `ach_projects_care_md_1` and `..._2`, and a bullet added above them
-    moves `..._1` onto what had been `..._2`.
+    An id of the shape `ach_projects_<stem>_md_<n>` numbers a bullet by where it sits,
+    so inserting one above it shifts every id below onto the next sentence. Nothing
+    fails - the id still resolves - so a view keeps rendering and quietly quotes
+    different work: `prj_care` with two bullets gives `ach_projects_care_md_1` and
+    `..._2`, and a bullet added above them moves `..._1` onto what had been `..._2`.
 
-    The write layer materialises these ids before it mutates a concept, and there is
-    no migration, so a bundle nobody has written to stays exposed. This warning is
-    what makes that visible on the next `okf validate`.
+    A compiler minted these, and the write layer materialised them before mutating a
+    concept, so the exposure was bounded to a bundle nobody had written to. Both are
+    gone: the skill writes ids by hand now, and this warning is the only thing standing
+    between a positional id and a view that quotes the wrong sentence. It matters more
+    than it did, not less - `references/kb-spec.md` says to write ids down for exactly
+    this reason.
     """
 
     NEEDLE = "points at a different sentence"

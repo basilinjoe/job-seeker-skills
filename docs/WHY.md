@@ -3,20 +3,37 @@
 Every design decision here has a failure behind it. This document is the reasoning; you can use the
 plugin without reading a word of it.
 
-## The bundle is the source of truth
+## The knowledge base is the source of truth
 
-Most resume tools start from a blank page every time. This one keeps your career in a portable
-knowledge base and treats a resume as one *rendering* of it.
+Most resume tools start from a blank page every time. This one keeps your career in one Markdown
+file and treats a resume as one *rendering* of it.
 
 Interview once. Regenerate resumes, tailored variants, LinkedIn copy and interview briefs forever.
 
-The bundle is plain Markdown in [Open Knowledge Format](https://openknowledgeformat.com/): readable
-in any editor, versionable in Git, readable by AI tools without a translation layer. Keep it in a
-repo you control so it outlives any single tool, including this one.
+`user-knowledgebase.md` is plain Markdown: readable in any editor, versionable in Git, readable by AI
+tools without a translation layer. Keep it in a repo you control so it outlives any single tool,
+including this one.
+
+## One file, not a folder of concepts
+
+This was a graph — several hundred linked Markdown concepts, with a compiler over them, a write
+command per noun, a query layer to read them back and a migration tool to move between layouts. That
+shape is right for a knowledge base too large to hold in one context. **A career is not.**
+
+One file changes what the rules have to be. There is no write transaction to make atomic, because a
+write to one file either happened or did not. There is no id to resolve across documents, because
+everything an id could point at is a heading away. There is no compile, because the reader is a model
+that can hold all of it.
+
+What it costs is the guarantees a compiler gave for free — a write command refused a `role:` naming
+no role, and nothing does now until the record gate runs. That is a real trade, and the record gate
+got stricter to catch what it can. What it buys is a document the person whose career it is can open,
+read end to end, and correct. That is the property that actually decides whether a career record
+survives a year, and no amount of referential integrity substitutes for it.
 
 ## Every document is rendered from JSON, never hand-built
 
-The bundle compiles to a [URS](../plugins/jsk/skills/jsk/references/urs-spec.md)
+The knowledge base is written out as a [URS](../plugins/jsk/skills/jsk/references/urs-spec.md)
 record, and the LaTeX, the PDF and the plain text are all emitted from that one file.
 
 Two hand-built documents have to agree about every date, bullet and number, and they stop agreeing
@@ -77,11 +94,17 @@ A tailored resume is a *view*: it references evidence by id, orders it, and reda
 rejects free text inside a view, so a posting the record has no evidence for produces nothing to
 point at rather than a plausible new bullet.
 
-Job descriptions are scored against structured metadata on each project by `score_projects.py`, which
-reads its requirements from the target file's own frontmatter — so the document you review is the one
-that produced the ranking, and re-running it next month gives the same answer. It reports what each
-project *failed* to match, and tells you where you fall short instead of flattering you. Being
-flattered costs interviews.
+Job descriptions are ranked against structured metadata on each project — capabilities, technologies
+and domains, compared as exact strings — using requirements read from the posting's own frontmatter.
+So the document you review is the one that produced the ranking.
+
+A script did that arithmetic while the career was a folder of concepts to be compiled. `jsk-tailor-analyst`
+does it now and **shows the terms behind every number**: which requirements each project matched and
+which it missed, in a table beside the assessment. A score nobody can recompute would be worse than
+no score, and that is the whole reason the working is written down rather than the ranking asserted.
+
+Either way it reports what each project *failed* to match, and tells you where you fall short instead
+of flattering you. Being flattered costs interviews.
 
 ## Two variants, because readability and parsing conflict
 

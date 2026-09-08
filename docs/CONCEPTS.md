@@ -5,30 +5,32 @@ explains what it needs as it goes. Read it when a word turns up and you want it 
 
 ## The record
 
-**Bundle** — your career folder. Plain Markdown files with a bit of structured metadata at the top of
-each. One file per project, per role, per achievement.
-*Why it matters:* it is the source of truth. A resume is one rendering of it, not the original.
+**Knowledge base** — `user-knowledgebase.md`. One Markdown file holding your whole career under
+fixed headings: identity, positioning, organisations, roles, projects, metrics, skills, education,
+credentials, open questions and a log.
+*Why it matters:* it is the source of truth. A resume is one rendering of it, not the original — and
+one file is a thing you can read end to end and correct, which is what decides whether a career
+record survives a year.
 
-**OKF (Open Knowledge Format)** — the convention the bundle follows: linked Markdown files with YAML
-frontmatter.
-*Why it matters:* nothing proprietary. Any editor opens it, Git versions it, other AI tools read it.
+**Plain Markdown** — no proprietary format anywhere. Any editor opens it, Git versions it, other AI
+tools read it without a translation layer.
+*Why it matters:* it outlives any single tool, including this one.
 
 **Provenance status** — every claim carries one: `confirmed` (you said it), `inferred` (drafted for
 you, not yet signed off), `needs-verification` (a known gap).
 *Why it matters:* inferred text is the dangerous kind. It reads well, which is exactly why it must
 never reach a resume before you agree with it.
 
-**Write command** — how the assistant changes your bundle. Not by editing the files: every change is
-a typed command (`okf project add`, `okf bullet set`, `okf application file`) that derives the
-bookkeeping a change implies and refuses one a check would reject later.
-*Why it matters:* it is what stops a half-finished edit looking finished. **You are not bound by
-this** — the files are yours, any editor opens them, and every command tolerates whatever you wrote
-by hand. The rule exists because a model writing five files from memory forgets one, and the one it
-forgets is silent.
+**Application directory** — everything about one submission in one place:
+`applications/<yyyy-mm-dd>-<company>-<role>/`, holding the posting, the gap assessment, the record it
+rendered from, the files actually sent, and a timeline of what came back.
+*Why it matters:* it is frozen once the application goes out. The knowledge base keeps moving, and an
+application that pointed at a moving source could not answer what it was answering.
 
 ## The rendering
 
-**URS (Universal Résumé Schema)** — the JSON your bundle compiles to before any document exists.
+**URS (Universal Résumé Schema)** — the JSON written out of your knowledge base before any document
+exists.
 *Why it matters:* every output is emitted from this one record, so the PDF and the paste-in plain
 text cannot say different things about a date or a number.
 
@@ -37,11 +39,12 @@ hides the rest.
 *Why it matters:* the validator rejects free text inside a view. Tailoring can therefore emphasise,
 but it structurally cannot invent.
 
-**Record** — the bundle compiled into URS, in memory, by `okf_compile.py`. Never stored, never
-hand-edited: every field in it is a frontmatter key or a table cell in a concept, so it is current
-by construction rather than by anyone remembering to rebuild it.
-*Why it matters:* the ranking, the gap analysis and the author all read it. When each read something
-different, two of them could disagree about what your record held and nothing would have said so.
+**Record** — `resume.json`, the URS document written for one application. It used to be compiled
+from a folder of concepts, so it was current by construction; it is written by hand now, which is why
+`jsk validate` checks its shape as well as its claims before anything renders.
+*Why it matters:* every output is emitted from it, so the PDF and the paste-in plain text cannot say
+different things. And a key the renderer does not recognise is a section that renders as nothing —
+invisible in the PDF, and only the record gate sees it.
 
 **Posting** — the advertisement verbatim, with its requirements in frontmatter. Each carries whether it was
 *required* or merely *preferred*, what the advertisement actually said, and the sentence it was read

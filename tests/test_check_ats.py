@@ -278,7 +278,7 @@ class ThePdfItself(CheckATSCase):
 
 
 class InProcessEntryPoint(CheckATSCase):
-    """`okf gates` calls main() instead of spawning a fifth interpreter to do it.
+    """`jsk gates` calls main() instead of spawning a fifth interpreter to do it.
 
     The CLI is the documented API - SKILL.md tells people to run this script
     directly - so the two forms must not be able to disagree. These compare them on

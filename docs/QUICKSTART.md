@@ -4,6 +4,14 @@ From nothing to a verified resume. Ten minutes, most of it spent talking about y
 
 ## 1. Install
 
+The toolchain is a Python package, and the skill drives it:
+
+```
+pip install 'jsk-resume[all]'
+```
+
+Then the plugin:
+
 ```
 /plugin marketplace add basilinjoe/job-seeker-skills
 /plugin install jsk@job-seeker-skills
@@ -35,7 +43,7 @@ If you already have a resume, point at it — it is the fastest possible startin
 /jsk:setup ./old-resume.docx
 ```
 
-Setup checks what your machine can do, offers to close any gaps, builds your career folder, then
+Setup checks what your machine can do, offers to close any gaps, creates your knowledge base, then
 renders a real resume from it and checks it. It asks before installing anything.
 
 ## 3. Answer the questions
@@ -46,8 +54,9 @@ go if you do not have them.
 
 ## 4. You now have two things
 
-**A career folder** — plain Markdown, yours, readable in any editor. Put it in Git. It is the source
-of truth from here on.
+**`user-knowledgebase.md`** — one Markdown file, yours, readable in any editor. Put it in Git. It is
+the source of truth from here on: identity, roles, projects, every verified number, and a log of what
+changed. Everything else is rendered from it.
 
 **A resume** — actually three files: one formatted for humans, one stripped for job portals, and
 plain text for paste-in boxes. All rendered from the same record, so they cannot contradict
@@ -72,13 +81,14 @@ short against that posting either way, because being flattered costs interviews.
 ## If something looks wrong
 
 ```bash
-python3 plugins/jsk/skills/jsk/scripts/preflight.py --verify
+jsk doctor
 ```
 
 This renders the shipped example end to end and runs the checks on it, so a pass means the pipeline
 genuinely works on your machine. It names any gap by what it costs you rather than by package name.
 
-Use `python` or `py -3` on Windows.
+If `jsk` is not on your PATH, `python3 -m jsk doctor` is the same entry point. Use `python` or
+`py -3` on Windows.
 
 ---
 
