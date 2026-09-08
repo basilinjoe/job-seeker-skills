@@ -6,68 +6,66 @@ description: >-
   job description; check whether a resume will survive applicant tracking systems (ATS); resolve
   gaps or missing metrics in their career records; says their resume is outdated or vague; describes
   their work in long unstructured messages; wants a periodic career review; or asks about a career
-  bundle, OKF, brag document or resume framework.
+  knowledge base, brag document or resume framework.
 license: MIT
 ---
 
 # Job Seeker Skill
 
-A career knowledge base as a folder of linked Markdown files with YAML frontmatter — the
-**Open Knowledge Format** — plus tooling to render verified, ATS-safe resumes from it.
+A career knowledge base in **one Markdown file** — `user-knowledgebase.md` — plus tooling to render
+verified, ATS-safe resumes from it.
 
 Interview someone **once**, then regenerate resumes, tailored variants, LinkedIn copy and interview
 briefs forever without re-interviewing them.
 
-**The bundle is the source of truth. A resume is one rendering of it.**
+**The knowledge base is the source of truth. A resume is one rendering of it.**
 
 Rendering goes through JSON, always:
 
 ```
-bundle (Markdown)  ->  resume.json (URS)  ->  .tex -> .pdf   (the deliverable)
-                                          \-> .txt          (paste-in boxes)
+user-knowledgebase.md  ->  resume.json (URS)  ->  .tex -> .pdf   (the deliverable)
+   you read it            you write it        \-> .txt          (paste-in boxes)
 ```
 
-The PDF is the only rendered deliverable. `--ats-max` chooses which variant it holds - presentation
-or ATS-maximal - rather than producing a second file.
+The PDF is the only rendered deliverable. `--ats-max` chooses which variant it holds — presentation
+or ATS-maximal — rather than producing a second file.
 
-**Never hand-author a `.tex`.** Build the URS record, validate it, render every format
-from it. *Two hand-built documents stop agreeing the moment one is edited — silently, usually in the
-copy that gets sent.* `references/urs-spec.md` has the format, `references/mode-resume.md` the
-procedure.
+**Never hand-author a `.tex`.** Build the URS record, validate it, render every format from it.
+*Two hand-built documents stop agreeing the moment one is edited — silently, usually in the copy
+that gets sent.* `references/urs-spec.md` has the format, `references/mode-resume.md` the procedure.
 
-## One source, and what compiles from it
+## One file, and what comes out of it
 
-**The bundle is the only thing anyone edits.** Everything a tool reads is built from it:
-
-| Thing | Is | Made by |
+| Thing | Is | Written by |
 |---|---|---|
-| the bundle — `projects/`, `roles/`, `achievements/`, … | the source of truth, hand-written Markdown | the person |
-| the record | the bundle as URS, in memory, in under a second | `okf compile` |
-| `<slug>.posting.md` | the advertisement verbatim, plus its requirements in frontmatter | `jsk-tailor-analyst` |
-| `<slug>.gaps.md` | verdicts, shortfalls and the question queue, written to be read aloud | `jsk-tailor-analyst` |
-| `<slug>.view.md` | which evidence appears, in what order, and the prose retuned for this posting | `jsk-resume-author` |
-
-The record is **compiled, never transcribed**. Every field in it is a frontmatter key or a table
-cell, so a model reading them across adds no judgement — and a transcription that can drift is what
-checksums, conformance levels and a reconcile pass all used to police.
+| `user-knowledgebase.md` | the source of truth, hand-written Markdown | the person, and you |
+| `applications/<stem>/posting.md` | the advertisement verbatim, plus its requirements | `jsk-tailor-analyst` |
+| `applications/<stem>/gaps.md` | verdicts, shortfalls and the question queue, written to be read aloud | `jsk-tailor-analyst` |
+| `applications/<stem>/resume.json` | the URS record: which evidence appears, in what order, and the prose retuned for this posting | `jsk-resume-author` |
+| `applications/<stem>/*.pdf` | the deliverable | `jsk render` |
 
 **The gaps close before the resume is written**: assess, ask the queue, write the answers into the
-concepts, recompile. Only then does `jsk-resume-author` write the view, once.
-`references/mode-tailor.md` has the procedure.
+knowledge base, then write the record. `references/mode-tailor.md` has the procedure.
 
-### Where a command exists, it is the only way in
+### Edit the file directly
 
-**Every change to a concept the write layer covers is an `okf` command** — the list under *Scripts*
-below, and `references/write-commands.md` for the rules. A bundle write is a several-file
-transaction; written by hand, four of the five files were checked by nothing, so *a half-finished
-write could go green*. Going around a refusal turns a caught error into a silent one.
+**There is no write layer.** No command per noun, no transaction, no refusals — a write to one file
+either happened or did not, which is the whole reason the file is one file. Use `Read`, `Edit` and
+`Write` the way you would on any other document.
 
-**Eleven concept types have verbs; the other fifteen are hand-written by design.** For those —
-Person, Positioning, Source — write the file. `profile/identity.md` is the case that matters: the
-parse gate fails without an email and phone, so a bundle nobody hand-edits can never render a
-sendable resume. Say what you wrote, then `okf validate <bundle>`, which checks it like any other.
+What the write commands used to enforce is now three habits and one gate:
 
-This binds you, never the person: a hand-edited concept is a valid concept.
+- **Read the section before you write into it.** A section you have not read is one you are about to
+  duplicate.
+- **Grep a distinctive phrase before you add anything.** People re-tell the same work months apart
+  in different words, and neither telling mentions the other. Two concepts for one project is the
+  failure that costs most later: the ranking sees two weak projects where there was one strong one,
+  and the bullets are split across both so neither reads as evidence.
+- **Stamp what you inferred.** Nothing else can tell the difference afterwards.
+- **`jsk validate` on the record**, before anything renders. That is where a structural mistake is
+  still cheap.
+
+`references/kb-spec.md` has the headings, the block shapes and the id conventions.
 
 ## Modes
 
@@ -76,12 +74,12 @@ Route on what the user asked for. If they passed an argument (`braindump`, `resu
 
 | Mode | Trigger | Read |
 |---|---|---|
-| **setup** | no bundle exists, or "set this up" | `references/mode-setup.md` |
+| **setup** | no knowledge base exists, or "set this up" | `references/mode-setup.md` |
 | **braindump** | telling you about their work; long unstructured messages | `references/mode-braindump.md` |
 | **resume** | "build my resume", "is this ATS-safe" | `references/mode-resume.md` |
 | **tailor** | pasted a job description or a URL; "customise for this role" | `references/mode-tailor.md` |
 | **ship** | a record is finished and needs rendering, checking, freezing and logging | `references/mode-ship.md` |
-| **refresh** | "update my bundle", quarterly review, got promoted | `references/mode-refresh.md` |
+| **refresh** | "update my knowledge base", quarterly review, got promoted | `references/mode-refresh.md` |
 | **gaps** | "what's missing", "resume feels vague", verify before applying | `references/mode-gaps.md` |
 | **pipeline** | "what do I chase", "where are my applications", weekly review | `references/mode-pipeline.md` |
 
@@ -89,32 +87,27 @@ Ambiguous? Ask which they want rather than guessing — the modes do genuinely d
 
 ## Always do this first
 
-**Find the bundle.** Search the working directory and any connected folder for a directory
-containing both `projects/` and `resume-generation/`, or matching `*-okf`, or a zip with `okf` in
-the name. Read its `index.md` then `log.md` — they orient you.
+**Find the knowledge base.** Search the working directory and any connected folder for
+`user-knowledgebase.md`. Read it — the whole thing. It is one file and it is meant to be read whole;
+skimming it is how a project gets recorded twice.
 
-**Check its revision.** `index.md` carries `okf_bundle:`. Absent, or below the current
-revision, means the bundle predates the current layout:
+`jsk doctor` reports the path it found, if you would rather ask than search.
 
-```bash
-okf migrate <bundle>
-```
+**An older bundle?** A directory holding `projects/` and `resume-generation/` is the previous
+format — a folder of linked concepts. There is no migration command, because the migration is
+reading it and writing the new file. `references/mode-setup.md` has the procedure. **Offer it; never
+run it unasked.** Keep the old directory until they confirm the new file is complete.
 
-Report mode writes nothing. Say what it found and **offer** the `--apply` run — never migrate
-unasked, because it writes into their record. An older bundle still works, so this is a suggestion
-and never a blocker. Where the migration says something needs a person, that goes on the list for
-gaps mode rather than being filled in for them.
+Sessions do not share state. Never assume a knowledge base exists because one was created before.
 
-Sessions do not share state. Never assume a bundle exists because one was created before.
+**None at all?** Switch to setup mode — unless they asked for something you can deliver anyway. If
+someone wants a resume right now, build the resume, then offer to capture it. Setup should never
+block the actual ask.
 
-**No bundle?** Switch to setup mode — unless they asked for something you can deliver anyway. If
-someone wants a resume right now, build the resume, then offer to capture it as a bundle. Setup
-should never block the actual ask.
-
-**A bundle's own rules win.** If `resume-generation/*.md` exists in their bundle, it takes precedence
-over `references/` here. These files are optional and hand-created — setup does not scaffold them, so
-absent just means "use the defaults". When one does exist, somebody customised it deliberately and
-their edits should stick.
+**Their own rules win.** If the knowledge base's folder holds `rules/*.md`, those take precedence
+over `references/` here. These files are optional and hand-created — setup does not scaffold them,
+so absent just means "use the defaults". When one does exist, somebody customised it deliberately
+and their edits should stick.
 
 ## Shared references
 
@@ -122,93 +115,52 @@ Load as needed rather than upfront:
 
 | File | Holds |
 |---|---|
-| `references/bundle-spec.md` | directory layout, frontmatter schema, selection keys, concept types |
+| `references/kb-spec.md` | **the format**: every heading, the block shapes, ids, provenance, and what `applications/` holds |
 | `references/writing-rules.md` | X-Y-Z bullets, verb accuracy, phrases that damage seniority |
 | `references/ats-rules.md` | hard rules, the two-variant strategy, keyword placement |
-| `references/urs-spec.md` | the shape the record compiles to, and the region profiles a view renders through |
-| `references/view-format.md` | the other half of that spec: every key a view may carry, and the rule that it may carry no prose |
-| `references/write-commands.md` | **the only way to change a bundle**: every noun and verb, the files one write implies, the refusals, and where the commands stop |
+| `references/urs-spec.md` | the record you write, and the region profiles a view renders through |
+| `references/view-format.md` | every key a view may carry, and the rule that it may carry no prose |
 | `references/rationale.md` | why the rules are what they are — read it when you need to *explain* one |
 
-## The `okf` command
+## The `jsk` command
 
-Everything this skill runs is one command, `okf`, from the `jsk-okf` package. There is no longer
-a path to get right. **Run `okf --version` before the first call in a session.** If the command is
-not found, `python3 -m jsk_okf` is the same entry point (`python` or `py -3` on Windows). If neither
-resolves, say so and stop — nothing here can run, and guessing at a path fails quietly.
+Everything this skill runs is one command, `jsk`, from the `jsk-resume` package. **Run
+`jsk --version` before the first call in a session.** If the command is not found,
+`python3 -m jsk` is the same entry point (`python` or `py -3` on Windows). If neither resolves, say
+so and stop — nothing here can run, and guessing at a path fails quietly.
 
 | Command | Does | Needs |
 |---|---|---|
-| `okf doctor [--quick]` | what this machine can do, and what each gap disables; `--quick` skips the end-to-end render | — |
-| `okf new <path> --name "Their Name"` | creates an empty bundle skeleton | — |
-| `okf <noun> <verb> --bundle DIR [...]` | **every change to a bundle** — the nouns listed below | `pyyaml` to read back |
-| `okf validate <bundle> [--scope SUBDIR] [--exclude-archive] [--max-findings N]` | bundle is well-formed | `pyyaml` |
-| `okf validate <resume.json> [--strict] [--level N] [--max-findings N]` | the record is coherent, carries evidence, and lost nothing in compilation, before anything renders | — |
-| `okf migrate <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
-| `okf pipeline <bundle> [--all] [--company N] [--as-of D] [--top N] [--json]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
-| `okf check <file> [--strict] [--only parse\|prose]` | both document gates on one file, or one of them — `--only parse` for the PDF and the `.txt`, `--only prose` for the `.tex` | `pymupdf` for a PDF |
-| `okf compile <bundle> [--view ID] [--no-views] [--compact] [--for score]` | the bundle as the record everything downstream reads — the concepts only, never the frozen archive | — |
-| `okf gates <out-dir> --view ID [--bundle DIR] [--pages N] [--json]` | the record, parse and prose gates in one process, each one's output verbatim; never the render gate | `pyyaml`, `pymupdf` for a PDF |
-| `okf score <bundle> <posting.md>` | ranks the projects against the posting's requirements | — |
-| `okf render <bundle \| resume.json> --out DIR --view ID [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt`; `--view` is required wherever the record holds more than one | TeX engine for the PDF |
-| `okf preview <resume.json> --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` for thumbnails |
-| `okf fit <resume.tex> --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
-| `okf search <bundle> [TEXT] [filters]` | a mention, with the line to open and the provenance of the claim it sits in; filters with no TEXT select projects without compiling | `pyyaml` |
-| `okf list <bundle> <noun>` | an inventory of one kind of thing | `pyyaml` |
-| `okf show <bundle> <id>` | what a compiled id names, and where to read it | `pyyaml` |
-| `okf refs <bundle> <id>` | what still points at it, so you know whether `rm` would permit a delete | `pyyaml` |
-| `okf stats <bundle>` | what the bundle holds, counted | `pyyaml` |
+| `jsk doctor [--quick]` | what this machine can do, and what each gap disables; `--quick` skips the end-to-end render | — |
+| `jsk new <path> --name "Their Name"` | writes an empty `user-knowledgebase.md` and `applications/` | — |
+| `jsk validate <resume.json> [--strict] [--max-findings N]` | the record gate: coherent, evidenced, and shaped the way the renderer reads | — |
+| `jsk render <resume.json> --out DIR --view ID [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt` | TeX engine for the PDF |
+| `jsk preview <resume.json> --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` |
+| `jsk check <file> [--strict] [--only parse\|prose]` | both document gates on one file, or one of them — `--only parse` for the PDF and the `.txt`, `--only prose` for the `.tex` | `pymupdf` for a PDF |
+| `jsk gates <out-dir> [--record R] [--pages N] [--json]` | the record, parse and prose gates in one process, each one's output verbatim; never the render gate | `pymupdf` for a PDF |
+| `jsk fit <resume.tex> --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
 
-`okf --help` is the whole surface — read it rather than guessing at a flag.
+`jsk --help` is the whole surface — read it rather than guessing at a flag.
 
-### The read commands
+**Nothing here reads `user-knowledgebase.md`.** That file is yours to read and edit; the toolchain
+starts at the record you write from it. There is no compile step to run and no bundle to validate.
 
-`okf list` nouns: `projects` `roles` `orgs` `education` `skills` `bullets` `credentials`
-`metrics` `views` `postings` `questions` `capabilities` `unconfirmed` `orphans`.
-
-None compiles, all take `--json` and `--archive`, and all exit 0 whether or not they found
-anything. **Reach for these before `Grep` or a record dump:** `okf list <bundle> bullets` shows
-the ids `view include` takes, and `okf list <bundle> unconfirmed` is the gap queue without
-reading every concept.
-
-### The write commands
-
-Each takes `--bundle DIR`, `--dry-run`, `--json`, `--set key=value`. `okf <noun>` lists its verbs;
-`references/write-commands.md` has the rules.
-
-- `okf project` · `okf role` · `okf org` · `okf education` — `add|set|retire|rm`
-- `okf bullet` · `okf skill` · `okf credential` — `add|set|rm|mv` — the claims inside a concept
-- `okf metric add|set` · `okf capability add` · `okf question add|resolve` · `okf log` · `okf reindex`
-- `okf posting add` · `okf posting requirement add` · `okf gaps write` · `okf view create|set|include`
-- `okf application file` · `okf application event`
-
-- **`retire` keeps the concept** and stops the compile emitting it; **`rm` deletes** and refuses
-  while anything still references it.
-- **Ids are written down.** A claim mutation first materialises the ids the compile derived from
-  position, so a view naming one cannot be repointed by a later insertion.
-- **A refusal names its cause and ends in `fix:`.** Read it rather than retrying.
-
-**`compile` narrows what it emits, never what it reads.** `--compact` drops the indentation;
-`--for score` emits projects with only the keys a ranking runs on. Together they take an agent's
-record read from 32,190 bytes to 12,840 — but `--for score` drops the achievement prose with them,
-so it belongs to a caller that ranks projects and never to one that writes bullets.
-
-**`gates` is the five mechanical gate invocations as one**, at about 0.6x the wall clock, calling
-the same checkers with the same arguments. It prints each gate's
-output verbatim, treats a missing input as `SKIPPED` **and** a failure, and never attempts the render
-gate, in `--json` no less than in prose: a command that exited 0 having quietly skipped that one
-would be the most dangerous thing here. `--pages N` reports the page count and never fails on it;
-`okf fit` still owns that verdict.
+**`gates` is the mechanical gate invocations as one.** It prints each gate's output verbatim, treats
+a missing input as `SKIPPED` **and** a failure, and never attempts the render gate, in `--json` no
+less than in prose: a command that exited 0 having quietly skipped that one would be the most
+dangerous thing here. `--record` defaults to `resume.json` beside the render, which is where the
+skill writes it. `--pages N` reports the page count and never fails on it; `jsk fit` still owns that
+verdict.
 
 Exit codes are uniform: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are
-required, not optional: the PDF is the only rendered deliverable, so without them there is nothing to
-send, nothing to check and nothing to measure. `okf render --pdf` exits **non-zero** when no PDF
-was produced, and the page count it prints is counted off that PDF rather than repeated back from the
-view's budget — *because a page count nobody measured is a page count nobody knows.* Over budget is
-named, not failed: `okf fit` owns that verdict and is the command that can act on it. Everything
+required, not optional: the PDF is the only rendered deliverable, so without them there is nothing
+to send, nothing to check and nothing to measure. `jsk render --pdf` exits **non-zero** when no PDF
+was produced, and the page count it prints is counted off that PDF rather than repeated back from
+the view's budget — *because a page count nobody measured is a page count nobody knows.* Over budget
+is named, not failed: `jsk fit` owns that verdict and is the command that can act on it. Everything
 else runs on a bare Python.
 
-The toolchain is the installed package, never a copy inside a bundle, so every bundle gets the
+The toolchain is the installed package, never a copy beside the knowledge base, so everyone gets the
 current version. *A rule nobody checks stops being true.*
 
 ## Agents
@@ -218,23 +170,24 @@ keep the conversation for the judgment.
 
 | Agent | Hand it | Get back |
 |---|---|---|
-| `jsk-verifier` | the rendered files, the view id, the page budget — when a gate has failed, or the render gate needs reading | every gate's verdict verbatim, and the concept in which each defect is repaired |
-| `jsk-bundle-auditor` | the bundle path | what the bundle is missing, and a prioritised queue with the questions written ready to ask |
-| `jsk-tailor-analyst` | the posting file, the bundle path | the requirements written into the posting, the assessment, the ranking, the honest fit and the question queue |
-| `jsk-resume-author` | the posting, the gaps, the bundle path | the view, every clause it authored quoted, and what it cut |
+| `jsk-verifier` | the rendered files, the page budget — when a gate has failed, or the render gate needs reading | every gate's verdict verbatim, and the section in which each defect is repaired |
+| `jsk-kb-auditor` | the knowledge base path | what it is missing, and a prioritised queue with the questions written ready to ask |
+| `jsk-tailor-analyst` | the posting file, the knowledge base path | the requirements written into the posting, the assessment, the ranking, the honest fit and the question queue |
+| `jsk-resume-author` | the posting, the gaps, the knowledge base path | the URS record, every clause it authored quoted, and what it cut |
 
 **They never interview.** Confirming an `inferred` claim, choosing between two close-ranked projects,
 and telling someone where they fall short all stay here, with the person present.
 
-`jsk-resume-author` is the one that writes prose, and everything it authors arrives marked `inferred`.
-A view with `provenance_floor: confirmed` will not render it until the person has confirmed each
-clause — so the rule is enforced by the record gate rather than by the agent's restraint.
+`jsk-resume-author` is the one that writes prose, and everything it authors arrives marked
+`inferred`. A view with `provenance_floor: confirmed` will not render it until the person has
+confirmed each clause — so the rule is enforced by the record gate rather than by the agent's
+restraint.
 
 Their output does not reach the person, so **relay the evidence rather than summarising it.** A
 checker's verdict line, shown, is evidence; your description of it is not.
 
-Nothing depends on them. Where agents are unavailable, run the same procedure inline — the mode files
-hold it either way.
+Nothing depends on them. Where agents are unavailable, run the same procedure inline — the mode
+files hold it either way.
 
 ## The verification gates
 
@@ -244,30 +197,33 @@ parses, not that it is correct.*
 
 | Gate | Question | How |
 |---|---|---|
-| **Record** | Is the source coherent, and does every number trace to a metric? | `okf validate resume.json`, before anything renders |
-| **Parse** | Will an ATS read this without mangling it? | `okf check` on the rendered `.pdf`, and `--strict` on the `.txt` (or on an ATS-maximal PDF) |
-| **Prose** | Does it obey the writing rules? | `okf check --only prose` on the `.tex` and on the plain text |
+| **Record** | Is the record coherent, shaped right, and does every number trace to a metric? | `jsk validate resume.json`, before anything renders |
+| **Parse** | Will an ATS read this without mangling it? | `jsk check` on the rendered `.pdf`, and `--strict` on the `.txt` (or on an ATS-maximal PDF) |
+| **Prose** | Does it obey the writing rules? | `jsk check --only prose` on the `.tex` and on the plain text |
 | **Render** | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
 
-The first three run together as `okf gates <out-dir> --view ID`. The fourth is a person opening the
-PDF, and it asks two questions: **you can check it looks right; only they can confirm it is true.**
-Reading the layout leaves it half open — hand the PDF back naming what you could not check, and call
-the resume unverified until they have.
+The first three run together as `jsk gates <out-dir>`. The fourth is a person opening the PDF, and
+it asks two questions: **you can check it looks right; only they can confirm it is true.** Reading
+the layout leaves it half open — hand the PDF back naming what you could not check, and call the
+resume unverified until they have.
+
+**The record gate matters more than it used to.** Nothing compiles the record now; you write it. A
+key the renderer does not recognise is a section that renders as nothing, and the mistake is
+invisible in the PDF precisely because the section is simply not there. `jsk validate` is the only
+thing that sees it.
 
 All gates must pass. Show the output — the person should see the evidence rather than take your word
 for it. Fix and re-run; never explain away a failure.
 
-`jsk-verifier` is for a gate that failed and a failure that needs tracing back to the concept it came
-from. A clean ship runs `okf gates` and reads the output rather than spawning it — relaying three
-checkers is work a command does more cheaply, while turning a `FAIL` line into a repair site is work
-an agent does better. It has no way to edit a document, which is deliberate: a defect is repaired in
-the concept and re-rendered, never patched into the PDF.
+`jsk-verifier` is for a gate that failed and a failure that needs tracing back to the section it
+came from. A clean ship runs `jsk gates` and reads the output rather than spawning it — relaying
+three checkers is work a command does more cheaply, while turning a `FAIL` line into a repair site
+is work an agent does better. It has no way to edit a document, which is deliberate: a defect is
+repaired in the knowledge base and re-rendered, never patched into the PDF.
 
-**If no PDF renderer is available**, say so and mark the resume unverified rather than treating a
+**If no PDF renderer is available**, say so and mark the resume unverified rather than treating
 passing the parse gate as sufficient. *An unverified resume the person knows about is fine; one they
 think was checked is not.*
-
-Run `okf validate <bundle>` after any change to the bundle.
 
 `references/rationale.md` holds the three real resumes that passed the parse gate and should not
 have. Read it when someone asks why there are four gates.
@@ -284,12 +240,11 @@ Every concept carries `status`:
 precisely that it reads well — plausible, well-written, and indefensible when an interviewer asks a
 follow-up.*
 
-**`add` defaults to `--status confirmed`; `set` re-stamps `inferred`.** Pass `--status inferred` on
-an `add` for anything you reconstructed rather than heard: a concept you wrote and stamped
-`confirmed` has laundered your inference into a fact, and nothing downstream can tell —
-`provenance_floor` is enforced against what the frontmatter says, not against who typed it. The
-`set` default is that rule from the other side, so confirmation is something you asked them for
-rather than something a claim inherits by nobody touching that line.
+**Write `status: confirmed` only for what they actually said.** A concept you reconstructed and
+stamped `confirmed` has laundered your inference into a fact, and nothing downstream can tell —
+`provenance_floor` is enforced against what the file says, not against who typed it. There is no
+command defaulting this for you any more, which makes it entirely your habit: **when you change a
+claim's substance, drop it back to `inferred`** and put a row in `## Open questions`.
 
 **Never invent a credential**, or claim one is "in progress", unless they said so.
 
@@ -313,12 +268,13 @@ and never make the framework their problem. Others will want the schema. Read th
 - **Offer options with a recommendation** rather than one take-it-or-leave-it draft.
 - **Tell them where they fall short**, especially when tailoring. Being flattered costs interviews.
 
-Append a dated `log.md` entry after every session. When you find your own earlier mistake, record the
-correction rather than editing silently — *a knowledge base that hides its errors cannot be trusted.*
+Append a dated row to `## Log` after every session. When you find your own earlier mistake, record
+the correction rather than editing silently — *a knowledge base that hides its errors cannot be
+trusted.*
 
 ## Portability
 
-Works in Claude Code and Cowork. Use ordinary file tools and paths; do not assume either environment.
-In Cowork, save deliverables to the outputs folder and present them. In Claude Code, write beside the
-bundle and tell them the path. Prefer the bundle living in a folder the person controls — ideally
-version-controlled — so it outlives any single session.
+Works in Claude Code and Cowork. Use ordinary file tools and paths; do not assume either
+environment. In Cowork, save deliverables to the outputs folder and present them. In Claude Code,
+write beside the knowledge base and tell them the path. Prefer the file living in a folder the
+person controls — ideally version-controlled — so it outlives any single session.

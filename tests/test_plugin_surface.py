@@ -13,9 +13,9 @@ REPO = Path(__file__).resolve().parent.parent
 PLUGIN = REPO / "plugins" / "jsk"
 SKILL = PLUGIN / "skills" / "jsk"
 # The code left the skill: it is a package at the repo root now, installed as
-# jsk-okf. This file reads both - the skill for its markdown, the package for the
-# constants and dispatch tables the markdown has to agree with.
-SCRIPTS = REPO / "src" / "jsk_okf"
+# jsk-resume. This file reads both - the skill for its markdown, the package for the
+# dispatch tables the markdown has to agree with.
+SCRIPTS = REPO / "src" / "jsk"
 
 try:
     import yaml
@@ -53,7 +53,7 @@ class CommandFrontmatter(unittest.TestCase):
                 self.assertTrue(fm.get("allowed-tools"), f"{path.name}: no allowed-tools")
 
     def test_an_argument_hint_with_a_colon_is_quoted(self):
-        """Regression: `argument-hint: Optional: a bundle path` is a YAML mapping error
+        """Regression: `argument-hint: Optional: a path` is a YAML mapping error
         that takes the whole block down with it."""
         for path in self.commands():
             raw = re.search(r"^argument-hint: (.+)$", path.read_text(encoding="utf-8"), re.M)
@@ -108,32 +108,48 @@ class AgentFrontmatter(unittest.TestCase):
         status that flips without the person saying so is the defect this whole
         framework exists to prevent.
         """
-        for name in ("jsk-bundle-auditor",):
+        for name in ("jsk-kb-auditor",):
             tools = frontmatter(PLUGIN / "agents" / f"{name}.md")["tools"]
             with self.subTest(agent=name):
                 self.assertIn("Write", tools)
                 self.assertNotIn("Edit", tools)
 
-    def test_the_two_agents_that_author_hold_neither_write_nor_edit(self):
-        """The anti-invention guarantee, moved from an instruction into a tool grant.
+    def test_the_analyst_is_told_in_writing_to_leave_the_knowledge_base_alone(self):
+        """The anti-invention guarantee, back in prose - and this test is the reason
+        that is worth noticing rather than glossing.
 
-        Both of these used to carry `Write, Edit` and were told in prose to follow
-        bundle-spec.md. Everything they write is now an `okf` command, which checks
-        the shape and refuses what a gate would reject later - so the tools that
-        would let one hand-author a concept are gone, and "never invent" stops
-        being something a model has to remember.
+        It used to be a tool grant: both authoring agents held neither Write nor Edit,
+        because every change they made went through a write command that checked its
+        shape. There is no write layer over one Markdown file, so both now hold Edit,
+        and the guarantee is only as good as the sentence stating it. So the sentence
+        is asserted.
 
-        This is the enforcement half of
-        docs/superpowers/specs/2026-08-31-okf-write-cli-design.md. Without it the
-        write layer is a convenience rather than a guarantee: the whole design is
-        worth what the change to what agents MAY do is worth.
+        The analyst's boundary is absolute: it writes the posting and the assessment
+        and never the knowledge base, because a claim that becomes `confirmed` without
+        the person saying so is the defect this framework exists to prevent.
         """
+        body = (PLUGIN / "agents" / "jsk-tailor-analyst.md").read_text(encoding="utf-8")
+        self.assertIn("Never touch `user-knowledgebase.md`", body)
+
+    def test_the_author_is_told_in_writing_that_everything_it_writes_is_inferred(self):
+        """The author's boundary is different from the analyst's, because it does write
+        into the knowledge base - bullets belong in the project they are about, so the
+        next application can reuse them. What holds it is the status: everything it
+        authors arrives `inferred`, and `provenance_floor: confirmed` on the view means
+        the record gate refuses to render it until a person has confirmed each clause.
+
+        That is enforcement rather than instruction, which is why the author may hold
+        Edit and the analyst's rule has to be a sentence.
+        """
+        body = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
+        self.assertIn("status: inferred", body)
+        self.assertIn("provenance_floor", body)
+
+    def test_both_authoring_agents_keep_bash(self):
+        """Bash is how the record gate is run at all, and both are told to run it."""
         for name in ("jsk-tailor-analyst", "jsk-resume-author"):
             tools = frontmatter(PLUGIN / "agents" / f"{name}.md")["tools"]
             with self.subTest(agent=name):
-                self.assertNotIn("Write", tools)
-                self.assertNotIn("Edit", tools)
-                # Bash stays, because that is how a command is run at all.
                 self.assertIn("Bash", tools)
 
 
@@ -145,69 +161,13 @@ class Manifests(unittest.TestCase):
         self.assertEqual(plugin["version"], entry["version"])
 
 
-class RevisionConstants(unittest.TestCase):
-    """Three files carry the bundle layout revision. A bundle that lies about its own
-    shape is worse than one carrying no stamp at all."""
-
-    def constant(self, script, name):
-        text = (SCRIPTS / script).read_text(encoding="utf-8")
-        return int(re.search(rf"^{name} = (\d+)", text, re.M).group(1))
-
-    def test_all_three_agree(self):
-        self.assertEqual(
-            self.constant("init_bundle.py", "BUNDLE_REVISION"),
-            self.constant("migrate_bundle.py", "CURRENT_REVISION"))
-        self.assertEqual(
-            self.constant("migrate_bundle.py", "CURRENT_REVISION"),
-            self.constant("validate_bundle.py", "CURRENT_BUNDLE_REVISION"))
-
-    def test_every_migration_step_is_bounded_by_the_target(self):
-        """Regression: the steps were guarded on `revision < N` alone, so capping
-        CURRENT_REVISION still ran the later step and then stamped the lower number
-        over the result."""
-        text = (SCRIPTS / "migrate_bundle.py").read_text(encoding="utf-8")
-        guards = re.findall(r"if revision < (\d+)( <= CURRENT_REVISION)?:", text)
-        self.assertTrue(guards, "no migration step guards found")
-        for step, bounded in guards:
-            with self.subTest(step=step):
-                self.assertTrue(bounded, f"step r{step} is not bounded by CURRENT_REVISION")
-
-    def test_every_revision_has_a_description(self):
-        text = (SCRIPTS / "migrate_bundle.py").read_text(encoding="utf-8")
-        current = int(re.search(r"^CURRENT_REVISION = (\d+)", text, re.M).group(1))
-        described = set(int(n) for n in re.findall(r"^    (\d+): \"", text, re.M))
-        self.assertEqual(described, set(range(1, current + 1)))
-
-
 class DocumentedSurface(unittest.TestCase):
     """What the prose promises, against what is installed.
 
-    The constants above agree with each other and say nothing about the two revision
-    tables a person actually reads. Revision 7 had to be added to both by hand, and a
-    table that stops at 6 does not read as out of date - it reads as though 7 does not
-    exist, which is worse than no table.
+    Nothing here is exercised by running a command, which is exactly why it drifts. A
+    row naming a subcommand that does not exist sends an agent at something that cannot
+    run, and the failure surfaces as a broken install rather than as a stale table.
     """
-
-    REVISION_TABLES = (
-        SKILL / "references" / "bundle-spec.md",
-        REPO / "docs" / "SCRIPTS.md",
-    )
-
-    def current(self):
-        text = (SCRIPTS / "validate_bundle.py").read_text(encoding="utf-8")
-        return int(re.search(r"^CURRENT_BUNDLE_REVISION = (\d+)", text, re.M).group(1))
-
-    def test_every_revision_table_reaches_the_current_revision(self):
-        current = self.current()
-        for path in self.REVISION_TABLES:
-            with self.subTest(doc=path.name):
-                rows = re.findall(r"^\| (\d+) \|", path.read_text(encoding="utf-8"), re.M)
-                self.assertTrue(rows, f"{path.name}: no revision table found")
-                described = set(int(n) for n in rows)
-                self.assertEqual(
-                    described, set(range(1, current + 1)),
-                    f"{path.name} documents {sorted(described)}, "
-                    f"current revision is {current}")
 
     # ---- the URS specification is in two halves -------------------------------
 
@@ -240,9 +200,9 @@ class DocumentedSurface(unittest.TestCase):
         self.assertIn("urs-spec.md", view, "view-format.md does not point at its other half")
 
     def test_the_author_is_pointed_at_the_half_it_needs(self):
-        """jsk-resume-author writes a view and reads the compiled record, so the record
-        schema is the half it does not need. Pointing it back at urs-spec.md would undo
-        the saving without anything failing."""
+        """jsk-resume-author writes the view, so view-format.md is the half it cannot
+        do without. It reads urs-spec.md too now that the record is hand-written, but
+        losing the pointer to the view format would be the expensive one."""
         author = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
         self.assertIn("view-format.md", author)
 
@@ -252,150 +212,73 @@ class DocumentedSurface(unittest.TestCase):
         failure surfaces as a broken install rather than as a stale table.
 
         This checked for installed *files* until the scripts became one CLI. Same
-        guarantee, one level up: what SKILL.md names has to be something `okf`
+        guarantee, one level up: what SKILL.md names has to be something `jsk`
         dispatches.
         """
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-        named = set(re.findall(r"`okf ([a-z]+)", text))
-        self.assertTrue(named, "SKILL.md names no okf subcommands")
+        named = set(re.findall(r"`jsk ([a-z]+)", text))
+        self.assertTrue(named, "SKILL.md names no jsk subcommands")
         known = self.subcommands() | {"doctor", "new"}
         unknown = sorted(n for n in named if n not in known)
         self.assertEqual(unknown, [],
-                         f"SKILL.md names subcommands okf does not dispatch: {unknown}")
+                         f"SKILL.md names subcommands jsk does not dispatch: {unknown}")
 
-    # ---- the okf subcommand menu ----------------------------------------------
+    # ---- the jsk subcommand menu ----------------------------------------------
     #
     # The check above runs one way only - named, therefore installed - and the other
-    # direction is the one that drifted. `scripts/authoring/` landed as five modules
-    # and some 2,100 lines behind `okf project add`, and every document a reader picks
-    # a command from still described a bundle as a thing only a person writes. Nothing
-    # failed, because a missing row does not read as out of date: it reads as though
-    # the command does not exist, and an agent holding the skill went on hand-authoring
-    # the four files that command writes.
-
-    # The tuples HANDLERS is built from rather than spelt with. Each exists because
-    # every one of its entries dispatches identically, so the names are listed once -
-    # and each is therefore invisible to a test that reads only the dict literals.
-    # WRITE_NOUNS was the first: a test reading the literals alone saw none of the
-    # sixteen write commands. QUERY_VERBS is the second, and the failure it would
-    # have had is the same one this class exists to prevent - the two tests below
-    # would have gone on passing while naming none of the five read commands, so
-    # `okf search` would have been absent from the help text and from
-    # docs/SCRIPTS.md with nothing to say so.
-    DISPATCH_TUPLES = ("WRITE_NOUNS", "QUERY_VERBS")
+    # direction is the one that drifted. A command that exists and appears in no
+    # document is a command nobody reaches for, and a missing row does not read as out
+    # of date: it reads as though the command does not exist.
 
     def subcommands(self):
-        """Every subcommand `okf` answers to, read off its four dispatch tables."""
+        """Every subcommand `jsk` answers to, read off its two dispatch tables."""
         text = (SCRIPTS / "cli.py").read_text(encoding="utf-8")
         found = set()
         for table in ("SIMPLE", "HANDLERS"):
             block = re.search(rf"^{table} = \{{(.*?)^\}}", text, re.M | re.S)
-            self.assertIsNotNone(block, f"okf.py: no {table} table found")
+            self.assertIsNotNone(block, f"cli.py: no {table} table found")
             found |= set(re.findall(r'^    "([a-z]+)":', block.group(1), re.M))
-        for name in self.DISPATCH_TUPLES:
-            tuple_block = re.search(rf"^{name} = \((.*?)\)", text, re.M | re.S)
-            self.assertIsNotNone(tuple_block, f"okf.py: no {name} tuple found")
-            found |= set(re.findall(r'"([a-z]+)"', tuple_block.group(1)))
-        self.assertTrue(found, "okf.py declares no subcommands")
+        self.assertTrue(found, "cli.py declares no subcommands")
         return found
 
-    def test_SKILL_md_lists_every_list_noun(self):
-        """`okf list` is useless without knowing the nouns, so SKILL.md spells them -
-        and a hand-copied list of fourteen is exactly the kind of thing that goes stale
-        the first time a fifteenth is added. A missing noun does not read as an
-        out-of-date table: it reads as a noun that does not exist, and an agent then
-        reaches for `Grep` or a record dump to answer what it would have answered.
-        """
-        from jsk_okf.query import commands as query_commands
-
-        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-        missing = sorted(noun for noun in query_commands.NOUNS
-                         if f"`{noun}`" not in text)
-        self.assertEqual(missing, [], f"SKILL.md does not name these list nouns: "
-                                      f"{missing}")
-
-    def test_the_scripts_page_documents_every_list_noun(self):
-        """docs/SCRIPTS.md is the page that promises to be exhaustive."""
-        from jsk_okf.query import commands as query_commands
-
-        text = (REPO / "docs" / "SCRIPTS.md").read_text(encoding="utf-8")
-        missing = sorted(noun for noun in query_commands.NOUNS if noun not in text)
-        self.assertEqual(missing, [], f"docs/SCRIPTS.md does not list: {missing}")
-
-    def test_every_dispatch_tuple_reaches_the_handlers_table(self):
-        """A tuple listed above that HANDLERS is not built from would be a set of
-        names this test class asserts documentation for and `okf` cannot run."""
-        text = (SCRIPTS / "cli.py").read_text(encoding="utf-8")
-        for name in self.DISPATCH_TUPLES:
-            self.assertIn(f"for verb in {name}" if name == "QUERY_VERBS"
-                          else f"for noun in {name}", text,
-                          f"cli.py declares {name} but HANDLERS is not built from it")
-
     def test_the_help_text_lists_every_subcommand(self):
-        """`okf --help` prints the module docstring, so a subcommand absent from it is
+        """`jsk --help` prints the module docstring, so a subcommand absent from it is
         invisible to anyone who asks the command itself what it can do.
 
-        A line may name several nouns that share a verb set - `okf project|role|org`
-        - because sixteen write commands one to a line would bury the twelve read
-        ones. Each alternative counts as listed; what is being checked is that
-        nothing is absent, not how densely the menu is packed.
+        A line may name several subcommands sharing a verb set, pipe-separated. Each
+        alternative counts as listed; what is being checked is that nothing is absent,
+        not how densely the menu is packed.
         """
         listed = set()
-        for group in re.findall(r"^    okf ([a-z|]+)", (SCRIPTS / "cli.py").read_text(
+        for group in re.findall(r"^    jsk ([a-z|]+)", (SCRIPTS / "cli.py").read_text(
                 encoding="utf-8"), re.M):
             listed |= set(group.split("|"))
         missing = sorted(self.subcommands() - listed)
         self.assertEqual(missing, [],
-                         f"okf.py's own help text does not list: {missing}")
+                         f"cli.py's own help text does not list: {missing}")
 
     def test_the_scripts_page_lists_every_subcommand(self):
         """docs/SCRIPTS.md opens with the whole menu, for a person running these by
         hand. It is the one page that promises to be exhaustive."""
         text = (REPO / "docs" / "SCRIPTS.md").read_text(encoding="utf-8")
-        # `okf <verb>` since the scripts became one installed CLI - the page used to
-        # spell every line `python3 scripts/okf.py <verb>`.
-        listed = set(re.findall(r"\bokf ([a-z]+)", text))
+        listed = set(re.findall(r"\bjsk ([a-z]+)", text))
         missing = sorted(self.subcommands() - listed)
         self.assertEqual(missing, [], f"docs/SCRIPTS.md does not list: {missing}")
 
-    # Hand-maintained, because nothing in okf.py marks a subcommand as writing. Keep it
-    # that way: the point is that adding a write command forces a decision about the
-    # skill's own table, and a derived list would make that decision silently.
-    #
-    # It grew from three to eighteen when the write layer landed its catalogue. That
-    # is the whole of the change being guarded: an agent that does not know a write
-    # verb exists hand-authors the file instead, and the index entry and log row the
-    # write implies are then left to be remembered.
-    MUTATING = ("new", "migrate", "project", "role", "org", "education",
-                "bullet", "skill", "credential", "metric", "capability",
-                "question", "log", "reindex", "posting", "gaps", "view",
-                "application")
+    def test_SKILL_md_names_every_subcommand(self):
+        """A command an agent does not know about is a command it does not run - and
+        for `validate` that is not a slower route to the same answer, it is a resume
+        rendered from a record nobody checked.
 
-    def test_SKILL_md_names_every_subcommand_that_writes_to_a_bundle(self):
-        """A read command an agent does not know about costs a slower route to the same
-        answer. A *write* command it does not know about costs correctness: it
-        hand-authors the concept, and the index entry and log row that a write implies
-        are then left to be remembered, which is the failure bookkeeping.py exists to
-        remove.
-
-        Either spelling counts. `okf new` and `okf migrate` forward to a script, and the
-        table has always named those by filename - that is the stable, documented API,
-        not a stale row. What is being checked is that the write exists on the menu at
-        all, not which of its two names appears there."""
+        This was a hand-maintained list of the eighteen subcommands that wrote into a
+        bundle, kept separate so that adding a write forced a decision about the
+        skill's own table. There are eight subcommands now and none of them writes
+        anything a person owns, so the weaker statement is also the complete one:
+        SKILL.md names all of them."""
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-        okf = (SCRIPTS / "cli.py").read_text(encoding="utf-8")
-        simple = dict(re.findall(r'^    "([a-z]+)": \("([a-z_]+\.py)"', okf, re.M))
-        for sub in self.MUTATING:
-            with self.subTest(subcommand=sub):
-                self.assertIn(sub, self.subcommands(),
-                              f"MUTATING names '{sub}', which okf.py no longer has")
-                names = [rf"okf(?:\.py)? {sub}\b"]
-                if sub in simple:                   # forwards, so its script name counts
-                    names.append(re.escape(simple[sub]))
-                self.assertTrue(
-                    any(re.search(n, text) for n in names),
-                    f"SKILL.md names neither `okf {sub}` nor its script, and it writes "
-                    f"into the bundle")
+        missing = sorted(sub for sub in self.subcommands()
+                         if not re.search(rf"`jsk {sub}\b", text))
+        self.assertEqual(missing, [], f"SKILL.md does not name: {missing}")
 
 
 if __name__ == "__main__":

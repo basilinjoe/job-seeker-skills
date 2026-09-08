@@ -1,12 +1,12 @@
 ---
 description: Find and close what is missing - unconfirmed claims, missing metrics, roles with no evidence behind them
-argument-hint: 'Optional: a bundle path'
+argument-hint: 'Optional: a path to user-knowledgebase.md'
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 ---
 
 # Gaps
 
-Resolve open questions in the bundle. This command is a shortcut into the skill's `gaps` mode - it does not reimplement anything.
+Resolve open questions in the knowledge base. This command is a shortcut into the skill's `gaps` mode - it does not reimplement anything.
 
 ```
 Skill(skill="jsk:jsk", args="gaps")
@@ -28,8 +28,8 @@ audit is open-ended and a long list is a list nobody finishes.
 End by naming the single biggest gap in their record. A named gap can be filled; a compliment
 cannot.
 
-**Before anything else, find the bundle.** Sessions do not share state, so never assume one exists
-because it did last time. If there is no bundle, say so and offer `/jsk:setup` - but if what
+**Before anything else, find `user-knowledgebase.md`.** Sessions do not share state, so never assume
+one exists because it did last time. If there is none, say so and offer `/jsk:setup` - but if what
 they asked for can be delivered anyway, deliver it first and offer to capture it afterwards.
 
-Append a dated entry to the bundle's `log.md` when the session ends.
+Append a dated row to the knowledge base's `## Log` when the session ends.

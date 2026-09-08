@@ -16,34 +16,50 @@ from fixtures import PLUGIN, PREFLIGHT, load_script, run
 preflight = load_script(PREFLIGHT)
 
 
-class BundleDiscovery(unittest.TestCase):
+class KnowledgeBaseDiscovery(unittest.TestCase):
+    """The career is one file, so finding it is finding that file.
+
+    A bundle used to be recognised by the directories inside it, which meant a
+    half-created one was invisible here and reported as "no bundle" while the person
+    was looking straight at it. A filename cannot be half-present.
+    """
+
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
 
-    def make_bundle(self, parent, name="career"):
+    def make_kb(self, parent, name="career"):
         root = parent / name
-        (root / "projects").mkdir(parents=True)
-        (root / "resume-generation").mkdir(parents=True)
-        return root
+        root.mkdir(parents=True)
+        path = root / "user-knowledgebase.md"
+        path.write_text("# Career knowledge base", encoding="utf-8")
+        return path
 
-    def test_finds_a_bundle_by_its_two_marker_directories(self):
-        root = self.make_bundle(self.tmp)
-        self.assertEqual(Path(preflight.find_bundle(self.tmp)), root)
+    def test_finds_the_knowledge_base_by_name(self):
+        path = self.make_kb(self.tmp)
+        self.assertEqual(Path(preflight.find_kb(self.tmp)), path)
 
-    def test_a_directory_with_only_one_marker_is_not_a_bundle(self):
-        (self.tmp / "notabundle" / "projects").mkdir(parents=True)
-        self.assertIsNone(preflight.find_bundle(self.tmp))
+    def test_a_directory_with_no_knowledge_base_is_not_one(self):
+        (self.tmp / "notacareer" / "projects").mkdir(parents=True)
+        self.assertIsNone(preflight.find_kb(self.tmp))
+
+    def test_a_differently_named_markdown_file_is_not_one(self):
+        """Every other .md in a career folder - a posting, a log, a draft - would
+        otherwise be reported as the knowledge base by whichever one os.walk saw
+        first."""
+        (self.tmp / "career").mkdir()
+        (self.tmp / "career" / "resume.md").write_text("draft", encoding="utf-8")
+        self.assertIsNone(preflight.find_kb(self.tmp))
 
     def test_dot_directories_are_not_searched(self):
-        self.make_bundle(self.tmp / ".hidden")
-        self.assertIsNone(preflight.find_bundle(self.tmp))
+        self.make_kb(self.tmp / ".hidden")
+        self.assertIsNone(preflight.find_kb(self.tmp))
 
     def test_search_does_not_descend_forever(self):
         deep = self.tmp / "a" / "b" / "c" / "d" / "e"
-        self.make_bundle(deep)
-        self.assertIsNone(preflight.find_bundle(self.tmp))
+        self.make_kb(deep)
+        self.assertIsNone(preflight.find_kb(self.tmp))
 
 
 class GapsAreDescribedByWhatTheyCost(unittest.TestCase):
@@ -71,15 +87,15 @@ class GapsAreDescribedByWhatTheyCost(unittest.TestCase):
             self.assertIn("winget", line)
 
     def test_pip_hints_use_the_running_interpreter(self):
-        line, _ = preflight.hint("jsonschema")
-        self.assertIn("-m pip install jsonschema", line)
+        line, _ = preflight.hint("pymupdf")
+        self.assertIn("-m pip install pymupdf", line)
 
 
 class RequiredVersusOptional(unittest.TestCase):
     def test_the_shipped_toolchain_is_required(self):
         checks, _ = preflight.gather()
         required = [c.name for c in checks if preflight.is_required(c)]
-        # "modules (12/12)" since these became a package: preflight asks whether each
+        # "modules (4/4)" since these became a package: preflight asks whether each
         # one can be imported, not whether a file of that name is on disk.
         self.assertTrue(any(n.startswith("modules") for n in required))
         self.assertTrue(any(n.startswith("urs renderer") for n in required))
@@ -96,12 +112,14 @@ class RequiredVersusOptional(unittest.TestCase):
             self.assertTrue(preflight.is_required(check),
                             f"{name} must block: without it there is no deliverable")
 
-    def test_the_convenience_libraries_are_not_required(self):
+    def test_the_retired_convenience_libraries_are_no_longer_probed(self):
+        """pyyaml went with the bundle format; jsonschema went with a URS schema that
+        never existed - nothing imported it, so it bought a line in this report and
+        nothing else. Probing for either would teach people to install it."""
         checks, _ = preflight.gather()
         for name in ("pyyaml", "jsonschema"):
-            check = next(c for c in checks if c.name.startswith(name))
-            self.assertFalse(preflight.is_required(check),
-                             f"{name} must not block the core pipeline")
+            self.assertFalse([c for c in checks if c.name.startswith(name)],
+                             f"{name} is not a dependency of anything any more")
 
     def test_libreoffice_is_no_longer_probed(self):
         """It rendered the .docx for page measurement. With the .docx gone it has
@@ -109,10 +127,10 @@ class RequiredVersusOptional(unittest.TestCase):
         checks, _ = preflight.gather()
         self.assertFalse([c for c in checks if "ibre" in c.name or "offic" in c.name.lower()])
 
-    def test_an_absent_bundle_does_not_block(self):
+    def test_an_absent_knowledge_base_does_not_block(self):
         checks, _ = preflight.gather()
-        bundle = next(c for c in checks if c.name.startswith("career bundle"))
-        self.assertFalse(preflight.is_required(bundle))
+        kb = next(c for c in checks if c.name.startswith("knowledge base"))
+        self.assertFalse(preflight.is_required(kb))
 
     def test_the_shipped_install_is_intact(self):
         # If this fails the plugin is broken, not the machine it is running on.
@@ -157,16 +175,16 @@ class CliBehaviour(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(len(payload["verify"]), 5)
 
-    def test_bundle_override_is_honoured(self):
-        root = self.tmp / "mine"
-        (root / "projects").mkdir(parents=True)
-        (root / "resume-generation").mkdir(parents=True)
-        code, out = run(PREFLIGHT, "--bundle", root, "--json")
+    def test_kb_override_is_honoured(self):
+        path = self.tmp / "mine" / "user-knowledgebase.md"
+        path.parent.mkdir(parents=True)
+        path.write_text("# Career knowledge base", encoding="utf-8")
+        code, out = run(PREFLIGHT, "--kb", path, "--json")
         self.assertEqual(code, 0, out)
-        self.assertEqual(Path(json.loads(out)["bundle"]), root)
+        self.assertEqual(Path(json.loads(out)["knowledge_base"]), path)
 
-    def test_bundle_flag_without_a_path_is_a_usage_error(self):
-        code, out = run(PREFLIGHT, "--bundle")
+    def test_kb_flag_without_a_path_is_a_usage_error(self):
+        code, out = run(PREFLIGHT, "--kb")
         self.assertEqual(code, 2)
         self.assertIn("needs a path", out)
 
@@ -192,26 +210,33 @@ class CommandFileIsWiredUp(unittest.TestCase):
         self.assertIn("description:", head)
 
     def test_it_runs_preflight_before_anything_else(self):
-        """`okf doctor` since preflight became a subcommand. Bare `okf doctor` is the
+        """`jsk doctor` since preflight became a subcommand. Bare `jsk doctor` is the
         verifying run - cmd_doctor adds --verify unless given --quick - so the flag
         that used to have to be present is now the one that must be absent."""
         body = self.command.read_text(encoding="utf-8")
-        self.assertIn("okf doctor", body)
-        self.assertNotIn("okf doctor --quick", body,
+        self.assertIn("jsk doctor", body)
+        self.assertNotIn("jsk doctor --quick", body,
                          "setup must run the verifying preflight, not the quick one")
-        self.assertLess(body.index("okf doctor"), body.index("mode-setup.md"))
+        self.assertLess(body.index("jsk doctor"), body.index("mode-setup.md"))
 
     def test_every_command_it_invokes_is_real(self):
         """It checked that each `scripts/X.py` it named was on disk. The scripts are one
-        CLI now, so the equivalent claim is that each `okf <verb>` it names is a verb
-        `okf` dispatches - otherwise the command file sends setup at something that
-        cannot run, and the failure reads as a broken install."""
+        CLI now, so the equivalent claim is that each `jsk <verb>` it names is a verb
+        `jsk` dispatches - otherwise the command file sends setup at something that
+        cannot run, and the failure reads as a broken install.
+
+        Only fenced blocks are read. The command was renamed from `okf` to `jsk`, which
+        is also how the file refers to the product - "Set up jsk end to end" parsed as
+        an invocation of `jsk end`, and the fix a person would reach for is to reword
+        the prose rather than the check.
+        """
         import re
 
-        from jsk_okf import cli
+        from jsk import cli
         body = self.command.read_text(encoding="utf-8")
-        named = set(re.findall(r"`?okf ([a-z]+)", body))
-        self.assertTrue(named, "the setup command invokes no okf subcommand")
+        fenced = "\n".join(re.findall(r"^```(?:bash)?\n(.*?)^```", body, re.M | re.S))
+        named = set(re.findall(r"^jsk ([a-z]+)", fenced, re.M))
+        self.assertTrue(named, "the setup command invokes no jsk subcommand")
         known = set(cli.HANDLERS) | set(cli.SIMPLE)
         unknown = sorted(n for n in named if n not in known)
         self.assertEqual(unknown, [], f"setup.md names unknown subcommands: {unknown}")

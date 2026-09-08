@@ -14,19 +14,22 @@ Skill(skill="jsk:jsk", args="ship")
 
 That loads `references/mode-ship.md`, which holds the procedure.
 
-`$ARGUMENTS` names the record. If it is empty, look for `tailoring/targets/*.resume.json` and
-`resume-generation/resume.json`, and ask which if there is more than one.
+`$ARGUMENTS` names the record. If it is empty, look for `applications/*/resume.json` and any
+`resume.json` beside the knowledge base, and ask which if there is more than one.
 
 **The template defaults to the ink-only default.** `--template NAME` is the only way to get another;
 `templates.md` has the catalogue. `--ats-max` is a separate axis and switches which variant the one
 PDF holds - reach for it when the posting names a portal known to parse badly, or when the target is
 a form rather than a person.
 
-**Four gates, all of them, every time.** `okf gates` runs the three mechanical ones in a single pass
+**Four gates, all of them, every time.** `jsk gates` runs the three mechanical ones in a single pass
 and prints each verdict verbatim; the render gate is a person opening the PDF, and no command claims
 it. Show that output rather than summarising it. Passing one gate says nothing about the others.
 
-`jsk-verifier` is for a failure that needs tracing back to the concept it came from, not for a clean
+The record gate matters more than it used to: nothing compiles the record now, so an unrecognised key
+is a section that renders as nothing, and `jsk validate` is the only thing that sees it.
+
+`jsk-verifier` is for a failure that needs tracing back to the section it came from, not for a clean
 pass — relaying three checkers is work the command does more cheaply.
 
 A defect is repaired in `resume.json` and re-rendered - never patched into the `.tex` and never
@@ -34,10 +37,11 @@ worked around by loosening a check. If the record gate fails on freshly authored
 `provenance_floor` doing its job: go back and get confirm-correct-or-cut on each clause.
 
 **Nothing is frozen until every gate passes.** An archive of a document that was not sendable is
-worse than no archive, because later it reads as though it was. What is frozen - the posting, the
-assessment, the view and the files actually sent - is filed under `tailoring/applications/<yyyy>/`.
+worse than no archive, because later it reads as though it was. What is frozen is the whole
+application directory - the posting, the assessment, the record and the files actually sent - renamed
+to the day it went out.
 
-**Before anything else, find the bundle.** Sessions do not share state, so never assume one exists
-because it did last time.
+**Before anything else, find `user-knowledgebase.md`.** Sessions do not share state, so never assume
+one exists because it did last time.
 
-Append a dated entry to the bundle's `log.md` when the session ends.
+Append a dated row to the knowledge base's `## Log` when the session ends.

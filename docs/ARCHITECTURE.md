@@ -66,7 +66,7 @@ agents that author into the bundle carry no way to hand-write a file in it.
 | Agent | Has | Deliberately lacks |
 |---|---|---|
 | `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into the render |
-| `jsk-bundle-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit; a concept is the person's |
+| `jsk-kb-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit; a concept is the person's |
 | `jsk-tailor-analyst` | Read, Glob, Grep, Bash | Write and Edit — the posting's requirements and the assessment are commands |
 | `jsk-resume-author` | Read, Glob, Grep, Bash | Write and Edit — the bullets and the view are commands, and it is the one that writes prose |
 
@@ -167,7 +167,7 @@ plugins/jsk/                        THE SKILL. markdown only - it ships no code
     braindump|resume|tailor|...     thin delegations into the skill's modes
   agents/                           subagents the modes delegate to
     jsk-verifier.md                 interprets a failed gate against the record
-    jsk-bundle-auditor.md           reads the whole bundle, writes a posting-less audit
+    jsk-kb-auditor.md           reads the whole bundle, writes a posting-less audit
     jsk-tailor-analyst.md           reads a posting and the compiled record
     jsk-resume-author.md            authors the tailored record: narrative, summary, view
   skills/jsk/

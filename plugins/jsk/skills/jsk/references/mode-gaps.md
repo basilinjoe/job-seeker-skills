@@ -6,12 +6,12 @@ Turn unverified and unquantified material into confirmed facts.
 
 | Entry | Subject | Asks about |
 |---|---|---|
-| `/jsk:gaps` — a record audit | the bundle, no posting in view | record quality: unconfirmed claims, missing metrics, illegible titles, unexplored territory |
-| A tailoring round — see `mode-tailor.md` | a posting **and** the record | both, ranked together: what this posting wants that the record cannot answer, alongside the record-quality problems that would reach *this* resume |
+| `/jsk:gaps` — a record audit | the knowledge base, no posting in view | record quality: unconfirmed claims, missing metrics, illegible titles, unexplored territory |
+| A tailoring round — see `mode-tailor.md` | a posting **and** the knowledge base | both, ranked together: what this posting wants that the record cannot answer, alongside the record-quality problems that would reach *this* resume |
 
 Both write the same Markdown assessment, so the questions have the same shape, the same priorities
-and the same resolutions wherever they came from. `agents/jsk-tailor-analyst.md` has the format.
-This file is the conversation.
+and the same resolutions wherever they came from. `agents/jsk-tailor-analyst.md` has the format. This
+file is the conversation.
 
 The rest of this file is the record audit. The tailoring round is in `mode-tailor.md`.
 
@@ -28,22 +28,25 @@ makes it easy to leave in and hard to defend when someone asks a follow-up.
 
 ## Run it
 
-**Scan first, then talk.** Send `jsk-bundle-auditor` the bundle path. It writes
-`resume-generation/audit.gaps.md` — the gaps already ordered, each with the question written ready
-to ask. That keeps a full-bundle read out of the conversation and leaves you the part that needs a
-person.
+**Scan first, then talk.** Send `jsk-kb-auditor` the knowledge base path. It writes `audit.gaps.md`
+beside it — the gaps already ordered, each with the question written ready to ask. That keeps a full
+read out of the conversation and leaves you the part that needs a person.
 
-For a quick look without spawning anything, `okf list <bundle> unconfirmed` is the same queue in one
-command: every `inferred` and `needs-verification` claim, with its id and its file, ordered by the
-priority below. It is derived, so it cannot miss one — and it cannot judge one either, which is why
-the auditor still exists.
+For a quick look without spawning anything, the queue is two greps:
+
+```bash
+grep -n "status: inferred\|status: needs-verification" <path>/user-knowledgebase.md
+sed -n '/^## Open questions/,/^## Log/p' <path>/user-knowledgebase.md
+```
+
+Those are derived from the file, so they cannot miss one — and they cannot judge one either, which is
+why the auditor still exists.
 
 A record audit carries `purpose: self-assessment` and **no requirements table and no verdicts**. A
 verdict is a judgement against something a posting asked for, and there is no posting here — nothing
 is being applied to. Questions are the whole document.
 
-Then work **one question at a time**, from that queue and `open-questions.md`. *A list of fifteen gets
-abandoned; one gets answered.*
+Then work **one question at a time**. *A list of fifteen gets abandoned; one gets answered.*
 
 This is the one place that rule still holds unchanged. A record audit is open-ended and has no natural
 end, so a long list is a list nobody finishes. A tailoring round is bounded and every question names
@@ -51,8 +54,8 @@ the requirement it would close, which is why it asks the whole queue at once ins
 
 Order by what unblocks most:
 
-1. **Blocking** — anything stopping a resume going out: an unnamed project, an unresolved contact
-   detail, a date conflict
+1. **Blocking** — anything stopping a resume going out: an empty `## Identity` block, an unnamed
+   project, a date conflict
 2. **Inferred claims**
 3. **Illegible titles** — a job title a reader outside that employer cannot place
 4. **Missing metrics**, highest-strength projects first
@@ -80,10 +83,10 @@ plainly:
 > never worked at that company, what would they think you did? What would the same job be called
 > somewhere else?"
 
-Record their answer as `functional_title` and leave the official title untouched — it is what a
-reference check confirms, and rewriting it turns a clarification into a discrepancy. Watch for the
-answer that is a level up rather than a translation ("really I was doing staff engineer work"): that
-is a claim about scope, and it belongs in the evidence, not in a parenthesis.
+Record their answer as `functional_title` on the role and leave the official `title` untouched — it
+is what a reference check confirms, and rewriting it turns a clarification into a discrepancy. Watch
+for the answer that is a level up rather than a translation ("really I was doing staff engineer
+work"): that is a claim about scope, and it belongs in the evidence, not in a parenthesis.
 
 Most titles need nothing here. Skip the ones that already read plainly.
 
@@ -93,9 +96,10 @@ Prompt with where the number might live: monitoring dashboards, APM, cloud billi
 release notes, incident reviews, performance and promotion documents, the original project brief, a
 colleague.
 
-If unavailable, take an honest approximation — **"~50 tenants" is worth far more than silence**.
-If there is no number at all, make the bullet read as true and complete without one, then drop the
-item. A bullet permanently awaiting a metric is a bullet nobody improved.
+If unavailable, take an honest approximation and record it as `confidence: estimated` — **"~50
+tenants" is worth far more than silence**. If there is no number at all, make the bullet read as true
+and complete without one, then close the question. A bullet permanently awaiting a metric is a bullet
+nobody improved.
 
 ## For unexplored territory
 
@@ -105,27 +109,20 @@ rather than fixing one.
 
 ## Record and close
 
-**Every write is a command** — never `Write` or `Edit` inside the bundle:
+Ordinary `Edit` calls into `user-knowledgebase.md`. Each answer touches two places and both matter:
 
-```bash
-OKF="okf"; B="--bundle <bundle>"
+1. **The section it was about** — the metrics row, the bullet, the role's `functional_title`, the
+   project's block. Change its `status` to `confirmed`, because they just confirmed it.
+2. **`## Open questions`** — fill the `answered` date on that row. Leave the row.
 
-$OKF metric add       $B --name "…" --value "…" --evidence <stem> --source "…"
-$OKF bullet set       $B --project <stem> --id <ach id> --text "…" --status confirmed
-$OKF project set      $B --slug <stem> --status confirmed
-$OKF question resolve $B --match "<enough of the question to be unambiguous>" --answer "…"
-```
+All six outcomes are real, and **unavailable is one of them**: a metric nobody can reconstruct closes
+the question and should soften or cut the claim rather than leaving it pending forever.
 
-All six outcomes are real, and `unavailable` is one of them — a metric nobody can reconstruct
-resolves the question and should soften or cut the claim rather than leaving it pending forever.
-`question resolve` refuses a match that hits nothing and one that hits more than one, so it cannot
-strike the wrong row.
+**The knowledge base is the only place to write.** Nothing is copied anywhere else, so an answer that
+reaches the file has reached everything downstream by construction. There is no second copy to keep
+in step, which is the whole reason this used to say the opposite.
 
-**The concept is the only place to write.** The record compiles from it, so an answer that reaches
-the concept has reached everything downstream by construction. There is no second copy to keep in
-step, which is the whole reason this used to say the opposite.
-
-Then `okf validate <bundle>`, once, at the end.
+Then append one row to `## Log`, and update `updated:` in the frontmatter.
 
 Report what resolved, what is still open, and **which claims should be softened or cut** because no
 evidence turned up. That last list is the valuable one — better to lose a bullet now than be asked

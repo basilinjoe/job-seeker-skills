@@ -2,6 +2,9 @@
 
 They talk. You structure. This is the highest-value mode and the one that fails if you interrupt.
 
+Everything they say ends up in **one place** — `user-knowledgebase.md` — under the headings
+`references/kb-spec.md` describes. Nothing else is written.
+
 ## Let them finish
 
 If they are mid-flow, do not interrupt to impose format. People recall their work associatively —
@@ -34,78 +37,75 @@ People routinely believe they cannot get a number they can get. Prompt with wher
 monitoring dashboards, cloud billing, release notes, incident reviews, performance reviews, the
 original project brief, a colleague who would know.
 
-If it genuinely is not available, take an honest approximation and mark it as such. If there is no
-number at all, write the bullet true without one and log it in `open-questions.md`. **Never leave a
-placeholder in a document they might send.**
+If it genuinely is not available, take an honest approximation and mark it `estimated` in the
+metrics table. If there is no number at all, write the bullet true without one and put a row in
+`## Open questions`. **Never leave a placeholder in a document they might send.**
 
-## Write it up
+## Read the file before you write to it
 
-**Every write is a command.** Never `Write` or `Edit` a file in the bundle —
-`references/write-commands.md` is the surface, and `okf <noun> --help` the flags. You do not need to
-read `bundle-spec.md` to author a concept: house style is structural now.
-
-**Check it is not already there first.** One command, before the first write:
+**One command, before the first edit:**
 
 ```bash
-okf search <bundle> "<a distinctive phrase from what they described>"
+grep -n -i "<a distinctive phrase from what they described>" <path>/user-knowledgebase.md
 ```
 
 People re-tell the same work months apart, in different words, and neither telling mentions the
-other. A second concept for one project is the failure that costs most later: the ranking sees two
+other. A second entry for one project is the failure that costs most later: the ranking sees two
 weak projects where there was one strong one, and the bullets are split across both so neither
-reads as evidence. Finding it now is one command; finding it after a resume is written is a merge
-somebody has to do by hand. If something turns up, `okf project set` extends the concept that
-exists rather than adding a rival to it.
+reads as evidence. Finding it now is one grep; finding it after a resume is written is a merge
+somebody has to do by hand.
 
-A project heard in one sitting is usually four commands. In this order, because each refuses a
-reference the one before it establishes — including the pair that reads backwards: `metric add
---evidence` needs the project on disk, so the number comes *after* the thing it measures:
+If something turns up, **extend the section that exists** rather than adding a rival to it.
 
-```bash
-OKF="okf"
-B="--bundle <bundle>"
+Then read the whole file. It is one document and it is meant to be read whole — you are about to
+edit four sections of it, and the ids in each have to agree with the others.
 
-# 1. The employer and the job, if they are not already there.
-#    --description on every concept: validate_bundle.py warns without one.
-$OKF org add  $B --title "…" --description "one line" --relationship employer \
-                 --industry <domain> --body -
-$OKF role add $B --title "…" --description "one line" --organisation <org-stem> \
-                 --start 2023-01 --state ongoing --body -
+## Write it up
 
-# 2. The project. `--headline-metric` may name a metric step 3 has yet to write.
-$OKF project add $B --title "…" --role <role-stem> \
-  --strength 4 --recency 2026 --seniority hands-on-senior \
-  --domain <domain> --capability <term> --description "one line" \
-  --headline-metric "Claim latency" --status inferred --body -
+**Ordinary `Edit` calls.** There is no write layer any more: the transaction a command used to make
+atomic was a several-file write, and there is only one file now.
 
-# 3. The number, before the bullet that rests on it.
-$OKF metric add $B --name "Claim latency" --value "4.2s to 380ms" \
-                   --evidence <project-stem> --source "the dashboard they named"
+A project heard in one sitting touches four sections. Do them in this order, because each one names
+something the previous established:
 
-# 4. The lines it earned, one command each.
-$OKF bullet add $B --project <project-stem> --text "…" --metric "Claim latency" --status confirmed
-```
+1. **`## Organisations`** — the employer, if it is not already there.
+2. **`## Roles`** — the job, pointing at `organisation:`.
+3. **`## Metrics`** — the number, before the bullet that rests on it. Give it an id.
+4. **`## Projects`** — the project, pointing at `role:`, then its prose, then its `**Bullets**`
+   naming the metric id.
 
-Each one writes the concept, its directory index entry and the `log.md` row together, and refuses
-what a gate would catch later — or worse, would not: a `--role` that names no concept aborts the
-next tailoring run and no gate reports it, and a `--metric` that names no row crashes the next
-compile.
+Add any new `capabilities` or `domains` value to `## Vocabulary` **in the same edit that first uses
+it**. That list is the matching axis and compares as exact strings, so a term used and never
+recorded silently breaks the next tailoring run.
 
-**Run the first one with `--dry-run --json`** if you are unsure what a command will touch. It
-decides everything and writes nothing.
+`references/kb-spec.md` has the exact block for each. The shapes are fixed; the prose is not.
 
-**Pipe the body in, or close stdin.** `--body -` reads stdin to EOF, so with stdin left open the
-command waits forever and writes nothing. Add `< /dev/null` when the prose comes later — a concept
-with no body is perfectly valid, since the frontmatter is what compiles.
+### What nothing checks for you any more
 
-**Pass `--status inferred` for anything you wrote rather than heard.** `add` defaults to
-`confirmed`, which is right when they just told you and wrong in exactly the case this framework
-exists to catch. Tell them which parts you inferred.
+The write commands used to refuse a `role:` naming no role and a `metric:` naming no row. Nothing
+does now until `jsk validate` runs over a record, which is a whole tailoring run later. So:
 
-**If a change has no command, say so and stop.** Do not hand-edit around it. `--set key=value`
-covers a key the format does not model.
+- **Every `id:` you reference must exist.** Read the section you are pointing at.
+- **Every id you create must be new.** Grep it before you use it.
+- **Never renumber, never reuse a retired id.**
 
-Then run the validator: `okf validate <bundle>`. Once, at the end — not after every command.
+### Provenance
+
+**Write `status: confirmed` only for what they actually said.** Anything you reconstructed, inferred
+from context, or wrote to fill a shape is `status: inferred` — and gets a row in `## Open questions`.
+
+There is no command defaulting this for you, which makes it entirely your habit and the single
+easiest thing in this mode to get wrong. A concept you wrote and stamped `confirmed` has laundered
+your inference into a fact, and nothing downstream can tell.
+
+**Tell them which parts you inferred.** Every time, in chat, in plain words.
+
+## Close out
+
+Append one row to `## Log` — the date, and what changed. One row for the session, not one per edit.
+
+Then say back what you wrote: how many projects, which metrics, what you marked `inferred`, and what
+is still open. Show them the section headings, not the YAML, unless they want it.
 
 ## Look for what they undersold
 

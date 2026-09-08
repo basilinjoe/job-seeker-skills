@@ -137,11 +137,11 @@ Below those floors a document is not two pages, it is two pages nobody will read
 unreachable without a breach, the remedy is to cut evidence. That is a decision for the person whose
 evidence it is, so the script exits non-zero and says so instead of making it for them.
 
-## Why a bundle never carries copies of the scripts
+## Why the knowledge base never carries copies of the tooling
 
-The scripts stay with the skill, so every bundle gets the current version. A bundle carrying its own
-copies gets the version that existed the day it was created, and a rule nobody checks stops being
-true.
+The toolchain stays with the skill, so everybody gets the current version. A career folder carrying
+its own copy gets the version that existed the day it was created, and a rule nobody checks stops
+being true.
 
 ## Why the log records corrections rather than editing silently
 

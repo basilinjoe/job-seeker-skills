@@ -1,12 +1,12 @@
 ---
-description: Periodic bundle top-up - what changed, what numbers moved, what needs re-confirming
+description: Periodic top-up of the career knowledge base - what changed, what numbers moved, what needs re-confirming
 argument-hint: 'Optional: the period to cover, e.g. ''last quarter'''
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 ---
 
 # Refresh
 
-Top up the bundle. This command is a shortcut into the skill's `refresh` mode - it does not reimplement anything.
+Top up the knowledge base. This command is a shortcut into the skill's `refresh` mode - it does not reimplement anything.
 
 ```
 Skill(skill="jsk:jsk", args="refresh")
@@ -19,8 +19,8 @@ That loads `references/mode-refresh.md`, which holds the procedure.
 Orient before asking anything - knowing what is already recorded is what makes the questions worth
 answering.
 
-**Before anything else, find the bundle.** Sessions do not share state, so never assume one exists
-because it did last time. If there is no bundle, say so and offer `/jsk:setup` - but if what
+**Before anything else, find `user-knowledgebase.md`.** Sessions do not share state, so never assume
+one exists because it did last time. If there is none, say so and offer `/jsk:setup` - but if what
 they asked for can be delivered anyway, deliver it first and offer to capture it afterwards.
 
-Append a dated entry to the bundle's `log.md` when the session ends.
+Append a dated row to the knowledge base's `## Log` when the session ends.

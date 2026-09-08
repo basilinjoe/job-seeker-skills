@@ -4,8 +4,9 @@ A JSON standard for the career record, from which a resume is rendered.
 
 ```
 media type   application/resume+json
-file         *.resume.json
-compiler     jsk_okf/okf_compile.py
+file         resume.json
+written by   the skill, out of user-knowledgebase.md
+validated by jsk validate
 profiles     schema/profiles/<region>.json
 discovery    https://example.com/.well-known/resume.json
 ```
@@ -85,7 +86,7 @@ not have them.
 
 ### Provenance
 
-On every claim. The statuses match the bundle's own vocabulary, so `confirmed` means the same thing
+On every claim. The statuses match the knowledge base's own vocabulary, so `confirmed` means the same thing
 in both.
 
 ```json
@@ -132,7 +133,7 @@ Owned by exactly one parent, globally addressable.
   "provenance": { } }
 ```
 
-`weight` is 1-5 evidence strength — the same axis as a Project's `strength` in the bundle.
+`weight` is 1-5 evidence strength — the same axis as a project's `strength` in the knowledge base.
 `capabilities` draws on the vocabulary named in `meta.vocabularies.capabilities`; the standard ships
 no taxonomy of its own, because no single capability taxonomy survives contact with every industry.
 
@@ -321,7 +322,7 @@ The adoption path. A tool declares what it emits and what it consumes.
 |---|---|---|
 | **0 — Core** | person, engagements, education; plain-text achievements | mechanical conversion from JSON Resume |
 | **1 — Structured** | stable IDs, metrics, skills with evidence | one authoring pass |
-| **2 — Verified** | provenance on every claim, views with a `provenance_floor`, validator clean | a maintained bundle |
+| **2 — Verified** | provenance on every claim, views with a `provenance_floor`, validator clean | a maintained knowledge base |
 
 Level 0 exists so nobody has to rewrite anything to start. A richer format without a zero-cost entry
 point is a format nobody adopts.

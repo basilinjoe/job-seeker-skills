@@ -4,12 +4,13 @@ A periodic pass so nobody has to reconstruct two years from memory.
 
 ## Orient first
 
-Read `log.md` for when the last update happened and what was left open, then `open-questions.md`.
+Read `user-knowledgebase.md`. Start at `## Log` for when the last update happened and what was left
+open, then `## Open questions`.
 
-For anything more than a quick top-up, send `jsk-bundle-auditor` the bundle path first. It
-flags the `headline_metric` values that have gone stale and the questions open across three or more
-entries — the two things a refresh exists to catch and the two easiest to miss by reading `log.md`
-alone.
+For anything more than a quick top-up, send `jsk-kb-auditor` the file path first. It flags the
+`headline_metric` values that have gone stale and the questions open across three or more entries —
+the two things a refresh exists to catch and the two easiest to miss by reading `## Log` alone.
+
 Open with something concrete rather than a blank prompt:
 
 > "Last updated in February, and you'd flagged three things as unresolved. Shall we start with what's
@@ -25,8 +26,8 @@ Move fast where nothing happened; this should feel light.
 pre-sales, hiring, architecture review, on-call ownership.
 
 **Numbers on existing projects.** The most valuable and most overlooked question. Systems grow — a
-platform serving 200 users at launch may serve 5,000 now. Walk recent `projects/` and ask whether any
-`headline_metric` has moved. Numbers unavailable last time may exist now.
+platform serving 200 users at launch may serve 5,000 now. Walk the recent entries in `## Projects`
+and ask whether any `headline_metric` has moved. Numbers unavailable last time may exist now.
 
 **Credentials** — certifications passed or started, courses, degrees.
 
@@ -37,50 +38,45 @@ tool everyone quietly depends on, a process they changed.
 
 ## Close what you can
 
-Walk `open-questions.md`. Some items are now answerable:
+Walk `## Open questions`. Some rows are now answerable: fill the `answered` date, write the answer
+into the section it was about, and set that entry's `status` to `confirmed`.
 
-```bash
-$OKF <noun> set $B --slug <stem> --status confirmed [--<key> <new value>]
-$OKF question resolve $B --match "team size" --answer "Six engineers."
-```
+The row stays. A question that was asked and answered is how the record shows its work, and striking
+it loses the only evidence that anybody checked.
 
-`question resolve` strikes the row and records the answer in `log.md`. It refuses a match that hits
-nothing and a match that hits more than one, so name enough of the question to be unambiguous.
-
-If something has been open across three refreshes, say so and suggest either resolving it properly
-or dropping the claim.
+If something has been open across three refreshes, say so and suggest either resolving it properly or
+dropping the claim. A row pending forever is the state this framework exists to prevent.
 
 ## Write it up
 
-**Every write is a command** — never `Write` or `Edit` inside the bundle. `okf <noun> --help` has
-the verbs; `references/write-commands.md` has the reasoning.
+Ordinary `Edit` calls, across the sections that changed:
 
-```bash
-OKF="okf"
-B="--bundle <bundle>"
+| What happened | Where it goes |
+|---|---|
+| new work | a `###` block under `## Projects`, plus any new metric row |
+| a number that moved | the existing row in `## Metrics`, and the `updated:` date in frontmatter |
+| a promotion | a new `###` under `## Roles`, `change: promotion`, and `end:` + `state: ended` on the previous one |
+| a job that ended | `end:` and `state: ended` on that role |
+| work being dropped | `retired: true` on the entry — **never delete it** |
+| a new capability term | `## Vocabulary`, in the same edit that first uses it |
 
-$OKF project add    $B --title "…" --role <role-stem> [...]        # new work
-$OKF bullet add     $B --project <stem> --text "…"                 # a line it earned
-$OKF metric add     $B --name "…" --value "…" --evidence <stem>    # a number that moved
-$OKF project set    $B --slug <stem> --strength 5                  # a claim that changed
-$OKF role set       $B --slug <stem> --end 2026-06 --state ended   # a job that ended
-$OKF project retire $B --slug <stem> --reason "no longer claimed"  # work being dropped
-$OKF log            $B --message "Quarterly refresh - what was covered."
-```
+**When you change a claim's substance, drop its `status` back to `inferred`** unless they just
+confirmed it in this conversation, and put a row in `## Open questions`. A number you updated from
+memory is a claim nobody has re-confirmed. Ask, then mark it `confirmed`.
 
-**A `set` re-stamps `status: inferred`** unless you pass `--status confirmed`. That is the rule doing
-its job: a number you updated is a claim they have not yet re-confirmed. Ask, then pass the flag.
+That rule used to be enforced by the write layer, which re-stamped `inferred` on every `set`. Nothing
+enforces it now, which makes it the single most important habit in this mode.
 
-If the ladder changed, `profile/career-progression.md` has no command and is still hand-written —
-say so rather than working around it.
+If their career ladder changed shape — a new levelling scheme, a title that means something different
+now — that is prose and belongs under `## Positioning`.
 
-Then `okf validate <bundle>`, once, at the end.
+Append one row to `## Log` and update `updated:` in the frontmatter.
 
 ## Close the loop
 
 Report what was added, resolved, and still open. Then ask whether their **positioning** has shifted —
-if they are targeting a different kind of role now, `profile/positioning.md` and the summary variants
-need rewriting. A bundle that accumulates evidence but never revisits its target slowly stops
+if they are targeting a different kind of role now, `## Positioning` and the summary variants need
+rewriting. A knowledge base that accumulates evidence but never revisits its target slowly stops
 describing the person.
 
 Offer a recurring reminder if they do not have one. Quarterly suits most people; monthly while

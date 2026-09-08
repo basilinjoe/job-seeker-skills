@@ -7,7 +7,7 @@ what the current task needs.
 
 | File | Run it when |
 |---|---|
-| `mode-setup.md` | No bundle exists, or one is being built from an existing resume |
+| `mode-setup.md` | No knowledge base exists, or one is being built from a resume or an older bundle |
 | `mode-braindump.md` | They are telling you about their work |
 | `mode-resume.md` | They need a resume — the full JSON-first build order |
 | `mode-tailor.md` | A specific job description is on the table |
@@ -20,10 +20,9 @@ what the current task needs.
 
 | File | Defines |
 |---|---|
-| `bundle-spec.md` | Bundle layout on disk, concept file format, frontmatter schema, selection keys, concept types |
+| `kb-spec.md` | **The format**: every heading in `user-knowledgebase.md`, the block shapes, ids, provenance, and what `applications/` holds |
 | `urs-spec.md` | The URS record: document shape, core types, region profiles, conformance levels |
 | `view-format.md` | The other half of URS: every key a view may carry, and the rule that it may carry no prose |
-| `write-commands.md` | **The only way to change a bundle**: every noun and verb, the files one write implies, the refusals, and where the commands stop |
 
 `urs-spec.md` and `view-format.md` are one specification in two files, split because
 `jsk-resume-author` writes views and never writes a record. **Neither restates the other**, and each
@@ -46,7 +45,9 @@ carries a pointer to its other half — a key belongs in exactly one of them.
 Load `rationale.md` when someone questions a rule or you need to justify one. The rules themselves
 carry a compressed reason in `SKILL.md`; this is the long form.
 
-## A bundle's own rules win
+## Their own rules win
 
-If the person's bundle has `resume-generation/*.md`, those override anything here. Setup does not
-scaffold them, so their presence means somebody customised deliberately.
+If the knowledge base's folder has a `rules/` directory, those files override anything here. Setup
+does not scaffold them, so their presence means somebody customised deliberately. An override must
+say in its opening lines whether it **replaces** the default or **extends** it; one that says
+neither is treated as an extension and both get read.
