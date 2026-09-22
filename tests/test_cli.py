@@ -6,9 +6,11 @@ changes a verdict is worse than no dispatcher at all.
 import contextlib
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from fixtures import (CHECK_ATS, CHECK_PROSE, CLI, CLEAN_RESUME, EXAMPLE_URS,
                       SCRIPTS, VALIDATE_URS, build_pdf, build_text, load_script,
@@ -19,7 +21,7 @@ EXAMPLE = EXAMPLE_URS
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
 SUBCOMMANDS = ["doctor", "new", "validate", "render", "preview", "check", "gates",
-               "fit"]
+               "fit", "ship", "freeze"]
 
 
 class Usage(unittest.TestCase):
@@ -552,6 +554,151 @@ class GatesEntryPoints(unittest.TestCase):
                     code = module.main([path])
             self.assertEqual(code, 0, f"{name}: {buf.getvalue()}")
             self.assertIn("checking:", buf.getvalue())
+
+
+def in_process(*argv):
+    """(exit code, stdout) of cli.main() called in this interpreter.
+
+    The dispatch is in-process now, so the tests that pin it call it the same way -
+    which is also the only way a patched compile_pdf can reach the renderer.
+    """
+    from jsk import cli
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        code = cli.main(["jsk"] + [str(a) for a in argv])
+    return code, buf.getvalue()
+
+
+class InProcessDispatch(unittest.TestCase):
+    """Every subcommand calls its script in this interpreter.
+
+    Each one used to spawn a child, and `jsk check` spawned two: a Python start-up
+    and a fresh import of the package per gate, for work that takes a fraction of
+    that. What has to survive the change is what the child gave for free - the exit
+    code, and every heading landing above the output it introduces.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def test_cli_spawns_nothing(self):
+        """The one exception, preflight's end-to-end run, lives in preflight.py and
+        says why there. cli.py itself has no reason left to import subprocess."""
+        source = (SCRIPTS / "cli.py").read_text(encoding="utf-8")
+        self.assertNotIn("subprocess", source)
+        self.assertNotIn("def run(", source)
+
+    def test_check_spawns_no_child(self):
+        doc = build_text(self.tmp / "resume.txt", CLEAN_RESUME)
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("spawned")):
+            code, out = in_process("check", doc)
+        self.assertEqual(code, 0, out)
+
+    def test_each_heading_is_above_the_output_it_introduces(self):
+        """The ordering a child interpreter needed a flush for. A heading printed
+        after its gate's output would put every verdict under the wrong section."""
+        code, out = run(JSK, "check", build_text(self.tmp / "resume.txt", CLEAN_RESUME))
+        self.assertEqual(code, 0, out)
+        parse = out.index("--- parse gate")
+        prose = out.index("--- prose gate")
+        self.assertLess(parse, out.index("mode: presentation"))
+        self.assertLess(out.index("mode: presentation"), prose)
+        self.assertLess(prose, out.index("PASS - prose rules satisfied"))
+
+    def test_a_failing_gate_keeps_its_exit_code_in_process(self):
+        bad = build_text(self.tmp / "resume.txt",
+                         resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
+        code, out = in_process("check", bad)
+        self.assertEqual(code, 1, out)
+        self.assertIn("DO NOT SEND", out)
+
+    def test_a_bare_sys_exit_is_a_clean_exit(self):
+        """argparse's --help exits by raising SystemExit(0), and a bare sys.exit()
+        raises it with None. Both are exit 0 from a child interpreter, and reading
+        None as a failure would turn `jsk fit --help` into one."""
+        from jsk import cli
+        fake = mock.Mock(main=mock.Mock(side_effect=SystemExit(None)))
+        with mock.patch("importlib.import_module", return_value=fake):
+            code, _ = cli.call_gate("kb.py", [])
+        self.assertEqual(code, 0)
+
+    def test_fit_help_still_names_its_own_program(self):
+        """In process, sys.argv[0] is jsk's, and argparse would have printed that as
+        the program name in fit_pages.py's usage line."""
+        code, out = run(JSK, "fit", "--help")
+        self.assertEqual(code, 0, out)
+        self.assertIn("usage: fit_pages.py", out)
+
+    def test_a_script_that_raises_is_reported_not_propagated(self):
+        fake = mock.Mock(main=mock.Mock(side_effect=RuntimeError("boom")))
+        with mock.patch("importlib.import_module", return_value=fake):
+            code, out = in_process("render", "x.json")
+        self.assertEqual(code, 2, out)
+        self.assertIn("render_resume.py raised RuntimeError: boom", out)
+
+
+class PreviewInProcess(unittest.TestCase):
+    """`jsk preview` renders every template in this interpreter and compiles them
+    at once. The compile is faked here, so none of this needs a TeX engine: what is
+    pinned is the plumbing - separate stages, and a report in template order however
+    the compiles happen to finish."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        self.record = write_urs(self.tmp, urs_doc())
+        self.out = self.tmp / "looks"
+
+    def preview(self, compile_pdf):
+        from jsk.urs import preview_templates
+        with mock.patch.object(preview_templates, "available_engine",
+                               return_value="fake"), \
+                mock.patch.object(preview_templates, "compile_pdf", compile_pdf), \
+                mock.patch("subprocess.Popen", side_effect=AssertionError("spawned")):
+            return in_process("preview", self.record, "--out", self.out)
+
+    def test_the_report_is_in_template_order_whatever_finishes_first(self):
+        """The first template is made the slowest to compile. A report that followed
+        completion order would list it last."""
+        import threading
+        import time
+        from jsk.urs import tex, themes
+        names = themes.names()
+        stages, lock = set(), threading.Lock()
+
+        def slow_first(tex_path, out_dir):
+            with lock:
+                stages.add(out_dir)
+            if os.path.basename(tex_path).startswith(names[0] + "_"):
+                time.sleep(0.3)
+            return build_pdf(tex.pdf_path_for(tex_path, out_dir), CLEAN_RESUME), "fake"
+
+        code, out = self.preview(slow_first)
+        self.assertEqual(code, 0, out)
+        listed = [line.split()[0] for line in out.splitlines()
+                  if line.startswith("  ") and line.split()[0] in names]
+        self.assertEqual(listed, names, out)
+        self.assertEqual(len(stages), len(names), "two templates shared a stage")
+        for name in names:
+            self.assertTrue((self.out / f"{name}.pdf").exists(), name)
+            self.assertTrue((self.out / f"{name}.tex").exists(), name)
+
+    def test_a_template_that_does_not_compile_fails_the_preview(self):
+        from jsk.urs import tex, themes
+        broken = themes.names()[1]
+
+        def one_broken(tex_path, out_dir):
+            if os.path.basename(tex_path).startswith(broken + "_"):
+                return None, "UNVERIFIED - fake produced no PDF:\n    ! Missing $"
+            return build_pdf(tex.pdf_path_for(tex_path, out_dir), CLEAN_RESUME), "fake"
+
+        code, out = self.preview(one_broken)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAILED: {broken}", out)
+        self.assertIn("! Missing $", out)
 
 
 if __name__ == "__main__":

@@ -228,6 +228,7 @@ def verify(tmp):
     """Render the shipped example and run every gate that can run here."""
     steps = []
 
+    # Spawned, not imported: doctor proves each `python -m` entry point runs from cold.
     def run(label, args):
         proc = subprocess.run([sys.executable, "-m"] + args, capture_output=True, text=True)
         steps.append((label, proc.returncode == 0,

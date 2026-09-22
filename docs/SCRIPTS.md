@@ -24,11 +24,15 @@ jsk check resume.pdf             # both document gates, one pass
 jsk gates .                      # all three mechanical gates
 jsk fit resume.tex --target-pages 2
 jsk preview resume.json --out ./looks
+jsk ship resume.json --out . --view view_default   # validate, render, gate
+jsk freeze applications/<dir> --submitted 2026-09-08 --channel "Workday portal"
 ```
 
-Each subcommand reaches the module documented below it with the same arguments and the same exit
-code, so everything on this page is true through `jsk`. Some are called in this interpreter and some
-in a child one; that is an implementation detail and never changes a verdict.
+Each subcommand calls the module documented below it, in the same interpreter, with the same
+arguments and the same exit code, so everything on this page is true through `jsk`. None of them
+spawns a Python child: that cost a start-up and a fresh import per call, which was most of the wall
+time of `jsk check`. The one exception is `jsk doctor`'s end-to-end run, which runs each module as
+`python -m` on purpose — proving that entry point works from cold is what it is for.
 
 ## Exit codes
 
@@ -189,7 +193,8 @@ jsk preview resume.json --out DIR --view view_acme --only meridian,ember
 
 The same record rendered in every template, with the page count for each, so the look is chosen by
 looking. Writes `DIR/<template>.pdf` and `.tex`, plus a `.png` of the first page where `pymupdf` is
-installed.
+installed. The `.tex` files are written one after another; the TeX compiles run side by side, each in
+its own scratch directory, and the report still lists the templates in their fixed order.
 
 Density is the one difference between templates that is not a matter of taste: the same record is
 one page in a dense template and two in an airy one, and a two-page resume where a one-page resume
@@ -335,26 +340,84 @@ sending. It now measures the artefact that goes out.
 
 Needs a TeX engine and `pymupdf`.
 
+## Shipping
+
+### `jsk ship`
+
+```bash
+jsk ship <resume.json> --out DIR --view ID [--ats-max] [--template N] [--pages N] [--json]
+```
+
+The three commands a ship used to be, in one process and in order, each step's output printed
+verbatim under its own `---` heading the way `jsk gates` prints it:
+
+1. **the record gate** — what `jsk validate <resume.json>` runs. A failure stops here and **nothing
+   is rendered**: a PDF made from a record that failed its gate looks sendable and is not.
+2. **the render** — what `jsk render <resume.json> --out DIR --view ID --pdf` runs, with `--ats-max`
+   and `--template` passed through. A render that produced no PDF stops here.
+3. **the parse and prose gates** — what `jsk gates DIR --record <resume.json> [--pages N]` runs,
+   less the record gate step 1 has just run on the same file.
+
+It closes with the same render-gate section `jsk gates` does: **nobody has read the PDF**, and the
+command says so rather than exiting 0 over it. When it stopped early that section says nothing was
+rendered, instead of pointing at a PDF an earlier run left in `DIR`. The page count is reported —
+the renderer's own line, and `--pages N`'s — and never failed; `jsk fit` owns that verdict.
+
+Exit `0` only if every step passed, `1` on any failure, `2` called wrong. `--json` carries every
+step in `steps[]` in the `jsk gates` shape, the render gate last and `UNVERIFIED`.
+
+### `jsk freeze`
+
+```bash
+jsk freeze <app-dir> --submitted YYYY-MM-DD|false --channel TEXT [--view ID] [--doc FILE ...]
+```
+
+Freezes one `applications/<yyyy-mm-dd>-<company>-<role>/` directory the way `references/mode-ship.md`
+describes: renames it to the day it was sent, if its leading date says otherwise, and writes
+`application.md` beside `posting.md`, `gaps.md` and `resume.json`:
+
+```markdown
+---
+company: Acme Health
+title: Platform Engineer
+view: view_acme_platform
+submitted: 2026-09-08
+channel: Workday portal
+documents:
+  - Priya_Raman_Acme_Resume.pdf
+  - Priya_Raman_Acme_Resume_ATS.txt
+---
+
+# Timeline
+
+| Date | Event | Channel | Note | Due |
+|---|---|---|---|---|
+| 2026-09-08 | submitted | Workday portal | | |
+```
+
+`company` and `title` come from the top-level lines of `posting.md`'s frontmatter. The view is
+`--view`, or the record's only one; a record with several and no `--view` is exit 2, naming them.
+The documents are the `--doc` files, or every `.pdf` and `.txt` in the directory. The final path is
+printed.
+
+It refuses — exit 1, saying why, with nothing renamed and nothing written — when:
+
+- **`application.md` already exists.** A frozen application is never re-frozen; later events are
+  one appended row each, by hand.
+- **any mechanical gate fails.** It runs what `jsk gates <app-dir> --record <app-dir>/resume.json`
+  runs, in process, and prints it. A failing document is never frozen.
+- `posting.md` has no `company:` or `title:`, there is nothing to list as documents, or the renamed
+  directory would land on one that already exists.
+
+`--submitted false` is for an application worked through and deliberately held back: it writes
+`submitted: false`, leaves the directory's name alone, and the timeline has its header and **no
+`submitted` row** — an accurate blank rather than a false green. It never touches
+`user-knowledgebase.md`; the `## Log` row stays the skill's to write.
+
 ## What is not here any more
 
-Twenty-odd subcommands left with the bundle format, and it is worth knowing what replaced each rather
-than looking for the flag:
-
-| Was | Now |
-|---|---|
-| `okf compile` | nothing. There is no folder of concepts to assemble; the skill writes the record. |
-| `okf validate <bundle>` | nothing. The knowledge base is prose. `jsk validate` checks the record written from it. |
-| `okf migrate` | reading the old bundle and writing the new file — see `references/mode-setup.md`. |
-| `okf project\|role\|bullet\|metric …` (16 write nouns) | `Edit` on one Markdown file. |
-| `okf search\|list\|show\|refs\|stats` | `grep`, on one Markdown file. |
-| `okf pipeline` | reading `applications/*/application.md` — see `references/mode-pipeline.md`. |
-| `okf score` | `jsk-tailor-analyst` ranks in the open and shows its working. |
-| `okf application file\|event` | renaming a directory and appending a timeline row. |
-
-Each of those was solving a problem the folder created. What has genuinely been lost is the
-enforcement: a write command refused a `--role` naming no role, and nothing does now until
-`jsk validate` runs over a record. That is the trade, and `references/kb-spec.md` is where the habits
-that replace it are written down.
+The `okf` commands left with the bundle format; what each one did is now an edit or a `grep` on
+`user-knowledgebase.md`, `jsk validate` over the record written from it, or `jsk freeze`.
 
 ---
 

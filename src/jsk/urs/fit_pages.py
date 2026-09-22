@@ -187,7 +187,9 @@ def report_overflow(gap, target, indent="  "):
 
 
 def main(argv=None):
+    # prog pinned: `jsk fit` calls this in process, where sys.argv[0] is jsk's own.
     ap = argparse.ArgumentParser(
+        prog="fit_pages.py",
         description="Fit a rendered resume to a page budget without breaching the "
                     "10pt / 0.5in floors.")
     ap.add_argument("tex", help="the .tex the deliverable PDF is compiled from")
