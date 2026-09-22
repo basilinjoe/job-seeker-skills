@@ -77,9 +77,19 @@ LIST_KEYS = ("work_authorization", "languages", "organizations", "engagements",
              "education", "credentials", "skills", "projects", "narratives",
              "referees", "views")
 
+# Keys whose value must be an object if it is present at all.
+DICT_KEYS = ("meta", "person", "availability", "compensation")
+
 
 def check_shape(doc, rep):
-    """Top-level keys the renderer knows, and the two the document cannot omit."""
+    """Top-level keys the renderer knows, and the two the document cannot omit.
+
+    Returns whether the document can be walked at all. Every later check reads each
+    list key as a list of objects and each dict key as an object, so a string where
+    either belongs would crash them - and a gate that raises is a gate that did not
+    answer.
+    """
+    walkable = True
     for key in REQUIRED_TOP_LEVEL:
         if key not in doc:
             rep.fail(f"top-level {key!r} is missing - a URS document cannot omit it")
@@ -89,9 +99,22 @@ def check_shape(doc, rep):
                  f"under it renders as nothing"
                  + (f" (did you mean {near[0]!r}?)" if near else ""))
     for key in LIST_KEYS:
-        if key in doc and not isinstance(doc[key], list):
+        if key not in doc or doc[key] is None:
+            continue
+        if not isinstance(doc[key], list):
             rep.fail(f"{key!r} must be a list, got "
                      f"{type(doc[key]).__name__} - the renderer iterates it")
+            walkable = False
+            continue
+        for i, item in enumerate(doc[key]):
+            if not isinstance(item, dict):
+                rep.fail(f"'{key}[{i}]' must be an object, got {type(item).__name__}")
+                walkable = False
+    for key in DICT_KEYS:
+        if doc.get(key) is not None and not isinstance(doc[key], dict):
+            rep.fail(f"{key!r} must be an object, got {type(doc[key]).__name__}")
+            walkable = False
+    return walkable
 
 
 # The strength at or above which a project with no evidence fails rather than warns.
@@ -590,21 +613,27 @@ def main(argv):
     version = doc.get("urs", "")
     if not re.match(r"^1\.\d+\.\d+", str(version)):
         rep.fail(f"unsupported urs version {version!r} - this tool implements 1.x")
-    if not ((doc.get("person") or {}).get("name") or {}).get("full"):
-        rep.fail("person.name.full is required and is authoritative")
 
-    check_shape(doc, rep)
-    ids = check_ids(doc, rep)
-    check_periods(doc, rep)
-    check_references(doc, ids, rep)
-    check_views(doc, rep)
-    check_metrics(doc, rep)
-    check_provenance(doc, rep)
-    check_placeholders(doc, rep)
-    check_coverage(doc, rep)
-    check_backrefs(doc, rep)
-    check_unmaterialised_ids(doc, rep)
-    check_renderable(doc, rep)
+    walkable = check_shape(doc, rep)
+    if walkable:
+        name = (doc.get("person") or {}).get("name")
+        if not (isinstance(name, dict) and name.get("full")):
+            rep.fail("person.name.full is required and is authoritative")
+        ids = check_ids(doc, rep)
+        check_periods(doc, rep)
+        check_references(doc, ids, rep)
+        check_views(doc, rep)
+        check_metrics(doc, rep)
+        check_provenance(doc, rep)
+        check_placeholders(doc, rep)
+        check_coverage(doc, rep)
+        check_backrefs(doc, rep)
+        check_unmaterialised_ids(doc, rep)
+        check_renderable(doc, rep)
+    else:
+        # Named, so a record with one shape failure listed does not read as a record
+        # with one defect: nothing that walks it has looked yet.
+        rep.fail("the remaining checks were not run - fix the shape first, then re-run")
 
     if strict:
         rep.fails.extend(rep.warns)

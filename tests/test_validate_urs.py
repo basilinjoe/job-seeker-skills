@@ -391,5 +391,53 @@ class Malformed(UrsCase):
         self.assertFails(doc, "unsupported urs version")
 
 
+class WrongShapeFailsRatherThanCrashes(UrsCase):
+    """A hand-written record gets a collection's type wrong - `"skills": "Python,
+    Azure"` - and every check after the shape check walks that collection as a list
+    of objects. A traceback there is a gate that did not answer, so the shape failure
+    has to be the answer, and nothing downstream of it may run on a shape it assumes.
+    """
+
+    def assertShapeFails(self, doc, needle):
+        out = self.assertFails(doc, needle)
+        self.assertNotIn("Traceback", out)
+        self.assertIn("DO NOT RENDER", out)
+        return out
+
+    def test_a_string_where_a_list_belongs(self):
+        doc = urs_doc()
+        doc["skills"] = "Python, Azure"
+        self.assertShapeFails(doc, "'skills' must be a list")
+
+    def test_a_list_of_strings_where_objects_belong(self):
+        doc = urs_doc()
+        doc["skills"] = ["Python", "Azure"]
+        self.assertShapeFails(doc, "'skills[0]' must be an object")
+
+    def test_every_list_key_is_guarded(self):
+        from jsk.gates.validate_urs import LIST_KEYS
+        for key in LIST_KEYS:
+            with self.subTest(key=key):
+                doc = urs_doc()
+                doc[key] = "oops"
+                self.assertShapeFails(doc, f"{key!r} must be a list")
+                doc[key] = ["oops"]
+                self.assertShapeFails(doc, f"'{key}[0]' must be an object")
+
+    def test_a_string_where_an_object_belongs(self):
+        for key in ("person", "meta"):
+            with self.subTest(key=key):
+                doc = urs_doc()
+                doc[key] = "Priya Raman"
+                self.assertShapeFails(doc, f"{key!r} must be an object")
+
+    def test_it_says_the_deeper_checks_did_not_run(self):
+        """A shape failure with nothing else listed must not read as the only defect."""
+        doc = urs_doc()
+        doc["skills"] = "Python"
+        out = self.assertShapeFails(doc, "must be a list")
+        self.assertIn("not run", out)
+
+
 if __name__ == "__main__":
     unittest.main()
