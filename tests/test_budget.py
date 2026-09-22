@@ -28,7 +28,10 @@ AGENTS = PLUGIN / "agents"
 
 
 def tokens(*paths):
-    return sum(p.stat().st_size for p in paths) // 4
+    # Counted with LF line endings whatever the checkout wrote. A clone with
+    # core.autocrlf=true adds a byte per line, which moved the resume author's
+    # total across its ceiling on a fresh Windows checkout and nowhere else.
+    return sum(len(p.read_bytes().replace(b"\r\n", b"\n")) for p in paths) // 4
 
 
 class ResidentCost(unittest.TestCase):
