@@ -6,55 +6,9 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 
 # Tailor
 
-Tailor to a posting. This command is a shortcut into the skill's `tailor` mode - it does not reimplement anything.
-
 ```
 Skill(skill="jsk:jsk", args="tailor")
 ```
 
-That loads `references/mode-tailor.md`, which holds the procedure.
-
-**Ask whether they have been here before, first.**
-
-```bash
-ls <path>/applications/ | grep -i "<company>"
-```
-
-Before the posting is written down and before anything is scored. Applying twice is ordinary, which
-is why this is a check and not a prohibition - the second round is often right, and it is only right
-on purpose. If anything comes back, read its `application.md` and show the role, the last event in
-its timeline and when, then stop and let them decide. That decision is theirs and it comes before
-the work.
-
-`$ARGUMENTS` may hold a posting URL, the description itself, or a path to a file. **Fetch a URL
-yourself** - the analyst has no network tools. Boards refuse often, so when a fetch fails say
-what happened and ask them to paste it. That is an ordinary outcome, not an error.
-
-**Gaps close before the resume is written.** Each round scores the knowledge base against the
-posting, assesses it into `gaps.md`, and asks the whole queue at once. Answers go into
-`user-knowledgebase.md` - the only place there is. The resume is authored once, at the end: there is
-no reason to write a document from a knowledge base you are about to change.
-
-**Offer the skip every round.** It is the ordinary exit, not a failure. The loop also ends by itself
-when there is nothing left worth asking, when only `unexplored` questions remain, when a round
-produces no new answerable question, or at three rounds. Say which reason ended it: "nothing left to
-ask" and "you hit the cap with four things open" call for different next moves.
-
-**Tailoring selects; it never invents.** A view references evidence by id and reorders it. If the
-posting wants something the record has no evidence for, that is a gap to report - not a bullet to
-write. `jsk-resume-author` marks everything it wrote `inferred`, and a `provenance_floor: confirmed`
-view will not render it until the person has confirmed each clause. Read those quotes back to them.
-
-Everything for one application lives in one directory - `applications/<yyyy-mm-dd>-<company>-<role>/`
-holding the posting, the assessment, the record and the files sent. Rendering is `/jsk:ship`, which
-runs all four gates and then freezes that directory. Nothing in it is edited afterwards: a year later
-the only question anybody asks of a filed application is what it was answering.
-
-Finish by telling them where they fall short against this posting. Being flattered costs
-interviews.
-
-**Before anything else, find `user-knowledgebase.md`.** Sessions do not share state, so never assume
-one exists because it did last time. If there is none, say so and offer `/jsk:setup` - but if what
-they asked for can be delivered anyway, deliver it first and offer to capture it afterwards.
-
-Append a dated row to the knowledge base's `## Log` when the session ends.
+`references/mode-tailor.md` holds the procedure. `$ARGUMENTS` is the posting — a URL (fetch it
+yourself), the text, or a file path — plus an optional `--rounds N` overriding the gap-round cap.

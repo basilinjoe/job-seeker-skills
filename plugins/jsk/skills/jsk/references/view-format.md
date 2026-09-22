@@ -1,22 +1,8 @@
 # URS Views — the tailoring model
 
-**The URS specification is in two files, and this is the half about selection.**
-`references/urs-spec.md` is the other half: the record's own shape — periods, provenance, metrics,
-achievements, names, the three levels of employment, grades, skills, region profiles, privacy,
-conformance and interoperability. Everything a view points *at* is defined there. Every key a view
-may *carry* is defined here.
-
-The split exists for one reader. `jsk-resume-author` is told to read the view format before it
-writes anything, and the view format was a sixth of the file it had to read to get it; the rest is
-record shape it never authors, because it reads the compiled record itself rather than the schema
-the record is compiled to. The read went from 4,127 tokens to 968.
-
-**A split, never a copy.** No view key is defined in `urs-spec.md`, and no record key is defined
-here. Neither file restates the other, and that is a structural rule rather than a courtesy: a
-specification in two halves that paraphrase each other stops agreeing the moment one is edited, and
-nobody finds out until a validator rejects a document the other half called legal. If you are adding
-a view key, it belongs here even if you found the gap while editing `urs-spec.md`; if you are adding
-a record key, it belongs there even if you found the gap while editing this file.
+The URS specification is in two files; this half defines every key a **view** may carry.
+`urs-spec.md` defines the record — everything a view points *at*. Neither restates the other: a new
+view key belongs here, a new record key there.
 
 A view is a rendering instruction. It selects, orders, redacts and sets a budget.
 
@@ -34,28 +20,21 @@ A view is a rendering instruction. It selects, orders, redacts and sets a budget
   "budget": { "pages": 2 } }
 ```
 
-**`order` orders achievements, never employers.** Within an `include` entry, the `achievements`
-list is rendered in the order written — that is how a bullet earns the top of a role. The entry's
-own `order` is read and then overridden: engagements always render by date, because a resume that
-reorders employers by relevance reads as concealment and breaks the date parsing every ATS does
-first. `render.order` in the region profile chooses which direction that date sort runs.
+**`order` orders achievements, never employers.** Within an `include` entry, `achievements` render
+in the order written. The entry's own `order` is read and then overridden: engagements always render
+by date (reordering employers reads as concealment and breaks ATS date parsing). `render.order` in
+the region profile sets the sort direction.
 
-**Normative: a view MUST NOT contain content text.** It may carry only references, ordering,
-redaction and presentation settings. `label` and `target` are metadata about the application, not
-resume content, and are never rendered into the document body.
+**Normative: a view MUST NOT contain content text.** It carries only references, ordering, redaction
+and presentation settings. `label` and `target` are application metadata, never rendered into the
+body. A validator enforces this by rejecting any unknown free-text field inside a view.
 
-This is the rule that earns the format its existence. Tailoring becomes auditable by construction,
-and "the model embellished my resume" becomes structurally impossible rather than something you hope
-did not happen. A validator enforces it by rejecting any unknown free-text field inside a view.
-
-**The view lives inside `resume.json`, and carries only the keys above.** `jsk validate` fails an
-unrecognised one, which is deliberate and is worth knowing before you reach for a convenience key:
-bookkeeping about the application — when it was sent, whether it is frozen, which posting it answers
-— belongs in that application's `application.md`, not in the view. A view that grew a `frozen: true`
-key once failed the record gate permanently, on every shipped application, for exactly this reason.
+**The view lives inside `resume.json` and carries only the keys above** — `jsk validate` fails an
+unrecognised one. Application bookkeeping (when sent, frozen, which posting) belongs in the
+application's `application.md`, never in the view; a `frozen: true` key fails the record gate.
 
 `provenance_floor` makes a view refuse content below a given status. `confirmed` is the default for
-anything a person will actually send.
+anything a person will send.
 
 `format_profile` is `presentation`, `ats-maximal`, `plaintext` or `web`, matching the variants in
 `ats-rules.md`.

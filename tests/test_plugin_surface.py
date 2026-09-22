@@ -72,6 +72,21 @@ class CommandFrontmatter(unittest.TestCase):
             with self.subTest(command=path.name):
                 self.assertIn(path.stem, modes)
 
+    def test_every_command_is_a_shim_into_its_mode(self):
+        """A command loads its mode and says what `$ARGUMENTS` may hold - nothing more.
+
+        Each one used to restate its mode's rules, which loaded them twice on every
+        slash-command run and let the two copies drift: three still pointed at
+        bundle-era paths after the mode files had moved on. A rule belongs in the
+        mode file, so a command that grows past a shim is growing a second copy.
+        """
+        for path in self.commands():
+            with self.subTest(command=path.name):
+                text = path.read_text(encoding="utf-8")
+                self.assertIn(f'Skill(skill="jsk:jsk", args="{path.stem}")', text)
+                self.assertLess(len(text.encode("utf-8")), 800,
+                                f"{path.name} restates its mode - move the rule there")
+
 
 @unittest.skipIf(yaml is None, "pyyaml not installed")
 class AgentFrontmatter(unittest.TestCase):

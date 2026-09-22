@@ -16,20 +16,21 @@ including this one.
 
 ## One file, not a folder of concepts
 
-This was a graph — several hundred linked Markdown concepts, with a compiler over them, a write
-command per noun, a query layer to read them back and a migration tool to move between layouts. That
-shape is right for a knowledge base too large to hold in one context. **A career is not.**
+The alternative is a graph — several hundred linked Markdown concepts, with a compiler over them, a
+write command per noun, a query layer to read them back and a migration tool to move between layouts.
+Earlier versions of this plugin were exactly that. That shape is right for a knowledge base too large
+to hold in one context. **A career is not.**
 
 One file changes what the rules have to be. There is no write transaction to make atomic, because a
 write to one file either happened or did not. There is no id to resolve across documents, because
 everything an id could point at is a heading away. There is no compile, because the reader is a model
 that can hold all of it.
 
-What it costs is the guarantees a compiler gave for free — a write command refused a `role:` naming
-no role, and nothing does now until the record gate runs. That is a real trade, and the record gate
-got stricter to catch what it can. What it buys is a document the person whose career it is can open,
-read end to end, and correct. That is the property that actually decides whether a career record
-survives a year, and no amount of referential integrity substitutes for it.
+What it costs is checking at write time: a project that names a role which does not exist is caught
+only when the record written from it reaches the record gate. That is a real trade, and it is why the
+record gate checks the record's shape as well as its claims. What it buys is a document the person
+whose career it is can open, read end to end, and correct. That is the property that actually decides
+whether a career record survives a year, and no amount of referential integrity substitutes for it.
 
 ## Every document is rendered from JSON, never hand-built
 
@@ -44,7 +45,7 @@ It is also what makes a resume answerable a year later. The record carries the p
 claim and the view that selected it, so "what did this application claim, and where did that come
 from" has an answer.
 
-`render_resume.py` resolves the record once — selection, ordering, provenance filtering, profile
+The render plan resolves the record once — selection, ordering, provenance filtering, profile
 gating, ASCII folding, date formatting — and the emitters translate that plan into markup without
 deciding anything. That split is what guarantees the PDF and the plain text cannot say different
 things.
@@ -54,17 +55,22 @@ things.
 **A checker verifies that a document parses — not that it is correct.** That sentence is the whole
 reason there are four gates.
 
-`check_ats.py` passed a resume whose bullets rendered as tofu boxes. It passed one whose headings
+The parse gate passed a resume whose bullets rendered as tofu boxes. It passed one whose headings
 silently resolved to a theme font. It passed one written in the third person. All three correctly,
-all three outside its scope. The first two are visual and cannot be linted out of the XML; the third
-is why `check_prose.py` exists at all.
+all three outside its scope. The first two are visual, and no text extraction can see them; the
+third is why the prose gate exists at all.
 
 | Gate | Question | How |
 |---|---|---|
-| Record | Is the source coherent, and does every number trace to a metric? | `validate_urs.py`, before anything renders |
-| Parse | Will an ATS read this without mangling it? | `check_ats.py` |
-| Prose | Does it obey the writing rules? | `check_prose.py` |
-| Render | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
+| Record | Is the source coherent, and does every number trace to a metric? | `jsk validate`, before anything renders |
+| Parse | Will an ATS read this without mangling it? | `jsk check --only parse`, on the PDF |
+| Prose | Does it obey the writing rules? | `jsk check --only prose`, on the `.tex` |
+| Render | Does it *look* right, and is it *true*? | Open the PDF and read every page |
+
+`jsk ship` runs the first three in one process — the record gate first, and nothing renders if it
+fails — and exits 0 only if all three passed. It then says, in its own output, that the render gate
+has not been run, because no command can run it. A tool that exited green without saying so would
+teach everyone who used it that the fourth gate is decorative.
 
 Without a renderer, a resume is marked **unverified** rather than assumed fine. A page count nobody
 measured is a page count nobody knows.
@@ -84,7 +90,7 @@ verb. A resume written in the third person is not a parsing defect, so nothing w
 
 ## Numbers are checked against their metrics
 
-Every numeral in a bullet must appear in a structured metric on that bullet, or `validate_urs.py`
+Every numeral in a bullet must appear in a structured metric on that bullet, or the record gate
 fails the record before anything renders. It is the check that catches a rewritten bullet quietly
 inflating a figure.
 
@@ -98,19 +104,23 @@ Job descriptions are ranked against structured metadata on each project — capa
 and domains, compared as exact strings — using requirements read from the posting's own frontmatter.
 So the document you review is the one that produced the ranking.
 
-A script did that arithmetic while the career was a folder of concepts to be compiled. `jsk-tailor-analyst`
-does it now and **shows the terms behind every number**: which requirements each project matched and
-which it missed, in a table beside the assessment. A score nobody can recompute would be worse than
-no score, and that is the whole reason the working is written down rather than the ranking asserted.
+`jsk-tailor-analyst` does that arithmetic and **shows the terms behind every number**: which
+requirements each project matched and which it missed, in a table beside the assessment. A score
+nobody can recompute would be worse than no score, and that is the whole reason the working is
+written down rather than the ranking asserted.
 
-Either way it reports what each project *failed* to match, and tells you where you fall short instead
-of flattering you. Being flattered costs interviews.
+It reports what each project *failed* to match, and tells you where you fall short instead of
+flattering you. Being flattered costs interviews.
 
 ## Two variants, because readability and parsing conflict
 
 A presentation variant for humans, an ATS-maximal variant for portals, plus plain text for paste-in
 boxes. One document cannot be optimal for both readers, and pretending otherwise means quietly losing
 one of them.
+
+Each render's PDF holds one variant — `--ats-max` chooses which — rather than every render producing
+both. A second PDF is a second thing to measure, and when the thing measured is not the thing sent,
+a resume reported as two pages ships as three.
 
 ## Every fact carries provenance
 
@@ -141,7 +151,7 @@ reversible.
 
 ## Fitting a page budget without lying about it
 
-`fit_pages.py` renders the document, measures which block spilled and how much room the page actually
+`jsk fit` renders the document, measures which block spilled and how much room the page actually
 had, then applies density levers in a fixed order — spacing, bullet spacing, margins, font size —
 stopping at the 10pt and 0.5" floors instead of crossing them. If two pages are unreachable without a
 breach it exits non-zero and says so, because the remedy then is to cut evidence, not to shrink type.

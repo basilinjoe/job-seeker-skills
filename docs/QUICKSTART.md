@@ -58,9 +58,9 @@ go if you do not have them.
 the source of truth from here on: identity, roles, projects, every verified number, and a log of what
 changed. Everything else is rendered from it.
 
-**A resume** — actually three files: one formatted for humans, one stripped for job portals, and
-plain text for paste-in boxes. All rendered from the same record, so they cannot contradict
-each other.
+**A resume** — a PDF and a plain-text copy for paste-in boxes, both rendered from the same record, so
+they cannot contradict each other. The PDF is the presentation variant for people unless you ask for
+the ATS-maximal one, which is aimed at job portals that parse badly.
 
 ## What to do next
 
@@ -77,6 +77,19 @@ each other.
 answers and what it does not, and asks you about the gaps — then writes the resume once, at the end.
 You can skip out of it at any round and take the record as it stands. It tells you where you fall
 short against that posting either way, because being flattered costs interviews.
+
+`/jsk:ship` is the end of that loop, and it is two commands:
+
+```bash
+jsk ship applications/<stem>/resume.json --out applications/<stem> --view <id>
+jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
+```
+
+`jsk ship` checks the record first and renders nothing if it fails, then renders the PDF and checks
+it and the plain text, printing every verdict. It reports the page count but leaves the last check to
+you: open the PDF and read every page. `jsk freeze` refuses until the checks pass, then records what
+was sent and when in `application.md`, and names the directory after the submission date. Use
+`--submitted false` for an application you worked through and decided not to send.
 
 ## If something looks wrong
 

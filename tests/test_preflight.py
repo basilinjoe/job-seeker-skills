@@ -196,11 +196,18 @@ class CliBehaviour(unittest.TestCase):
         self.assertNotIn("deprecated", out.lower())
 
 
-class CommandFileIsWiredUp(unittest.TestCase):
-    """The slash command is the entry point, so its wiring is worth pinning."""
+class SetupIsWiredUp(unittest.TestCase):
+    """The slash command is the entry point and the mode file holds the procedure, so
+    the wiring between them and the order inside the procedure are worth pinning."""
 
     def setUp(self):
         self.command = PLUGIN / "commands" / "setup.md"
+        self.mode = PLUGIN / "skills" / "jsk" / "references" / "mode-setup.md"
+
+    def fenced(self, path):
+        import re
+        body = path.read_text(encoding="utf-8")
+        return "\n".join(re.findall(r"^```(?:bash)?\n(.*?)^```", body, re.M | re.S))
 
     def test_the_command_file_exists_where_plugins_look_for_it(self):
         self.assertTrue(self.command.exists(), self.command)
@@ -209,32 +216,32 @@ class CommandFileIsWiredUp(unittest.TestCase):
         head = self.command.read_text(encoding="utf-8").split("---")[1]
         self.assertIn("description:", head)
 
+    def test_the_command_loads_setup_mode(self):
+        self.assertIn('Skill(skill="jsk:jsk", args="setup")',
+                      self.command.read_text(encoding="utf-8"))
+
     def test_it_runs_preflight_before_anything_else(self):
-        """`jsk doctor` since preflight became a subcommand. Bare `jsk doctor` is the
-        verifying run - cmd_doctor adds --verify unless given --quick - so the flag
-        that used to have to be present is now the one that must be absent."""
-        body = self.command.read_text(encoding="utf-8")
-        self.assertIn("jsk doctor", body)
-        self.assertNotIn("jsk doctor --quick", body,
-                         "setup must run the verifying preflight, not the quick one")
-        self.assertLess(body.index("jsk doctor"), body.index("mode-setup.md"))
+        """Bare `jsk doctor` is the verifying run - cmd_doctor adds --verify unless
+        given --quick - so the first command the procedure runs must be exactly that.
+        Prose may still mention `--quick`; what is pinned is what gets run first."""
+        import re
+        first = re.search(r"^jsk .*$", self.fenced(self.mode), re.M)
+        self.assertIsNotNone(first, "mode-setup.md runs no jsk command")
+        self.assertEqual(first.group(0).strip(), "jsk doctor",
+                         "setup must run the verifying preflight first, not the quick one")
 
     def test_every_command_it_invokes_is_real(self):
-        """It checked that each `scripts/X.py` it named was on disk. The scripts are one
-        CLI now, so the equivalent claim is that each `jsk <verb>` it names is a verb
-        `jsk` dispatches - otherwise the command file sends setup at something that
-        cannot run, and the failure reads as a broken install.
+        """Each `jsk <verb>` the procedure runs has to be a verb `jsk` dispatches -
+        otherwise it sends setup at something that cannot run, and the failure reads
+        as a broken install.
 
-        Only fenced blocks are read. The command was renamed from `okf` to `jsk`, which
-        is also how the file refers to the product - "Set up jsk end to end" parsed as
-        an invocation of `jsk end`, and the fix a person would reach for is to reword
-        the prose rather than the check.
+        Only fenced blocks are read: prose refers to the product as jsk too, and "Set up
+        jsk end to end" would parse as an invocation of `jsk end`.
         """
         import re
 
         from jsk import cli
-        body = self.command.read_text(encoding="utf-8")
-        fenced = "\n".join(re.findall(r"^```(?:bash)?\n(.*?)^```", body, re.M | re.S))
+        fenced = self.fenced(self.mode)
         named = set(re.findall(r"^jsk ([a-z]+)", fenced, re.M))
         self.assertTrue(named, "the setup command invokes no jsk subcommand")
         known = set(cli.HANDLERS) | set(cli.SIMPLE)

@@ -7,7 +7,7 @@ explains what it needs as it goes. Read it when a word turns up and you want it 
 
 **Knowledge base** — `user-knowledgebase.md`. One Markdown file holding your whole career under
 fixed headings: identity, positioning, organisations, roles, projects, metrics, skills, education,
-credentials, open questions and a log.
+certifications, open questions and a log.
 *Why it matters:* it is the source of truth. A resume is one rendering of it, not the original — and
 one file is a thing you can read end to end and correct, which is what decides whether a career
 record survives a year.
@@ -24,8 +24,10 @@ never reach a resume before you agree with it.
 **Application directory** — everything about one submission in one place:
 `applications/<yyyy-mm-dd>-<company>-<role>/`, holding the posting, the gap assessment, the record it
 rendered from, the files actually sent, and a timeline of what came back.
-*Why it matters:* it is frozen once the application goes out. The knowledge base keeps moving, and an
-application that pointed at a moving source could not answer what it was answering.
+*Why it matters:* it is frozen once the application goes out — `jsk freeze` refuses until the gates
+pass, writes `application.md` and names the directory after the day it was sent. The knowledge base
+keeps moving, and an application that pointed at a moving source could not answer what it was
+answering.
 
 ## The rendering
 
@@ -39,9 +41,9 @@ hides the rest.
 *Why it matters:* the validator rejects free text inside a view. Tailoring can therefore emphasise,
 but it structurally cannot invent.
 
-**Record** — `resume.json`, the URS document written for one application. It used to be compiled
-from a folder of concepts, so it was current by construction; it is written by hand now, which is why
-`jsk validate` checks its shape as well as its claims before anything renders.
+**Record** — `resume.json`, the URS document written for one application. The skill writes it out
+of your knowledge base by hand, with nothing to keep the two in step, which is why `jsk validate`
+checks its shape as well as its claims before anything renders.
 *Why it matters:* every output is emitted from it, so the PDF and the paste-in plain text cannot say
 different things. And a key the renderer does not recognise is a section that renders as nothing —
 invisible in the PDF, and only the record gate sees it.
@@ -64,8 +66,9 @@ and the UAE ship; the default forbids everything region-specific.
 *Why it matters:* a photograph and date of birth are conventional on a Gulf resume and a liability on
 an Australian one. Adding a market is a JSON file, not a schema change.
 
-**Variant** — you get two resumes, because readability and machine-parsing genuinely conflict. A
-*presentation* variant for humans, an *ATS-maximal* variant for job portals, plus plain text.
+**Variant** — the PDF comes in two variants, because readability and machine-parsing genuinely
+conflict: *presentation* for humans, *ATS-maximal* for job portals. Each render produces one of them
+as the PDF, plus plain text; `--ats-max` picks the second.
 *Why it matters:* sending the pretty one into a portal is how good candidates vanish.
 
 ## The checking
@@ -84,9 +87,10 @@ different question:
 
 *Why it matters:* passing one says nothing about the others. A checker verifies that a document
 parses, not that it is correct — see [WHY.md](WHY.md) for the three real resumes that prove it.
+`jsk ship` runs the first three in one pass; the render gate is always a person reading the PDF.
 
-**Unverified** — what a resume is called when no PDF renderer was available, so nobody has looked at
-a rendered page.
+**Unverified** — what a resume is called until somebody has read every rendered page, and what it
+stays when no PDF renderer was available to produce one.
 *Why it matters:* an unverified resume you know about is fine. One you think was checked is not.
 
 ## The modes
@@ -106,4 +110,4 @@ Eight things the skill can do. You do not have to pick — describe what you wan
 
 ---
 
-Next: [Quickstart](QUICKSTART.md) · [Why it works this way](WHY.md) · [Scripts](SCRIPTS.md)
+Next: [Quickstart](QUICKSTART.md) · [Why it works this way](WHY.md) · [Commands](SCRIPTS.md)

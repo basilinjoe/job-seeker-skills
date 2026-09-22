@@ -11,19 +11,9 @@ profiles     schema/profiles/<region>.json
 discovery    https://example.com/.well-known/resume.json
 ```
 
-**The document is the record. A resume is a view over it.** That inversion is the whole design: a
-tailored resume is a *selection*, expressed as references to IDs, and a renderer that cannot invent
-text is a renderer that cannot embellish.
-
-## Why not JSON Resume
-
-JSON Resume is a container around unstructured prose: a bullet is a bare string so no metric can be
-verified, nothing carries an id so tailoring means copy-and-mutate, nothing carries provenance, and a
-promotion has to be modelled as two duplicate employers.
-
-URS keeps a **normative bidirectional mapping** to JSON Resume at conformance Level 0, so adoption
-costs nothing and is reversible. See *Interoperability* below, and `docs/urs-guide.md` for the gap
-table and the reasoning.
+**The document is the record; a resume is a view over it.** A tailored resume is a *selection*,
+expressed as references to IDs, so the renderer cannot invent text. URS maps to JSON Resume at
+Level 0 (see *Interoperability*; `docs/urs-guide.md` has the gap table).
 
 ## Design rules
 
@@ -62,15 +52,12 @@ table and the reasoning.
 }
 ```
 
-Only `urs`, `meta`, `person` and `views` are required. An empty career is a valid document; an
-ambiguous one is not.
+Only `urs`, `meta`, `person` and `views` are required. An empty career is valid; an ambiguous one is
+not.
 
 ## Core types
 
 ### Instant and Period
-
-Precision is explicit, and so is the difference between *ongoing* and *unknown* — the ambiguity an
-omitted `endDate` creates in every other format.
 
 ```json
 { "start": { "value": "2023-04", "precision": "month" },
@@ -78,16 +65,14 @@ omitted `endDate` creates in every other format.
 ```
 
 `precision` is `year`, `month` or `day`. `state` is `ongoing`, `ended` or `unknown`.
-`state: "ended"` REQUIRES `end`; `state: "ongoing"` FORBIDS it. No times and no zones — resumes do
-not have them.
+`state: "ended"` REQUIRES `end`; `state: "ongoing"` FORBIDS it. No times and no zones.
 
 `calendar` and `display` are optional, for Japanese era, Hijri or Bikram Sambat rendering. The stored
-`value` stays Gregorian ISO-8601 so it remains computable.
+`value` stays Gregorian ISO-8601.
 
 ### Provenance
 
-On every claim. The statuses match the knowledge base's own vocabulary, so `confirmed` means the same thing
-in both.
+On every claim. The statuses mean the same as in the knowledge base.
 
 ```json
 { "status": "confirmed",
@@ -99,8 +84,6 @@ in both.
 `source.kind` is `self`, `document`, `system` or `reference`.
 
 ### Metric
-
-The type that makes a bullet computable rather than merely searchable.
 
 ```json
 { "kind": "delta",
@@ -114,9 +97,8 @@ The type that makes a bullet computable rather than merely searchable.
 `kind` is `absolute`, `delta`, `ratio`, `duration`, `rank` or `count`.
 `confidence` is `measured`, `estimated` or `reported`.
 
-The prose stays authored; the metric is its machine mirror. **A validator MUST check that every
-numeral appearing in an achievement's `text` also appears in one of its `metrics`.** That single rule
-is what stops a rewritten bullet from quietly inflating a number, and it is checkable.
+**A validator MUST check that every numeral in an achievement's `text` also appears in one of its
+`metrics`** — this stops a rewritten bullet inflating a number.
 
 ### Achievement
 
@@ -135,12 +117,9 @@ Owned by exactly one parent, globally addressable.
 
 `weight` is 1-5 evidence strength — the same axis as a project's `strength` in the knowledge base.
 `capabilities` draws on the vocabulary named in `meta.vocabularies.capabilities`; the standard ships
-no taxonomy of its own, because no single capability taxonomy survives contact with every industry.
+no taxonomy of its own.
 
 ### Name
-
-Naive `given` / `family` breaks most of the world: two Spanish surnames, an Arabic patronymic chain,
-a family-name-first Japanese name, a mononym.
 
 ```json
 { "full": "...",
@@ -151,12 +130,10 @@ a family-name-first Japanese name, a mononym.
 ```
 
 **`full` is authoritative and MUST NOT be reconstructed from the parts.** `display_order` is
-`given-first`, `family-first` or `mononym`. `related_names` exists because Indian resumes routinely
-carry a father's or husband's name as a distinct field; it is `private` by default.
+`given-first`, `family-first` or `mononym`. `related_names` (e.g. a father's or husband's name on
+Indian resumes) is `private` by default.
 
-### Employment: three levels, not one
-
-This is what fixes promotions and contracting.
+### Employment: three levels
 
 ```json
 "organizations": [
@@ -179,33 +156,22 @@ This is what fixes promotions and contracting.
 ```
 
 `kind` is `employment`, `contract`, `freelance`, `internship`, `volunteer`, `break` or
-`education-fulltime`. `employment.via` names the agency or umbrella company for a contractor, so
-client and payer stop being the same field.
+`education-fulltime`. `employment.via` names the agency or umbrella company for a contractor.
+`kind: "break"` declares a career break, with an optional reason.
 
-`kind: "break"` is deliberate. A career break becomes a declarable entry with an optional reason
-rather than a hole in the chronology that a screener infers something about.
-
-`functional_title` is the bridge for a title that is internal-only, niche, or does not describe the
-work — "Member of Technical Staff", "Client Success Associate", any ladder rung that means something
-only inside one company. It renders in parentheses **after** `title` on the role line, in both
-variants:
+`functional_title` glosses a title that is internal-only, niche, or does not describe the work. It
+renders in parentheses **after** `title` on the role line, in both variants:
 
 ```
 Member of Technical Staff (Senior Engineer)                          Jun 2025 - Present
 ```
 
-It never replaces `title`, because `title` is what a reference check confirms. It also never
-promotes: the gloss says what the role *was*, so a Senior Engineer does not gain "(Engineering
-Manager)". Omit it whenever the official title already reads plainly — most do, and a gloss on
-"Senior Engineer" is noise. The resolver drops one that merely repeats the title.
-
-UJD carries `normalized_title` for the same problem on the posting side, but that one *replaces* an
-employer's ladder noise with a comparable title for matching. Different operation, different name,
-deliberately.
+It never replaces `title` (what a reference check confirms) and never promotes: a Senior Engineer
+does not gain "(Engineering Manager)". Omit it when the official title reads plainly; the resolver
+drops one that repeats the title. (UJD's `normalized_title` is a different operation: it *replaces*
+a posting's title for matching.)
 
 ### Grade
-
-Grading scales are not comparable, and one of them runs backwards.
 
 ```json
 { "scheme": "in-cgpa-10", "value": 8.4,
@@ -214,17 +180,13 @@ Grading scales are not comparable, and one of them runs backwards.
   "label": "First Class with Distinction" }
 ```
 
-German *Note* is `direction: "lower-is-better"`. A comparator that assumes higher-is-better silently
-inverts every German applicant, which is why direction is stored rather than inferred from the
-scheme.
-
+`direction` is stored, never inferred from the scheme: German *Note* is `lower-is-better`.
 `education[].level` uses ISCED codes, so India's 10th and 12th standard results are first-class
-entries rather than a footnote to a degree.
+entries.
 
 ### Work authorization
 
-Core, not a profile extension: required in AU, AE, US and most of the Gulf and EU. In the Gulf it is
-the first thing screened.
+Core, not a profile extension.
 
 ```json
 { "jurisdiction": "AE",
@@ -240,8 +202,6 @@ the first thing screened.
 
 ### Language
 
-With a modality split, because Indian and Gulf resumes list read, write and speak separately.
-
 ```json
 { "language": "ar", "scheme": "cefr", "overall": "B2",
   "modalities": { "speak": "B2", "read": "C1", "write": "B1" } }
@@ -251,7 +211,7 @@ With a modality split, because Indian and Gulf resumes list read, write and spea
 
 ### Skill
 
-No self-rated level. A skill earns its place by pointing at evidence.
+No self-rated level; a skill points at evidence.
 
 ```json
 { "id": "skill_azure", "name": "Azure", "category": "cloud-platform",
@@ -261,28 +221,17 @@ No self-rated level. A skill earns its place by pointing at evidence.
   "last_used": { "value": "2026", "precision": "year" } }
 ```
 
-`aliases` does real ATS work: keyword matching is literal, so a renderer can emit the variant a given
-portal expects. `identifier` against ESCO or O*NET is what makes the format interoperable rather than
-another silo.
+`aliases` lets a renderer emit the variant a portal's literal keyword match expects. `identifier` is
+against ESCO or O*NET.
 
-## Views — the tailoring model
+## Views
 
-**This section now lives in `references/view-format.md`.** A view is a rendering instruction: it
-selects, orders, redacts and sets a budget. That file defines every key one may carry, including the
-normative rule that a view MUST NOT contain content text; this file defines everything a view points
-at.
-
-It moved for `jsk-resume-author`, the one agent that writes a view by hand and needs almost nothing
-else here — it reads the compiled record rather than this schema. **It was a move, not a copy:** no
-view key is defined in this file, and no record key is defined in that one. Do not restate either
-half in the other. A specification split across two files that paraphrase each other stops agreeing
-the moment one is edited, and the first anyone hears of it is a validator rejecting a document the
-other half called legal.
+Defined in `view-format.md`: every key a view may carry, and the rule that a view MUST NOT contain
+content text. No view key is defined here.
 
 ## Region profiles
 
-The core schema is universal and permissive. Everything market-specific lives in a profile, published
-as **data rather than spec prose**, so adding a country is a new file and not a schema version.
+Market-specific rules live in a profile, published as data, so a new country is a new file.
 
 ```json
 { "id": "urs:profile:ae/1",
@@ -295,15 +244,12 @@ as **data rather than spec prose**, so adding a country is a new file and not a 
               "attestation_block": false, "referees": "on-request" } }
 ```
 
-Compare `urs:profile:au/1`, which **forbids** photo, date of birth and marital status, requires
-`work_authorization`, renders referees inline, and allows four pages.
+`urs:profile:au/1`, by contrast, **forbids** photo, date of birth and marital status, requires
+`work_authorization`, renders referees inline, and allows four pages. Fields like photo and date of
+birth live in the record gated `visibility: private` and are emitted only where a profile permits.
 
-The property this buys: **one record, legally correct output in every market.** The photograph and
-date of birth expected in Dubai and unlawful to solicit in Sydney both live in the record, gated
-`visibility: private`, emitted only where a profile permits.
-
-**The rule that keeps the core from bloating:** a field enters core only if two or more unrelated
-markets require it. Everything else is a profile extension under `x`.
+A field enters core only if two or more unrelated markets require it; everything else is a profile
+extension under `x`.
 
 A renderer MUST omit any field a profile lists as `forbidden`, MUST warn when a `required` field is
 absent, and MUST NOT emit a `private` field unless the profile lists it in `required` or `expected`.
@@ -316,20 +262,13 @@ Every field group carries `visibility`: `public`, `recruiter` or `private`. The 
 
 ## Conformance levels
 
-The adoption path. A tool declares what it emits and what it consumes.
-
 | Level | Requires | Reachable from |
 |---|---|---|
 | **0 — Core** | person, engagements, education; plain-text achievements | mechanical conversion from JSON Resume |
 | **1 — Structured** | stable IDs, metrics, skills with evidence | one authoring pass |
 | **2 — Verified** | provenance on every claim, views with a `provenance_floor`, validator clean | a maintained knowledge base |
 
-Level 0 exists so nobody has to rewrite anything to start. A richer format without a zero-cost entry
-point is a format nobody adopts.
-
 ## Interoperability
-
-Normative bidirectional mappings ship with the standard:
 
 | Format | Direction | Loss |
 |---|---|---|
@@ -344,26 +283,20 @@ Normative bidirectional mappings ship with the standard:
 `urs` carries the version; the major version appears in the `$schema` path. Minor versions are
 **additive only**.
 
-**Extensions live under `x`, keyed by reverse DNS.** Every object may carry one. `x` is open, MUST be
-ignorable by a tool that does not recognise a key, and **MUST be preserved on round-trip** — a tool
-that reads a document and writes it back may not silently drop another tool's extension.
+**Extensions live under `x`, keyed by reverse DNS.** Every object may carry one. `x` MUST be
+ignorable by a tool that does not recognise a key, and **MUST be preserved on round-trip**.
 
-**Everywhere else, an unrecognised key is rejected.** That is the opposite of the usual trade, and
-deliberate. A resume is written once and then read by machines its author never sees, so the failure
-that actually costs someone an interview is a silent one: `startDate` where the schema says `start`
-is an unknown field, it is ignored, and the date disappears from the rendered document with nothing
-anywhere reporting it. A rejected typo is a fixed typo. An open object cannot tell a typo from an
-extension, which is exactly why extensions are given a place of their own.
+**Everywhere else, an unrecognised key is rejected** — `startDate` where the schema says `start`
+would otherwise vanish from the rendered document silently.
 
 ## Deliberate exclusions
 
-Time zones · rich text in any field, because renderers own formatting · embedded image binaries, URIs
-only · self-rated skill levels · "references available on request" as data rather than a profile
-render setting · cover letters.
+Time zones · rich text in any field · embedded image binaries (URIs only) · self-rated skill levels
+· "references available on request" as data rather than a profile render setting · cover letters.
 
 ## Beyond the boundary
 
-Two cases the standard does not claim: **Japan's rirekisho**, a JIS-standardised form that a profile
-can only approximate, and **Australian public-sector selection criteria**, accommodated as
-`narratives[].kind: "criterion-response"` but a companion document rather than a resume section.
-Neither is claimed as supported. `docs/urs-guide.md` states both in full.
+Not claimed as supported: **Japan's rirekisho** (a JIS form a profile can only approximate) and
+**Australian public-sector selection criteria** (accommodated as
+`narratives[].kind: "criterion-response"`, but a companion document). `docs/urs-guide.md` covers
+both.

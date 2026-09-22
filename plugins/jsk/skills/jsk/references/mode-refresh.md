@@ -4,12 +4,12 @@ A periodic pass so nobody has to reconstruct two years from memory.
 
 ## Orient first
 
-Read `user-knowledgebase.md`. Start at `## Log` for when the last update happened and what was left
-open, then `## Open questions`.
+If they named a period, cover that. Otherwise start at `## Log` — when the last update happened and
+what was left open — work forward from its last row, then read `## Open questions`.
 
-For anything more than a quick top-up, send `jsk-kb-auditor` the file path first. It flags the
-`headline_metric` values that have gone stale and the questions open across three or more entries —
-the two things a refresh exists to catch and the two easiest to miss by reading `## Log` alone.
+For anything more than a quick top-up, send `jsk-kb-auditor` the file path first. It flags stale
+`headline_metric` values and questions open across three or more entries — the two things a refresh
+exists to catch and the easiest to miss from `## Log` alone.
 
 Open with something concrete rather than a blank prompt:
 
@@ -25,9 +25,9 @@ Move fast where nothing happened; this should feel light.
 **Role and scope** — promotion, title, team size, remit, new kinds of responsibility such as
 pre-sales, hiring, architecture review, on-call ownership.
 
-**Numbers on existing projects.** The most valuable and most overlooked question. Systems grow — a
-platform serving 200 users at launch may serve 5,000 now. Walk the recent entries in `## Projects`
-and ask whether any `headline_metric` has moved. Numbers unavailable last time may exist now.
+**Numbers on existing projects** — the most valuable and most overlooked question. A platform serving
+200 users at launch may serve 5,000 now. Walk the recent entries in `## Projects` and ask whether any
+`headline_metric` has moved. Numbers unavailable last time may exist now.
 
 **Credentials** — certifications passed or started, courses, degrees.
 
@@ -38,14 +38,10 @@ tool everyone quietly depends on, a process they changed.
 
 ## Close what you can
 
-Walk `## Open questions`. Some rows are now answerable: fill the `answered` date, write the answer
-into the section it was about, and set that entry's `status` to `confirmed`.
+Walk `## Open questions`. For each row now answerable: fill the `answered` date, write the answer
+into the section it was about, and set that entry's `status` to `confirmed`. The row stays.
 
-The row stays. A question that was asked and answered is how the record shows its work, and striking
-it loses the only evidence that anybody checked.
-
-If something has been open across three refreshes, say so and suggest either resolving it properly or
-dropping the claim. A row pending forever is the state this framework exists to prevent.
+Open across three refreshes → say so, and suggest resolving it properly or dropping the claim.
 
 ## Write it up
 
@@ -60,15 +56,12 @@ Ordinary `Edit` calls, across the sections that changed:
 | work being dropped | `retired: true` on the entry — **never delete it** |
 | a new capability term | `## Vocabulary`, in the same edit that first uses it |
 
-**When you change a claim's substance, drop its `status` back to `inferred`** unless they just
-confirmed it in this conversation, and put a row in `## Open questions`. A number you updated from
-memory is a claim nobody has re-confirmed. Ask, then mark it `confirmed`.
+**Every claim whose substance you change goes back to `inferred`** with a row in `## Open questions`,
+unless they confirmed it in this conversation — a number updated from memory is not re-confirmed.
+Ask, then mark it `confirmed`. This is the most important habit in this mode.
 
-That rule used to be enforced by the write layer, which re-stamped `inferred` on every `set`. Nothing
-enforces it now, which makes it the single most important habit in this mode.
-
-If their career ladder changed shape — a new levelling scheme, a title that means something different
-now — that is prose and belongs under `## Positioning`.
+A career ladder that changed shape — a new levelling scheme, a title that means something different
+now — is prose under `## Positioning`.
 
 Append one row to `## Log` and update `updated:` in the frontmatter.
 
@@ -76,8 +69,7 @@ Append one row to `## Log` and update `updated:` in the frontmatter.
 
 Report what was added, resolved, and still open. Then ask whether their **positioning** has shifted —
 if they are targeting a different kind of role now, `## Positioning` and the summary variants need
-rewriting. A knowledge base that accumulates evidence but never revisits its target slowly stops
-describing the person.
+rewriting.
 
 Offer a recurring reminder if they do not have one. Quarterly suits most people; monthly while
 actively job-hunting.

@@ -26,13 +26,42 @@ render plan
 translate a resolved plan into markup and decide nothing. That is what guarantees the PDF and the
 plain text cannot say different things — neither of them chose what to say.
 
-`emit_docx.py` used to sit alongside them and produced two more files. It went because the same
-argument applies one level up: `fit_pages.py` measured the `.docx` through LibreOffice while the PDF
-was what got sent, they disagreed, and a resume reported as two pages shipped as three. There is now
-one rendered deliverable, and the thing measured is the thing sent.
+The same argument applies one level up, which is why there is one rendered deliverable: the thing
+`jsk fit` measures is the thing that gets sent. A `.docx` measured through LibreOffice beside the
+PDF once reported two pages for a resume that shipped as three.
 
 If you find yourself making a content decision inside an emitter, it belongs in the plan. If you find
 yourself making a formatting decision inside the plan, it belongs in an emitter.
+
+### The commands over it
+
+```
+jsk validate  resume.json                          the record gate - before anything renders
+jsk render    resume.json --out D --view ID --pdf  .tex, .pdf, .txt
+jsk gates     D                                    record, parse and prose gates over that render
+jsk ship      resume.json --out D --view ID        the three above, in order, in one process
+jsk freeze    D --submitted DATE --channel TEXT    application.md, once the gates pass
+```
+
+`jsk ship <resume.json> --out DIR --view ID [--ats-max] [--template N] [--pages N] [--json]` is the
+path a finished record takes. The record gate runs first, and a failure stops it: nothing renders,
+because a render of a record that failed would be a document nobody should read. Then `render --pdf`,
+then the parse and prose gates over the output directory, each step's output printed verbatim. It
+exits 0 only if every step passed. With `--pages` it reports the measured page count and never fails
+on it — `jsk fit` owns that verdict and is the only thing that can act on it. It closes by saying the
+render gate is still open, because a person reading the PDF is the one gate no command can run.
+
+`jsk freeze <app-dir> --submitted YYYY-MM-DD|false --channel TEXT [--view ID] [--doc FILE ...]` is
+the last step. It refuses unless the mechanical gates pass and no `application.md` exists yet, then
+writes `application.md` — frontmatter plus a `# Timeline` table — and renames the directory to the
+submitted date. After that the directory is an archive: later events are appended rows, never edits.
+
+Every subcommand runs **in process**. `cli.py` imports the module behind it and calls its `main()`
+with the same arguments, so the output and the exit code are the module's own and nothing is
+paraphrased on the way through. One interpreter per invocation is what lets `jsk ship` be a single
+command rather than four start-ups; `call_gate()` turns the two failures an in-process call adds — a
+module that will not import, and one that raises where it should have returned a verdict — into a
+reported failure instead of a traceback.
 
 ### Inside the `urs` package
 
@@ -48,10 +77,9 @@ yourself making a formatting decision inside the plan, it belongs in an emitter.
 | `themes.py` | *appearance* only: palette, typeface, rhythm. Below `emit_latex.py`, and it cannot reach the text |
 | `render_resume.py` · `preview_templates.py` · `fit_pages.py` | the CLIs — `jsk render`, `jsk preview`, `jsk fit`. They orchestrate the modules above and decide nothing themselves |
 
-They sat at the top of the package until the boundary was measured. Between this package and the
-rest of `jsk` there is exactly **one** import edge, and it is lazy: `profiles` reaching for the
-packaged schema path. It was two until the compiler left. 2,388 lines behind one edge is one
-subject, so it is one package.
+Between this package and the rest of `jsk` there is exactly **one** import edge, and it is lazy:
+`profiles` reaching for the packaged schema path. Some 2,400 lines behind one edge is one subject, so
+it is one package.
 
 `formatting.py` holds pure functions over single values — no view, no profile, no record — which is
 what makes them testable in isolation. Import `plan`; the split is behind it.
@@ -64,13 +92,12 @@ Four tasks are delegated to subagents, and the line between them is what each ma
 |---|---|---|
 | `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into the render |
 | `jsk-kb-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit; the knowledge base is the person's |
-| `jsk-tailor-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing, and that is the change worth reading below |
+| `jsk-tailor-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing, and that is worth reading below |
 | `jsk-resume-author` | Read, Write, Edit, Glob, Grep, Bash | nothing — it is the one that writes prose |
 
-**The anti-invention guarantee used to be a tool grant, and it is a sentence again.** Both authoring
-agents held neither Write nor Edit, because every change they made went through a write command that
-checked its shape and refused what a gate would reject later. There is no write layer over one
-Markdown file, so both hold Edit now, and what holds them is what the file says:
+**For the two authoring agents the anti-invention guarantee is not a tool grant.** There is no write
+layer over one Markdown file to route their changes through, so both hold Edit, and what holds them is
+what the file says:
 
 - `jsk-tailor-analyst` writes the posting's frontmatter and the assessment, and **never touches
   `user-knowledgebase.md`**. Its boundary is absolute and it is prose.
@@ -85,9 +112,10 @@ Markdown file, so both hold Edit now, and what holds them is what the file says:
 That asymmetry is the design. Where a rule can be enforced by a gate, it is; where it cannot, it is
 stated as plainly as possible and the test checks that the statement survives.
 
-`jsk-verifier` is the conditional one. `jsk gates` runs the record, parse and prose gates in a single
-process and prints each one's output verbatim, so a clean ship reads that rather than spawning an
-agent to relay three checkers — and a command has no Write tool more thoroughly than an agent does.
+`jsk-verifier` is the conditional one. `jsk ship` and `jsk gates` run the record, parse and prose
+gates in a single process and print each one's output verbatim, so a clean ship reads that rather
+than spawning an agent to relay three checkers — and a command has no Write tool more thoroughly than
+an agent does.
 What the agent is kept for is the half a command cannot do: reading a `FAIL` line back to the section
 it came from, and reading the PDF for the render gate.
 
@@ -109,7 +137,7 @@ docs/                               this directory - human-facing documentation
 src/jsk/                            THE CLI. one installed package, `jsk` on the command line
   __init__.py                       __version__
   __main__.py                       `python -m jsk`, the same entry point as `jsk`
-  cli.py                            the dispatcher: eight subcommands, forwarded or imported
+  cli.py                            the dispatcher: ten subcommands, each run in process
   cliutil.py                        one contract for --help across the hand-rolled entry points
   paths.py                          where the packaged schema lives - stated once
   kb.py                             `jsk new` - scaffolds user-knowledgebase.md and applications/
@@ -158,12 +186,9 @@ tests/                              unittest: one file per module, plus the mani
 **The code and the skill are two artefacts.** `src/jsk/` is a Python package installed from PyPI as
 `jsk-resume`; `plugins/jsk/` is markdown that calls `jsk`.
 
-**Six modules and two subpackages left in one commit** — `okf_compile`, `validate_bundle`,
-`init_bundle`, `migrate_bundle`, `pipeline`, `pipeline_model`, `score_projects`, `markup`, plus
-`authoring/` and `query/`: about 15,000 lines. Every one of them existed to keep a folder of several
-hundred concepts consistent with a record derived from it. One file has no such problem, and the
-half of the package that was never about the bundle — the record, the renderer, the gates — is what
-is left.
+**Nothing in the package reads `user-knowledgebase.md`.** The skill writes the record out of it with
+ordinary file tools; the code starts at the record, which is the last point at which a mistake is
+still cheap.
 
 ## What is a package here, and what is not
 
@@ -176,19 +201,9 @@ with a theme, not a module.
 | `urs/` — rendering, preview, page fitter, over the record→document pipeline | **1**, lazy | many | **made** |
 | `gates/` — record, parse, prose | **1**, lazy | 1 | **made** |
 
-Both counts fell by one when the compiler left: `render_resume` and `validate_urs` each reached for
-`okf_compile` to turn a bundle into a record, and neither takes a bundle now.
-
-A third, `query/`, passed the same test at 9 edges out against 24 inside and was made — and then
-deleted with the format it read. It is worth recording as the case where the measurement was right
-and the subject was temporary: the module was well-factored and the question it answered stopped
-being a question anyone had.
-
-Two groups were measured and rejected, and the reasoning still applies to anything proposed here.
-`bundle/` — compile, validate, init, migrate — had 8 edges out and **zero** inside: four modules
-that all operated on a bundle and never once imported each other. Grouping them would have added
-eight boundary crossings and bought a directory named after a noun they had in common. `pipeline/`
-had 5 out and 1 in, for the same reason.
+The reason for measuring applies to anything proposed here: four modules that all operate on the same
+noun and never import each other would gain a boundary crossing per edge and buy nothing but a
+directory named after what they have in common.
 
 `cli.SUBPACKAGE` is the one map from a documented script name to where its module lives, and
 `tests/fixtures.load_script` reads that map rather than keeping a second copy.
@@ -208,7 +223,7 @@ had 5 out and 1 in, for the same reason.
 | **The knowledge base format** | `references/kb-spec.md` | `src/jsk/kb.py` — the template and the spec are one rule in two languages, and a heading in one and not the other is a defect |
 | What `jsk new` scaffolds | `src/jsk/kb.py` | `references/kb-spec.md`, `references/mode-setup.md` |
 | A posting's or assessment's shape | `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` — the format is written out in the agent, so it is one place |
-| How postings are ranked | `agents/jsk-tailor-analyst.md` | nowhere else — there is no scorer any more, and the weighting table in that file is the whole of it |
+| How postings are ranked | `agents/jsk-tailor-analyst.md` | nowhere else — there is no scorer, and the weighting table in that file is the whole of it |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
@@ -223,25 +238,21 @@ This is a published plugin. Two surfaces may not move without a major version an
    examples, and in every mode file. Module names inside the package are free; the invocation
    surface is not.
 
-   Version 4.0 broke this deliberately and completely: the command was `okf`, twenty-odd subcommands
-   of it, and the format those subcommands operated on no longer exists. There is no compatibility
-   shim, because a shim over `okf project add` would have to write into a file whose shape it cannot
-   know. `docs/SCRIPTS.md` closes with the mapping from each removed subcommand to what replaced it.
+   Version 4.0 replaced the `okf` command and its bundle format outright, with no compatibility shim:
+   a shim over a per-noun write command would have to write into a file whose shape it cannot know.
 
 2. **The record's shape and gate behaviour.** What the renderer reads stays wire-compatible with an
    archived `resume.json` — an application filed two years ago is still re-renderable — and a gate
    keeps failing on exactly what it fails on today.
 
-**Bundle layout on disk** used to be the third, and it was the strongest of the three: renaming
-`projects/` broke every bundle in existence, so additions went behind a revision number pinned across
-three modules. There is one file now and its headings are the contract; `references/kb-spec.md` says
-never to rename or reorder one, and `jsk new` writes them all. A knowledge base from before this
-change is migrated by reading it and writing the new file — `references/mode-setup.md` has the
-procedure, and it is a conversation rather than a command because every relation the old format left
-in prose is a judgement a script guessed at.
+The knowledge base's **headings** are a contract of the same weight. `references/kb-spec.md` says
+never to rename or reorder one, and `jsk new` writes them all; the two are one rule in two languages.
+A bundle from an older version is migrated by reading it and writing the new file —
+`references/mode-setup.md` has the procedure, and it is a conversation rather than a command because
+every relation the old format left in prose is a judgement a script would only guess at.
 
-A fourth, discovered the hard way: **the tests assert on output text.** There are over 240 `assertIn`
-calls against strings like `PASS - safe to send` and `DO NOT SEND`. You may *add* lines to a command's
+One more, discovered the hard way: **the tests assert on output text.** Some 200 `assertIn` calls
+check strings like `PASS - safe to send` and `DO NOT SEND`. You may *add* lines to a command's
 output. Rewording an existing verdict line breaks tests, and those tests are the gate on the gate.
 
 ## Tests
@@ -257,10 +268,8 @@ python -m unittest discover -s tests       # the same tests, with no pytest inst
 spawns, so no install is needed and the suite always tests the working tree rather than whatever
 `jsk-resume` happens to be on the machine. That second part matters more than it looks.
 
-**"Runs on a bare Python" is now true of the suite as well as the toolchain.** It was not: `pyyaml`
-was needed to read a bundle, most tests built one, and a run without it reported around 460 failures
-rather than skipping. There are no bundles to build, so only the TeX-engine and `pymupdf` tests skip
-themselves and everything else runs anywhere.
+**"Runs on a bare Python" is true of the suite as well as the toolchain.** Only the TeX-engine and
+`pymupdf` tests skip themselves; everything else runs anywhere.
 
 The tests are standard-library `unittest` and import nothing from pytest; pytest is simply the
 pleasanter way to run a subset and read a failure. Either command works from anywhere — every path
@@ -284,32 +293,30 @@ change in behaviour unless the behaviour change is the point and it is written d
 
 ## Dependencies
 
-Deliberately close to zero, and **`pyproject.toml` declares none as required** — every one is an
+Deliberately close to zero, and **`pyproject.toml` declares none as required** — `pymupdf` is an
 optional extra, imported at the point of use. `pip install jsk-resume` gives a working record gate,
 prose gate and `.txt` parse gate on a bare interpreter. `jsk doctor` especially, because a preflight
 that needs installing first is not a preflight.
 
 ```bash
 pip install jsk-resume              # the record gate, prose gate, .txt parse gate
-pip install 'jsk-resume[all]'       # + pymupdf
+pip install 'jsk-resume[all]'       # + pymupdf (the same as [pdf])
 pip install -e '.[dev]'             # the above plus pytest, pytest-xdist, ruff
 ```
+
+Two things are optional to install and required to ship:
 
 | Required | Why |
 |---|---|
 | a TeX engine | the PDF is the only rendered deliverable; without one there is nothing to send |
 | `pymupdf` | without it the parse gate and the page budget are both unverifiable |
 
-There are no optional extras left. `pyyaml` went with the bundle format — nothing reads YAML off disk
-any more. `jsonschema` went too, and it is the more instructive of the two: **nothing ever imported
-it.** It was declared, reported by `jsk doctor` as a capability, and documented as unlocking "full
-schema validation in `validate_urs.py`" — and there was no URS JSON Schema for it to validate
-against. A dependency that buys a line in a report and nothing else is worse than none, because it
-teaches people the report is decorative.
+`jsk doctor` reports their absence as BLOCKED rather than as a gap.
 
-A TeX engine and `pymupdf` were optional while the `.docx` was the portal artefact. `jsk doctor`
-reports their absence as BLOCKED rather than a gap. LibreOffice left the list entirely: it existed
-only to render the `.docx` for measurement.
+**A dependency has to be imported by something.** One that is declared, reported by `jsk doctor` as
+a capability and never actually used is worse than none, because it teaches people the report is
+decorative — which is how `jsonschema` left the list: there was no URS JSON Schema for it to
+validate against.
 
 Anything that cannot run reports loudly and exits non-zero rather than passing quietly.
 
@@ -335,11 +342,10 @@ Tag them distinctly — `cli-vX.Y.Z` and `plugin-vX.Y.Z` — or the history stop
 Before tagging: run the tests, run `jsk doctor` (the verifying form, not `--quick`), and check that
 every internal doc link still resolves.
 
-**The version skew this introduces is real and is not yet handled**, and version 4.0 makes it sharper
-rather than softer: a plugin on the new markdown against an installed `okf` finds no `jsk` command at
-all, which at least fails loudly. The subtler case — a flag the installed CLI does not have — still
-fails mid-session on an argparse error. The fix is a floor the skill states and
-`jsk doctor --require X.Y` enforces; it is not built.
+**The version skew this introduces is real and is not yet handled.** A plugin against an install
+with no `jsk` command at all fails loudly. The subtler case — a subcommand or flag the installed CLI
+does not have, such as `jsk ship` on an older install — fails mid-session on a usage error. The fix
+is a floor the skill states and `jsk doctor --require X.Y` enforces; it is not built.
 
 ---
 

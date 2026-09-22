@@ -50,7 +50,12 @@ class ResidentCost(unittest.TestCase):
         # This ceiling is the one number in this file that should be defended
         # hardest, because SKILL.md loads for every mode before anyone has said
         # what they want.
-        self.assertLess(tokens(SKILL / "SKILL.md"), 4400)
+        #
+        # 4400 -> 2400 when SKILL.md became a router. Measured: 4,246 before, 2,202
+        # after. What left was history (how the write layer and the compiler used to
+        # work), gate and agent detail each mode file already carries, and rationale
+        # paragraphs that rationale.md holds in long form.
+        self.assertLess(tokens(SKILL / "SKILL.md"), 2400)
 
 
 class AgentReadBudget(unittest.TestCase):
@@ -61,7 +66,8 @@ class AgentReadBudget(unittest.TestCase):
     """
 
     def test_the_tailor_analyst_reads_only_what_it_ranks_from(self):
-        self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 3200)
+        # 3200 -> 2300: 2,841 -> 2,096 measured, history and rationale cut.
+        self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 2300)
 
     def test_the_resume_author_reads_both_halves_of_the_record_spec(self):
         """It writes the record by hand now, so `urs-spec.md` went from the half it
@@ -77,7 +83,9 @@ class AgentReadBudget(unittest.TestCase):
         author = tokens(AGENTS / "jsk-resume-author.md")
         spec = tokens(REFS / "view-format.md", REFS / "urs-spec.md")
         rules = tokens(REFS / "ats-rules.md", REFS / "writing-rules.md")
-        self.assertLess(author + spec + rules, 11400)
+        # 11400 -> 7600: 11,214 -> 7,138 measured. Every key, type and shape stayed;
+        # the prose around them, and each half's account of why it was split, went.
+        self.assertLess(author + spec + rules, 7600)
 
     def test_the_view_format_is_the_smaller_half(self):
         """If it ever grows past the file it was split out of, the split has stopped
@@ -146,7 +154,8 @@ class TheWritePathStaysCheap(unittest.TestCase):
         sections a project touches and the ids that have to agree across them, which
         is what nothing checks any more.
         """
-        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-braindump.md"), 5900)
+        #   router       SKILL 2,202 + braindump   890                     =  3,092
+        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-braindump.md"), 3300)
 
     def test_the_format_specification_is_loaded_on_demand(self):
         """`kb-spec.md` is the reference, and its size is therefore free - but only
@@ -154,7 +163,7 @@ class TheWritePathStaysCheap(unittest.TestCase):
         it becomes the read it replaced, and 3,121 tokens land on recording one
         project.
         """
-        self.assertLess(tokens(REFS / "kb-spec.md"), 4000)
+        self.assertLess(tokens(REFS / "kb-spec.md"), 2400)
 
 
 class TheAgentsReadTheFileWhole(unittest.TestCase):
@@ -218,11 +227,16 @@ class TheMainThreadBudget(unittest.TestCase):
         # That last one is the shape of this whole change in one file: a command
         # that did a thing correctly becomes a paragraph telling a model to do it
         # correctly. Cheaper to read, and one more thing nothing checks.
+        #
+        # 10100 -> 6000, and the freeze went back to being a command. Measured:
+        # 9,841 -> 5,613. `jsk ship` replaced three gate steps and `jsk freeze` the
+        # hand-written freeze, so the paragraph became an invocation that refuses
+        # when a gate fails; the rest was history and rationale.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
                    REFS / "mode-ship.md"),
-            10100)
+            6000)
 
 
 if __name__ == "__main__":

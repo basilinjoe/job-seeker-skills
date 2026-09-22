@@ -64,9 +64,9 @@ Describe what you want and the skill routes there by itself. Or say it directly:
 |---|---|
 | `/jsk:setup` | First run, or importing an existing resume |
 | `/jsk:braindump` | You have something to say about your work |
-| `/jsk:resume` | You need a resume — two verified variants plus plain text |
+| `/jsk:resume` | You need a resume — one verified PDF plus plain text |
 | `/jsk:tailor` | You have a specific job posting - a loop that closes the gaps, then writes the resume |
-| `/jsk:ship` | A resume is finished and needs rendering, checking and filing |
+| `/jsk:ship` | A resume is finished and needs rendering, checking and filing — `jsk ship`, then `jsk freeze` |
 | `/jsk:refresh` | Periodic top-up: what changed, what numbers moved |
 | `/jsk:gaps` | Resolve unanswered questions and unverified claims |
 | `/jsk:pipeline` | What to chase this week: what has gone quiet, what is overdue |
@@ -90,18 +90,20 @@ career/
       gaps.md               the assessment, and the question queue
       resume.json           the record this submission rendered from
       application.md        what was sent, and what came back
-      Priya_Raman_Acme_Resume.{tex,pdf,txt}
+      Priya_Raman_Resume.{tex,pdf}
+      Priya_Raman_Resume_ATS.txt
 ```
 
 One file, and a frozen directory per application. `user-knowledgebase.md` holds identity,
-positioning, organisations, roles, projects, metrics, skills, education, credentials, the open
+positioning, organisations, roles, projects, metrics, skills, education, certifications, the open
 questions and a log — each under a fixed heading, described in
-[the format spec](plugins/jsk/skills/jsk/references/kb-spec.md).
+[the format spec](plugins/jsk/skills/jsk/references/kb-spec.md). `jsk freeze` writes
+`application.md` once the gates pass and names the directory after the day it was sent; from then on
+it is an archive, and what came back is appended to its timeline.
 
-This was a folder of several hundred linked concepts with a compiler over it, and that shape is
-right for a knowledge base too large to hold in one context. A career is not. One file is readable
-end to end by the person whose career it is, which is the property that actually decides whether a
-career record survives a year.
+A folder of linked concepts with a compiler over it is the right shape for a knowledge base too large
+to hold in one context. A career is not. One file is readable end to end by the person whose career
+it is, which is the property that actually decides whether a career record survives a year.
 
 Plain Markdown: readable in any editor, versionable in Git, readable by AI tools without a
 translation layer. Keep it in a repo you control so it outlives any single tool, including this one.

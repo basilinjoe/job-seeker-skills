@@ -1,96 +1,133 @@
 # Mode: setup
 
-Create a knowledge base from nothing, from an existing resume, or from an older bundle.
+Get this machine from nothing to a working, verified pipeline, with a knowledge base created from
+nothing, from an existing resume, or from an older bundle. Four phases, in order; **do not skip
+phase 1**.
 
-**`/jsk:setup` wraps this mode** with a toolchain check either side of it — preflight before, a real
-render after. When someone arrives through that command, phases 1 and 2 have already run and this
-file is phase 3; do not re-run preflight. When they arrive here directly, run it first, because a
-knowledge base built on a toolchain that cannot render is one nobody can use yet:
+`$ARGUMENTS` may hold a path: a `.docx`, `.pdf` or `.md` resume is a document to import in phase 3;
+a directory is where the knowledge base goes. Empty → ask.
+
+## Phase 1: Find out what works
 
 ```bash
-jsk doctor --quick
+jsk doctor
 ```
 
-## Ask two things
+Bare `jsk doctor` is the verifying run: it renders the shipped example end to end and runs every
+gate. `--quick` skips the render. **Show the output**, then read the verdict:
 
-1. **Where should it live?** Default `career/` in a folder they control. Version control is
-   ideal — this should outlive any tool.
+| Verdict | What to do |
+|---|---|
+| `READY` | Everything works, PDF included. Go to phase 3. |
+| `READY, with gaps` | The core pipeline works. Go to phase 2 and offer to close the gaps. |
+| `BLOCKED` | The install is broken — modules or schema missing. Fix that first; nothing else is worth doing. |
+| `BROKEN` | The toolchain is present but failed its own gates — a bug in the skill, not their setup. Report the failing step verbatim rather than working around it. |
+
+## Phase 2: Close the gaps — with permission, never silently
+
+The doctor prints what each gap disables and the exact command to fix it. Relay both, then offer the
+choice with `AskUserQuestion` before running anything — installing software is theirs to authorise,
+and a TeX distribution can be several gigabytes.
+
+- **A TeX engine is required** — without one the doctor reports `BLOCKED`. Recommend `tectonic`, a
+  single self-contained binary; MiKTeX or TeX Live only if they already wanted them.
+- **`pymupdf` is required** — the parse gate reads the PDF through it and the fitter measures pages
+  through it. One `pip install`.
+
+Re-run the doctor after any install.
+
+## Phase 3: Create or adopt the knowledge base
+
+Ask two things:
+
+1. **Where should it live?** Default `career/` in a folder they control, ideally under version
+   control — this should outlive any tool.
 2. **Do they have an existing resume?** It is the fastest skeleton available.
-
-## Create the file
 
 ```bash
 jsk new <path> --name "Their Name"
 ```
 
 That writes `user-knowledgebase.md` with every heading present and empty, and an `applications/`
-directory beside it. Nothing else. The rules and the toolchain stay with the skill, so a knowledge
-base is never stale.
+directory beside it. Unavailable → write the file by hand from `references/kb-spec.md`.
 
-If the command is unavailable, write the file by hand from `references/kb-spec.md`.
+**Fill `## Identity` first — email and phone.** The parse gate fails a resume without them, so
+nothing sendable can render until that block is complete; it is the most common thing left empty.
 
-**Fill `## Identity` first.** The parse gate fails a resume with no email and no phone, so until that
-block is complete nothing sendable can render. It is the most common thing left empty and the only
-one that blocks everything.
+**Only if they ask to customise rendering**, create `rules/` beside the knowledge base and seed
+`ats-rules.md`, `writing-rules.md` or `structure-rules.md` from the references here. An absent file
+means "use the defaults", which is what most people want. An override must say in its opening lines
+whether it **replaces** or **extends** the default; one that says neither is an extension and both
+get read.
 
-**Only if they ask to customise rendering**, create a `rules/` directory beside the knowledge base
-and seed `ats-rules.md`, `writing-rules.md` or `structure-rules.md` from the references here. Those
-files override the skill's defaults, so create them deliberately, not by habit — an absent file means
-"use the defaults", which is what most people want. An override must say in its opening lines whether
-it **replaces** the default or **extends** it; one that says neither is treated as an extension and
-both get read.
+### If they have a resume
 
-## If they have a resume
-
-Copy it verbatim beside the knowledge base — `sources/prior-resume.md`, or whatever format it arrived
+Keep it verbatim beside the knowledge base — `sources/prior-resume.md`, or whatever format it arrived
 in — then read it critically and record:
 
 - What you removed and why — learning statements, repeated bullets, filler, references, home address
-- Any **internal contradictions**. Old resumes often disagree with themselves on dates between a
-  summary table and section headers. Put a row in `## Open questions`; a three-month discrepancy is
-  exactly what a background check surfaces.
+- Any **internal contradictions**, such as dates that disagree between a summary table and section
+  headers. Put a row in `## Open questions`; a background check surfaces a three-month discrepancy.
 - Detail worth keeping that will not fit the current resume
 
 Extract roles, employers, dates and projects into the file's sections. Mark everything `confirmed` if
 it came from the document, and say so in `## Log`.
 
-## If they have an older bundle
+### If they have an older bundle
 
-A directory holding `projects/` and `resume-generation/` is the previous format: a folder of linked
-Markdown concepts with a compiler over it. **There is no migration command**, because the migration
-is reading it and writing one file — which is a thing you do well and a thing a script did badly,
-guessing at every relation the old format left in prose.
-
-Offer it; never run it unasked. Then:
+A directory holding `projects/` and `resume-generation/` is the old format. There is no migration
+command: you read it and write one file. Offer it; never run it unasked. Then:
 
 1. **Read the whole bundle.** `index.md`, then `log.md`, then every concept. Do not sample.
 2. **Map it section by section.** `organisations/` → `## Organisations`. `roles/` → `## Roles`.
    `projects/` → `## Projects`, prose and `# Bullets` and all. `achievements/metrics.md` → the
    `## Metrics` table. `skills/competencies.md` → `## Skills`. `framework/capability-vocabulary.md`
    → `## Vocabulary`. `resume-generation/open-questions.md` → `## Open questions`.
-3. **Carry `status` across unchanged.** A concept that was `inferred` in the bundle is `inferred` in
-   the file. Never upgrade one in transit — that is exactly the laundering the status exists to
-   prevent, and a migration is where it happens invisibly.
+3. **Carry `status` across unchanged.** Never upgrade one in transit.
 4. **Carry `log.md` across**, then append one row saying the knowledge base was migrated and from
    where.
 5. **Name what you could not place.** A concept type with no home — a `Talk`, a `Patent`, a
    `Reference` — goes under the nearest section with a note, and into `## Open questions`. Say which
-   ones out loud rather than dropping them.
-6. **Move `tailoring/applications/` to `applications/`**, one directory per submission. Those are
-   frozen and are copied, never rewritten.
+   ones out loud.
+6. **Move `tailoring/applications/` to `applications/`**, one directory per submission — copied,
+   never rewritten.
 
-**Keep the old bundle** until they confirm the new file is complete. Deleting somebody's only copy of
-their career is not a trade this framework gets to make — and a migration nobody has read is a
-migration nobody has checked.
+**Keep the old bundle** until they confirm the new file is complete.
 
-## Then go deeper
+### Then go deeper
 
-An old resume describes what someone did. It rarely captures what they **decided**, what constraint
-they were under, or what changed as a result — which is the material that makes a senior resume work.
-Switch to `mode-braindump.md` and work through their most significant projects.
+An old resume rarely captures what they **decided**, what constraint they were under, or what changed
+as a result — the material that makes a senior resume work. Switch to `mode-braindump.md` and work
+through their most significant projects.
 
-## Finish
+## Phase 4: Prove it, on their data
 
-Say back what the file now holds — how many roles, how many projects, how many metrics, what is
-marked `inferred`. Append a row to `## Log`. Then tell them what to do next: usually fill the biggest
-gaps, then generate a resume.
+1. Write a thin `resume.json` beside the knowledge base from whatever it now holds —
+   `references/mode-resume.md` for the procedure. The point is that the path works, not that the
+   resume is finished.
+2. Choose the region profile that matches where they are applying, and **say why**: a photograph and
+   date of birth are conventional on a Gulf resume and a liability on an Australian one, India
+   expects academic grades and a declaration block, and the region-neutral default forbids all of it.
+   Ask if their location does not make it obvious.
+3. Validate, render and gate in one run, and show every step's output:
+
+```bash
+jsk ship resume.json --out . --view <id> --pages 2
+```
+
+If the PDF step reports the resume **unverified**, say so plainly.
+
+## Hand over
+
+Tell them, in plain language and without the framework vocabulary:
+
+- **Where the file is**, and that it is theirs — one Markdown document, readable in any editor, worth
+  putting in git.
+- **What works and what does not**, naming any gap left open and what it costs them.
+- **The rhythm.** Something ships → `braindump`, while they still remember the details. Every quarter
+  → `refresh`. Before applying → `gaps`, then `resume`. A specific role → `tailor`.
+- **What the file now holds** — how many roles, projects and metrics, and what is `inferred`.
+- **The biggest gap in their record right now** — a missing metric, an unconfirmed claim, a role with
+  no evidence behind it.
+
+The `## Log` row covers what was set up and what was left open.
