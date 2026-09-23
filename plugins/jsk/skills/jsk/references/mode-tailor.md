@@ -64,8 +64,8 @@ frontmatter above it:
 
 ```markdown
 ---
-company: Acme Health
-title: Platform Engineer
+company: "Acme Health"
+title: "Platform Engineer"      # quoted: a title often holds a colon
 url: https://…
 seniority: platform-design
 domains: [healthcare]

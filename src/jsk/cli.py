@@ -160,7 +160,7 @@ def cmd_doctor(args):
 # posting and its assessment are there to be re-read by a person, not re-checked.
 FROZEN = (".posting.json", ".gaps.json")
 
-VALIDATE_USAGE = "usage: jsk validate <resume.json> [--strict] [--level N]"
+VALIDATE_USAGE = "usage: jsk validate <resume.json> [--strict] [--max-findings N]"
 
 
 def record_refusal(target):
@@ -378,11 +378,18 @@ def call_gate(script, args, argv0=None, capture=True):
     return (code if isinstance(code, int) else 0), buf.getvalue()
 
 
-def rendered_documents(out_dir, extensions):
-    """The files a render left in `out_dir` that one gate reads, in a fixed order."""
+def rendered_documents(out_dir, extensions, only=None):
+    """The files a render left in `out_dir` that one gate reads, in a fixed order.
+
+    `only` narrows it to named paths. A directory keeps every earlier render, so
+    `jsk ship --ats-max` after a default ship left both PDFs beside each other, and
+    gating the directory failed a run on a file it never made.
+    """
+    keep = None if only is None else {os.path.normcase(os.path.abspath(p)) for p in only}
     found = []
     for ext in extensions:
-        found.extend(sorted(glob.glob(os.path.join(out_dir, RENDERED + ext))))
+        found.extend(p for p in sorted(glob.glob(os.path.join(out_dir, RENDERED + ext)))
+                     if keep is None or os.path.normcase(os.path.abspath(p)) in keep)
     return found
 
 
@@ -399,7 +406,7 @@ def gate_result(gate, command, code, output):
             "output": output}
 
 
-def render_section(out_dir, pages):
+def render_section(out_dir, pages, only=None):
     """The gate this command will never run, said out loud.
 
     Every other line of output here is a checker's. This one is not, and it is the
@@ -410,7 +417,7 @@ def render_section(out_dir, pages):
     render_resume.py's UNVERIFIED exit was added to unteach.
     """
     lines = []
-    pdfs = rendered_documents(out_dir, (".pdf",))
+    pdfs = rendered_documents(out_dir, (".pdf",), only)
     if pages is not None:
         if not pdfs:
             lines.append(f"  pages  budget {pages}, not measured - there is no PDF "
@@ -504,7 +511,7 @@ def cmd_gates(args):
     return worst
 
 
-def gate_results(out_dir, record, pages=None, limit=None, record_gate=True):
+def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only=None):
     """Every `jsk gates` result over one directory, the render gate last.
 
     Separate from cmd_gates() so that `jsk ship` and `jsk freeze` run these gates
@@ -512,7 +519,8 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True):
     mechanical gates" meant would be three chances to disagree about it.
 
     `record_gate=False` is for `jsk ship`, which has just run that gate on the same
-    file with the same arguments and stopped had it failed.
+    file with the same arguments and stopped had it failed. `only` names the
+    documents to gate - see rendered_documents().
     """
     results = []
     if record_gate and record is None:
@@ -529,7 +537,7 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True):
                                    code, output))
 
     for gate, script, extensions in DOC_GATES:
-        found = rendered_documents(out_dir, extensions)
+        found = rendered_documents(out_dir, extensions, only)
         if not found:
             results.append(skipped_gate(
                 gate, script,
@@ -545,7 +553,7 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True):
             code, output = call_gate(script, [path] + (["--strict"] if strict else []))
             results.append(gate_result(gate, command, code, output))
 
-    results.append(render_section(out_dir, pages))
+    results.append(render_section(out_dir, pages, only))
     return results
 
 
@@ -658,7 +666,12 @@ def cmd_ship(args):
         if code != 0:
             results.append(not_rendered("the render did not finish"))
         else:
-            results.extend(gate_results(out_dir, record, pages, record_gate=False))
+            # The render names each file it wrote; those, and nothing an earlier
+            # ship left in the same directory, are what this ship gates.
+            wrote = [os.path.join(out_dir, rel)
+                     for rel in re.findall(r"^  wrote  (.+?)\s*$", output, re.M)]
+            results.extend(gate_results(out_dir, record, pages, record_gate=False,
+                                        only=wrote))
 
     # 0 or 1 only. A step's own exit 2 - an ERROR from a gate that raised, or a render
     # refusing a view - is a failure of this ship, not a mistake in how it was called.
@@ -688,8 +701,8 @@ DATED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 def frontmatter_scalars(path):
     """{key: raw value} for the top-level scalar lines of a Markdown file's frontmatter.
 
-    Not a YAML parser, deliberately: the package imports neither pyyaml nor
-    jsonschema, and the two keys read here are one-line scalars. Indented lines are
+    Not a YAML parser, deliberately: pyyaml is optional (only `jsk index` needs
+    it), and the two keys read here are one-line scalars. Indented lines are
     skipped, so a block list such as `requirements:` cannot lend a key to its items.
     The value is kept as written - quotes included - so writing it back out into
     application.md cannot change what it means.
@@ -718,11 +731,32 @@ def freeze_refusal(*lines):
     return 1
 
 
+# Plain scalars YAML reads as something other than the text: a boolean, a null.
+YAML_WORDS = {"true", "false", "yes", "no", "on", "off", "y", "n", "null", "~"}
+
+
+def yaml_scalar(text):
+    """`text` as a YAML scalar that reads back as itself: bare when that is safe.
+
+    `--channel "Referral: Jane"` written bare is frontmatter that will not parse, and
+    `--channel "#slack"` is a comment - an empty channel. A frozen application.md is
+    never edited again, so either one would be wrong for good. A JSON string is a
+    valid YAML double-quoted scalar, so json.dumps is the quoting.
+    """
+    plain = (re.fullmatch(r"[A-Za-z_][\w .,/()&+'-]*", text) is not None
+             and text.lower() not in YAML_WORDS and text == text.strip())
+    return text if plain else json.dumps(text, ensure_ascii=False)
+
+
 def application_text(company, title, view, submitted, channel, documents):
-    """application.md in exactly mode-ship.md's shape."""
-    lines = ["---", f"company: {company}", f"title: {title}", f"view: {view}",
-             f"submitted: {submitted}", f"channel: {channel}", "documents:"]
-    lines += [f"  - {doc}" for doc in documents]
+    """application.md in exactly mode-ship.md's shape.
+
+    `company` and `title` arrive as posting.md wrote them, quotes included, so they
+    go back out untouched. The rest came off the command line and is quoted here.
+    """
+    lines = ["---", f"company: {company}", f"title: {title}", f"view: {yaml_scalar(view)}",
+             f"submitted: {submitted}", f"channel: {yaml_scalar(channel)}", "documents:"]
+    lines += [f"  - {yaml_scalar(doc)}" for doc in documents]
     lines += ["---", "", "# Timeline", "",
               "| Date | Event | Channel | Note | Due |",
               "|---|---|---|---|---|"]
@@ -829,9 +863,19 @@ def cmd_freeze(args):
         documents = sorted(name for name in os.listdir(app_dir)
                            if name.lower().endswith((".pdf", ".txt"))
                            and os.path.isfile(os.path.join(app_dir, name)))
+        pdfs = [d for d in documents if d.lower().endswith(".pdf")]
+        if len(pdfs) > 1:
+            # Two renders in one directory, and only the person knows which was sent.
+            # Listing both would archive a document nobody submitted as though it was.
+            return freeze_refusal(f"{len(pdfs)} PDFs in {app_dir}: {', '.join(pdfs)}",
+                                  "name the documents that were sent with --doc.")
     if not documents:
         return freeze_refusal(f"no .pdf or .txt in {app_dir}",
                               "there is nothing here that could have been sent.")
+    # What was sent, and the .tex each was compiled from - the prose gate reads that.
+    sent = [os.path.join(app_dir, d) for d in documents]
+    sent += [os.path.splitext(p)[0] + ".tex" for p in sent
+             if os.path.isfile(os.path.splitext(p)[0] + ".tex")]
 
     final = app_dir
     if submitted != "false":
@@ -848,7 +892,7 @@ def cmd_freeze(args):
 
     # Last, and in process: the most expensive check and the one the rest were
     # getting the arguments for. A failing document is never frozen.
-    results = gate_results(app_dir, record)
+    results = gate_results(app_dir, record, only=sent)
     print_results(f"gates: {app_dir}   view: {view}", results)
     if worst_exit(results):
         return freeze_refusal(

@@ -91,16 +91,28 @@ class ValidateRouting(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def test_json_routes_to_the_record_validator(self):
-        code, out = run(JSK, "validate", EXAMPLE, "--level", "2")
+        code, out = run(JSK, "validate", EXAMPLE)
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)
+
+    def test_an_unknown_flag_is_refused_not_ignored(self):
+        """`--level` went with the bundle format. Ignoring it exited 0, which read as
+        "level 2 confirmed"; placed first, its value was taken for the file."""
+        for argv in ([EXAMPLE, "--level", "2"], ["--level", "2", EXAMPLE]):
+            with self.subTest(argv=argv):
+                code, out = run(JSK, "validate", *argv)
+                self.assertEqual(code, 2, out)
+                self.assertIn("--level", out)
 
     def test_flags_are_forwarded_unchanged(self):
         """--strict is the underlying script's flag; the dispatcher must not eat it."""
         code, out = run(JSK, "validate", EXAMPLE, "--strict")
         self.assertIn("checking:", out)
+        # The script's own refusal, naming the flag: it reached validate_urs.py
+        # rather than being dropped on the way.
         code2, out2 = run(JSK, "validate", EXAMPLE, "--nonsense-flag")
-        self.assertIn("checking:", out2)
+        self.assertEqual(code2, 2, out2)
+        self.assertIn("unknown flag: --nonsense-flag", out2)
 
     def test_missing_target_is_a_usage_error(self):
         code, out = run(JSK, "validate", self.tmp / "nope.json")

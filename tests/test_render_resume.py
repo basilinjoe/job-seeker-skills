@@ -267,6 +267,24 @@ class EmittersDoNotDiverge(PlanCase):
         self.assertIn(r"\$2", tex)
 
 
+class ABadValueIsTheRecordsFault(unittest.TestCase):
+    """Only "several views and none named" is the caller's to fix. Every other value
+    the planner cannot read is the record's - and was reported as a missing --view,
+    exit 2, to someone who had passed one."""
+
+    def test_a_malformed_date_names_the_record_not_the_view(self):
+        from fixtures import ended
+
+        doc = urs_doc()
+        doc["engagements"][0]["positions"][0]["period"] = ended("2021-xx", "2023-06")
+        with tempfile.TemporaryDirectory() as root:
+            record = write_urs(Path(root), doc)
+            code, out = run(RENDER_RESUME, record, "--out", root, "--view", "view_default")
+        self.assertEqual(code, 1, out)
+        self.assertIn("jsk validate", out)
+        self.assertNotIn("--view <id>", out)
+
+
 class RenderedFilesPassTheGates(unittest.TestCase):
     """A generated file is not a checked file. These run the real checker."""
 

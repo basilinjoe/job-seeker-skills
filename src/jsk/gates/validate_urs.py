@@ -569,7 +569,14 @@ def show(items, mark, limit):
 
 def main(argv):
     args, flags = parse(argv[1:])
-    if not args:
+    # An ignored flag reads as an honoured one: `--level 2` used to exit 0, which
+    # looks like "level 2 confirmed" to anyone who remembers the old gate.
+    unknown = sorted(f for f in flags if f != "--strict" and f not in VALUE_FLAGS)
+    if not args or unknown or len(args) > 1:
+        if unknown:
+            print(f"unknown flag: {', '.join(unknown)}")
+        elif len(args) > 1:
+            print(f"one record at a time, got {len(args)}: {' '.join(args)}")
         print("usage: validate_urs.py <resume.json> [--strict] "
               "[--max-findings N]")
         return 2

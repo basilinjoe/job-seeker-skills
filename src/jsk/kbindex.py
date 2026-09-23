@@ -60,7 +60,7 @@ class KBError(Exception):
 
 # --- reading ----------------------------------------------------------------
 
-def load_yaml(text, where, first_line):
+def load_yaml(text, where, first_line, fix="fix the block; kb-spec.md shows each one's shape"):
     """One block as a mapping. `first_line` numbers a syntax error in the file's terms."""
     try:
         data = yaml.safe_load(text)
@@ -68,7 +68,7 @@ def load_yaml(text, where, first_line):
         mark = getattr(exc, "problem_mark", None)
         at = f", line {first_line + mark.line}" if mark else ""
         raise KBError(f"{where}{at}: not valid YAML - {getattr(exc, 'problem', None) or exc}",
-                      "fix the block; kb-spec.md shows each one's shape") from None
+                      fix) from None
     if data is None:
         return {}
     if not isinstance(data, dict):
@@ -84,7 +84,9 @@ def frontmatter(text, what):
     closing = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
     if closing is None:
         raise KBError(f"{what}'s frontmatter never closes", "end it with a --- line")
-    front = load_yaml("\n".join(lines[1:closing]), f"{what}'s frontmatter", 2)
+    # The usual cause is a title with a colon in it, written bare.
+    front = load_yaml("\n".join(lines[1:closing]), f"{what}'s frontmatter", 2,
+                      'quote any value holding a colon - title: "Engineer II: Payments"')
     return front, "\n" * (closing + 1) + "\n".join(lines[closing + 1:])
 
 
@@ -193,6 +195,10 @@ def projects_of(sections):
                               f"write {key}: [a, b], quoting any term YAML reads as "
                               "true, false or a number")
             p[key] = value
+        if b.get("retired") not in (None, True, False):
+            # `retired: "true"` is a string: ignoring it would rank a retired project.
+            raise KBError(f"{where}: retired is {b.get('retired')!r}",
+                          "write retired: true, unquoted - or leave the key out")
         p["retired"] = b.get("retired") is True
     return projects
 
@@ -216,11 +222,14 @@ def experience(roles, today):
         first = month(b["start"], where)
         if b.get("end"):
             last = month(b["end"], where, end=True)
-        elif b.get("state") == "ended":
-            notes.append(f"{b['id']} is ended with no end date and is not counted")
-            continue
-        else:
+        elif b.get("state") == "ongoing":
             last = now
+        else:
+            # `unknown` - or ended, or unstated - with no end date. Running it to
+            # today would inflate the one number an eligibility gate compares.
+            notes.append(f"{b['id']} has no end date and state {b.get('state')!r}, "
+                         f"so it is not counted")
+            continue
         spans.append((first, last))
     covered, cursor = 0, None
     for first, last in sorted(spans):

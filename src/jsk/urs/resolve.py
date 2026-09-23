@@ -14,6 +14,16 @@ from . import profiles
 from .formatting import (fold_ascii, fmt_grade, fmt_instant, fmt_period,
                          fmt_quantity, period_key)
 
+
+class ViewNotNamed(ValueError):
+    """Several views and none chosen: the one thing only the person can decide.
+
+    Its own type because every other ValueError out of the planner - a month of
+    `xx`, a malformed date - is a fault in the record, and a caller that treated
+    them alike told someone who had passed --view to pass --view.
+    """
+
+
 PROVENANCE_RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
 
 # Architecture-level rows first, then stacks - the ordering in bundle-spec.md.
@@ -476,7 +486,7 @@ def build(doc, view_id=None, region=None, fmt=None):
             raise KeyError(f"no view {view_id!r} in this document")
     elif len(views) > 1:
         named = ", ".join(str(v.get("id")) for v in views)
-        raise ValueError(
+        raise ViewNotNamed(
             f"this record holds {len(views)} views and none was named: {named}")
     elif views:
         view = views[0]

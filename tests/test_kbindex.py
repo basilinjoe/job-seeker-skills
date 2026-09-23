@@ -250,6 +250,15 @@ class TheIndexPointsAtTheRightLines(unittest.TestCase):
         roles = kbindex.entries_with_blocks(sections["Roles"], "role")
         self.assertEqual(kbindex.experience(roles, TODAY)[0], 19 + 9)
 
+    def test_a_role_of_unknown_state_is_not_run_to_today(self):
+        """Only `ongoing` means still going. Counting `unknown` to today inflated the
+        one number an eligibility gate compares."""
+        _, sections, _ = kbindex.read_kb(KB.replace("state: ongoing", "state: unknown"))
+        roles = kbindex.entries_with_blocks(sections["Roles"], "role")
+        months, notes = kbindex.experience(roles, TODAY)
+        self.assertEqual(months, 19)
+        self.assertTrue(any("role_three" in n and "not counted" in n for n in notes), notes)
+
     def test_the_report_carries_what_an_agent_reads_it_for(self):
         report = kbindex.build(KB, POSTING, TODAY)
         self.assertIn("Experience: 2y 4m", report)
@@ -316,6 +325,18 @@ class ItRefusesRatherThanGuesses(unittest.TestCase):
     def test_a_posting_with_no_requirements(self):
         with self.assertRaises(kbindex.KBError):
             kbindex.read_posting("---\ntitle: x\nrequirements: []\n---\n")
+
+    def test_a_retired_flag_that_is_not_a_boolean(self):
+        """`retired: "true"` is a string, and ignoring it ranked a retired project."""
+        self.refuses(KB.replace("retired: true", 'retired: "true"'), "proj_old", "retired")
+
+    def test_a_bare_colon_in_a_posting_title_says_to_quote_it(self):
+        posting = POSTING.replace('title: "Platform Engineer: Core"',
+                                  "title: Platform Engineer: Core")
+        with self.assertRaises(kbindex.KBError) as caught:
+            kbindex.read_posting(posting)
+        self.assertIn("line 3", str(caught.exception))
+        self.assertIn("quote", caught.exception.fix)
 
     def test_a_posting_labels_keep_their_colons_and_quotes(self):
         reqs = kbindex.read_posting(POSTING)["requirements"]

@@ -107,6 +107,23 @@ class ShipOrder(ShipCase):
         self.assertIn("template: ember", out)
 
 
+class ShipGatesOnlyItsOwnRender(ShipCase):
+    """A directory keeps every earlier render. `--ats-max` after a default ship left
+    both PDFs side by side, and gating the directory failed the second ship on a
+    file it never made - then told the person to open that one."""
+
+    def test_a_second_ship_gates_what_it_wrote_and_nothing_older(self):
+        code, out = self.ship()
+        self.assertEqual(code, 0, out)
+        self.assertTrue((self.out / "Test_Person_Resume.pdf").exists())
+        code, out = self.ship("--ats-max")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("check_ats.py Test_Person_Resume.pdf", out)
+        self.assertNotIn("check_prose.py Test_Person_Resume.tex", out)
+        self.assertIn("check_ats.py Test_Person_Resume_ATS.pdf", out)
+        self.assertIn("open Test_Person_Resume_ATS.pdf", out)
+
+
 class ShipStops(ShipCase):
     """A step that fails stops the ones after it. A record that fails its gate is
     never rendered: the PDF it would make looks sendable and is not."""
@@ -286,6 +303,33 @@ class FreezeWrites(FreezeCase):
         self.assertEqual((self.sent / "application.md").read_text(encoding="utf-8"),
                          EXPECTED)
 
+    def test_a_channel_yaml_would_misread_is_quoted(self):
+        """`Referral: Jane` bare will not parse, and `#slack` bare is a comment. A
+        frozen application.md is never edited again, so either would stay wrong."""
+        import yaml
+
+        for channel in ("Referral: Jane", "#slack"):
+            with self.subTest(channel=channel):
+                code, out = self.freeze(channel=channel)
+                self.assertEqual(code, 0, out)
+                text = (self.sent / "application.md").read_text(encoding="utf-8")
+                front = yaml.safe_load(text.split("---")[1])
+                self.assertEqual(front["channel"], channel)
+                (self.sent / "application.md").unlink()
+                self.sent.rename(self.app)
+
+    def test_a_named_document_is_the_only_one_gated_and_listed(self):
+        """The render that was not sent is neither checked nor archived as sent."""
+        build_pdf(self.app / "Jane_Doe_Resume_ATS.pdf", CLEAN_RESUME)
+        (self.app / "Jane_Doe_Resume_ATS.tex").write_text(
+            (self.app / "Jane_Doe_Resume.tex").read_text(encoding="utf-8"), encoding="utf-8")
+        code, out = self.freeze("--doc", "Jane_Doe_Resume_ATS.pdf")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("check_ats.py Jane_Doe_Resume.pdf", out)
+        application = (self.sent / "application.md").read_text(encoding="utf-8")
+        self.assertIn("  - Jane_Doe_Resume_ATS.pdf", application)
+        self.assertNotIn("  - Jane_Doe_Resume.pdf", application)
+
     def test_the_directory_is_renamed_to_the_day_it_was_sent(self):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
@@ -348,6 +392,16 @@ class FreezeRefuses(FreezeCase):
     def assertUntouched(self):
         self.assertTrue(self.app.exists())
         self.assertFalse(self.sent.exists())
+
+    def test_two_pdfs_and_no_doc_is_a_question_not_a_guess(self):
+        """Only the person knows which render was sent; listing both archives one
+        nobody submitted as though it was."""
+        build_pdf(self.app / "Jane_Doe_Resume_ATS.pdf", CLEAN_RESUME)
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("2 PDFs", out)
+        self.assertIn("--doc", out)
+        self.assertUntouched()
 
     def test_a_frozen_application_is_never_refrozen(self):
         (self.app / "application.md").write_text("original\n", encoding="utf-8")

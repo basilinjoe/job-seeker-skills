@@ -35,6 +35,7 @@ import sys
 
 from ..cliutil import docstring_usage, wants_help
 from . import emit_latex, emit_text, plan as planner, themes
+from .resolve import ViewNotNamed
 from .tex import compile_pdf
 
 # One record, one rendered deliverable, plus the paste-in-box text. Which
@@ -209,12 +210,18 @@ def main(argv):
         except KeyError as e:
             print(f"FAIL  {e}")
             return 1
-        except ValueError as e:
-            # Several views and none named. Exit 2, not 1: nothing is wrong with the
-            # record, the call left out the one thing only the person can decide.
+        except ViewNotNamed as e:
+            # Exit 2, not 1: nothing is wrong with the record, the call left out the
+            # one thing only the person can decide.
             print(f"FAIL  {e}")
             print("      fix: name the one to render with --view <id>")
             return 2
+        except ValueError as e:
+            # Anything else is the record: a date like 2021-xx, a value the planner
+            # cannot read. The validator names the field; this only says which.
+            print(f"FAIL  the record holds a value the renderer cannot read: {e}")
+            print("      fix: run `jsk validate` on it, then correct the field it names")
+            return 1
         if first is None:
             first = rendered
         warnings.extend(f"[{variant}/{kind}] {w}" for w in rendered["warnings"])
