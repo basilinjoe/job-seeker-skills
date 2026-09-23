@@ -13,6 +13,7 @@ will be. This exists so that nobody has to remember every name to get started.
 
     jsk doctor                  what works on this machine
     jsk new PATH --name NAME    scaffold user-knowledgebase.md and applications/
+    jsk index KB [--rank POST]  a line-pointing overview of the knowledge base, ranked
     jsk validate RECORD.json    the record gate, before anything renders
     jsk render RECORD [...]     one record to a PDF and plain text
     jsk preview RECORD --out D  the same record in every template, to pick a look
@@ -23,12 +24,13 @@ will be. This exists so that nobody has to remember every name to get started.
     jsk ship RECORD --out D --view ID   validate, render and gate, in one pass
     jsk freeze APP --submitted DATE|false --channel TEXT   archive a sent application
 
-There is nothing here that reads `user-knowledgebase.md`. That file is Markdown a
-person and the skill edit with ordinary file tools, and the skill writes the URS
-record out of it. This package starts at the record: it is the last point at which a
+Only `jsk index` reads `user-knowledgebase.md`, and it never writes it. That file is
+Markdown a person and the skill edit with ordinary file tools, and the skill writes
+the URS record out of it. This package starts at the record: it is the last point at which a
 mistake is still cheap, which is why `jsk validate` runs before anything renders.
 
-Standard library only, and pymupdf to read a PDF.
+Standard library only, pymupdf to read a PDF, and markdown-it-py with pyyaml for
+`jsk index`.
 """
 
 import contextlib
@@ -47,6 +49,7 @@ from .cliutil import wants_help
 # subcommand -> (script, what it does)
 SIMPLE = {
     "new": ("kb.py", "scaffold an empty knowledge base"),
+    "index": ("kbindex.py", "overview the knowledge base; rank it against a posting"),
     "render": ("render_resume.py", "one record to .tex/PDF plus .txt"),
     "preview": ("preview_templates.py", "one record in every template, side by side"),
     "fit": ("fit_pages.py", "fit a render to a page budget"),

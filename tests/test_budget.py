@@ -196,11 +196,20 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
                 self.assertNotIn("--dump-record", self.body(name))
                 self.assertNotIn("--for score", self.body(name))
 
-    def test_both_agents_are_told_to_read_it_once_as_a_file(self):
-        for name in ("jsk-tailor-analyst.md", "jsk-resume-author.md"):
-            with self.subTest(agent=name):
-                self.assertIn("whole", self.body(name))
-                self.assertIn("user-knowledgebase.md", self.body(name))
+    def test_the_author_is_told_to_read_it_once_as_a_file(self):
+        self.assertIn("Read `user-knowledgebase.md` whole, once, as a file",
+                      self.body("jsk-resume-author.md"))
+
+    def test_the_analyst_reads_the_index_and_runs_the_ranking(self):
+        """The analyst stopped reading the file whole. On the ABB run it read 165k
+        characters and then spent six and a half minutes in one reasoning turn,
+        most of it 900 exact-string lookups and the arithmetic over them - which
+        `jsk index --rank` does in milliseconds and cannot miscount. It reads the
+        index, then only the project ranges it cites."""
+        analyst = self.body("jsk-tailor-analyst.md")
+        self.assertIn("jsk index <kb> --rank <posting.md>", analyst)
+        self.assertIn("Read a project's range before citing it as evidence", analyst)
+        self.assertIn("Do not read the file whole", analyst)
 
     def test_the_author_is_warned_off_a_sibling_application(self):
         """The one read that got MORE dangerous. A record written for another posting

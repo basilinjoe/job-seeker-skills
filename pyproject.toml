@@ -29,9 +29,14 @@ dependencies = []
 # `pyyaml` went with the bundle format and `jsonschema` went with a URS schema that
 # never existed - nothing imported it, so it was a dependency that bought a line in
 # the doctor's report and nothing else.
+#
+# `pyyaml` came back with `jsk index`, beside markdown-it-py: the two replaced about
+# a hundred lines of hand-written Markdown and YAML parsing, and they are optional -
+# `jsk index` says what to install rather than failing on import.
 pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
-all = ["pymupdf"]
-dev = ["pymupdf", "pytest", "pytest-xdist", "ruff"]
+index = ["markdown-it-py", "pyyaml"]   # jsk index: the knowledge base's overview and ranking
+all = ["pymupdf", "markdown-it-py", "pyyaml"]
+dev = ["pymupdf", "markdown-it-py", "pyyaml", "pytest", "pytest-xdist", "ruff"]
 
 [project.scripts]
 jsk = "jsk.cli:main_console"

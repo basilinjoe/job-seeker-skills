@@ -24,9 +24,11 @@ to **`user-knowledgebase.md`**, and the **skill directory** (absolute —
 `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install). On Windows fall back from `python3` to
 `python`, then `py -3`.
 
-**Read the knowledge base whole**, once, before writing anything. You need `## Vocabulary`,
-`## Projects`, `## Roles` and `## Work authorization`, but a project you did not read gets scored as
-absent evidence.
+**Start from the index, not the file:** `jsk index <kb>` (or `python -m jsk index`). It lists every
+section and entry with its line range, each project's tags, the roles and the years they cover, the
+vocabulary, skills with aliases, metric ids and open questions — a seventh of the file. Read
+`## Work authorization` by its range. **Read a project's range before citing it as evidence** — a tag
+is not evidence. Do not read the file whole or grep it for what the index lists.
 
 ## 1. Requirements, into the posting's frontmatter
 
@@ -56,7 +58,7 @@ requirements:
 team-leadership · technical-ownership · hands-on-senior · hands-on · junior.
 
 - **`value` is vocabulary, `label` is the advertisement.** `value` is matched as an exact string, so a
-  synonym scores as absent. Read `## Vocabulary` first. If the posting asks for something never
+  synonym scores as absent. The index lists the vocabulary. If the posting asks for something never
   recorded, use the posting's own slug and report it as a new term — do not bend it onto a
   near-match. `label` keeps the posting's phrasing for later prose.
 - **`necessity`**: "expert in Terraform" is `required`, "Terraform a plus" is `preferred`. When the
@@ -65,30 +67,24 @@ team-leadership · technical-ownership · hands-on-senior · hands-on · junior.
 - **Eligibility is not a requirement.** Work authorization, clearance and location go in the
   assessment's `# Eligibility` section, never into `requirements`.
 
-## 2. Rank the projects, showing the working
+## 2. Rank the projects: run it, never compute it
 
-Compare each `value` against each project's `capabilities`, `technologies` and `domains` **as exact
-strings**, then weight:
+With the requirements written, `jsk index <kb> --rank <posting.md>` prints the **Ranking** — each
+project's score with the terms matched and missed — and a **Coverage** table: which projects carry
+each requirement's term, and which terms the vocabulary lacks. Copy the Ranking into `gaps.md` as
+printed. The table it applies, to read it by rather than to redo:
 
 | Axis | Weight | Read from |
 |---|---|---|
-| required requirements matched | ×3 | `capabilities`, `technologies` |
+| required requirements matched | ×3 | `capabilities`, `technologies`, exact strings |
 | preferred requirements matched | ×1 | the same |
 | `strength` | ×2 | the project's own 1-5 self-assessment |
-| recency | ×1 if within 3 years, ×0 beyond 6 | `recency` |
-| seniority at or above the posting's | ×1 | `seniority` |
+| recency | +1 within 3 years, +0.5 at 4-6, 0 beyond | `recency` |
+| seniority at or above the posting's | ×1 | `seniority`, the eight ranked as listed above |
 
-Implicit requirements are listed and score nothing. For every project, show the terms matched and
-missed — **never a number you cannot show the terms behind**:
-
-```markdown
-# Ranking
-
-| Project | Score | Matched | Missed |
-|---|---|---|---|
-| prj_unitng | 14 | full-stack-architecture, typescript, strength 5, recent | terraform |
-| prj_chs | 8 | observability, strength 4, recent | terraform, typescript |
-```
+Implicit requirements score nothing. **If `jsk index` fails, report its message and stop** — it names
+an entry the knowledge base has malformed, and ranking by hand around it scores that project as
+absent.
 
 ## 3. The assessment
 

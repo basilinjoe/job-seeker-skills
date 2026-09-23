@@ -42,7 +42,7 @@ KB_FILENAME = "user-knowledgebase.md"
 # answered "is this file on disk", which stopped being the interesting question: a
 # module can be present and unimportable - a syntax error, a missing dependency of
 # its own, a half-finished editable checkout - and find_spec is what notices.
-MODULES = ["cli", "cliutil", "kb", "paths"]
+MODULES = ["cli", "cliutil", "kb", "kbindex", "paths"]
 GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.validate_urs"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken urs package takes all
@@ -67,6 +67,9 @@ INSTALL = {
     "pymupdf": {"pip": "pymupdf",
                 "note": "Reads the PDF: check_ats.py extracts its text and "
                         "fit_pages.py measures its pages."},
+    "index": {"pip": "markdown-it-py pyyaml",
+              "note": "Reads the knowledge base for jsk index: its headings and its "
+                      "yaml blocks."},
 }
 
 
@@ -198,6 +201,14 @@ def gather(kb_arg=None):
         disables="the PDF cannot be read: check_ats.py cannot extract its text "
                  "and fit_pages.py cannot measure its pages, so the parse gate "
                  "and the page budget are both unverifiable"))
+
+    # Optional: a machine without them still renders and gates a resume. What it
+    # loses is the index, so the tailor-analyst stops and asks for the install.
+    checks.append(Check(
+        "markdown-it-py and pyyaml",
+        module_available("markdown_it") and module_available("yaml"), key="index",
+        disables="jsk index cannot run, so tailoring stops before the ranking: the "
+                 "analyst reads the knowledge base through the index"))
 
     kb = kb_arg or find_kb()
     checks.append(Check(

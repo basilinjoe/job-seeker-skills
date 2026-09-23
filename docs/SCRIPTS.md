@@ -18,6 +18,7 @@ document somebody can send.
 ```bash
 jsk doctor                       # what works on this machine
 jsk new ./my-career --name "Your Name"
+jsk index user-knowledgebase.md --rank applications/<dir>/posting.md
 jsk validate resume.json         # the record gate
 jsk render resume.json --out . --view view_default --pdf
 jsk check resume.pdf             # both document gates, one pass
@@ -83,13 +84,40 @@ jsk new ./my-career --name "Your Name"
 jsk new ./my-career --name "Your Name" --force   # overwrite an existing file
 ```
 
-Writes `user-knowledgebase.md` with every heading present and empty, plus an `applications/`
-directory beside it. No dependencies. It refuses rather than overwriting, because the file it would
-replace is somebody's career.
+Writes `user-knowledgebase.md` with every heading present and empty, plus `log.md` and an
+`applications/` directory beside it. No dependencies. It refuses rather than overwriting, because the
+file it would replace is somebody's career; `--force` replaces the knowledge base but never an
+existing `log.md`.
 
 What each heading is for is written into the file itself, as HTML comments beneath each one.
 Guidance in a template a person is looking at gets read; guidance in a specification they have to go
 and find does not.
+
+### `jsk index`
+
+The `jsk.kbindex` module.
+
+```bash
+jsk index user-knowledgebase.md                          # the overview
+jsk index user-knowledgebase.md --rank posting.md        # plus the ranking and coverage
+jsk index user-knowledgebase.md --rank posting.md --today 2026-09-23   # replay a past run
+```
+
+Needs markdown-it-py and pyyaml (`pip install markdown-it-py pyyaml`, the `index` extra); without
+them it exits 1 saying so. Prints, never writes. Every section and entry with its line range; each project's strength,
+recency, seniority, status and tags; roles with their dates and the years they cover, overlaps
+counted once; the vocabulary, skills with aliases, metric ids and the unanswered questions. About a
+seventh of the file it describes. It is generated each time because line numbers move on every edit.
+
+`--rank` scores every project against the posting's `requirements` by the table in
+`jsk-tailor-analyst.md`: required ×3, preferred ×1, strength ×2, recency +1 within three years and
++0.5 at four to six, seniority +1 at or above the posting's (the eight levels, most senior first).
+Matches are exact strings against `capabilities` and `technologies`. A **Coverage** table follows:
+which projects carry each requirement's term, and which terms the vocabulary does not have.
+
+Exit 1 when the file is not in the shape `kb-spec.md` describes — a project with no `yaml` block, a
+nested value in a flat block, a strength outside 1–5 — naming the entry. A project that failed to
+parse quietly would score as absent evidence on every posting.
 
 ## The record
 

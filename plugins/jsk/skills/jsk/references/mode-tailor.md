@@ -15,7 +15,7 @@ appears.
 
 ```
 posting.md              ──►  requirements[] in its own frontmatter
-user-knowledgebase.md   ──►  read whole, once
+user-knowledgebase.md   ──►  jsk index --rank; only the ranges cited
       └───────────────────►  gaps.md     verdicts, shortfalls, the question queue
 answers                 ──►  written back into user-knowledgebase.md
                                   └──►  resume.json, authored once, confirmed, shipped
