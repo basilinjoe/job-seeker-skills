@@ -206,9 +206,34 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         """The one read that got MORE dangerous. A record written for another posting
         is now a complete, valid, hand-written example of exactly the file this agent
         is about to write - which makes it a template to copy, and a tailored resume
-        that copies one has stopped being tailored."""
-        self.assertIn("Do not read a record written for a different posting",
+        that copies one has stopped being tailored. A master record is the same
+        template by another name, so the warning names it too."""
+        body = self.body("jsk-resume-author.md")
+        self.assertIn("Do not read any other `resume.json`", body)
+        self.assertIn("master", body)
+
+    def test_the_author_is_handed_its_paths_rather_than_searching(self):
+        """Left to find its own rules and shape reference, the author spent its first
+        fifty seconds on `find` and `ls` - and opened a sibling record and the master
+        on the way. The caller resolves the paths; the agent reads only those."""
+        self.assertIn("never search for rules, references or examples",
                       self.body("jsk-resume-author.md"))
+        self.assertIn("EXAMPLE_RECORD", (REFS / "mode-tailor.md").read_text(encoding="utf-8"))
+
+    def test_a_second_round_is_a_patch_not_a_second_analyst(self):
+        """On the ABB run a second analyst round took 193 seconds to rewrite a whole
+        gaps.md whose changes were four verdicts and a struck question - and the main
+        thread then patched a row itself in two. Row-local changes are the caller's;
+        the analyst comes back only for the fit or a row that does not exist yet.
+
+        The caller rescores a project with the analyst's weights, restated in one
+        line, so the two statements of them have to agree."""
+        tailor = (REFS / "mode-tailor.md").read_text(encoding="utf-8")
+        self.assertIn("Patch it yourself when every change is a row", tailor)
+        self.assertIn("+3 a required term, +1 a preferred", tailor)
+        analyst = self.body("jsk-tailor-analyst.md")
+        self.assertRegex(analyst, r"\| required requirements matched \| ×3 \|")
+        self.assertRegex(analyst, r"\| preferred requirements matched \| ×1 \|")
 
 
 class TheMainThreadBudget(unittest.TestCase):

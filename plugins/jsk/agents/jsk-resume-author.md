@@ -33,6 +33,10 @@ The **posting** (`applications/<stem>/posting.md`), the **assessment**
 `references/`; the vocabulary is the knowledge base's `## Vocabulary`. On Windows fall back from
 `python3` to `python`, then `py -3`.
 
+The caller also lists **the rule overrides that exist** and **the example record's path**. **Read
+exactly the files the prompt names** — never search for rules, references or examples with `find`,
+`ls` or Glob; a path it did not give you is one that does not exist.
+
 **Read `user-knowledgebase.md` whole, once, as a file** — not through a run of greps.
 
 | the project's `**Bullets**` | what to do |
@@ -42,7 +46,7 @@ The **posting** (`applications/<stem>/posting.md`), the **assessment**
 
 The second row should be rare. Write the bullets, and report which projects had none.
 
-**Rules: look in `rules/` beside the knowledge base first.**
+**Rules: an override the caller named beats its default.**
 
 | their file | the default it speaks for |
 |---|---|
@@ -56,8 +60,8 @@ An override's opening lines say whether it **replaces** the default (read only t
 Read `references/view-format.md` and `references/urs-spec.md` before writing the record. It is
 hand-written, and `jsk validate` fails an unrecognised top-level key.
 
-**Do not read a record written for a different posting** — it becomes a template to copy. The
-shipped example in the package is the shape reference.
+**Do not read any other `resume.json`** — another posting's record or a master — it becomes a
+template to copy. The example record the caller named is the shape reference.
 
 ## Where what you write goes
 

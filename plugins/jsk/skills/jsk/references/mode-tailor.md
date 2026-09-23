@@ -53,8 +53,11 @@ that is a `pipeline` backlog item, not a reason to skip the round.
 ## 1. Get the posting
 
 `$ARGUMENTS` may hold a URL, the text, or a path. **Fetch a URL yourself**; the analyst has no
-network tools. Boards often refuse (LinkedIn, most Workday tenants) — when a fetch fails, say what
-happened and ask them to paste it. That is an ordinary outcome, not an error.
+network tools. **Career sites that render with JavaScript** (Workday, SuccessFactors, iCIMS,
+Phenom-style `careers.<company>` portals) **go straight to a browser tool** when one is available: a
+plain fetch of those sees an empty shell and can report a live posting as closed. Boards often refuse
+(LinkedIn, most Workday tenants) — when a fetch fails, say what happened and ask them to paste it.
+That is an ordinary outcome, not an error.
 
 Create the application directory and write `posting.md` — **the advertisement verbatim in the body**,
 frontmatter above it:
@@ -106,6 +109,10 @@ An honest "~50 tenants" beats silence.
 An answer edits **`user-knowledgebase.md`** — the project's block, the metrics table, the role. Not
 `gaps.md`, and never the record: both are downstream of it.
 
+**Apply a round's answers in one pass**, not one `Edit` per change: list every old-to-new
+replacement, write them into a script with the Write tool (a shell heredoc mangles backslashes), and
+have it assert each old string occurs exactly once before replacing any.
+
 **When they confirm a claim, change its `status` to `confirmed` and fill the `answered` date in
 `## Open questions`** — a claim left `inferred` will refuse to render at step 5. A *corrected* claim
 is `confirmed` too. Where they cannot answer, resolve the question as unavailable and **soften or cut
@@ -113,13 +120,15 @@ the claim**; never leave a row pending forever.
 
 ## 4. Another round only if a verdict moved
 
-Run the analyst again **only when an answer changed what the knowledge base holds** — a metric
-arrived, an unevidenced claim got its evidence, an indeterminate requirement can now be judged.
+Revise `gaps.md` **only when an answer changed what the knowledge base holds** — a metric arrived,
+an unevidenced claim got its evidence, an indeterminate requirement can now be judged.
 
-**Continue the same agent with `SendMessage`; do not spawn a second one** — a fresh one re-reads
-everything and re-opens verdicts it had settled. Send it what changed and which sections moved, and
-let it revise `gaps.md`. Only if the first is gone (run interrupted, session ended) start a cold
-analyst, passing it the previous `gaps.md` to revise.
+**Patch it yourself when every change is a row** — a verdict with its evidence or shortfall, a
+project's matched terms and score (+3 a required term, +1 a preferred), an answered question struck
+— in one scripted pass, as with the answers. A second analyst round costs minutes to rewrite what you
+already know. **Send it back only when the fit could change or an answer needs a row the assessment
+lacks**: `SendMessage` to the same agent with what changed; a cold one, handed the previous
+`gaps.md`, only if that one is gone.
 
 The loop ends when they skip, when nothing is left worth asking, when only `unexplored` questions
 remain, when a round produces no new answerable question, or at three rounds (`--rounds N` in
@@ -129,7 +138,15 @@ moves.
 
 ## 5. Author, once
 
-`jsk-resume-author` writes `resume.json` — the URS record, including the view and the prose:
+`jsk-resume-author` writes `resume.json` — the URS record, including the view and the prose.
+**Resolve its paths before dispatching; it reads only what the prompt names:**
+
+- the posting, `gaps.md`, `user-knowledgebase.md`, and the skill directory — absolute paths;
+- whichever of `rules/writing-rules.md`, `rules/ats-rules.md`, `rules/structure-rules.md` exist beside
+  the knowledge base (one `ls`), or "no overrides";
+- the example record: `python -c "from jsk.paths import EXAMPLE_RECORD; print(EXAMPLE_RECORD)"`.
+
+What it writes:
 
 - **Everything it authors is `inferred`**, so a view with `provenance_floor: confirmed` fails
   `jsk validate` until a person confirms. That is the guardrail working.
