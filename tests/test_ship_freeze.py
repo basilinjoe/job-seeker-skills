@@ -329,13 +329,16 @@ class FreezeWrites(FreezeCase):
         self.assertIn("--- prose gate", out)
 
     def test_the_knowledge_base_is_never_touched(self):
-        """The `## Log` row stays the agent's to write."""
+        """The log row stays the agent's to write."""
         kb = self.tmp / "user-knowledgebase.md"
-        kb.write_text("# KB\n\n## Log\n", encoding="utf-8")
-        before = kb.read_bytes()
+        log = self.tmp / "log.md"
+        kb.write_text("# KB\n\n## Open questions\n", encoding="utf-8")
+        log.write_text("# Log\n\n| date | what changed |\n|---|---|\n", encoding="utf-8")
+        before = kb.read_bytes(), log.read_bytes()
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
-        self.assertEqual(kb.read_bytes(), before)
+        self.assertEqual((kb.read_bytes(), log.read_bytes()), before)
+        self.assertIn("log.md", out)
 
 
 class FreezeRefuses(FreezeCase):

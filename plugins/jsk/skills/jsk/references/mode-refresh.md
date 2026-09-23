@@ -4,12 +4,12 @@ A periodic pass so nobody has to reconstruct two years from memory.
 
 ## Orient first
 
-If they named a period, cover that. Otherwise start at `## Log` — when the last update happened and
+If they named a period, cover that. Otherwise start at `log.md` — when the last update happened and
 what was left open — work forward from its last row, then read `## Open questions`.
 
 For anything more than a quick top-up, send `jsk-kb-auditor` the file path first. It flags stale
 `headline_metric` values and questions open across three or more entries — the two things a refresh
-exists to catch and the easiest to miss from `## Log` alone.
+exists to catch and the easiest to miss from the log alone.
 
 Open with something concrete rather than a blank prompt:
 
@@ -63,7 +63,7 @@ Ask, then mark it `confirmed`. This is the most important habit in this mode.
 A career ladder that changed shape — a new levelling scheme, a title that means something different
 now — is prose under `## Positioning`.
 
-Append one row to `## Log` and update `updated:` in the frontmatter.
+Append one row to `log.md` and update `updated:` in the frontmatter.
 
 ## Close the loop
 

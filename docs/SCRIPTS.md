@@ -412,7 +412,7 @@ It refuses — exit 1, saying why, with nothing renamed and nothing written — 
 `--submitted false` is for an application worked through and deliberately held back: it writes
 `submitted: false`, leaves the directory's name alone, and the timeline has its header and **no
 `submitted` row** — an accurate blank rather than a false green. It never touches
-`user-knowledgebase.md`; the `## Log` row stays the skill's to write.
+`user-knowledgebase.md` or `log.md`; the log row stays the skill's to write.
 
 ## What is not here any more
 

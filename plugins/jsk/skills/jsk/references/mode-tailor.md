@@ -163,7 +163,7 @@ at: say so out loud.
 
 ## 6. Ship
 
-Follow `references/mode-ship.md`: render, the four gates, `jsk freeze`, the `## Log` row. Nothing is
+Follow `references/mode-ship.md`: render, the four gates, `jsk freeze`, the `log.md` row. Nothing is
 frozen that failed a gate.
 
 ## 7. Tell them where they fall short

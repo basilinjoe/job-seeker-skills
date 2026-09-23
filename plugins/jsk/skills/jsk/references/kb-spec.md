@@ -8,6 +8,7 @@ contract: **never rename one, never reorder them, never add a top-level one.** A
 ```
 career/
   user-knowledgebase.md     the whole career - everything below
+  log.md                    its history: dated, appended to, never edited
   applications/
     README.md
     2026-09-08-acme-platform-engineer/
@@ -29,7 +30,7 @@ vocabulary — make those edits together and log them once.
 
 ```yaml
 ---
-kb: 1                    # format revision - an integer, not the plugin's version
+kb: 2                    # format revision - an integer, not the plugin's version
 name: Priya Raman
 updated: 2026-09-08      # the day the last edit landed
 ---
@@ -52,7 +53,6 @@ updated: 2026-09-08      # the day the last edit landed
 | `## Certifications` | only what was actually earned | list items |
 | `## Open source` | public code | list items |
 | `## Open questions` | the gap queue | one table |
-| `## Log` | dated, appended to, never edited | one table |
 
 ### Identity
 
@@ -247,7 +247,16 @@ An entry that no longer belongs on a resume gets `retired: true` in its block an
 the record written from this file skips it.
 
 Delete only an entry that was **wrong** — a duplicate, or recorded against the wrong person or
-employer — and say so in `## Log`.
+employer — and say so in `log.md`.
+
+## log.md
+
+The history, in its own file so that nothing reading the career to tailor or author pays for it.
+One table, `| date | what changed |`, a row per session rather than per edit. A correction is a
+new row, never an edit to an old one.
+
+**A `kb: 1` file still has `## Log` as its last section.** Move the section's table into `log.md`
+under a `# Log - <name>` heading, delete the section, set `kb: 2`, and log the move.
 
 ## A bundle from an older version
 

@@ -71,7 +71,7 @@ in — then read it critically and record:
 - Detail worth keeping that will not fit the current resume
 
 Extract roles, employers, dates and projects into the file's sections. Mark everything `confirmed` if
-it came from the document, and say so in `## Log`.
+it came from the document, and say so in `log.md`.
 
 ### If they have an older bundle
 
@@ -84,8 +84,8 @@ command: you read it and write one file. Offer it; never run it unasked. Then:
    `## Metrics` table. `skills/competencies.md` → `## Skills`. `framework/capability-vocabulary.md`
    → `## Vocabulary`. `resume-generation/open-questions.md` → `## Open questions`.
 3. **Carry `status` across unchanged.** Never upgrade one in transit.
-4. **Carry `log.md` across**, then append one row saying the knowledge base was migrated and from
-   where.
+4. **Carry `log.md` across** — it stays a file of its own beside the knowledge base — then append
+   one row saying the knowledge base was migrated and from where.
 5. **Name what you could not place.** A concept type with no home — a `Talk`, a `Patent`, a
    `Reference` — goes under the nearest section with a note, and into `## Open questions`. Say which
    ones out loud.
@@ -130,4 +130,4 @@ Tell them, in plain language and without the framework vocabulary:
 - **The biggest gap in their record right now** — a missing metric, an unconfirmed claim, a role with
   no evidence behind it.
 
-The `## Log` row covers what was set up and what was left open.
+The `log.md` row covers what was set up and what was left open.

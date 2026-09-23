@@ -113,6 +113,6 @@ differs. Then the rules it cannot enforce:
 
 ## 6. Log it
 
-Append a dated row to `## Log` in `user-knowledgebase.md` naming the company, the role and the view.
+Append a dated row to `log.md`, beside the knowledge base, naming the company, the role and the view.
 Record feedback in the application's timeline as it arrives — patterns in which evidence gets
 traction belong back in the positioning.

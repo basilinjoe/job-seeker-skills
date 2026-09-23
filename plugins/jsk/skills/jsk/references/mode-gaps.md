@@ -25,7 +25,7 @@ For a quick look without spawning anything, the queue is two greps:
 
 ```bash
 grep -n "status: inferred\|status: needs-verification" <path>/user-knowledgebase.md
-sed -n '/^## Open questions/,/^## Log/p' <path>/user-knowledgebase.md
+sed -n '/^## Open questions/,$p' <path>/user-knowledgebase.md
 ```
 
 They cannot miss one, and cannot judge one — that is what the auditor is for.
@@ -97,7 +97,7 @@ places:
 **Unavailable is a real outcome**: a metric nobody can reconstruct closes the question and should
 soften or cut the claim rather than leave it pending forever.
 
-Then append one row to `## Log`, and update `updated:` in the frontmatter.
+Then append one row to `log.md`, and update `updated:` in the frontmatter.
 
 Report what resolved, what is still open, and **which claims should be softened or cut** because no
 evidence turned up — better to lose a bullet now than be asked about it across a table. **End by

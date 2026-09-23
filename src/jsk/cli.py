@@ -733,7 +733,7 @@ def application_text(company, title, view, submitted, channel, documents):
 def cmd_freeze(args):
     """Archive one application directory: rename it to its day and write application.md.
 
-    Never touches user-knowledgebase.md. The `## Log` row is the agent's, written in
+    Never touches user-knowledgebase.md or log.md. The log row is the agent's, written in
     words a person reads; this command only freezes what the row points at.
     """
     if wants_help(args):
@@ -868,7 +868,7 @@ def cmd_freeze(args):
     print()
     print("Frozen on the mechanical gates. The render gate is a person's: freezing")
     print("assumes somebody opened the PDF and read it. Nothing in this directory is")
-    print("edited again; append the ## Log row in user-knowledgebase.md yourself.")
+    print("edited again; append the row to log.md beside the knowledge base yourself.")
     return 0
 
 

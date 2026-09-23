@@ -11,6 +11,10 @@ On Windows use `python` or `py -3` in place of `python3`.
 Exit 0 = written. Exit 1 = refused, because something was already there. Exit 2 =
 called wrongly.
 
+The history lives in a second file, `log.md`, beside it. Nothing that reads the
+knowledge base to tailor or author a resume needs the history, and every agent that
+reads the file whole was paying for it on every run.
+
 The template is here rather than in the skill's Markdown so that every knowledge base
 starts from the same headings in the same order. The skill edits this file directly
 afterwards with ordinary file tools - there is no write layer and no command per noun,
@@ -27,9 +31,10 @@ import sys
 from .cliutil import docstring_usage, wants_help
 
 FILENAME = "user-knowledgebase.md"
+LOG_FILENAME = "log.md"
 
 TEMPLATE = """---
-kb: 1
+kb: 2
 name: __NAME__
 updated: __DATE__
 ---
@@ -233,12 +238,13 @@ _None recorded yet._
 
 | id | question | about | asked | answered |
 |---|---|---|---|---|
+"""
 
-## Log
+LOG_TEMPLATE = """# Log - __NAME__
 
-<!-- Dated, appended to, never edited. When an earlier mistake is found, record the
-     correction rather than quietly fixing it: a knowledge base that hides its errors
-     cannot be trusted. -->
+<!-- The history of user-knowledgebase.md beside it. Dated, appended to, never edited.
+     When an earlier mistake is found, record the correction rather than quietly fixing
+     it: a knowledge base that hides its errors cannot be trusted. -->
 
 | date | what changed |
 |---|---|
@@ -282,6 +288,16 @@ def scaffold(root, name, force=False):
     with open(target, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(body)
     lines.append(f"wrote  {target}")
+
+    # Never overwritten, --force or not: starting the knowledge base over is itself
+    # history, and the log is the one file that is never edited.
+    log = os.path.join(root, LOG_FILENAME)
+    if os.path.exists(log):
+        lines.append(f"kept   {log}")
+    else:
+        with open(log, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(LOG_TEMPLATE.replace("__NAME__", name).replace("__DATE__", today))
+        lines.append(f"wrote  {log}")
 
     apps = os.path.join(root, "applications")
     readme = os.path.join(apps, "README.md")

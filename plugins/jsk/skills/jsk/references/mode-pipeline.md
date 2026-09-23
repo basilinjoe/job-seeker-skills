@@ -92,7 +92,7 @@ Applying somewhere they once worked is one organisation with `relationship: both
 
 ## Close the loop
 
-Report what moved, what is still waiting, and what you closed. Append a row to `## Log`.
+Report what moved, what is still waiting, and what you closed. Append a row to `log.md`.
 
 Then name **the pattern.** Two rejections in a row for the same missing capability is a positioning
 problem, not a resume problem, and it belongs in `## Open questions` rather than in another round of

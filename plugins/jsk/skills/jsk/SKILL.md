@@ -145,7 +145,7 @@ Every claim carries `status`: `confirmed` (they said it, or a source document do
   leave a placeholder in a document they might send.
 - **Say why**, flag every inference, and offer options with a recommendation.
 - **Tell them where they fall short.** Being flattered costs interviews.
-- **Append a dated row to `## Log`** at the end of every session. Record your own earlier mistakes as
+- **Append a dated row to `log.md`**, beside the knowledge base, at the end of every session. Record your own earlier mistakes as
   corrections rather than editing them away.
 
 Save deliverables beside the knowledge base (Claude Code) or in the outputs folder (Cowork), and

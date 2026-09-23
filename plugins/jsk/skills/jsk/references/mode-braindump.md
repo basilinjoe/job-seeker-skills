@@ -70,7 +70,7 @@ words.
 
 ## Close out
 
-One `## Log` row for the session, not one per edit. Then say back what you wrote: how many projects,
+One `log.md` row for the session, not one per edit. Then say back what you wrote: how many projects,
 which metrics, what you marked `inferred`, and what is still open. Show the section headings, not the
 YAML, unless they want it.
 

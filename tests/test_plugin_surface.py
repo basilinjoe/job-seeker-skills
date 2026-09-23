@@ -214,6 +214,48 @@ class TheTemplateAndTheSpecAgree(unittest.TestCase):
                     f"## {name} offers neither guidance, a block, nor a table")
 
 
+class TheLogIsItsOwnFile(unittest.TestCase):
+    """The history moved out of the knowledge base into `log.md` beside it.
+
+    Nothing that tailors or authors a resume reads the history, and three agents
+    read the knowledge base whole on every tailoring run - 14k characters of log,
+    three times, for nothing. The failure this guards is the section drifting back:
+    one mode file still saying "append a row to `## Log`" puts it back in the file.
+    """
+
+    def test_the_template_has_no_log_section(self):
+        from jsk.kb import LOG_TEMPLATE, TEMPLATE
+
+        self.assertNotIn("## Log", TEMPLATE)
+        self.assertIn("| date | what changed |", LOG_TEMPLATE)
+
+    def test_jsk_new_writes_the_log_and_force_never_overwrites_it(self):
+        import tempfile
+
+        from jsk.kb import LOG_FILENAME, scaffold
+
+        with tempfile.TemporaryDirectory() as root:
+            code, _ = scaffold(root, "Test Person")
+            self.assertEqual(code, 0)
+            log = Path(root) / LOG_FILENAME
+            self.assertIn("Knowledge base created.", log.read_text(encoding="utf-8"))
+            with log.open("a", encoding="utf-8") as fh:
+                fh.write("| 2026-09-24 | a row somebody wrote |\n")
+            before = log.read_bytes()
+            code, _ = scaffold(root, "Test Person", force=True)
+            self.assertEqual(code, 0)
+            self.assertEqual(log.read_bytes(), before)
+
+    def test_no_instruction_writes_to_a_log_section(self):
+        """Only kb-spec's migration note may still name the old section."""
+        for path in sorted(PLUGIN.rglob("*.md")):
+            text = path.read_text(encoding="utf-8")
+            if path.name == "kb-spec.md":
+                text = text.replace("**A `kb: 1` file still has `## Log` as its last section.**", "")
+            with self.subTest(file=path.name):
+                self.assertNotIn("## Log", text)
+
+
 class Manifests(unittest.TestCase):
     def test_the_two_versions_agree(self):
         plugin = json.loads((PLUGIN / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))

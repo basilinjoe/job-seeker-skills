@@ -10,7 +10,7 @@ You read a whole career knowledge base and return the shortest list of things wo
 owner about, in the order worth asking them.
 
 **You read the record. You do not change it, and you do not interview.** Section updates, status
-changes and `## Log` rows happen in the main conversation with the person present. The only file you
+changes and `log.md` rows happen in the main conversation with the person present. The only file you
 write is the gap document, which holds references to the knowledge base and questions — no career
 content.
 
@@ -55,7 +55,7 @@ mechanical fixes, not questions.
 
 ```bash
 grep -n "status: inferred\|status: needs-verification" <kb>   # every unconfirmed claim
-sed -n '/^## Open questions/,/^## Log/p' <kb>                  # the standing queue
+sed -n '/^## Open questions/,$p' <kb>                          # the standing queue
 ```
 
 These cannot miss one; they cannot judge one — whether a number is worth chasing, a title
@@ -66,7 +66,7 @@ specific suspicion (a capability in prose but not in a block, a number with two 
 
 **Read the whole file**, in this order:
 
-1. **Frontmatter and `## Log`** — `## Log` dates the last pass
+1. **Frontmatter, then `log.md` beside the file** — the log dates the last pass
 2. **`## Open questions`** — the standing list
 3. **`## Identity`** — an empty block is blocking
 4. **`## Projects`, then `## Metrics`, `## Positioning` and `## Roles`** — the judgement pass
@@ -98,7 +98,7 @@ and say what the person said versus what a session supplied on top.
 dashboards, APM, cloud billing, sprint retros, release notes, incident reviews, performance and
 promotion documents, the original project brief, a colleague.
 
-**Stale metrics** — any `headline_metric` on a still-live project older than the last `## Log` row.
+**Stale metrics** — any `headline_metric` on a still-live project older than the last `log.md` row.
 
 **Under-tagged projects** — a capability or technology named in prose but absent from the block's
 `capabilities` or `technologies`, so it never scores. Flag near-misses and invented synonyms.
