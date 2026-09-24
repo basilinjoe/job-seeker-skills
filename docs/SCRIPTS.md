@@ -198,6 +198,31 @@ load - `log-sync`, "the last write reached kb.ttl and not log.ttl" - not prevent
 file locked by an editor or a virus scanner is retried for about a second; if it stays locked
 nothing is changed. Stdin (`-`) is refused: a pipe that never closes hangs the command.
 
+```bash
+jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms before, 200 after, from the Grafana board."
+jsk kb adopt                             # after a hand edit of kb.ttl
+jsk kb fmt                               # after a jsk upgrade changed the layout
+```
+
+**`confirm`** is the only way an entry becomes `j:confirmed`, and it takes the person's answer in
+their words: each id named is confirmed, every open question about it is answered today, and the
+log entry keeps the answer beside the ids. An answer that says nothing - `yes`, `ok`,
+`confirmed`, a placeholder - is refused, and one that reached the log by hand is flagged by
+`answer-placeholder`. This is an instruction with an audit trail, not a proof that anyone asked.
+
+**`adopt`** logs `kb.ttl` as it now is. Hand edits are legal; they are also invisible to the log
+until adopted, so every write refuses until they are (`hand-edited`, a WARN, says so on every
+load). Adopt lists every provenance the edit raised - an entry moved up to confirmed, added as
+confirmed, or a claim changed while confirmed - comparing against `.jsk/kb.last.ttl`, the copy of
+the last logged revision; without that copy it lists every confirmed entry. It also records a
+torn write and a file restored on its own, and starts the log for a `kb.ttl` that has none.
+Detection, not prevention: the edit already happened, and adopt makes it visible.
+
+**`fmt`** rewrites a record file in the canonical layout: `kb.ttl` when none is named, logged on
+its own (`by fmt`, the day unchanged) so no content change hides in a reformat. A `posting.ttl`
+or `application.ttl` is rewritten in place, unlogged. Hand comments would be lost: `adopt` and
+`fmt` refuse a file with any, listing them, unless `--drop-comments`.
+
 Exit 0 written, or nothing to change; 1 refused, with every reason; 2 called wrong.
 
 ### `jsk validate`

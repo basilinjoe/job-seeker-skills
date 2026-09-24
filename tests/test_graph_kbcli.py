@@ -1,5 +1,6 @@
 """`jsk kb`, end to end, on a copy of the fixture workspace."""
 import contextlib
+import datetime
 import io
 import os
 import shutil
@@ -179,6 +180,131 @@ class Apply(Workspace):
         code, out = self.kb("apply", self.changeset("x", "changes.ttl"))
         self.assertEqual(code, 2)
         self.assertIn("not a .trig file", out)
+
+
+ANSWER = "Yes - 42 sites at hand-over, and a quarter each before the platform."
+
+
+class Confirm(Workspace):
+    def test_confirming_answers_the_open_questions_and_logs_the_answer(self):
+        code, out = self.kb("confirm", "k:ach_site_onboarding_sites_one_platform",
+                            "prj_site_onboarding", "--answer", ANSWER)
+        self.assertEqual(code, 0, out)
+        s = self.loaded()
+        self.assertEqual([f.text() for f in s.findings], [])
+        text = self.path("career/kb.ttl").read_text(encoding="utf-8")
+        self.assertIn("k:q_sites_bullet j:about k:ach_site_onboarding_sites_one_platform", text)
+        self.assertEqual(text.count('j:answered "' + datetime.date.today().isoformat()), 2)
+        log = self.path("career/log.ttl").read_text(encoding="utf-8")
+        self.assertIn(f'j:answer "{ANSWER}"', log)
+        self.assertIn("j:by j:confirm", log)
+
+    def test_an_answer_that_says_nothing_is_refused(self):
+        for said in ("yes", "OK.", "confirmed", "", "<answer>", "..."):
+            with self.subTest(said=said):
+                code, out = self.kb("confirm", "prj_site_onboarding", "--answer", said)
+                self.assertEqual(code, 1)
+                self.assertIn("is not an answer", out)
+
+    def test_an_unknown_id_names_the_nearest(self):
+        code, out = self.kb("confirm", "prj_site_onbording", "--answer", ANSWER)
+        self.assertEqual(code, 1)
+        self.assertIn("did you mean k:prj_site_onboarding?", out)
+
+    def test_an_entry_that_is_not_a_claim(self):
+        code, out = self.kb("confirm", "met_sites", "--answer", ANSWER)
+        self.assertEqual(code, 1)
+        self.assertIn("a Metric is not a claim", out)
+
+    def test_confirming_what_is_confirmed_changes_nothing(self):
+        code, out = self.kb("confirm", "prj_clinical_events", "--answer", ANSWER)
+        self.assertEqual((code, record.state(self.loaded()).log_revision), (0, 2))
+
+
+class Adopt(Workspace):
+    def test_a_hand_edit_is_logged_with_what_it_raised(self):
+        self.kb("apply", self.changeset(PFX + 'op:set { k:prj_clinical_events j:strength 4 . }\n'))
+        self.edit_kb("j:outcome \"Onboarding fell to two weeks; 42 sites now run on it.\" ;\n"
+                     "    j:provenance j:inferred .",
+                     "j:outcome \"Onboarding fell to two weeks; 42 sites now run on it.\" ;\n"
+                     "    j:provenance j:confirmed .")
+        self.edit_kb('"Led a team of 6 engineers', '"Led a team of 8 engineers')
+        self.assertEqual(record.state(self.loaded()).kind, "hand-edited")
+        code, out = self.kb("adopt")
+        self.assertEqual(code, 0, out)
+        self.assertIn("raised   k:prj_site_onboarding: inferred -> confirmed", out)
+        self.assertIn("raised   k:ach_clinical_events_led_migration: j:text changed while confirmed", out)
+        self.assertIn("-    j:provenance j:inferred .", out)      # the diff is from r3
+        s = self.loaded()
+        self.assertEqual((record.state(s).kind, record.state(s).log_revision), ("clean", 4))
+        log = self.path("career/log.ttl").read_text(encoding="utf-8")
+        self.assertIn("Raised: k:ach_clinical_events_led_migration: j:text changed while confirmed", log)
+
+    def test_with_no_copy_to_compare_every_confirmed_entry_is_listed(self):
+        self.edit_kb('j:size "1001-5000"', 'j:size "5001-10000"')
+        code, out = self.kb("adopt")
+        self.assertEqual(code, 0, out)
+        self.assertIn("raised   k:prj_clinical_events is confirmed", out)
+        self.assertIn("No copy of r2 to compare against",
+                      self.path("career/log.ttl").read_text(encoding="utf-8"))
+
+    def test_a_torn_write_is_adopted(self):
+        self.edit_kb("j:revision 2 .", "j:revision 3 .")
+        self.assertEqual(record.state(self.loaded()).kind, "torn")
+        code, out = self.kb("adopt")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(record.state(self.loaded()).kind, "clean")
+
+    def test_comments_are_refused_unless_dropped(self):
+        self.edit_kb("# == Metrics\n", "# == Metrics\n# ask about the latency\n")
+        code, out = self.kb("adopt")
+        self.assertEqual(code, 1)
+        self.assertIn("career/kb.ttl:", out)
+        self.assertIn("# ask about the latency", out)
+        code, out = self.kb("adopt", "--drop-comments")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("# ask", self.path("career/kb.ttl").read_text(encoding="utf-8"))
+
+    def test_a_clean_record_has_nothing_to_adopt(self):
+        code, out = self.kb("adopt")
+        self.assertEqual(code, 0)
+        self.assertIn("nothing to adopt", out)
+
+
+class Fmt(Workspace):
+    def test_a_reformat_is_logged_on_its_own_and_keeps_the_day(self):
+        self.old_layout()
+        code, out = self.kb("fmt")
+        self.assertEqual(code, 0, out)
+        s = self.loaded()
+        self.assertEqual((record.state(s).kind, record.state(s).log_revision), ("clean", 3))
+        self.assertIn('j:updated "2026-09-20"^^xsd:date ; j:revision 3 .',
+                      self.path("career/kb.ttl").read_text(encoding="utf-8"))
+        self.assertIn("j:by j:fmt", self.path("career/log.ttl").read_text(encoding="utf-8"))
+
+    def test_a_canonical_file_is_left_alone(self):
+        code, out = self.kb("fmt")
+        self.assertEqual((code, record.state(self.loaded()).log_revision), (0, 2))
+        self.assertIn("already canonical", out)
+
+    def test_a_hand_edit_is_adopted_not_formatted(self):
+        self.edit_kb("# == Metrics\n\n", "# == Metrics\n\n\n")
+        code, out = self.kb("fmt")
+        self.assertEqual(code, 1)
+        self.assertIn("jsk kb adopt", out)
+
+    def test_another_record_file_is_rewritten_unlogged(self):
+        posting = self.path("applications/acme-platform-engineer/posting.ttl")
+        posting.write_text(posting.read_text(encoding="utf-8") + "\n\n", encoding="utf-8")
+        code, out = self.kb("fmt", str(posting))
+        self.assertEqual(code, 0, out)
+        self.assertIn("posting.ttl: rewritten", out)
+        self.assertEqual(record.state(self.loaded()).log_revision, 2)
+
+    def test_the_log_is_not_a_file_to_format(self):
+        code, out = self.kb("fmt", str(self.path("career/log.ttl")))
+        self.assertEqual(code, 1)
+        self.assertIn("written by jsk only", out)
 
 
 class Dispatch(Workspace):
