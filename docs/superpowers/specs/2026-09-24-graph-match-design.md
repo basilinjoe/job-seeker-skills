@@ -116,7 +116,7 @@ direction, which never matches).
 ## The command (`src/jsk/graph/match.py`)
 
 ```
-jsk match <applications/<dir>/posting.ttl> [--cover N] [--json]
+jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] [--today YYYY-MM-DD]
 ```
 
 - The workspace root is the directory holding `applications/`; a path not in that layout exits 2.
@@ -126,7 +126,8 @@ jsk match <applications/<dir>/posting.ttl> [--cover N] [--json]
   2; `--help` prints usage and exits 0, like every other subcommand.
 - `--cover N` is the cover budget, default 3. `--json` prints the same data structured - what P6's
   analyst will read.
-- `today` is the local date; the queries take it as an argument so tests fix it.
+- `--today` is the date recency is measured from, default the local date - as `jsk index` has it,
+  so a past run can be replayed and tests fix it.
 
 The Markdown it prints:
 
@@ -196,8 +197,10 @@ okf-era failure where SKILL.md named 30 verbs. If that cannot honestly be done, 
 ## Exit criteria
 
 1. S0-S7, S11 and the precision/recall test pass through `queries.py`.
-2. Every mutation in `test_graph_match_mutations.py` makes the scenarios fail (six: two-way, third hop,
-   implies carrying required, wall ignored, tags as evidence, ambiguity guessed).
+2. Every mutation in `test_graph_match_mutations.py` makes the scenarios fail (seven: two-way, third
+   hop, no second hop, implies carrying required, wall ignored, tags as evidence, ambiguity guessed),
+   and an unmutated control copy passes. Drafting found the simulation had no scenario joining at two
+   hops, so deleting the second hop went unnoticed; `test_two_hops_still_count` pins it.
 3. The shipped vocabulary loads with no findings.
 4. `jsk match` on the fixture postings prints the four sections; the full suite and ruff pass; no
    token ceiling moved (or the move is measured and reported).
