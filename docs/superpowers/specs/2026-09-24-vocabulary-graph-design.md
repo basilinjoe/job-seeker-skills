@@ -160,9 +160,18 @@ under `### Technologies` if "Go" never means the language in their field.
 - A line with no edges stays what it is today: a declared concept.
 - Only backticked list items count, as today. Prose and fenced examples are ignored.
 
+### Project tags are concepts too
+
+Every term a project carries in `capabilities` or `technologies` is a concept, whether or not the
+vocabulary declares it, with its id as its only label. A knowledge base written before this graph
+tags `terraform` and a posting that says `terraform` must still match exactly as it does today.
+A requirement label is a **candidate term** only when it names nothing at all: no shipped concept,
+no declared concept, no project tag.
+
 ### Merge order
 
-Shipped graph, then the knowledge base's additions, then its removals. An edge or label declared
+Shipped graph, then the knowledge base's additions, then project tags not already known, then the
+knowledge base's removals. An edge or label declared
 twice, in either source, is one. The result is validated before any query runs (section 5).
 
 ## 4. Matching
@@ -288,14 +297,17 @@ record is written.
 - Former labels render as former: the ATS variant carries "Entra ID (formerly Azure AD)", so a
   keyword match on either finds it and neither reads as current when it is not.
 - Hand-written aliases stay; they are display choices.
-- `validate_urs` warns when a skill's `concept` is unknown to the graph, and refuses an alias that
-  is the label of a narrower concept only.
+- `jsk vocab check --record resume.json` warns when a skill's `concept` is unknown to the graph,
+  and refuses an alias that is the label of a narrower concept only. It is a `jsk vocab` check
+  rather than part of `validate_urs` because the gates never load the graph: `validate_urs` runs
+  in `jsk doctor`'s end-to-end check and on every ship, and reads the record alone.
 
 ### `jsk vocab`
 
 A new command for maintaining the graph:
 
-- `jsk vocab check` — validate the shipped graph merged with the knowledge base's edges;
+- `jsk vocab check [--kb KB] [--record resume.json]` — validate the shipped graph merged with the
+  knowledge base's edges, and optionally a record's skill aliases against it;
 - `jsk vocab explain <have> <want>` — print the path, or which rule stopped it;
 - `jsk vocab names <concept>` — the names the render may use, current and former;
 - `jsk vocab candidates` — requirement labels across every `applications/*/posting.md` that the
