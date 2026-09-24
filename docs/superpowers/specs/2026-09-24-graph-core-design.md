@@ -183,7 +183,7 @@ each as a WARN - "comment on line N will be lost on the next write; move it into
 `apply` and `fmt` refuse while any exist. Nothing is dropped silently. Preserving comments by
 attaching them to the next subject was rejected: they drift when a person reorganises the file.
 
-## Validation (`shapes.py`)
+## Validation (`shapes.py` tier 1, `rules.py` tier 2)
 
 Findings go into a `validate_urs.Report`, one line each, printed with `show()`:
 
@@ -217,11 +217,11 @@ Each rule is a row `(rule_id, severity, SELECT ?focus ?detail, fix)`.
 
 | Rule | Checks | Severity |
 |---|---|---|
-| `dangling` | a reference to an id no loaded file defines | FAIL |
+| `dangling` | a reference to an id no loaded file defines (the log's `touched`/`minted` excepted: they may name deleted ids) | FAIL |
 | `concept-typed` | a `c:` that no loaded file gives a class | FAIL |
 | `primary-contact` | `primary` is not one of the person's contact values | FAIL |
 | `headline-xor` | a project with both `headlineMetric` and `noneQuantified` | FAIL |
-| `duplicate-id` | a `k:` subject defined in two files | FAIL |
+| `duplicate-id` | a `k:` subject defined in two files - reported at each later definition, where the edit was | FAIL |
 | `metric-open` | a metric with no version, or more than one without `validUntil` | FAIL |
 | `version-orphan` | `met_x.vN` whose `of` is not `met_x` | FAIL |
 | `version-gap` | versions not v1..vN contiguous | WARN |
@@ -235,6 +235,7 @@ Each rule is a row `(rule_id, severity, SELECT ?focus ?detail, fix)`.
 | `answered-before-asked` | `answered` earlier than `asked` | FAIL |
 | `application-posting` | an application whose posting is not in its own directory's posting.ttl | FAIL |
 | `event-before-submit` | an event dated before its application's submitted date | WARN |
+| `concept-class` | a predicate restricted to a concept class (industry, domain -> Domain) points at a concept of another class | FAIL |
 
 `label-clash` stays a WARN: an ambiguous label is legitimate, and P2 turns it into a question.
 
@@ -280,17 +281,19 @@ the caller decides; it raises only for an unreadable path.
 The shipped `vocabulary.ttl` in P1 is a seed of about ten Technology concepts, enough for the loader
 and closure tests; P2 fills it out.
 
-**Budget:** load and validate a 10k-quad workspace in under 150 ms (P0 measured about 70). The test
-asserts 3x that, so a slow CI runner cannot make it flaky.
+**Budget:** load and validate a workspace of 300 projects and 100 applications (about 15,700 quads
+with the derived ones) in under 400 ms. Drafting P1 measured 250-390 ms (parse 80, tier 1 70, tier 2
+50, the rest inserts and the closure); P0's 70 ms timed a load and two queries, not about twenty rules.
+The test asserts 3x, so a slow CI runner cannot make it flaky.
 
 ## Packaging, preflight, CI
 
 - **`pyproject.toml`:** `dependencies = ["pyoxigraph>=0.5.11,<0.6"]`, `requires-python = ">=3.10"`,
   and the "deliberately empty" comment rewritten to say why this one is the exception (abi3 wheels
   on every platform, no transitive dependencies, P0) and that the rest stay optional.
-- **`src/jsk/preflight.py`:** `MIN_PYTHON = (3, 10)`; `graph`, `graph.ontology`, `graph.io`,
-  `graph.writer`, `graph.shapes`, `graph.store` added to `MODULES` by the task that creates each
-  (adding one early turns doctor BLOCKED); a pyoxigraph `Check` via `find_spec`, so preflight stays
+- **`src/jsk/preflight.py`:** `MIN_PYTHON = (3, 10)`; a `GRAPH_MODULES` list and a required "graph
+  record package" check, the pattern `gates` and `urs` already follow, each module added by the task
+  that creates it (adding one early turns doctor BLOCKED); a pyoxigraph `Check` via `find_spec`, so preflight stays
   standard-library only. Missing, it reports "cannot read or validate the graph record (kb.ttl) -
   matching and career writes unavailable" with an `INSTALL["pyoxigraph"]` hint. It is not in
   `REQUIRED` while the render path does not use it.
@@ -299,7 +302,9 @@ asserts 3x that, so a slow CI runner cannot make it flaky.
   (P7's `jsk new` writes the same line into a person's workspace.)
 - **`.github/workflows/test.yml`:** keep the two ubuntu / 3.13 jobs; add **Python 3.10, no TeX** (the
   floor) and **Windows, Python 3.13, no TeX** (paths, file locks, CRLF). The no-engine assertion step
-  runs with `shell: bash` so it works on both.
+  runs with `shell: bash` so it works on both. The Preflight step is fixed at the same time: without a
+  TeX engine `jsk doctor` is BLOCKED by design, which has failed the no-engine job on every run since
+  2026-09-01; a no-engine job now asserts that the TeX engine is the only FAIL instead.
 
 ## Tests
 
@@ -307,8 +312,10 @@ asserts 3x that, so a slow CI runner cannot make it flaky.
 |---|---|
 | `tests/test_graph_ontology.py` | every predicate has a doc, a group and an object kind; every enum non-empty; prefixes unique; every class has one file kind and a section; every section is in its file kind's order |
 | `tests/test_graph_io.py` | round-trip and byte idempotence over one fixture per file kind; a seeded generator of random valid graphs from the ontology (write, parse, same triples; write again, same bytes); escaping (`"""` inside, runs of quotes, trailing `"`, `\`, tab, non-ASCII, `→`); CRLF in, LF out; syntax error names file:line:col; comments reported |
-| `tests/test_graph_shapes.py` | one test per rule naming file:line and focus; the mutation sweep |
-| `tests/test_graph_store.py` | the fixture workspace loads with an empty report; derived types; closure paths, the hop limit, walls; a missing file is absent, not an error; the budget |
+| `tests/test_graph_shapes.py` | tier 1: one mutation per rule, each naming file:line, focus and fix |
+| `tests/test_graph_rules.py` | tier 2: the same, plus a wall declared from either side |
+| `tests/test_graph_budget.py` | the load budget |
+| `tests/test_graph_store.py` | the fixture workspace loads with an empty report; derived types; closure paths, the hop limit, implies marking; a missing file is absent, not an error |
 
 **Fixture workspace, `tests/graph_fixtures/`:** `career/kb.ttl` (the approved sample, extended with
 education, open source, a retired entry and a second metric version), `career/log.ttl`, and one
