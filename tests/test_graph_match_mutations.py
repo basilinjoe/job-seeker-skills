@@ -19,7 +19,7 @@ from pathlib import Path
 TESTS = Path(__file__).parent
 SRC = TESTS.parent / "src"
 
-# name: (file under the copy, text, replacement)
+# name: (file under the copy, text, replacement), or a list of them
 MUTATIONS = {
     "counts-as runs both ways": (
         "src/jsk/graph/queries.py",
@@ -39,10 +39,14 @@ MUTATIONS = {
         "src/jsk/graph/queries.py",
         'if implied and req.necessity == "required":',
         "if False:"),
-    "the wall is ignored": (
-        "tests/match_fixtures/vocabulary.ttl",
-        'c:dotnet a j:Technology ; j:label ".NET", "Dot Net" ; j:distinct c:dotnet-framework .',
-        'c:dotnet a j:Technology ; j:label ".NET", "Dot Net" ; j:isA c:dotnet-framework .'),
+    "the wall is ignored": [
+        # The rule disabled and an edge that crosses it added: nothing refuses the graph,
+        # so the scenarios themselves must notice .NET counting as .NET Framework.
+        ("src/jsk/graph/rules.py", "{{ ?focus j:distinct ?b .",
+         "{{ ?focus j:distinct ?b . FILTER(false)"),
+        ("tests/match_fixtures/vocabulary.ttl",
+         'c:dotnet a j:Technology ; j:label ".NET", "Dot Net" ; j:distinct c:dotnet-framework .',
+         'c:dotnet a j:Technology ; j:label ".NET", "Dot Net" ; j:isA c:dotnet-framework .')],
     "a tag counts as evidence": (
         "src/jsk/graph/queries.py",
         'return "confirmed" if "confirmed" in levels else "unconfirmed" if levels else "tag"',
@@ -62,8 +66,7 @@ def run(mutation=None):
         (tmp / "tests").mkdir()
         shutil.copy(TESTS / "test_graph_match.py", tmp / "tests")
         shutil.copytree(TESTS / "match_fixtures", tmp / "tests" / "match_fixtures")
-        if mutation:
-            file, old, new = mutation
+        for file, old, new in ([mutation] if isinstance(mutation, tuple) else mutation or []):
             path = tmp / file
             text = path.read_text(encoding="utf-8")
             assert text.count(old) == 1, f"{old!r} is not once in {file}"

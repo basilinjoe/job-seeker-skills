@@ -37,14 +37,14 @@ def workspace_of(posting):
     return os.path.dirname(apps)
 
 
-def result(store, post, today, budget):
+def result(store, post, today, budget, elsewhere=0):
     """Everything `jsk match` reports, as plain data."""
     from . import queries as Q
     from .shapes import curie
 
     matches = Q.match(store, post)
     ranked = Q.rank(store, post, matches, today)
-    chosen, uncovered = Q.cover(matches, budget)
+    chosen, uncovered = Q.cover(matches, budget, ranked)
     head = store.select(Q.PRE + f"""SELECT ?company ?title WHERE {{
         <{post}> j:company ?company ; j:title ?title }}""")[0]
     reqs = []
@@ -64,12 +64,27 @@ def result(store, post, today, budget):
         "ranking": [{"project": curie(r.project), "score": r.score, "required": list(r.required),
                      "preferred": list(r.preferred)} for r in ranked],
         "cover": {"budget": budget, "projects": None if chosen is None else
-                  [curie(p) for p in chosen], "uncovered": uncovered},
+                  [curie(p) for p in chosen], "uncovered": uncovered,
+                  "unresolved": Q.unresolved(matches)},
         "questions": [{"kind": q.kind, "requirement": q.requirement,
                        "detail": [curie(d) for d in q.detail]}
                       for q in Q.questions(store, matches)],
-        "warnings": len(store.warns()),
+        "warnings": {"count": len(store.warns()),
+                     "rules": sorted({f.rule for f in store.warns()})},
+        "failures_elsewhere": elsewhere,
     }
+
+
+def blocks(finding, here):
+    """Does this FAIL stop matching the posting in `here` (its directory, with a slash)?
+
+    The career, the vocabulary and the posting's own directory: a fault there changes what
+    matches. A fault in another application does not - an old advert that no longer quotes
+    cleanly must not block every new one - except a syntax error anywhere, which hides that
+    file's ids and so switches off the dangling check for the whole workspace.
+    """
+    return (finding.rule == "syntax" or not finding.file.startswith("applications/")
+            or finding.file.startswith(here))
 
 
 def number(x):
@@ -84,16 +99,25 @@ def markdown(r):
     out = [f"# Match - {r['title']} at {r['company']} ({r['posting']})", "",
            f"{need['required']} required, {need['preferred']} preferred, {need['implicit']} implicit. "
            + ", ".join(f"{n} {s}" for s, n in count.items() if n) + "."]
-    if r["warnings"]:
-        n = r["warnings"]
-        out.append(f"The workspace has {n} warning{'s' if n > 1 else ''}; none changes the match.")
+    n = r["warnings"]["count"]
+    if n:
+        # Named, not waved away: a label-clash or a necessity-wording warning can be exactly
+        # what makes a row below wrong.
+        out.append(f"The workspace has {n} warning{'s' if n > 1 else ''} "
+                   f"({', '.join(r['warnings']['rules'])}); the validator's report lists "
+                   f"{'them' if n > 1 else 'it'}.")
+    if r["failures_elsewhere"]:
+        m = r["failures_elsewhere"]
+        out.append(f"{m} failure{'s' if m > 1 else ''} elsewhere in the workspace: matching those "
+                   f"postings refuses until they are fixed.")
     out += ["", "## Requirements", "", "| Requirement | Need | State | Carried by | Evidence |",
             "|---|---|---|---|---|"]
     for q in reqs:
         if q["carriers"]:
             carried = "; ".join(c["project"] + ("" if c["hops"] == 0 else
                                                 f" (via {c['held']}, {c['hops']} hop"
-                                                f"{'s' if c['hops'] > 1 else ''})")
+                                                f"{'s' if c['hops'] > 1 else ''}"
+                                                f"{', implied' if c['implied'] else ''})")
                                 for c in q["carriers"])
             ev = "; ".join(c["evidence"] for c in q["carriers"])
         elif q["near"]:
@@ -121,7 +145,9 @@ def markdown(r):
                    f"carried.")
     if cov["uncovered"]:
         out.append(f"Nothing carries: {', '.join(cov['uncovered'])}.")
-    if not cov["projects"] and not cov["uncovered"]:
+    if cov["unresolved"]:
+        out.append(f"Unresolved, so not yet placed: {', '.join(cov['unresolved'])} - see Questions.")
+    if not cov["projects"] and not cov["uncovered"] and not cov["unresolved"]:
         out.append("The posting has no required requirements.")
     out += ["", "## Questions", ""]
     ask = {"ambiguous": "which concept does it mean: {}?",
@@ -185,8 +211,10 @@ def main(argv=None):
     from . import store as S
 
     store = S.load(root)
-    if store.fails():
-        rep = store.report()
+    here = S.file_name(os.path.dirname(os.path.abspath(posting)), store.root) + "/"
+    blocking = [f for f in store.fails() if blocks(f, here)]
+    if blocking:
+        rep = S.Store(store.root, findings=blocking).report()
         print(f"FAIL  the workspace has {len(rep.fails)} failures - fix them before matching:")
         show(rep.fails, "FAIL", 25)
         return 1
@@ -195,7 +223,7 @@ def main(argv=None):
     if len(posts) != 1:
         print(f"{posting}: holds no posting")          # the cardinality rule makes this rare
         return 1
-    r = result(store, posts[0], today, budget)
+    r = result(store, posts[0], today, budget, len(store.fails()) - len(blocking))
     print(json.dumps(r, indent=2, ensure_ascii=False) if as_json else markdown(r), end="")
     return 0
 

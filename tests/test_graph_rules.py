@@ -135,6 +135,21 @@ class Findings(unittest.TestCase):
                         "Deep, hands-on K8s\r\n   experience in production.", "", ""))
         self.assertEqual([f.text() for f in s.findings if f.rule == "quote-verbatim"], [])
 
+    def test_an_advert_formatted_as_markdown_still_says_it(self):
+        s, _ = mutated(("applications/acme-platform-engineer/posting.md",
+                        "Deep, hands-on K8s experience in production.",
+                        "Deep, hands‑on **K8s** experience in _production_.", "", ""))
+        self.assertEqual([f.text() for f in s.findings if f.rule == "quote-verbatim"], [])
+
+    def test_typography_is_not_wording(self):
+        self.assertEqual(rules.squash("You’ll own “the” platform — `Kafka`"),
+                         rules.squash("You'll own \"the\" platform - Kafka"))
+
+    def test_an_empty_quote_quotes_nothing(self):
+        s, _ = mutated((POSTING, 'j:quote "Event-driven systems a plus"', 'j:quote "  "', "", ""))
+        self.assertTrue([f for f in s.findings if f.rule == "quote-verbatim"
+                         and f.focus == "k:req_acme_platform_engineer_eda"])
+
     def test_the_log_may_name_ids_that_no_longer_exist(self):
         s, _ = mutated(("career/log.ttl", "j:touched k:met_team.v1,", "j:touched k:met_gone.v1,",
                         "", ""))

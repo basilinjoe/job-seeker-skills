@@ -747,6 +747,31 @@ class Match(unittest.TestCase):
         self.assertIn("fix them before matching", out)
         self.assertIn("c:akss: nothing defines it", out)
 
+    def test_another_postings_fault_does_not_stop_this_one(self):
+        """A FAIL in kb.ttl, the vocabulary or this posting's own directory stops the match;
+        one in an unrelated application only gets mentioned - an old advert that no
+        longer quotes cleanly must not block every new one."""
+        with tempfile.TemporaryDirectory() as tmp:
+            import shutil
+            shutil.copytree(self.FIX, tmp, dirs_exist_ok=True)
+            md = Path(tmp) / "applications" / "fabrikam" / "posting.md"
+            md.write_text("Senior Developer at Fabrikam\n", encoding="utf-8")
+            code, out = run(JSK, "match", Path(tmp) / "applications" / "contoso" / "posting.ttl")
+            self.assertEqual(code, 0, out)
+            self.assertIn("4 failures elsewhere in the workspace", out)
+            code, out = run(JSK, "match", Path(tmp) / "applications" / "fabrikam" / "posting.ttl")
+            self.assertEqual(code, 1, out)
+
+    def test_the_warnings_are_named_not_waved_away(self):
+        code, out = run(JSK, "match", self.CONTOSO, "--today", "2026-09-24")
+        self.assertIn("1 warning (label-clash)", out)
+        self.assertNotIn("none changes the match", out)
+
+    def test_an_implied_carrier_says_so(self):
+        code, out = run(JSK, "match", self.FIX / "applications" / "northwind" / "posting.ttl",
+                        "--today", "2026-09-24")
+        self.assertIn("k:prj_events (via c:kafka, 1 hop, implied)", out)
+
     def test_a_relative_path_from_inside_the_workspace(self):
         from jsk.graph.match import workspace_of
         here = os.getcwd()

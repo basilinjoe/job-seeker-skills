@@ -122,6 +122,11 @@ jobs:
       - name: Tests
         run: python -m pytest tests -q -rs -n auto
 
+      # The graph record is loaded and validated by every graph command, so its cost is a
+      # gate. Timed alone: beside the parallel suite it measures the other processes.
+      - name: Load budget
+        run: python -m pytest tests/test_graph_budget.py -q -rs -s
+
 # The manifest surface - the two plugin versions agreeing, every subcommand `jsk`
 # dispatches being named in SKILL.md and docs/SCRIPTS.md, the agent boundary still
 # being written in the agent files - is pinned by tests/test_plugin_surface.py rather

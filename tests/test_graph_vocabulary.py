@@ -49,6 +49,21 @@ class TheShippedVocabulary(unittest.TestCase):
                   {{ ?p j:from <{a}> ; j:to <{b}> }} UNION {{ ?p j:from <{b}> ; j:to <{a}> }} }} }}""")
             self.assertEqual(crossing, [], f"{a} and {b} are distinct, yet joined")
 
+    def test_no_shipped_label_is_a_word_with_another_meaning(self):
+        # "ADO" is ADO.NET in a .NET advert as often as Azure DevOps; "Lambda" is any
+        # anonymous function. A shipped label is matched against every advert everyone
+        # pastes, so a word that means two things there is an overclaim waiting.
+        labels = {O.norm(q.object.value) for q in io.parse(SHIPPED).quads
+                  if q.predicate.value in (O.J + "label", O.J + "former")}
+        self.assertEqual(labels & {"ado", "lambda"}, set())
+
+    def test_no_shipped_edge_is_a_judgement(self):
+        # Helm-only work is not Kubernetes work: charts are packaged for a cluster
+        # somebody else may run. Close to fact ships; judgement stays in a person's kb.ttl.
+        edges = {(q.subject.value, q.object.value) for q in io.parse(SHIPPED).quads
+                 if q.predicate.value in (O.J + "isA", O.J + "partOf")}
+        self.assertNotIn((O.C + "helm", O.C + "kubernetes"), edges)
+
     def test_the_labels_people_write_resolve(self):
         index = {}
         for r in self.s.select(f"PREFIX j: <{O.J}> SELECT ?c ?l WHERE {{ ?c j:label|j:former ?l }}"):

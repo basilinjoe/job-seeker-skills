@@ -6,6 +6,7 @@ adding one is adding a row, and tests/test_graph_rules.py proves each one fires.
 """
 import difflib
 import re
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -108,8 +109,19 @@ def reclassed(rows, store):
             and e["kb"] != e["vocabulary"]]
 
 
+# Typography an advert carries and a quote typed from it does not: curly quotes, the
+# dashes, the non-breaking hyphen. Folded on both sides, so neither form is wrong.
+TYPOGRAPHY = str.maketrans({"‘": "'", "’": "'", "‛": "'", "“": '"',
+                            "”": '"', "‐": "-", "‑": "-", "‒": "-",
+                            "–": "-", "—": "-", "―": "-", "−": "-"})
+# Markdown emphasis and code marks: `**K8s**` in posting.md says what `K8s` says.
+EMPHASIS = re.compile(r"[*_`]+")
+
+
 def squash(text):
-    return re.sub(r"\s+", " ", text).strip()
+    """Text as the quote check compares it: the words, not their typesetting."""
+    text = unicodedata.normalize("NFKC", text).translate(TYPOGRAPHY)
+    return re.sub(r"\s+", " ", EMPHASIS.sub("", text)).strip()
 
 
 def unquoted(rows, store):
@@ -131,7 +143,9 @@ def unquoted(rows, store):
             except OSError:
                 adverts[advert] = None
         text = adverts[advert]
-        if text is None:
+        if not squash(v(r, "q")):
+            out.append({**r, "why": "the quote is empty"})     # "" is in every advert
+        elif text is None:
             out.append({**r, "why": "posting.md is missing beside it"})
         elif squash(v(r, "q")) not in text:
             out.append({**r, "why": "posting.md does not say it"})

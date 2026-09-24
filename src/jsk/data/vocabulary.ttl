@@ -17,10 +17,10 @@ c:ansible a j:Technology ; j:label "Ansible" .
 c:apache-spark a j:Technology ; j:label "Apache Spark", "Spark" .
 c:aspnet-core a j:Technology ; j:label "ASP.NET Core" ; j:partOf c:dotnet .
 c:aws a j:Technology ; j:label "AWS", "Amazon Web Services" .
-c:aws-lambda a j:Technology ; j:label "AWS Lambda", "Lambda" ; j:partOf c:aws .
+c:aws-lambda a j:Technology ; j:label "AWS Lambda" ; j:partOf c:aws .
 c:azure a j:Technology ; j:label "Azure", "MS Azure", "Microsoft Azure" .
 c:azure-ai-foundry a j:Technology ; j:label "Azure AI Foundry" ; j:partOf c:azure .
-c:azure-devops a j:Technology ; j:label "ADO", "Azure DevOps" ; j:former "VSTS" .
+c:azure-devops a j:Technology ; j:label "Azure DevOps" ; j:former "VSTS" .
 c:azure-functions a j:Technology ; j:label "Azure Functions" ; j:partOf c:azure .
 
 c:azure-sql a j:Technology ;
@@ -66,7 +66,7 @@ c:gke a j:Technology ;
 
 c:golang a j:Technology ; j:label "Go", "Golang" .
 c:graphql a j:Technology ; j:label "GraphQL" .
-c:helm a j:Technology ; j:label "Helm" ; j:partOf c:kubernetes .
+c:helm a j:Technology ; j:label "Helm" .
 c:java a j:Technology ; j:label "Java" ; j:distinct c:javascript .
 c:javascript a j:Technology ; j:label "ECMAScript", "JS", "JavaScript" .
 c:jenkins a j:Technology ; j:label "Jenkins" .

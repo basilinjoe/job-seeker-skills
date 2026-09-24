@@ -203,6 +203,33 @@ class Resolution(unittest.TestCase):
     def test_a_posting_with_nothing_required_has_an_empty_cover(self):
         self.assertEqual(Q.cover({}, 3), ([], []))
 
+    def test_an_id_that_is_also_anothers_label_is_asked_not_assumed(self):
+        # A person's own slug meets free advert text: were the board game c:go, "Go" would
+        # silently mean it. An id wins only when no other concept goes by that label.
+        s = edited("c:go-game", "c:go")
+        go = by_label(Q.match(s, post("contoso")))["Go"]
+        self.assertEqual((go.state, [short(c) for c in go.resolution.concepts]),
+                         ("ambiguous", ["go", "golang"]))
+
+
+class Cover(unittest.TestCase):
+    def test_among_equally_small_covers_the_stronger_one(self):
+        # tailspin's required Terraform and Kubernetes are each carried by events and by
+        # data. Either alone covers them; events scores 17 with confirmed evidence, data
+        # 10.5 with a tag. The cover goes on the resume, so it is events.
+        s = load()
+        m = Q.match(s, post("tailspin"))
+        chosen, _ = Q.cover(m, 3, Q.rank(s, post("tailspin"), m, TODAY))
+        self.assertEqual([short(p) for p in chosen], ["events"])
+
+    def test_an_unresolved_requirement_is_not_reported_as_uncarried(self):
+        # Required and ambiguous: it may well be carried, once someone says what it means.
+        s = edited('j:asked "Go" ; j:necessity j:preferred ;', 'j:asked "Go" ; j:necessity j:required ;',
+                   "applications/contoso/posting.ttl")
+        _, uncovered = Q.cover(Q.match(s, post("contoso")), 3)
+        self.assertNotIn("Go", uncovered)
+        self.assertIn("Infrastructure as Code", uncovered)
+
 
 class Retired(unittest.TestCase):
     def test_a_retired_project_carries_nothing(self):
@@ -211,6 +238,13 @@ class Retired(unittest.TestCase):
                    'j:reason "Folded into events." ;')
         k8s = by_label(Q.match(s, post("contoso")))["K8s"]
         self.assertEqual(sorted(carriers(k8s)), ["events"])
+
+    def test_a_disputed_bullet_is_not_evidence(self):
+        s = edited('j:text "Wrote the platform\'s Terraform." ;\n    j:shows c:terraform ;\n'
+                   '    j:provenance j:confirmed .',
+                   'j:text "Wrote the platform\'s Terraform." ;\n    j:shows c:terraform ;\n'
+                   '    j:provenance j:disputed .')
+        self.assertEqual(Q.evidence(s, O.K + "prj_events", O.C + "terraform"), "tag")
 
     def test_a_retired_bullet_is_not_evidence(self):
         s = edited('j:shows c:terraform ;',

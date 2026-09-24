@@ -53,7 +53,9 @@ First match wins:
 
 1. **`j:concept`** on the requirement - the analyst's answer to an ambiguity.
 2. **An id.** `norm(asked)` equals a concept's slug (`SQL Server` -> `c:sql-server`, `golang` ->
-   `c:golang`). An id is never ambiguous, and this beats any label clash.
+   `c:golang`) - and no *other* concept has that word as a label. If one does, it is ambiguous with
+   the id's concept among the candidates: a person's own slug meets free advert text, and were their
+   board game `c:go`, "Go" would otherwise silently mean it. (Changed after the final review.)
 3. **Labels.** `norm(asked)` against every concept's `j:label` and `j:former`, shipped and the
    person's own merged: one concept is resolved; more than one is **ambiguous** (all named); none is
    a **candidate** term.
@@ -100,14 +102,14 @@ All take a loaded `Store` and a posting iri.
 | `match(store, post)` | `{req iri: Match(req, resolution, state, carriers, near)}` - state is `matched`, `near`, `missing`, `ambiguous`, `candidate` or `implicit`; `carriers` maps a project to its best path `(held, hops, implied)`; `near` maps a project to why |
 | `evidence(store, project, concept)` | `confirmed`, `unconfirmed` or `tag` |
 | `rank(store, post, matches, today)` | `[Row(project, score, required, preferred)]`, score by `kbindex` weights, `recency_points` and `SENIORITY` |
-| `cover(matches, budget)` | `(projects, uncovered)` - the smallest set within `budget` carrying every carriable required requirement |
+| `cover(matches, budget, ranking)` | `(projects, uncovered)` - the smallest set within `budget` carrying every carriable required requirement; among sets that small, the highest-scoring (the cover goes on the resume), then by id. `uncovered` is missing or near only; `unresolved(matches)` lists the ambiguous and candidate ones apart |
 | `questions(store, matches)` | `[Question(kind, requirement, detail)]`, kind one of `ambiguous`, `unknown-term`, `implied`, `broader-held`, `tag-only` |
 
 Retired projects and retired bullets never carry, rank or evidence anything.
 
 **Evidence:** `confirmed` when a live bullet of the project with `j:provenance j:confirmed`
 `j:shows` the concept or a narrower one (a non-implied path); `unconfirmed` when only an inferred or
-needs-verification bullet does; `tag` when only the project's `uses` reaches it.
+needs-verification bullet does - a disputed bullet is evidence of nothing; `tag` when only the project's `uses` reaches it.
 
 **Near** is either `implied by <held>; confirm` (an implies path, required requirement) or `holds
 broader <held>` (the project holds a concept the requirement's concept counts as - the reverse
@@ -120,8 +122,11 @@ jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] [--today YYYY-MM
 ```
 
 - The workspace root is the directory holding `applications/`; a path not in that layout exits 2.
-- The whole workspace is loaded and validated. **Any FAIL: the findings are printed (the P1 report)
-  and it exits 1** - matching a broken record would be a guess. WARNs are a count line only.
+- The whole workspace is loaded and validated. **A FAIL in the career, the vocabulary or this
+  posting's own directory - or a syntax error anywhere - prints the findings and exits 1**: matching a
+  broken record would be a guess. A FAIL in another application is a count line only, so an old
+  advert that no longer quotes cleanly cannot block every new one. WARNs are a line naming their
+  rules. (Narrowed after the final review.)
 - Otherwise it exits 0, missing requirements included: an assessment, not a gate. Usage errors exit
   2; `--help` prints usage and exits 0, like every other subcommand.
 - `--cover N` is the cover budget, default 3. `--json` prints the same data structured - what P6's

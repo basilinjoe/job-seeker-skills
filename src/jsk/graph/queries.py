@@ -101,9 +101,15 @@ def resolve(req, index, known):
     if req.concept:
         return Resolution("resolved", (req.concept,), "concept")
     key = O.norm(req.asked)
-    if O.C + key in known:
+    named = set(index.get(key, ()))
+    # An id wins only when no other concept goes by the same word. A person's own slug
+    # meets free advert text here: were their board game c:go, "Go" would otherwise mean
+    # it silently, and the language would never be asked about.
+    if O.C + key in known and not named - {O.C + key}:
         return Resolution("resolved", (O.C + key,), "id")
-    found = tuple(sorted(index.get(key, ())))
+    if O.C + key in known:
+        named.add(O.C + key)
+    found = tuple(sorted(named))
     if len(found) == 1:
         return Resolution("resolved", found, "label")
     return Resolution("ambiguous" if found else "candidate", found, "label" if found else None)
@@ -165,11 +171,13 @@ def match(store, post):
 def evidence(store, project, concept):
     """confirmed: a live, confirmed bullet shows the concept or something that counts as it
     without an implies edge. unconfirmed: only an inferred or unverified bullet does.
-    tag: only the project's `uses` does - which is a claim, not evidence."""
+    tag: only the project's `uses` does - which is a claim, not evidence. A disputed
+    bullet is evidence of nothing."""
     rows = store.select(PRE + f"""
         SELECT DISTINCT ?pv WHERE {{
           ?b j:project <{project}> ; j:shows ?m ; j:provenance ?pv .
           GRAPH j:derived {{ ?p j:from ?m ; j:to <{concept}> ; j:implied false }}
+          FILTER(?pv != j:disputed)
           FILTER NOT EXISTS {{ ?b j:retired ?x }} }}""")
     levels = {local(r["pv"].value) for r in rows}
     return "confirmed" if "confirmed" in levels else "unconfirmed" if levels else "tag"
@@ -213,11 +221,15 @@ def rank(store, post, matches, today):
                                        r.project))
 
 
-def cover(matches, budget):
+def cover(matches, budget, ranking=()):
     """(projects, uncovered): the smallest set of at most `budget` projects that carries
-    every required requirement any project can carry - the top scores need not.
-    `uncovered` is what nothing carries. None for projects when no set within the budget
-    does it."""
+    every required requirement any project can carry - the top scores need not. Among
+    sets of that size, the one whose projects score highest in `ranking` (the rows of
+    `rank`), since the cover is what goes on the resume; then by id.
+
+    `uncovered` is the required requirements nothing carries: missing or only near. An
+    ambiguous or candidate one is not in it - it may well be carried, once someone says
+    what it means. None for projects when no set within the budget does it."""
     required = [m for m in matches.values() if m.requirement.necessity == "required"
                 and m.state == "matched"]
     carries = {}
@@ -226,12 +238,21 @@ def cover(matches, budget):
             carries.setdefault(proj, set()).add(m.requirement.iri)
     reachable = set().union(*carries.values()) if carries else set()
     uncovered = sorted(m.requirement.asked for m in matches.values()
-                       if m.requirement.necessity == "required" and m.state != "matched")
+                       if m.requirement.necessity == "required" and m.state in ("missing", "near"))
+    score = {r.project: r.score for r in ranking}
     for size in range(0 if not reachable else 1, budget + 1):
-        for combo in itertools.combinations(sorted(carries), size):
-            if set().union(set(), *(carries[p] for p in combo)) >= reachable:
-                return list(combo), uncovered
+        fits = [combo for combo in itertools.combinations(sorted(carries), size)
+                if set().union(set(), *(carries[p] for p in combo)) >= reachable]
+        if fits:
+            best = max(fits, key=lambda combo: sum(score.get(p, 0) for p in combo))
+            return list(best), uncovered
     return None, uncovered
+
+
+def unresolved(matches):
+    """Required requirements whose label names several concepts or none."""
+    return sorted(m.requirement.asked for m in matches.values()
+                  if m.requirement.necessity == "required" and m.state in ("ambiguous", "candidate"))
 
 
 def questions(store, matches):

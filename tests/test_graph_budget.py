@@ -1,4 +1,5 @@
 """The cost of loading a realistic workspace - the price every graph command pays."""
+import os
 import tempfile
 import time
 import unittest
@@ -49,6 +50,11 @@ def big_workspace(root, projects=300, applications=100):
             f'j:kind j:submitted .\n', encoding="utf-8")
 
 
+# A timing measured beside a dozen other test processes measures them. Under pytest-xdist
+# this skips, saying so; CI runs it alone in its "Load budget" step, and so can anyone:
+# `python -m pytest tests/test_graph_budget.py`.
+@unittest.skipIf(os.environ.get("PYTEST_XDIST_WORKER"),
+                 "a timing test needs the machine to itself - run tests/test_graph_budget.py alone")
 class Budget(unittest.TestCase):
     """Every command loads and validates the whole workspace, so it has to stay cheap.
 
