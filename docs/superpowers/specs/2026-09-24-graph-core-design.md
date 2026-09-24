@@ -294,6 +294,9 @@ asserts 3x that, so a slow CI runner cannot make it flaky.
   standard-library only. Missing, it reports "cannot read or validate the graph record (kb.ttl) -
   matching and career writes unavailable" with an `INSTALL["pyoxigraph"]` hint. It is not in
   `REQUIRED` while the render path does not use it.
+- **`.gitattributes`:** `*.ttl text eol=lf` and `*.trig text eol=lf`. Without it a Windows checkout with
+  `core.autocrlf` turns the golden fixtures into CRLF and the byte-for-byte tests fail there only.
+  (P7's `jsk new` writes the same line into a person's workspace.)
 - **`.github/workflows/test.yml`:** keep the two ubuntu / 3.13 jobs; add **Python 3.10, no TeX** (the
   floor) and **Windows, Python 3.13, no TeX** (paths, file locks, CRLF). The no-engine assertion step
   runs with `shell: bash` so it works on both.
