@@ -1,6 +1,6 @@
 # A vocabulary graph, so a posting's words match the knowledge base's
 
-**Status:** design, approved 2026-09-24, revised the same day
+**Status:** design, approved 2026-09-24, revised the same day after the LadybugDB spike
 **Scope:** `jsk` vocabulary matching and packaging. No change to what a resume claims.
 
 Every posting names the same thing differently: `K8s`, `Kubernetes`, `AKS`; `.NET`, `Dot Net`,
@@ -27,12 +27,16 @@ This document replaces that hand translation with a maintained graph of **concep
 
 LadybugDB (`ladybug` on PyPI, MIT, formerly Kùzu) becomes the first hard dependency.
 
-- `dependencies = ["ladybug>=0.20,<0.21"]`. Pinned to one minor, because releases in the Kùzu
+- `dependencies = ["ladybug>=0.18.3,<0.19"]`. Pinned to one minor, because releases in the Kùzu
   lineage have changed both API and storage format between minors. Raising it is a deliberate
-  commit with the graph tests run against the new version.
-- `requires-python = ">=3.10"` (was `>=3.8`). `ladybug` ships wheels for 3.10-3.14 on Windows
-  x86_64, macOS arm64 and x86_64, and Linux x86_64, aarch64 and musl. 3.8 and 3.9 are past end of
-  life and were never tested: CI ran 3.13 only.
+  commit with the graph tests run against the new version **on Windows and Linux**.
+  - Why 0.18 and not the newest: the spike (section 8) found every Windows wheel from 0.19.0 to
+    0.20.4 broken — they omit the C-API shared library their default backend loads, and the pybind
+    fallback links OpenSSL 3 DLLs the wheel does not ship, so `Database(":memory:")` raises on a
+    clean install. 0.18.3 bundles its DLLs and works on Windows and Linux. The pin moves when a
+    newer release passes the spike on Windows.
+- `requires-python = ">=3.10"` (was `>=3.8`). 3.8 and 3.9 are past end of life and were never
+  tested: CI ran 3.13 only.
 - `MIN_PYTHON = (3, 10)` in `src/jsk/preflight.py`.
 - The "deliberately empty" comment above `dependencies` is rewritten, not deleted. It keeps the rule
   (every other package is optional and imported at the point of use) and says why `ladybug` is the
@@ -229,15 +233,28 @@ graph.near_miss(have="kubernetes", want="aks")  # -> True: want is narrower than
 ```
 
 - **In-memory database, built every run.** No cache file means nothing to go stale and no on-disk
-  format to migrate when `ladybug` moves. A few hundred concepts must load well under the
-  interpreter floor; the plan measures this and the spec is revisited if it does not.
+  format to migrate when `ladybug` moves. Measured in the spike: 135 ms to import, 175-220 ms to
+  load 500 concepts and 2,000 labels. Only `jsk index`, `jsk vocab` and the resume author's alias
+  step load the graph; the renderer and the gates never do.
+- **The database answers once per load, not once per match.** A path query costs about 3.7 ms, so
+  asking per project and requirement would add over a second to a ranking. Instead `load()` runs
+  three queries and keeps their answers in dictionaries: the counts-as closure within the hop
+  limit (33-48 ms for 500 concepts), unbounded reachability for the `distinct` wall, and cycle
+  detection. `satisfies`, `near_miss` and `names` are then lookups.
 - **Schema:** node tables `Concept(id STRING PRIMARY KEY, kind STRING)` and
   `Label(name STRING PRIMARY KEY)`; relationship tables `NAMES(Label → Concept, former_until INT64)`,
   `COUNTS_AS(Concept → Concept, kind STRING)` holding `is-a`/`part-of`/`implies`, and
   `DISTINCT(Concept → Concept)`, stored once per pair.
-- **`satisfies`** is one Cypher query: shortest `COUNTS_AS*0..2` path from `have` to `want`; the
-  caller applies the `implies` rule. It needs no `DISTINCT` check, because validation has already
-  refused any graph in which a counts-as path crosses a wall.
+- **The queries**, as verified against 0.18.3 (Kùzu-lineage Cypher has no list comprehensions;
+  `nodes(e)` returns only the interior nodes of a path):
+  - closure: `MATCH (a:Concept)-[e:COUNTS_AS*1..2]->(b:Concept) RETURN a.id, b.id,
+    properties(nodes(e), 'id'), properties(rels(e), 'kind')`;
+  - reachability: `MATCH (a:Concept)-[:COUNTS_AS* SHORTEST 1..30]->(b:Concept) RETURN a.id, b.id`;
+  - cycles: `MATCH (a:Concept)-[:COUNTS_AS]->(b:Concept), (b)-[e:COUNTS_AS* SHORTEST 1..30]->(a)`
+    plus self-loops `MATCH (a:Concept)-[:COUNTS_AS]->(a)`.
+- **`satisfies`** returns the shortest closure path from `have` to `want` (zero hops when they are
+  the same concept); the caller applies the `implies` rule. It needs no `DISTINCT` check, because
+  validation has already refused any graph in which a counts-as path crosses a wall.
 - Nothing outside `vocabgraph.py` knows a database exists. Replacing the engine touches one module
   and no data.
 
@@ -307,25 +324,30 @@ crosses a `distinct` wall. It still never edits the knowledge base.
   scores and an undeclared one that scores zero; new cases for `via`, `near`, `ambiguous` and
   `candidates`.
 - A test that loads and validates the shipped `vocabulary-graph.json`, including that it holds no
-  no `implies` edges.
+  `implies` edges.
 - The render rule: an alias from a broader concept is allowed, from a narrower one refused; a former
   label renders as former.
 - `jsk vocab candidates` over a fixture `applications/` directory.
 - A load-time test with a budget, so a slow build is noticed.
 - `jsk doctor` test for the `ladybug` check.
 
-## 8. First step of the plan: verify LadybugDB
+## 8. The LadybugDB spike (done 2026-09-24)
 
-Before any code depends on it, a spike confirms against `ladybug` 0.20.x on Windows and Linux:
+Run on Windows 11 (Python 3.13) and Linux (Docker, `python:3.10-slim`):
 
-1. an in-memory database opens and closes cleanly in one process, repeatedly;
-2. bounded variable-length relationship queries (`-[:COUNTS_AS*0..2]->`) and shortest path return
-   what section 6 needs, including filtering on relationship properties;
-3. load time for a 500-concept, 2,000-label graph;
-4. installed size of the wheel.
+| Check | Result |
+|---|---|
+| Windows, 0.19.0-0.20.4 | fails on a clean install (see section 1) |
+| Windows, 0.18.3 | works; about 27 MB installed |
+| Linux, 0.18.3 and 0.20.4 | works |
+| in-memory database opened and closed repeatedly in one process | works |
+| `COUNTS_AS*0..2`: zero hops, one-way, hop limit, edge kinds | works |
+| cycles and unbounded reachability via `SHORTEST 1..30` | works |
+| load, 500 concepts / 2,000 labels | 175-220 ms, plus 135 ms import |
+| one path query | about 3.7 ms, hence the closure design in section 6 |
+| closure query within 2 hops | 33-48 ms |
 
-If any of these fails, the plan stops and this section of the spec is revisited; the rest of the
-design does not depend on the engine.
+The spike is repeated, on Windows and Linux, before the pin in section 1 is ever raised.
 
 ## Not in scope
 
