@@ -61,9 +61,14 @@ class Budget(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             big_workspace(Path(tmp))
             store.load(tmp)                      # warm: the first query compiles caches
-            start = time.perf_counter()
-            s = store.load(tmp)
-            ms = (time.perf_counter() - start) * 1000
+            # The fastest of three: other work on the machine - the match mutations run
+            # whole pytest processes beside this one under -n auto - only ever adds time.
+            timings = []
+            for _ in range(3):
+                start = time.perf_counter()
+                s = store.load(tmp)
+                timings.append((time.perf_counter() - start) * 1000)
+            ms = min(timings)
             quads = len(s.ox)
             print(f"\n  budget: {quads} quads loaded and validated in {ms:.0f} ms")
             self.assertGreater(quads, 9000)

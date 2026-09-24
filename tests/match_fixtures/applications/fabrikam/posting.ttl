@@ -1,0 +1,27 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Posting
+
+k:post_fabrikam j:company "Fabrikam" ; j:title "Senior Developer" ;
+    j:captured "2026-09-01"^^xsd:date ; j:advert "posting.md" .
+
+# == Requirements
+
+k:req_fabrikam_angular j:posting k:post_fabrikam ;
+    j:asked "Angular" ; j:necessity j:preferred ;
+    j:quote "Angular helps" .
+
+k:req_fabrikam_dotnet_framework j:posting k:post_fabrikam ;
+    j:asked ".NET Framework" ; j:necessity j:required ;
+    j:quote "Years of .NET Framework" .
+
+k:req_fabrikam_sql_server j:posting k:post_fabrikam ;
+    j:asked "SQL Server" ; j:necessity j:required ;
+    j:quote "SQL Server daily" .
+
+k:req_fabrikam_terraform j:posting k:post_fabrikam ;
+    j:asked "Terraform" ; j:necessity j:required ;
+    j:quote "Terraform for our infrastructure" .

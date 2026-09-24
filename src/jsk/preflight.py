@@ -47,7 +47,7 @@ MODULES = ["cli", "cliutil", "kb", "kbindex", "paths"]
 # these imports pyoxigraph at module top, so find_spec answers "is the code here" even on
 # a machine without the engine - the engine is its own check below.
 GRAPH_MODULES = ["graph", "graph.ontology", "graph.io", "graph.writer", "graph.shapes",
-                 "graph.rules", "graph.store"]
+                 "graph.rules", "graph.store", "graph.queries"]
 GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.validate_urs"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken urs package takes all
