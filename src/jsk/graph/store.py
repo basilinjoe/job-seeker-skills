@@ -72,6 +72,7 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None):
     """Load, derive, validate and close over a workspace. `files` overrides discovery."""
     import pyoxigraph as ox
 
+    from .rules import tier2
     from .shapes import Finding, tier1
 
     store = Store(os.path.abspath(root), ox=ox.Store())
@@ -100,6 +101,7 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None):
             store.homes.setdefault(iri, name)
             store.definitions.setdefault(iri, []).append(name)
     derive_types(store, derived)
+    store.findings += tier2(store)
     materialise_paths(store)
     return store
 
