@@ -26,6 +26,10 @@ class Reading(unittest.TestCase):
         parsed = io.parse_text(text, "kb.ttl")
         self.assertEqual(parsed.quads[0].object.value, "two\nlines")
 
+    def test_a_triple_stated_twice_is_one_triple(self):
+        text = PFX + 'k:met_x j:subject "A" .\nk:met_x j:subject "A" .\n'
+        self.assertEqual(len(io.parse_text(text, "kb.ttl").quads), 1)
+
     def test_the_kind_comes_from_the_file_name(self):
         self.assertEqual(io.parse_text(PFX, "applications/a/posting.ttl").kind, "posting")
 

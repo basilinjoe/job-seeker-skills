@@ -152,7 +152,8 @@ RULES = [
          "number versions v1, v2, … with no gap", version_gaps),
     Rule("rank-unique", FAIL,
          """SELECT ?focus ?a ?r WHERE { ?a j:project ?p ; j:rank ?r .
-              ?focus j:project ?p ; j:rank ?r . FILTER(STR(?a) < STR(?focus)) }""",
+              ?focus j:project ?p ; j:rank ?r . FILTER(STR(?a) < STR(?focus))
+              FILTER NOT EXISTS { ?a j:retired ?x } FILTER NOT EXISTS { ?focus j:retired ?y } }""",
          lambda r: f"rank {v(r, 'r')} is also {curie(v(r, 'a'))}'s",
          "give each bullet of a project its own rank"),
     Rule("headline-cited", WARN,
@@ -161,7 +162,11 @@ RULES = [
          lambda r: f"headline {curie(v(r, 'm'))} is cited by none of its bullets",
          "cite it from the bullet that states it, or change the headline"),
     Rule("counts-as-cycle", FAIL,
-         f"""SELECT DISTINCT ?focus WHERE {{ ?focus ({COUNTS_AS})+ ?focus }}""",
+         # Once per cycle, at its lowest id: every node on a cycle counts as itself, and
+         # one bad edge reported at each of them reads as several faults.
+         f"""SELECT DISTINCT ?focus WHERE {{ ?focus ({COUNTS_AS})+ ?focus
+              FILTER NOT EXISTS {{ ?other ({COUNTS_AS})+ ?focus . ?focus ({COUNTS_AS})+ ?other
+                                   FILTER(STR(?other) < STR(?focus)) }} }}""",
          lambda r: "counts as itself through isA / partOf / implies",
          "remove the edge that points back; counts-as runs one way, narrower to broader"),
     Rule("wall-crossed", FAIL,
@@ -208,7 +213,13 @@ RULES = [
 def tier2(store):
     """Findings for the whole loaded workspace."""
     out = []
+    # A file that did not parse hides every id in it, so every reference to one would be
+    # `dangling` - each with a confident "did you mean". Until it parses they cannot be
+    # judged, and the syntax error is the finding.
+    unreadable = any(f.rule == "syntax" for f in store.findings)
     for rule in RULES:
+        if unreadable and rule.id == "dangling":
+            continue
         rows = store.select(PREFIX + rule.sparql) if rule.sparql else []
         if rule.post:
             rows = rule.post(rows, store)

@@ -20,7 +20,10 @@ def workspace_files(root, vocabulary=SHIPPED_VOCABULARY):
     """The record files under a workspace root, in a fixed order. Missing ones are absent."""
     found = [os.path.join(root, "career", "kb.ttl"), os.path.join(root, "career", "log.ttl")]
     for pattern in ("posting.ttl", "application.ttl"):
-        found += sorted(glob.glob(os.path.join(root, "applications", "*", pattern)))
+        # Escaped: a root named "jobs [2026]" is a glob character class, and would
+        # silently match no application at all.
+        found += sorted(glob.glob(os.path.join(glob.escape(str(root)), "applications", "*",
+                                               pattern)))
     found = [f for f in found if os.path.isfile(f)]
     if vocabulary and os.path.isfile(vocabulary):
         found.append(vocabulary)
@@ -41,6 +44,11 @@ class Store:
         result = self.ox.query(sparql, use_default_graph_as_union=True)
         names = [var.value for var in result.variables]
         return [{n: sol[n] for n in names if sol[n] is not None} for sol in result]
+
+    def graph(self, file):
+        """One file's triples, for the writer - as parsed, never read back out of
+        Oxigraph, which keeps numbers by value ("8.40" would come back as 8.4)."""
+        return self.parsed[file].quads
 
     def file_of(self, iri):
         return self.homes.get(iri)
@@ -63,9 +71,21 @@ class Store:
         from ..gates.validate_urs import Report
 
         rep = Report()
-        for f in sorted(self.findings, key=lambda f: (f.file, f.line, f.rule)):
+        # A syntax error first: until that file parses, what follows is provisional.
+        for f in sorted(self.findings, key=lambda f: (f.rule != "syntax", f.file, f.line, f.rule)):
             (rep.fail if f.severity == "FAIL" else rep.warn)(f.text())
         return rep
+
+
+def file_name(path, root):
+    """How findings name a file: relative to the workspace, forward slashes. A file outside
+    it - the shipped vocabulary - is named by its basename, including when it is on another
+    Windows drive, where relpath raises rather than answering."""
+    try:
+        name = os.path.relpath(path, root).replace("\\", "/")
+    except ValueError:
+        return os.path.basename(path)
+    return os.path.basename(path) if name.startswith("../") else name
 
 
 def load(root, vocabulary=SHIPPED_VOCABULARY, files=None):
@@ -79,9 +99,7 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None):
     paths = files if files is not None else workspace_files(root, vocabulary)
     derived = ox.NamedNode(O.DERIVED)
     for path in paths:
-        name = os.path.relpath(path, store.root).replace("\\", "/")
-        if name.startswith("../"):
-            name = os.path.basename(path)    # the shipped vocabulary lives outside the root
+        name = file_name(path, store.root)
         try:
             parsed = parse(path)
         except GraphError as e:

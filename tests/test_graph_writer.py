@@ -161,6 +161,34 @@ class HandEdits(unittest.TestCase):
         self.assertTrue(out.startswith(PFX))
 
 
+class NeverUnparseable(unittest.TestCase):
+    """The writer's output always parses back to the same triples, whatever it is given
+    that it does not refuse outright."""
+
+    def round_trip(self, triples, kind="kb"):
+        out = writer.write(triples, kind)
+        back = io.parse_text(out, f"{kind}.ttl", kind)
+        return out, {(str(q.subject), str(q.predicate), str(q.object)) for q in back.quads}
+
+    def test_a_triple_given_twice_is_written_once(self):
+        t = ox.Triple(ox.NamedNode(O.K + "met_x"), ox.NamedNode(O.J + "subject"), ox.Literal("A"))
+        out, _ = self.round_trip([t, t])
+        self.assertIn('k:met_x j:subject "A" .', out)
+
+    def test_a_language_tagged_value_with_a_newline(self):
+        t = ox.Triple(ox.NamedNode(O.K + "met_x"), ox.NamedNode(O.J + "subject"),
+                      ox.Literal("a\nb", language="en"))
+        _, back = self.round_trip([t])
+        self.assertEqual(back, {(str(t.subject), str(t.predicate), str(t.object))})
+
+    def test_an_iri_from_a_namespace_the_file_does_not_declare(self):
+        t = ox.Triple(ox.NamedNode(O.K + "met_x"), ox.NamedNode(O.J + "note"),
+                      ox.NamedNode(O.OP + "set"))
+        out, back = self.round_trip([t])
+        self.assertNotIn("op:", out)
+        self.assertEqual(back, {(str(t.subject), str(t.predicate), str(t.object))})
+
+
 class SubjectLines(unittest.TestCase):
     def test_findings_can_point_into_the_fixture(self):
         parsed = io.parse(FIXTURES / "career" / "kb.ttl")

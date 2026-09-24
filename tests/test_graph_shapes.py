@@ -69,6 +69,10 @@ def assert_fires(case, rule, mutation):
     s, text = mutated(mutation)
     hits = [f for f in s.findings if f.rule == rule and f.focus == focus]
     case.assertTrue(hits, f"{rule} did not fire on {focus!r}: {[f.text() for f in s.findings]}")
+    # Exactly once: one edit, one finding of its rule - a rule that fires twice for one
+    # fault doubles what a person has to read, and hides which line is the real one.
+    case.assertEqual(len([f for f in s.findings if f.rule == rule]), 1,
+                     f"{rule} fired more than once: {[f.text() for f in s.findings]}")
     hit = hits[0]
     if focus:
         line = text.split("\n")[hit.line - 1]
@@ -125,6 +129,29 @@ class Findings(unittest.TestCase):
                         'j:captured "2026-09-01"^^xsd:date ; j:advert "posting.md" .\n', "", ""))
         self.assertTrue([f for f in s.findings if f.rule == "cardinality" and f.file == POSTING
                          and "holds 2" in f.detail])
+
+    def test_a_line_copied_twice_is_one_fact_not_two(self):
+        line = 'k:met_team j:subject "engineers led" ; j:unit "engineers" .'
+        s, _ = mutated((KB, line, line + "\n" + line, "", ""))
+        self.assertEqual([f.text() for f in s.findings], [])
+
+    def test_an_impossible_date_is_refused(self):
+        s, _ = mutated((KB, 'j:answered "2026-08-14"', 'j:answered "2026-02-30"', "", ""))
+        self.assertTrue([f for f in s.findings if f.rule == "object"
+                         and f.focus == "k:q_team_size" and "2026-02-30" in f.detail])
+
+    def test_digits_are_ascii_digits(self):
+        s, _ = mutated((KB, 'j:start "2016-08"', 'j:start "２０１６"', "", ""))
+        self.assertTrue([f for f in s.findings if f.rule == "object"
+                         and f.focus == "k:pos_northbridge_architect"])
+
+    def test_a_syntax_error_is_not_buried_under_what_it_hid(self):
+        """One typo in kb.ttl makes every id in it unreadable, so every reference to
+        them would be `dangling` - with a confident "did you mean" each. The references
+        cannot be judged until the file parses; the syntax error is the finding."""
+        s, _ = mutated(MUTATIONS["syntax"])
+        self.assertEqual([f.rule for f in s.findings if f.rule == "dangling"], [])
+        self.assertTrue(s.report().fails[0].startswith(KB))
 
     def test_report_is_a_validate_urs_report(self):
         s, _ = mutated(MUTATIONS["object"])

@@ -28,7 +28,9 @@ class WriteError(ValueError):
 # --- terms -----------------------------------------------------------------------------
 
 def curie(iri):
-    for name, ns in O.CHANGESET_PREFIXES:
+    # Only the prefixes every written file declares: an `op:` CURIE in a kb.ttl would not
+    # parse. Changesets are P3's, with their own prefix block.
+    for name, ns in O.PREFIXES:
         if iri.startswith(ns) and PN_LOCAL.fullmatch(iri[len(ns):]):
             return f"{name}:{iri[len(ns):]}"
     return f"<{iri}>"
@@ -52,7 +54,8 @@ def literal(lit):
     dt = lit.datatype.value
     value = lit.value
     if lit.language:
-        return f"{short_string(value)}@{lit.language}"
+        text = long_string(value) if "\n" in value else short_string(value)
+        return f"{text}@{lit.language}"
     if dt == O.XSD + "string":
         return long_string(value) if "\n" in value else short_string(value)
     if dt == O.XSD + "integer" and BARE_INTEGER.fullmatch(value):
@@ -100,7 +103,8 @@ class Subjects:
                 name = p[len(O.J):]
             else:
                 raise WriteError(f"{curie(t.subject.value)}: predicate <{p}> is not in the format")
-            self.props[t.subject.value][name].append(t.object)
+            if t.object not in self.props[t.subject.value][name]:    # a set, not a list
+                self.props[t.subject.value][name].append(t.object)
         self.cls = {}
         for s in self.props:
             name = O.class_of(s)

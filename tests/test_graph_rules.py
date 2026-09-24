@@ -33,7 +33,8 @@ MUTATIONS = {
     "headline-cited": (KB, "j:cites k:met_sites ;", "j:cites k:met_team ;",
                        "k:prj_site_onboarding", "cite it"),
     "counts-as-cycle": (KB, "c:healthcare a j:Domain .",
-                        "c:healthcare a j:Domain ; j:partOf c:aged-care .", "c:healthcare",
+                        # reported once per cycle, at its lowest id
+                        "c:healthcare a j:Domain ; j:partOf c:aged-care .", "c:aged-care",
                         "one way"),
     "wall-crossed": (KB, "c:kafka j:isA c:event-driven-architecture .",
                      "c:kafka j:isA c:event-driven-architecture ; "
@@ -100,6 +101,14 @@ class Findings(unittest.TestCase):
             KB, "c:event-driven-architecture a j:Capability ;",
             "c:event-driven-architecture a j:Capability ; j:distinct c:kafka ;",
             "c:event-driven-architecture", "contradict"))
+
+    def test_a_retired_bullet_keeps_its_rank(self):
+        s, _ = mutated((KB, None, '\nk:ach_clinical_events_old_latency j:project '
+                        'k:prj_clinical_events ; j:rank 1 ; j:text "Cut latency." ; '
+                        'j:retired "2026-01-01"^^xsd:date ; '
+                        'j:reason "Superseded by the measured figure." ; '
+                        'j:provenance j:confirmed .\n', "", ""))
+        self.assertEqual([f.text() for f in s.findings if f.rule == "rank-unique"], [])
 
     def test_the_log_may_name_ids_that_no_longer_exist(self):
         s, _ = mutated(("career/log.ttl", "j:touched k:met_team.v1,", "j:touched k:met_gone.v1,",

@@ -107,6 +107,30 @@ class Discovery(unittest.TestCase):
             self.assertEqual(s.file_of(O.K + "app_acme_platform_engineer"),
                              "applications/Acme Platform é/application.ttl")
 
+    def test_a_root_with_glob_characters_still_finds_its_applications(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "jobs [2026]"
+            shutil.copytree(FIXTURES, root)
+            s = store.load(root)
+            self.assertIn("applications/acme-platform-engineer/posting.ttl", s.parsed)
+            self.assertEqual([f.text() for f in s.findings], [])
+
+    def test_a_file_on_another_drive_is_named_not_a_crash(self):
+        """os.path.relpath raises across Windows drives - the shipped vocabulary in
+        site-packages on C:, the workspace on D:."""
+        from unittest import mock
+        with mock.patch("os.path.relpath", side_effect=ValueError("path is on mount 'C:'")):
+            self.assertEqual(store.file_name("C:/py/jsk/data/vocabulary.ttl", "D:/career"),
+                             "vocabulary.ttl")
+
+    def test_graph_returns_a_files_own_triples_for_the_writer(self):
+        """As parsed, not read back out of Oxigraph, which stores numbers by value:
+        "8.40" would come back as 8.4 and the rewrite would change the person's file."""
+        from jsk.graph import writer
+        s = store.load(FIXTURES)
+        text = (FIXTURES / "career" / "kb.ttl").read_bytes().decode("utf-8")
+        self.assertEqual(writer.write(s.graph("career/kb.ttl"), "kb"), text)
+
     def test_files_outside_the_layout_are_not_loaded(self):
         with tempfile.TemporaryDirectory() as tmp:
             shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)

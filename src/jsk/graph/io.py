@@ -48,7 +48,9 @@ def parse_text(text, file, kind=None):
     text = normalise(text)
     fmt = ox.RdfFormat.TRIG if kind == "changeset" else ox.RdfFormat.TURTLE
     try:
-        quads = list(ox.parse(text.encode("utf-8"), format=fmt))
+        # A set, as RDF means it: the parser keeps a line copied twice as two quads, which
+        # would read as two values and write back as `"A", "A"`.
+        quads = list(dict.fromkeys(ox.parse(text.encode("utf-8"), format=fmt)))
     except SyntaxError as e:
         raise GraphError(f"{file}:{e.lineno}:{e.offset}: {e.msg}",
                          "fix the syntax there; the rest of the file was not read",

@@ -275,7 +275,8 @@ so `jsk --help` and every command that never reads the graph do not pay its 11-1
    `materialise_paths`).
 
 `Store` exposes `.report`, `.select(sparql)` (union graph), `.file_of(id)` and `.graph(file)` (for
-the writer). `j:derived` is never written. `load` never raises on invalid content - it reports, and
+the writer: the file's quads as parsed, never read back out of Oxigraph, which keeps numbers by
+value - `8.40` would come back as `8.4` and a rewrite would change the person's file). `j:derived` is never written. `load` never raises on invalid content - it reports, and
 the caller decides; it raises only for an unreadable path.
 
 The shipped `vocabulary.ttl` in P1 is a seed of about ten Technology concepts, enough for the loader

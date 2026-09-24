@@ -137,6 +137,19 @@ HEAD_FIX = {
 }
 
 
+def real_date(value):
+    """YYYY-MM-DD, and a day the calendar has: 2026-02-30 is the right shape and no date."""
+    import datetime
+
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+        return False
+    try:
+        datetime.date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
 def check_object(pred, o):
     """None when `o` is a valid object for `pred`, else what is wrong with it."""
     import pyoxigraph as ox
@@ -148,7 +161,8 @@ def check_object(pred, o):
         dt = XSD_TYPES.get(o.datatype.value)
         if dt not in kind.types or o.language:
             return f"is {curie(o.datatype.value)}; expected {' or '.join(kind.types)}"
-        if kind.pattern and not re.fullmatch(kind.pattern, o.value):
+        # ASCII: `\d` also matches fullwidth and other Unicode digits.
+        if kind.pattern and not re.fullmatch(kind.pattern, o.value, re.ASCII):
             return f"{o.value!r} does not have the expected form"
         if kind.lo is not None or kind.hi is not None:
             try:
@@ -157,8 +171,8 @@ def check_object(pred, o):
                 return f"{o.value!r} is not a number"
             if (kind.lo is not None and n < kind.lo) or (kind.hi is not None and n > kind.hi):
                 return f"{o.value} is out of range"
-        if dt == "date" and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", o.value):
-            return f"{o.value!r} is not YYYY-MM-DD"
+        if dt == "date" and not real_date(o.value):
+            return f"{o.value!r} is not a real YYYY-MM-DD date"
         return None
     if not isinstance(o, ox.NamedNode):
         return "must be a reference, not a value"
