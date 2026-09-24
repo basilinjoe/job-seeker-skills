@@ -90,6 +90,14 @@ def props_c(e, slug):
 
 
 class Setting(unittest.TestCase):
+    def test_a_confirmed_bullet_moved_to_another_project_is_unconfirmed(self):
+        # "Led a team of 6" under a 2017 role is not what the person confirmed.
+        e = run('op:set { k:ach_clinical_events_led_migration j:project k:prj_site_onboarding ; '
+                'j:rank 2 . k:pos_meridian_senior j:organisation k:org_northbridge . }\n')
+        self.assertEqual(props(e, "ach_clinical_events_led_migration")["provenance"],
+                         [O.J + "inferred"])
+        self.assertEqual(props(e, "pos_meridian_senior")["provenance"], [O.J + "inferred"])
+
     def test_a_changed_claim_is_an_unconfirmed_claim(self):
         e = run('op:set { k:ach_clinical_events_led_migration j:text "Led 6 engineers." . }\n')
         p = props(e, "ach_clinical_events_led_migration")

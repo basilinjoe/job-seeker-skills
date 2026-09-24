@@ -355,6 +355,19 @@ CONCEPT_SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 POSITIONAL = re.compile(r"_\d+$")
 
 
+# What places a claim without being one: which project a bullet is under, which employer
+# a role was at, which metric a bullet cites, the dates and grades of a qualification.
+# The claims gate does not read them, but "led a team of 6" under another role is not
+# what the person confirmed - so changing one resets provenance like a claim does.
+PLACES = {"organisation", "position", "project", "of", "cites", "start", "end", "field",
+          "level", "gradeScheme", "gradeValue", "expires"}
+
+
+def resets(cls):
+    """The predicates of `cls` whose change makes a confirmed entry unconfirmed."""
+    return {p.name for p in cls.preds.values() if p.claim or p.name in PLACES}
+
+
 def kind_of(path):
     """The file kind a path holds, from its name; None when it is not a record file."""
     name = str(path).replace("\\", "/").rsplit("/", 1)[-1]

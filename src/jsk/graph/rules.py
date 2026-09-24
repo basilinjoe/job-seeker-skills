@@ -187,11 +187,16 @@ PLACEHOLDER = re.compile(r"\s*(|y|yes|ok|okay|sure|fine|right|correct|true|done|
                          r"n/?a|none|tbd|todo|\?+|\.+|-+|<[^>]*>)\s*[.!]?\s*", re.I)
 
 
+# What an answer to confirm is not, either: the person saying it is wrong.
+DENIAL = re.compile(r"\s*(no|nope|nah|never|wrong|incorrect|false|not (true|right|correct))"
+                    r"\s*[.!]?\s*", re.I)
+
+
 def placeholder_answers(rows, store):
     out = []
     for r in rows:
         answer = v(r, "a")
-        if answer is None or PLACEHOLDER.fullmatch(answer):
+        if answer is None or PLACEHOLDER.fullmatch(answer) or DENIAL.fullmatch(answer):
             out.append({**r, "said": answer})
     return out
 

@@ -166,6 +166,20 @@ class Apply(Workspace):
         self.assertIn("a changeset cannot confirm", out)
         self.assertIn("did you mean j:strength?", out)
 
+    def test_rewording_a_disputed_entry_leaves_it_disputed(self):
+        # Rank 0 must not become rank 2 because somebody edited the words.
+        self.kb("apply", self.changeset(
+            PFX + 'op:set { k:ach_clinical_events_led_migration j:provenance j:disputed . }\n'))
+        code, out = self.kb("apply", self.changeset(
+            PFX + 'op:set { k:ach_clinical_events_led_migration j:text "Led 4 engineers." . }\n'))
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("+    j:provenance j:inferred .", out)
+        s = self.loaded()
+        [pv] = [q.object.value for q in s.graph(record.KB)
+                if q.subject.value == O.K + "ach_clinical_events_led_migration"
+                and q.predicate.value == O.J + "provenance"]
+        self.assertEqual(pv, O.J + "disputed")
+
     def test_nothing_to_change_writes_nothing(self):
         code, out = self.kb("apply", self.changeset(
             PFX + 'op:set { k:prj_clinical_events j:strength 5 . }\n'))
@@ -218,6 +232,14 @@ class Confirm(Workspace):
         self.assertEqual(code, 1)
         self.assertIn("a Metric is not a claim", out)
 
+    def test_a_denial_is_not_a_confirmation(self):
+        for said in ("No.", "nope", "Wrong", "not true"):
+            with self.subTest(said=said):
+                code, out = self.kb("confirm", "prj_site_onboarding", "--answer", said)
+                self.assertEqual(code, 1)
+                self.assertIn("a denial is not a confirmation", out)
+        self.assertEqual(record.state(self.loaded()).log_revision, 2)
+
     def test_confirming_what_is_confirmed_changes_nothing(self):
         code, out = self.kb("confirm", "prj_clinical_events", "--answer", ANSWER)
         self.assertEqual((code, record.state(self.loaded()).log_revision), (0, 2))
@@ -266,6 +288,18 @@ class Adopt(Workspace):
         code, out = self.kb("adopt", "--drop-comments")
         self.assertEqual(code, 0, out)
         self.assertNotIn("# ask", self.path("career/kb.ttl").read_text(encoding="utf-8"))
+
+    def test_a_hand_edit_adopted_without_a_copy_still_conflicts_with_an_older_base(self):
+        # A fresh clone has no .jsk/: adopt cannot say what changed, so it logs every
+        # entry as touched rather than none - op:base must still catch the hand edit.
+        self.kb("apply", self.changeset(PFX + 'op:set { k:prj_clinical_events j:strength 4 . }\n'))
+        shutil.rmtree(self.path(".jsk"))
+        self.edit_kb('j:name "Intranet refresh"', 'j:name "Intranet refresh v2"')
+        self.assertEqual(self.kb("adopt")[0], 0)
+        code, out = self.kb("apply", self.changeset(
+            PFX + 'op:changeset op:base 3 .\nop:set { k:prj_intranet_refresh j:name "Intranet refresh" . }\n'))
+        self.assertEqual(code, 1, out)
+        self.assertIn("changed at r4, after this changeset's op:base r3", out)
 
     def test_a_clean_record_has_nothing_to_adopt(self):
         code, out = self.kb("adopt")

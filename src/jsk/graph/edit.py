@@ -359,13 +359,15 @@ def provenance(after, before, cs, minted_bullets, edit):
             if not values(after, s, node(PROVENANCE)):
                 after.add((s, node(PROVENANCE), inferred))
             continue
-        claims = {p for p in cls.preds.values() if p.claim}
+        names = O.resets(cls)
 
         def claimed(triples):
-            return {(p, o) for t, p, o in triples if t == s and local(p) in {c.name for c in claims}}
+            return {(p, o) for t, p, o in triples if t == s and local(p) in names}
         if claimed(before) != claimed(after):
             was = values(after, s, node(PROVENANCE))
-            if was != {inferred}:
+            # Down to inferred, never up: a disputed or unverified entry reworded is
+            # still disputed or unverified.
+            if not was or node(O.J + "confirmed") in was:
                 after.difference_update({(s, node(PROVENANCE), o) for o in was})
                 after.add((s, node(PROVENANCE), inferred))
                 changed = sorted({curie(p.value) for p, _ in claimed(before) ^ claimed(after)})

@@ -256,11 +256,15 @@ def cmd_confirm(args, root):
     from . import ontology as O
     from . import record as R
     from . import store as S
-    from .rules import PLACEHOLDER
+    from .rules import DENIAL, PLACEHOLDER
 
     answer = take(args, "--answer", value=True)
     if not args or answer is None:
         return usage('jsk kb confirm takes ids and --answer "what the person said"')
+    if DENIAL.fullmatch(answer):
+        return refuse([f"{answer!r}: a denial is not a confirmation"],
+                      "record what they said is wrong: op:set the entry's j:provenance "
+                      "j:disputed, or correct it with `jsk kb apply`")
     if PLACEHOLDER.fullmatch(answer):
         return refuse([f"{answer!r} is not an answer"],
                       "record what the person said, in their words: the log keeps it as the "
@@ -318,8 +322,7 @@ def provenances(quads):
 
 def claims(quads, s):
     from . import ontology as O
-    cls = O.BY_NAME[O.class_of(s)]
-    names = {p.name for p in cls.preds.values() if p.claim}
+    names = O.resets(O.BY_NAME[O.class_of(s)])
     return {(q.predicate.value, q.object.value) for q in quads
             if q.subject.value == s and q.predicate.value[len(O.J):] in names}
 
@@ -383,7 +386,10 @@ def cmd_adopt(args, root):
     before = parse_text(old, R.KB).quads if old is not None else None
     after = store.graph(R.KB)
     raised = upgrades(before, after)
-    touched = ({q.subject.value for q in set(before) ^ set(after)} if before is not None else set())
+    # With nothing to compare against, every entry may have changed: log them all, so a
+    # changeset drafted before this edit still conflicts with it through op:base.
+    touched = ({q.subject.value for q in set(before) ^ set(after)} if before is not None
+               else {q.subject.value for q in after})
     what = {"unlogged": "a kb.ttl with no log yet", "hand-edited": "a hand edit",
             "torn": "a write that did not reach log.ttl", "out-of-sync": "a restored file"}[st.kind]
     compared = "" if before is not None or st.kind == "unlogged" else \

@@ -172,6 +172,12 @@ class Findings(unittest.TestCase):
         self.assertIn("one of them was restored",
                       [f for f in s2.findings if f.rule == "log-sync"][0].detail)
 
+    def test_a_denial_logged_as_a_confirm_is_flagged(self):
+        s, _ = mutated((LOG, 'j:answer "Six throughout; two joined in the second month and '
+                             'two left."', 'j:answer "No."', "", ""))
+        [f] = [f for f in s.findings if f.rule == "answer-placeholder"]
+        self.assertEqual(f.detail, "a confirm whose answer is 'No.'")
+
     def test_a_confirm_with_no_answer_is_flagged(self):
         s, _ = mutated((LOG, '    j:answer "Six throughout; two joined in the second month and '
                              'two left." ;\n', "", "", ""))
