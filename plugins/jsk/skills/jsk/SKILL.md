@@ -34,6 +34,9 @@ two hand-built documents stop agreeing the moment one is edited.
 | `applications/<stem>/resume.json` | the URS record for this posting | `jsk-resume-author` |
 | `applications/<stem>/application.md` | what was sent, and its timeline | `jsk freeze` |
 
+`applications/` is the directory beside `user-knowledgebase.md` — resolve it to an absolute path,
+never the working directory.
+
 ## Modes
 
 Route on the argument if one was passed, otherwise on the message. Ambiguous? Ask — the modes do

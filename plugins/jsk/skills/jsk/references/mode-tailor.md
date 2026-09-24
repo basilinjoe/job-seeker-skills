@@ -59,7 +59,7 @@ plain fetch of those sees an empty shell and can report a live posting as closed
 (LinkedIn, most Workday tenants) — when a fetch fails, say what happened and ask them to paste it.
 That is an ordinary outcome, not an error.
 
-Create the application directory and write `posting.md` — **the advertisement verbatim in the body**,
+Create `<kb-dir>/applications/<stem>/` and write `posting.md` — **the advertisement verbatim in the body**,
 frontmatter above it:
 
 ```markdown

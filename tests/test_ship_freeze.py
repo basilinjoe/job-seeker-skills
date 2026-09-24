@@ -272,6 +272,7 @@ class FreezeCase(unittest.TestCase):
         self.apps = self.tmp / "applications"
         self.app = self.apps / "2026-09-01-acme-platform"
         self.app.mkdir(parents=True)
+        (self.tmp / "user-knowledgebase.md").write_text("# KB\n", encoding="utf-8")
         (self.app / "posting.md").write_text(POSTING, encoding="utf-8")
         (self.app / "gaps.md").write_text("# Gaps\n", encoding="utf-8")
         write_urs(self.app, urs_doc())
@@ -401,6 +402,18 @@ class FreezeRefuses(FreezeCase):
         self.assertEqual(code, 1, out)
         self.assertIn("2 PDFs", out)
         self.assertIn("--doc", out)
+        self.assertUntouched()
+
+    def test_an_applications_folder_away_from_the_knowledge_base_is_refused(self):
+        """A session once wrote its applications relative to its working directory.
+        The been-here-before check looks beside the knowledge base, so a round frozen
+        anywhere else is one no later round can see."""
+        (self.tmp / "user-knowledgebase.md").unlink()
+        code, out = self.freeze()
+        self.assertEqual(code, 2, out)
+        self.assertIn("no user-knowledgebase.md beside", out)
+        self.assertIn("fix:", out)
+        self.assertFalse((self.app / "application.md").exists())
         self.assertUntouched()
 
     def test_a_frozen_application_is_never_refrozen(self):

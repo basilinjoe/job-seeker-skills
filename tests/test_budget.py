@@ -229,6 +229,16 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
                       self.body("jsk-resume-author.md"))
         self.assertIn("EXAMPLE_RECORD", (REFS / "mode-tailor.md").read_text(encoding="utf-8"))
 
+    def test_applications_live_beside_the_knowledge_base(self):
+        """Written as a bare `applications/<stem>`, a session resolved it against its
+        working directory and grew a second applications/ that the been-here-before
+        check never looks in. SKILL.md anchors it once; the step that creates the
+        directory names the anchor."""
+        self.assertIn("`applications/` is the directory beside `user-knowledgebase.md`",
+                      (SKILL / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertIn("<kb-dir>/applications/<stem>/",
+                      (REFS / "mode-tailor.md").read_text(encoding="utf-8"))
+
     def test_a_second_round_is_a_patch_not_a_second_analyst(self):
         """On the ABB run a second analyst round took 193 seconds to rewrite a whole
         gaps.md whose changes were four verdicts and a struck question - and the main

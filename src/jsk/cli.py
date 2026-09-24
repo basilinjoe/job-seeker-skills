@@ -695,6 +695,7 @@ FREEZE_USAGE = ("usage: jsk freeze <app-dir> --submitted YYYY-MM-DD|false "
 
 APPLICATION = "application.md"
 POSTING = "posting.md"
+KNOWLEDGE_BASE = "user-knowledgebase.md"
 DATED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 
 
@@ -790,6 +791,14 @@ def cmd_freeze(args):
     if not os.path.isdir(app_dir):
         print(f"not a directory: {app_dir}")
         print("fix:  pass the application directory - applications/<yyyy-mm-dd>-<company>-<role>/")
+        return 2
+    # An applications/ that is not beside the knowledge base is one the been-here-before
+    # check never looks in, so an application frozen there is invisible to every later
+    # round. It happened: a session wrote them relative to its working directory.
+    apps = os.path.dirname(os.path.abspath(app_dir))
+    if not os.path.isfile(os.path.join(os.path.dirname(apps), KNOWLEDGE_BASE)):
+        print(f"no {KNOWLEDGE_BASE} beside {apps}")
+        print(f"fix:  move the directory into the applications/ folder next to {KNOWLEDGE_BASE}")
         return 2
     submitted = flags.get("--submitted")
     if submitted is None:
