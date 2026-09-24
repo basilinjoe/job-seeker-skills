@@ -1,0 +1,188 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+k:kb j:format 3 ; j:name "Priya Raman" ; j:updated "2026-09-20"^^xsd:date .
+
+# == Identity
+
+k:person j:fullName "Priya Raman" ;
+    j:headline "Principal Solution Architect" ;
+    j:city "Sydney" ; j:country "AU" ; j:workMode j:hybrid ;
+    j:email "priya@example.com" ;
+    j:linkedin "linkedin.com/in/priyaraman" ;
+    j:primary "priya@example.com" ;
+    j:provenance j:confirmed .
+
+# == Positioning
+
+k:person j:positioning """Architect who turns regulated, legacy-heavy estates into event-driven platforms without a big-bang
+rewrite. Strongest in healthcare and aged care.""" .
+
+# == Work authorization and languages
+
+k:auth_au j:jurisdiction "AU" ; j:kind j:citizen ; j:authorization j:held ;
+    j:provenance j:confirmed .
+
+k:lang_en j:language "en" ; j:native true ; j:provenance j:confirmed .
+
+# == Vocabulary
+
+c:ai-platform-architecture a j:Capability .
+c:data-sovereignty a j:Capability .
+c:event-driven-architecture a j:Capability ; j:label "EDA", "event-driven" .
+c:team-leadership a j:Capability ; j:label "people leadership" .
+c:aged-care a j:Domain ; j:partOf c:healthcare .
+c:healthcare a j:Domain .
+c:kafka j:isA c:event-driven-architecture .
+
+# == Organisations
+
+k:org_meridian j:name "Meridian Health" ;
+    j:relationship j:employer ; j:industry c:healthcare ; j:size "1001-5000" ;
+    j:provenance j:confirmed .
+
+k:org_northbridge j:name "Northbridge Digital" ;
+    j:relationship j:employer ;
+    j:provenance j:confirmed .
+
+# == Roles
+
+k:pos_meridian_principal j:organisation k:org_meridian ;
+    j:title "Principal Solution Architect" ;
+    j:start "2023-07" ; j:state j:ongoing ;
+    j:seniority j:architecture-ownership ; j:change j:promotion ;
+    j:provenance j:confirmed .
+
+k:pos_meridian_senior j:organisation k:org_meridian ;
+    j:title "Senior Engineer" ;
+    j:start "2020-02" ; j:end "2023-06" ; j:state j:ended ;
+    j:seniority j:hands-on-senior ; j:change j:hire ;
+    j:provenance j:confirmed .
+
+k:pos_northbridge_architect j:organisation k:org_northbridge ;
+    j:title "Solution Architect" ;
+    j:start "2016-08" ; j:end "2020-01" ; j:state j:ended ;
+    j:seniority j:platform-design ; j:change j:hire ;
+    j:provenance j:confirmed .
+
+# == Projects
+
+k:prj_clinical_events j:name "Clinical event pipeline" ;
+    j:position k:pos_meridian_principal ;
+    j:strength 5 ; j:recency 2026 ; j:seniority j:architecture-ownership ;
+    j:domain c:aged-care, c:healthcare ;
+    j:uses c:ai-platform-architecture, c:azure-ai-foundry, c:bicep, c:data-sovereignty, c:kafka ;
+    j:headlineMetric k:met_event_latency ;
+    j:problem """The legacy scheduler could not express care-plan constraints, so every site
+maintained its own spreadsheet beside it.""" ;
+    j:decision """Event-sourced the schedule rather than versioning the table, on the argument
+that the audit requirement was the real constraint.""" ;
+    j:outcome """Propagation fell from five minutes to under a second across 15 integrated
+applications.""" ;
+    j:provenance j:confirmed .
+
+k:ach_clinical_events_event_latency j:project k:prj_clinical_events ; j:rank 1 ;
+    j:text "Cut p95 clinical event latency from 5 minutes to under 1 second across 40,000 daily ingestion jobs." ;
+    j:cites k:met_event_latency ;
+    j:provenance j:confirmed .
+
+k:ach_clinical_events_led_migration j:project k:prj_clinical_events ; j:rank 2 ;
+    j:text "Led a team of 6 engineers through the migration with no unplanned downtime." ;
+    j:cites k:met_team ; j:shows c:team-leadership ;
+    j:provenance j:confirmed .
+
+k:prj_site_onboarding j:name "Care-site onboarding" ;
+    j:position k:pos_meridian_senior ;
+    j:strength 3 ; j:recency 2022 ; j:seniority j:hands-on-senior ;
+    j:domain c:aged-care ;
+    j:uses c:dotnet, c:sql-server, c:team-leadership ;
+    j:headlineMetric k:met_sites ;
+    j:problem "Each new residential care site took a quarter to onboard by hand." ;
+    j:decision "Templated the site configuration and moved the checks into the pipeline." ;
+    j:outcome "Onboarding fell to two weeks; 42 sites now run on it." ;
+    j:provenance j:inferred .
+
+k:ach_site_onboarding_sites_one_platform j:project k:prj_site_onboarding ; j:rank 1 ;
+    j:text "Brought 42 residential care sites onto one platform, cutting onboarding from a quarter to two weeks." ;
+    j:cites k:met_sites ;
+    j:provenance j:inferred .
+
+k:prj_intranet_refresh j:name "Intranet refresh" ;
+    j:position k:pos_northbridge_architect ;
+    j:strength 1 ; j:recency 2017 ;
+    j:noneQuantified true ;
+    j:retired "2026-01-10"^^xsd:date ; j:reason "Too old and too small to earn a line." ;
+    j:provenance j:confirmed .
+
+# == Metrics
+
+k:met_event_latency j:subject "p95 clinical event latency" ; j:unit "min→s" ; j:direction j:decrease .
+
+k:met_event_latency.v1 j:of k:met_event_latency ;
+    j:baseline 5 ; j:value 2 ;
+    j:confidence j:estimated ; j:source "load test" ;
+    j:validUntil "2026-03-01"^^xsd:date ;
+    j:provenance j:confirmed .
+
+k:met_event_latency.v2 j:of k:met_event_latency ;
+    j:baseline 5 ; j:value 1 ;
+    j:confidence j:measured ; j:source "Grafana dashboard" ;
+    j:validFrom "2026-03-01"^^xsd:date ;
+    j:provenance j:confirmed .
+
+k:met_sites j:subject "residential care sites served" ; j:unit "sites" .
+
+k:met_sites.v1 j:of k:met_sites ;
+    j:value 42 ;
+    j:confidence j:measured ; j:source "platform admin console" ;
+    j:provenance j:confirmed .
+
+k:met_team j:subject "engineers led" ; j:unit "engineers" .
+
+k:met_team.v1 j:of k:met_team ;
+    j:value 6 ;
+    j:confidence j:measured ; j:source "org chart" ;
+    j:provenance j:confirmed .
+
+# == Skills
+
+k:skill_azure j:name "Azure" ; j:category "cloud-platform" ;
+    j:alias "Azure AI Foundry", "Bicep", "Microsoft Azure" .
+
+k:skill_dotnet j:name "C# / .NET" ; j:category "language" ; j:alias ".NET", "ASP.NET Core", "C#" .
+
+# == Education
+
+k:edu_meng j:institution "Anna University" ;
+    j:qualification "Master of Engineering" ; j:field "Computer Science" ; j:level j:isced-7 ;
+    j:start "2010" ; j:end "2012" ;
+    j:gradeScheme "in-cgpa-10" ; j:gradeValue 8.4 ;
+    j:provenance j:confirmed .
+
+# == Certifications
+
+k:cred_az305 j:name "Azure Solutions Architect Expert" ;
+    j:issuer "Microsoft" ; j:issued "2024-03" ; j:credentialState j:active ;
+    j:provenance j:confirmed .
+
+# == Open source
+
+k:os_carbon_scheduler j:name "carbon-aware-scheduler" ;
+    j:url "https://github.com/example/carbon-aware-scheduler" ; j:role j:maintainer ;
+    j:provenance j:confirmed .
+
+# == Open questions
+
+k:q_team_size j:about k:prj_clinical_events ;
+    j:question "Was the team 6 throughout, or at peak?" ;
+    j:asked "2026-08-12"^^xsd:date ; j:answered "2026-08-14"^^xsd:date .
+
+k:q_sites_bullet j:about k:ach_site_onboarding_sites_one_platform ;
+    j:question "Was onboarding a quarter before, or longer at the first sites?" ;
+    j:asked "2026-09-01"^^xsd:date .
+
+k:q_sites_confirm j:about k:prj_site_onboarding ;
+    j:question "Is 42 the current site count, or the count at hand-over?" ;
+    j:asked "2026-09-01"^^xsd:date .

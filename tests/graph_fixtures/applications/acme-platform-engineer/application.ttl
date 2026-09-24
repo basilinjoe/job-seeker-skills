@@ -1,0 +1,21 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Application
+
+k:app_acme_platform_engineer j:posting k:post_acme_platform_engineer ; j:view "view_default" ;
+    j:submitted "2026-09-10"^^xsd:date ; j:channel "company site" ;
+    j:document "Priya_Raman_Resume.pdf" ;
+    j:carried k:ach_clinical_events_event_latency, k:ach_clinical_events_led_migration ;
+    j:carriedVersion k:met_event_latency.v2, k:met_team.v1 .
+
+# == Timeline
+
+k:evt_acme_platform_engineer_2026_09_10_submitted j:application k:app_acme_platform_engineer ;
+    j:date "2026-09-10"^^xsd:date ; j:kind j:submitted ; j:channel "company site" .
+
+k:evt_acme_platform_engineer_2026_09_15_screen_scheduled j:application k:app_acme_platform_engineer ;
+    j:date "2026-09-15"^^xsd:date ; j:kind j:screen-scheduled ; j:due "2026-09-18"^^xsd:date ;
+    j:note "Phone screen, 30 min" .
