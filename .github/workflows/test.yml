@@ -16,21 +16,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Two jobs, because the suite deliberately covers both worlds. Four tests are
-  # skipUnless(tex.available_engine()) and two more are the mirror image - they run only
-  # when no engine is present, checking that the tooling says so rather than pretending
-  # a resume was verified. Running one job would always skip one of those sets, and the
-  # no-engine path is the one a new contributor actually hits.
+  # With and without a TeX engine, because the suite deliberately covers both worlds.
+  # Four tests are skipUnless(tex.available_engine()) and two more are the mirror image -
+  # they run only when no engine is present, checking that the tooling says so rather than
+  # pretending a resume was verified. The no-engine path is the one a new contributor hits.
+  #
+  # Python 3.10 because it is the floor pyproject.toml states, and a floor nobody runs is a
+  # guess. Windows because the graph record is files a person edits: CRLF, paths and file
+  # locks differ there, and pyoxigraph's wheel is a separate build (LadybugDB's Windows
+  # wheels were broken for five releases while Linux passed).
   suite:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: with a TeX engine
+            os: ubuntu-latest
+            python: "3.13"
             tex: true
           - name: without a TeX engine
+            os: ubuntu-latest
+            python: "3.13"
+            tex: false
+          - name: Python 3.10, without a TeX engine
+            os: ubuntu-latest
+            python: "3.10"
+            tex: false
+          - name: Windows, without a TeX engine
+            os: windows-latest
+            python: "3.13"
             tex: false
 
     steps:
@@ -38,7 +57,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python }}
           cache: pip
 
       - name: Install dependencies
@@ -81,8 +100,24 @@ jobs:
       # before the tests and its output is the log's header. `--quick` because the
       # verifying run renders a PDF, which the no-engine job cannot do and the tests
       # cover anyway.
+      #
+      # Without an engine doctor is BLOCKED by design - the PDF is the deliverable - and
+      # exits 1. That failed every no-engine run from 2026-09-01. Those jobs now assert
+      # the verdict is BLOCKED for that reason and no other: the TeX engine is the only FAIL.
       - name: Preflight
-        run: jsk doctor --quick
+        run: |
+          set +e
+          jsk doctor --quick | tee doctor.txt
+          code=${PIPESTATUS[0]}
+          set -e
+          if [ "${{ matrix.tex }}" = "true" ]; then exit "$code"; fi
+          fails=$(grep -c '^  FAIL' doctor.txt || true)
+          if grep -q '^  FAIL  TeX engine' doctor.txt && [ "$fails" = "1" ]; then
+            echo "ok    BLOCKED only by the missing TeX engine, as this job intends"
+          else
+            echo "FAIL  expected the TeX engine to be the only FAIL, found $fails"
+            exit 1
+          fi
 
       - name: Tests
         run: python -m pytest tests -q -rs -n auto

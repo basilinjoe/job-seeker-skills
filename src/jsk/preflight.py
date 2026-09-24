@@ -295,6 +295,11 @@ def verify(tmp):
 
 
 def main(argv):
+    if "--help" in argv or "-h" in argv:
+        # Reading the usage checks nothing: running the preflight here meant a --verify
+        # render, and an exit of 1 on any machine without a TeX engine.
+        print(next(p for p in __doc__.split("\n\n") if p.startswith("Usage:")))
+        return 0
     as_json = "--json" in argv
     kb_arg = None
     if "--kb" in argv:

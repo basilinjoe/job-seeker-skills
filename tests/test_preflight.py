@@ -11,9 +11,18 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import PLUGIN, PREFLIGHT, load_script, run
+from fixtures import PLUGIN, PREFLIGHT, load_script, run, urs_module
 
 preflight = load_script(PREFLIGHT)
+tex = urs_module("urs.tex")
+
+# Without a TeX engine preflight is BLOCKED by design - the PDF is the deliverable - so a
+# test that expects a passing verdict needs one. These ran nowhere without an engine
+# until the no-engine CI jobs stopped failing at their preflight step (graph core, P1).
+NEEDS_TEX = unittest.skipUnless(tex.available_engine(), "needs a TeX engine: preflight blocks without one")
+# The exit code a plain preflight earns on this machine: 1 is BLOCKED, which is what a
+# machine with no engine is.
+VERDICT = 0 if tex.available_engine() else 1
 
 
 class KnowledgeBaseDiscovery(unittest.TestCase):
@@ -134,9 +143,10 @@ class RequiredVersusOptional(unittest.TestCase):
 
     def test_the_shipped_install_is_intact(self):
         # If this fails the plugin is broken, not the machine it is running on.
+        # A TeX engine is the machine's, not the plugin's - it is installed beside jsk.
         checks, _ = preflight.gather()
         for check in checks:
-            if preflight.is_required(check):
+            if preflight.is_required(check) and not check.name.startswith("TeX engine"):
                 self.assertTrue(check.ok, f"{check.name}: {check.disables}")
 
 
@@ -146,11 +156,13 @@ class CliBehaviour(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
 
+    @NEEDS_TEX
     def test_plain_run_reports_a_verdict(self):
         code, out = run(PREFLIGHT)
         self.assertEqual(code, 0, out)
         self.assertTrue(any(v in out for v in ("READY", "READY, with gaps")), out)
 
+    @NEEDS_TEX
     def test_verify_runs_the_pipeline_and_every_gate(self):
         code, out = run(PREFLIGHT, "--verify")
         self.assertEqual(code, 0, out)
@@ -162,12 +174,13 @@ class CliBehaviour(unittest.TestCase):
 
     def test_json_output_is_machine_readable(self):
         code, out = run(PREFLIGHT, "--json")
-        self.assertEqual(code, 0, out)
+        self.assertEqual(code, VERDICT, out)
         payload = json.loads(out)
         self.assertIn("checks", payload)
         self.assertTrue(all({"name", "ok", "required", "disables"} <= set(c)
                             for c in payload["checks"]))
 
+    @NEEDS_TEX
     def test_json_verify_reports_each_step(self):
         code, out = run(PREFLIGHT, "--json", "--verify")
         self.assertEqual(code, 0, out)
@@ -180,8 +193,18 @@ class CliBehaviour(unittest.TestCase):
         path.parent.mkdir(parents=True)
         path.write_text("# Career knowledge base", encoding="utf-8")
         code, out = run(PREFLIGHT, "--kb", path, "--json")
-        self.assertEqual(code, 0, out)
+        self.assertEqual(code, VERDICT, out)
         self.assertEqual(Path(json.loads(out)["knowledge_base"]), path)
+
+    def test_help_prints_usage_and_checks_nothing(self):
+        """`jsk doctor --help` ran the whole preflight - with --verify, a real render -
+        and exited 1 wherever there was no TeX engine, so reading the documentation
+        looked like a failure. Help is the usage, and nothing is checked."""
+        for flag in ("--help", "-h"):
+            code, out = run(PREFLIGHT, flag)
+            self.assertEqual(code, 0, out)
+            self.assertIn("Usage:", out)
+            self.assertNotIn("jsk preflight", out)      # the report's header
 
     def test_kb_flag_without_a_path_is_a_usage_error(self):
         code, out = run(PREFLIGHT, "--kb")
