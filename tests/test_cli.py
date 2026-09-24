@@ -20,8 +20,8 @@ JSK = CLI
 EXAMPLE = EXAMPLE_URS
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
-SUBCOMMANDS = ["doctor", "new", "index", "validate", "render", "preview", "check", "gates",
-               "fit", "ship", "freeze"]
+SUBCOMMANDS = ["doctor", "new", "index", "match", "validate", "render", "preview", "check",
+               "gates", "fit", "ship", "freeze"]
 
 
 class Usage(unittest.TestCase):
@@ -711,6 +711,57 @@ class PreviewInProcess(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn(f"FAILED: {broken}", out)
         self.assertIn("! Missing $", out)
+
+
+class Match(unittest.TestCase):
+    """`jsk match`: an assessment, so it exits 0 with gaps; 1 only for a broken record."""
+
+    FIX = Path(__file__).parent / "match_fixtures"
+    CONTOSO = FIX / "applications" / "contoso" / "posting.ttl"
+
+    def test_it_prints_the_four_sections(self):
+        code, out = run(JSK, "match", self.CONTOSO, "--today", "2026-09-24")
+        self.assertEqual(code, 0, out)
+        for heading in ("# Match - Platform Engineer at Contoso (k:post_contoso)",
+                        "## Requirements", "## Ranking", "## Cover", "## Questions"):
+            self.assertIn(heading, out)
+        self.assertIn("| K8s | required | matched | k:prj_data; k:prj_events (via c:aks, 1 hop) |",
+                      out)
+
+    def test_json_is_the_same_result_structured(self):
+        code, out = run(JSK, "match", self.CONTOSO, "--json", "--today", "2026-09-24")
+        self.assertEqual(code, 0, out)
+        r = json.loads(out)
+        self.assertEqual(r["posting"], "k:post_contoso")
+        self.assertEqual({q["asked"]: q["state"] for q in r["requirements"]}["Go"], "ambiguous")
+
+    def test_a_broken_record_is_not_matched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            import shutil
+            shutil.copytree(self.FIX, tmp, dirs_exist_ok=True)
+            kb = Path(tmp) / "career" / "kb.ttl"
+            kb.write_text(kb.read_text(encoding="utf-8").replace("j:uses c:aks,", "j:uses c:akss,"),
+                          encoding="utf-8")
+            code, out = run(JSK, "match", Path(tmp) / "applications" / "contoso" / "posting.ttl")
+        self.assertEqual(code, 1, out)
+        self.assertIn("fix them before matching", out)
+        self.assertIn("c:akss: nothing defines it", out)
+
+    def test_a_relative_path_from_inside_the_workspace(self):
+        from jsk.graph.match import workspace_of
+        here = os.getcwd()
+        try:
+            os.chdir(self.FIX)
+            self.assertEqual(workspace_of(os.path.join("applications", "contoso", "posting.ttl")),
+                             str(self.FIX))
+        finally:
+            os.chdir(here)
+
+    def test_outside_the_layout_is_a_usage_error(self):
+        code, out = run(JSK, "match", self.FIX / "career" / "kb.ttl")
+        self.assertEqual(code, 2, out)
+        code, out = run(JSK, "match", self.CONTOSO, "--cover", "none")
+        self.assertEqual(code, 2, out)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ document somebody can send.
 jsk doctor                       # what works on this machine
 jsk new ./my-career --name "Your Name"
 jsk index user-knowledgebase.md --rank applications/<dir>/posting.md
+jsk match applications/<dir>/posting.ttl   # the same question, over the graph record
 jsk validate resume.json         # the record gate
 jsk render resume.json --out . --view view_default --pdf
 jsk check resume.pdf             # both document gates, one pass
@@ -120,6 +121,34 @@ nested value in a flat block, a strength outside 1–5 — naming the entry. A p
 parse quietly would score as absent evidence on every posting.
 
 ## The record
+
+### `jsk match`
+
+The `jsk.graph.match` module, over the queries in `jsk.graph.queries`.
+
+```bash
+jsk match applications/<dir>/posting.ttl                 # the four sections, as Markdown
+jsk match applications/<dir>/posting.ttl --cover 2       # a cover of at most two projects
+jsk match applications/<dir>/posting.ttl --json --today 2026-09-24
+```
+
+The graph record's `jsk index --rank`: a posting's requirements joined with the career through the
+vocabulary - the shipped `jsk/data/vocabulary.ttl` and the knowledge base's own additions. Reads the
+whole workspace the posting sits in (`career/kb.ttl`, `applications/*/`) and validates it first;
+any FAIL is printed and nothing is matched. Needs pyoxigraph, a dependency of the package.
+
+**Requirements** puts each one in a bucket: `matched` (a project holds the concept, or a narrower
+one within two hops - `via c:aks, 1 hop`), `near` (only an `implies` path, for a required one, or
+only something broader), `missing`, `ambiguous` (the label names several concepts; the analyst
+answers with `j:concept`), `candidate` (it names none), `implicit`. Evidence per project is
+`confirmed` (a confirmed bullet shows it), `unconfirmed` or `tag` (only the project's tags say so).
+**Ranking** scores exactly as `jsk index --rank` does. **Cover** is the smallest set of projects,
+at most `--cover` (default 3), carrying every required requirement anything carries. **Questions**
+are derived from the gaps, never invented.
+
+Exit 0 with the result - missing requirements included, since this is an assessment, not a gate;
+1 when the workspace has a FAIL; 2 called wrong, or a path that is not
+`applications/<dir>/posting.ttl`.
 
 ### `jsk validate`
 

@@ -14,6 +14,7 @@ will be. This exists so that nobody has to remember every name to get started.
     jsk doctor                  what works on this machine
     jsk new PATH --name NAME    scaffold user-knowledgebase.md and applications/
     jsk index KB [--rank POST]  a line-pointing overview of the knowledge base, ranked
+    jsk match POSTING.ttl       a posting against the graph record, through the vocabulary
     jsk validate RECORD.json    the record gate, before anything renders
     jsk render RECORD [...]     one record to a PDF and plain text
     jsk preview RECORD --out D  the same record in every template, to pick a look
@@ -50,6 +51,7 @@ from .cliutil import wants_help
 SIMPLE = {
     "new": ("kb.py", "scaffold an empty knowledge base"),
     "index": ("kbindex.py", "overview the knowledge base; rank it against a posting"),
+    "match": ("match.py", "a posting matched against the graph record, through the vocabulary"),
     "render": ("render_resume.py", "one record to .tex/PDF plus .txt"),
     "preview": ("preview_templates.py", "one record in every template, side by side"),
     "fit": ("fit_pages.py", "fit a render to a page budget"),
@@ -101,6 +103,7 @@ SUBPACKAGE = {
     "check_ats.py": "gates",
     "check_prose.py": "gates",
     "validate_urs.py": "gates",
+    "match.py": "graph",
 }
 
 

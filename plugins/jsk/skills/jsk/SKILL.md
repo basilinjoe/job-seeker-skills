@@ -88,12 +88,13 @@ It reads records and rendered files, never `user-knowledgebase.md`. `jsk --help`
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk new <path> --name "Name"` | an empty `user-knowledgebase.md` and `applications/` |
 | `jsk index <kb> [--rank <posting.md>]` | every section and entry with its lines; the ranking, computed |
+| `jsk match <posting.ttl>` | a posting matched through the vocabulary |
 | `jsk validate <resume.json>` | the record gate |
 | `jsk render <resume.json> --out DIR --view ID --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
 | `jsk preview <resume.json> --out DIR` | every template, with page counts |
 | `jsk check <file> [--strict] [--only parse\|prose]` | the parse and prose gates on one file |
 | `jsk gates <out-dir> [--record R] [--pages N]` | record, parse and prose gates together |
-| `jsk ship <resume.json> --out DIR --view ID [--pages N]` | validate, render and gates in one run; stops at the first failure |
+| `jsk ship <resume.json> --out DIR --view ID [--pages N]` | validate, render and gates; stops at the first failure |
 | `jsk fit <resume.tex> --target-pages 2` | fits the render to a page budget |
 | `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | refuses unless the gates pass, then writes `application.md` |
 
@@ -150,7 +151,7 @@ Every claim carries `status`: `confirmed` (they said it, or a source document do
 - **Say why**, flag every inference, and offer options with a recommendation.
 - **Tell them where they fall short.** Being flattered costs interviews.
 - **Append a dated row to `log.md`**, beside the knowledge base, at the end of every session. Record your own earlier mistakes as
-  corrections rather than editing them away.
+  corrections, never as edits.
 
 Save deliverables beside the knowledge base (Claude Code) or in the outputs folder (Cowork), and
 tell them the path.
