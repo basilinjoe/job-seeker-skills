@@ -1,6 +1,8 @@
 # A vocabulary graph, so a posting's words match the knowledge base's
 
-**Status:** design, approved 2026-09-24, revised the same day after the LadybugDB spike
+**Status:** **superseded** by `docs/superpowers/plans/2026-09-24-graph-rewrite-roadmap.md` (the record becomes
+Turtle queried through Oxigraph; LadybugDB is dropped). The model and matching rules below carry over into the
+roadmap's P2. Originally: design, approved 2026-09-24, revised the same day after the LadybugDB spike.
 **Scope:** `jsk` vocabulary matching and packaging. No change to what a resume claims.
 
 Every posting names the same thing differently: `K8s`, `Kubernetes`, `AKS`; `.NET`, `Dot Net`,

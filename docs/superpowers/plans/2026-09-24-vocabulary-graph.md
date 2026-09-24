@@ -1,5 +1,9 @@
 # Vocabulary Graph Implementation Plan
 
+> **Superseded — do not execute.** Replaced by `docs/superpowers/plans/2026-09-24-graph-rewrite-roadmap.md`:
+> the engine is Oxigraph over Turtle files, not LadybugDB over Markdown. Its scenarios and review focus carry into
+> the roadmap's P2.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Postings' words (`K8s`, `.NET`, `Azure AD`) match the knowledge base's concepts through a maintained graph of labels and counts-as edges, queried through LadybugDB.
