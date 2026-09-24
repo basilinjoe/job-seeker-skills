@@ -16,6 +16,7 @@ makes one impossible to miss. Detection, not prevention - the same is true of a 
 edit, and both are said plainly where they are reported.
 """
 import os
+import time
 from dataclasses import dataclass
 
 from . import ontology as O
@@ -23,6 +24,15 @@ from . import ontology as O
 KB = "career/kb.ttl"
 LOG = "career/log.ttl"
 SHADOW = os.path.join(".jsk", "kb.last.ttl")     # what the last logged write wrote
+REPLACE_TRIES = 6                                # a Windows lock usually clears in ms
+
+
+class RecordError(Exception):
+    """A write that could not happen. Says what was and was not changed, and the fix."""
+
+    def __init__(self, message, fix):
+        super().__init__(message)
+        self.fix = fix
 
 
 @dataclass(frozen=True)
@@ -80,3 +90,134 @@ def state(store):
     return State("out-of-sync", kb_rev, log_rev, sha,
                  f"kb.ttl is at r{kb_rev} and log.ttl ends at r{log_rev}: one of them was "
                  f"restored without the other")
+
+
+def next_revision(st):
+    return max(st.kb_revision or 0, st.log_revision or 0) + 1
+
+
+def literal(value, dtype):
+    import pyoxigraph as ox
+    return ox.Literal(str(value), datatype=ox.NamedNode(O.XSD + dtype))
+
+
+def stamp(quads, revision, today, content=True):
+    """kb.ttl's triples with its header at `revision`. `updated` is the day the last
+    change landed, so a reformat moves the revision and leaves the day alone."""
+    import pyoxigraph as ox
+
+    kb = ox.NamedNode(O.K + "kb")
+    drop = {O.J + "revision"} | ({O.J + "updated"} if content else set())
+    out = [q for q in quads if not (q.subject == kb and q.predicate.value in drop)]
+    out.append(ox.Quad(kb, ox.NamedNode(O.J + "revision"), literal(revision, "integer")))
+    if content:
+        out.append(ox.Quad(kb, ox.NamedNode(O.J + "updated"), literal(today.isoformat(), "date")))
+    return out
+
+
+def entry(revision, today, by, summary, sha, touched=(), minted=(), answer=None):
+    """One log entry, k:rev_<revision>, as quads."""
+    import pyoxigraph as ox
+
+    s = ox.NamedNode(f"{O.K}rev_{revision}")
+
+    def q(p, o):
+        return ox.Quad(s, ox.NamedNode(O.J + p), o)
+    out = [q("revision", literal(revision, "integer")), q("date", literal(today.isoformat(), "date")),
+           q("by", ox.NamedNode(O.J + by)), q("summary", ox.Literal(summary)),
+           q("kbSha256", ox.Literal(sha))]
+    out += [q("touched", ox.NamedNode(i)) for i in sorted(set(touched))]
+    out += [q("minted", ox.NamedNode(i)) for i in sorted(set(minted))]
+    if answer is not None:
+        out.append(q("answer", ox.Literal(answer)))
+    return out
+
+
+def prepare(store, kb_quads, today, by, summary, touched=(), minted=(), answer=None,
+            content=True):
+    """(revision, kb_text, log_text): what a logged write of `kb_quads` would write -
+    kb.ttl stamped with the next revision, log.ttl with an entry holding its hash."""
+    from .io import sha256
+    from .writer import write
+
+    rev = next_revision(state(store))
+    kb_text = write(stamp(kb_quads, rev, today, content), "kb")
+    log_quads = list(store.graph(LOG)) if LOG in store.parsed else []
+    log_quads += entry(rev, today, by, summary, sha256(kb_text), touched, minted, answer)
+    return rev, kb_text, write(log_quads, "log")
+
+
+def replace(src, dst, tries=REPLACE_TRIES, wait=0.05):
+    """os.replace, retried: on Windows an editor, a sync client or a virus scanner holding
+    the file makes it fail for a moment, and a moment later it succeeds."""
+    for n in range(tries):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if n == tries - 1:
+                raise RecordError(f"{os.path.basename(dst)} is locked by another program - an "
+                                  f"editor, a sync client or a virus scanner",
+                                  "close it and run the command again") from None
+            time.sleep(wait * (n + 1))
+
+
+def staged(path, text):
+    """`text` written beside `path` as path.tmp, flushed to disk: replacing is then the
+    only step left, and it is the one step the filesystem makes atomic."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    return tmp
+
+
+def commit(root, kb_text, log_text):
+    """Write kb.ttl, then log.ttl, then the shadow copy. Both files are staged before
+    either is replaced, so the window a crash can tear is two renames wide."""
+    kb, log = os.path.join(root, KB), os.path.join(root, LOG)
+    tmps = [staged(kb, kb_text), staged(log, log_text)]
+    try:
+        try:
+            replace(tmps[0], kb)
+        except RecordError as e:
+            raise RecordError(f"{e} - nothing was changed", e.fix) from None
+        try:
+            replace(tmps[1], log)
+        except RecordError as e:
+            raise RecordError(f"{e} - kb.ttl was written and log.ttl was not",
+                              "close it, then run `jsk kb adopt`: it logs the write") from None
+    finally:
+        for tmp in tmps:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+    write_shadow(root, kb_text)
+
+
+def write_shadow(root, text):
+    """A copy of what was logged, so `jsk kb adopt` can say what a later hand edit
+    changed. Kept in .jsk/, which ignores itself: it is a cache, never a second record.
+    Best effort - without it adopt still works, and says it had nothing to compare."""
+    folder = os.path.join(root, ".jsk")
+    try:
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, ".gitignore"), "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("*\n")
+        with open(os.path.join(root, SHADOW), "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+    except OSError:
+        pass
+
+
+def shadow(root, sha):
+    """The text the last logged write wrote, or None when the copy is missing or is not
+    the revision the log says it is."""
+    from .io import normalise, sha256
+
+    try:
+        with open(os.path.join(root, SHADOW), encoding="utf-8") as fh:
+            text = normalise(fh.read())
+    except (OSError, UnicodeDecodeError):
+        return None
+    return text if sha and sha256(text) == sha else None
