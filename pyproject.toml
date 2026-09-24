@@ -8,19 +8,25 @@ dynamic = ["version"]
 description = "Render verified, ATS-safe resumes from a career kept in one Markdown file"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [{ name = "Basilin Joe" }]
 keywords = [
     "resume", "cv", "ats", "career", "job-search",
     "knowledge-base", "tailoring", "urs", "latex", "pdf",
 ]
 
-# Deliberately empty. Every dependency this toolchain has is optional and imported at
-# the point of use, so a bare `pip install jsk-resume` gives a working record gate,
-# prose gate and .txt parse gate. That is what lets `jsk doctor` report on a machine
-# before anything has been installed on it - and preflight.py's founding rule is that
-# a preflight needing an install first is not a preflight.
-dependencies = []
+# One dependency, and only one. Everything else this toolchain uses is optional and
+# imported at the point of use, so a bare install still gives a working record gate,
+# prose gate and .txt parse gate, and `jsk doctor` still reports on a machine before
+# anything optional is installed - preflight.py stays standard-library only.
+#
+# pyoxigraph is the exception because the graph record (kb.ttl and the applications) is
+# the career itself, not a capability layered on top. It ships abi3 wheels for every
+# platform jsk supports and has no dependencies of its own (the P0 spike,
+# docs/superpowers/experiments/2026-09-24-p0-spike/). The pin is one minor: raising it
+# means rerunning the Windows and Linux CI jobs - the lesson LadybugDB taught, whose
+# Windows wheels were broken for five releases while Linux passed.
+dependencies = ["pyoxigraph>=0.5.11,<0.6"]
 
 [project.optional-dependencies]
 # What it buys is spelt out in `jsk doctor`, which reports a missing package as the

@@ -32,7 +32,7 @@ from .paths import EXAMPLE_RECORD as EXAMPLE, SCHEMA_DIR as SCHEMA
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-MIN_PYTHON = (3, 8)
+MIN_PYTHON = (3, 10)
 
 # The whole career, in one file. Named here because this is the only module that goes
 # looking for it - everything else in the package starts at the record written from it.
@@ -43,6 +43,10 @@ KB_FILENAME = "user-knowledgebase.md"
 # module can be present and unimportable - a syntax error, a missing dependency of
 # its own, a half-finished editable checkout - and find_spec is what notices.
 MODULES = ["cli", "cliutil", "kb", "kbindex", "paths"]
+# The graph record (docs/superpowers/specs/2026-09-24-graph-core-design.md). None of
+# these imports pyoxigraph at module top, so find_spec answers "is the code here" even on
+# a machine without the engine - the engine is its own check below.
+GRAPH_MODULES = ["graph", "graph.ontology"]
 GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.validate_urs"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken urs package takes all
@@ -67,6 +71,10 @@ INSTALL = {
     "pymupdf": {"pip": "pymupdf",
                 "note": "Reads the PDF: check_ats.py extracts its text and "
                         "fit_pages.py measures its pages."},
+    "pyoxigraph": {"pip": "pyoxigraph",
+                   "note": "The graph engine: reads, validates and queries kb.ttl and the "
+                           "applications. A dependency of jsk-resume, so a missing one "
+                           "means the install skipped dependencies."},
     "index": {"pip": "markdown-it-py pyyaml",
               "note": "Reads the knowledge base for jsk index: its headings and its "
                       "yaml blocks."},
@@ -169,6 +177,12 @@ def gather(kb_arg=None):
         disables=f"missing: {', '.join(missing_mod)}" if missing_mod
                  else "", detail=os.path.join(HERE, "urs")))
 
+    missing_graph = present(GRAPH_MODULES)
+    checks.append(Check(
+        "graph record package", not missing_graph,
+        disables=f"missing: {', '.join(missing_graph)}" if missing_graph
+                 else "", detail=os.path.join(HERE, "graph")))
+
     missing_gates = present(GATE_MODULES)
     checks.append(Check(
         "gates package", not missing_gates,
@@ -202,6 +216,14 @@ def gather(kb_arg=None):
                  "and fit_pages.py cannot measure its pages, so the parse gate "
                  "and the page budget are both unverifiable"))
 
+    # Not REQUIRED while nothing on the render path reads the graph: a machine without
+    # it still renders and gates a resume from a hand-written record. find_spec, not an
+    # import - this module stays standard-library only.
+    checks.append(Check(
+        "pyoxigraph", importlib.util.find_spec("pyoxigraph") is not None, key="pyoxigraph",
+        disables="cannot read or validate the graph record (kb.ttl) - matching and "
+                 "career writes are unavailable"))
+
     # Optional: a machine without them still renders and gates a resume. What it
     # loses is the index, so the tailor-analyst stops and asks for the install.
     checks.append(Check(
@@ -227,7 +249,7 @@ def gather(kb_arg=None):
 # nicety. Now the PDF is the only rendered deliverable, so a machine without
 # them cannot produce a resume at all - reporting that as a degraded install
 # would be telling someone their toolchain works when it does not.
-REQUIRED = {"Python", "modules", "urs renderer package", "gates package",
+REQUIRED = {"Python", "modules", "urs renderer package", "gates package", "graph record package",
             "URS schema", "TeX engine", "pymupdf"}
 
 

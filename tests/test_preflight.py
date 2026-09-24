@@ -249,5 +249,29 @@ class SetupIsWiredUp(unittest.TestCase):
         self.assertEqual(unknown, [], f"setup.md names unknown subcommands: {unknown}")
 
 
+class TheGraphRecord(unittest.TestCase):
+    """P1 of the graph rewrite: a package of its own, and the engine it runs on."""
+
+    def test_the_graph_package_is_required_like_the_other_packages(self):
+        checks, _ = preflight.gather()
+        graph = next(c for c in checks if c.name == "graph record package")
+        self.assertTrue(preflight.is_required(graph))
+        self.assertTrue(graph.ok, graph.disables)
+
+    def test_the_engine_is_a_capability_not_a_blocker(self):
+        """Nothing on the render path reads the graph yet, so a machine without the
+        engine still renders a resume - it loses the graph record, and says so."""
+        checks, _ = preflight.gather()
+        engine = next(c for c in checks if c.name == "pyoxigraph")
+        self.assertFalse(preflight.is_required(engine))
+        self.assertIn("kb.ttl", engine.disables)
+        line, note = preflight.hint("pyoxigraph")
+        self.assertIn("-m pip install pyoxigraph", line)
+        self.assertTrue(note)
+
+    def test_the_floor_is_python_3_10(self):
+        self.assertEqual(preflight.MIN_PYTHON, (3, 10))
+
+
 if __name__ == "__main__":
     unittest.main()

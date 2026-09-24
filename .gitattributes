@@ -2,3 +2,9 @@
 # rewrite every LF to CRLF, changing the bytes of the shipped region profiles and of
 # any resume archived as JSON - files whose whole value is that they do not move.
 *.json text eol=lf
+
+# The graph record is compared byte for byte - the writer is canonical, and the tests
+# check that the fixtures rewrite to themselves. A CRLF checkout would fail those tests
+# on Windows only, and would hand a person a file the writer then rewrites in full.
+*.ttl text eol=lf
+*.trig text eol=lf
