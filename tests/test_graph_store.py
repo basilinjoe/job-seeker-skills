@@ -10,6 +10,8 @@ import unittest
 from pathlib import Path
 
 from jsk.graph import ontology as O
+from test_graph_shapes import load
+
 from jsk.graph import store
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"
@@ -27,7 +29,7 @@ def paths(s, hops=None):
 class Loading(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.s = store.load(FIXTURES)
+        cls.s = load(FIXTURES)
 
     def test_every_file_is_its_own_graph(self):
         self.assertEqual(sorted(self.s.parsed), [
@@ -102,7 +104,7 @@ class Discovery(unittest.TestCase):
             shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
             apps = Path(tmp) / "applications"
             (apps / "acme-platform-engineer").rename(apps / "Acme Platform é")
-            s = store.load(tmp)
+            s = load(tmp)
             self.assertEqual([f.text() for f in s.findings], [])
             self.assertEqual(s.file_of(O.K + "app_acme_platform_engineer"),
                              "applications/Acme Platform é/application.ttl")
@@ -111,7 +113,7 @@ class Discovery(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "jobs [2026]"
             shutil.copytree(FIXTURES, root)
-            s = store.load(root)
+            s = load(root)
             self.assertIn("applications/acme-platform-engineer/posting.ttl", s.parsed)
             self.assertEqual([f.text() for f in s.findings], [])
 
@@ -127,7 +129,7 @@ class Discovery(unittest.TestCase):
         """As parsed, not read back out of Oxigraph, which stores numbers by value:
         "8.40" would come back as 8.4 and the rewrite would change the person's file."""
         from jsk.graph import writer
-        s = store.load(FIXTURES)
+        s = load(FIXTURES)
         text = (FIXTURES / "career" / "kb.ttl").read_bytes().decode("utf-8")
         self.assertEqual(writer.write(s.graph("career/kb.ttl"), "kb"), text)
 
@@ -135,7 +137,7 @@ class Discovery(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
             (Path(tmp) / "career" / "notes.ttl").write_text("not turtle at all", encoding="utf-8")
-            self.assertEqual(store.load(tmp).findings, [])
+            self.assertEqual(load(tmp).findings, [])
 
 
 if __name__ == "__main__":

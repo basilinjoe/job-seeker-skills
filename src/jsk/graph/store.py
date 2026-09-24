@@ -37,6 +37,7 @@ class Store:
     parsed: dict = field(default_factory=dict)      # file -> Parsed
     homes: dict = field(default_factory=dict)       # subject iri -> first file defining it
     definitions: dict = field(default_factory=dict)  # subject iri -> every file, load order
+    unmatched: list = field(default_factory=list)   # kb.ttl narrowing quads that removed nothing
     ox: object = None
 
     def select(self, sparql):
@@ -88,6 +89,12 @@ def file_name(path, root):
     return os.path.basename(path) if name.startswith("../") else name
 
 
+def graph_iri(name):
+    """The named graph a file's triples live in. Percent-encoded: a hand-made folder can
+    hold a space, and an IRI cannot."""
+    return "file:" + quote(name, safe="/-._~")
+
+
 def load(root, vocabulary=SHIPPED_VOCABULARY, files=None):
     """Load, derive, validate and close over a workspace. `files` overrides discovery."""
     import pyoxigraph as ox
@@ -110,18 +117,52 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None):
             raise GraphError(f"{name}: {e.strerror}", "check the path", name) from None
         parsed.file = name
         store.parsed[name] = parsed
-        # Percent-encoded: a hand-made folder can hold a space, and an IRI cannot.
-        graph = ox.NamedNode("file:" + quote(name, safe="/-._~"))
+        graph = ox.NamedNode(graph_iri(name))
         store.ox.extend(ox.Quad(q.subject, q.predicate, q.object, graph) for q in parsed.quads)
         store.findings += tier1(parsed)
         for iri in dict.fromkeys(q.subject.value for q in parsed.quads
                                  if isinstance(q.subject, ox.NamedNode)):
             store.homes.setdefault(iri, name)
             store.definitions.setdefault(iri, []).append(name)
+    narrow(store)
     derive_types(store, derived)
     store.findings += tier2(store)
     materialise_paths(store)
     return store
+
+
+# kb.ttl predicate -> the shipped predicates it removes
+NARROWS = {"unlabel": ("label", "former"), "unlink": ("isA", "partOf")}
+
+
+def narrow(store):
+    """kb.ttl's `unlabel` and `unlink`, applied to the shipped vocabulary - in memory only.
+
+    A shipped entry can be wrong for one person's field ("Go" is never the language in
+    theirs). The shipped file is not theirs to edit, and a copy of it would stop tracking
+    releases, so the removal is a statement in kb.ttl that the loader honours. One that
+    removes nothing is kept in `store.unmatched` for the narrows-nothing rule: a typo
+    there would otherwise change nothing, silently.
+    """
+    import pyoxigraph as ox
+
+    vocab = [ox.NamedNode(graph_iri(f)) for f, p in store.parsed.items() if p.kind == "vocabulary"]
+    for p in store.parsed.values():
+        if p.kind != "kb":
+            continue
+        for q in p.quads:
+            name = q.predicate.value[len(O.J):] if q.predicate.value.startswith(O.J) else None
+            if name not in NARROWS:
+                continue
+            removed = False
+            for g in vocab:
+                for target in NARROWS[name]:
+                    quad = ox.Quad(q.subject, ox.NamedNode(O.J + target), q.object, g)
+                    if quad in store.ox:
+                        store.ox.remove(quad)
+                        removed = True
+            if not removed:
+                store.unmatched.append(q)
 
 
 def derive_types(store, derived):

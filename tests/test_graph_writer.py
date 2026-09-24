@@ -26,7 +26,7 @@ def triples(parsed):
 
 class FixturesAreCanonical(unittest.TestCase):
     def test_every_fixture_rewrites_to_itself(self):
-        self.assertEqual(len(FILES), 4)
+        self.assertEqual(len(FILES), 5)
         for path in FILES:
             with self.subTest(file=path.name):
                 text = path.read_bytes().decode("utf-8")

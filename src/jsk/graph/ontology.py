@@ -184,6 +184,8 @@ CLASSES = (
          Pred("partOf", Concept(), "*", "counts as the whole it is part of"),
          Pred("implies", Concept(), "*", "suggests this; never satisfies a required one")),
         (Pred("distinct", Concept(), "*", "never the same thing, whatever the names say"),),
+        (Pred("unlabel", STR, "*", "a shipped label or former label this person drops"),),
+        (Pred("unlink", Concept(), "*", "a shipped isA or partOf edge to that concept this person drops"),),
     ), "a matching term: capability, domain or technology"),
     Class("Organisation", "org", ("kb",), "Organisations", (
         (Pred("name", STR, "1", "the organisation's name", claim=True),),

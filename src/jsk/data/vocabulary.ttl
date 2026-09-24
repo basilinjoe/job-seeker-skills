@@ -5,13 +5,93 @@
 
 # == Vocabulary
 
-c:azure a j:Technology ; j:label "Azure", "Microsoft Azure" .
+c:airflow a j:Technology ; j:label "Airflow", "Apache Airflow" .
+
+c:aks a j:Technology ;
+    j:label "AKS", "Azure Kubernetes Service" ;
+    j:isA c:kubernetes ; j:partOf c:azure .
+
+c:angular a j:Technology ; j:label "Angular" ; j:distinct c:angularjs .
+c:angularjs a j:Technology ; j:label "Angular.js", "AngularJS" .
+c:ansible a j:Technology ; j:label "Ansible" .
+c:apache-spark a j:Technology ; j:label "Apache Spark", "Spark" .
+c:aspnet-core a j:Technology ; j:label "ASP.NET Core" ; j:partOf c:dotnet .
+c:aws a j:Technology ; j:label "AWS", "Amazon Web Services" .
+c:aws-lambda a j:Technology ; j:label "AWS Lambda", "Lambda" ; j:partOf c:aws .
+c:azure a j:Technology ; j:label "Azure", "MS Azure", "Microsoft Azure" .
 c:azure-ai-foundry a j:Technology ; j:label "Azure AI Foundry" ; j:partOf c:azure .
-c:bicep a j:Technology ; j:label "Bicep" ; j:partOf c:azure .
+c:azure-devops a j:Technology ; j:label "ADO", "Azure DevOps" ; j:former "VSTS" .
+c:azure-functions a j:Technology ; j:label "Azure Functions" ; j:partOf c:azure .
+
+c:azure-sql a j:Technology ;
+    j:label "Azure SQL", "Azure SQL Database" ;
+    j:isA c:sql-server ; j:partOf c:azure .
+
+c:bicep a j:Technology ; j:label "Azure Bicep", "Bicep" ; j:partOf c:azure .
+c:cloudformation a j:Technology ; j:label "AWS CloudFormation", "CloudFormation" ; j:partOf c:aws .
+c:cosmos-db a j:Technology ; j:label "Azure Cosmos DB", "Cosmos DB", "CosmosDB" ; j:partOf c:azure .
+c:csharp a j:Technology ; j:label "C Sharp", "C#" ; j:partOf c:dotnet .
+c:databricks a j:Technology ; j:label "Azure Databricks", "Databricks" .
+c:django a j:Technology ; j:label "Django" ; j:partOf c:python .
 c:docker a j:Technology ; j:label "Docker" .
-c:dotnet a j:Technology ; j:label ".NET", "dot net", "dotnet" .
+
+c:dotnet a j:Technology ;
+    j:label ".NET", ".NET Core", "Dot Net", "DotNet" ;
+    j:distinct c:dotnet-framework .
+
+c:dotnet-framework a j:Technology ; j:label ".NET Framework", "Dot Net Framework" .
+
+c:eks a j:Technology ;
+    j:label "Amazon EKS", "Amazon Elastic Kubernetes Service", "EKS" ;
+    j:isA c:kubernetes ; j:partOf c:aws .
+
+c:entity-framework a j:Technology ;
+    j:label "EF Core", "Entity Framework", "Entity Framework Core" ;
+    j:partOf c:dotnet .
+
+c:entra-id a j:Technology ;
+    j:label "Entra ID", "Microsoft Entra ID" ;
+    j:former "Azure AD", "Azure Active Directory" ;
+    j:partOf c:azure .
+
+c:fastapi a j:Technology ; j:label "FastAPI" ; j:partOf c:python .
+c:fsharp a j:Technology ; j:label "F Sharp", "F#" ; j:partOf c:dotnet .
+c:gcp a j:Technology ; j:label "GCP", "Google Cloud", "Google Cloud Platform" .
+c:github-actions a j:Technology ; j:label "GitHub Actions" .
+c:gitlab-ci a j:Technology ; j:label "GitLab CI", "GitLab CI/CD" .
+
+c:gke a j:Technology ;
+    j:label "GKE", "Google Kubernetes Engine" ;
+    j:isA c:kubernetes ; j:partOf c:gcp .
+
+c:golang a j:Technology ; j:label "Go", "Golang" .
+c:graphql a j:Technology ; j:label "GraphQL" .
+c:helm a j:Technology ; j:label "Helm" ; j:partOf c:kubernetes .
+c:java a j:Technology ; j:label "Java" ; j:distinct c:javascript .
+c:javascript a j:Technology ; j:label "ECMAScript", "JS", "JavaScript" .
+c:jenkins a j:Technology ; j:label "Jenkins" .
 c:kafka a j:Technology ; j:label "Apache Kafka", "Kafka" .
-c:kubernetes a j:Technology ; j:label "Kubernetes", "k8s" .
-c:python a j:Technology ; j:label "Python" .
-c:sql-server a j:Technology ; j:label "MSSQL", "SQL Server" .
-c:terraform a j:Technology ; j:label "Terraform" .
+c:kotlin a j:Technology ; j:label "Kotlin" .
+c:kubernetes a j:Technology ; j:label "K8s", "Kubernetes" .
+c:linq a j:Technology ; j:label "LINQ" ; j:partOf c:csharp .
+c:mongodb a j:Technology ; j:label "Mongo", "MongoDB" .
+c:mysql a j:Technology ; j:label "MySQL" .
+c:nextjs a j:Technology ; j:label "Next.js", "NextJS" ; j:partOf c:react .
+c:nodejs a j:Technology ; j:label "Node", "Node.js", "NodeJS" .
+c:openshift a j:Technology ; j:label "OpenShift", "Red Hat OpenShift" ; j:isA c:kubernetes .
+c:postgresql a j:Technology ; j:label "PostgreSQL", "Postgres" .
+c:pyspark a j:Technology ; j:label "PySpark" ; j:partOf c:apache-spark .
+c:python a j:Technology ; j:label "Python", "Python 3" .
+c:pytorch a j:Technology ; j:label "PyTorch" .
+c:rabbitmq a j:Technology ; j:label "RabbitMQ" .
+c:react a j:Technology ; j:label "React", "React.js", "ReactJS" .
+c:redis a j:Technology ; j:label "Redis" .
+c:rust a j:Technology ; j:label "Rust" .
+c:scikit-learn a j:Technology ; j:label "scikit-learn", "sklearn" .
+c:snowflake a j:Technology ; j:label "Snowflake" .
+c:spring-boot a j:Technology ; j:label "Spring Boot" ; j:partOf c:java .
+c:sql-server a j:Technology ; j:label "MS SQL", "MSSQL", "Microsoft SQL Server", "SQL Server" .
+c:tensorflow a j:Technology ; j:label "TensorFlow" .
+c:terraform a j:Technology ; j:label "HashiCorp Terraform", "Terraform" .
+c:typescript a j:Technology ; j:label "TS", "TypeScript" .
+c:vue a j:Technology ; j:label "Vue", "Vue.js", "VueJS" .

@@ -14,6 +14,13 @@ from pathlib import Path
 from jsk.graph import shapes, store
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"
+
+
+def load(root):
+    """A workspace loaded against its own vocabulary.ttl, not the shipped one: the fixtures'
+    hand-worked answers must not move when the shipped vocabulary grows."""
+    return store.load(root, vocabulary=Path(root) / "vocabulary.ttl")
+
 KB = "career/kb.ttl"
 POSTING = "applications/acme-platform-engineer/posting.ttl"
 APPLICATION = "applications/acme-platform-engineer/application.ttl"
@@ -39,6 +46,9 @@ MUTATIONS = {
                        "k:prj_intranet_refresh", "add j:reason"),
     "comment": (KB, "# == Metrics", "# remember to ask about this\n# == Metrics", "",
                 "j:note"),
+    "shipped-vocabulary": ("vocabulary.ttl", 'c:docker a j:Technology ; j:label "Docker" .',
+                           'c:docker a j:Capability ; j:label "Docker" .', "c:docker",
+                           "move it into a person's kb.ttl"),
 }
 
 
@@ -58,7 +68,7 @@ def mutated(mutation):
         text = text.replace(old, new)
     path.write_text(text, encoding="utf-8", newline="\n")
     try:
-        return store.load(tmp), text
+        return load(tmp), text
     finally:
         shutil.rmtree(tmp)
 
@@ -83,7 +93,7 @@ def assert_fires(case, rule, mutation):
 
 class TheFixtureIsClean(unittest.TestCase):
     def test_no_findings(self):
-        s = store.load(FIXTURES)
+        s = load(FIXTURES)
         self.assertEqual([f.text() for f in s.findings], [])
 
 

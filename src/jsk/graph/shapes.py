@@ -16,7 +16,7 @@ FAIL, WARN = "FAIL", "WARN"
 # The tier-1 rule ids, and "syntax" for a file that does not parse. tests/test_graph_shapes.py
 # holds a mutation for every id here and in RULES; a rule with none fails the suite.
 TIER1 = ("syntax", "id-form", "id-home", "closed", "cardinality", "object", "no-blank-nodes",
-         "no-derived", "retired-reason", "comment")
+         "no-derived", "retired-reason", "comment", "shipped-vocabulary")
 XSD_TYPES = {O.XSD + t: t for t in ("string", "integer", "decimal", "boolean", "date")}
 
 
@@ -124,10 +124,30 @@ def tier1(parsed):
                 if t.value not in {O.J + c for c in O.ENUMS["conceptClass"]}:
                     add("object", FAIL, s, f"a concept is a Capability, Domain or Technology, "
                         f"not {curie(t.value)}", "a j:Capability, j:Domain or j:Technology")
+            if parsed.kind == "vocabulary":
+                shipped_vocabulary(add, s, preds)
         if O.J + "retired" in preds and O.J + "reason" not in preds:
             add("retired-reason", FAIL, s, "retired without a reason",
                 "add j:reason: why it no longer belongs on a resume")
     return out
+
+
+def shipped_vocabulary(add, s, preds):
+    """What the shipped vocabulary may hold: technologies and the edges among them.
+
+    Technology aliases are close to fact - K8s is Kubernetes. A capability edge is
+    judgement, and a judgement shipped to every user is how a graph starts overclaiming,
+    so capabilities, domains and `implies` live only in a person's own kb.ttl. Narrowing
+    is the person's too: a shipped file that unlabels itself is a file to fix.
+    """
+    for t in preds.get(O.RDF_TYPE, []):
+        if t.value != O.J + "Technology":
+            add("shipped-vocabulary", FAIL, s, f"the shipped vocabulary is technologies only, "
+                f"not {curie(t.value)}", "move it into a person's kb.ttl")
+    for name in ("implies", "unlabel", "unlink"):
+        if O.J + name in preds:
+            add("shipped-vocabulary", FAIL, s, f"j:{name} does not belong in the shipped vocabulary",
+                "implies is a person's claim, and narrowing is a person's choice: kb.ttl")
 
 
 HEAD_FIX = {
