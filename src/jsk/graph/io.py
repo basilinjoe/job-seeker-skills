@@ -3,6 +3,7 @@
 pyoxigraph is imported inside the functions that need it, never at module top, so a
 command that never reads the graph never pays for it (11-12 ms, measured in P0).
 """
+import hashlib
 import re
 from dataclasses import dataclass
 
@@ -31,6 +32,8 @@ class Parsed:
     quads: list        # pyoxigraph Quads, all in the default graph
     lines: dict        # subject iri -> the first line it starts, 1-based
     comments: list     # (line, text): hand comments a rewrite would drop
+    sha256: str = ""   # of the normalised text: what log.ttl records for kb.ttl
+    text: str = ""     # the normalised text, for the canonical check and the diff
 
 
 def normalise(text):
@@ -55,7 +58,11 @@ def parse_text(text, file, kind=None):
         raise GraphError(f"{file}:{e.lineno}:{e.offset}: {e.msg}",
                          "fix the syntax there; the rest of the file was not read",
                          file, e.lineno, e.offset) from None
-    return Parsed(file, kind, quads, subject_lines(text), comments(text))
+    return Parsed(file, kind, quads, subject_lines(text), comments(text), sha256(text), text)
+
+
+def sha256(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def parse(path, root=None):

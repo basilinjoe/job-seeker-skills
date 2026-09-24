@@ -9,6 +9,8 @@ from test_graph_shapes import APPLICATION, KB, POSTING, assert_fires, mutated
 
 from jsk.graph import rules
 
+LOG = "career/log.ttl"
+
 # rule: (file, old text, new text, focus id, the fix contains). old=None appends new.
 MUTATIONS = {
     "dangling": (KB, "j:cites k:met_team ;", "j:cites k:met_teem ;",
@@ -73,10 +75,15 @@ MUTATIONS = {
     "necessity-wording": (POSTING, 'j:asked "event-driven" ; j:necessity j:preferred ;',
                           'j:asked "event-driven" ; j:necessity j:required ;',
                           "k:req_acme_platform_engineer_eda", "check the necessity"),
+    "log-sync": (KB, "j:revision 2 .", "j:revision 5 .", "k:kb", "restore the file"),
+    "hand-edited": (KB, 'j:size "1001-5000"', 'j:size "1001-10000"', "k:kb", "jsk kb adopt"),
+    "answer-placeholder": (LOG, 'j:answer "Six throughout; two joined in the second month '
+                                'and two left."', 'j:answer "yes"', "k:rev_2", "in their words"),
 }
 
 WARNS = {"version-gap", "headline-cited", "label-clash", "inferred-unasked",
-         "retired-referenced", "event-before-submit", "necessity-wording"}
+         "retired-referenced", "event-before-submit", "necessity-wording", "hand-edited",
+         "answer-placeholder"}
 
 
 class EveryRuleFires(unittest.TestCase):
@@ -149,6 +156,27 @@ class Findings(unittest.TestCase):
         s, _ = mutated((POSTING, 'j:quote "Event-driven systems a plus"', 'j:quote "  "', "", ""))
         self.assertTrue([f for f in s.findings if f.rule == "quote-verbatim"
                          and f.focus == "k:req_acme_platform_engineer_eda"])
+
+    def test_a_write_that_reached_only_kb_ttl_is_named_torn(self):
+        s, _ = mutated((KB, "j:revision 2 .", "j:revision 3 .", "", ""))
+        [f] = [f for f in s.findings if f.rule == "log-sync"]
+        self.assertIn("reached kb.ttl and not log.ttl", f.detail)
+        self.assertIn("jsk kb adopt", f.fix)
+        self.assertEqual([f for f in s.findings if f.rule == "hand-edited"], [])
+
+    def test_a_revision_with_no_log_entry_is_out_of_step(self):
+        s, _ = mutated((LOG, "k:rev_2 ", "k:rev_9 ", "", ""))
+        s2, _ = mutated((LOG, "j:revision 2 ;", "j:revision 4 ;", "", ""))
+        # rev_9 still says revision 2: the entry is found by its revision, not its id.
+        self.assertEqual([f.rule for f in s.findings if f.rule == "log-sync"], [])
+        self.assertIn("one of them was restored",
+                      [f for f in s2.findings if f.rule == "log-sync"][0].detail)
+
+    def test_a_confirm_with_no_answer_is_flagged(self):
+        s, _ = mutated((LOG, '    j:answer "Six throughout; two joined in the second month and '
+                             'two left." ;\n', "", "", ""))
+        [f] = [f for f in s.findings if f.rule == "answer-placeholder"]
+        self.assertEqual((f.focus, f.detail), ("k:rev_2", "a confirm with no answer"))
 
     def test_the_log_may_name_ids_that_no_longer_exist(self):
         s, _ = mutated(("career/log.ttl", "j:touched k:met_team.v1,", "j:touched k:met_gone.v1,",

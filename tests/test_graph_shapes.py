@@ -143,7 +143,8 @@ class Findings(unittest.TestCase):
     def test_a_line_copied_twice_is_one_fact_not_two(self):
         line = 'k:met_team j:subject "engineers led" ; j:unit "engineers" .'
         s, _ = mutated((KB, line, line + "\n" + line, "", ""))
-        self.assertEqual([f.text() for f in s.findings], [])
+        # The copy is a hand edit, and reported as one; it is not a second fact.
+        self.assertEqual([f.text() for f in s.findings if f.rule != "hand-edited"], [])
 
     def test_an_impossible_date_is_refused(self):
         s, _ = mutated((KB, 'j:answered "2026-08-14"', 'j:answered "2026-02-30"', "", ""))

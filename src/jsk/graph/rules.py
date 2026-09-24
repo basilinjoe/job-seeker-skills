@@ -167,6 +167,35 @@ def worded_otherwise(rows, store):
     return out
 
 
+def out_of_step(kinds):
+    """Rows for the record state kinds a rule reports, at k:kb in kb.ttl."""
+    def post(rows, store):
+        from .record import state
+        st = state(store)
+        return [{"focus": node(O.K + "kb"), "state": st}] if st.kind in kinds else []
+    return post
+
+
+def log_sync_fix(row, store):
+    if row["state"].kind == "torn":
+        return "run `jsk kb adopt`: it logs the write and lists what the write raised"
+    return "restore the file that went back on its own, or run `jsk kb adopt` to log kb.ttl as it is"
+
+
+# What an answer is not: a word that agrees without saying what was agreed to.
+PLACEHOLDER = re.compile(r"\s*(|y|yes|ok|okay|sure|fine|right|correct|true|done|confirm(ed)?|"
+                         r"n/?a|none|tbd|todo|\?+|\.+|-+|<[^>]*>)\s*[.!]?\s*", re.I)
+
+
+def placeholder_answers(rows, store):
+    out = []
+    for r in rows:
+        answer = v(r, "a")
+        if answer is None or PLACEHOLDER.fullmatch(answer):
+            out.append({**r, "said": answer})
+    return out
+
+
 def concept_class_rules():
     """One rule per predicate that restricts the class of the concept it points at."""
     rules, seen = [], set()
@@ -314,6 +343,18 @@ RULES = [
          """SELECT ?focus ?q ?n WHERE { ?focus a j:Requirement ; j:quote ?q ; j:necessity ?n }""",
          lambda r: f"the advert says {r['said']!r} but it is j:{r['need']}",
          "check the necessity against the advert's wording", worded_otherwise),
+    Rule("log-sync", FAIL, None,
+         lambda r: r["state"].detail, log_sync_fix, out_of_step(("torn", "out-of-sync"))),
+    Rule("hand-edited", WARN, None,
+         lambda r: r["state"].detail + " - legal, and not yet logged",
+         "run `jsk kb adopt`: it logs the edit and lists every provenance it raised",
+         out_of_step(("hand-edited",))),
+    Rule("answer-placeholder", WARN,
+         """SELECT ?focus ?a WHERE { ?focus j:by j:confirm OPTIONAL { ?focus j:answer ?a } }""",
+         lambda r: ("a confirm with no answer" if r["said"] is None
+                    else f"a confirm whose answer is {r['said']!r}"),
+         "the answer is the audit trail: record what the person said, in their words",
+         placeholder_answers),
 ] + concept_class_rules()
 
 

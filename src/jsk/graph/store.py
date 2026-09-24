@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from urllib.parse import quote
 
 from . import ontology as O
-from .io import GraphError, parse
+from .io import GraphError, parse, parse_text
 
 SHIPPED_VOCABULARY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                   "data", "vocabulary.ttl")
@@ -95,8 +95,10 @@ def graph_iri(name):
     return "file:" + quote(name, safe="/-._~")
 
 
-def load(root, vocabulary=SHIPPED_VOCABULARY, files=None):
-    """Load, derive, validate and close over a workspace. `files` overrides discovery."""
+def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None):
+    """Load, derive, validate and close over a workspace. `files` overrides discovery;
+    `texts` ({file name: text}) stands in for what is on disk - how `jsk kb apply`
+    validates the record it is about to write before writing it."""
     import pyoxigraph as ox
 
     from .rules import tier2
@@ -104,11 +106,14 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None):
 
     store = Store(os.path.abspath(root), ox=ox.Store())
     paths = files if files is not None else workspace_files(root, vocabulary)
+    texts = texts or {}
+    names = {file_name(p, store.root) for p in paths}
+    paths = list(paths) + [os.path.join(store.root, n) for n in sorted(texts) if n not in names]
     derived = ox.NamedNode(O.DERIVED)
     for path in paths:
         name = file_name(path, store.root)
         try:
-            parsed = parse(path)
+            parsed = parse_text(texts[name], name) if name in texts else parse(path)
         except GraphError as e:
             store.findings.append(Finding("syntax", "FAIL", name, e.line or 0, "",
                                           str(e).split(": ", 1)[-1], e.fix))

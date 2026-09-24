@@ -145,7 +145,8 @@ CLASSES = (
     Class("KB", "=kb", ("kb",), None, (
         (Pred("format", Lit(("integer",), lo=FORMAT, hi=FORMAT), "1", "the format revision"),
          Pred("name", STR, "1", "whose career this is"),
-         Pred("updated", DATE, "1", "the day the last change landed")),
+         Pred("updated", DATE, "1", "the day the last change landed"),
+         Pred("revision", Lit(("integer",), lo=1), "?", "the log revision it was written at")),
     ), "the file's header"),
     Class("Person", "=person", ("kb",), "Identity", (
         (Pred("fullName", STR, "1", "the name as it heads a resume", claim=True),

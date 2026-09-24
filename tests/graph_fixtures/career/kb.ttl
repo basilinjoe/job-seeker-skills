@@ -3,7 +3,7 @@
 @prefix c: <tag:jsk,2026:concept/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-k:kb j:format 3 ; j:name "Priya Raman" ; j:updated "2026-09-20"^^xsd:date .
+k:kb j:format 3 ; j:name "Priya Raman" ; j:updated "2026-09-20"^^xsd:date ; j:revision 2 .
 
 # == Identity
 
