@@ -61,10 +61,22 @@ MUTATIONS = {
                             "events follow"),
     "concept-class": (KB, "j:industry c:healthcare", "j:industry c:kafka", "k:org_meridian",
                       "of that class"),
+    "narrows-nothing": (KB, "c:kafka j:isA c:event-driven-architecture .",
+                        'c:kafka j:isA c:event-driven-architecture ; j:unlabel "Kafak" .',
+                        "c:kafka", "check the spelling"),
+    "concept-reclassed": (KB, "c:kafka j:isA c:event-driven-architecture .",
+                          "c:kafka a j:Capability ; j:isA c:event-driven-architecture .",
+                          "c:kafka", "keeps its class"),
+    "quote-verbatim": (POSTING, 'j:quote "Deep, hands-on K8s experience in production"',
+                       'j:quote "Ten years of K8s experience in production"',
+                       "k:req_acme_platform_engineer_kubernetes", "the advert's own words"),
+    "necessity-wording": (POSTING, 'j:asked "event-driven" ; j:necessity j:preferred ;',
+                          'j:asked "event-driven" ; j:necessity j:required ;',
+                          "k:req_acme_platform_engineer_eda", "check the necessity"),
 }
 
 WARNS = {"version-gap", "headline-cited", "label-clash", "inferred-unasked",
-         "retired-referenced", "event-before-submit"}
+         "retired-referenced", "event-before-submit", "necessity-wording"}
 
 
 class EveryRuleFires(unittest.TestCase):
@@ -109,6 +121,19 @@ class Findings(unittest.TestCase):
                         'j:reason "Superseded by the measured figure." ; '
                         'j:provenance j:confirmed .\n', "", ""))
         self.assertEqual([f.text() for f in s.findings if f.rule == "rank-unique"], [])
+
+    def test_a_domain_shared_by_two_classes_is_one_rule(self):
+        # Project.domain and Posting.domain restrict the same predicate the same way; two
+        # rules reported every such fault twice.
+        assert_fires(self, "concept-class", (
+            KB, "j:domain c:aged-care, c:healthcare", "j:domain c:aged-care, c:kafka",
+            "k:prj_clinical_events", "of that class"))
+
+    def test_a_quote_wrapped_across_lines_of_a_crlf_advert_is_still_verbatim(self):
+        s, _ = mutated(("applications/acme-platform-engineer/posting.md",
+                        "Deep, hands-on K8s experience in production.",
+                        "Deep, hands-on K8s\r\n   experience in production.", "", ""))
+        self.assertEqual([f.text() for f in s.findings if f.rule == "quote-verbatim"], [])
 
     def test_the_log_may_name_ids_that_no_longer_exist(self):
         s, _ = mutated(("career/log.ttl", "j:touched k:met_team.v1,", "j:touched k:met_gone.v1,",

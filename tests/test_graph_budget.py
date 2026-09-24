@@ -35,6 +35,7 @@ def big_workspace(root, projects=300, applications=100):
     for a in range(applications):
         d = root / "applications" / f"a{a}"
         d.mkdir(parents=True)
+        (d / "posting.md").write_text("We use Kafka.", encoding="utf-8")
         (d / "posting.ttl").write_text(
             pfx + f'k:post_a{a} j:company "C" ; j:title "T" ; j:captured "2026-09-01"^^xsd:date ;'
             f' j:advert "posting.md" .\n'

@@ -5,11 +5,13 @@ postings. Each rule is one row - id, severity, a SELECT naming ?focus, and a fix
 adding one is adding a row, and tests/test_graph_rules.py proves each one fires.
 """
 import difflib
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 
 from . import ontology as O
 from .shapes import FAIL, WARN, Finding, curie
+from .store import graph_iri
 
 PREFIX = (f"PREFIX j: <{O.J}>\nPREFIX k: <{O.K}>\nPREFIX c: <{O.C}>\n"
           f"PREFIX xsd: <{O.XSD}>\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n")
@@ -86,15 +88,85 @@ def untyped(rows, store):
             if iri.startswith(O.C) and iri not in typed]
 
 
+def unmatched_narrowing(rows, store):
+    return [{"focus": q.subject, "p": q.predicate, "o": q.object} for q in store.unmatched]
+
+
+def reclassed(rows, store):
+    """A concept whose kb.ttl class differs from its shipped class. Reported in kb.ttl."""
+    kinds = {graph_iri(f): (f, p.kind) for f, p in store.parsed.items()}
+    by = defaultdict(lambda: {"kb": set(), "vocabulary": set(), "file": None})
+    for r in rows:
+        file, kind = kinds.get(v(r, "g"), (None, None))
+        if kind in ("kb", "vocabulary"):
+            by[v(r, "focus")][kind].add(v(r, "t"))
+            if kind == "kb":
+                by[v(r, "focus")]["file"] = file
+    return [{"focus": node(c), "file": e["file"], "kb": sorted(e["kb"]),
+             "shipped": sorted(e["vocabulary"])}
+            for c, e in sorted(by.items()) if e["kb"] and e["vocabulary"]
+            and e["kb"] != e["vocabulary"]]
+
+
+def squash(text):
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def unquoted(rows, store):
+    """A requirement whose quote is not in the advert beside it, word for word."""
+    import os
+
+    from .io import normalise
+
+    out, adverts = [], {}
+    for r in rows:
+        file = store.file_of(v(r, "focus"))
+        if not file:
+            continue
+        advert = os.path.join(store.root, os.path.dirname(file), "posting.md")
+        if advert not in adverts:
+            try:
+                with open(advert, encoding="utf-8") as fh:
+                    adverts[advert] = squash(normalise(fh.read()))
+            except OSError:
+                adverts[advert] = None
+        text = adverts[advert]
+        if text is None:
+            out.append({**r, "why": "posting.md is missing beside it"})
+        elif squash(v(r, "q")) not in text:
+            out.append({**r, "why": "posting.md does not say it"})
+    return out
+
+
+OPTIONAL_WORDS = re.compile(r"\b(a plus|nice to have|bonus|desirable)\b", re.I)
+REQUIRED_WORDS = re.compile(r"\b(must|required|essential)\b", re.I)
+
+
+def worded_otherwise(rows, store):
+    out = []
+    for r in rows:
+        quote, need = v(r, "q"), v(r, "n")[len(O.J):]
+        if need == "required" and OPTIONAL_WORDS.search(quote):
+            out.append({**r, "said": OPTIONAL_WORDS.search(quote).group(0), "need": need})
+        elif need in ("preferred", "implicit") and REQUIRED_WORDS.search(quote):
+            out.append({**r, "said": REQUIRED_WORDS.search(quote).group(0), "need": need})
+    return out
+
+
 def concept_class_rules():
     """One rule per predicate that restricts the class of the concept it points at."""
-    rules = []
+    rules, seen = [], set()
     for cls in O.CLASSES:
         for p in cls.preds.values():
             if isinstance(p.obj, O.Concept) and set(p.obj.classes) != set(O.ENUMS["conceptClass"]):
+                # Project.domain and Posting.domain are one predicate with one restriction:
+                # one rule, or every such fault is reported twice.
+                if (p.name, p.obj.classes) in seen:
+                    continue
+                seen.add((p.name, p.obj.classes))
                 allowed = ", ".join(f"j:{c}" for c in p.obj.classes)
                 rules.append(Rule(
-                    f"concept-class", FAIL,
+                    "concept-class", FAIL,
                     f"""SELECT ?focus ?o ?t WHERE {{ GRAPH ?g {{ ?focus j:{p.name} ?o }}
                         ?o a ?t . FILTER(STRSTARTS(STR(?o), STR(c:)))
                         FILTER(?t NOT IN ({allowed}))
@@ -207,7 +279,33 @@ RULES = [
               FILTER(datatype(?d) = xsd:date && datatype(?s) = xsd:date && ?d < ?s) }""",
          lambda r: f"dated {v(r, 'd')}, before the application was submitted on {v(r, 's')}",
          "check the date: events follow the submission"),
+    Rule("narrows-nothing", FAIL, None,
+         lambda r: f"{curie(v(r, 'p'))} {term_text(r['o'])}: the shipped vocabulary has no such "
+                   f"{'label' if v(r, 'p').endswith('unlabel') else 'edge'} on it",
+         "check the spelling against vocabulary.ttl; a removal that removes nothing does nothing",
+         unmatched_narrowing),
+    Rule("concept-reclassed", FAIL,
+         """SELECT ?focus ?g ?t WHERE { GRAPH ?g { ?focus a ?t }
+              FILTER(?g != j:derived && STRSTARTS(STR(?focus), STR(c:))) }""",
+         lambda r: (f"kb.ttl makes it {', '.join(curie(t) for t in r['kb'])}; the shipped "
+                    f"vocabulary has it as {', '.join(curie(t) for t in r['shipped'])}"),
+         "a shipped concept keeps its class: add a capability of your own and relate them",
+         reclassed),
+    Rule("quote-verbatim", FAIL,
+         """SELECT ?focus ?q WHERE { ?focus a j:Requirement ; j:quote ?q }""",
+         lambda r: f"its quote {v(r, 'q')[:50]!r} - {r['why']}",
+         "quote the advert's own words, from posting.md; a requirement it does not state is "
+         "invented", unquoted),
+    Rule("necessity-wording", WARN,
+         """SELECT ?focus ?q ?n WHERE { ?focus a j:Requirement ; j:quote ?q ; j:necessity ?n }""",
+         lambda r: f"the advert says {r['said']!r} but it is j:{r['need']}",
+         "check the necessity against the advert's wording", worded_otherwise),
 ] + concept_class_rules()
+
+
+def term_text(t):
+    import pyoxigraph as ox
+    return curie(t.value) if isinstance(t, ox.NamedNode) else repr(t.value)
 
 
 def tier2(store):
