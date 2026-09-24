@@ -101,7 +101,7 @@ pattern, since URS keeps its own precision.
 
 | Section | Class (id) | Predicates |
 |---|---|---|
-| (header) | KB `k:kb` | format 1 (= 3), name 1, updated 1 (date) |
+| (header) | KB `k:kb` | format 1 (= 3), name 1, updated 1 (date), revision ? (the log revision it was written at; P3) |
 | Identity | Person `k:person` | **fullName** 1, givenName ?, familyName ?, **headline** ?, city ?, region ?, country ? (ISO 3166-1 alpha-2), workMode ? (onsite·hybrid·remote), email *, phone *, linkedin *, github *, website *, primary ? (a literal equal to one of the contact values) |
 | Positioning | Person `k:person` | positioning ? (prose) - the one predicate whose section differs from its class's |
 | Work authorization and languages | WorkAuthorization `auth_` | jurisdiction 1, **kind** 1 (citizen·permanent·employment-visa·residence·student·working-holiday·none), **authorization** 1 (held·expired·eligible·requires-sponsorship), validUntil ? |
@@ -130,9 +130,9 @@ live on its versions, so a bullet cites `met_x` and the current version is resol
 | | Requirement `req_<stem>_<term>` | posting 1, asked 1 (the term as written), quote 1 (the advert's words), necessity 1 (required·preferred·implicit), concept ? (-> Concept: the analyst's choice when a label is ambiguous) |
 | application.ttl | Application `app_` | posting 1, view ?, submitted 1 (date, or `false` when held back), channel ?, document *, recordSha256 ?, carried * (-> Achievement), carriedVersion * (-> MetricVersion) |
 | | Event `evt_<stem>_<date>_<kind>` | application 1, date 1 (date, or `"unknown"`), kind 1 (the pipeline vocabulary: submitted·acknowledged·screen-scheduled·screen-done·interview-scheduled·interview-done·onsite-scheduled·onsite-done·offer·offer-accepted·rejected·withdrawn·no-response·offer-declined·follow-up-sent·note·referral·recruiter-contact), channel ?, note ?, due ? (date) |
-| log.ttl | LogEntry `rev_<N>` | revision 1, date 1, by 1 (apply·confirm·adopt·migrate·fmt), summary 1, touched *, minted *, answer ? (only with `by confirm`), kbSha256 1 |
+| log.ttl | LogEntry `rev_<N>` | revision 1, date 1, by 1 (apply·confirm·adopt·migrate·fmt), summary 1, touched * (k: ids and concepts), minted *, answer ? (only with `by confirm`), kbSha256 1 |
 | vocabulary.ttl | Concept `c:` | as in kb.ttl, restricted to Technology with no `implies` (a P2 rule) |
-| changeset.trig | reserved graphs | `op:set`, `op:add`, `op:retire`, `op:delete`, and the triple `op:base op:revision "rN"`. P1 names them; P3 gives them meaning |
+| changeset.trig | reserved graphs | `op:set`, `op:add`, `op:retire`, `op:delete`, and the header `op:changeset op:base N ; op:summary "…"`. P1 names them; P3 gives them meaning (docs/superpowers/plans/2026-09-24-graph-write.md) |
 
 **Across files:** a concept in kb.ttl may extend one the shipped vocabulary defines (more labels, more
 edges) - the person's vocabulary layered over the shipped one. A `k:` subject defined in two files
@@ -247,7 +247,7 @@ Named so nothing is forgotten; each phase owns its rule.
 |---|---|---|
 | requirement `quote` appears verbatim in posting.md | reads a Markdown file, not the graph | P2 |
 | shipped vocabulary: Technology only, no `implies` | a property of the shipped data P2 writes | P2 |
-| kb.ttl changed outside `jsk kb apply` (hash in log.ttl) | needs apply to write the hash | P3 |
+| kb.ttl changed outside `jsk kb apply` (hash in log.ttl) | needs apply to write the hash | P3: done, `hand-edited` and `log-sync` |
 | a carried metric version was changed | needs history - the log's hashes | P5 |
 
 **Mutation sweep.** For every rule: the valid fixture plus one edit must produce exactly that rule's

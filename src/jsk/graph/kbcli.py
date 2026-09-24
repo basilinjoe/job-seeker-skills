@@ -6,6 +6,10 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   confirm <id>... --answer "..."       confirm entries with the person's answer, logged
   adopt [--drop-comments]              log a hand edit, listing every provenance it raised
   fmt [<file>...] [--drop-comments]    rewrite in the canonical layout; kb.ttl's is logged
+  show <id>...                         entries as kb.ttl holds them, and the op:base to use
+  view [--section NAME]                the whole career as Markdown, to read
+  query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale
+  check                                validate the workspace; exit 1 on a FAIL
 
 --root is the workspace, the folder holding career/; by default the nearest one above
 the current directory. `jsk kb <verb> --help` says more about one verb.
@@ -441,6 +445,149 @@ def cmd_fmt(args, root):
         print(diff(parsed.text, text, name), end="")
         print(f"{name}: rewritten")
     return code
+
+
+def entry_text(quads, iri):
+    """One entry as kb.ttl writes it - every part, for the Person's Positioning too."""
+    from .writer import Subjects, block
+
+    sub = Subjects(quads)
+    parts = ["main"] + sorted({p.section for p in sub.cls[iri].preds.values() if p.section})
+    return "\n\n".join(b[0] for b in (block(sub, iri, part) for part in parts) if b)
+
+
+def with_children(quads, iri):
+    """The entry and what is read with it: a project's bullets, a metric's versions."""
+    from . import ontology as O
+
+    def of(pred):
+        return sorted({q.subject.value for q in quads if q.predicate.value == O.J + pred
+                       and q.object.value == iri})
+    kids = {"Project": sorted(of("project"), key=lambda a: rank(quads, a)),
+            "Metric": sorted(of("of"), key=lambda v: int(v.rsplit(".v", 1)[1]))}
+    return [iri] + kids.get(O.class_of(iri), [])
+
+
+def rank(quads, iri):
+    from . import ontology as O
+    return next((int(q.object.value) for q in quads if q.subject.value == iri
+                 and q.predicate.value == O.J + "rank"), 1 << 30)
+
+
+@verb
+def cmd_show(args, root):
+    """jsk kb show <id>...
+
+    The entries as their files hold them, in the canonical layout: a project with its
+    bullets, a metric with its versions. The first line is the revision to put in a
+    changeset's op:base, so a change drafted from what was shown is checked against it.
+    """
+    from . import record as R
+    from . import store as S
+
+    if not args:
+        return usage("jsk kb show takes one or more ids")
+    store = S.load(root)
+    st = R.state(store)
+    print(f"# r{st.log_revision} - op:base {st.log_revision}" if st.log_revision else
+          "# not logged yet - `jsk kb adopt` starts the log")
+    code = 0
+    for text in args:
+        iri = iri_of(text)
+        files = [f for f in store.definitions.get(iri, []) if f in store.parsed]
+        if not files:
+            detail, fix = unknown(iri, store)
+            print(f"\nREFUSED  {detail}\n        fix: {fix}")
+            code = 1
+            continue
+        for f in files:
+            quads = store.graph(f)
+            print(f"\n# {f}")
+            print("\n\n".join(entry_text(quads, i) for i in with_children(quads, iri)))
+    return code
+
+
+@verb
+def cmd_view(args, root):
+    """jsk kb view [--section NAME]
+
+    The whole career as Markdown, in kb.ttl's section order, to read end to end and
+    correct - stdout only; it is never written to a file, so it cannot drift. Entries not
+    confirmed, and retired ones, say so beside their names.
+    """
+    from . import record as R
+    from . import store as S
+    from .view import render
+
+    only = take(args, "--section", value=True)
+    if args:
+        return usage("jsk kb view takes only --section NAME")
+    store = S.load(root)
+    if R.KB not in store.parsed:
+        return refuse([GUIDE[R.state(store).kind][0]], GUIDE[R.state(store).kind][1])
+    print(render(store.graph(R.KB), only), end="")
+    return 0
+
+
+@verb
+def cmd_query(args, root):
+    """jsk kb query <name> [arguments] [--json]
+
+      open                questions not yet answered, oldest first
+      unconfirmed         live entries not confirmed, with the question open about each
+      holds <concept>     projects holding a concept, or one that counts as it
+      stale               applications that sent a metric version since replaced
+
+    A table by default; --json for the same rows, structured.
+    """
+    import json
+
+    from . import store as S
+    from .named import QUERIES, table
+
+    as_json = bool(take(args, "--json"))
+    if not args or args[0] not in QUERIES:
+        return usage(f"jsk kb query takes one of: {', '.join(QUERIES)}")
+    name, rest = args[0], args[1:]
+    want, _, fn = QUERIES[name]
+    if len(rest) != len(want.split()):
+        return usage(f"jsk kb query {name} {want}".rstrip())
+    columns, rows = fn(S.load(root), *rest)
+    print(json.dumps(rows, indent=2, ensure_ascii=False) if as_json else table(columns, rows))
+    return 0
+
+
+@verb
+def cmd_check(args, root):
+    """jsk kb check
+
+    Validates the whole workspace - every rule, every file - and says where kb.ttl and
+    log.ttl stand, and which record files are not in the canonical layout. Exit 1 on any
+    FAIL; a WARN is printed and passes.
+    """
+    from ..gates.validate_urs import show
+    from . import record as R
+    from . import store as S
+    from .writer import WriteError, write
+
+    if args:
+        return usage("jsk kb check takes no arguments")
+    store = S.load(root)
+    rep = store.report()
+    for name, parsed in sorted(store.parsed.items()):
+        if parsed.kind in ("kb", "log", "posting", "application"):
+            try:
+                if write(parsed.quads, parsed.kind) != parsed.text:
+                    rep.warn(f"{name} - not in the canonical layout\n        fix: `jsk kb fmt {name}`")
+            except WriteError:
+                pass                     # a file the writer cannot lay out has a FAIL already
+    st = R.state(store)
+    print(f"record   {st.kind}" + (f" at r{st.log_revision}" if st.log_revision else "")
+          + (f" - {st.detail}" if st.detail else ""))
+    print(f"{len(rep.fails)} FAIL, {len(rep.warns)} WARN")
+    show(rep.fails, "FAIL", 0)
+    show(rep.warns, "WARN", 0)
+    return 1 if rep.fails else 0
 
 
 def main(argv=None):

@@ -223,6 +223,23 @@ its own (`by fmt`, the day unchanged) so no content change hides in a reformat. 
 or `application.ttl` is rewritten in place, unlogged. Hand comments would be lost: `adopt` and
 `fmt` refuse a file with any, listing them, unless `--drop-comments`.
 
+```bash
+jsk kb show prj_payments met_settlement  # the entries, and the op:base to draft against
+jsk kb view --section Projects           # the career as Markdown, to read
+jsk kb query unconfirmed --json          # open | unconfirmed | holds <concept> | stale
+jsk kb check                             # every rule, the record's state, the layout
+```
+
+**`show`** prints entries exactly as their files hold them - a project with its bullets, a
+metric with its versions, a concept from the vocabulary and from `kb.ttl` - under a first line
+naming the revision to put in `op:base`. **`view`** is the whole career as Markdown in `kb.ttl`'s
+section order, entries not confirmed and retired ones marked; it goes to stdout and never to a
+file, so it cannot drift from the record. **`query`** answers a named question as a table or
+`--json`: `open` questions, `unconfirmed` entries with the question open about each, the projects
+that `holds` a concept (or one that counts as it, with the evidence), and `stale` - applications
+that sent a metric version since replaced. **`check`** runs every rule over the workspace, says
+where `kb.ttl` and `log.ttl` stand, and names files out of the canonical layout; exit 1 on a FAIL.
+
 Exit 0 written, or nothing to change; 1 refused, with every reason; 2 called wrong.
 
 ### `jsk validate`

@@ -2,6 +2,7 @@
 import contextlib
 import datetime
 import io
+import json
 import os
 import shutil
 import tempfile
@@ -12,6 +13,7 @@ from test_graph_changeset import PFX
 from test_graph_shapes import FIXTURES
 
 from jsk import cli
+from jsk.graph import ontology as O
 from jsk.graph import record
 from jsk.graph import store as S
 from jsk.graph.io import sha256
@@ -305,6 +307,105 @@ class Fmt(Workspace):
         code, out = self.kb("fmt", str(self.path("career/log.ttl")))
         self.assertEqual(code, 1)
         self.assertIn("written by jsk only", out)
+
+
+class Show(Workspace):
+    def test_a_project_is_shown_with_its_bullets_and_the_base_to_draft_against(self):
+        code, out = self.kb("show", "prj_clinical_events")
+        self.assertEqual(code, 0, out)
+        self.assertTrue(out.startswith("# r2 - op:base 2\n"))
+        first = out.index("k:ach_clinical_events_event_latency j:project")
+        second = out.index("k:ach_clinical_events_led_migration j:project")
+        self.assertLess(out.index("k:prj_clinical_events j:name"), first)
+        self.assertLess(first, second)
+
+    def test_a_metric_is_shown_with_its_versions(self):
+        code, out = self.kb("show", "k:met_event_latency")
+        self.assertLess(out.index("k:met_event_latency.v1"), out.index("k:met_event_latency.v2"))
+
+    def test_a_shipped_concept_is_shown_from_the_vocabulary(self):
+        code, out = self.kb("show", "c:kafka")
+        self.assertEqual(code, 0, out)
+        self.assertIn("# vocabulary.ttl", out)
+        self.assertIn("# career/kb.ttl", out)       # kb.ttl extends it
+
+    def test_an_unknown_id_names_the_nearest(self):
+        code, out = self.kb("show", "prj_clinical_event")
+        self.assertEqual(code, 1)
+        self.assertIn("did you mean k:prj_clinical_events?", out)
+
+
+class View(Workspace):
+    def test_the_whole_career_in_section_order(self):
+        code, out = self.kb("view")
+        self.assertEqual(code, 0, out)
+        at = [out.index(f"## {s}\n") for s in O.SECTIONS["kb"]]
+        self.assertEqual(at, sorted(at))
+        self.assertIn("- **Care-site onboarding** `k:prj_site_onboarding` _(inferred)_", out)
+        self.assertIn("_(retired 2026-01-10: Too old and too small to earn a line.)_", out)
+        self.assertIn("  - **Led a team of 6 engineers", out)
+        self.assertIn("    problem: The legacy scheduler", out)
+
+    def test_one_section(self):
+        code, out = self.kb("view", "--section", "skills")
+        self.assertIn("## Skills", out)
+        self.assertNotIn("## Projects", out)
+
+    def test_it_writes_nothing(self):
+        before = sorted(p.name for p in Path(self.root).rglob("*"))
+        self.assertEqual(self.kb("view")[0], 0)
+        self.assertEqual(sorted(p.name for p in Path(self.root).rglob("*")), before)
+
+
+class Query(Workspace):
+    def test_open_questions(self):
+        code, out = self.kb("query", "open")
+        self.assertIn("| k:q_sites_bullet | k:ach_site_onboarding_sites_one_platform | 2026-09-01 |", out)
+        self.assertNotIn("q_team_size", out)          # answered
+
+    def test_unconfirmed_entries(self):
+        code, out = self.kb("query", "unconfirmed", "--json")
+        rows = json.loads(out)
+        self.assertEqual([r["entry"] for r in rows],
+                         ["k:ach_site_onboarding_sites_one_platform", "k:prj_site_onboarding"])
+
+    def test_what_holds_a_concept(self):
+        code, out = self.kb("query", "holds", "c:azure")
+        self.assertIn("| k:prj_clinical_events | c:azure-ai-foundry | 1 | False | tag |", out)
+
+    def test_a_revised_metric_makes_the_application_that_sent_it_stale(self):
+        code, _ = self.kb("query", "stale")
+        self.kb("apply", self.changeset(PFX + "op:set { k:met_team.v1 j:value 7 . }\n"))
+        code, out = self.kb("query", "stale")
+        today = datetime.date.today().isoformat()
+        self.assertIn(f"| k:app_acme_platform_engineer | k:met_team.v1 | {today} | k:met_team.v2 |",
+                      out)
+
+    def test_an_unknown_query(self):
+        code, out = self.kb("query", "everything")
+        self.assertEqual(code, 2)
+        self.assertIn("open, unconfirmed, holds, stale", out)
+
+
+class Check(Workspace):
+    def test_a_clean_workspace(self):
+        code, out = self.kb("check")
+        self.assertEqual(code, 0)
+        self.assertIn("record   clean at r2", out)
+        self.assertIn("0 FAIL, 0 WARN", out)
+
+    def test_a_fail_exits_1_and_a_hand_edit_is_named(self):
+        self.edit_kb("j:cites k:met_team ;", "j:cites k:met_teem ;")
+        code, out = self.kb("check")
+        self.assertEqual(code, 1)
+        self.assertIn("record   hand-edited at r2", out)
+        self.assertIn("did you mean k:met_team?", out)
+
+    def test_a_file_out_of_layout_is_named(self):
+        self.old_layout()
+        code, out = self.kb("check")
+        self.assertEqual(code, 0)
+        self.assertIn("career/kb.ttl - not in the canonical layout", out)
 
 
 class Dispatch(Workspace):
