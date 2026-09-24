@@ -52,7 +52,8 @@ class Enum:
 @dataclass(frozen=True)
 class Ref:
     """A k: id of one of these classes; "*" is any class. `may_dangle` for the log,
-    whose entries name ids that may since have been deleted."""
+    whose entries name ids that may since have been deleted - and concepts, since a
+    change to the person's vocabulary is a change to the career like any other."""
     classes: tuple
     may_dangle: bool = False
 

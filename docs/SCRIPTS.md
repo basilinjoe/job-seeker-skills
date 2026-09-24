@@ -20,6 +20,7 @@ jsk doctor                       # what works on this machine
 jsk new ./my-career --name "Your Name"
 jsk index user-knowledgebase.md --rank applications/<dir>/posting.md
 jsk match applications/<dir>/posting.ttl   # the same question, over the graph record
+jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
 jsk validate resume.json         # the record gate
 jsk render resume.json --out . --view view_default --pdf
 jsk check resume.pdf             # both document gates, one pass
@@ -149,6 +150,55 @@ are derived from the gaps, never invented.
 Exit 0 with the result - missing requirements included, since this is an assessment, not a gate;
 1 when the workspace has a FAIL; 2 called wrong, or a path that is not
 `applications/<dir>/posting.ttl`.
+
+### `jsk kb`
+
+The `jsk.graph.kbcli` module. One verb per operation on the graph record; `jsk kb --help` lists
+them and `jsk kb <verb> --help` explains one. Every verb finds the workspace - the folder holding
+`career/` - from the current directory, or takes `--root DIR`.
+
+```bash
+jsk kb apply changes.trig --dry-run      # the diff it would make, nothing written
+jsk kb apply changes.trig                # merged, validated, written, logged
+```
+
+**`apply`** is how an agent changes `career/kb.ttl`: a changeset, in TriG, with four graphs.
+
+```turtle
+@prefix op: <tag:jsk,2026:op#> .
+op:changeset op:base 7 ; op:summary "The payments project, from the braindump." .
+op:add    { k:prj_payments j:name "Payments platform" ; j:strength 4 ; j:recency 2025 .
+            [] j:project k:prj_payments ; j:rank 1 ; j:text "Cut settlement latency by 75%." . }
+op:set    { k:prj_legacy j:strength 2 . }                     # replaces every value it names
+op:retire { k:prj_intranet j:reason "Too old to earn a line." . }
+op:delete { k:q_duplicate a op:Entry . k:ach_x j:shows c:java . }
+```
+
+`op:add` adds; a predicate that allows one value and already has one is refused - use `op:set`.
+`op:set` replaces every value of each (entry, predicate) it names. `op:retire` dates the entry
+today and keeps the reason. `op:delete` removes exact triples, or with `a op:Entry` the whole
+entry - refused while anything points at it, since retiring is what keeps the history. `op:base`
+is the log revision the changeset was drafted against: an entry changed after it is a conflict,
+refused, to be re-read. The header's `op:summary` becomes the log entry's.
+
+What apply does unasked: a new bullet (a `[]` with `j:project`) gets its id,
+`ach_<project>_<three words of its text>`, never one the record has used. An entry whose claims
+changed drops to `j:inferred`, and every entry left inferred gets a `q_` question unless one is
+open. A metric version an application sent never changes: a new `j:value` becomes the next
+version, and the one it replaces is closed. A changeset cannot confirm anything, cannot write
+another file, cannot use blank nodes except for a new bullet, and cannot name a predicate the
+ontology does not have (it suggests the nearest).
+
+The record it would write is validated before anything is written, and so is the workspace
+before it starts: a FAIL in the career, a hand edit not yet adopted, or a torn write refuses the
+apply with the command that fixes it. Then `career/kb.ttl` is replaced, then `career/log.ttl`,
+and a copy of what was written goes to `.jsk/kb.last.ttl` (a cache that ignores itself in git).
+Two files cannot be replaced together atomically: a crash between them is detected on the next
+load - `log-sync`, "the last write reached kb.ttl and not log.ttl" - not prevented. On Windows, a
+file locked by an editor or a virus scanner is retried for about a second; if it stays locked
+nothing is changed. Stdin (`-`) is refused: a pipe that never closes hangs the command.
+
+Exit 0 written, or nothing to change; 1 refused, with every reason; 2 called wrong.
 
 ### `jsk validate`
 

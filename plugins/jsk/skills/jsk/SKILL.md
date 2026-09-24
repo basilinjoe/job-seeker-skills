@@ -81,14 +81,15 @@ already cover.
 
 ## The `jsk` command
 
-It reads records and rendered files, never `user-knowledgebase.md`. `jsk --help` is the full surface.
+It never edits `user-knowledgebase.md`; `jsk --help` is the full surface.
 
 | Command | Does |
 |---|---|
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk new <path> --name "Name"` | an empty `user-knowledgebase.md` and `applications/` |
-| `jsk index <kb> [--rank <posting.md>]` | every section and entry with its lines; the ranking, computed |
+| `jsk index <kb> [--rank <posting.md>]` | every entry with its lines, and the ranking |
 | `jsk match <posting.ttl>` | a posting matched through the vocabulary |
+| `jsk kb <verb>` | the graph record, changed and read |
 | `jsk validate <resume.json>` | the record gate |
 | `jsk render <resume.json> --out DIR --view ID --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
 | `jsk preview <resume.json> --out DIR` | every template, with page counts |

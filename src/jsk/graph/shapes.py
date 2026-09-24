@@ -205,7 +205,7 @@ def check_object(pred, o):
         return None if o.value.startswith(O.C) else f"{curie(o.value)} is not a c: concept"
     if isinstance(kind, O.Ref):
         target = O.class_of(o.value)
-        if target is None or target == "Concept":
+        if target is None or (target == "Concept" and not kind.may_dangle):
             return f"{curie(o.value)} is not a k: id"
         if kind.classes != O.ANY and target not in kind.classes:
             return f"{curie(o.value)} is a {target}; expected {' or '.join(kind.classes)}"
