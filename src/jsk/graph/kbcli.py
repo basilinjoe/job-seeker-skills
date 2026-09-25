@@ -8,7 +8,8 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   fmt [<file>...] [--drop-comments]    rewrite in the canonical layout; kb.ttl's is logged
   show <id>...                         entries as kb.ttl holds them, and the op:base to use
   view [--section NAME]                the whole career as Markdown, to read
-  query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale
+  query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale |
+                                       experience <concept> | pipeline
   check                                validate the workspace; exit 1 on a FAIL
 
 --root is the workspace, the folder holding career/; by default the nearest one above
@@ -543,6 +544,8 @@ def cmd_query(args, root):
       unconfirmed         live entries not confirmed, with the question open about each
       holds <concept>     projects holding a concept, or one that counts as it
       stale               applications that sent a metric version since replaced
+      experience <concept>  months the roles behind the projects holding it cover
+      pipeline            each application's stage: its latest event, and how long ago
 
     A table by default; --json for the same rows, structured.
     """
