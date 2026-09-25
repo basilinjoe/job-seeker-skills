@@ -304,12 +304,14 @@ CLASSES = (
     # --- application.ttl ---------------------------------------------------------------
     Class("Application", "app", ("application",), "Application", (
         (Pred("posting", Ref(("Posting",)), "1", "what it answered"),
-         Pred("view", STR, "?", "the URS view it rendered")),
+         Pred("view", STR, "?", "\"resume\" for a short resume.json; a legacy record's "
+                                "URS view")),
         (Pred("submitted", Lit(("date", "boolean"), r"\d{4}-\d{2}-\d{2}|false"), "1",
               "the day it was sent, or false when held back"),
          Pred("channel", STR, "?", "how it was sent")),
         (Pred("document", STR, "*", "a file that was sent"),),
-        (Pred("recordSha256", SHA256, "?", "the frozen resume.json's hash"),),
+        (Pred("recordSha256", SHA256, "?", "the frozen resume.json's hash - the short "
+                                                   "file's own; the words are the documents"),),
         (Pred("carried", Ref(("Achievement",)), "*", "bullets it sent"),),
         (Pred("carriedVersion", Ref(("MetricVersion",)), "*", "metric versions it sent"),),
     ), "a submission"),

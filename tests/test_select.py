@@ -11,11 +11,11 @@ import unittest
 from pathlib import Path
 
 from jsk import cli
-from jsk.gates import validate_urs
 from jsk.graph import export
 from jsk.graph import ontology as O
 from jsk.graph import select as SEL
 from jsk.graph import store as S
+from jsk.resume import short
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
 TODAY = datetime.date(2026, 9, 25)
@@ -222,27 +222,48 @@ class Pick(unittest.TestCase):
 class Exported(unittest.TestCase):
     def setUp(self):
         self.store = S.load(workspace(self))
-        self.doc = export.urs(self.store, today=TODAY,
-                              selection=SEL.select(self.store, POST, TODAY, 3))
-        self.view = self.doc["views"][0]
+        self.doc = export.short_file(self.store, selection=SEL.select(self.store, POST, TODAY, 3))
 
-    def test_only_the_selected_projects(self):
-        self.assertEqual(sorted(p["id"] for p in self.doc["projects"]),
-                         ["prj_events", "prj_identity"])
+    def test_the_selected_bullets_in_the_selection_s_order(self):
+        self.assertEqual(self.doc["bullets"],
+                         ["ach_events_latency", "ach_events_terraform", "ach_events_team",
+                          "ach_identity_events", "ach_identity_sso"])
 
-    def test_the_view_orders_bullets_and_skills(self):
-        inc = {i["ref"]: i.get("achievements") for i in self.view["include"]}
-        self.assertEqual(inc["prj_events"],
-                         ["ach_events_latency", "ach_events_terraform", "ach_events_team"])
-        self.assertEqual(self.view["skills"], ["skill_kubernetes", "skill_dotnet"])
+    def test_the_skills_in_the_posting_s_order(self):
+        self.assertEqual(self.doc["skills"], ["skill_kubernetes", "skill_dotnet"])
 
     def test_it_validates(self):
-        self.assertEqual(list(validate_urs.check_doc(self.doc).fails), [])
+        self.assertEqual(short.shape(self.doc), [])
+        self.assertEqual(short.ids(self.doc, self.store), [])
 
     def test_byte_identical(self):
         store = S.load(self.store.root)
-        again = export.urs(store, today=TODAY, selection=SEL.select(store, POST, TODAY, 3))
+        again = export.short_file(store, selection=SEL.select(store, POST, TODAY, 3))
         self.assertEqual(json.dumps(again), json.dumps(self.doc))
+
+
+class SkillAliases(unittest.TestCase):
+    """An alias naming a concept no project holds does not rank its skill: an ATS reads it
+    as a claim of that experience, and the claims gate warned of it (ElevenLabs,
+    2026-09-25). skill_order reads that off the graph itself now, not export's copy."""
+
+    def order(self, label):
+        posting = asking("Widgetry") + (
+            'k:req_p_k8s j:posting k:post_contoso_select ; j:asked "K8s" ;\n'
+            '    j:necessity j:preferred ; j:quote "K8s is asked for." .\n')
+        root = workspace(self, posting)
+        kb = Path(root, "career", "kb.ttl")
+        text = kb.read_text(encoding="utf-8")
+        kb.write_bytes(text.replace('j:alias "C#" .', 'j:alias "C#", "Widgetry" .').encode())
+        if label:
+            career_plus(root, '\nc:widgetry a j:Capability ; j:label "Widgetry" .\n')
+        return ids(SEL.select(S.load(root), POST, TODAY, 3).skills)
+
+    def test_an_alias_no_project_holds_ranks_nothing(self):
+        self.assertEqual(self.order(label=True), ["skill_kubernetes", "skill_dotnet"])
+
+    def test_an_alias_naming_no_concept_ranks_its_skill(self):
+        self.assertEqual(self.order(label=False), ["skill_dotnet", "skill_kubernetes"])
 
 
 class Command(unittest.TestCase):
@@ -256,28 +277,30 @@ class Command(unittest.TestCase):
             code = cli.main(["jsk", "kb", *args, "--root", self.root])
         return code, out.getvalue(), err.getvalue()
 
-    def test_from_match_prints_the_record_and_the_gaps(self):
-        code, out, err = self.kb("export", "--urs", "--from-match", self.posting,
+    def test_from_match_prints_the_short_file_and_the_gaps(self):
+        code, out, err = self.kb("export", "--from-match", self.posting,
                                  "--today", "2026-09-25")
         self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out)["views"][0]["skills"][0], "skill_kubernetes")
+        doc = json.loads(out)
+        self.assertEqual(doc["resume"], 2)
+        self.assertEqual(doc["skills"][0], "skill_kubernetes")
         self.assertIn("GAP   tag-only    SQL Server (required)", err)
 
     def test_with_out_the_gaps_go_to_stdout(self):
         dest = os.path.join(self.root, "applications", "contoso-select", "resume.json")
-        code, out, _ = self.kb("export", "--urs", "--from-match", self.posting, "--out", dest)
+        code, out, _ = self.kb("export", "--from-match", self.posting, "--out", dest)
         self.assertEqual(code, 0)
         self.assertIn("GAP   uncovered   Rust (required): nothing carries it", out)
         self.assertTrue(os.path.isfile(dest))
 
     def test_select_adds_to_the_match(self):
-        code, out, _ = self.kb("export", "--urs", "--from-match", self.posting,
+        code, out, _ = self.kb("export", "--from-match", self.posting,
                                "--select", "prj_game")
         self.assertEqual(code, 0)
-        self.assertIn("prj_game", [p["id"] for p in json.loads(out)["projects"]])
+        self.assertIn("ach_game_players", json.loads(out)["bullets"])
 
     def test_a_project_added_with_no_confirmed_bullet_is_named(self):
-        code, _, err = self.kb("export", "--urs", "--from-match", self.posting,
+        code, _, err = self.kb("export", "--from-match", self.posting,
                                "--select", "prj_data")
         self.assertEqual(code, 0)
         self.assertIn("NOTE  k:prj_data has no confirmed bullet", err)
@@ -285,25 +308,38 @@ class Command(unittest.TestCase):
     def test_a_posting_outside_applications_is_a_usage_error(self):
         stray = os.path.join(self.root, "posting.ttl")
         shutil.copy(self.posting, stray)
-        self.assertEqual(self.kb("export", "--urs", "--from-match", stray)[0], 2)
+        self.assertEqual(self.kb("export", "--from-match", stray)[0], 2)
 
     def test_a_posting_from_another_workspace_is_a_usage_error(self):
         other = workspace(self)
         theirs = os.path.join(other, "applications", "contoso-select", "posting.ttl")
-        self.assertEqual(self.kb("export", "--urs", "--from-match", theirs)[0], 2)
+        self.assertEqual(self.kb("export", "--from-match", theirs)[0], 2)
 
     def test_cover_and_today_need_from_match(self):
-        self.assertEqual(self.kb("export", "--urs", "--cover", "2")[0], 2)
-        self.assertEqual(self.kb("export", "--urs", "--today", "2026-09-25")[0], 2)
+        self.assertEqual(self.kb("export", "--cover", "2")[0], 2)
+        self.assertEqual(self.kb("export", "--today", "2026-09-25")[0], 2)
 
     def test_bad_cover_and_today(self):
         for flag, value in (("--cover", "0"), ("--cover", "x"), ("--today", "soon")):
-            self.assertEqual(self.kb("export", "--urs", "--from-match", self.posting,
+            self.assertEqual(self.kb("export", "--from-match", self.posting,
                                      flag, value)[0], 2, (flag, value))
+
+    def test_a_posting_nothing_carries_writes_nothing_and_says_why(self):
+        posting = POSTING.split("k:req_sel_k8s")[0] + (
+            'k:req_sel_rust j:posting k:post_contoso_select ; j:asked "Rust" ;\n'
+            '    j:necessity j:required ; j:quote "Rust is required." .\n')
+        self.root = workspace(self, posting)
+        self.posting = os.path.join(self.root, "applications", "contoso-select", "posting.ttl")
+        dest = os.path.join(os.path.dirname(self.posting), "resume.json")
+        code, out, _ = self.kb("export", "--from-match", self.posting, "--out", dest)
+        self.assertEqual(code, 1, out)
+        self.assertIn("GAP   uncovered   Rust (required)", out)
+        self.assertIn("REFUSED", out)
+        self.assertFalse(os.path.exists(dest))
 
     def test_a_broken_posting_refuses(self):
         Path(self.posting).write_bytes(b"this is not turtle")
-        self.assertEqual(self.kb("export", "--urs", "--from-match", self.posting)[0], 1)
+        self.assertEqual(self.kb("export", "--from-match", self.posting)[0], 1)
 
 
 if __name__ == "__main__":

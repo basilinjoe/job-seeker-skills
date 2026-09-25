@@ -25,7 +25,7 @@ has to remember every name to get started.
     jsk gates DIR [--record R]  the record, claims, parse and prose gates over one render
       ... --view ID             names the view in the report; gates every render still
     jsk fit TEX [...]           fit a render to a page budget
-    jsk ship RECORD --out D --view ID   validate, render and gate, in one pass
+    jsk ship RECORD --out D     validate, render and gate, in one pass
     jsk freeze APP --submitted DATE|false --channel TEXT   archive a sent application
     jsk event APP KIND --date DATE      add a screen, an offer, a rejection to one
 
@@ -33,7 +33,7 @@ The career is the graph record, career/kb.ttl: changed through `jsk kb apply`, r
 `jsk kb show` and `jsk kb view`, validated on every load. The skill writes each URS record
 out of it, and `jsk validate` checks that record before anything renders - the last point at
 which a mistake is still cheap - and the claims gate joins the record with the career.
-`jsk kb export --urs` drafts that record from the career, ids and metrics as held.
+`jsk kb export` writes the short resume.json - the bullets chosen, as ids - from it.
 Only `jsk migrate` reads a user-knowledgebase.md, once, and it writes nothing into it.
 
 pyoxigraph for the graph record, pymupdf to read a PDF, and markdown-it-py with pyyaml
@@ -747,7 +747,7 @@ def summary_lines(results):
 # with --pdf, gates - in one process and in that order, each stopping the next. A
 # record that fails its gate is never rendered: rendering it would produce a PDF that
 # looks sendable and is not.
-SHIP_USAGE = ("usage: jsk ship <resume.json> --out DIR --view ID [--ats-max] "
+SHIP_USAGE = ("usage: jsk ship <resume.json> --out DIR [--view ID] [--ats-max] "
               "[--template N] [--pages N] [--json]")
 
 SHIP_VALUE_FLAGS = ("--out", "--view", "--template", "--pages")
@@ -763,6 +763,27 @@ def not_rendered(why):
             "exit": None,
             "output": f"UNVERIFIED - {why}, so nothing was rendered and there is no\n"
                       f"  PDF from this run for anyone to read.\n"}
+
+
+def is_short(record):
+    """True for a short resume.json - no `urs` key. A legacy full record, or a file that
+    does not read, goes the old way, where the record gate says what is wrong with it."""
+    try:
+        with open(record, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    return isinstance(doc, dict) and "urs" not in doc
+
+
+def frozen_refusal(*dirs):
+    """Lines refusing a render into, or from, a frozen application - or None."""
+    for d in dirs:
+        path = os.path.join(d, APPLICATION_TTL)
+        if os.path.isfile(path):
+            return [f"frozen: {path} - re-rendering would overwrite what was sent",
+                    "fix:  copy the application to a new dated directory to reuse it"]
+    return None
 
 
 def cmd_ship(args):
@@ -790,13 +811,27 @@ def cmd_ship(args):
     if refusal:
         print("\n".join(refusal))
         return 2
-    for flag, why in (("--out", "the directory to render into - the application's own"),
-                      ("--view", "the view this application is for; a record may hold "
-                                 "several")):
+    short = is_short(record)
+    if short and flags.get("--view"):
+        print("--view is for a full URS record; a short resume.json is one resume")
+        print("fix:  drop --view")
+        return 2
+    needed = [("--out", "the directory to render into - the application's own")]
+    if not short:
+        needed.append(("--view", "the view this application is for; a record may hold "
+                                 "several"))
+    for flag, why in needed:
         if not flags.get(flag):
             print(f"{flag} is required")
             print(f"fix:  {flag} names {why}")
             return 2
+    # Before anything renders (Review Focus 5): the render writes over the PDF and .txt
+    # that application.ttl says were sent, and the archive would then describe files it
+    # no longer holds.
+    refusal = frozen_refusal(flags["--out"], os.path.dirname(os.path.abspath(record)))
+    if refusal:
+        print("\n".join(refusal))
+        return 1
     pages, problem = parse_pages(flags.get("--pages"))
     if problem:
         print("\n".join(problem))
@@ -811,7 +846,7 @@ def cmd_ship(args):
         except KeyError as exc:
             print(f"usage: {exc.args[0]}")
             return 2
-    out_dir, view = flags["--out"], flags["--view"]
+    out_dir, view = flags["--out"], ("resume" if short else flags["--view"])
 
     results = []
     code, output = call_gate("validate_urs.py", [record])
@@ -825,7 +860,8 @@ def cmd_ship(args):
         # A number the career replaced renders as a sendable PDF with that number in it.
         results.append(not_rendered("the claims gate did not pass"))
     else:
-        render_args = [record, "--out", out_dir, "--view", view, "--pdf"]
+        render_args = [record, "--out", out_dir] + ([] if short else ["--view", view])
+        render_args += ["--pdf"]
         render_args += ["--ats-max"] if flags.get("--ats-max") else []
         render_args += ["--template", template] if template else []
         code, output = call_gate("render_resume.py", render_args)
@@ -967,8 +1003,23 @@ def cmd_freeze(args):
     except (OSError, ValueError, AttributeError) as exc:
         return freeze_refusal(f"cannot read the record {record}: {exc}",
                               "the view is read from it, and its gate has to pass.")
+    plan = None
     view = flags.get("--view")
-    if view is None:
+    if isinstance(doc, dict) and "urs" not in doc:
+        # A short resume.json: what was sent is what the builder renders from it now,
+        # over the career as it stands - the same build the PDF beside it came from.
+        if view is not None:
+            print("--view is for a full URS record; a short resume.json is one resume")
+            print("fix:  drop --view")
+            return 2
+        from .resume import build, short             # noqa: PLC0415 - only when asked
+        try:
+            plan, _ = build.from_path(record)
+        except short.ShortError as exc:
+            return freeze_refusal(str(exc), f"fix: {exc.fix}",
+                                  "nothing was renamed or written.")
+        view = "resume"
+    elif view is None:
         if len(views) > 1:
             print(f"the record holds {len(views)} views: {', '.join(views)}")
             print("fix:  name the one this application sent with --view <id>")
@@ -1034,8 +1085,12 @@ def cmd_freeze(args):
             "an archive of something that was not sendable reads, later, as though it was.")
 
     from .graph import timeline                       # noqa: PLC0415 - only when asked
-    text, problems = timeline.freeze(workspace, app_dir, doc, view, submitted, channel,
-                                     documents, record_bytes)
+    if plan is not None:
+        text, problems = timeline.freeze(workspace, app_dir, plan, record_bytes, submitted,
+                                         channel, documents)
+    else:
+        text, problems = timeline.freeze_urs(workspace, app_dir, doc, view, submitted,
+                                             channel, documents, record_bytes)
     if problems:
         return freeze_refusal(*problems, "nothing was renamed or written.")
 

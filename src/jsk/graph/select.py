@@ -160,14 +160,27 @@ def evidenced(store, matches, held, shown):
 
 def skill_order(store, matches):
     """Every live skill: those matching a required requirement, then a preferred one, then
-    the rest; within each by the first requirement matched, then export's own order.
-    Skills are display entries, not concepts, so they match by label."""
-    from ..gates import claims
+    the rest; within each by the first requirement matched, then by category, rank and
+    name. Skills are display entries, not concepts, so they match by label.
+
+    Read off the graph: this ranked the URS draft's copy of the skills, which goes with
+    the full record. An alias naming only concepts no project holds ranks nothing - an ATS
+    reads it as a claim of that experience, and the draft left such aliases out for that
+    reason (ElevenLabs, 2026-09-25)."""
+    from ..resume.career import Career
     from . import record as R
-    from .export import Career, skills
+    from .named import holdings
+
+    by_label = Q.labels(store)
+    held = set().union(*holdings(store).values())
+    career = Career(store.graph(R.KB))
+
+    def ranks(alias):
+        concepts = by_label.get(O.norm(alias), set())
+        return not concepts or bool(concepts & held)
 
     names = {}
-    for label, concepts in Q.labels(store).items():
+    for label, concepts in by_label.items():
         for c in concepts:
             names.setdefault(c, set()).add(label)
     wanted = []                  # (group, requirement index, normalised labels)
@@ -180,11 +193,13 @@ def skill_order(store, matches):
             labels |= names.get(m.concept, set())
         wanted.append((NEEDS.index(need), i, labels))
     order = []
-    # The aliases as export writes them: one it leaves out cannot rank its skill.
-    for at, item in enumerate(skills(Career(store.graph(R.KB)), claims.Career(store))):
-        own = {O.norm(item["name"])} | {O.norm(a) for a in item.get("aliases", [])}
+    for s in career.live("Skill"):
+        name = career.get(s, "name")
+        own = {O.norm(name)} | {O.norm(t.value) for t in career.all(s, "alias")
+                                if ranks(t.value)}
         key = min(((g, i) for g, i, labels in wanted if own & labels), default=(2, 0))
-        order.append((key, at, O.K + item["id"]))
+        order.append((key, career.get(s, "category"), int(career.get(s, "rank", 10 ** 6)),
+                      name, s))
     return [iri for *_, iri in sorted(order)]
 
 

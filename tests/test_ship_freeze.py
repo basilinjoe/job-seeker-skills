@@ -836,5 +836,114 @@ class Event(GraphCase):
         self.assertIn("# Timeline", out)
 
 
+# --- the short resume.json ---------------------------------------------------------------
+
+class ShortCase(GraphCase):
+    """The Contoso application with a short resume.json: ids chosen, the career in kb.ttl.
+    ach_data_ingestion is j:inferred in the fixture, under the default floor."""
+
+    SHORT = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team",
+                                      "ach_data_ingestion", "ach_identity_sso"]}
+
+    def setUp(self):
+        import careerkit
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        root, path = careerkit.workspace(self._tmp.name, short=self.SHORT)
+        self.root, self.short = Path(root), Path(path)
+        self.app = self.short.parent
+        self.render()
+
+    def freeze(self, *args, **kw):
+        # The record gate over a short file is Task 5's (jsk.gates.record); until it
+        # lands gate_results runs validate_urs, which reads URS only. What these tests
+        # pin is what freeze records, so the gates are stubbed to pass.
+        from jsk import cli
+
+        passed = [cli.gate_result("prose gate", "check_prose.py", 0, "PASS\n")]
+        with mock.patch.object(cli, "gate_results", lambda *a, **k: passed):
+            return super().freeze(*args, **kw)
+
+
+class FreezeShort(ShortCase):
+    def test_it_carries_only_the_bullets_that_rendered(self):
+        import hashlib
+
+        raw = self.short.read_bytes()
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        app, _ = self.application()
+        # The inferred ingestion bullet is listed in the file but withheld by the floor:
+        # it was never sent, so the application does not claim it was.
+        self.assertEqual(app["carried"], k("ach_events_latency", "ach_events_team",
+                                           "ach_identity_sso"))
+        self.assertEqual(app["carriedVersion"], k("met_apps.v1", "met_latency.v2",
+                                                  "met_team.v1"))
+        self.assertEqual(app["recordSha256"], [hashlib.sha256(raw).hexdigest()])
+        self.assertEqual(app["view"], ["resume"])
+
+    def test_the_workspace_validates_with_it(self):
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertEqual([f.text() for f in self.store().fails()], [])
+
+    def test_view_is_a_call_error_for_a_short_file(self):
+        code, out = self.freeze("--view", "view_contoso")
+        self.assertEqual(code, 2, out)
+        self.assertIn("drop --view", out)
+        self.assertFalse((self.app / "application.ttl").exists())
+
+    def test_a_file_that_does_not_build_is_never_frozen(self):
+        self.short.write_text(json.dumps({"resume": 2, "bullets": ["ach_nope"]}),
+                              encoding="utf-8")
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("ach_nope", out)
+        self.assertFalse((self.app / "application.ttl").exists())
+        self.assertFalse(self.sent.exists())
+
+
+class ShipFrozen(ShortCase):
+    """Review Focus 5: a frozen application is what was sent. Re-rendering into it would
+    overwrite the PDF the application.ttl says went out."""
+
+    def ship(self, *args):
+        from jsk.urs import render_resume
+
+        with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
+            return self.jsk("ship", *args)
+
+    def test_it_refuses_to_render_into_a_frozen_directory(self):
+        (self.app / "application.ttl").write_text("# frozen\n", encoding="utf-8")
+        before = (self.app / "Jane_Doe_Resume.pdf").read_bytes()
+        code, out = self.ship(self.short, "--out", self.app)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"frozen: {self.app / 'application.ttl'}", out)
+        self.assertIn("re-rendering would overwrite what was sent", out)
+        self.assertIn("fix:", out)
+        self.assertIn("new dated directory", out)
+        self.assertNotIn("--- ", out)                       # no step ran
+        self.assertEqual((self.app / "Jane_Doe_Resume.pdf").read_bytes(), before)
+
+    def test_it_refuses_a_record_from_a_frozen_directory_rendered_elsewhere(self):
+        (self.app / "application.ttl").write_text("# frozen\n", encoding="utf-8")
+        out_dir = self.root / "out"
+        code, out = self.ship(self.short, "--out", out_dir)
+        self.assertEqual(code, 1, out)
+        self.assertIn("frozen:", out)
+        self.assertFalse(out_dir.exists())
+
+    def test_view_is_a_call_error_for_a_short_file(self):
+        code, out = self.ship(self.short, "--out", self.root / "out", "--view", "view_x")
+        self.assertEqual(code, 2, out)
+        self.assertIn("drop --view", out)
+        self.assertFalse((self.root / "out").exists())
+
+    def test_a_short_file_needs_no_view(self):
+        code, out = self.ship(self.short, "--out", self.root / "out")
+        self.assertNotIn("--view is required", out)
+
+
 if __name__ == "__main__":
     unittest.main()

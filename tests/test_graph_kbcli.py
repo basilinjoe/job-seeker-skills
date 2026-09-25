@@ -544,10 +544,11 @@ class Check(Workspace):
     def test_export_names_the_bullets_its_draft_already_fails(self):
         self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites", logged=True)
         out_file = self.path("applications/draft/resume.json")
-        code, out = self.kb("export", "--urs", "--out", str(out_file))
+        code, out = self.kb("export", "--out", str(out_file))
         self.assertEqual(code, 0, out)
-        self.assertIn("WARN  the draft fails", out)
-        self.assertIn("'3' appears in the text but in no metric", out)
+        self.assertIn("WARN  ", out)
+        self.assertIn("a question for the person", out)
+        self.assertIn("'3'", out)
         self.assertTrue(out_file.exists())
 
     def test_a_fail_exits_1_and_a_hand_edit_is_named(self):
