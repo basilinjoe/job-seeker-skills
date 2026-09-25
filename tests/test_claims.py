@@ -171,6 +171,23 @@ class Absent(unittest.TestCase):
     def test_an_inferred_one_is_what_it_should_be(self):
         self.assertEqual(found(self.invented("inferred")), [])
 
+    def test_so_is_anything_else_kb_ttl_could_hold_and_does_not(self):
+        """A qualification, a project, a role: absent from kb.ttl, at most inferred."""
+        doc = clean()
+        doc["education"].append({"id": "edu_phd_fake", "institution": "MIT",
+                                 "qualification": "PhD", "provenance": {"status": "confirmed"}})
+        doc["projects"].append({"id": "prj_fake", "name": "Fake", "achievements": [],
+                                "provenance": {"status": "confirmed"}})
+        self.assertEqual(keys(found(doc)), {("absent-confirmed", "FAIL", "edu_phd_fake"),
+                                            ("absent-confirmed", "FAIL", "prj_fake")})
+        doc["education"][-1]["provenance"]["status"] = "inferred"
+        doc["projects"][-1]["provenance"]["status"] = "inferred"
+        self.assertEqual(found(doc), [])
+
+    def test_a_narrative_is_written_per_application_and_kb_ttl_holds_none(self):
+        self.assertEqual(clean()["narratives"][0]["provenance"]["status"], "confirmed")
+        self.assertEqual(found(clean()), [])
+
     def test_its_words_are_checked_against_the_project_it_sits_under(self):
         doc = self.invented("inferred")
         doc["projects"][0]["achievements"][-1]["text"] = "Rebuilt the deploy pipeline on EKS."
@@ -195,6 +212,130 @@ class Provenance(unittest.TestCase):
     def test_a_lower_provenance_in_the_record_is_fine(self):
         doc = clean()
         achievement(doc, "ach_identity_sso")["provenance"]["status"] = "inferred"
+        self.assertEqual(found(doc), [])
+
+
+def carried(ident, text, metrics=()):
+    """A kb bullet carried into the record under prj_identity."""
+    doc = clean()
+    doc["projects"][1]["achievements"].append({
+        "id": ident, "text": text, "metrics": list(metrics),
+        "provenance": {"status": "confirmed"}})
+    return doc
+
+
+REGULATORS = "Published sign-in events to Kafka that 3 state regulators accepted."
+
+
+class Numbers(unittest.TestCase):
+    def regulators(self, provenance="confirmed"):
+        """A kb bullet with a number in its own words and no metric behind it."""
+        ws = workspace(self)
+        edit(ws, "career/kb.ttl", 'j:text "Published sign-in events to Kafka." ;\n'
+             '    j:shows c:kafka ;\n    j:provenance j:confirmed .',
+             f'j:text "{REGULATORS}" ;\n    j:shows c:kafka ;\n'
+             f'    j:provenance j:{provenance} .', relog=True)
+        return S.load(ws)
+
+    def test_a_number_in_the_confirmed_kb_bullets_own_words_is_traced(self):
+        """The person confirmed those words; carried word for word, nothing is new."""
+        s = self.regulators()
+        self.assertEqual(s.fails(), [])
+        self.assertEqual(found(carried("ach_identity_events", REGULATORS), s), [])
+
+    def test_not_when_the_kb_bullet_is_unconfirmed(self):
+        s = self.regulators("inferred")
+        doc = carried("ach_identity_events", REGULATORS)
+        achievement(doc, "ach_identity_events")["provenance"]["status"] = "inferred"
+        self.assertEqual(keys(found(doc, s)),
+                         {("number-untraced", "FAIL", "ach_identity_events")})
+
+    def test_a_number_the_kb_bullets_words_do_not_hold_is_still_untraced(self):
+        doc = carried("ach_identity_events", REGULATORS.replace("3", "5"))
+        self.assertEqual(keys(found(doc, self.regulators())),
+                         {("number-untraced", "FAIL", "ach_identity_events")})
+
+    def test_a_kb_bullet_traces_only_through_what_kb_ttl_cites(self):
+        """Naming another kb metric in the record does not launder a number: 40 is
+        met_apps's, and kb.ttl's ach_events_team cites only met_team."""
+        doc = clean()
+        a = achievement(doc, "ach_events_team")
+        a["text"] = "Led a team of 40 engineers."
+        self.assertEqual(keys(found(doc)), {("number-untraced", "FAIL", "ach_events_team")})
+        a["metrics"].append({"id": "met_apps"})
+        [f] = found(doc)
+        self.assertEqual((f.check, f.focus), ("number-untraced", "ach_events_team"))
+        self.assertIn("(k:met_team)", f.detail)
+
+    def test_a_bullet_kb_ttl_does_not_hold_traces_through_the_metrics_it_names(self):
+        doc = clean()
+        doc["projects"][1]["achievements"].append({
+            "id": "ach_identity_rollout", "text": "Rolled 40 applications onto SSO.",
+            "metrics": [{"id": "met_apps"}], "provenance": {"status": "inferred"}})
+        self.assertEqual(found(doc), [])
+
+    def test_an_older_versions_number_is_superseded_even_in_the_kb_bullets_words(self):
+        """kb text that still states a replaced number is stale; the version says so."""
+        ws = workspace(self)
+        stale = "Cut p95 event latency from 5 s to 1 s on AKS with Kafka."
+        edit(ws, "career/kb.ttl", "from 5 s to 400 ms on AKS", "from 5 s to 1 s on AKS",
+             relog=True)
+        doc = clean()
+        achievement(doc, "ach_events_latency")["text"] = stale
+        self.assertEqual(keys(found(doc, S.load(ws))),
+                         {("number-superseded", "FAIL", "ach_events_latency")})
+
+
+GAME = "Grew a Go server to 100,000 players."
+
+
+class Carried(unittest.TestCase):
+    """A kb bullet's id carries its confirmation only onto its own words and project."""
+
+    def test_a_kb_bullet_moved_under_another_project_fails(self):
+        doc = clean()
+        doc["projects"][0]["achievements"].append({
+            "id": "ach_game_players", "text": GAME,
+            "metrics": [{"kind": "count", "subject": "players",
+                         "quantity": {"value": 100000}}],
+            "provenance": {"status": "confirmed"}})
+        fails = {k for k in keys(found(doc)) if k[1] == "FAIL"}
+        self.assertEqual(fails, {("project-moved", "FAIL", "ach_game_players")})
+        [f] = [f for f in found(doc) if f.check == "project-moved"]
+        self.assertIn("k:prj_game", f.detail)
+        self.assertIn("prj_events", f.detail)
+
+    def test_or_under_another_engagement(self):
+        doc = clean()
+        doc["engagements"][0]["achievements"].append({
+            "id": "ach_game_players", "text": GAME, "metrics": [],
+            "provenance": {"status": "confirmed"}})
+        self.assertIn(("project-moved", "FAIL", "ach_game_players"), keys(found(doc)))
+
+    def test_under_the_engagement_its_project_belongs_to_it_stays_put(self):
+        doc = clean()
+        a = doc["projects"][0]["achievements"].pop(1)          # ach_events_team
+        doc["engagements"][0]["achievements"].append(a)
+        self.assertEqual(found(doc), [])
+
+    def test_words_that_are_not_kbs_warn(self):
+        doc = clean()
+        achievement(doc, "ach_events_team")["text"] = \
+            "Designed the bank's entire payments architecture single-handedly."
+        self.assertEqual(keys(found(doc)), {("text-changed", "WARN", "ach_events_team")})
+
+    def test_so_does_a_claim_appended_to_kbs_words(self):
+        doc = clean()
+        achievement(doc, "ach_events_team")["text"] = (
+            "Led a team of 6 engineers and single-handedly designed the bank's entire "
+            "payments architecture.")
+        self.assertEqual(keys(found(doc)), {("text-changed", "WARN", "ach_events_team")})
+
+    def test_wording_retuned_for_a_posting_does_not(self):
+        doc = clean()
+        achievement(doc, "ach_identity_sso")["text"] = (
+            "Moved 40 internal applications onto Entra ID single sign-on, retiring the "
+            "legacy identity providers.")
         self.assertEqual(found(doc), [])
 
 

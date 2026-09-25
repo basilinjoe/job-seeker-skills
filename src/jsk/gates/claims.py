@@ -16,16 +16,24 @@ with each other and with nothing the person ever confirmed. This gate checks the
 against the career instead. Ids are shared between the two (`prj_`, `ach_`, `met_`, ...),
 so each check is a join:
 
-  FAIL  1  an achievement kb.ttl does not hold must be inferred in the record
+  FAIL  1  an entry of a kind kb.ttl holds (achievement, project, role, qualification,
+           ...) that kb.ttl does not hold must be at most inferred in the record
   FAIL  2  no record provenance above the one kb.ttl holds for the same id
-  FAIL  3  every numeral in a bullet is in the current version of a metric it cites -
+  FAIL  2a a bullet kb.ttl holds sits under the project kb.ttl's j:project names (or an
+           engagement listing that project or holding its role)
+  WARN  2b a bullet kb.ttl holds keeps at least half of kb.ttl's content words and adds
+           no more than twice as many as it kept - wording is retuned per posting
+  FAIL  3  every numeral in a bullet is in the current version of a metric it cites
+           (kb.ttl's j:cites for a bullet kb.ttl holds; the record's metric ids only for
+           one it does not), or in the words of the confirmed kb bullet it carries -
            else it is superseded (an older version's number) or untraced
   WARN  4  a vocabulary label in a bullet names a concept its project does not hold
   WARN  5  a skill's name or alias names a concept no project holds
   WARN  6  "N years of X" beyond what the roles behind the projects holding X cover
 
 4-6 read prose, where a word can be a technology or not ("Go"), so they warn until they
-have been measured at zero false positives on real records. 1-3 read ids and numbers.
+have been measured at zero false positives on real records, and 2b reads it too. 1-3 read
+ids and numbers.
 """
 import datetime
 import os
@@ -33,7 +41,7 @@ import re
 import sys
 from dataclasses import dataclass
 
-from .validate_urs import Report, covered, numerals, show, walk_achievements
+from .validate_urs import SCALE, Report, covered, numerals, show, walk_achievements
 
 MAX_FINDINGS = 25
 RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
@@ -96,6 +104,10 @@ class Career:
             self.project[r["a"].value] = r["proj"].value
             if "m" in r:
                 self.cites.setdefault(r["a"].value, set()).add(r["m"].value)
+        self.text = {r["a"].value: r["t"].value for r in store.select(
+            PRE + "SELECT ?a ?t WHERE { ?a a j:Achievement ; j:text ?t }")}
+        self.position = {r["p"].value: r["pos"].value for r in store.select(
+            PRE + "SELECT ?p ?pos WHERE { ?p a j:Project ; j:position ?pos }")}
         self.versions = {}               # metric -> [(version, {numbers}, closed day or None)]
         for r in store.select(PRE + """SELECT ?m ?v ?val ?base ?until WHERE {
                 ?v j:of ?m ; j:value ?val OPTIONAL { ?v j:baseline ?base }
@@ -167,19 +179,27 @@ def ids_with_provenance(node, out=None):
     return out
 
 
+def kb_could_hold(ident, career):
+    """True when `ident` names a class kb.ttl defines - an achievement, a project, a
+    role, a qualification, ... - so its absence from kb.ttl means nobody confirmed it.
+    A narrative, a view, an engagement or a referee has no kb.ttl class: it is written
+    per application, and there is nothing to join it with."""
+    cls = career.O.class_of(career.iri(ident))
+    return cls is not None and "kb" in career.O.BY_NAME[cls].kinds
+
+
 def provenance(doc, career, found):
     """Checks 1 and 2: a record never says more than the career does."""
-    achievements = {a.get("id") for a, _ in walk_achievements(doc) if a.get("id")}
     for ident, status in ids_with_provenance(doc):
         iri = career.iri(ident)
         if status not in RANK:
             continue                       # validate_urs's to report
-        if ident in achievements and iri not in career.kb:
+        if iri not in career.kb and kb_could_hold(ident, career):
             if RANK[status] > RANK["inferred"]:
                 found.append(Finding(
                     "absent-confirmed", "FAIL", ident,
-                    f"is {status} in the record, and kb.ttl holds no such bullet",
-                    "a bullet written for this application is inferred until the person "
+                    f"is {status} in the record, and kb.ttl holds no such entry",
+                    "an entry written for this application is inferred until the person "
                     "confirms it: add it to kb.ttl with `jsk kb apply`, then `jsk kb confirm`"))
             continue
         held = career.provenance.get(iri)
@@ -191,13 +211,31 @@ def provenance(doc, career, found):
                 f"`jsk kb confirm {ident} --answer \"...\"`"))
 
 
+def confirmed_numbers(iri, career):
+    """The numbers in a kb bullet's own words, when the person confirmed those words.
+
+    A confirmed bullet may state a number no metric records ("that 3 state regulators
+    accepted"): `jsk kb check` passes it, so carrying it word for word must too. An
+    unconfirmed bullet's words are nobody's evidence, so they trace nothing."""
+    if career.provenance.get(iri) != "confirmed":
+        return set()
+    pool = set()
+    for value, suffix, _ in numerals(career.text.get(iri, "")):
+        pool.add(value * SCALE.get(suffix, 1))
+    return pool
+
+
 def numbers(doc, career, found):
-    """Check 3: every numeral in a bullet is a number the career holds now."""
+    """Check 3: every numeral in a bullet is a number the career holds now - in the
+    current version of a metric it cites, or in the confirmed words of the kb bullet it
+    carries. A number an older version holds is superseded even when the kb bullet's
+    words still say it: those words are stale, and the version history says when."""
     for a, where in walk_achievements(doc):
         ident, text = a.get("id"), a.get("text") or ""
         if not ident or not isinstance(text, str):
             continue
         iri = career.iri(ident)
+        held = iri in career.kb
         cited = set(career.cites.get(iri, ()))
         for m in a.get("metrics") or []:
             mid = m.get("id") if isinstance(m, dict) else None
@@ -206,13 +244,19 @@ def numbers(doc, career, found):
                     found.append(Finding("number-untraced", "FAIL", ident,
                                          f"names metric {mid}, which kb.ttl does not hold",
                                          "name a metric kb.ttl holds: `jsk kb view --section Metrics`"))
-                cited.add(career.iri(mid))
+                # A bullet kb.ttl holds cites what kb.ttl says it cites: a metric the
+                # record names beside it would let any kb number stand in any bullet.
+                if not held:
+                    cited.add(career.iri(mid))
+        worded = confirmed_numbers(iri, career)
+        now = set().union(*(nums for m in cited for _, nums, _ in career.current(m)))
         for value, suffix, shown in numerals(text):
-            now = set().union(*(nums for m in cited for _, nums, _ in career.current(m)))
             if covered(value, suffix, now):
                 continue
             old = sorted((v, until) for m in cited for v, nums, until in career.versions.get(m, [])
                          if until is not None and covered(value, suffix, nums))
+            if not old and covered(value, suffix, worded):
+                continue
             if old:
                 v, until = old[-1]
                 metric = v.rsplit(".v", 1)[0]
@@ -229,6 +273,83 @@ def numbers(doc, career, found):
                     f"{shown!r} is in no current version of what it cites ({names})",
                     "use a number kb.ttl holds, or record this one there with `jsk kb apply` "
                     "and cite it (j:cites) from the bullet"))
+
+
+def moved(doc, career, found):
+    """A kb bullet sits where kb.ttl's j:project puts it.
+
+    Its id carries kb.ttl's confirmation, and the confirmation was of the work on that
+    project: the same words under another employer are a claim nobody confirmed. Under
+    a project, the record's project id must be kb.ttl's; under an engagement, kb.ttl's
+    project must be one the engagement lists, or its role one the engagement holds."""
+    engagements = {e.get("id"): e for e in doc.get("engagements") or []
+                   if isinstance(e, dict)}
+    for a, where in walk_achievements(doc):
+        ident = a.get("id")
+        project = career.project.get(career.iri(ident or ""))
+        if project is None or career.iri(ident) not in career.kb:
+            continue
+        kind, _, parent = where.partition(" ")
+        if kind == "project":
+            if career.iri(parent) == project:
+                continue
+        else:
+            e = engagements.get(parent) or {}
+            listed = {career.iri(p) for p in e.get("projects") or [] if isinstance(p, str)}
+            roles = {career.iri(p.get("id")) for p in e.get("positions") or []
+                     if isinstance(p, dict) and isinstance(p.get("id"), str)}
+            if project in listed or career.position.get(project) in roles:
+                continue
+        found.append(Finding(
+            "project-moved", "FAIL", ident,
+            f"kb.ttl holds it under {curie(project)}; the record puts it under {where}",
+            f"move it back under {curie(project)}, or write a new bullet for {where} - "
+            "inferred until the person confirms it"))
+
+
+# Words too common to say whether two bullets make the same claim.
+STOPWORDS = frozenset(
+    "the and for with from into onto over under that this these those its their our was "
+    "were has had have than then across through per via also while who which all each "
+    "whom".split())
+
+
+def words(text):
+    """A bullet's content words: lower case, no numbers (check 3 reads those), no
+    possessive, a plural's s dropped, nothing shorter than three letters."""
+    text = re.sub(r"['’]s\b", "", text.lower())
+    out = set()
+    for w in re.findall(r"[a-z][a-z0-9]*", text):
+        if len(w) > 3 and w.endswith("s") and not w.endswith("ss"):
+            w = w[:-1]
+        if len(w) >= 3 and w not in STOPWORDS:
+            out.add(w)
+    return out
+
+
+def retold(doc, career, found):
+    """A kb bullet's words are still kb.ttl's words.
+
+    The author retunes wording for each posting, so this warns rather than fails. It
+    warns when the record keeps fewer than half of kb.ttl's content words (the id is
+    carrying a different claim), or adds more than twice as many new ones as it kept
+    (a claim appended to confirmed words)."""
+    for a, _ in walk_achievements(doc):
+        ident, text = a.get("id"), a.get("text")
+        held = career.text.get(career.iri(ident or ""))
+        if held is None or not isinstance(text, str):
+            continue
+        kb, rec = words(held), words(text)
+        if not kb:
+            continue
+        kept, added = kb & rec, rec - kb
+        if len(kept) * 2 < len(kb) or len(added) > 2 * len(kept):
+            found.append(Finding(
+                "text-changed", "WARN", ident,
+                f"keeps {len(kept)} of kb.ttl's {len(kb)} content words and adds "
+                f"{len(added)} ({', '.join(sorted(added)[:6]) or 'none'}); kb.ttl says "
+                f"{held!r}", "say what kb.ttl says - retuned, not replaced - or record the new "
+                "claim with `jsk kb apply` and confirm it with the person"))
 
 
 def source_project(a, owner, career):
@@ -344,7 +465,9 @@ def findings(record, store, today=None):
     career = Career(store)
     found = []
     provenance(doc, career, found)
+    moved(doc, career, found)
     numbers(doc, career, found)
+    retold(doc, career, found)
     vocabulary(doc, career, found)
     skills(doc, career, found)
     years(doc, career, found, today)

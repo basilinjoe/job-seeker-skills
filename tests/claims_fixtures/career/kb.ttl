@@ -175,6 +175,11 @@ k:skill_kubernetes j:name "Kubernetes" ; j:category "Platforms" ; j:alias "AKS",
 
 # == Education
 
+k:edu_bsc j:institution "University of Melbourne" ;
+    j:qualification "Bachelor of Science" ; j:field "Computer Science" ; j:level j:isced-6 ;
+    j:start "2010" ; j:end "2013" ;
+    j:provenance j:confirmed .
+
 # == Certifications
 
 # == Open source
