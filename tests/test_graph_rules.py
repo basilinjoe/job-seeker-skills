@@ -81,6 +81,8 @@ MUTATIONS = {
     "hand-edited": (KB, 'j:size "1001-5000"', 'j:size "1001-10000"', "k:kb", "jsk kb adopt"),
     "answer-placeholder": (LOG, 'j:answer "Six throughout; two joined in the second month '
                                 'and two left."', 'j:answer "yes"', "k:rev_2", "in their words"),
+    "period": (KB, 'j:start "2016-08" ; j:end "2020-01"', 'j:start "2016-08" ; j:end "2015-01"',
+               "k:pos_northbridge_architect", "the dates"),
 }
 
 WARNS = {"version-gap", "headline-cited", "label-clash", "inferred-unasked",
@@ -100,6 +102,36 @@ class EveryRuleFires(unittest.TestCase):
     def test_severity(self):
         for r in rules.RULES:
             self.assertEqual(r.severity, "WARN" if r.id in WARNS else "FAIL", r.id)
+
+
+class Periods(unittest.TestCase):
+    """validate_urs's PeriodsAreUnambiguous, carried to kb.ttl: the roles' dates are what
+    the resume prints, and the URS record that was checked for them is gone."""
+
+    def detail(self, old, new):
+        s, _ = mutated((KB, old, new))
+        [f] = [f for f in s.findings if f.rule == "period"]
+        return f.focus, f.detail
+
+    def test_ongoing_must_not_carry_an_end_date(self):
+        self.assertEqual(self.detail('j:start "2023-07" ; j:state j:ongoing ;',
+                                     'j:start "2023-07" ; j:end "2024-02" ; j:state j:ongoing ;'),
+                         ("k:pos_meridian_principal", "ongoing, but it ends 2024-02"))
+
+    def test_ended_requires_an_end_date(self):
+        self.assertEqual(self.detail('j:start "2020-02" ; j:end "2023-06" ; j:state j:ended ;',
+                                     'j:start "2020-02" ; j:state j:ended ;'),
+                         ("k:pos_meridian_senior", "ended, with no j:end"))
+
+    def test_end_before_start(self):
+        self.assertEqual(self.detail('j:start "2016-08" ; j:end "2020-01"',
+                                     'j:start "2016-08" ; j:end "2015-01"')[1],
+                         "ends 2015-01, before it starts 2016-08")
+
+    def test_a_year_against_a_month_compares_the_year(self):
+        s, _ = mutated((KB, 'j:start "2016-08" ; j:end "2020-01"',
+                        'j:start "2016-08" ; j:end "2016"'))
+        self.assertEqual([f for f in s.findings if f.rule == "period"], [])
 
 
 class Findings(unittest.TestCase):

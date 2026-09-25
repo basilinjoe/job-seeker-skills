@@ -33,6 +33,10 @@ import sys
 
 from ..cliutil import docstring_usage, wants_help
 from ..paths import SCHEMA_DIR
+# Moved to their own modules so they outlive this gate; imported back so nothing here
+# changes, and so every name older code imports from here still resolves.
+from .numbers import ACRONYM, NUMBER, SCALE, covered, numerals  # noqa: F401
+from .report import Report, show  # noqa: F401
 
 # This gate is what jsk-verifier runs and reports back verbatim, so its output lands
 # in an agent's context on every check. Nothing is hidden by the cap: the header keeps
@@ -130,43 +134,6 @@ VIEW_KEYS = {
     "provenance_floor", "budget", "x",
 }
 
-SCALE = {"k": 1e3, "m": 1e6, "bn": 1e9, "b": 1e9}
-
-
-NUMBER = re.compile(r"(?<![A-Za-z0-9.])(\d[\d,]*(?:\.\d+)?)\s*(bn|[kmb%])?(?![A-Za-z0-9])")
-ACRONYM = re.compile(r"([A-Z]{2,})\s*$")
-
-
-def numerals(text):
-    """Standalone quantities in prose, with their multiplier suffix if any.
-
-    Three classes of number are designators rather than claims, and counting
-    them would make this check useless through noise:
-
-      * glued to letters - p95, S3, H100, IPv6
-      * a four-digit year
-      * preceded by an all-caps acronym - ISO 27001, SOC 2, IEC 62304, RFC 7231
-
-    The acronym rule costs a real detection: 'reduced MTTR 40' is skipped. That
-    trade is deliberate, because this check *fails* a document. A missed number
-    is a gap in coverage; a false accusation makes the gate something people
-    learn to route around. A percentage keeps its suffix and is always counted,
-    which is how most such claims are actually written.
-    """
-    found = []
-    for m in NUMBER.finditer(text):
-        raw, suffix = m.group(1), (m.group(2) or "").lower()
-        try:
-            value = float(raw.replace(",", ""))
-        except ValueError:
-            continue
-        if suffix in ("", "%") and 1900 <= value <= 2100 and value == int(value) and "." not in raw:
-            continue                      # a year, not a claim
-        if suffix != "%" and ACRONYM.search(text[:m.start()]):
-            continue                      # a standard's number, not a quantity
-        found.append((value, suffix, m.group(0).strip()))
-    return found
-
 
 def metric_values(metrics):
     out = set()
@@ -182,33 +149,6 @@ def metric_values(metrics):
         if isinstance(m.get("value"), str):
             out.update(value for value, _suffix, _shown in numerals(m["value"]))
     return out
-
-
-def covered(value, suffix, pool):
-    candidates = {value}
-    if suffix in SCALE:
-        candidates.add(value * SCALE[suffix])
-    for c in candidates:
-        for p in pool:
-            if abs(p - c) < 1e-9 or (c and abs(p - c) / max(abs(c), 1e-9) < 0.005):
-                return True
-            if p and abs(p * 60 - c) < 1e-9:          # minutes stated as seconds
-                return True
-            if c and abs(c * 60 - p) < 1e-9:
-                return True
-    return False
-
-
-class Report:
-    def __init__(self):
-        self.fails = []
-        self.warns = []
-
-    def fail(self, msg):
-        self.fails.append(msg)
-
-    def warn(self, msg):
-        self.warns.append(msg)
 
 
 def walk_achievements(doc):
@@ -576,19 +516,6 @@ def parse(argv):
         else:
             args.append(token)
     return args, flags
-
-
-def show(items, mark, limit):
-    """At most `limit` findings, then the count of what was not listed.
-
-    Truncating a gate's output is only safe while the total is still visible, so
-    the caller prints the real counts in the header and this says how many it left
-    out. The header keeps printing the true totals, so nothing is hidden by the cap.
-    """
-    for item in items[:limit or len(items)]:
-        print(f"  {mark}  {item}")
-    if limit and len(items) > limit:
-        print(f"  {mark}  ... and {len(items) - limit} more")
 
 
 def check_doc(doc):

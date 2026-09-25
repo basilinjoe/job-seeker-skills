@@ -21,14 +21,14 @@ from ..cliutil import docstring_usage, wants_help
 
 
 try:
-    # Reused rather than reimplemented. validate_urs.numerals() already knows
+    # Reused rather than reimplemented. numbers.numerals() already knows
     # that a year, a glued designator (p95, S3, H100) and a standard's number
     # (ISO 27001) are not claims, and a second detector without those
     # exclusions would report a resume as unquantified because it mentions
     # 2019. This gate stays runnable where that file is absent - SKILL.md's
     # "installed as SKILL.md alone" case - by dropping the coverage line
     # rather than failing.
-    from .validate_urs import numerals
+    from .numbers import numerals
 except ImportError:                                          # pragma: no cover
     numerals = None
 

@@ -89,7 +89,7 @@ def refuse(lines, fix=None):
 
 
 def show_findings(findings, title):
-    from ..gates.validate_urs import show
+    from ..gates.report import show
     from . import store as S
 
     rep = S.Store("", findings=findings).report()
@@ -812,6 +812,34 @@ def cmd_query(args, root):
     return 0
 
 
+def untraced_lines(store, today):
+    """numbers.untraced over every live bullet, a line each: what the record gate would
+    refuse in any resume selecting the bullet.
+
+    This exported the whole career as a URS record and ran the record and claims gates
+    on it (export.gate_failures); the number check is now one function over the graph,
+    so it is asked of the bullets directly. The wording is the old record gate's - it is
+    what the Everforth and ElevenLabs runs taught people to read here."""
+    from ..gates import numbers
+    from ..resume.career import Career
+    from . import record as R
+    from .shapes import curie
+
+    career = Career(store.graph(R.KB))
+    out = []
+    for f in numbers.untraced(store, sorted(career.live("Achievement")), today):
+        if f.numbers:
+            one = len(f.numbers) == 1
+            out.append(f"{curie(f.bullet)} - {numbers.quoted(f.numbers)} "
+                       f"{'appears' if one else 'appear'} "
+                       "in the text but in no metric it cites ("
+                       + (", ".join(curie(m) for m in f.cites) or "it cites none") + ")")
+        for s in f.superseded:
+            out.append(f"{curie(f.bullet)} - '{s['number']}' is {curie(s['version'])}'s number, "
+                       f"replaced on {s['until']}")
+    return out
+
+
 @verb
 def cmd_check(args, root):
     """jsk kb check
@@ -820,11 +848,11 @@ def cmd_check(args, root):
     log.ttl stand, and which record files are not in the canonical layout. Exit 1 on any
     FAIL; a WARN is printed and passes.
 
-    It also exports the whole career and runs the record and claims gates on it: a
-    bullet they refuse fails every tailored record that selects it, so it is warned of
-    here, once, rather than found by each resume run.
+    It also asks the record gate's number check of every live bullet: a bullet it
+    refuses fails every resume that selects it, so it is warned of here, once, rather
+    than found by each resume run.
     """
-    from ..gates.validate_urs import show
+    from ..gates.report import show
     from . import record as R
     from . import store as S
     from .writer import WriteError, write
@@ -841,13 +869,7 @@ def cmd_check(args, root):
             except WriteError:
                 pass                     # a file the writer cannot lay out has a FAIL already
     if not rep.fails and R.KB in store.parsed:
-        from .export import ExportError, gate_failures, urs
-        try:
-            faults = gate_failures(store, urs(store, today=datetime.date.today()),
-                                   today=datetime.date.today())
-        except ExportError:
-            faults = []
-        for line in faults:
+        for line in untraced_lines(store, datetime.date.today()):
             rep.warn(f"a record selecting it fails a gate: {line}\n        fix: record the "
                      "number as a metric version and cite it (j:cites), or correct the words, "
                      "with `jsk kb apply` - every application selecting it pays this otherwise")

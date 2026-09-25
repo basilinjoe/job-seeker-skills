@@ -152,7 +152,7 @@ def restart(root, name, today):
     import contextlib
     import io
 
-    from .gates.validate_urs import show
+    from .gates.report import show
     from .graph import record as R
     from .graph import store as S
     from .graph.kbcli import GUIDE

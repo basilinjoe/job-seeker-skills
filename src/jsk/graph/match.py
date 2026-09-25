@@ -21,7 +21,6 @@ concept - the analyst answers with j:concept), `candidate` (it names none), `imp
 import datetime
 import json
 import os
-import re
 import sys
 
 from ..cliutil import docstring_usage, wants_help
@@ -38,12 +37,6 @@ def workspace_of(posting):
     return os.path.dirname(apps)
 
 
-# A gate line naming a numeral, as validate_urs and the claims gate word them. The shown
-# numeral is a repr, so either quote.
-RECORD_GATE = re.compile(r"^achievement (\S+) in [^:]+: (['\"])(.*?)\2 appears in the text "
-                         r"but in no metric")
-UNTRACED = re.compile(r"^(['\"])(.*?)\1 is in no current version of what it cites")
-SUPERSEDED = re.compile(r"^(['\"])(.*?)\1 is (\S+)'s number, replaced on (\S+)")
 SOURCES = "dashboards, retros, release notes"
 # The top of the Ranking whose bullets are asked about as well as the selection's.
 TOP = 6
@@ -64,75 +57,45 @@ def record_faults(store, post, today, budget, ranked=None):
     bullets it picks under each - because those are exactly the bullets the author starts
     from. The whole Ranking would be every live project, and a fault in a bullet no draft
     selects is a question nobody needs answered for this posting; `jsk kb check` asks
-    those across the career. The gates are run here rather than through
-    export.gate_failures so the bullet and its numerals come back apart, not as a line.
+    those across the career. numbers.untraced is called on the bullets themselves: this
+    used to export a URS record and read the numerals back out of the record and claims
+    gates' lines with three regexes, which broke whenever a gate reworded a line.
 
     The selection is not enough on its own. It picks from confirmed evidence, and on the
     ElevenLabs career as it stood before the run - nine requirements unresolved terms, the
     rest carried by tags - it picked nothing, so this asked nothing while `jsk kb check`
     named six faults. The author then read the top of the Ranking and exported those by
     hand. So every live bullet of the top-ranked projects that carry a requirement is
-    asked about too: the ones gaps.md cites and the author reads (`ranked`, `TOP`).
+    asked about too, by rank: the ones gaps.md cites and the author reads (`ranked`, `TOP`).
 
-    Empty when the workspace has no kb.ttl or the export refuses: the match stands alone."""
+    Empty when the workspace has no kb.ttl: the match stands alone."""
+    from ..resume.career import Career
     from . import record as R
     from . import select as SEL
-    from .export import ExportError, urs
 
     if R.KB not in store.parsed:
         return []
-    top = [r.project.rsplit("/", 1)[-1] for r in ranked or () if r.required or r.preferred][:TOP]
-    docs = []
-    try:
-        docs.append(urs(store, today=today, selection=SEL.select(store, post, today, budget)))
-        if top:
-            docs.append(urs(store, select=top, today=today))
-    except ExportError:
-        return []
-    out, seen = [], set()
-    for doc in docs:
-        for fault in faults_in(doc, store, today):
-            if fault["bullet"] not in seen:
-                seen.add(fault["bullet"])
-                out.append(fault)
-    return out
+    selection = SEL.select(store, post, today, budget)
+    bullets = [b for p in selection.projects for b in selection.bullets.get(p, [])]
+    career = Career(store.graph(R.KB))
+    live = career.live("Achievement")
+    for project in [r.project for r in ranked or () if r.required or r.preferred][:TOP]:
+        bullets += sorted((a for a in live if career.get(a, "project") == project),
+                          key=lambda a: (int(career.get(a, "rank", 0)), a))
+    return faults_in(store, list(dict.fromkeys(bullets)), today)
 
 
-def faults_in(doc, store, today):
-    """record_faults' entries for one draft, in its order."""
-    from ..gates import claims, validate_urs
+def faults_in(store, bullets, today):
+    """record_faults' entries for `bullets` (iris), in their order: numbers.untraced's
+    Faults as the question's data."""
+    from ..gates import numbers
+    from .shapes import curie
 
-    cites, order = {}, []
-    for a, _ in validate_urs.walk_achievements(doc):
-        cites[a.get("id")] = [m.get("id") for m in a.get("metrics") or [] if isinstance(m, dict)]
-        order.append(a.get("id"))
-    untraced, old = {}, {}
-    for line in validate_urs.check_doc(doc).fails:
-        hit = RECORD_GATE.match(line)
-        if hit:
-            untraced.setdefault(hit.group(1), []).append(hit.group(3))
-    for f in claims.findings(doc, store, today):
-        if f.severity != "FAIL":
-            continue
-        hit = UNTRACED.match(f.detail) if f.check == "number-untraced" else None
-        if hit:
-            untraced.setdefault(f.focus, []).append(hit.group(2))
-        hit = SUPERSEDED.match(f.detail) if f.check == "number-superseded" else None
-        if hit:
-            old.setdefault(f.focus, {})[hit.group(2)] = (hit.group(3), hit.group(4))
-    out = []
-    for ident in order:
-        stale = old.get(ident, {})
-        # Both gates can name the same numeral; a superseded one is told as superseded,
-        # since the record does hold it - only no longer.
-        numbers = [n for n in dict.fromkeys(untraced.get(ident, [])) if n not in stale]
-        if not numbers and not stale:
-            continue
-        out.append({"bullet": f"k:{ident}", "numbers": numbers,
-                    "superseded": [{"number": n, "version": v, "until": u}
-                                   for n, (v, u) in stale.items()],
-                    "cites": [f"k:{m}" for m in cites.get(ident, [])]})
-    return out
+    return [{"bullet": curie(f.bullet), "numbers": f.numbers,
+             "superseded": [{"number": s["number"], "version": curie(s["version"]),
+                             "until": s["until"]} for s in f.superseded],
+             "cites": [curie(m) for m in f.cites]}
+            for f in numbers.untraced(store, bullets, today)]
 
 
 def quoted(numbers):
@@ -341,7 +304,7 @@ def main(argv=None):
         print("FAIL  jsk match needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
-    from ..gates.validate_urs import show
+    from ..gates.report import show
     from . import ontology as O
     from . import store as S
 
