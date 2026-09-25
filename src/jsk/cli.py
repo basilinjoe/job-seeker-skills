@@ -16,6 +16,7 @@ will be. This exists so that nobody has to remember every name to get started.
     jsk index KB [--rank POST]  a line-pointing overview of the knowledge base, ranked
     jsk match POSTING.ttl       a posting against the graph record, through the vocabulary
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
+    jsk migrate KB.md           user-knowledgebase.md to career/kb.ttl, once, round-trip checked
     jsk validate RECORD.json    the record gate, before anything renders
     jsk render RECORD [...]     one record to a PDF and plain text
     jsk preview RECORD --out D  the same record in every template, to pick a look
@@ -26,13 +27,13 @@ will be. This exists so that nobody has to remember every name to get started.
     jsk ship RECORD --out D --view ID   validate, render and gate, in one pass
     jsk freeze APP --submitted DATE|false --channel TEXT   archive a sent application
 
-Only `jsk index` reads `user-knowledgebase.md`, and it never writes it. That file is
+Only `jsk index` and `jsk migrate` read `user-knowledgebase.md`, and neither writes it. That file is
 Markdown a person and the skill edit with ordinary file tools, and the skill writes
 the URS record out of it. This package starts at the record: it is the last point at which a
 mistake is still cheap, which is why `jsk validate` runs before anything renders.
 
 Standard library only, pymupdf to read a PDF, and markdown-it-py with pyyaml for
-`jsk index`.
+`jsk index` and `jsk migrate`.
 """
 
 import contextlib
@@ -54,6 +55,7 @@ SIMPLE = {
     "index": ("kbindex.py", "overview the knowledge base; rank it against a posting"),
     "match": ("match.py", "a posting matched against the graph record, through the vocabulary"),
     "kb": ("kbcli.py", "the graph record: changed through changesets, read by id"),
+    "migrate": ("migrate.py", "a Markdown knowledge base to the graph record, one way"),
     "render": ("render_resume.py", "one record to .tex/PDF plus .txt"),
     "preview": ("preview_templates.py", "one record in every template, side by side"),
     "fit": ("fit_pages.py", "fit a render to a page budget"),
