@@ -42,7 +42,7 @@ When you downgrade a verb, tell them why.
   the evidence any claim needs.
 - **Most titles need nothing.** Gloss only where an outsider would have to guess.
 
-Record it as `functional_title` on the position (`urs-spec.md`), not by editing `title`.
+Record it as `j:functionalTitle` on the position (`kb-format.md`), not by editing `title`.
 
 ## Cut on sight
 

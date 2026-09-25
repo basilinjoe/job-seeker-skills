@@ -65,6 +65,10 @@ class ResidentCost(unittest.TestCase):
         # apply`, and `jsk index` left the table; the claims gate, `jsk migrate` and
         # `jsk event` came in. The okf lesson is the reason it fell rather than grew:
         # the subverbs live in `jsk kb --help` and in each refusal's fix line, not here.
+        #
+        # Held at 2400 when the URS record went (2026-09-25): 2,251 -> 2,191 measured. The
+        # claims gate's row and its `NOT RUN` sentence, `--view` on two commands and the
+        # two-halves spec pointer left; `resume-format.md` came in as one name.
         self.assertLess(tokens(SKILL / "SKILL.md"), 2400)
 
 
@@ -82,20 +86,20 @@ class AgentReadBudget(unittest.TestCase):
         # posting.ttl, so it never needs kb-format.md, came in.
         self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 2300)
 
-    def test_the_resume_author_reads_the_view_half_of_the_record_spec(self):
+    def test_the_resume_author_reads_the_short_file_format_and_the_rules(self):
         """It wrote the record by hand, so `urs-spec.md` went from the half it did not
         need to the half it could not do without - and went back again when `jsk kb
-        export` came to write every key but the view and the narrative.
+        export` came to write every key but the view and the narrative. Then the record
+        itself went: the author reads `resume-format.md`, the short file's every key.
 
-        This ceiling went UP - 8,600 to 11,400 - and that is the cost of removing the
-        compiler, stated rather than absorbed. A compiled record could not carry an
-        unrecognised key, so the agent needed only the view format; a hand-written one
-        can, and `experience:` written where `engagements:` belongs renders a resume
-        with no jobs on it. 3,727 tokens of schema against a defect invisible in the
-        PDF is the trade, and it is the right way round.
+        This ceiling once went UP - 8,600 to 11,400 - the cost of removing the compiler,
+        stated rather than absorbed: a hand-written record could carry an unrecognised
+        key, and `experience:` written where `engagements:` belongs rendered a resume
+        with no jobs on it. The short file refuses an unknown key itself, so the schema
+        the author reads is a table of ten keys.
         """
         author = tokens(AGENTS / "jsk-resume-author.md")
-        spec = tokens(REFS / "view-format.md")
+        spec = tokens(REFS / "resume-format.md")
         rules = tokens(REFS / "ats-rules.md", REFS / "writing-rules.md")
         # 11400 -> 7600: 11,214 -> 7,138 measured. Every key, type and shape stayed;
         # the prose around them, and each half's account of why it was split, went.
@@ -118,13 +122,15 @@ class AgentReadBudget(unittest.TestCase):
         # shape came in. The author grew by what the run cost: the order of career
         # changes before the export, `--refresh` over a delete and re-export, the
         # WARN that is a question rather than a number to change.
-        self.assertLess(author + spec + rules, 5000)
-
-    def test_the_view_format_is_the_smaller_half(self):
-        """If it ever grows past the file it was split out of, the split has stopped
-        paying for itself and should be reconsidered rather than quietly kept."""
-        self.assertLess(tokens(REFS / "view-format.md"),
-                        tokens(REFS / "urs-spec.md"))
+        #
+        # 5000 -> 4800: 4,809 -> 4,607 measured, the author 2,105 -> 1,786 and the format
+        # it reads 509 (view-format.md) -> 625 (resume-format.md). The URS record went
+        # (2026-09-25): the view keys, `include`, `view_draft`, the narrative's JSON
+        # shape, reading only the end of the record and `--refresh` all left with it -
+        # there is no copy of the career to read the end of or to refresh. The format
+        # grew by what the short file needs said once: a confirmed summary's one edit,
+        # everything the record gate fails, and `jsk migrate` for a legacy record.
+        self.assertLess(author + spec + rules, 4800)
 
 
 class TheWritePathStaysCheap(unittest.TestCase):
@@ -258,13 +264,20 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         self.assertIn("never the same ids twice", body)
         self.assertIn("not the whole career", body)
 
-    def test_the_author_reads_only_the_end_of_the_exported_record(self):
+    def test_the_author_edits_ids_and_settings_and_the_career_first(self):
         """It read the 52KB export whole to edit the view and the summary - the last
-        two keys - and after a re-export read it again."""
-        body = self.body("jsk-resume-author.md")
-        self.assertIn("Read only the end of the record", body)
-        self.assertIn("Never delete the record and export it again", body)
-        self.assertIn("--refresh", body)
+        two keys - and after a re-export read it again; the ElevenLabs author then
+        refreshed a record the career had moved under. The short file holds no copy to
+        read the end of or to refresh: every word goes into the career before the export,
+        and the author edits only the order, the summary and the page settings."""
+        body = " ".join(self.body("jsk-resume-author.md").split())
+        self.assertIn("Every new or reworded bullet goes into the career before the export", body)
+        self.assertIn("jsk kb export --from-match", body)
+        self.assertIn("**Then edit only** `bullets`", body)
+        for gone in ("--refresh", "--urs", "view_draft", "include", "narrative",
+                     "Read only the end of the record"):
+            with self.subTest(gone=gone):
+                self.assertNotIn(gone, body)
 
     def test_the_analyst_runs_the_match_and_reads_what_it_cites(self):
         """The analyst stopped reading the file whole. On the ABB run it read 165k
@@ -298,7 +311,12 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
                       self.body("jsk-resume-author.md"))
         # The example record left with the hand-written record: an exported one is
         # already the shape, and 11.8KB of someone else's resume was a template to copy.
-        self.assertNotIn("EXAMPLE_RECORD", (REFS / "mode-tailor.md").read_text(encoding="utf-8"))
+        # The URS specification followed it; the one format reference named is the
+        # short file's.
+        tailor = (REFS / "mode-tailor.md").read_text(encoding="utf-8")
+        self.assertNotIn("EXAMPLE_RECORD", tailor)
+        self.assertNotIn("urs-spec.md", tailor)
+        self.assertIn("references/resume-format.md", self.body("jsk-resume-author.md"))
 
     def test_applications_live_beside_the_knowledge_base(self):
         """Written as a bare `applications/<stem>`, a session resolved it against its
@@ -366,11 +384,18 @@ class TheMainThreadBudget(unittest.TestCase):
         # it shipped twice) and `export --refresh` (the confirmed bullets had been
         # flipped in resume.json by an inline script). The prose they displaced paid
         # for them: the example record's path, and reasons restated beside rules.
+        #
+        # 6000 -> 5900 when the URS record went (2026-09-25). Measured: 5,998 -> 5,773
+        # (SKILL 2,191, tailor 2,211, ship 1,370). mode-ship.md gave back 145: the claims
+        # gate's paragraph and the `NOT RUN` one went with the gate, and a withheld line is
+        # confirmed in the career and re-shipped rather than refreshed into the record.
+        # mode-tailor.md lost the `--refresh` sentence: after a confirm nothing in
+        # resume.json changes except a confirmed summary's status.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
                    REFS / "mode-ship.md"),
-            6000)
+            5900)
 
 
 if __name__ == "__main__":

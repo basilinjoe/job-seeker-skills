@@ -16,16 +16,17 @@ Five things make it different:
   metric that does not exist, or a role at an employer that is not there, is found the next time
   anything runs. Changes go in through `jsk kb apply` - validated, written, logged, with the diff
   shown - and nothing can be marked confirmed except by your own answer.
-- **Nothing is hand-built.** One JSON record is written from your knowledge base, and the PDF and the
-  paste-in plain text are both emitted from it — so they cannot drift apart or contradict each other.
-- **Gaps close first.** The posting, the gap assessment between it and your record, and the record
-  that selects what renders all live in one directory per application. Tailoring closes the gaps
+- **Nothing is hand-built.** The PDF and the paste-in plain text are both built from your knowledge
+  base and a short `resume.json` naming what this resume shows — so they cannot drift apart or
+  contradict each other.
+- **Gaps close first.** The posting, the gap assessment between it and your record, and the
+  `resume.json` that selects what renders all live in one directory per application. Tailoring closes the gaps
   first and writes the resume last — there is no reason to author a document from a record you are
   about to change.
-- **Nothing is invented.** Tailoring is selection: a view references your evidence by id and reorders
-  it. Every number in a bullet must trace to the current version of a recorded metric, and every
-  bullet's id to your career at no more confidence than your career gives it, or the record fails
-  before anything renders. Reworded text only warns, so a person confirms the words that are sent.
+- **Nothing is invented.** Tailoring is selection: `resume.json` names your evidence by id and orders
+  it, and holds no bullet's words — a reworded bullet goes into the career, where you confirm it.
+  Every id must be live in your career and every number in a chosen bullet must trace to the current
+  version of a recorded metric, or the resume fails before anything renders.
 - **Nothing is assumed.** Four checks run before a resume is handed over, and if no PDF renderer is
   available it is marked *unverified* rather than called fine.
 
@@ -100,7 +101,7 @@ my-career/                  `jsk new ./my-career --name "Your Name"` makes this
       posting.md            the advertisement, verbatim
       posting.ttl           what it asks for, each requirement quoting the advert
       gaps.md               the assessment, and the question queue
-      resume.json           the record this submission rendered from
+      resume.json           the bullets and settings this submission rendered from
       application.ttl       what was sent, what it carried, and what came back
       Priya_Raman_Resume.{tex,pdf}
       Priya_Raman_Resume_ATS.txt
@@ -134,9 +135,7 @@ it in a repo you control so it outlives any single tool, including this one.
 | [Commands](docs/SCRIPTS.md) | The `jsk` command: every subcommand, flags, dependencies, exit codes |
 | [The knowledge base format](plugins/jsk/skills/jsk/references/kb-format.md) | Every section, class and predicate of `career/kb.ttl`, and what goes in each |
 | [Architecture](docs/ARCHITECTURE.md) | For anyone editing this repo |
-| [URS, explained](docs/urs-guide.md) | The résumé record format, walked through a real document |
-| [URS spec](plugins/jsk/skills/jsk/references/urs-spec.md) | The normative definition of the record: every type, every MUST |
-| [View format](plugins/jsk/skills/jsk/references/view-format.md) | The other half of that spec: every key a view may carry, and the rule that it may carry no prose |
+| [The resume file](plugins/jsk/skills/jsk/references/resume-format.md) | `resume.json`: every key, and the rule that its only prose is the summary |
 
 ### Tests
 

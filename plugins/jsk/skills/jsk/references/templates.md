@@ -2,7 +2,7 @@
 
 Five visual templates for the rendered PDF. `jsk render --template NAME` picks one;
 `jsk render --list-templates` prints them; `jsk preview <resume.json> --out DIR` renders all five from
-one record, with page counts, so the choice is made by looking.
+one `resume.json`, with page counts, so the choice is made by looking.
 
 **A template changes how the resume looks and nothing else.** All content decisions are made before
 a template is consulted, and all five extract to the same text in the same order
@@ -21,7 +21,7 @@ a template is consulted, and all five extract to the same text in the same order
 `monolith` is the default so colour is opt-in: a re-render mid-search gives back the document they
 had.
 
-Density differs: the same record is one page in `circuit` and two in `atrium`. Choose a two-page
+Density differs: the same resume is one page in `circuit` and two in `atrium`. Choose a two-page
 render over an available one-page one on purpose.
 
 ## Choosing
