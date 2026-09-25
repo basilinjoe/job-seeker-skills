@@ -4,12 +4,18 @@ A periodic pass so nobody has to reconstruct two years from memory.
 
 ## Orient first
 
-If they named a period, cover that. Otherwise start at `log.md` — when the last update happened and
-what was left open — work forward from its last row, then read `## Open questions`.
+If they named a period, cover that. Otherwise start from the record's own state:
 
-For anything more than a quick top-up, send `jsk-kb-auditor` the file path first. It flags stale
-`headline_metric` values and questions open across three or more entries — the two things a refresh
-exists to catch and the easiest to miss from the log alone.
+```bash
+jsk kb check                  # the record is clean, and at which revision
+jsk kb query open             # questions not yet answered, oldest first
+jsk kb query unconfirmed      # what is still inferred, with the question on each
+jsk kb query stale            # applications that sent a number since revised
+```
+
+`career/log.ttl` dates every change; its last entries say when the last update happened. For more
+than a quick top-up, send `jsk-kb-auditor` the workspace first — it finds stale headline metrics and
+questions open for months, the two things a refresh exists to catch.
 
 Open with something concrete rather than a blank prompt:
 
@@ -26,8 +32,8 @@ Move fast where nothing happened; this should feel light.
 pre-sales, hiring, architecture review, on-call ownership.
 
 **Numbers on existing projects** — the most valuable and most overlooked question. A platform serving
-200 users at launch may serve 5,000 now. Walk the recent entries in `## Projects` and ask whether any
-`headline_metric` has moved. Numbers unavailable last time may exist now.
+200 users at launch may serve 5,000 now. Walk each live project's headline metric
+(`jsk kb view --section Metrics`) and ask whether it has moved.
 
 **Credentials** — certifications passed or started, courses, degrees.
 
@@ -36,39 +42,32 @@ pre-sales, hiring, architecture review, on-call ownership.
 **Things that never reach resumes** — mentoring, interview panels, onboarding material, an internal
 tool everyone quietly depends on, a process they changed.
 
-## Close what you can
-
-Walk `## Open questions`. For each row now answerable: fill the `answered` date, write the answer
-into the section it was about, and set that entry's `status` to `confirmed`. The row stays.
-
-Open across three refreshes → say so, and suggest resolving it properly or dropping the claim.
-
 ## Write it up
 
-Ordinary `Edit` calls, across the sections that changed:
+One changeset for the session, `jsk kb show <ids>` first for the `op:base`:
 
-| What happened | Where it goes |
+| What happened | In the changeset |
 |---|---|
-| new work | a `###` block under `## Projects`, plus any new metric row |
-| a number that moved | the existing row in `## Metrics`, and the `updated:` date in frontmatter |
-| a promotion | a new `###` under `## Roles`, `change: promotion`, and `end:` + `state: ended` on the previous one |
-| a job that ended | `end:` and `state: ended` on that role |
-| work being dropped | `retired: true` on the entry — **never delete it** |
-| a new capability term | `## Vocabulary`, in the same edit that first uses it |
+| new work | `op:add` a project with bullets and metrics, as in `mode-braindump.md` |
+| a number that moved | `op:set` a new `j:value` on its current `k:met_x.vN` — one an application sent is kept, and apply adds the next version |
+| a promotion | `op:add` a new `pos_` with `j:change j:promotion`; `op:set` `j:end` and `j:state j:ended` on the previous one |
+| a job that ended | `op:set` `j:end` and `j:state j:ended` on that role |
+| work being dropped | `op:retire` it with a `j:reason` — **never delete it** |
+| a new capability term | `op:add` it under the vocabulary, in the same changeset that first uses it |
 
-**Every claim whose substance you change goes back to `inferred`** with a row in `## Open questions`,
-unless they confirmed it in this conversation — a number updated from memory is not re-confirmed.
-Ask, then mark it `confirmed`. This is the most important habit in this mode.
+A changed claim comes back `inferred` with a question, by itself — a number updated from memory is
+not re-confirmed. **Ask, then `jsk kb confirm <ids> --answer "…"`.** An answered question closes
+with the confirm; one that cannot be answered means softening or retiring the claim.
 
 A career ladder that changed shape — a new levelling scheme, a title that means something different
-now — is prose under `## Positioning`.
+now — is prose in `j:positioning`.
 
-Append one row to `log.md` and update `updated:` in the frontmatter.
+Open across three refreshes → say so, and suggest resolving it properly or dropping the claim.
 
 ## Close the loop
 
 Report what was added, resolved, and still open. Then ask whether their **positioning** has shifted —
-if they are targeting a different kind of role now, `## Positioning` and the summary variants need
+if they are targeting a different kind of role now, the positioning and the summary variants need
 rewriting.
 
 Offer a recurring reminder if they do not have one. Quarterly suits most people; monthly while

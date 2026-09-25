@@ -5,7 +5,7 @@ A JSON standard for the career record, from which a resume is rendered.
 ```
 media type   application/resume+json
 file         resume.json
-written by   the skill, out of user-knowledgebase.md
+written by   the skill, out of career/kb.ttl, ids shared
 validated by jsk validate
 profiles     schema/profiles/<region>.json
 discovery    https://example.com/.well-known/resume.json
