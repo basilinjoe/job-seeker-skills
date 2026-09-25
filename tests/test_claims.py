@@ -238,6 +238,25 @@ class Numbers(unittest.TestCase):
         self.assertEqual(keys(found(doc, self.regulators())),
                          {("number-untraced", "FAIL", "ach_identity_events")})
 
+    def test_a_kb_bullet_traces_only_through_what_kb_ttl_cites(self):
+        """Naming another kb metric in the record does not launder a number: 40 is
+        met_apps's, and kb.ttl's ach_events_team cites only met_team."""
+        doc = clean()
+        a = achievement(doc, "ach_events_team")
+        a["text"] = "Led a team of 40 engineers."
+        self.assertEqual(keys(found(doc)), {("number-untraced", "FAIL", "ach_events_team")})
+        a["metrics"].append({"id": "met_apps"})
+        [f] = found(doc)
+        self.assertEqual((f.check, f.focus), ("number-untraced", "ach_events_team"))
+        self.assertIn("(k:met_team)", f.detail)
+
+    def test_a_bullet_kb_ttl_does_not_hold_traces_through_the_metrics_it_names(self):
+        doc = clean()
+        doc["projects"][1]["achievements"].append({
+            "id": "ach_identity_rollout", "text": "Rolled 40 applications onto SSO.",
+            "metrics": [{"id": "met_apps"}], "provenance": {"status": "inferred"}})
+        self.assertEqual(found(doc), [])
+
     def test_an_older_versions_number_is_superseded_even_in_the_kb_bullets_words(self):
         """kb text that still states a replaced number is stale; the version says so."""
         ws = workspace(self)

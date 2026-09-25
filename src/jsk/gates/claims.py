@@ -18,7 +18,9 @@ so each check is a join:
 
   FAIL  1  an achievement kb.ttl does not hold must be inferred in the record
   FAIL  2  no record provenance above the one kb.ttl holds for the same id
-  FAIL  3  every numeral in a bullet is in the current version of a metric it cites -
+  FAIL  3  every numeral in a bullet is in the current version of a metric it cites
+           (kb.ttl's j:cites for a bullet kb.ttl holds; the record's metric ids only for
+           one it does not), or in the words of the confirmed kb bullet it carries -
            else it is superseded (an older version's number) or untraced
   WARN  4  a vocabulary label in a bullet names a concept its project does not hold
   WARN  5  a skill's name or alias names a concept no project holds
@@ -217,6 +219,7 @@ def numbers(doc, career, found):
         if not ident or not isinstance(text, str):
             continue
         iri = career.iri(ident)
+        held = iri in career.kb
         cited = set(career.cites.get(iri, ()))
         for m in a.get("metrics") or []:
             mid = m.get("id") if isinstance(m, dict) else None
@@ -225,7 +228,10 @@ def numbers(doc, career, found):
                     found.append(Finding("number-untraced", "FAIL", ident,
                                          f"names metric {mid}, which kb.ttl does not hold",
                                          "name a metric kb.ttl holds: `jsk kb view --section Metrics`"))
-                cited.add(career.iri(mid))
+                # A bullet kb.ttl holds cites what kb.ttl says it cites: a metric the
+                # record names beside it would let any kb number stand in any bullet.
+                if not held:
+                    cited.add(career.iri(mid))
         worded = confirmed_numbers(iri, career)
         now = set().union(*(nums for m in cited for _, nums, _ in career.current(m)))
         for value, suffix, shown in numerals(text):
