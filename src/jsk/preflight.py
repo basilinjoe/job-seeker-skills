@@ -42,7 +42,7 @@ KB_FILENAME = "user-knowledgebase.md"
 # answered "is this file on disk", which stopped being the interesting question: a
 # module can be present and unimportable - a syntax error, a missing dependency of
 # its own, a half-finished editable checkout - and find_spec is what notices.
-MODULES = ["cli", "cliutil", "kb", "kbindex", "paths"]
+MODULES = ["cli", "cliutil", "kb", "kbindex", "migrate", "paths"]
 # The graph record (docs/superpowers/specs/2026-09-24-graph-core-design.md). None of
 # these imports pyoxigraph at module top, so find_spec answers "is the code here" even on
 # a machine without the engine - the engine is its own check below.
@@ -78,8 +78,8 @@ INSTALL = {
                            "applications. A dependency of jsk-resume, so a missing one "
                            "means the install skipped dependencies."},
     "index": {"pip": "markdown-it-py pyyaml",
-              "note": "Reads the knowledge base for jsk index: its headings and its "
-                      "yaml blocks."},
+              "note": "Reads the Markdown knowledge base for jsk index and jsk migrate: "
+                      "its headings and its yaml blocks (the `migrate` extra)."},
 }
 
 
@@ -231,8 +231,8 @@ def gather(kb_arg=None):
     checks.append(Check(
         "markdown-it-py and pyyaml",
         module_available("markdown_it") and module_available("yaml"), key="index",
-        disables="jsk index cannot run, so tailoring stops before the ranking: the "
-                 "analyst reads the knowledge base through the index"))
+        disables="jsk index and jsk migrate cannot run, so tailoring stops before the "
+                 "ranking and a Markdown knowledge base cannot move to kb.ttl"))
 
     kb = kb_arg or find_kb()
     checks.append(Check(

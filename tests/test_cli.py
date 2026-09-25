@@ -20,8 +20,8 @@ JSK = CLI
 EXAMPLE = EXAMPLE_URS
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
-SUBCOMMANDS = ["doctor", "new", "index", "match", "validate", "render", "preview", "check",
-               "gates", "fit", "ship", "freeze"]
+SUBCOMMANDS = ["doctor", "new", "index", "match", "migrate", "validate", "render", "preview",
+               "check", "gates", "fit", "ship", "freeze"]
 
 
 class Usage(unittest.TestCase):
