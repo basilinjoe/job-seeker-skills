@@ -41,7 +41,9 @@ import re
 import sys
 from dataclasses import dataclass
 
-from .validate_urs import SCALE, Report, covered, numerals, show, walk_achievements
+from .numbers import SCALE, covered, numerals
+from .report import Report, show
+from .validate_urs import walk_achievements
 
 MAX_FINDINGS = 25
 RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}

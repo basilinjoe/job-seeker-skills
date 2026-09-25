@@ -108,9 +108,8 @@ def gate_target(path, accepts):
 #
 #   urs/    rendering, the preview and the page fitter, over the record->document
 #           pipeline they drive. One edge leaves it, and it is lazy.
-#   gates/  the record, parse and prose gates. One edge leaves it - validate_urs
-#           reaching for the packaged region profiles - and one edge inside, where
-#           check_prose borrows validate_urs's numeral detector.
+#   gates/  the record, parse and prose gates. The record gate (record.py) reads the
+#           graph, lazily; inside, check_prose borrows numbers.py's numeral detector.
 SUBPACKAGE = {
     "render_resume.py": "urs",
     "preview_templates.py": "urs",
@@ -119,6 +118,7 @@ SUBPACKAGE = {
     "check_prose.py": "gates",
     "validate_urs.py": "gates",
     "claims.py": "gates",
+    "record.py": "gates",
     "match.py": "graph",
     "kbcli.py": "graph",
     "timeline.py": "graph",
@@ -137,7 +137,7 @@ def module_for(script):
 # Normalised here rather than in those scripts: their CLIs are the documented API and
 # must not move to suit a caller.
 WHOLE_ARGV = {"validate_urs.py", "render_resume.py", "preview_templates.py",
-              "preflight.py", "claims.py"}
+              "preflight.py", "claims.py", "record.py"}
 
 
 def run_in_process(script, args):
@@ -217,8 +217,17 @@ def record_refusal(target):
     return None
 
 
+def record_script(record):
+    """The record gate's script for `record`: record.py for a short resume.json, and
+    validate_urs.py for a URS record until plan Task 8 deletes it - every command that
+    starts at a record keeps working on the legacy ones in between."""
+    from .gates.record import is_short                  # noqa: PLC0415 - only when asked
+
+    return "record.py" if record is not None and is_short(record) else "validate_urs.py"
+
+
 def cmd_validate(args):
-    """The record gate, over one URS document."""
+    """The record gate, over one resume.json - a short one, or a legacy URS record."""
     if wants_help(args):
         print(VALIDATE_USAGE)
         return 0
@@ -229,7 +238,7 @@ def cmd_validate(args):
     if refusal:
         print("\n".join(refusal))
         return 2
-    return run_in_process("validate_urs.py", args)
+    return run_in_process(record_script(args[0]), args)
 
 
 def cmd_check(args):
@@ -626,6 +635,7 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only
     failed. `only` names the documents to gate - see rendered_documents().
     """
     results = []
+    script = record_script(record)
     if record_gate and record is None:
         results.append(skipped_gate(
             "record gate", "validate_urs.py",
@@ -634,11 +644,12 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only
     elif record_gate:
         record_args = [record] + (["--max-findings", str(limit)] if limit is not None
                                   else [])
-        code, output = call_gate("validate_urs.py", record_args)
-        results.append(gate_result("record gate",
-                                   " ".join(["validate_urs.py"] + record_args),
+        code, output = call_gate(script, record_args)
+        results.append(gate_result("record gate", " ".join([script] + record_args),
                                    code, output))
-    if record_gate:
+    # A short file's record gate is the claims gate too: there is no copy of the career
+    # left to join with the career.
+    if record_gate and script == "validate_urs.py":
         results.append(claims_step(record, out_dir, limit))
 
     for gate, script, extensions in DOC_GATES:
@@ -787,12 +798,12 @@ def frozen_refusal(*dirs):
 
 
 def cmd_ship(args):
-    """Record gate, claims gate, render, mechanical gates - one process, stopping at a
-    failure.
+    """Record gate, render, mechanical gates - one process, stopping at a failure.
 
     Every step is an existing function: the record gate is what `jsk validate`
-    runs, the claims gate is claims_step(), the render is render_resume.py's main(),
-    and the gates are gate_results(), so none of their verdicts is restated here.
+    runs, the render is render_resume.py's main(), and the gates are gate_results(),
+    so none of their verdicts is restated here. A legacy URS record also passes the
+    claims gate, claims_step(), before it renders - until plan Task 8 removes both.
     """
     if wants_help(args):
         print(SHIP_USAGE)
@@ -812,6 +823,7 @@ def cmd_ship(args):
         print("\n".join(refusal))
         return 2
     short = is_short(record)
+    script = record_script(record)
     if short and flags.get("--view"):
         print("--view is for a full URS record; a short resume.json is one resume")
         print("fix:  drop --view")
@@ -849,14 +861,16 @@ def cmd_ship(args):
     out_dir, view = flags["--out"], ("resume" if short else flags["--view"])
 
     results = []
-    code, output = call_gate("validate_urs.py", [record])
-    results.append(gate_result("record gate", f"validate_urs.py {record}", code, output))
-    claims = claims_step(record, None) if code == 0 else None
+    code, output = call_gate(script, [record])
+    results.append(gate_result("record gate", f"{script} {record}", code, output))
+    # A short file's record gate checks its numbers against the career itself; only a
+    # legacy URS record, a copy of the career, has the claims gate to pass as well.
+    claims = claims_step(record, None) if code == 0 and script == "validate_urs.py" else None
     if claims is not None:
         results.append(claims)
     if code != 0:
         results.append(not_rendered("the record gate did not pass"))
-    elif claims["exit"]:
+    elif claims is not None and claims["exit"]:
         # A number the career replaced renders as a sendable PDF with that number in it.
         results.append(not_rendered("the claims gate did not pass"))
     else:
@@ -884,7 +898,8 @@ def cmd_ship(args):
         print(json.dumps({"record": record, "out_dir": out_dir, "view": view,
                           "exit": worst, "steps": results}, indent=2))
         return worst
-    print_results(f"ship: {record} -> {out_dir}   view: {view}", results)
+    print_results(f"ship: {record} -> {out_dir}" + (f"   view: {view}" if view else ""),
+                  results)
     return worst
 
 

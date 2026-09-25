@@ -855,16 +855,6 @@ class ShortCase(GraphCase):
         self.app = self.short.parent
         self.render()
 
-    def freeze(self, *args, **kw):
-        # The record gate over a short file is Task 5's (jsk.gates.record); until it
-        # lands gate_results runs validate_urs, which reads URS only. What these tests
-        # pin is what freeze records, so the gates are stubbed to pass.
-        from jsk import cli
-
-        passed = [cli.gate_result("prose gate", "check_prose.py", 0, "PASS\n")]
-        with mock.patch.object(cli, "gate_results", lambda *a, **k: passed):
-            return super().freeze(*args, **kw)
-
 
 class FreezeShort(ShortCase):
     def test_it_carries_only_the_bullets_that_rendered(self):

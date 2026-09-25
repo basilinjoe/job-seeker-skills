@@ -201,6 +201,28 @@ def placeholder_answers(rows, store):
     return out
 
 
+def bad_periods(rows, store):
+    """A role's dates that cannot all be true - what the URS record gate checked of the
+    periods copied into it (validate_urs.check_periods), until the resume was built from
+    kb.ttl and the copy went (2026-09-25). A year against a month compares the year:
+    "2016" does not end before "2016-08" starts."""
+    out = []
+    for r in rows:
+        start, end, state = v(r, "start"), v(r, "end"), v(r, "state")
+        state = state[len(O.J):] if state else None
+        common = min(len(start or ""), len(end or ""))
+        if state == "ongoing" and end:
+            said = f"ongoing, but it ends {end}"
+        elif state == "ended" and not end:
+            said = "ended, with no j:end"
+        elif start and end and end[:common] < start[:common]:
+            said = f"ends {end}, before it starts {start}"
+        else:
+            continue
+        out.append({**r, "said": said})
+    return out
+
+
 def concept_class_rules():
     """One rule per predicate that restricts the class of the concept it points at."""
     rules, seen = [], set()
@@ -266,6 +288,12 @@ RULES = [
               FILTER(?upper <= ?value) }""",
          lambda r: f"j:upper {v(r, 'upper')} is not above j:value {v(r, 'value')}",
          "a range is j:value (its bottom) to j:upper, above its value; one number needs no upper"),
+    Rule("period", FAIL,
+         """SELECT ?focus ?start ?end ?state WHERE { ?focus j:start ?start
+              OPTIONAL { ?focus j:end ?end } OPTIONAL { ?focus j:state ?state } }""",
+         lambda r: r["said"],
+         "correct the dates, or the state: an ongoing role has no j:end, an ended one has "
+         "one, and it is not before j:start", bad_periods),
     Rule("version-orphan", FAIL,
          """SELECT ?focus ?m WHERE { ?focus a j:MetricVersion ; j:of ?m
               FILTER(!STRSTARTS(STR(?focus), CONCAT(STR(?m), ".v"))) }""",

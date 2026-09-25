@@ -68,8 +68,8 @@ class Store:
         return [f for f in self.findings if f.severity == "WARN"]
 
     def report(self):
-        """The findings as a validate_urs.Report, for show() and the gates' output."""
-        from ..gates.validate_urs import Report
+        """The findings as a gates.report.Report, for show() and the gates' output."""
+        from ..gates.report import Report
 
         rep = Report()
         # A syntax error first: until that file parses, what follows is provisional.
