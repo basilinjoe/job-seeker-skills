@@ -9,8 +9,8 @@ Usage: python3 -m jsk.kb <path> --name "Their Name" [--force]
 
 On Windows use `python` or `py -3` in place of `python3`.
 
-Exit 0 = written. Exit 1 = refused, because something was already there, or pyoxigraph
-is missing. Exit 2 = called wrongly.
+Exit 0 = written. Exit 1 = refused, because something was already there, or --force was
+asked for without pyoxigraph (a first scaffold does not need it). Exit 2 = called wrongly.
 
 It writes:
 
@@ -95,6 +95,39 @@ def first_write(root, name, today):
     log = R.entry(1, today, "new", f"Created by jsk new for {name}: an empty record.",
                   sha256(kb_text))
     return kb_text, write(log, "log")
+
+
+def plain_first_write(name, today):
+    """first_write's two files as fixed text, for a machine without pyoxigraph.
+
+    The empty record is always the same shape - the header on one line (KB's predicates
+    are one line group, so the writer never breaks it), every banner, and one log entry -
+    so it can be written without the graph library, and a person in a sandbox that
+    cannot install it can still start and draft changesets. tests/test_kb_new.py holds
+    this to the writer's output byte for byte, so the two cannot drift."""
+    from .graph import ontology as O
+    from .graph.io import sha256
+    from .graph.writer import INDENT, WIDTH, long_string, short_string
+
+    def string(value):
+        return long_string(value) if "\n" in value else short_string(value)
+
+    prefixes = "\n".join(f"@prefix {p}: <{ns}> ." for p, ns in O.PREFIXES)
+    day = f'"{today.isoformat()}"^^xsd:date'
+    head = (f"k:kb j:format {O.FORMAT} ; j:name {string(name)} ; j:updated {day} ; "
+            f"j:revision 1 .")
+    banners = "\n\n".join(f"# == {s}" for s in O.SECTIONS["kb"])
+    kb_text = f"{prefixes}\n\n{head}\n\n{banners}\n"
+
+    lines = [[f"j:revision 1", f"j:date {day}", "j:by j:new"],
+             [f"j:summary {string(f'Created by jsk new for {name}: an empty record.')}"],
+             [f'j:kbSha256 "{sha256(kb_text)}"']]
+    flat = f"k:rev_1 {' ; '.join(f for line in lines for f in line)} ."
+    if len(flat) <= WIDTH and "\n" not in flat:
+        entry = flat
+    else:
+        entry = "k:rev_1 " + f" ;\n{INDENT}".join(" ; ".join(line) for line in lines) + " ."
+    return kb_text, f"{prefixes}\n\n# == Log\n\n{entry}\n"
 
 
 def kept_name(root, revision):
@@ -189,13 +222,20 @@ def scaffold(root, name, force=False, today=None):
                    "--force starts an empty record beside it instead"]
     try:
         import pyoxigraph  # noqa: F401
+        graph = True
     except ImportError:
-        return 1, ["FAIL  jsk new writes the graph record, and needs pyoxigraph",
+        graph = False
+    if exists and not graph:
+        return 1, ["FAIL  jsk new --force reads the record it replaces, and needs pyoxigraph",
                    '      fix: python -m pip install "jsk-resume"   - it is a dependency']
 
     from .graph import record as R
 
     lines = []
+    if not graph:
+        lines.append("note   pyoxigraph is not installed: the empty record was written from its "
+                     "fixed text. `jsk kb` needs pyoxigraph - until it is installed, draft "
+                     "changesets and apply them later.")
     if exists:
         done, refusal = restart(root, name, today)
         if refusal:
@@ -211,7 +251,8 @@ def scaffold(root, name, force=False, today=None):
                        "nothing was written"]
         lines.append(f"kept   {kept} (the record --force replaces)")
     else:
-        kb_text, log_text = first_write(root, name, today)
+        kb_text, log_text = (first_write(root, name, today) if graph
+                             else plain_first_write(name, today))
         rev = 1
     os.makedirs(os.path.join(root, "career"), exist_ok=True)
     try:

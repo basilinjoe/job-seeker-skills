@@ -181,6 +181,17 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
     return 0
 
 
+def changeset_text(path):
+    """A changeset file's text. UTF-8, with or without a byte-order mark - and UTF-16 when a
+    byte-order mark says so, because that is what Windows PowerShell 5.1's `>` and Out-File
+    write. Anything else raises UnicodeDecodeError: guessing an encoding would guess words."""
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return raw.decode("utf-16")
+    return raw.decode("utf-8-sig")
+
+
 @verb
 def cmd_apply(args, root):
     """jsk kb apply <changeset.trig> [--dry-run]
@@ -208,8 +219,12 @@ def cmd_apply(args, root):
     if code is not None:
         return code
     try:
-        with open(path, encoding="utf-8") as fh:
-            cs = changeset.read(fh.read(), os.path.basename(path))
+        text = changeset_text(path)
+    except UnicodeDecodeError as err:
+        return refuse([f"{path} is not UTF-8 ({err.reason} at byte {err.start})"],
+                      "save it as UTF-8 - in PowerShell, `Set-Content -Encoding utf8`")
+    try:
+        cs = changeset.read(text, os.path.basename(path))
         e = edit.apply(store, cs, datetime.date.today())
     except GraphError as err:
         return refuse([str(err)], err.fix)

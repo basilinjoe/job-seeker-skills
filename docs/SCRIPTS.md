@@ -116,8 +116,10 @@ turned kb.ttl's line endings to CRLF would change the bytes whose hash `log.ttl`
 
 The empty record holds no identity: `k:person` arrives with the first changeset, like any other
 entry, as `j:inferred` with a question - the name on the command line says whose record this is,
-not that anyone confirmed how it should head a resume. Needs pyoxigraph, a dependency of the
-package.
+not that anyone confirmed how it should head a resume. Works without pyoxigraph: the empty record
+is fixed text, written byte for byte as the writer would, so a sandbox that cannot install it can
+start and draft changesets for later. `--force`, and every `jsk kb` verb, need pyoxigraph, a
+dependency of the package.
 
 It refuses (exit 1, nothing written) when `career/kb.ttl` exists, or when a `user-knowledgebase.md`
 is in the folder and no `career/kb.ttl` is - that career is already written down, and

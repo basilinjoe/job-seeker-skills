@@ -295,6 +295,40 @@ class Force(Scaffold):
         self.assertIn("does not parse", out)
 
 
+NAMES = ("Priya Raman", 'Dana "DJ" O\'Neil', "Zoë Ñúñez-Łukasz 王秀英", "C:\\path\\like",
+         "A " + "very " * 40 + "long name")
+
+
+class WithoutPyoxigraph(unittest.TestCase):
+    """A sandbox that cannot install pyoxigraph can still start: `jsk new` writes the
+    empty record from fixed text, and changesets are drafted for later (SKILL.md)."""
+
+    def test_the_fixed_text_is_the_writers_output_byte_for_byte(self):
+        for name in NAMES:
+            with self.subTest(name=name):
+                self.assertEqual(kb.plain_first_write(name, TODAY), kb.first_write("", name, TODAY))
+
+    def test_jsk_new_starts_a_workspace_with_no_pyoxigraph(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict("sys.modules", {"pyoxigraph": None}):
+                code, lines = kb.scaffold(tmp, "Priya Raman", today=TODAY)
+            self.assertEqual(code, 0, lines)
+            self.assertTrue(any("pyoxigraph" in line for line in lines))
+            s = S.load(tmp)
+            self.assertEqual([f.text() for f in s.findings], [])
+            self.assertEqual(R.state(s).kind, "clean")
+
+    def test_force_still_needs_pyoxigraph(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            kb.scaffold(tmp, "Priya Raman", today=TODAY)
+            with mock.patch.dict("sys.modules", {"pyoxigraph": None}):
+                code, lines = kb.scaffold(tmp, "Priya Raman", force=True, today=TODAY)
+            self.assertEqual(code, 1)
+            self.assertIn("needs pyoxigraph", "\n".join(lines))
+
+
 class Direct(unittest.TestCase):
     def test_empty_record_is_the_header_and_the_banners(self):
         text = kb.empty_record("Ada Lovelace", TODAY)

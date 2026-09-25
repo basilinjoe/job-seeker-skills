@@ -138,6 +138,22 @@ class Apply(Workspace):
         self.assertEqual((kb.read_bytes(), os.stat(kb).st_mtime_ns), before)
         self.assertFalse(self.path(".jsk").exists())
 
+    def test_a_changeset_windows_powershell_wrote_is_read(self):
+        # PowerShell 5.1's `>` and Out-File write UTF-16 with a byte-order mark.
+        path = self.path("changes.trig")
+        path.write_bytes(BRAINDUMP.encode("utf-16"))
+        code, out = self.kb("apply", str(path))
+        self.assertEqual(code, 0, out)
+        self.assertIn("r3 written", out)
+
+    def test_a_changeset_in_another_encoding_is_refused_not_crashed(self):
+        path = self.path("changes.trig")
+        path.write_bytes((PFX + 'op:add { k:prj_x j:name "Café" . }\n').encode("cp1252"))
+        code, out = self.kb("apply", str(path))
+        self.assertEqual(code, 1, out)
+        self.assertIn("not UTF-8", out)
+        self.assertIn("save it as UTF-8", out)
+
     def test_stdin_is_refused(self):
         code, out = self.kb("apply", "-")
         self.assertEqual(code, 2)
