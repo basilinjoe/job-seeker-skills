@@ -124,8 +124,12 @@ is in the folder and no `career/kb.ttl` is - that career is already written down
 `jsk migrate` moves it across checked; `jsk new` would leave it behind, and migrate refuses once a
 kb.ttl exists. `--force` overrides both. Over an existing record it starts over **as the next
 revision** - kb.ttl becomes the empty record, `log.ttl` keeps every earlier entry and gains one by
-`new`, and git holds the old text - and it is refused where a frozen application carried an entry
-the empty record would not have, or where `log.ttl` does not parse.
+`new`, and the replaced kb.ttl is kept beside it as `career/kb.r<N>.ttl`, N its revision (then
+`kb.r<N>-2.ttl` if that name is taken - it never overwrites a file; the loader and `jsk doctor` read
+only `career/kb.ttl`, so the copy is not a record file). It is refused while kb.ttl is
+hand-edited, torn or out of sync with the log - `jsk kb adopt` first, so the log records the text
+it replaces - where a frozen application carried an entry the empty record would not have, or
+where `log.ttl` does not parse.
 
 Guidance that the Markdown template carried in HTML comments is not in kb.ttl: a comment is not
 part of the graph, and `jsk kb fmt` and `adopt` refuse a file holding one. What each section holds
