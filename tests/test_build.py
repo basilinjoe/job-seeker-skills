@@ -95,6 +95,17 @@ class Selection(BuildCase):
         orgs = [e["org_line"] for e in self.entries(plan)]
         self.assertEqual(orgs, ["Meridian Health", "Harbour Systems", "Pixel Games"])
 
+    def test_employers_and_roles_go_by_start_date_newest_first(self):
+        """The resolver's order, kept: on the ElevenLabs render an open-source project
+        started Feb 2026 and ended Apr 2026 led the section, above the ongoing roles
+        that started earlier. Sorting ongoing-first moved it to the foot of the page."""
+        ongoing = ('    j:title "Software Engineer" ;\n    j:start "2018-01" ; j:end "2021-05" ; '
+                   'j:state j:ended ;\n',
+                   '    j:title "Software Engineer" ;\n    j:start "2018-01" ; j:state j:ongoing ;\n')
+        plan = self.plan(short(["ach_events_latency", "ach_portal_frontend"]), edits=[ongoing])
+        self.assertEqual([e["org_line"] for e in self.entries(plan)],
+                         ["Meridian Health", "Harbour Systems"])
+
     def test_a_role_with_no_bullet_keeps_its_line_and_its_employer_comes_whole(self):
         # A promotion history is never cut in half: both Meridian roles show.
         roles = self.entry(self.plan(short(["ach_events_latency"])), "Meridian Health")["roles"]

@@ -2167,6 +2167,16 @@ def shorten(record, store, view_id=None):
     for aid in dict.fromkeys(current(a) for a in chosen if isinstance(a, str)):
         if live(aid, "Achievement", "bullet"):
             bullets.append(aid)
+    # In the order the old renderer drew them: project by project as each engagement
+    # lists them, a project's bullets in include order. The include lists alone put
+    # the ElevenLabs draft's Catholic Healthcare bullets above Chloe's, under the same
+    # role, where the render had them below. The sort is stable, so include order holds
+    # within a project.
+    listed = [pid for e in engagements for pid in e.get("projects") or []]
+    listed += [p.get("id") for p in projects if p.get("id") not in listed]
+    place = {pid: n for n, pid in enumerate(listed)}
+    bullets.sort(key=lambda aid: place.get(
+        (career.get(O.K + aid, "project") or "")[len(O.K):], len(place)))
     if not bullets:
         raise short.ShortError("no bullet the view chose is still in career/kb.ttl",
                                "write the short file with `jsk kb export --select ...`")

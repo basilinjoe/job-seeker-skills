@@ -47,12 +47,6 @@ def period(start, end, state):
     return out
 
 
-def latest_first(p):
-    """Sort key over a `period`: ongoing first, then the latest end, then the latest start."""
-    end = p.get("end", {}).get("value") if p.get("state") != "ongoing" else "9999"
-    return (end or "", p.get("start", {}).get("value", ""))
-
-
 class Career:
     def __init__(self, triples):
         self.sub = Subjects(triples)
@@ -95,9 +89,15 @@ def employers(career, roles):
         if career.get(r, "organisation") in orgs:
             kind = enum(career.get(r, "engagementKind")) or "employment"
             groups.setdefault((career.get(r, "organisation"), kind), []).append(r)
+    # By start date, newest first - the resolver's order, kept: sorting ongoing-first
+    # moved an open-source project begun Feb 2026 from the top of the ElevenLabs
+    # experience section to its foot, below roles begun years earlier.
+    def started(p):
+        return (p.get("start") or {}).get("value", "0000")
+
     out = []
     for (org, kind), rs in groups.items():
-        rs.sort(key=lambda r: latest_first(career.role_period(r)), reverse=True)
+        rs.sort(key=lambda r: started(career.role_period(r)), reverse=True)
         periods = [career.role_period(r) for r in rs]
         ongoing = any(p["state"] == "ongoing" for p in periods)
         ends = [p["end"]["value"] for p in periods if "end" in p]
@@ -107,5 +107,5 @@ def employers(career, roles):
         span = period(min(starts) if starts else None,
                       max(ends) if state == "ended" else None, state)
         out.append(Employer(org, kind, rs, span))
-    out.sort(key=lambda e: latest_first(e.span), reverse=True)
+    out.sort(key=lambda e: started(e.span), reverse=True)
     return out

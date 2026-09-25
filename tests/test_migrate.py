@@ -1097,8 +1097,12 @@ class Shorten(unittest.TestCase):
             "floor": "confirmed",
             "summary": {"text": "Platform engineer with 5 years of Kubernetes, building event "
                                 "platforms that other teams build on.", "status": "confirmed"},
-            # include order, not the career's rank: the author ordered them for the posting
-            "bullets": ["ach_identity_sso", "ach_events_team", "ach_events_latency"],
+            # The order the old renderer drew them in: project by project as the
+            # engagement lists them, each project's bullets in include order (not the
+            # career's rank - the author ordered them for the posting). On the ElevenLabs
+            # draft the include order put Catholic Healthcare's bullets above Chloe's,
+            # where the render had them below.
+            "bullets": ["ach_events_team", "ach_events_latency", "ach_identity_sso"],
             # Lakeside was in the view with no bullet - its role keeps the chronology;
             # Meridian's two roles come whole with its bullets, so neither is listed.
             "roles": ["pos_lakeside_contractor"],
