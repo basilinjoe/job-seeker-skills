@@ -1,6 +1,6 @@
 """Where the packaged data lives - stated once.
 
-`preflight.py`, `validate_urs.py` and `urs/profiles.py` each computed this with their
+`preflight.py`, the URS record gate and `urs/profiles.py` each computed this with their
 own `..` arithmetic against `__file__`, from three different depths in the tree. So
 the schema directory's location was asserted in three places and correct in whichever
 of them had last been updated - and moving the directory needed all three found. They,
@@ -16,9 +16,8 @@ import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# profile.schema.json, example.resume.json, and profiles/<region>.json.
+# profile.schema.json and profiles/<region>.json.
 SCHEMA_DIR = os.path.join(HERE, "data", "schema")
-EXAMPLE_RECORD = os.path.join(SCHEMA_DIR, "example.resume.json")
 
 # A small career and a short resume.json over it: what `jsk doctor` renders, and what a
 # render test reaches for when any resume will do.

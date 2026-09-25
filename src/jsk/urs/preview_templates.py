@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Render one URS record in every template, so the choice can be made by looking.
+"""Render one resume.json in every template, so the choice can be made by looking.
 
 Usage:
-  jsk preview resume.json --out DIR [--view ID] [--region CC]
+  jsk preview resume.json --out DIR [--region CC]
                                     [--ats-max] [--only NAME,NAME]
   python -m jsk.urs.preview_templates resume.json --out DIR [the same flags]
 
 Writes DIR/<template>.tex and DIR/<template>.pdf, plus DIR/<template>.png of the
 first page when `pymupdf` is installed. Prints the page count for each, because
 that is the one difference between templates that is not a matter of taste: the
-same record is one page in a dense template and two in an airy one, and a
+same resume is one page in a dense template and two in an airy one, and a
 two-page resume where a one-page resume was possible is a decision, not a
 side effect.
 
@@ -22,7 +22,7 @@ emphasise, and which emphasis is right depends on the employer - which is a
 judgement the person applying has to make with the pages in front of them.
 
 Nothing here decides anything about the document: it calls render_resume.py once
-per template with the same record, view and region, so the only variable is the
+per template with the same resume.json and region, so the only variable is the
 look. The .tex files are written one after another in this interpreter; the TeX
 compiles, which are external processes and nearly all of the time, run side by side. The extracted text is identical in all of them, and
 `tests/test_themes.py` is what says so.
@@ -91,6 +91,11 @@ def main(argv):
         print(f"file not found: {src}")
         return 2
 
+    if "--view" in argv:
+        # Before the TeX check: it is a call error on every machine. A resume.json is
+        # one resume, and render_resume.py would refuse --view once per template.
+        print("usage: a resume.json is one resume; drop --view")
+        return 2
     out_dir = arg(argv, "--out")
     if not out_dir:
         print("usage: --out DIR is required - previews are scratch, not deliverables")
@@ -111,7 +116,7 @@ def main(argv):
         return 2
 
     passthrough = []
-    for flag in ("--view", "--region"):
+    for flag in ("--region",):
         value = arg(argv, flag)
         if value:
             passthrough += [flag, value]

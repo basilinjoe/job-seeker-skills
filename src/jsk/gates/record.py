@@ -31,7 +31,6 @@ The label and years checks read prose, where a word can be a technology or not (
 so they warn, as they did in the claims gate. The rest read ids and numbers.
 """
 import datetime
-import json
 import os
 import re
 import sys
@@ -49,20 +48,6 @@ YEARS = re.compile(r"(?<![\d.])(\d{1,2})\+?\s*(?:years?|yrs?)(?:'|’)?\s+"
 
 def line(check, focus, detail, fix):
     return f"{check} {focus} - {detail}\n        fix: {fix}"
-
-
-def is_short(path):
-    """True when `path` is a short resume.json - an object marked "resume" with no "urs".
-
-    Until the URS gate is deleted (plan Task 8), `jsk validate`, `jsk ship` and `jsk gates`
-    send a legacy record on to it unchanged, and a file that does not parse too: that
-    gate's verdict on broken JSON is the one its users already read."""
-    try:
-        with open(path, encoding="utf-8") as fh:
-            doc = json.load(fh)
-    except (OSError, ValueError):
-        return False
-    return isinstance(doc, dict) and "resume" in doc and "urs" not in doc
 
 
 # --- the vocabulary in prose --------------------------------------------------------

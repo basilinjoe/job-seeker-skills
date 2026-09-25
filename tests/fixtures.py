@@ -167,134 +167,28 @@ def scaffold_markdown_kb(directory, name, date="2026-09-01"):
     return path
 
 
-# --- URS -------------------------------------------------------------------
+# --- the render ---------------------------------------------------------------
 
 # The skill still exists and still has references/ and its mode files; what moved out
 # of it is the code and the schema. test_plugin_surface.py reads the skill, the tests
 # below read the package.
 PLUGIN = REPO_ROOT / "plugins" / "jsk"
 SCHEMA_DIR = SRC / PACKAGE / "data" / "schema"
-VALIDATE_URS = f"{PACKAGE}.gates.validate_urs"
 RENDER_RESUME = f"{PACKAGE}.urs.render_resume"
 CHECK_PROSE = f"{PACKAGE}.gates.check_prose"
 PREFLIGHT = f"{PACKAGE}.preflight"
-EXAMPLE_URS = SCHEMA_DIR / "example.resume.json"
+# The shipped example workspace's short resume.json: what `jsk doctor` renders, and what
+# a render test reaches for when any resume will do. (example.resume.json, the full URS
+# record it replaced, went on 2026-09-25.)
+EXAMPLE_SHORT = SRC / PACKAGE / "data" / "example" / "resume.json"
 
 
 def urs_module(name):
     """Import a module from the urs package the renderer itself uses.
 
-    `urs.plan` and `jsk.urs.plan` name the same module now, so the bare spelling
-    callers already use is qualified here rather than at every call site.
+    `urs.emit_latex` and `jsk.urs.emit_latex` name the same module now, so the bare
+    spelling callers already use is qualified here rather than at every call site.
     """
     if not name.startswith(PACKAGE + "."):
         name = f"{PACKAGE}.{name}"
     return importlib.import_module(name)
-
-
-def urs_package():
-    """Import the urs package the renderer uses, for plan-level assertions."""
-    return urs_module("urs.plan")
-
-
-def instant(value, precision="month"):
-    return {"value": value, "precision": precision}
-
-
-def ended(start, end):
-    return {"start": instant(start), "end": instant(end), "state": "ended"}
-
-
-def ongoing(start):
-    return {"start": instant(start), "state": "ongoing"}
-
-
-def achievement(text, metrics=(), aid="ach_one", status="confirmed", **extra):
-    node = {
-        "id": aid,
-        "text": text,
-        "metrics": list(metrics),
-        "provenance": {"status": status},
-    }
-    node.update(extra)
-    return node
-
-
-def urs_doc(**overrides):
-    """A minimal document that passes validate_urs.py, for tests to break."""
-    doc = {
-        "urs": "1.0.0",
-        "meta": {"lang": "en", "updated": "2026-08-25"},
-        "person": {
-            "name": {"full": "Test Person"},
-            "headline": "Principal Engineer",
-            "location": {"city": "Melbourne", "region": "VIC", "country": "AU"},
-            "contacts": [
-                {"kind": "email", "value": "test.person@example.com"},
-                {"kind": "phone", "value": "+61 400 000 000"},
-            ],
-            "demographics": {
-                "date_of_birth": instant("1988-04"),
-                "nationality": ["IN"],
-                "marital_status": "married",
-            },
-        },
-        "work_authorization": [
-            {"jurisdiction": "AU", "kind": "permanent", "status": "held",
-             "label": "Australian Permanent Resident"}
-        ],
-        "languages": [{"language": "English", "native": True}],
-        "organizations": [{"id": "org_acme", "name": "Acme Health"}],
-        "engagements": [{
-            "id": "eng_acme",
-            "kind": "employment",
-            "organization": "org_acme",
-            "period": ongoing("2021-02"),
-            "positions": [
-                {"id": "pos_a", "title": "Senior Engineer",
-                 "period": ended("2021-02", "2023-06"), "change": "hire"},
-                {"id": "pos_b", "title": "Principal Engineer",
-                 "period": ongoing("2023-07"), "change": "promotion"},
-            ],
-            "achievements": [
-                achievement(
-                    "Cut p95 latency from 5 minutes to under 1 second.",
-                    metrics=[{
-                        "kind": "delta", "subject": "p95 latency",
-                        "baseline": {"value": 5, "unit": "min"},
-                        "quantity": {"value": 1, "unit": "s"},
-                        "direction": "decrease", "confidence": "measured",
-                    }],
-                    aid="ach_latency", weight=5),
-                achievement("Rebuilt the ingestion pipeline end to end.",
-                            aid="ach_pipeline", weight=3),
-            ],
-        }],
-        "education": [{
-            "id": "edu_meng", "institution": "Anna University", "level": "isced-7",
-            "qualification": "Master of Engineering", "field": "Computer Science",
-            "period": ended("2010", "2012"),
-            "grade": {"scheme": "in-cgpa-10", "value": 8.4,
-                      "scale": {"min": 0, "max": 10}, "direction": "higher-is-better"},
-            "provenance": {"status": "confirmed"},
-        }],
-        "skills": [{"id": "skill_azure", "name": "Azure", "category": "cloud-platform",
-                    "evidence": ["ach_latency"]}],
-        "narratives": [{"id": "nar_default", "kind": "summary",
-                        "text": "Engineer who owns platforms end to end.",
-                        "provenance": {"status": "confirmed"}}],
-        "views": [{
-            "id": "view_default", "format_profile": "presentation",
-            "region_profile": "urs:profile:au/1", "narrative": "nar_default",
-            "provenance_floor": "confirmed", "budget": {"pages": 2},
-        }],
-    }
-    doc.update(overrides)
-    return doc
-
-
-def write_urs(directory, doc, name="resume.json"):
-    import json
-    path = Path(directory) / name
-    path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
-    return path

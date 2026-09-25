@@ -1,123 +1,17 @@
 {
-  "urs": "1.0.0",
-  "meta": {"lang": "en", "updated": "2026-09-24"},
-  "person": {
-    "name": {"full": "Test Person"},
-    "headline": "Platform Engineer",
-    "location": {"city": "Melbourne", "region": "VIC", "country": "AU"},
-    "contacts": [
-      {"kind": "email", "value": "test.person@example.com"},
-      {"kind": "phone", "value": "+61 400 000 000"}
-    ]
+  "resume": 2,
+  "format": "presentation",
+  "region": "au",
+  "pages": 2,
+  "floor": "confirmed",
+  "summary": {
+    "text": "Platform engineer with 5 years of Kubernetes, building event platforms that other teams build on.",
+    "status": "confirmed"
   },
-  "work_authorization": [
-    {"jurisdiction": "AU", "kind": "citizen", "status": "held", "label": "Australian citizen"}
-  ],
-  "education": [
-    {"id": "edu_bsc", "institution": "University of Melbourne", "level": "isced-6",
-     "qualification": "Bachelor of Science", "field": "Computer Science",
-     "period": {"start": {"value": "2010", "precision": "year"},
-                "end": {"value": "2013", "precision": "year"}, "state": "ended"},
-     "provenance": {"status": "confirmed"}}
-  ],
-  "organizations": [
-    {"id": "org_meridian", "name": "Meridian Health", "provenance": {"status": "confirmed"}},
-    {"id": "org_lakeside", "name": "Lakeside Data", "provenance": {"status": "confirmed"}}
-  ],
-  "engagements": [
-    {
-      "id": "eng_meridian",
-      "kind": "employment",
-      "organization": "org_meridian",
-      "period": {"start": {"value": "2021-09", "precision": "month"},
-                 "end": {"value": "2026-06", "precision": "month"}, "state": "ended"},
-      "positions": [
-        {"id": "pos_meridian_lead", "title": "Lead Engineer", "change": "promotion",
-         "period": {"start": {"value": "2023-01", "precision": "month"},
-                    "end": {"value": "2026-06", "precision": "month"}, "state": "ended"}},
-        {"id": "pos_meridian_engineer", "title": "Senior Engineer", "change": "hire",
-         "period": {"start": {"value": "2021-09", "precision": "month"},
-                    "end": {"value": "2022-12", "precision": "month"}, "state": "ended"}}
-      ],
-      "projects": ["prj_events", "prj_identity"],
-      "achievements": []
-    },
-    {
-      "id": "eng_lakeside",
-      "kind": "contract",
-      "organization": "org_lakeside",
-      "period": {"start": {"value": "2019-06", "precision": "month"},
-                 "end": {"value": "2020-12", "precision": "month"}, "state": "ended"},
-      "positions": [
-        {"id": "pos_lakeside_contractor", "title": "Data Engineer",
-         "period": {"start": {"value": "2019-06", "precision": "month"},
-                    "end": {"value": "2020-12", "precision": "month"}, "state": "ended"}}
-      ],
-      "projects": ["prj_data"],
-      "achievements": []
-    }
-  ],
-  "projects": [
-    {
-      "id": "prj_events",
-      "name": "Event platform",
-      "engagement": "eng_meridian",
-      "achievements": [
-        {"id": "ach_events_latency",
-         "text": "Cut p95 event latency from 5 s to 400 ms on AKS with Kafka.",
-         "metrics": [{"kind": "delta", "subject": "p95 event latency",
-                      "baseline": {"value": 5, "unit": "s"},
-                      "quantity": {"value": 400, "unit": "ms"},
-                      "direction": "decrease", "confidence": "measured"}],
-         "skills": ["skill_kubernetes"], "weight": 5,
-         "provenance": {"status": "confirmed"}},
-        {"id": "ach_events_team",
-         "text": "Led a team of 6 engineers through the platform rebuild.",
-         "metrics": [{"kind": "count", "subject": "engineers led",
-                      "quantity": {"value": 6}, "confidence": "measured"}],
-         "weight": 4,
-         "provenance": {"status": "confirmed"}}
-      ]
-    },
-    {
-      "id": "prj_identity",
-      "name": "Identity",
-      "engagement": "eng_meridian",
-      "achievements": [
-        {"id": "ach_identity_sso",
-         "text": "Moved 40 applications to Entra ID single sign-on.",
-         "metrics": [{"kind": "count", "subject": "applications migrated",
-                      "quantity": {"value": 40}, "confidence": "measured"}],
-         "skills": ["skill_dotnet"], "weight": 4,
-         "provenance": {"status": "confirmed"}}
-      ]
-    },
-    {
-      "id": "prj_data",
-      "name": "Data",
-      "engagement": "eng_lakeside",
-      "achievements": [
-        {"id": "ach_data_ingestion",
-         "text": "Built a FastAPI ingestion service.",
-         "metrics": [], "weight": 2,
-         "provenance": {"status": "inferred"}}
-      ]
-    }
-  ],
-  "skills": [
-    {"id": "skill_kubernetes", "name": "Kubernetes", "category": "Platforms",
-     "aliases": ["K8s", "AKS"], "evidence": ["ach_events_latency"]},
-    {"id": "skill_dotnet", "name": ".NET", "category": "Languages",
-     "aliases": ["C#"], "evidence": ["ach_identity_sso"]}
-  ],
-  "narratives": [
-    {"id": "nar_contoso", "kind": "summary",
-     "text": "Platform engineer with 5 years of Kubernetes, building event platforms that other teams build on.",
-     "provenance": {"status": "confirmed"}}
-  ],
-  "views": [
-    {"id": "view_contoso", "format_profile": "presentation",
-     "region_profile": "urs:profile:au/1", "narrative": "nar_contoso",
-     "provenance_floor": "confirmed", "budget": {"pages": 2}}
+  "bullets": [
+    "ach_events_latency",
+    "ach_events_team",
+    "ach_identity_sso",
+    "ach_data_ingestion"
   ]
 }

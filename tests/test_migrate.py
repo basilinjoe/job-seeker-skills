@@ -997,8 +997,10 @@ class ADraftBesideTheMarkdownIsShortened(Tmp):
         self.assertRegex(out, r"record +applications/globex-staff-engineer/resume\.json: 0 FAIL")
 
 
-LEGACY = Path(__file__).parent / "claims_fixtures" / "applications" / "contoso-platform" / \
-    "resume.json"
+# The Contoso application's full URS record, from before the career built the resume:
+# only migrate reads one now, so it lives with migrate's fixtures, and the claims_fixtures
+# application holds the short file it converts to.
+LEGACY = Path(__file__).parent / "migrate_fixtures" / "contoso-resume.urs.json"
 
 
 def legacy(**view):

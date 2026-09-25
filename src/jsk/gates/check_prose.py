@@ -10,7 +10,7 @@ No third-party dependencies.
 
 The sibling gate to check_ats.py. That one verifies a document *parses*; this one
 verifies it *reads* - and reports how much of it is quantified, which nothing
-else measures: validate_urs.py checks that a number in prose traces to a metric,
+else measures: the record gate checks that a number in a bullet traces to a metric,
 never that any number is there at all. A bullet in the third person - "the platform followed him
 through his promotion" - is not a parsing defect, so check_ats.py passes it with
 0 failures and is right to. Nothing else was checking.

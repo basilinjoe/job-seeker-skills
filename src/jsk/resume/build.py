@@ -90,7 +90,6 @@ class Builder:
         self.career = career
         self.doc = doc
         self.profile = profile
-        self.render = profile.get("render") or {}
         self.ascii_only = ascii_only
         self.today = today
         self.warnings = []
@@ -153,14 +152,14 @@ class Builder:
         return name, [line for line in lines if line]
 
     def authorization_line(self):
-        """Work rights, only where the market's profile requires them on the page.
+        """Work rights, only where the market's profile puts them on the page.
 
         "Work rights: IN citizen" rendered on an application to a US posting, against the
         person's own record, which says the portal asks it on the form. Where a profile
-        requires it (au, ae) a recruiter screens on it first; anywhere else it is a line
-        spent on a question nobody asked.
+        sets `work_rights` (au, ae) a recruiter screens on it first; anywhere else it is a
+        line spent on a question nobody asked.
         """
-        if "work_authorization" not in (self.profile.get("required") or []):
+        if not self.profile.get("work_rights"):
             return None
         c, bits = self.career, []
         for a in sorted(c.live("WorkAuthorization")):
@@ -265,18 +264,16 @@ class Builder:
         blocks = employers(c, [r for r in roles if r])
         if not blocks:
             return None
-        chronological = self.render.get("order") == "chronological"
-        if chronological:
-            blocks.reverse()
-        entries = [self.employer_entry(e, placed, chronological) for e in blocks]
+        # Latest first, always: every profile shipped said reverse-chronological, and the
+        # `order` key that could have said otherwise went with the profiles' slimming.
+        entries = [self.employer_entry(e, placed) for e in blocks]
         return {"kind": "entries", "heading": "Professional Experience", "entries": entries}
 
-    def employer_entry(self, e, placed, chronological):
+    def employer_entry(self, e, placed):
         c = self.career
         org_name = c.get(e.org, "name") or ""
-        roles = list(reversed(e.roles)) if chronological else e.roles
         entry = {"org_line": None, "org_right": None, "roles": [], "lines": [], "bullets": []}
-        for r in roles:
+        for r in e.roles:
             shown = role_title(c.get(r, "title"), c.get(r, "functionalTitle"))
             if self.ascii_only:
                 shown = f"{shown}, {org_name}" if org_name else shown
@@ -354,7 +351,7 @@ class Builder:
         return {"kind": "lines", "heading": "Languages", "lines": lines}
 
     def declaration(self):
-        if not self.render.get("declaration"):
+        if not self.profile.get("declaration"):
             return None
         where = self.career.get(self.me, "city")
         text = ("I hereby declare that the information given above is true and correct "
@@ -379,8 +376,7 @@ def build(store, doc, *, region=None, fmt=None, today=None):
     b = Builder(career, doc, profile, ascii_only, today)
     name, header_lines = b.header()
 
-    render = profile.get("render") or {}
-    order = [s for s in (render.get("sections") or SECTIONS) if s in FILLABLE]
+    order = [s for s in (profile.get("sections") or SECTIONS) if s in FILLABLE]
     builders = {"summary": b.summary, "skills": b.skills_section, "experience": b.experience,
                 "education": b.education, "credentials": b.credentials,
                 "languages": b.languages}
@@ -396,7 +392,7 @@ def build(store, doc, *, region=None, fmt=None, today=None):
     # ATS-maximal is deliberately longer - the employer on every role line, the contact
     # fields labelled - so it carries its own budget and falls back to the shared one.
     pages = doc.get("ats_pages") if fmt == "ats-maximal" else None
-    pages = pages or doc.get("pages") or render.get("pages") or 2
+    pages = pages or doc.get("pages") or profile.get("pages") or 2
     return {
         "view": "resume",
         "format": fmt,

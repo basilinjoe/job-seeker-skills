@@ -1,40 +1,36 @@
 #!/usr/bin/env python3
-"""Render a URS record into a .tex (and PDF), or plain text.
+"""Render a short resume.json into a .tex (and PDF), or plain text.
 
 Usage:
   jsk render <resume.json> --out DIR [options]
   python -m jsk.urs.render_resume <resume.json> --out DIR [options]
 
-  --view ID          which view to render; required where the record holds more
-                     than one, because there is no sensible way to pick for you
   --format F         latex | txt | all             (default: all)
-  --region CC        override the view's region profile, e.g. AU, IN, AE
-  --profile P        override format_profile: presentation | ats-maximal | plaintext
+  --region CC        override the file's region profile, e.g. AU, IN, AE
+  --profile P        override the file's format: presentation | ats-maximal | plaintext
   --ats-max          shorthand for --profile ats-maximal: renders the PDF in the
                      ATS-maximal variant instead of the presentation one
   --template NAME    visual theme for the PDF (default: monolith)
   --list-templates   print the themes with what each is for, and exit
   --pdf              compile the .tex with whatever TeX engine is installed
-  --name N           basename for the outputs (default: from person.name.full)
+  --name N           basename for the outputs (default: the person's name in kb.ttl)
 
 Exit 0 = rendered. Exit 1 = nothing written, or --pdf produced no PDF.
 Exit 2 = usage error.
 
-Every content decision is made once, in urs/plan.py, and the emitters translate
+Every content decision is made once, in resume/build.py, and the emitters translate
 that plan into markup without choosing anything. Which is the point: the PDF and
-the plain text built from one view cannot say different things.
+the plain text built from one resume.json cannot say different things.
 
 There is one rendered deliverable, the PDF, and --ats-max chooses which variant
 it holds. The page count therefore describes the document actually being sent -
 which it did not while the fitter measured a .docx nobody submitted.
 """
-import json
 import os
 import sys
 
 from ..cliutil import docstring_usage, wants_help
-from . import emit_latex, emit_text, plan as planner, themes
-from .resolve import ViewNotNamed
+from . import emit_latex, emit_text, themes
 from .tex import compile_pdf
 
 # The stem follows the VARIANT. It used to follow the format, so
@@ -185,7 +181,7 @@ def main(argv):
     if len(argv) < 2 or argv[1].startswith("--"):
         # Everything from the usage line down to the Windows note: paragraph [1] is
         # the bare invocation and [2] is the flag list, so printing only [1] left
-        # `--view`, `--pdf`, `--ats-max` and `--template` undocumented at the one
+        # `--pdf`, `--ats-max` and `--template` undocumented at the one
         # place SKILL.md sends a reader to look them up.
         print(docstring_usage(__doc__))
         # Asking for help is not calling the command wrong; only a real misuse is.
@@ -217,48 +213,32 @@ def main(argv):
         # somebody reaching for the old call. Say which file to pass rather than
         # failing on a JSONDecodeError from a path that is not a file.
         print(f"FAIL  cannot render a directory: {src}")
-        print("fix:  pass the URS record - applications/<stem>/resume.json")
+        print("fix:  pass the short resume.json - applications/<stem>/resume.json")
         return 2
+    if view_id:
+        # A resume.json is one resume: the view, which chose a slice of a full URS
+        # record, went with that record (2026-09-25).
+        print("usage: a resume.json is one resume; drop --view")
+        return 2
+
+    # Built from the career the file sits in. A legacy URS record is refused here, by
+    # short.read, with `jsk migrate` as the fix: nothing but migrate reads one now.
+    from ..resume import build as B
+    from ..resume.short import ShortError
+
     try:
-        with open(src, encoding="utf8") as fh:
-            doc = json.load(fh)
-    except FileNotFoundError:
-        print(f"FAIL  file not found: {src}")
-        print("fix:  pass the URS record - `jsk kb export --urs` drafts one from the career")
+        store, short_doc, _ = B.load(src)
+    except ShortError as err:
+        print(f"FAIL  {err}")
+        print(f"fix:  {err.fix}")
         return 2
-    except json.JSONDecodeError as exc:
-        print(f"FAIL  {os.path.basename(src)} is not valid JSON: {exc}")
-        print("fix:  a record is retuned by hand after `jsk kb export --urs`, so this is")
-        print("      the ordinary first failure - run `jsk validate` on it once it parses")
-        return 1
 
-    if isinstance(doc, dict) and "resume" in doc:
-        # The short file: built from the career it sits in. One resume per file, so
-        # there is no view to name.
-        from ..resume import build as B
-        from ..resume.short import ShortError
-
-        if view_id:
-            print("usage: a resume.json is one resume; drop --view")
-            return 2
-        try:
-            store, short_doc, _ = B.load(src)
-        except ShortError as err:
-            print(f"FAIL  {err}")
-            print(f"fix:  {err.fix}")
-            return 2
-
-        def plan_for(variant):
-            return B.build(store, short_doc, region=region, fmt=variant)
-        name_of = None
-    else:
-        def plan_for(variant):
-            return planner.build(doc, view_id=view_id, region=region, fmt=variant)
-        name_of = ((doc.get("person") or {}).get("name") or {}).get("full")
+    def plan_for(variant):
+        return B.build(store, short_doc, region=region, fmt=variant)
 
     base = arg(argv, "--name")
     if not base:
-        base = safe_name(name_of if name_of is not None else plan_for("presentation")["name"])
+        base = safe_name(plan_for("presentation")["name"])
         company = company_of(src)
         if company:
             base = f"{base}_{safe_name(company)}"
@@ -274,18 +254,6 @@ def main(argv):
             rendered = plan_for(variant)
         except KeyError as e:
             print(f"FAIL  {e}")
-            return 1
-        except ViewNotNamed as e:
-            # Exit 2, not 1: nothing is wrong with the record, the call left out the
-            # one thing only the person can decide.
-            print(f"FAIL  {e}")
-            print("      fix: name the one to render with --view <id>")
-            return 2
-        except ValueError as e:
-            # Anything else is the record: a date like 2021-xx, a value the planner
-            # cannot read. The validator names the field; this only says which.
-            print(f"FAIL  the record holds a value the renderer cannot read: {e}")
-            print("      fix: run `jsk validate` on it, then correct the field it names")
             return 1
         if first is None:
             first = rendered

@@ -1,8 +1,8 @@
 """Visual themes for the LaTeX render: palette, typeface, rhythm, hierarchy.
 
 A theme decides how the document *looks*. It cannot decide what the document
-*says* - that was settled in `resolve.py` long before a theme is consulted, and
-the same view rendered under every theme in this file extracts to the same text.
+*says* - that was settled in `resume/build.py` long before a theme is consulted, and
+the same resume rendered under every theme in this file extracts to the same text.
 That is the property the whole pipeline is built on, and it is what makes a
 coloured resume safe: colour lives in the drawing instructions of a PDF, never
 in its text layer, so a parser reading `\\textcolor{jskaccent}{EXPERIENCE}` reads
@@ -509,7 +509,7 @@ RAGGED = r"""%% Ragged right: at this measure justification opens gaps wide enou
 
 
 PREAMBLE = r"""%% Rendered by jsk render_resume.py. Every content decision was made in
-%% urs/plan.py; this file only decides how those decisions look.
+%% resume/build.py; this file only decides how those decisions look.
 \documentclass[%(pt)spt,%(paper)s]{article}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}

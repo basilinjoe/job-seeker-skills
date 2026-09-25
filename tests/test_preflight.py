@@ -188,7 +188,7 @@ class RequiredVersusOptional(unittest.TestCase):
         # one can be imported, not whether a file of that name is on disk.
         self.assertTrue(any(n.startswith("modules") for n in required))
         self.assertTrue(any(n.startswith("urs renderer") for n in required))
-        self.assertTrue(any(n.startswith("URS schema") for n in required))
+        self.assertTrue(any(n.startswith("profile schema") for n in required))
 
     def test_the_pdf_toolchain_is_required(self):
         """A TeX engine and pymupdf were survivable while the .docx was the
@@ -284,7 +284,7 @@ class CliBehaviour(unittest.TestCase):
 
         with mock.patch.object(preflight.subprocess, "run", fake):
             steps = preflight.verify(str(self.tmp))
-        check = next(c for c in calls if any("resume.short" in a for a in c))
+        check = next(c for c in calls if any("gates.record" in a for a in c))
         self.assertIn(paths.EXAMPLE_SHORT, check)
         self.assertFalse(any("validate_urs" in a for c in calls for a in c))
         self.assertEqual(steps[0][0], "validate the example resume")
@@ -400,7 +400,7 @@ class TheGraphRecord(unittest.TestCase):
         self.assertTrue(graph.ok, graph.disables)
 
     def test_the_engine_is_required(self):
-        """The career is kb.ttl and `jsk ship` runs the claims gate against it before
+        """The career is kb.ttl and `jsk ship` runs the record gate against it before
         it renders, so a machine without the engine cannot produce a resume from the
         career. It used to be reported as a gap."""
         checks, _ = preflight.gather()

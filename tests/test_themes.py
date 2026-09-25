@@ -3,7 +3,7 @@
 That sentence is the whole contract, and it is the one thing about a coloured
 resume worth being suspicious of, so almost nothing here is asserted from the
 source. The claims that matter are checked against compiled PDFs: five themes
-are rendered from one record, the text layer is extracted from each, and the
+are rendered from one resume, the text layer is extracted from each, and the
 five are compared. If a theme ever changes a word - or a glyph, which is what
 `\\MakeUppercase` on the name quietly did in the first cut - this is where it
 surfaces.
@@ -17,18 +17,18 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (CHECK_ATS, CHECK_PROSE, EXAMPLE_URS, RENDER_RESUME,
-                      child_env, run, urs_doc, urs_module, urs_package,
-                      write_urs)
+import careerkit
+from fixtures import CHECK_ATS, CHECK_PROSE, RENDER_RESUME, child_env, run, urs_module
+from jsk import paths
+from jsk.resume import build
+from test_build import BuildCase, LEAD_TITLE, short
 
+# Every claim in this file is about the text layer, so which resume renders is
+# irrelevant to the assertion and only has to be held constant: the shipped example.
+EXAMPLE = paths.EXAMPLE_SHORT
+LONG_TITLE = (LEAD_TITLE, '    j:title "Member of Technical Staff, Distinguished Grade IV" ;\n'
+                          '    j:functionalTitle "Principal Full-Stack Platform Engineer" ;\n')
 
-# example.resume.json carries three views, and a record holding more than one now
-# refuses to render without being told which - the fallback to views[0] was silently
-# picking one. Every claim in this file is about the text layer, so which view renders
-# is irrelevant to the assertion and only has to be held constant.
-THEME_VIEW = "view_au_default"
-
-planner = urs_package()
 emit_latex = urs_module("urs.emit_latex")
 themes = urs_module("urs.themes")
 tex = urs_module("urs.tex")
@@ -126,8 +126,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
 
     def render(self, name):
         out = self.tmp / name
-        code, output = run(RENDER_RESUME, EXAMPLE_URS, "--out", out,
-                           "--view", THEME_VIEW,
+        code, output = run(RENDER_RESUME, EXAMPLE, "--out", out,
                            "--template", name, "--format", "latex", "--pdf")
         self.assertEqual(code, 0, output)
         return next(out.glob("*.pdf"))
@@ -146,9 +145,9 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         on the name, because a heavy all-caps name is the strongest anchor
         available at the top of a page - and it is the one theme choice a parser
         can see, on the single highest-value field in the document."""
-        doc = urs_doc()
+        plan, _ = build.from_path(EXAMPLE)
         for name in themes.names():
-            rendered = emit_latex.emit(planner.build(doc), template=name)
+            rendered = emit_latex.emit(plan, template=name)
             head = rendered.split(r"\begin{document}")[0]
             command = [l for l in head.splitlines()
                        if l.startswith(r"\newcommand{\resumename}")]
@@ -174,12 +173,9 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         So this one compares against the record instead. The name and the
         headline are the two fields where a display transformation is most
         tempting and most expensive, and they have to come back out of the PDF
-        exactly as the resolver wrote them.
+        exactly as the builder wrote them.
         """
-        import json
-
-        with open(EXAMPLE_URS, encoding="utf8") as fh:
-            plan = planner.build(json.load(fh), view_id=THEME_VIEW)
+        plan, _ = build.from_path(EXAMPLE)
         for name in themes.names():
             text = self.extract(self.render(name))
             self.assertIn(plan["name"], text, f"{name}: the name is not in the text layer")
@@ -212,7 +208,8 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         was right to flag a stray bracket. The template was wrong to emit one.
         """
         with tempfile.TemporaryDirectory() as tmp:
-            path = write_urs(Path(tmp), urs_doc(), "resume.json")
+            _, path = careerkit.workspace(Path(tmp, "ws"), edits=BuildCase.EDITS,
+                                          short=short())
             for name in themes.names():
                 code, out = run(RENDER_RESUME, path, "--out", tmp,
                                 "--template", name, "--format", "latex")
@@ -233,16 +230,14 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         breaks at all."""
         import pymupdf
 
-        doc = urs_doc()
-        position = doc["engagements"][0]["positions"][0]
-        position["title"] = "Member of Technical Staff, Distinguished Grade IV"
-        position["functional_title"] = "Principal Full-Stack Platform Engineer"
-        path = write_urs(self.tmp, doc, "long.json")
+        _, path = careerkit.workspace(self.tmp / "ws",
+                                      edits=list(BuildCase.EDITS) + [LONG_TITLE],
+                                      short=short())
 
         for name in themes.names():
             out = self.tmp / f"long-{name}"
             code, output = run(RENDER_RESUME, path, "--out", out, "--template", name,
-                               "--view", "view_default", "--format", "latex", "--pdf")
+                               "--format", "latex", "--pdf")
             self.assertEqual(code, 0, output)
             with pymupdf.open(next(out.glob("*.pdf"))) as pdf:
                 for page in pdf:
@@ -267,7 +262,7 @@ class TheTemplateChoiceIsExplicit(unittest.TestCase):
 
     def test_the_cli_refuses_an_unknown_template(self):
         with tempfile.TemporaryDirectory() as tmp:
-            code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", tmp,
+            code, out = run(RENDER_RESUME, EXAMPLE, "--out", tmp,
                             "--template", "chartreuse")
             self.assertEqual(code, 2, out)
             self.assertIn("chartreuse", out)

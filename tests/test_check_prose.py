@@ -281,7 +281,7 @@ class MalformedInput(ProseCase):
 
 class QuantificationCoverage(ProseCase):
     """writing-rules.md anchors every bullet on a measurable result. Nothing was
-    measuring whether it happened: validate_urs.py checks that a number in prose
+    measuring whether it happened: the record gate checks that a number in prose
     traces to a metric, which says nothing about a bullet carrying no number.
 
     Reported, never enforced. A gate that demands a number is a gate that gets
@@ -322,7 +322,7 @@ class QuantificationCoverage(ProseCase):
         self.assertIn("and 2 more bullets carry no number", out)
 
     def test_a_year_does_not_count_as_a_metric(self):
-        """The exclusions are why validate_urs.numerals() is reused rather than
+        """The exclusions are why numbers.numerals() is reused rather than
         reimplemented - a bullet mentioning 2019 is not a quantified bullet."""
         _, out = self.check([
             (False, "Professional Experience"),

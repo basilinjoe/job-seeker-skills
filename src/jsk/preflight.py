@@ -52,16 +52,20 @@ GRAPH_MODULES = ["graph", "graph.ontology", "graph.io", "graph.writer", "graph.s
                  "graph.rules", "graph.store", "graph.queries", "graph.match", "graph.record",
                  "graph.changeset", "graph.edit", "graph.kbcli", "graph.named", "graph.view",
                  "graph.timeline", "graph.export", "graph.scoring"]
-GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.validate_urs",
-                "gates.claims"]
+GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.report",
+                "gates.numbers", "gates.record"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken urs package takes all
 # three with it and reporting them separately would name three symptoms of one cause.
-URS_MODULES = ["urs", "urs.plan", "urs.profiles", "urs.tex", "urs.resolve", "urs.themes",
+#
+# The builder (resume/) is counted with them: it turns the career and a resume.json into
+# the plan they render, and a render with no builder is as broken as one with no emitter.
+URS_MODULES = ["resume", "resume.short", "resume.build", "resume.career",
+               "urs", "urs.profiles", "urs.tex", "urs.themes",
                "urs.formatting", "urs.emit_latex", "urs.emit_text",
                "urs.render_resume", "urs.preview_templates", "urs.fit_pages"]
 
-SCHEMA_FILES = ["profile.schema.json", "example.resume.json"]
+SCHEMA_FILES = ["profile.schema.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
 
 TEX_ENGINES = ["tectonic", "latexmk", "pdflatex", "xelatex", "lualatex"]
@@ -220,7 +224,7 @@ def gather(kb_arg=None):
     missing_prof = [p for p in PROFILES
                     if not os.path.exists(os.path.join(SCHEMA, "profiles", p))]
     checks.append(Check(
-        f"URS schema and {len(PROFILES) - len(missing_prof)} region profiles",
+        f"profile schema and {len(PROFILES) - len(missing_prof)} region profiles",
         not (missing_schema or missing_prof),
         disables=f"missing: {', '.join(missing_schema + missing_prof)}"
                  if (missing_schema or missing_prof) else ""))
@@ -243,16 +247,16 @@ def gather(kb_arg=None):
                  "and fit_pages.py cannot measure its pages, so the parse gate "
                  "and the page budget are both unverifiable"))
 
-    # REQUIRED: the career is kb.ttl and nothing else reads it. `jsk ship` runs the
-    # claims gate against it before it renders, and `jsk kb`, `jsk match` and
-    # `jsk kb export --urs` all start there, so a machine without the engine cannot
+    # REQUIRED: the career is kb.ttl and nothing else reads it. Every render builds from
+    # it, `jsk ship` runs the record gate against it before it renders, and `jsk kb` and
+    # `jsk match` start there, so a machine without the engine cannot
     # produce a resume from the career at all. It is a dependency of jsk-resume, so a
     # missing one means the install skipped dependencies. find_spec, not an import -
     # this module stays standard-library only.
     checks.append(Check(
         "pyoxigraph", importlib.util.find_spec("pyoxigraph") is not None, key="pyoxigraph",
         disables="cannot read or validate the graph record (kb.ttl): `jsk kb`, `jsk match` "
-                 "and the claims gate `jsk ship` runs cannot start"))
+                 "and every render and record gate cannot start"))
 
     # Optional: a machine without them still renders, gates, matches and writes the
     # graph record. What it loses is the one-way move from Markdown.
@@ -273,8 +277,8 @@ def gather(kb_arg=None):
         # doctor that blocked on it would hide every other finding behind one migration.
         checks.append(Check(
             f"knowledge base at {markdown} (Markdown, not migrated)", False,
-            disables="no gate reads it and `jsk kb` cannot write it, so the claims gate "
-                     f"says NOT RUN - `jsk migrate {markdown}` moves it to career/kb.ttl, "
+            disables="no gate reads it, nothing renders from it and `jsk kb` cannot write "
+                     f"it - `jsk migrate {markdown}` moves it to career/kb.ttl, "
                      "once, round-trip checked, deleting nothing",
             detail=markdown))
     else:
@@ -331,10 +335,10 @@ def resolve_kb(kb_arg=None):
 # them cannot produce a resume at all - reporting that as a degraded install
 # would be telling someone their toolchain works when it does not.
 #
-# pyoxigraph is required for the same reason: the career is kb.ttl, and the claims gate
-# `jsk ship` runs reads it.
+# pyoxigraph is required for the same reason: the career is kb.ttl, and every render and
+# the record gate `jsk ship` runs read it.
 REQUIRED = {"Python", "modules", "urs renderer package", "gates package", "graph record package",
-            "URS schema", "TeX engine", "pymupdf", "pyoxigraph"}
+            "profile schema", "TeX engine", "pymupdf", "pyoxigraph"}
 
 
 def is_required(check):
@@ -357,13 +361,13 @@ def verify(tmp):
                       [f"{EXAMPLE_SHORT} missing"]))
         return steps
 
-    # The file the render reads, not example.resume.json: validating a URS record the
-    # render no longer touches passed a check on the wrong file. Shape and ids until
-    # the record gate (jsk.gates.record) lands and takes this step over.
+    # The file the render reads, not the old example.resume.json: validating a URS record
+    # the render no longer touched passed a check on the wrong file. The record gate, as
+    # `jsk ship` runs it: shape, ids and every number traced in the example career.
     run("validate the example resume",
-        [f"{__package__}.resume.short", EXAMPLE_SHORT])
+        [f"{__package__}.gates.record", EXAMPLE_SHORT])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
-    # proves the resolver works and nothing about whether anything can be sent.
+    # proves the builder works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",
              [f"{__package__}.urs.render_resume", EXAMPLE_SHORT, "--out", tmp, "--pdf"])
     if not ok:

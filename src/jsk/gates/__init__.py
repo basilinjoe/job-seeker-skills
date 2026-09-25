@@ -8,8 +8,6 @@ A resume passes four gates before anybody sends it. Three of them are here and r
                                      metric version in career/kb.ttl? Runs before
                                      anything is rendered, because a defect there
                                      becomes a defect in every file at once.
-                                     (validate_urs.py and claims.py still check a legacy
-                                     URS record until they are deleted.)
     parse gate    check_ats.py       will an ATS read the PDF without mangling it?
     prose gate    check_prose.py     does the writing obey the rules a parser cannot
                                      see - third person, unresolved placeholders, a
@@ -33,4 +31,4 @@ designator like `p95` and a standard's number are not claims, and a detector wit
 those exclusions reports a resume as unquantified because it mentions 2019.
 """
 
-__all__ = ["check_ats", "check_prose", "numbers", "record", "report", "validate_urs"]
+__all__ = ["check_ats", "check_prose", "numbers", "record", "report"]

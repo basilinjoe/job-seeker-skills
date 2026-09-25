@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (EXAMPLE_URS, FIT_PAGES, RENDER_RESUME, load_script, run,
+from fixtures import (EXAMPLE_SHORT, FIT_PAGES, RENDER_RESUME, load_script, run,
                       urs_module)
 
 fp = load_script(FIT_PAGES)
@@ -248,8 +248,7 @@ class WithAnEngine(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def render(self, *args):
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default", *args)
+        code, out = run(RENDER_RESUME, EXAMPLE_SHORT, "--out", self.tmp, *args)
         self.assertEqual(code, 0, out)
         return self.tmp / "Priya_Raman_Resume.tex"
 

@@ -164,7 +164,7 @@ class Findings(unittest.TestCase):
         self.assertEqual([f.rule for f in s.findings if f.rule == "dangling"], [])
         self.assertTrue(s.report().fails[0].startswith(KB))
 
-    def test_report_is_a_validate_urs_report(self):
+    def test_report_is_a_gate_report(self):
         s, _ = mutated(MUTATIONS["object"])
         rep = s.report()
         self.assertEqual((len(rep.fails), len(rep.warns)), (len(s.fails()), len(s.warns())))

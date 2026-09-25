@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (CHECK_ATS, CLEAN_RESUME, EXAMPLE_URS, RENDER_RESUME,
+from fixtures import (CHECK_ATS, CLEAN_RESUME, EXAMPLE_SHORT, RENDER_RESUME,
                       build_pdf, build_text, load_script, resume_with, run,
                       urs_module)
 
@@ -269,8 +269,7 @@ class ThePdfItself(CheckATSCase):
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
     def test_the_rendered_presentation_pdf_passes(self):
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default", "--pdf")
+        code, out = run(RENDER_RESUME, EXAMPLE_SHORT, "--out", self.tmp, "--pdf")
         self.assertEqual(code, 0, out)
         code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume.pdf")
         self.assertPasses(out, code)
@@ -280,8 +279,7 @@ class ThePdfItself(CheckATSCase):
         """The ligature trap: T1 Computer Modern turns "fi" into U+FB01, so an
         ATS-maximal PDF failed its own ASCII rule until the emitter broke the
         pairs. The .docx never showed this, because nothing rendered it."""
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default", "--pdf", "--ats-max")
+        code, out = run(RENDER_RESUME, EXAMPLE_SHORT, "--out", self.tmp, "--pdf", "--ats-max")
         self.assertEqual(code, 0, out)
         code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume.pdf", "--strict")
         self.assertPasses(out, code)
@@ -339,8 +337,7 @@ class SplitWords(CheckATSCase):
             for flags in ((), ("--ats-max",)):
                 with self.subTest(template=name, flags=flags):
                     out_dir = self.tmp / f"{name}{''.join(flags)}"
-                    code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", out_dir,
-                                    "--view", "view_au_default", "--template", name,
+                    code, out = run(RENDER_RESUME, EXAMPLE_SHORT, "--out", out_dir, "--template", name,
                                     "--format", "latex", "--pdf", *flags)
                     self.assertEqual(code, 0, out)
                     code, out = run(CHECK_ATS, next(out_dir.glob("*.pdf")))
@@ -390,8 +387,7 @@ class TheVariantIsInTheMetadata(CheckATSCase):
         for flags, variant, stem in (((), "presentation", "Priya_Raman_Resume"),
                                      (("--ats-max",), "ats-maximal", "Priya_Raman_Resume")):
             out_dir = self.tmp / variant
-            code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", out_dir,
-                            "--view", "view_au_default", "--pdf", *flags)
+            code, out = run(RENDER_RESUME, EXAMPLE_SHORT, "--out", out_dir, "--pdf", *flags)
             self.assertEqual(code, 0, out)
             renamed = out_dir / "resume-final.pdf"
             (out_dir / f"{stem}.pdf").rename(renamed)

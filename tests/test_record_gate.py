@@ -121,6 +121,24 @@ class Untraced(GateCase):
     def test_a_scaled_suffix_matches_the_metric(self):
         self.assertEqual(self.faults("ach_game_players", "Grew a Go server to 100k players."), [])
 
+    TEAM_V1 = "k:met_team.v1 j:of k:met_team ; j:value 6 ;"
+
+    def test_either_end_of_a_range_traces_and_nothing_else_does(self):
+        # From test_graph_export's Qualified: "about 6-8", as the person stated it.
+        ranged = (self.TEAM_V1, self.TEAM_V1 + " j:upper 8 ; j:qualifier j:about ;")
+        s = self.store([ranged] + self.reworded(TEAM, "Led a team of 6-8 engineers."))
+        self.assertEqual(numbers.untraced(s, [K + "ach_events_team"], TODAY), [])
+        s = self.store([ranged] + self.reworded(TEAM, "Led a team of 9 engineers."))
+        [f] = numbers.untraced(s, [K + "ach_events_team"], TODAY)
+        self.assertEqual(f.numbers, ["9"])
+
+    def test_a_metric_with_no_current_version_traces_nothing(self):
+        # From test_graph_export's Replaced: every version closed, the number is the
+        # bullet's alone - the export used to leave the metric off so the gate failed it.
+        closed = (self.TEAM_V1, self.TEAM_V1 + ' j:validUntil "2026-01-01"^^xsd:date ;')
+        [f] = numbers.untraced(self.store([closed]), [K + "ach_events_team"], TODAY)
+        self.assertEqual(f.bullet, K + "ach_events_team")
+
     def test_order_and_unknown_iris(self):
         s = self.store(self.reworded(TEAM, "Led 8 engineers."))
         faults = numbers.untraced(s, [K + "ach_identity_sso", K + "ach_nothing",
@@ -328,10 +346,21 @@ class Validate(GateCase):
         self.assertIn("career/kb.ttl", out)
         self.assertNotIn("Traceback", out)
 
-    def test_a_legacy_record_still_goes_to_the_urs_gate(self):
-        # Until Task 8 deletes it: the fixture's own resume.json is a URS record.
-        code, out = run_cli("validate", careerkit.FIXTURES / careerkit.APP / "resume.json")
-        self.assertIn("urs: ", out)
+    def test_a_legacy_record_is_refused_with_migrate_as_the_fix(self):
+        # Nothing but `jsk migrate` reads a full URS record now (spec ruling 6).
+        _, path = self.workspace()
+        legacy = Path(__file__).parent / "migrate_fixtures" / "contoso-resume.urs.json"
+        Path(path).write_bytes(legacy.read_bytes())
+        code, out = run_cli("validate", path)
+        self.assertEqual(code, 2, out)
+        self.assertIn("jsk migrate", out)
+        self.assertNotIn("Traceback", out)
+
+    def test_view_is_a_usage_error(self):
+        _, path = self.workspace()
+        code, out = run_cli("validate", path, "--view", "view_x")
+        self.assertEqual(code, 2, out)
+        self.assertIn("a resume.json is one resume", out)
 
     def test_strict_counts_a_warn_as_a_fail(self):
         _, path = self.workspace(doc=short(summary={"text": "Engineer [TBD].",
@@ -395,6 +424,20 @@ class Gates(GateCase):
         self.assertEqual(heads[0], "record gate", out)
         self.assertNotIn("claims gate", heads)
         self.assertIn("PASS - safe to render", out)
+
+
+class ExperienceQuery(unittest.TestCase):
+    """What the years check measures against, from test_claims.py: the roles behind the
+    projects holding a concept, an overlap counted once - 61 months of Kubernetes, so the
+    clean summary's "5 years" passes and S8's "8 years" warns."""
+
+    def test_kb_query_experience_counts_overlaps_once(self):
+        code, out = run_cli("kb", "query", "experience", "c:kubernetes", "--json",
+                            "--root", careerkit.FIXTURES)
+        self.assertEqual(code, 0, out)
+        rows = json.loads(out)
+        self.assertEqual([r["project"] for r in rows[:-1]], ["k:prj_data", "k:prj_events"])
+        self.assertEqual(rows[-1]["months"], 61)
 
 
 if __name__ == "__main__":

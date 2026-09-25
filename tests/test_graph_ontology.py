@@ -81,7 +81,7 @@ class OntologyTests(unittest.TestCase):
         self.assertEqual(out.stdout.strip(), "False", out.stdout + out.stderr)
 
     def test_provenance_matches_the_renderer(self):
-        from jsk.urs.resolve import PROVENANCE_RANK
+        from jsk.resume.build import PROVENANCE_RANK
         self.assertEqual(set(PROVENANCE_RANK), set(O.ENUMS["provenance"]))
 
     def test_class_of(self):

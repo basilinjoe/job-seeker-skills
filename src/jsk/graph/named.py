@@ -86,7 +86,8 @@ def holdings(store):
     with, its domains, and what its live bullets show (a disputed one shows nothing), each
     closed upward through the counts-as paths that carry a requirement: no implies edge.
 
-    What the claims gate asks of a bullet's words: does its project hold what they name?
+    What the record gate asks of a bullet's words (it was the claims gate's question): does
+    its project hold what they name?
     """
     rows = store.select(PRE + """SELECT DISTINCT ?proj ?to WHERE {
         ?proj a j:Project .

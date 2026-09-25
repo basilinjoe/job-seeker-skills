@@ -366,7 +366,7 @@ POSITIONAL = re.compile(r"_\d+$")
 
 # What places a claim without being one: which project a bullet is under, which employer
 # a role was at, which metric a bullet cites, the dates and grades of a qualification.
-# The claims gate does not read them, but "led a team of 6" under another role is not
+# The record gate does not read them, but "led a team of 6" under another role is not
 # what the person confirmed - so changing one resets provenance like a claim does.
 PLACES = {"organisation", "position", "project", "of", "cites", "start", "end", "field",
           "level", "gradeScheme", "gradeValue", "expires"}

@@ -1,26 +1,14 @@
-"""Region profiles: market conventions as data.
+"""Region profiles: a market's conventions as data.
 
-A profile answers three questions about a field path, and nothing else:
-
-    forbidden  -> never emit it, whatever the record holds
-    required   -> warn loudly when it is absent
-    expected   -> conventional here, so a `private` field may be emitted
-
-The gate is deliberately dumb. Anything that needs judgement belongs in the
-profile's `notes`, addressed to whoever is reading, not encoded here.
+A profile says what jsk.resume.build needs to know about a market and nothing else: its
+paper size (`region`), the default page budget, which sections render in what order,
+whether the Indian declaration closes the page, and whether the right to work goes on
+the header line. The forbidden/expected/private-field gate that sat here went with the
+URS record (2026-09-25): every field it governed - a photo, a date of birth, referees,
+compensation - is one kb.ttl has no home for, so the gate had nothing left to refuse.
 """
 import json
 import os
-
-PRIVATE_BY_DEFAULT = (
-    "person.demographics",
-    "person.photo",
-    "person.name.related_names",
-    "identity_documents",
-    "referees",
-    "compensation",
-    "availability",
-)
 
 
 def schema_dir(start=None):
@@ -37,7 +25,8 @@ def schema_dir(start=None):
 
 
 def load(ref, base=None):
-    """Load a profile by id (`urs:profile:au/1`), region code (`AU`) or path."""
+    """Load a profile by id (`urs:profile:au/1`), region code (`AU`) or path; the
+    default profile for anything that names none that ships."""
     base = base or schema_dir()
     if ref is None:
         ref = "default"
@@ -55,51 +44,3 @@ def load(ref, base=None):
             path = os.path.join(base, "profiles", "default.json")
     with open(path, encoding="utf8") as fh:
         return json.load(fh)
-
-
-class Gate:
-    """Decides whether one field path may be rendered under a profile."""
-
-    def __init__(self, profile, extra_redactions=()):
-        self.profile = profile
-        self.render = profile.get("render", {})
-        self.forbidden = list(profile.get("forbidden", []))
-        self.required = list(profile.get("required", []))
-        self.expected = list(profile.get("expected", []))
-        self.redacted = list(extra_redactions)
-
-    @staticmethod
-    def _covers(rule, path):
-        """A rule covers a path if it is the path or a prefix segment of it."""
-        return path == rule or path.startswith(rule + ".")
-
-    def permits(self, path):
-        for rule in self.redacted:
-            if self._covers(rule, path):
-                return False
-        for rule in self.forbidden:
-            if self._covers(rule, path):
-                return False
-        if self._is_private(path):
-            return any(
-                self._covers(rule, path) or self._covers(path, rule)
-                for rule in self.required + self.expected
-            )
-        return True
-
-    @staticmethod
-    def _is_private(path):
-        return any(
-            path == p or path.startswith(p + ".") or p.startswith(path + ".")
-            for p in PRIVATE_BY_DEFAULT
-        )
-
-    def missing_required(self, present):
-        """Required paths with nothing behind them. `present` is a set of paths."""
-        return [
-            r for r in self.required
-            if not any(p == r or p.startswith(r + ".") for p in present)
-        ]
-
-    def setting(self, key, fallback=None):
-        return self.render.get(key, fallback)

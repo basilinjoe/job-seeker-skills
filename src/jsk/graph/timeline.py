@@ -29,7 +29,6 @@ from . import ontology as O
 
 APPLICATION = "application.ttl"
 POSTING = "posting.ttl"
-RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
 KINDS = O.ENUMS["eventKind"]
 
 
@@ -84,59 +83,6 @@ def posting_of(store, rel_dir):
 
 # --- what an application sent --------------------------------------------------------
 
-def sent_achievements(doc, view_id):
-    """The achievement ids the view renders, in order - resolve.py's own selection: the
-    view's provenance floor, and its include lists where they name bullets."""
-    view = next((v for v in doc.get("views") or [] if v.get("id") == view_id), {})
-    floor = RANK.get(view.get("provenance_floor", "confirmed"), 3)
-    chosen = {inc["ref"]: inc.get("achievements") for inc in view.get("include") or []
-              if isinstance(inc, dict) and "ref" in inc}
-    projects = {p.get("id"): p for p in doc.get("projects") or [] if isinstance(p, dict)}
-
-    def keep(n):
-        status = ((n or {}).get("provenance") or {}).get("status", "confirmed")
-        return RANK.get(status, 0) >= floor
-
-    def of(owner, oid):
-        items = [a for a in owner.get("achievements") or [] if isinstance(a, dict) and keep(a)]
-        if chosen.get(oid):
-            items = [a for a in items if a.get("id") in chosen[oid]]
-        return [a.get("id") for a in items if a.get("id")]
-
-    out = []
-    for e in doc.get("engagements") or []:
-        out += of(e, e.get("id"))
-        for pid in e.get("projects") or []:
-            if pid in projects and keep(projects[pid]):
-                out += of(projects[pid], pid)
-    return list(dict.fromkeys(out))
-
-
-def carried(doc, view_id, store):
-    """(achievement iris, metric version iris): the bullets the view sent that kb.ttl
-    holds, and the version of each metric they cite that is current now - what `jsk kb
-    query stale` compares against when a metric is later revised."""
-    from ..gates.claims import Career
-
-    career = Career(store)
-    bullets = [O.K + a for a in sent_achievements(doc, view_id) if O.K + a in career.kb]
-    record = {a.get("id"): a for a, _ in walk(doc)}
-    versions = set()
-    for b in bullets:
-        metrics = set(career.cites.get(b, ()))
-        for m in (record.get(b[len(O.K):]) or {}).get("metrics") or []:
-            mid = m.get("id") if isinstance(m, dict) else None
-            if isinstance(mid, str) and O.K + mid in career.versions:
-                metrics.add(O.K + mid)
-        versions |= {v for m in metrics for v, _, _ in career.current(m)}
-    return bullets, sorted(versions)
-
-
-def walk(doc):
-    from ..gates.validate_urs import walk_achievements
-    return walk_achievements(doc)
-
-
 def application_quads(stem, posting, view, submitted, channel, documents, record_bytes,
                       bullets, versions):
     """application.ttl's triples: the application, and its submitted event when it was
@@ -186,13 +132,6 @@ def freeze(root, app_dir, plan, short_bytes, submitted, channel, documents):
 
     return write_application(root, app_dir, "resume", submitted, channel, documents,
                              short_bytes, sent)
-
-
-def freeze_urs(root, app_dir, doc, view, submitted, channel, documents, record_bytes):
-    """freeze() for a legacy full URS record: the view's own selection, read off the
-    record. It goes with resolve.py; until then an unmigrated draft still freezes."""
-    return write_application(root, app_dir, view, submitted, channel, documents,
-                             record_bytes, lambda store: carried(doc, view, store))
 
 
 def write_application(root, app_dir, view, submitted, channel, documents, record_bytes,

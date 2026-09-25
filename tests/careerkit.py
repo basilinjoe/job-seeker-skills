@@ -23,7 +23,7 @@ RETIRE = ('    j:text "Wrote the platform\'s Terraform." ;\n    j:shows c:terraf
 def workspace(root, edits=(), short=None, logged=True):
     """(root, short_path): the fixture copied to `root`, each (old, new) replaced once in
     career/kb.ttl, and `short` (a dict) written as the application's resume.json - the
-    legacy record that was there is removed either way.
+    fixture's own short file there is removed either way, so a test says what it picks.
 
     The edits stand for ones made with `jsk kb apply`, so log.ttl is made to agree with
     them (`logged`): the record gate refuses a hand edit the log has not been told about."""

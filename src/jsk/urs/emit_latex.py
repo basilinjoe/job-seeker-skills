@@ -14,7 +14,7 @@ stopped checking for them per render and a golden-file test guards this file
 instead.
 
 How the document *looks* moved to `themes.py`; what it *says* was settled in
-`resolve.py`. This module is the seam: it walks the plan and hands each piece to
+`resume/build.py`. This module is the seam: it walks the plan and hands each piece to
 a command the theme defined. That split is why a theme cannot change a word, and
 why `tests/test_themes.py` can prove it by extracting text from five differently
 coloured PDFs and finding one document.
@@ -27,7 +27,7 @@ import re
 from . import themes
 from .formatting import LETTER_REGIONS
 
-# Variants resolve.py folds to ASCII, and which therefore cannot carry a
+# Variants build.py folds to ASCII, and which therefore cannot carry a
 # U+2022 bullet in the rendered text layer either.
 ASCII_VARIANTS = ("ats-maximal", "plaintext")
 
@@ -63,7 +63,7 @@ SPECIALS = {
     "&": r"\&", "%": r"\%", "$": r"\$", "#": r"\#",
     "_": r"\_", "{": r"\{", "}": r"\}",
     "~": r"\textasciitilde{}", "^": r"\textasciicircum{}",
-    # U+00B7 is the separator resolve.sep() emits for the presentation
+    # U+00B7 is the separator build.Builder.sep() emits for the presentation
     # variant. Passed through raw it reaches the TeX as byte 0xB7, which
     # under [T1]{fontenc} is u-with-ring - so every contact line rendered
     # as "name <u-ring> email" in the PDF, while the .docx and all three
@@ -131,7 +131,7 @@ def emit(plan, template=None):
 def _header(plan, theme, esc):
     """Name, then the headline, then everything else.
 
-    The headline is `person.headline` and `resolve.header()` puts it first in
+    The headline is the person's j:headline and `Builder.header()` puts it first in
     `header_lines`; the plan repeats it under its own key so this can tell it
     apart from a contact line without re-deriving anything. Recruiters' first
     pass is spent almost entirely on six items and the current title is one of

@@ -12,12 +12,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from fixtures import (CHECK_ATS, CHECK_PROSE, CLI, CLEAN_RESUME, EXAMPLE_URS,
-                      SCRIPTS, VALIDATE_URS, build_pdf, build_text, load_script,
-                      resume_with, run, urs_doc, write_urs)
+import careerkit
+from fixtures import (CHECK_ATS, CHECK_PROSE, CLI, CLEAN_RESUME, EXAMPLE_SHORT, SCRIPTS,
+                      build_pdf, build_text, load_script, resume_with, run)
 
 JSK = CLI
-EXAMPLE = EXAMPLE_URS
+EXAMPLE = EXAMPLE_SHORT
+RECORD_GATE = "jsk.gates.record"
+GOOD = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team", "ach_identity_sso"]}
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
 SUBCOMMANDS = ["doctor", "new", "match", "kb", "migrate", "validate", "render", "preview",
@@ -76,7 +78,7 @@ class Usage(unittest.TestCase):
         command itself would show them."""
         code, out = run(JSK, "render", "--help")
         self.assertEqual(code, 0, out)
-        for flag in ("--view", "--pdf", "--ats-max", "--template"):
+        for flag in ("--pdf", "--ats-max", "--template"):
             self.assertIn(flag, out)
 
     def test_jsk_index_is_retired_and_says_what_replaced_it(self):
@@ -99,8 +101,8 @@ class Usage(unittest.TestCase):
 
 
 class ValidateRouting(unittest.TestCase):
-    """`jsk validate` checks one thing - the URS record - and every other target it
-    is handed has to be refused by name.
+    """`jsk validate` checks one thing - the short resume.json - and every other target
+    it is handed has to be refused by name.
 
     It used to dispatch between a bundle and a record. There is no bundle now, so the
     interesting cases are the two things somebody will pass instead: the directory the
@@ -130,7 +132,7 @@ class ValidateRouting(unittest.TestCase):
         """--strict is the underlying script's flag; the dispatcher must not eat it."""
         code, out = run(JSK, "validate", EXAMPLE, "--strict")
         self.assertIn("checking:", out)
-        # The script's own refusal, naming the flag: it reached validate_urs.py
+        # The script's own refusal, naming the flag: it reached the record gate
         # rather than being dropped on the way.
         code2, out2 = run(JSK, "validate", EXAMPLE, "--nonsense-flag")
         self.assertEqual(code2, 2, out2)
@@ -327,19 +329,22 @@ class GatesCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-        self.record = write_urs(self.tmp, urs_doc())
-        self.out = self.tmp / "out"
+        # A short resume.json reads its career, so both it and the render directory sit
+        # in a workspace - the render directory beside the application, not inside it.
+        root, record = careerkit.workspace(self.tmp / "ws", short=GOOD)
+        self.record = Path(record)
+        self.out = Path(root) / "out"
         self.out.mkdir()
 
     def break_record(self):
         """A record that fails the record gate and nothing else.
 
-        `views: []` is the failure worth using: it is what the gate itself was
-        strengthened to catch, and it leaves every rendered document untouched, so a
-        test using it pins that one failing gate does not disturb the four that
-        passed.
+        A bullet the career does not hold is the failure worth using: it leaves every
+        rendered document untouched, so a test using it pins that one failing gate
+        does not disturb the four that passed.
         """
-        self.record = write_urs(self.tmp, urs_doc(views=[]))
+        self.record.write_text(json.dumps({**GOOD, "bullets": ["ach_nothing_like_it"]}),
+                               encoding="utf-8")
 
     def render(self, paragraphs=None, pages=1):
         """The three files render_resume.py leaves behind, without needing a TeX engine.
@@ -379,7 +384,7 @@ class GatesAgreement(GatesCase):
         tex = self.out / "Jane_Doe_Resume.tex"
         txt = self.out / "Jane_Doe_Resume_ATS.txt"
         return [
-            (VALIDATE_URS, [self.record]),
+            (RECORD_GATE, [self.record]),
             (CHECK_ATS, [pdf]),
             (CHECK_ATS, [txt, "--strict"]),
             (CHECK_PROSE, [tex]),
@@ -442,7 +447,7 @@ class GatesMissingInput(GatesCase):
         """The skill writes resume.json into the application directory it renders
         into, so the ordinary call has nothing to point at it with."""
         self.render()
-        write_urs(self.out, urs_doc())
+        (self.out / "resume.json").write_text(json.dumps(GOOD), encoding="utf-8")
         code, out = self.gates()
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)
@@ -560,21 +565,18 @@ class GatesPageBudget(GatesCase):
 
 
 class GatesUsage(GatesCase):
-    def test_the_view_is_optional_and_labels_the_report(self):
-        """It was required while a bundle held every view and the command had no
-        other way to know which one was rendered. A record holds the view it was
-        written for, so the flag is now a label and nothing turns on it."""
+    def test_a_view_is_a_usage_error_naming_one_resume(self):
+        """It labelled the report with the view a full record rendered. A resume.json
+        is one resume, so there is nothing left for it to name."""
         self.render()
         code, out = self.gates("--record", self.record, "--view", "view_default")
-        self.assertEqual(code, 0, out)
-        self.assertIn("view: view_default", out)
+        self.assertEqual(code, 2, out)
+        self.assertIn("a resume.json is one resume", out)
 
-    def test_the_help_says_the_view_is_only_a_label(self):
-        """The usage listed `[--view <id>]` beside the flags that change what runs, so
-        it read as a filter. It says it names the view in the report."""
+    def test_the_help_no_longer_offers_a_view(self):
         code, out = run(JSK, "gates", "--help")
         self.assertEqual(code, 0, out)
-        self.assertIn("names the view in the report", out)
+        self.assertNotIn("--view", out)
 
     def test_an_out_directory_that_does_not_exist_is_a_call_error(self):
         code, out = run(JSK, "gates", self.tmp / "nowhere")
@@ -587,7 +589,7 @@ class GatesUsage(GatesCase):
         self.assertIn("usage:", out)
 
     def test_a_flag_left_without_its_value_is_a_call_error(self):
-        code, out = run(JSK, "gates", self.out, "--view")
+        code, out = run(JSK, "gates", self.out, "--pages")
         self.assertEqual(code, 2, out)
         self.assertIn("needs a value", out)
 
@@ -707,7 +709,7 @@ class PreviewInProcess(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-        self.record = write_urs(self.tmp, urs_doc())
+        _, self.record = careerkit.workspace(self.tmp / "ws", short=GOOD)
         self.out = self.tmp / "looks"
 
     def preview(self, compile_pdf):

@@ -17,23 +17,22 @@ has to remember every name to get started.
     jsk match POSTING.ttl       a posting against the graph record, through the vocabulary
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
     jsk migrate KB.md           user-knowledgebase.md to career/kb.ttl, once, round-trip checked
-    jsk validate RECORD.json    the record gate, before anything renders
-    jsk render RECORD [...]     one record to a PDF and plain text
-    jsk preview RECORD --out D  the same record in every template, to pick a look
+    jsk validate RESUME.json    the record gate, before anything renders
+    jsk render RESUME [...]     one resume.json to a PDF and plain text
+    jsk preview RESUME --out D  the same resume in every template, to pick a look
     jsk check PDF [--strict]    the parse gate and the prose gate, both
       ... --only parse|prose    one of them, for re-checking one repaired file
-    jsk gates DIR [--record R]  the record, claims, parse and prose gates over one render
-      ... --view ID             names the view in the report; gates every render still
+    jsk gates DIR [--record R]  the record, parse and prose gates over one render
     jsk fit TEX [...]           fit a render to a page budget
-    jsk ship RECORD --out D     validate, render and gate, in one pass
+    jsk ship RESUME --out D     validate, render and gate, in one pass
     jsk freeze APP --submitted DATE|false --channel TEXT   archive a sent application
     jsk event APP KIND --date DATE      add a screen, an offer, a rejection to one
 
 The career is the graph record, career/kb.ttl: changed through `jsk kb apply`, read with
-`jsk kb show` and `jsk kb view`, validated on every load. The skill writes each URS record
-out of it, and `jsk validate` checks that record before anything renders - the last point at
-which a mistake is still cheap - and the claims gate joins the record with the career.
-`jsk kb export` writes the short resume.json - the bullets chosen, as ids - from it.
+`jsk kb show` and `jsk kb view`, validated on every load. `jsk kb export` writes an
+application's short resume.json - the bullets chosen, as ids - out of it, every render
+builds from the career and that file, and `jsk validate` checks the file and the bullets it
+selects before anything renders - the last point at which a mistake is still cheap.
 Only `jsk migrate` reads a user-knowledgebase.md, once, and it writes nothing into it.
 
 pyoxigraph for the graph record, pymupdf to read a PDF, and markdown-it-py with pyyaml
@@ -116,8 +115,6 @@ SUBPACKAGE = {
     "fit_pages.py": "urs",
     "check_ats.py": "gates",
     "check_prose.py": "gates",
-    "validate_urs.py": "gates",
-    "claims.py": "gates",
     "record.py": "gates",
     "match.py": "graph",
     "kbcli.py": "graph",
@@ -136,8 +133,7 @@ def module_for(script):
 # `sys.exit(main(sys.argv))` hands it over. The others take the arguments alone.
 # Normalised here rather than in those scripts: their CLIs are the documented API and
 # must not move to suit a caller.
-WHOLE_ARGV = {"validate_urs.py", "render_resume.py", "preview_templates.py",
-              "preflight.py", "claims.py", "record.py"}
+WHOLE_ARGV = {"render_resume.py", "preview_templates.py", "preflight.py", "record.py"}
 
 
 def run_in_process(script, args):
@@ -192,8 +188,8 @@ def record_refusal(target):
     """
     if os.path.isdir(target):
         return [f"FAIL  cannot validate a directory: {target}",
-                "fix:  there is no bundle format any more. Pass the resume.json the",
-                "      skill wrote from the career record"]
+                "fix:  there is no bundle format any more. Pass the application's",
+                "      resume.json - `jsk kb export` writes one"]
     if not os.path.exists(target):
         return [f"file not found: {target}"]
     if target.endswith(FROZEN):
@@ -204,41 +200,43 @@ def record_refusal(target):
     if target.endswith(".md"):
         return [f"FAIL  cannot validate: {target}",
                 "fix:  a user-knowledgebase.md is an old career: `jsk migrate` moves it to",
-                "      career/kb.ttl, which `jsk kb check` validates. This gate reads the",
-                "      record written from the career - pass resume.json"]
+                "      career/kb.ttl, which `jsk kb check` validates. This gate reads an",
+                "      application's choice from the career - pass resume.json"]
     if target.endswith(".ttl"):
         return [f"FAIL  cannot validate: {target}",
                 "fix:  the graph record is validated on every load - `jsk kb check`",
-                "      shows its findings. This gate reads the record written from it -",
-                "      pass resume.json"]
+                "      shows its findings. This gate reads an application's choice from",
+                "      it - pass resume.json"]
     if not target.endswith(".json"):
         return [f"FAIL  cannot validate: {target}",
-                "fix:  pass a URS record - resume.json"]
+                "fix:  pass the application's resume.json"]
     return None
 
 
-def record_script(record):
-    """The record gate's script for `record`: record.py for a short resume.json, and
-    validate_urs.py for a URS record until plan Task 8 deletes it - every command that
-    starts at a record keeps working on the legacy ones in between."""
-    from .gates.record import is_short                  # noqa: PLC0415 - only when asked
+# The line every command that took --view prints now. A resume.json is one resume: the
+# view that picked a slice of a 41KB record went with the record (2026-09-25), and a
+# shell history or an old mode file still passes it, so it is named, not "unknown flag".
+VIEW_GONE = ["--view is gone: a resume.json is one resume", "fix:  drop --view"]
 
-    return "record.py" if record is not None and is_short(record) else "validate_urs.py"
+
+def view_refusal(args):
+    """VIEW_GONE when `args` pass --view, else None."""
+    return VIEW_GONE if "--view" in args else None
 
 
 def cmd_validate(args):
-    """The record gate, over one resume.json - a short one, or a legacy URS record."""
+    """The record gate, over one short resume.json."""
     if wants_help(args):
         print(VALIDATE_USAGE)
         return 0
     if not args:
         print(VALIDATE_USAGE)
         return 2
-    refusal = record_refusal(args[0])
+    refusal = view_refusal(args) or record_refusal(args[0])
     if refusal:
         print("\n".join(refusal))
         return 2
-    return run_in_process(record_script(args[0]), args)
+    return run_in_process("record.py", args)
 
 
 def cmd_check(args):
@@ -311,15 +309,8 @@ def cmd_check(args):
 # the render profile decides which files exist: every render writes
 # <name>_Resume.{tex,pdf} beside <name>_Resume_ATS.txt, and --ats-max changes which
 # variant that one PDF holds - strict_for() reads which from the PDF, not the name.
-#
-# --view filters nothing: every render in the directory is gated whatever it says. It
-# names the view in the report's heading and in --json, so that a saved report says
-# which view it was run for - and the usage says so, rather than letting the flag's
-# name promise a filter.
-GATES_USAGE = ("usage: jsk gates <out-dir> [--record <resume.json>] [--view <id>] "
-               "[--pages N] [--json] [--max-findings N]\n"
-               "       --view  names the view in the report; it does not narrow what is "
-               "gated")
+GATES_USAGE = ("usage: jsk gates <out-dir> [--record <resume.json>] "
+               "[--pages N] [--json] [--max-findings N]")
 
 DOC_GATES = [
     ("parse gate", "check_ats.py", (".pdf", ".txt")),
@@ -331,7 +322,7 @@ DOC_GATES = [
 # nothing else that happens to be sitting in the directory.
 RENDERED = "*_Resume*"
 
-GATES_VALUE_FLAGS = ("--view", "--record", "--pages", "--max-findings")
+GATES_VALUE_FLAGS = ("--record", "--pages", "--max-findings")
 
 # The name the skill writes beside a render, and what `--record` defaults to. Named
 # rather than searched: a directory holding two records has no way to say which one
@@ -377,7 +368,7 @@ def parse_pages(pages):
         return None, None
     if not str(pages).isdigit() or int(pages) < 1:
         return None, [f"--pages needs a whole number of pages, got {pages!r}",
-                      "fix:  --pages 2   - the budget the view asked for"]
+                      "fix:  --pages 2   - the budget the resume asked for"]
     return int(pages), None
 
 
@@ -390,7 +381,7 @@ def call_gate(script, args, argv0=None, capture=True):
     paraphrasing it. With `capture=False` the script prints straight through, and
     what comes back is only what this function itself had to say.
 
-    `argv0` defaults to whether the script is in WHOLE_ARGV - validate_urs.main()
+    `argv0` defaults to whether the script is in WHOLE_ARGV - record.main()
     takes the whole argv where the two document gates take the arguments alone.
     """
     if argv0 is None:
@@ -531,6 +522,9 @@ def cmd_gates(args):
         # Before parse_gates, which would otherwise read --help as an unknown flag.
         print(GATES_USAGE)
         return 0
+    if view_refusal(args):
+        print("\n".join(VIEW_GONE))
+        return 2
     parsed, problem = parse_gates(args)
     if problem:
         print(problem)
@@ -569,58 +563,17 @@ def cmd_gates(args):
         print(f"--max-findings needs a whole number, got {limit!r}")
         print("fix:  --max-findings 50   - or 0 to print every finding")
         return 2
-    view = flags.get("--view")
 
     results = gate_results(out_dir, record, pages, limit)
     worst = worst_exit(results)
 
     if flags.get("--json"):
-        print(json.dumps({"out_dir": out_dir, "view": view, "record": record,
+        print(json.dumps({"out_dir": out_dir, "record": record,
                           "exit": worst, "gates": results}, indent=2))
         return worst
 
-    print_results(f"gates: {out_dir}" + (f"   view: {view}" if view else ""), results)
+    print_results(f"gates: {out_dir}", results)
     return worst
-
-
-def graph_workspace(path):
-    """The workspace holding career/kb.ttl that `path` - a record or a directory - sits
-    in, or None: an old Markdown workspace, or none at all."""
-    from .graph.kbcli import find_root                # noqa: PLC0415 - only when asked
-
-    here = path if os.path.isdir(path) else os.path.dirname(os.path.abspath(path))
-    return find_root(here)
-
-
-def claims_not_run(where):
-    """The claims gate's entry where there is no graph record to join the record with.
-
-    Not SKIPPED, which fails: a record outside any workspace - the shipped example, one
-    being tried out, one in a folder whose user-knowledgebase.md is not yet migrated -
-    has no career record any gate can read, and failing every one of its ships would
-    teach that the gate is noise. Not PASS either. Said, like the render gate, and never
-    counted as passed."""
-    return {"gate": "claims gate", "command": None, "status": "NOT RUN", "exit": None,
-            "output": f"NOT RUN - no career/kb.ttl in the workspace {where} sits in, so no\n"
-                      f"  claim in this record was checked against a career record. A\n"
-                      f"  user-knowledgebase.md is read by no gate; `jsk migrate` turns it\n"
-                      f"  into the graph record this gate reads.\n"
-                      f"  A gate that did not run is not a gate that passed.\n"}
-
-
-def claims_step(record, out_dir, limit=None):
-    """The claims gate over `record`: a result, SKIPPED with no record in a graph
-    workspace, or NOT RUN outside one."""
-    root = graph_workspace(record if record is not None else out_dir)
-    if root is None:
-        return claims_not_run(record if record is not None else out_dir)
-    if record is None:
-        return skipped_gate("claims gate", "claims.py",
-                            f"no record given, and no {DEFAULT_RECORD} in {out_dir}; "
-                            f"pass --record <resume.json>.")
-    args = [record] + (["--max-findings", str(limit)] if limit is not None else [])
-    code, output = call_gate("claims.py", args + ["--root", root])
-    return gate_result("claims gate", " ".join(["claims.py"] + args), code, output)
 
 
 def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only=None):
@@ -630,27 +583,24 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only
     rather than a second copy of them: three commands that each decided what "the
     mechanical gates" meant would be three chances to disagree about it.
 
-    `record_gate=False` is for `jsk ship`, which has just run that gate and the
-    claims gate on the same file with the same arguments and stopped had either
-    failed. `only` names the documents to gate - see rendered_documents().
+    `record_gate=False` is for `jsk ship`, which has just run that gate on the same
+    file and stopped had it failed. `only` names the documents to gate - see
+    rendered_documents(). The record gate reads the career itself, so there is no
+    claims gate beside it: the claims gate joined a copy of the career with the career,
+    and the copy went with the URS record (2026-09-25).
     """
     results = []
-    script = record_script(record)
     if record_gate and record is None:
         results.append(skipped_gate(
-            "record gate", "validate_urs.py",
+            "record gate", "record.py",
             f"no record given, and no {DEFAULT_RECORD} in {out_dir}; "
             f"pass --record <resume.json>."))
     elif record_gate:
         record_args = [record] + (["--max-findings", str(limit)] if limit is not None
                                   else [])
-        code, output = call_gate(script, record_args)
-        results.append(gate_result("record gate", " ".join([script] + record_args),
+        code, output = call_gate("record.py", record_args)
+        results.append(gate_result("record gate", " ".join(["record.py"] + record_args),
                                    code, output))
-    # A short file's record gate is the claims gate too: there is no copy of the career
-    # left to join with the career.
-    if record_gate and script == "validate_urs.py":
-        results.append(claims_step(record, out_dir, limit))
 
     for gate, script, extensions in DOC_GATES:
         found = rendered_documents(out_dir, extensions, only)
@@ -691,8 +641,6 @@ def print_results(title, results):
             header += f": {result['command']}"
         elif result["gate"] == "render gate":
             header += ": nobody else can run this one"
-        elif result["status"] == "NOT RUN":
-            header += ": not run"
         print(f"--- {header}")
         print(result["output"], end="" if result["output"].endswith("\n") else "\n")
         print()
@@ -703,7 +651,7 @@ def print_results(title, results):
 # after its heading, and render_resume.py prints `WARN n` over its warnings.
 COUNTS = re.compile(r"^(?:FAIL (\d+)\s+)?WARN (\d+)\s*$", re.M)
 PAGES = re.compile(r"^  pages  (.+?): (\d+) pages? against a budget of (\d+)", re.M)
-# resolve.py's warning for a line below the view floor, as render_resume.py prints it:
+# build.py's warning for a line below the floor, as render_resume.py prints it:
 # once per variant rendered, `  warn  [<variant>/<kind>] withheld <what> - ...`.
 WITHHELD = re.compile(r"^  warn  \[[^\]]*\] withheld (.+?) - provenance", re.M)
 
@@ -712,7 +660,7 @@ def summary_lines(results):
     """The verdicts again, one line a step, printed after all of them.
 
     The ElevenLabs ship (2026-09-25) ran to about 6KB - nineteen prose WARNs among it -
-    and was read through `tail -60`, which cut the record and claims gates off the top;
+    and was read through `tail -60`, which cut the record gate off the top;
     the whole ship was run a second time into a file to grep for them. This block is
     derived from the results already printed above it and restates no verdict: each
     count is the gate's own line, read back."""
@@ -758,10 +706,10 @@ def summary_lines(results):
 # with --pdf, gates - in one process and in that order, each stopping the next. A
 # record that fails its gate is never rendered: rendering it would produce a PDF that
 # looks sendable and is not.
-SHIP_USAGE = ("usage: jsk ship <resume.json> --out DIR [--view ID] [--ats-max] "
+SHIP_USAGE = ("usage: jsk ship <resume.json> --out DIR [--ats-max] "
               "[--template N] [--pages N] [--json]")
 
-SHIP_VALUE_FLAGS = ("--out", "--view", "--template", "--pages")
+SHIP_VALUE_FLAGS = ("--out", "--template", "--pages")
 
 
 def not_rendered(why):
@@ -774,17 +722,6 @@ def not_rendered(why):
             "exit": None,
             "output": f"UNVERIFIED - {why}, so nothing was rendered and there is no\n"
                       f"  PDF from this run for anyone to read.\n"}
-
-
-def is_short(record):
-    """True for a short resume.json - no `urs` key. A legacy full record, or a file that
-    does not read, goes the old way, where the record gate says what is wrong with it."""
-    try:
-        with open(record, encoding="utf-8") as fh:
-            doc = json.load(fh)
-    except (OSError, ValueError):
-        return False
-    return isinstance(doc, dict) and "urs" not in doc
 
 
 def frozen_refusal(*dirs):
@@ -802,12 +739,15 @@ def cmd_ship(args):
 
     Every step is an existing function: the record gate is what `jsk validate`
     runs, the render is render_resume.py's main(), and the gates are gate_results(),
-    so none of their verdicts is restated here. A legacy URS record also passes the
-    claims gate, claims_step(), before it renders - until plan Task 8 removes both.
+    so none of their verdicts is restated here. A legacy URS record is turned away by
+    the record gate itself, with `jsk migrate` as the fix, before anything renders.
     """
     if wants_help(args):
         print(SHIP_USAGE)
         return 0
+    if view_refusal(args):
+        print("\n".join(VIEW_GONE))
+        return 2
     parsed, problem = parse_flags(args, SHIP_VALUE_FLAGS, ("--json", "--ats-max"))
     if problem:
         print(problem)
@@ -822,21 +762,10 @@ def cmd_ship(args):
     if refusal:
         print("\n".join(refusal))
         return 2
-    short = is_short(record)
-    script = record_script(record)
-    if short and flags.get("--view"):
-        print("--view is for a full URS record; a short resume.json is one resume")
-        print("fix:  drop --view")
+    if not flags.get("--out"):
+        print("--out is required")
+        print("fix:  --out names the directory to render into - the application's own")
         return 2
-    needed = [("--out", "the directory to render into - the application's own")]
-    if not short:
-        needed.append(("--view", "the view this application is for; a record may hold "
-                                 "several"))
-    for flag, why in needed:
-        if not flags.get(flag):
-            print(f"{flag} is required")
-            print(f"fix:  {flag} names {why}")
-            return 2
     # Before anything renders (Review Focus 5): the render writes over the PDF and .txt
     # that application.ttl says were sent, and the archive would then describe files it
     # no longer holds.
@@ -858,24 +787,16 @@ def cmd_ship(args):
         except KeyError as exc:
             print(f"usage: {exc.args[0]}")
             return 2
-    out_dir, view = flags["--out"], ("resume" if short else flags["--view"])
+    out_dir = flags["--out"]
 
     results = []
-    code, output = call_gate(script, [record])
-    results.append(gate_result("record gate", f"{script} {record}", code, output))
-    # A short file's record gate checks its numbers against the career itself; only a
-    # legacy URS record, a copy of the career, has the claims gate to pass as well.
-    claims = claims_step(record, None) if code == 0 and script == "validate_urs.py" else None
-    if claims is not None:
-        results.append(claims)
+    code, output = call_gate("record.py", [record])
+    results.append(gate_result("record gate", f"record.py {record}", code, output))
     if code != 0:
-        results.append(not_rendered("the record gate did not pass"))
-    elif claims is not None and claims["exit"]:
         # A number the career replaced renders as a sendable PDF with that number in it.
-        results.append(not_rendered("the claims gate did not pass"))
+        results.append(not_rendered("the record gate did not pass"))
     else:
-        render_args = [record, "--out", out_dir] + ([] if short else ["--view", view])
-        render_args += ["--pdf"]
+        render_args = [record, "--out", out_dir, "--pdf"]
         render_args += ["--ats-max"] if flags.get("--ats-max") else []
         render_args += ["--template", template] if template else []
         code, output = call_gate("render_resume.py", render_args)
@@ -892,14 +813,13 @@ def cmd_ship(args):
                                         only=wrote))
 
     # 0 or 1 only. A step's own exit 2 - an ERROR from a gate that raised, or a render
-    # refusing a view - is a failure of this ship, not a mistake in how it was called.
+    # refusing a file - is a failure of this ship, not a mistake in how it was called.
     worst = 1 if worst_exit(results) else 0
     if flags.get("--json"):
-        print(json.dumps({"record": record, "out_dir": out_dir, "view": view,
+        print(json.dumps({"record": record, "out_dir": out_dir,
                           "exit": worst, "steps": results}, indent=2))
         return worst
-    print_results(f"ship: {record} -> {out_dir}" + (f"   view: {view}" if view else ""),
-                  results)
+    print_results(f"ship: {record} -> {out_dir}", results)
     return worst
 
 
@@ -916,7 +836,7 @@ def cmd_ship(args):
 # Markdown, and an application.md written here would be an archive in a format nothing
 # else reads, of a career no gate could check it against.
 FREEZE_USAGE = ("usage: jsk freeze <app-dir> --submitted YYYY-MM-DD|false "
-                "--channel TEXT [--view ID] [--doc FILE ...]")
+                "--channel TEXT [--doc FILE ...]")
 
 APPLICATION = "application.md"
 APPLICATION_TTL = "application.ttl"
@@ -942,7 +862,10 @@ def cmd_freeze(args):
     if wants_help(args):
         print(FREEZE_USAGE)
         return 0
-    parsed, problem = parse_flags(args, ("--submitted", "--channel", "--view"), (),
+    if view_refusal(args):
+        print("\n".join(VIEW_GONE))
+        return 2
+    parsed, problem = parse_flags(args, ("--submitted", "--channel"), (),
                                   repeats=("--doc",))
     if problem:
         print(problem)
@@ -1013,46 +936,24 @@ def cmd_freeze(args):
     try:
         with open(record, "rb") as fh:
             record_bytes = fh.read()
-        doc = json.loads(record_bytes.decode("utf-8"))
-        views = [v.get("id") for v in doc.get("views") or [] if isinstance(v, dict)]
-    except (OSError, ValueError, AttributeError) as exc:
+    except OSError as exc:
         return freeze_refusal(f"cannot read the record {record}: {exc}",
-                              "the view is read from it, and its gate has to pass.")
-    plan = None
-    view = flags.get("--view")
-    if isinstance(doc, dict) and "urs" not in doc:
-        # A short resume.json: what was sent is what the builder renders from it now,
-        # over the career as it stands - the same build the PDF beside it came from.
-        if view is not None:
-            print("--view is for a full URS record; a short resume.json is one resume")
-            print("fix:  drop --view")
-            return 2
-        from .resume import build, short             # noqa: PLC0415 - only when asked
-        try:
-            plan, _ = build.from_path(record)
-        except short.ShortError as exc:
-            return freeze_refusal(str(exc), f"fix: {exc.fix}",
-                                  "nothing was renamed or written.")
-        view = "resume"
-    elif view is None:
-        if len(views) > 1:
-            print(f"the record holds {len(views)} views: {', '.join(views)}")
-            print("fix:  name the one this application sent with --view <id>")
-            return 2
-        if not views:
-            return freeze_refusal(f"{record} holds no views",
-                                  "there is nothing it could have been rendered from.")
-        view = views[0]
-    elif view not in views:
-        print(f"no view {view!r} in {record}; it holds: {', '.join(views) or 'none'}")
-        print("fix:  --view names one of the record's views")
-        return 2
+                              "application.ttl records its hash, and its gate has to pass.")
+    # What was sent is what the builder renders from the short file now, over the career
+    # as it stands - the same build the PDF beside it came from. A legacy URS record is
+    # refused here with `jsk migrate` as the fix (short.read).
+    from .resume import build, short                 # noqa: PLC0415 - only when asked
+    try:
+        plan, _ = build.from_path(record)
+    except short.ShortError as exc:
+        return freeze_refusal(str(exc), f"fix: {exc.fix}",
+                              "nothing was renamed or written.")
 
     if flags.get("--doc"):
         documents = []
-        # `named`, not `doc`: that is the record, and timeline.freeze() reads it below.
-        # Reusing the name handed it the last --doc path, and a graph freeze given
-        # --doc raised AttributeError instead of writing application.ttl.
+        # `named`, not `doc`: that name once held the record, which timeline.freeze()
+        # read below, and a graph freeze given --doc raised AttributeError on the last
+        # --doc path instead of writing application.ttl.
         for named in flags["--doc"]:
             name = os.path.basename(named)
             if not os.path.isfile(os.path.join(app_dir, name)):
@@ -1093,19 +994,15 @@ def cmd_freeze(args):
     # Last, and in process: the most expensive check and the one the rest were
     # getting the arguments for. A failing document is never frozen.
     results = gate_results(app_dir, record, only=sent)
-    print_results(f"gates: {app_dir}   view: {view}", results)
+    print_results(f"gates: {app_dir}", results)
     if worst_exit(results):
         return freeze_refusal(
             "a gate above did not pass. A failing document is never frozen -",
             "an archive of something that was not sendable reads, later, as though it was.")
 
     from .graph import timeline                       # noqa: PLC0415 - only when asked
-    if plan is not None:
-        text, problems = timeline.freeze(workspace, app_dir, plan, record_bytes, submitted,
-                                         channel, documents)
-    else:
-        text, problems = timeline.freeze_urs(workspace, app_dir, doc, view, submitted,
-                                             channel, documents, record_bytes)
+    text, problems = timeline.freeze(workspace, app_dir, plan, record_bytes, submitted,
+                                     channel, documents)
     if problems:
         return freeze_refusal(*problems, "nothing was renamed or written.")
 

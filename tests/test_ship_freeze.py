@@ -15,11 +15,26 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from fixtures import (CLI, CLEAN_RESUME, achievement, build_pdf, build_text, run, urs_doc,
-                      write_urs)
+import careerkit
+from fixtures import CLI, CLEAN_RESUME, build_pdf, build_text, run
 
 JSK = CLI
 BAD = "Scaled the platform to [NUMBER] tenants."
+MERIDIAN = ["ach_events_latency", "ach_events_team", "ach_identity_sso"]
+# The summary is what the strict parse gate finds a summary heading by.
+GOOD = {"resume": 2, "bullets": MERIDIAN,
+        "summary": {"text": "Platform engineer with 5 years of Kubernetes, building event "
+                            "platforms that other teams build on.", "status": "confirmed"}}
+# A bullet the career does not hold: the record gate fails it, and nothing else does.
+BROKEN = {"resume": 2, "bullets": ["ach_nothing_like_it"]}
+# graphsim S8's d1, as the career's own words: '1 s' is met_latency.v1's number, replaced
+# on 2026-03-01 - the record gate fails it as superseded.
+# The fixture's person with an email and a phone, which the strict parse gate looks for
+# on the plain text; no country, so the default profile's budget of 2 pages holds.
+PERSON = 'k:person j:fullName "Test Person" ; j:headline "Platform Engineer" ;'
+CONTACTED = (PERSON, PERSON + ' j:email "test.person@example.com" ; j:phone "+61 400 000 000" ;')
+D1 = ("Cut p95 event latency from 5 s to 400 ms on AKS with Kafka.",
+      "Cut p95 event latency from 5 minutes to under 1 s on EKS with Kafka.")
 TEX_PREAMBLE = "\\documentclass{article}\n\\begin{document}\n"
 
 
@@ -51,15 +66,21 @@ class ShipCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-        self.record = write_urs(self.tmp, urs_doc())
+        # A general resume at the workspace root: no posting.ttl beside it, so the render
+        # is named for the person alone.
+        root, _ = careerkit.workspace(self.tmp / "ws", edits=[CONTACTED])
+        self.record = Path(root) / "resume.json"
+        self.write(GOOD)
         self.out = self.tmp / "out"
 
-    def ship(self, *extra, compile_pdf=None, view="view_default"):
+    def write(self, doc):
+        self.record.write_text(json.dumps(doc), encoding="utf-8")
+
+    def ship(self, *extra, compile_pdf=None):
         """cli.main() in this interpreter, with the TeX compile faked."""
         from jsk import cli
         from jsk.urs import render_resume
         args = ["jsk", "ship", str(self.record), "--out", str(self.out)]
-        args += ["--view", view] if view else []
         buf = io.StringIO()
         with mock.patch.object(render_resume, "compile_pdf",
                                compile_pdf or fake_compile()), \
@@ -79,19 +100,15 @@ class ShipOrder(ShipCase):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
         self.assertEqual(self.headings(out),
-                         ["record gate", "claims gate", "render", "parse gate", "parse gate",
+                         ["record gate", "render", "parse gate", "parse gate",
                           "prose gate", "prose gate", "render gate"], out)
 
-    def test_with_no_graph_record_the_claims_gate_says_it_did_not_run(self):
-        """A record outside a graph workspace has no career to be joined with. Said,
-        and never counted as passed - nor as failed, or no Markdown workspace ships."""
+    def test_every_gate_says_its_own_pass(self):
+        """There is no claims gate: the record gate reads the career itself, and the
+        copy the claims gate joined with the career went with the URS record."""
         code, out = self.ship()
         self.assertEqual(code, 0, out)
-        claims = out.split("--- claims gate")[1].split("--- render")[0]
-        self.assertIn(": not run", claims)
-        self.assertIn("NOT RUN - no career/kb.ttl", claims)
-        self.assertIn("A gate that did not run is not a gate that passed.", claims)
-        self.assertNotIn("PASS", claims)
+        self.assertNotIn("claims gate", out)
         self.assertIn("PASS - safe to render", out)
         self.assertIn("PASS - safe to send", out)
         self.assertIn("PASS - prose rules satisfied", out)
@@ -144,7 +161,7 @@ class ShipStops(ShipCase):
     never rendered: the PDF it would make looks sendable and is not."""
 
     def test_a_failing_record_renders_nothing(self):
-        self.record = write_urs(self.tmp, urs_doc(views=[]))
+        self.write(BROKEN)
         code, out = self.ship()
         self.assertEqual(code, 1, out)
         self.assertIn("DO NOT RENDER", out)
@@ -158,7 +175,7 @@ class ShipStops(ShipCase):
         document this ship never made."""
         self.out.mkdir()
         build_pdf(self.out / "Old_Resume.pdf", CLEAN_RESUME)
-        self.record = write_urs(self.tmp, urs_doc(views=[]))
+        self.write(BROKEN)
         code, out = self.ship()
         self.assertEqual(code, 1, out)
         self.assertNotIn("Old_Resume.pdf", out)
@@ -205,16 +222,14 @@ class ShipRenderGate(ShipCase):
         report = json.loads(out)
         self.assertEqual(report["exit"], 0)
         gates = [step["gate"] for step in report["steps"]]
-        self.assertEqual(gates[:3], ["record gate", "claims gate", "render"])
-        self.assertEqual((report["steps"][1]["status"], report["steps"][1]["exit"]),
-                         ("NOT RUN", None))
+        self.assertEqual(gates[:2], ["record gate", "render"])
         self.assertEqual(report["steps"][-1]["status"], "UNVERIFIED")
-        self.assertIn("wrote  Test_Person_Resume.pdf", report["steps"][2]["output"])
+        self.assertIn("wrote  Test_Person_Resume.pdf", report["steps"][1]["output"])
 
 
 class ShipSummary(ShipCase):
     """The block the output ends with. The ElevenLabs ship (2026-09-25) was read
-    through `tail -60`, which cut the record and claims gates off the top."""
+    through `tail -60`, which cut the record gate off the top."""
 
     def summary(self, out):
         self.assertIn("=== summary", out)
@@ -243,25 +258,21 @@ class ShipSummary(ShipCase):
                 if counts:
                     self.assertIn(f"FAIL {counts[-1][0]}   WARN {counts[-1][1]}", line)
         self.assertIn("record gate  PASS   FAIL 0   WARN 0", out)
-        self.assertIn("claims gate  NOT RUN", out)
-        self.assertIn("Test_Person_Resume.pdf 1 of 2 pages", lines[2])
+        self.assertIn("Test_Person_Resume.pdf 1 of 2 pages", lines[1])
         self.assertIn("render gate  UNVERIFIED", out)
 
     def test_it_counts_the_lines_the_render_withheld_once_each(self):
-        """resolve.py warns once per variant rendered; the line held back is one."""
-        doc = urs_doc()
-        doc["engagements"][0]["achievements"].append(
-            achievement("Led the migration to the new platform.", aid="ach_guess",
-                        status="inferred"))
-        self.record = write_urs(self.tmp, doc)
+        """build.py warns once per variant rendered; the line held back is one.
+        ach_data_ingestion is j:inferred in the fixture, under the default floor."""
+        self.write(dict(GOOD, bullets=MERIDIAN + ["ach_data_ingestion"]))
         code, out = self.ship()
         self.assertEqual(code, 0, out)
-        self.assertGreater(out.count("withheld bullet ach_guess"), 1, out)
+        self.assertGreater(out.count("withheld bullet ach_data_ingestion"), 1, out)
         [render] = [line for line in self.summary(out) if self.step(line) == "render"]
         self.assertIn("withheld 1 below the view floor", render)
 
     def test_a_stop_names_the_step_that_failed(self):
-        self.record = write_urs(self.tmp, urs_doc(views=[]))
+        self.write(BROKEN)
         code, out = self.ship()
         self.assertEqual(code, 1, out)
         lines = self.summary(out)
@@ -285,13 +296,14 @@ class ShipSummary(ShipCase):
 
 
 class ShipUsage(ShipCase):
-    def test_the_view_is_required(self):
-        code, out = self.ship(view=None)
+    def test_a_view_is_a_usage_error_naming_one_resume(self):
+        code, out = self.ship("--view", "view_default")
         self.assertEqual(code, 2, out)
-        self.assertIn("--view is required", out)
+        self.assertIn("a resume.json is one resume", out)
+        self.assertNotIn("--- record gate", out)
 
     def test_the_out_directory_is_required(self):
-        code, out = run(JSK, "ship", self.record, "--view", "view_default")
+        code, out = run(JSK, "ship", self.record)
         self.assertEqual(code, 2, out)
         self.assertIn("--out is required", out)
 
@@ -308,7 +320,7 @@ class ShipUsage(ShipCase):
     def test_the_knowledge_base_is_refused_as_validate_refuses_it(self):
         kb = self.tmp / "user-knowledgebase.md"
         kb.write_text("# Career knowledge base", encoding="utf-8")
-        code, out = run(JSK, "ship", kb, "--out", self.out, "--view", "view_default")
+        code, out = run(JSK, "ship", kb, "--out", self.out)
         self.assertEqual(code, 2, out)
         self.assertIn("pass resume.json", out)
 
@@ -327,12 +339,10 @@ class GraphCase(unittest.TestCase):
     def setUp(self):
         import shutil
 
-        from test_claims import FIXTURES as CLAIMS
-
         self._tmp = tempfile.TemporaryDirectory()
         self.root = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-        shutil.copytree(CLAIMS, self.root, dirs_exist_ok=True)
+        shutil.copytree(careerkit.FIXTURES, self.root, dirs_exist_ok=True)
         self.app = self.root / "applications" / "contoso-platform"
         self.render()
 
@@ -345,7 +355,22 @@ class GraphCase(unittest.TestCase):
             encoding="utf-8")
 
     def record(self, doc):
-        write_urs(self.app, doc)
+        (self.app / "resume.json").write_text(json.dumps(doc, indent=2), encoding="utf-8")
+
+    def edit_career(self, old, new):
+        """kb.ttl changed as `jsk kb apply` would have: log.ttl agrees with it."""
+        from jsk.graph import record as R
+        from jsk.graph.io import sha256
+
+        kb = self.root / "career" / "kb.ttl"
+        text = kb.read_text(encoding="utf-8")
+        assert text.count(old) == 1, old
+        kb.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
+        # From this text's hash, not the fixture's: a second edit follows a first.
+        log = self.root / R.LOG
+        log.write_text(log.read_text(encoding="utf-8").replace(
+            sha256(text), sha256(kb.read_text(encoding="utf-8"))),
+            encoding="utf-8", newline="\n")
 
     def jsk(self, *args):
         from jsk import cli
@@ -399,10 +424,10 @@ class FreezeGraph(GraphCase):
         app, events = self.application()
         self.assertEqual(app["posting"], k("post_contoso_platform"))
         self.assertEqual((app["view"], app["submitted"], app["channel"]),
-                         (["view_contoso"], ["2026-09-24"], ["Workday portal"]))
+                         (["resume"], ["2026-09-24"], ["Workday portal"]))
         self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt"])
         self.assertEqual(app["recordSha256"], [hashlib.sha256(raw).hexdigest()])
-        # The inferred ingestion bullet is under the view's floor: it was not sent.
+        # The inferred ingestion bullet is under the file's floor: it was not sent.
         self.assertEqual(app["carried"], k("ach_events_latency", "ach_events_team",
                                            "ach_identity_sso"))
         self.assertEqual(app["carriedVersion"], k("met_apps.v1", "met_latency.v2", "met_team.v1"))
@@ -419,11 +444,12 @@ class FreezeGraph(GraphCase):
         name = "applications/2026-09-24-contoso-platform/application.ttl"
         self.assertEqual(write(s.graph(name), "application"), s.parsed[name].text)
 
-    def test_the_claims_gate_runs_and_its_output_is_shown(self):
+    def test_the_record_gate_runs_and_its_output_is_shown(self):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
-        self.assertIn("--- claims gate: claims.py", out)
-        self.assertIn("PASS - every id, provenance and number traces", out)
+        self.assertIn("--- record gate: record.py", out)
+        self.assertIn("checking: resume.json   against: career/kb.ttl", out)
+        self.assertNotIn("claims gate", out)
 
     def test_the_career_is_never_touched(self):
         before = [(self.root / "career" / f).read_bytes() for f in ("kb.ttl", "log.ttl")]
@@ -440,10 +466,8 @@ class FreezeGraph(GraphCase):
         self.assertEqual(app["submitted"], ["false"])
         self.assertEqual(events, {})
 
-    def test_a_record_that_fails_the_claims_gate_is_never_frozen(self):
-        from test_claims import S8, draft
-
-        self.record(draft(*S8))
+    def test_a_record_that_fails_the_record_gate_is_never_frozen(self):
+        self.edit_career(*D1)
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
         self.assertIn("number-superseded", out)
@@ -556,26 +580,20 @@ class FreezeRefuses(GraphCase):
         self.assertIn("never frozen", out)
         self.assertUntouched()
 
-    def test_a_failing_record_is_never_frozen(self):
-        doc = json.loads((self.app / "resume.json").read_text(encoding="utf-8"))
-        self.record(dict(doc, urs="9.0.0"))
+    def test_a_legacy_record_is_never_frozen_and_is_pointed_at_migrate(self):
+        """Nothing but `jsk migrate` reads a full URS record now; an unfrozen one is
+        converted once, and a frozen one is the archive and never rendered again."""
+        legacy = Path(__file__).parent / "migrate_fixtures" / "contoso-resume.urs.json"
+        (self.app / "resume.json").write_bytes(legacy.read_bytes())
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
-        self.assertIn("DO NOT RENDER", out)
+        self.assertIn("jsk migrate", out)
         self.assertUntouched()
 
-    def test_several_views_and_none_named_is_a_call_error(self):
-        doc = json.loads((self.app / "resume.json").read_text(encoding="utf-8"))
-        doc["views"].append(dict(doc["views"][0], id="view_other"))
-        self.record(doc)
-        code, out = self.freeze()
-        self.assertEqual(code, 2, out)
-        self.assertIn("view_contoso, view_other", out)
-        self.assertUntouched()
-
-    def test_a_view_the_record_does_not_hold_is_a_call_error(self):
+    def test_a_view_is_a_usage_error_naming_one_resume(self):
         code, out = self.freeze("--view", "view_nope")
         self.assertEqual(code, 2, out)
+        self.assertIn("a resume.json is one resume", out)
         self.assertUntouched()
 
     def test_a_directory_with_nothing_sendable_is_refused(self):
@@ -677,32 +695,35 @@ class ShipGraph(GraphCase):
 
         out_dir = self.root / "out"
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
-            return self.jsk("ship", self.app / "resume.json", "--out", out_dir,
-                            "--view", "view_contoso")
+            return self.jsk("ship", self.app / "resume.json", "--out", out_dir)
 
-    def test_a_clean_record_ships_through_the_claims_gate(self):
+    def setUp(self):
+        super().setUp()
+        self.edit_career(*CONTACTED)
+
+    def test_a_clean_record_ships_through_the_record_gate(self):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
-        self.assertIn("--- claims gate: claims.py", out)
-        self.assertIn("PASS - every id, provenance and number traces", out)
+        self.assertIn("--- record gate: record.py", out)
+        self.assertIn("PASS - safe to render", out)
+        self.assertNotIn("claims gate", out)
 
-    def test_the_s8_draft_stops_at_the_claims_gate_and_renders_nothing(self):
-        from test_claims import S8, draft
-
-        self.record(draft(*S8))
+    def test_a_replaced_number_stops_at_the_record_gate_and_renders_nothing(self):
+        self.edit_career(*D1)
         code, out = self.ship()
         self.assertEqual(code, 1, out)
-        self.assertIn("FAIL 3   WARN 4", out)
-        self.assertIn("the claims gate did not pass", out)
+        self.assertIn("number-superseded ach_events_latency", out)
+        self.assertIn("the record gate did not pass", out)
         self.assertNotIn("--- render:", out)
         self.assertFalse((self.root / "out").exists())
 
 
 class Gates(GraphCase):
-    def test_jsk_gates_runs_the_claims_gate_after_the_record_gate(self):
+    def test_jsk_gates_runs_the_record_gate_and_no_claims_gate(self):
         code, out = self.jsk("gates", self.app)
         heads = [line[4:].split(":")[0] for line in out.splitlines() if line.startswith("--- ")]
-        self.assertEqual(heads[:2], ["record gate", "claims gate"], out)
+        self.assertEqual(heads[0], "record gate", out)
+        self.assertNotIn("claims gate", heads)
         self.assertEqual(code, 0, out)
 
 
@@ -878,7 +899,7 @@ class FreezeShort(ShortCase):
         self.assertEqual(code, 0, out)
         self.assertEqual([f.text() for f in self.store().fails()], [])
 
-    def test_view_is_a_call_error_for_a_short_file(self):
+    def test_view_is_a_call_error(self):
         code, out = self.freeze("--view", "view_contoso")
         self.assertEqual(code, 2, out)
         self.assertIn("drop --view", out)
@@ -924,7 +945,7 @@ class ShipFrozen(ShortCase):
         self.assertIn("frozen:", out)
         self.assertFalse(out_dir.exists())
 
-    def test_view_is_a_call_error_for_a_short_file(self):
+    def test_view_is_a_call_error(self):
         code, out = self.ship(self.short, "--out", self.root / "out", "--view", "view_x")
         self.assertEqual(code, 2, out)
         self.assertIn("drop --view", out)
