@@ -12,8 +12,9 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale |
                                        experience <concept> | pipeline |
                                        evidence <term>... | person
-  export --urs [--select <id>...]      a draft resume.json, ids and metrics as held
-         [--out FILE]
+  export --urs [--select <id>...]      a draft resume.json, ids and metrics as held;
+         [--from-match <posting.ttl>]  --from-match chooses the evidence for a posting
+         [--cover N] [--out FILE]
   check                                validate the workspace; exit 1 on a FAIL
   path                                 the workspace, kb.ttl, log.ttl and applications/,
                                        as absolute paths - read these, never guess them
@@ -572,7 +573,8 @@ def cmd_view(args, root):
 
 @verb
 def cmd_export(args, root):
-    """jsk kb export --urs [--select <id>...] [--out resume.json]
+    """jsk kb export --urs [--select <id>...] [--from-match <posting.ttl> [--cover N]
+                     [--today YYYY-MM-DD]] [--out resume.json]
 
     A draft resume.json out of career/kb.ttl: every id, provenance, period and metric as
     the career holds them (a metric at its current version), so the draft passes
@@ -584,6 +586,12 @@ def cmd_export(args, root):
     there. The person, skills, education and the rest come across whole. Retired entries
     never do. Without --select, the whole career.
 
+    --from-match chooses the experience from `jsk match`: the projects that carry the
+    posting with confirmed evidence, their bullets by what they show, the skills the
+    posting asks for first. What it cannot close prints as GAP lines - tag-only,
+    unconfirmed, uncovered, unresolved - for gaps.md. --select adds to it; --cover and
+    --today are jsk match's.
+
     --out writes the file, never over an existing one; without it the record is printed.
 
     It then runs both gates on the draft as written and names what they refuse: those
@@ -591,12 +599,17 @@ def cmd_export(args, root):
     """
     import json
 
+    from . import ontology as O
     from . import record as R
     from . import store as S
-    from .export import ExportError, gate_failures, urs
+    from .export import Career, ExportError, chosen, gate_failures, urs
+    from .match import COVER, blocks, workspace_of
 
     out = take(args, "--out", value=True)
     fmt = take(args, "--urs")
+    posting = take(args, "--from-match", value=True)
+    cover_text = take(args, "--cover", value=True)
+    today_text = take(args, "--today", value=True)
     select = None
     if "--select" in args:
         at = args.index("--select")
@@ -609,26 +622,59 @@ def cmd_export(args, root):
     if args or not fmt:
         return usage("jsk kb export --urs [--select <id>...] [--out FILE] - URS is the "
                      "one format it writes")
+    if (cover_text or today_text) and not posting:
+        return usage("--cover and --today go with --from-match")
+    today, budget = datetime.date.today(), COVER
+    try:
+        if today_text:
+            today = datetime.date.fromisoformat(today_text)
+        if cover_text:
+            budget = int(cover_text)
+    except ValueError:
+        return usage("--cover takes a whole number and --today a YYYY-MM-DD date")
+    if budget < 1:
+        return usage("--cover takes a whole number of at least 1")
+    if posting:
+        home = workspace_of(posting)
+        if (home is None or not os.path.isfile(posting)
+                or os.path.normcase(os.path.realpath(home))
+                != os.path.normcase(os.path.realpath(root))):
+            return usage(f"{posting}: not a posting.ttl inside this workspace's "
+                         "applications/<dir>/ folder")
     store = S.load(root)
     if R.KB not in store.parsed:
         st = R.state(store)
         return refuse([GUIDE[st.kind][0] or st.detail], GUIDE[st.kind][1])
+    # The career always; with --from-match, the posting's own directory too, as jsk match.
+    here = (S.file_name(os.path.dirname(os.path.abspath(posting)), store.root) + "/"
+            if posting else None)
     blocking = [f for f in store.fails() if f.rule != "log-sync"
-                and not f.file.startswith("applications/")]
+                and (not f.file.startswith("applications/") or (here and blocks(f, here)))]
     if blocking:
-        show_findings(blocking, f"REFUSED  the career has {len(blocking)} failures - "
+        where = "the career and the posting have" if posting else "the career has"
+        show_findings(blocking, f"REFUSED  {where} {len(blocking)} failures - "
                                 "a draft would carry them:")
         return 1
     if out and os.path.exists(out):
         return refuse([f"{out} exists - export writes a draft, never over a record"],
                       "export to a new path, or delete the old record first")
+    selection = None
     try:
-        doc = urs(store, select, today=datetime.date.today())
+        if posting:
+            from . import select as SEL
+            chosen(Career(store.graph(R.KB)), select)      # a bad --select refuses first
+            posts = [iri for iri in store.homes if O.class_of(iri) == "Posting"
+                     and store.file_of(iri) == S.file_name(posting, store.root)]
+            if len(posts) != 1:
+                return refuse([f"{posting} holds no posting"], "check it with `jsk kb check`")
+            extra = [O.K + t.removeprefix("k:") for t in select or []]
+            selection = SEL.select(store, posts[0], today, budget, extra)
+        doc = urs(store, select, today=today, selection=selection)
     except ExportError as err:
         return refuse([str(err)], err.fix)
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
     report = sys.stdout if out else sys.stderr
-    faults = gate_failures(store, doc, today=datetime.date.today())
+    faults = gate_failures(store, doc, today=today)
     if faults:
         print(f"WARN  the draft fails {len(faults)} gate check(s) as exported - the fault is "
               "in kb.ttl, so fix it there (`jsk kb apply`) before retuning any words:",
@@ -639,6 +685,8 @@ def cmd_export(args, root):
     for pid in loose:
         print(f"NOTE  {pid} names no role (j:position), so no engagement lists it and it "
               "will not render", file=sys.stderr if not out else sys.stdout)
+    for gap in selection.gaps if selection else ():
+        print(gap.line(), file=report)
     if not out:
         sys.stdout.write(text)
         return 0

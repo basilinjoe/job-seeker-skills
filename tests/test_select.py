@@ -1,6 +1,8 @@
 """select.py: what a resume for one posting selects, worked by hand in the plan
 (docs/superpowers/plans/2026-09-25-export-from-match.md, "Fixture")."""
+import contextlib
 import datetime
+import io
 import json
 import os
 import shutil
@@ -8,6 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from jsk import cli
 from jsk.gates import validate_urs
 from jsk.graph import export
 from jsk.graph import ontology as O
@@ -50,7 +53,9 @@ def workspace(test, posting=POSTING):
     app = os.path.join(root, "applications", "contoso-select")
     os.makedirs(app)
     Path(app, "posting.ttl").write_bytes(posting.encode())
-    Path(app, "posting.md").write_bytes(b"# Contoso\n")
+    quotes = [line.split('j:quote "')[1].split('"')[0] for line in posting.splitlines()
+              if 'j:quote "' in line]
+    Path(app, "posting.md").write_bytes(("# Contoso\n\n" + "\n".join(quotes) + "\n").encode())
     return root
 
 
@@ -174,6 +179,61 @@ class Exported(unittest.TestCase):
         store = S.load(self.store.root)
         again = export.urs(store, today=TODAY, selection=SEL.select(store, POST, TODAY, 3))
         self.assertEqual(json.dumps(again), json.dumps(self.doc))
+
+
+class Command(unittest.TestCase):
+    def setUp(self):
+        self.root = workspace(self)
+        self.posting = os.path.join(self.root, "applications", "contoso-select", "posting.ttl")
+
+    def kb(self, *args):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cli.main(["jsk", "kb", *args, "--root", self.root])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_from_match_prints_the_record_and_the_gaps(self):
+        code, out, err = self.kb("export", "--urs", "--from-match", self.posting,
+                                 "--today", "2026-09-25")
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["views"][0]["skills"][0], "skill_kubernetes")
+        self.assertIn("GAP   tag-only    SQL Server (required)", err)
+
+    def test_with_out_the_gaps_go_to_stdout(self):
+        dest = os.path.join(self.root, "applications", "contoso-select", "resume.json")
+        code, out, _ = self.kb("export", "--urs", "--from-match", self.posting, "--out", dest)
+        self.assertEqual(code, 0)
+        self.assertIn("GAP   uncovered   Rust (required): nothing carries it", out)
+        self.assertTrue(os.path.isfile(dest))
+
+    def test_select_adds_to_the_match(self):
+        code, out, _ = self.kb("export", "--urs", "--from-match", self.posting,
+                               "--select", "prj_game")
+        self.assertEqual(code, 0)
+        self.assertIn("prj_game", [p["id"] for p in json.loads(out)["projects"]])
+
+    def test_a_posting_outside_applications_is_a_usage_error(self):
+        stray = os.path.join(self.root, "posting.ttl")
+        shutil.copy(self.posting, stray)
+        self.assertEqual(self.kb("export", "--urs", "--from-match", stray)[0], 2)
+
+    def test_a_posting_from_another_workspace_is_a_usage_error(self):
+        other = workspace(self)
+        theirs = os.path.join(other, "applications", "contoso-select", "posting.ttl")
+        self.assertEqual(self.kb("export", "--urs", "--from-match", theirs)[0], 2)
+
+    def test_cover_and_today_need_from_match(self):
+        self.assertEqual(self.kb("export", "--urs", "--cover", "2")[0], 2)
+        self.assertEqual(self.kb("export", "--urs", "--today", "2026-09-25")[0], 2)
+
+    def test_bad_cover_and_today(self):
+        for flag, value in (("--cover", "0"), ("--cover", "x"), ("--today", "soon")):
+            self.assertEqual(self.kb("export", "--urs", "--from-match", self.posting,
+                                     flag, value)[0], 2, (flag, value))
+
+    def test_a_broken_posting_refuses(self):
+        Path(self.posting).write_bytes(b"this is not turtle")
+        self.assertEqual(self.kb("export", "--urs", "--from-match", self.posting)[0], 1)
 
 
 if __name__ == "__main__":
