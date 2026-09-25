@@ -273,6 +273,68 @@ class Retired(unittest.TestCase):
         self.assertEqual(Q.evidence(s, O.K + "prj_events", O.C + "terraform"), "tag")
 
 
+class RecordFaults(unittest.TestCase):
+    """A number in a selected bullet that no metric backs is a round-1 question, asked of
+    the person - on the ElevenLabs run it surfaced only at export, and the author reworded
+    300-400 to 300-800 to fit an unrelated metric."""
+
+    TERRAFORM = "Wrote the platform's Terraform."
+
+    def faults(self, s, name="contoso"):
+        from jsk.graph import match as M
+        r = M.result(s, post(name), TODAY, 3)
+        return [q for q in r["questions"] if q["kind"] == "missing-metric"], M.markdown(r)
+
+    def test_a_selected_bullets_uncited_numbers_are_one_question(self):
+        s = edited(self.TERRAFORM, "Wrote the platform's Terraform across a 300-400 module estate.")
+        qs, md = self.faults(s)
+        mine = [q for q in qs if q["bullet"] == "k:ach_events_terraform"]
+        self.assertEqual([(q["numbers"], q["cites"]) for q in mine], [(["300", "400"], [])])
+        self.assertIn("- **missing-metric** k:ach_events_terraform: '300' and '400' in "
+                      "k:ach_events_terraform are in no metric (it cites none) - what are the "
+                      "figures, and where do they come from (dashboards, retros, release "
+                      "notes)? Or should the words change?", md)
+        # Asked after the requirements' own questions.
+        kinds = [line.split("**")[1] for line in md.split("## Questions")[1].splitlines()
+                 if line.startswith("- **")]
+        self.assertEqual(kinds[-len(qs):], ["missing-metric"] * len(qs))
+        self.assertNotIn("missing-metric", kinds[:-len(qs)])
+
+    def test_a_number_its_metric_holds_asks_nothing(self):
+        qs, _ = self.faults(load())
+        self.assertNotIn("k:ach_events_team", [q["bullet"] for q in qs])   # "6", met_team 6
+        self.assertNotIn("k:ach_identity_sso", [q["bullet"] for q in qs])  # "40", met_apps 40
+
+    def test_a_bullet_no_draft_selects_asks_nothing(self):
+        # prj_portal carries nothing Contoso asks for, so no draft for it selects the bullet;
+        # `jsk kb check` asks about it across the career.
+        s = edited("Built the AngularJS front end.", "Built the AngularJS front end for 12 teams.")
+        from jsk.gates import validate_urs
+        from jsk.graph.export import urs
+        whole = validate_urs.check_doc(urs(s, today=TODAY)).fails
+        self.assertTrue([f for f in whole if "ach_portal_frontend" in f])   # it is a fault
+        qs, _ = self.faults(s)
+        self.assertNotIn("k:ach_portal_frontend", [q["bullet"] for q in qs])
+
+    def test_a_top_ranked_bullet_is_asked_when_the_selection_picks_nothing(self):
+        """On the ElevenLabs career before the run the selection picked nothing - nine
+        requirements unresolved, the rest tag-only - so this asked nothing while `jsk kb
+        check` named six faults the author then met mid-export."""
+        import types
+        from unittest import mock
+        s = edited(self.TERRAFORM, "Wrote the platform's Terraform across a 300-400 module estate.")
+        empty = types.SimpleNamespace(projects=[], bullets={}, skills=[], gaps=[])
+        with mock.patch("jsk.graph.select.select", return_value=empty):
+            qs, _ = self.faults(s)
+        self.assertIn("k:ach_events_terraform", [q["bullet"] for q in qs])
+
+    def test_a_workspace_without_a_career_still_matches(self):
+        from jsk.graph import match as M
+        s = load()
+        del s.parsed["career/kb.ttl"]
+        self.assertEqual(M.record_faults(s, post("contoso"), TODAY, 3), [])
+
+
 class Narrowing(unittest.TestCase):
     def test_unlabel_takes_a_shipped_label_away(self):
         s = edited("c:go-game a j:Domain ;", 'c:golang j:unlabel "Go" .\n\nc:go-game a j:Domain ;')

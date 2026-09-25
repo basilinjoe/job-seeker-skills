@@ -21,6 +21,7 @@ concept - the analyst answers with j:concept), `candidate` (it names none), `imp
 import datetime
 import json
 import os
+import re
 import sys
 
 from ..cliutil import docstring_usage, wants_help
@@ -35,6 +36,127 @@ def workspace_of(posting):
     if os.path.basename(apps) != "applications" or os.path.basename(posting) != "posting.ttl":
         return None
     return os.path.dirname(apps)
+
+
+# A gate line naming a numeral, as validate_urs and the claims gate word them. The shown
+# numeral is a repr, so either quote.
+RECORD_GATE = re.compile(r"^achievement (\S+) in [^:]+: (['\"])(.*?)\2 appears in the text "
+                         r"but in no metric")
+UNTRACED = re.compile(r"^(['\"])(.*?)\1 is in no current version of what it cites")
+SUPERSEDED = re.compile(r"^(['\"])(.*?)\1 is (\S+)'s number, replaced on (\S+)")
+SOURCES = "dashboards, retros, release notes"
+# The top of the Ranking whose bullets are asked about as well as the selection's.
+TOP = 6
+
+
+def record_faults(store, post, today, budget, ranked=None):
+    """The bullets this posting's draft would carry whose numbers the record cannot back -
+    one entry per bullet, in the draft's order - as questions for round 1.
+
+    On the ElevenLabs run kb.ttl held six such bullets ("a 300-400 candidate drive" citing
+    nothing). `jsk kb export --urs` found them only mid-authoring, and the author "fixed"
+    one by moving 300-400 to 300-800 to fit an unrelated metric: a factual change the
+    person had to undo. The number is the person's to give, so it is asked here, before
+    anyone writes.
+
+    The draft is the one `jsk kb export --from-match` writes for this posting - select.py's
+    projects (the cover, then the ranked projects that carry a requirement) and the
+    bullets it picks under each - because those are exactly the bullets the author starts
+    from. The whole Ranking would be every live project, and a fault in a bullet no draft
+    selects is a question nobody needs answered for this posting; `jsk kb check` asks
+    those across the career. The gates are run here rather than through
+    export.gate_failures so the bullet and its numerals come back apart, not as a line.
+
+    The selection is not enough on its own. It picks from confirmed evidence, and on the
+    ElevenLabs career as it stood before the run - nine requirements unresolved terms, the
+    rest carried by tags - it picked nothing, so this asked nothing while `jsk kb check`
+    named six faults. The author then read the top of the Ranking and exported those by
+    hand. So every live bullet of the top-ranked projects that carry a requirement is
+    asked about too: the ones gaps.md cites and the author reads (`ranked`, `TOP`).
+
+    Empty when the workspace has no kb.ttl or the export refuses: the match stands alone."""
+    from . import record as R
+    from . import select as SEL
+    from .export import ExportError, urs
+
+    if R.KB not in store.parsed:
+        return []
+    top = [r.project.rsplit("/", 1)[-1] for r in ranked or () if r.required or r.preferred][:TOP]
+    docs = []
+    try:
+        docs.append(urs(store, today=today, selection=SEL.select(store, post, today, budget)))
+        if top:
+            docs.append(urs(store, select=top, today=today))
+    except ExportError:
+        return []
+    out, seen = [], set()
+    for doc in docs:
+        for fault in faults_in(doc, store, today):
+            if fault["bullet"] not in seen:
+                seen.add(fault["bullet"])
+                out.append(fault)
+    return out
+
+
+def faults_in(doc, store, today):
+    """record_faults' entries for one draft, in its order."""
+    from ..gates import claims, validate_urs
+
+    cites, order = {}, []
+    for a, _ in validate_urs.walk_achievements(doc):
+        cites[a.get("id")] = [m.get("id") for m in a.get("metrics") or [] if isinstance(m, dict)]
+        order.append(a.get("id"))
+    untraced, old = {}, {}
+    for line in validate_urs.check_doc(doc).fails:
+        hit = RECORD_GATE.match(line)
+        if hit:
+            untraced.setdefault(hit.group(1), []).append(hit.group(3))
+    for f in claims.findings(doc, store, today):
+        if f.severity != "FAIL":
+            continue
+        hit = UNTRACED.match(f.detail) if f.check == "number-untraced" else None
+        if hit:
+            untraced.setdefault(f.focus, []).append(hit.group(2))
+        hit = SUPERSEDED.match(f.detail) if f.check == "number-superseded" else None
+        if hit:
+            old.setdefault(f.focus, {})[hit.group(2)] = (hit.group(3), hit.group(4))
+    out = []
+    for ident in order:
+        stale = old.get(ident, {})
+        # Both gates can name the same numeral; a superseded one is told as superseded,
+        # since the record does hold it - only no longer.
+        numbers = [n for n in dict.fromkeys(untraced.get(ident, [])) if n not in stale]
+        if not numbers and not stale:
+            continue
+        out.append({"bullet": f"k:{ident}", "numbers": numbers,
+                    "superseded": [{"number": n, "version": v, "until": u}
+                                   for n, (v, u) in stale.items()],
+                    "cites": [f"k:{m}" for m in cites.get(ident, [])]})
+    return out
+
+
+def quoted(numbers):
+    shown = [f"'{n}'" for n in numbers]
+    return shown[0] if len(shown) == 1 else ", ".join(shown[:-1]) + " and " + shown[-1]
+
+
+def fault_question(q):
+    """The question, ready to be asked aloud. It asks for the figure and its source and
+    offers only the words as the alternative - never another metric's number, which is
+    how the ElevenLabs author turned a 300-400 into a 300-800 nobody had said."""
+    parts = []
+    if q["numbers"]:
+        many = len(q["numbers"]) > 1
+        parts.append(f"{quoted(q['numbers'])} in {q['bullet']} {'are' if many else 'is'} in "
+                     + ("no metric it cites" if q["cites"] else "no metric (it cites none)"))
+    for s in q["superseded"]:
+        parts.append(f"'{s['number']}'" + ("" if q["numbers"] else f" in {q['bullet']}")
+                     + f" is {s['version']}'s number, replaced on {s['until']}")
+    many = len(q["numbers"]) + len(q["superseded"]) > 1
+    return ("; ".join(parts) + " - " + ("what are the figures, and where do they come from"
+                                         if many else "what is the figure, and where does it "
+                                         "come from")
+            + f" ({SOURCES})? Or should the words change?")
 
 
 def result(store, post, today, budget, elsewhere=0):
@@ -68,7 +190,12 @@ def result(store, post, today, budget, elsewhere=0):
                   "unresolved": Q.unresolved(matches)},
         "questions": [{"kind": q.kind, "requirement": q.requirement,
                        "detail": [curie(d) for d in q.detail]}
-                      for q in Q.questions(store, matches)],
+                      for q in Q.questions(store, matches)]
+        # After the requirements' questions: the analyst's order puts a missing metric
+        # after the unmet and the unconfirmed, and every one is asked before authoring.
+        + [{"kind": "missing-metric", "requirement": None, "detail": [f["bullet"]], **f,
+            "ask": fault_question(f)} for f in record_faults(store, post, today, budget,
+                                                             ranked)],
         "warnings": {"count": len(store.warns()),
                      "rules": sorted({f.rule for f in store.warns()})},
         "failures_elsewhere": elsewhere,
@@ -156,6 +283,9 @@ def markdown(r):
            "broader-held": "only something broader is held, on {} - is there narrower work?",
            "tag-only": "tagged on {}, but no confirmed bullet shows it"}
     for q in r["questions"]:
+        if q["kind"] == "missing-metric":
+            out.append(f"- **missing-metric** {q['bullet']}: {q['ask']}")
+            continue
         if q["kind"] == "unknown-term" and q["detail"]:
             out.append(f"- **unknown-term** {q['requirement']}: no concept has this label - "
                        f"nearest {', '.join(q['detail'])}; name the one meant with j:concept, "

@@ -178,6 +178,11 @@ the id it closes. For an inferred claim, quote it exactly and offer confirm, cor
 missing number, say where it might live — dashboards, billing, retros, release notes, incident
 reviews, promotion documents, a colleague. **Ask nothing the career already answers.**
 
+The match's **missing-metric** questions are numbers in the bullets this posting's draft selects
+that no cited metric holds — the record gate would refuse them mid-authoring. Every one goes in the
+queue as a missing metric. The person gives the figure and its source, or changes the words;
+**never settle one by moving the number toward another metric.**
+
 No resume, view or record — that is `jsk-resume-author`, after the person answers these.
 
 ## What you return

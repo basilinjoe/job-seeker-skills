@@ -387,6 +387,30 @@ class Career(unittest.TestCase):
         self.assertEqual((f.check, f.severity), ("career-invalid", "FAIL"))
 
 
+class MatchAsks(unittest.TestCase):
+    """`jsk match` asks round 1 about a selected bullet's number the gates would refuse.
+    Here rather than in test_graph_match.py: the claims gate refuses a career log.ttl does
+    not vouch for, and this fixture's log is kept in step - the match fixture has none."""
+
+    POST = "tag:jsk,2026:id/post_contoso_platform"
+
+    def test_a_number_its_metric_held_once_is_asked_as_replaced(self):
+        from jsk.graph import match as M
+        ws = workspace(self)
+        edit(ws, "career/kb.ttl", "from 5 s to 400 ms on AKS", "from 5 s to 1 s on AKS",
+             relog=True)
+        [q] = M.record_faults(S.load(ws), self.POST, TODAY, 3)
+        self.assertEqual((q["bullet"], q["numbers"]), ("k:ach_events_latency", []))
+        self.assertEqual(M.fault_question(q),
+                         "'1' in k:ach_events_latency is k:met_latency.v1's number, replaced "
+                         "on 2026-03-01 - what is the figure, and where does it come from "
+                         "(dashboards, retros, release notes)? Or should the words change?")
+
+    def test_the_fixture_as_shipped_asks_nothing(self):
+        from jsk.graph import match as M
+        self.assertEqual(M.record_faults(store(), self.POST, TODAY, 3), [])
+
+
 class Command(unittest.TestCase):
     def run_main(self, *args):
         out = io.StringIO()
