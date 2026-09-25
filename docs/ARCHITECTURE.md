@@ -6,11 +6,12 @@ For anyone editing this repo. If you only want to *use* the plugin, read
 ## The one-way pipeline
 
 ```
-user-knowledgebase.md  (one Markdown file, fixed headings)
+career/kb.ttl  (the graph record: one Turtle file, fixed sections, validated on every load)
    |
-   |  read and written by the skill, with the person in the loop
+   |  changed through `jsk kb apply` changesets, read by id with `jsk kb show`,
+   |  matched against a posting.ttl by `jsk match` - the person in the loop throughout
    v
-resume.json  (URS record, one per application)
+resume.json  (URS record, one per application; the claims gate joins it back to kb.ttl)
    |
    |  urs/plan.py resolves it exactly once:
    |  selection, ordering, provenance filtering,
@@ -36,25 +37,32 @@ yourself making a formatting decision inside the plan, it belongs in an emitter.
 ### The commands over it
 
 ```
+jsk new       PATH --name NAME                     career/kb.ttl and log.ttl at r1, applications/
+jsk kb        apply changes.trig                   the career changed: validated, written, logged
+jsk match     applications/D/posting.ttl           the posting against the career, with the paths
 jsk validate  resume.json                          the record gate - before anything renders
 jsk render    resume.json --out D --view ID --pdf  .tex, .pdf, .txt
-jsk gates     D                                    record, parse and prose gates over that render
-jsk ship      resume.json --out D --view ID        the three above, in order, in one process
-jsk freeze    D --submitted DATE --channel TEXT    application.md, once the gates pass
+jsk gates     D                                    record, claims, parse and prose gates over that render
+jsk ship      resume.json --out D --view ID        the gates above and the render, in order, in one process
+jsk freeze    D --submitted DATE --channel TEXT    application.ttl, once the gates pass
+jsk event     D KIND --date DATE                   what came back, added to application.ttl
 ```
 
 `jsk ship <resume.json> --out DIR --view ID [--ats-max] [--template N] [--pages N] [--json]` is the
-path a finished record takes. The record gate runs first, and a failure stops it: nothing renders,
-because a render of a record that failed would be a document nobody should read. Then `render --pdf`,
-then the parse and prose gates over the output directory, each step's output printed verbatim. It
-exits 0 only if every step passed. With `--pages` it reports the measured page count and never fails
-on it — `jsk fit` owns that verdict and is the only thing that can act on it. It closes by saying the
-render gate is still open, because a person reading the PDF is the one gate no command can run.
+path a finished record takes. The record gate runs first, then the claims gate, and a failure of
+either stops it: nothing renders, because a render of a record that failed would be a document
+nobody should read. Then `render --pdf`, then the parse and prose gates over the output directory,
+each step's output printed verbatim. It exits 0 only if every step passed. With `--pages` it reports
+the measured page count and never fails on it — `jsk fit` owns that verdict and is the only thing
+that can act on it. It closes by saying the render gate is still open, because a person reading the
+PDF is the one gate no command can run.
 
 `jsk freeze <app-dir> --submitted YYYY-MM-DD|false --channel TEXT [--view ID] [--doc FILE ...]` is
-the last step. It refuses unless the mechanical gates pass and no `application.md` exists yet, then
-writes `application.md` — frontmatter plus a `# Timeline` table — and renames the directory to the
-submitted date. After that the directory is an archive: later events are appended rows, never edits.
+the last step. It refuses unless the mechanical gates pass and no application archive exists yet,
+then writes `application.ttl` — what was sent, the `resume.json` hash, and the bullets and metric
+versions it carried — and renames the directory to the submitted date. After that the directory is
+an archive: later events are added with `jsk event`, never edited. (A workspace still on
+`user-knowledgebase.md` gets `application.md` instead, until it migrates.)
 
 Every subcommand runs **in process**. `cli.py` imports the module behind it and calls its `main()`
 with the same arguments, so the output and the exit code are the module's own and nothing is
@@ -84,6 +92,33 @@ it is one package.
 `formatting.py` holds pure functions over single values — no view, no profile, no record — which is
 what makes them testable in isolation. Import `plan`; the split is behind it.
 
+### Inside the `graph` package
+
+The career record. It reads and writes Turtle files and never renders anything; the rendering half
+never imports it. Every module keeps `pyoxigraph` inside its functions, so importing the package
+costs nothing on a machine without the engine and `jsk doctor` can report on it.
+
+| Module | Decides |
+|---|---|
+| `ontology.py` | **the format**: every class, predicate, cardinality, datatype, enum and section, as data. Standard library only. The single definition - the writer, the rules and the format reference all follow it |
+| `io.py` | parsing Turtle and TriG, CRLF normalised, a file's sha256, and a failure's file:line |
+| `writer.py` | the one canonical layout: prefix block, section banners, subjects by class then natural key, predicates in ontology order, `"""` prose never reflowed. pyoxigraph parses and queries; it never writes a record |
+| `shapes.py` · `rules.py` | tier 1, generated from the ontology (closed predicates, required, cardinality, datatype, enum, id prefix); tier 2, the cross-node rules, each a SPARQL query with a fix, each with a mutation test |
+| `store.py` | a workspace in memory: one named graph per file, derived triples in `j:derived`, every rule run on every load |
+| `record.py` | kb.ttl and log.ttl kept in step: revision, hash, `state` (clean, hand-edited, torn, ...), `prepare` and `commit` |
+| `changeset.py` · `edit.py` · `kbcli.py` | `jsk kb`: a changeset read and refused or merged, and every verb over the record |
+| `queries.py` · `named.py` · `match.py` | the vocabulary and the named questions; `jsk match` |
+| `view.py` · `timeline.py` | `jsk kb view`; `jsk freeze`'s application.ttl and `jsk event` |
+
+**Its boundaries.** A write to `career/kb.ttl` goes only through `record.prepare` and
+`record.commit`, after the would-be workspace validates - `kbcli.write_logged`, `jsk new` and
+`jsk migrate` are the three callers, and all three write r1 or the next revision with a log entry.
+Outward it has three edges, all lazy or data-only: `gates.validate_urs` for `Report` and `show` (one
+way to print a finding), `gates.claims` from `timeline` for the carried links, and `kbindex` for the
+ranking weights, `SENIORITY` and `experience` - which must move into the package before release
+N+1 deletes `kbindex.py`. Inward, `gates/claims.py` reads the store and `cli.py` finds the workspace
+with `kbcli.find_root`. Nothing in `urs/` imports it, and nothing in it imports `urs/`.
+
 ## The agent boundary
 
 Four tasks are delegated to subagents, and the line between them is what each may write.
@@ -91,29 +126,31 @@ Four tasks are delegated to subagents, and the line between them is what each ma
 | Agent | Has | Deliberately lacks |
 |---|---|---|
 | `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in `resume.json` and re-rendered, never patched into the render |
-| `jsk-kb-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit; the knowledge base is the person's |
+| `jsk-kb-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit from `jsk kb check` and `jsk kb query`; the career is the person's |
 | `jsk-tailor-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing, and that is worth reading below |
 | `jsk-resume-author` | Read, Write, Edit, Glob, Grep, Bash | nothing — it is the one that writes prose |
 
-**For the two authoring agents the anti-invention guarantee is not a tool grant.** There is no write
-layer over one Markdown file to route their changes through, so both hold Edit, and what holds them is
-what the file says:
+**For the two authoring agents the anti-invention guarantee is not a tool grant.** Both hold Edit,
+and what holds them is partly what their files say and partly what the write path refuses:
 
-- `jsk-tailor-analyst` writes the posting's frontmatter and the assessment, and **never touches
-  `user-knowledgebase.md`**. Its boundary is absolute and it is prose.
-  `tests/test_plugin_surface.py` asserts the sentence is still in the file, which is the most a test
-  can do about a rule of that kind.
-- `jsk-resume-author` **does** write into the knowledge base — bullets belong in the project they are
-  about, so the next application can reuse them. What holds it is not a tool grant either, but it is
-  not merely prose: everything it authors is `status: inferred`, and a view carrying
+- `jsk-tailor-analyst` writes `posting.ttl` and the assessment, and **never touches
+  `career/kb.ttl`**. That boundary is prose, and `tests/test_plugin_surface.py` asserts the
+  sentence is still in the file, which is the most a test can do about a rule of that kind - but a
+  hand edit to kb.ttl is also detected on the next load and must be adopted, with every provenance
+  it raised listed, before anything can write the record again.
+- `jsk-resume-author` reads `jsk match` and `jsk kb show <ids>`, and bullets it writes for the
+  career go in through a changeset — they belong in the project they are about, so the next
+  application can reuse them. What holds it is not a tool grant: `jsk kb apply` makes every new or
+  changed claim `j:inferred` and refuses a changeset asserting `confirmed`, a view carrying
   `provenance_floor: confirmed` means the record gate refuses to render it until a person has
-  confirmed each clause. **The guarantee lives in the record gate, not in the agent.**
+  confirmed each clause, and the claims gate fails a record that claims more than the career holds.
+  **The guarantee lives in the gates, not in the agent.**
 
 That asymmetry is the design. Where a rule can be enforced by a gate, it is; where it cannot, it is
 stated as plainly as possible and the test checks that the statement survives.
 
-`jsk-verifier` is the conditional one. `jsk ship` and `jsk gates` run the record, parse and prose
-gates in a single process and print each one's output verbatim, so a clean ship reads that rather
+`jsk-verifier` is the conditional one. `jsk ship` and `jsk gates` run the record, claims, parse and
+prose gates in a single process and print each one's output verbatim, so a clean ship reads that rather
 than spawning an agent to relay three checkers — and a command has no Write tool more thoroughly than
 an agent does.
 What the agent is kept for is the half a command cannot do: reading a `FAIL` line back to the section
@@ -137,10 +174,19 @@ docs/                               this directory - human-facing documentation
 src/jsk/                            THE CLI. one installed package, `jsk` on the command line
   __init__.py                       __version__
   __main__.py                       `python -m jsk`, the same entry point as `jsk`
-  cli.py                            the dispatcher: ten subcommands, each run in process
+  cli.py                            the dispatcher: fourteen subcommands, each run in process
   cliutil.py                        one contract for --help across the hand-rolled entry points
   paths.py                          where the packaged schema lives - stated once
-  kb.py                             `jsk new` - scaffolds user-knowledgebase.md and applications/
+  kb.py                             `jsk new` - scaffolds career/kb.ttl, log.ttl at r1, applications/
+  migrate.py                        `jsk migrate` - user-knowledgebase.md to the graph, once (until N+1)
+  kbindex.py                        the Markdown reader migrate uses; deleted in release N+1
+  graph/                            the career record: see "Inside the graph package"
+    ontology.py                     the format, as data     writer.py     the canonical layout
+    io.py  store.py  record.py      parse, load and validate, kb.ttl and log.ttl in step
+    shapes.py  rules.py             tier 1 and tier 2 rules
+    changeset.py  edit.py  kbcli.py `jsk kb`
+    queries.py  named.py  match.py  the vocabulary, named queries, `jsk match`
+    view.py  timeline.py            `jsk kb view`; application.ttl and `jsk event`
   urs/                              record -> document, and the three CLIs that drive it
     plan.py                         every content decision, made exactly once
     resolve.py                      *what* the document says   formatting.py *how* one value reads
@@ -149,10 +195,12 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     render_resume.py                `jsk render` - one record to .tex/PDF plus .txt
     preview_templates.py            `jsk preview` - every template, so the look is chosen by looking
     fit_pages.py                    `jsk fit` - fits a render to a page budget
-  gates/                            the three mechanical gates `jsk gates` runs
+  gates/                            the mechanical gates `jsk gates` runs
     validate_urs.py                 the record gate - before anything is rendered
+    claims.py                       the claims gate - the record joined with career/kb.ttl
     check_ats.py                    the parse gate        check_prose.py    the prose gate
   preflight.py                      `jsk doctor`: what this machine can do
+  data/vocabulary.ttl               the shipped technology vocabulary (labels, isA, partOf)
   data/schema/                      package data, reached through paths.py
     profiles/*.json                 region profiles: default, au, in, ae
     profile.schema.json             what a region profile must contain
@@ -164,15 +212,15 @@ plugins/jsk/                        THE SKILL. markdown only - it ships no code
     braindump|resume|tailor|...     thin delegations into the skill's modes
   agents/                           subagents the modes delegate to
     jsk-verifier.md                 interprets a failed gate against the record
-    jsk-kb-auditor.md               reads the whole knowledge base, writes a posting-less audit
-    jsk-tailor-analyst.md           reads a posting and the knowledge base, ranks in the open
+    jsk-kb-auditor.md               checks and queries the career, writes a posting-less audit
+    jsk-tailor-analyst.md           writes posting.ttl and gaps.md from a posting and `jsk match`
     jsk-resume-author.md            authors the record: bullets, narrative, view
   skills/jsk/
     SKILL.md                        the agent's entry point: routing + hard rules
     references/                     what the agent loads on demand
       README.md                     index of everything below
       mode-*.md                     one procedure per mode
-      kb-spec.md                    every heading in user-knowledgebase.md, and applications/
+      kb-format.md                  the graph record: every section, class and predicate, and applications/
       urs-spec.md                   the record's shape, and the region profiles
       view-format.md                every key a view may carry
       ats-rules.md                  hard rules, two-variant strategy, keyword placement
@@ -180,26 +228,31 @@ plugins/jsk/                        THE SKILL. markdown only - it ships no code
       templates.md                  the five visual templates
       rationale.md                  long-form reasoning, loaded to explain a rule
 tests/                              unittest: one file per module, plus the manifest surface
-  fixtures.py                       temp records; nothing here is committed
+  fixtures.py                       temp records built per test
+  graph_fixtures/                   a valid graph workspace: kb.ttl at r2, log.ttl, one application
+  kb2_template.md                   the Markdown template `jsk new` used to write, for migrate's tests
 ```
 
 **The code and the skill are two artefacts.** `src/jsk/` is a Python package installed from PyPI as
 `jsk-resume`; `plugins/jsk/` is markdown that calls `jsk`.
 
-**Nothing in the package reads `user-knowledgebase.md`.** The skill writes the record out of it with
-ordinary file tools; the code starts at the record, which is the last point at which a mistake is
-still cheap.
+**The package owns the career record; the skill writes changesets and records.** Every write to
+`career/kb.ttl` goes through `jsk kb` (or `jsk new` and `jsk migrate`, which write r1), and every
+load validates it. The skill still writes each `resume.json` out of the career by hand, which is
+why the record gate and the claims gate both run before anything renders: the record is the last
+point at which a mistake is still cheap.
 
 ## What is a package here, and what is not
 
-Two subpackages, and both were measured before they were made. The test is whether the members
+Three subpackages, and each was measured before it was made. The test is whether the members
 import *each other* more than they import outward — a group whose members share no edges is a folder
 with a theme, not a module.
 
 | Group | Edges crossing the boundary | Edges inside | Verdict |
 |---|---|---|---|
 | `urs/` — rendering, preview, page fitter, over the record→document pipeline | **1**, lazy | many | **made** |
-| `gates/` — record, parse, prose | **1**, lazy | 1 | **made** |
+| `gates/` — record, claims, parse, prose | 2, lazy: the region profiles, and the claims gate reading `graph/` | 2 | **made** |
+| `graph/` — the career record, from format to queries | 3, lazy or data-only (see "Inside the graph package") | many | **made** |
 
 The reason for measuring applies to anything proposed here: four modules that all operate on the same
 noun and never import each other would gain a boundary crossing per edge and buy nothing but a
@@ -220,10 +273,13 @@ directory named after what they have in common.
 | **A palette, typeface or rule** | `src/jsk/urs/themes.py` | `references/templates.md`, `tests/test_themes.py` |
 | Support for a new market | `data/schema/profiles/<code>.json` | the region section of `references/urs-spec.md` |
 | What a view may carry | `references/view-format.md` | `src/jsk/gates/validate_urs.py`, `agents/jsk-resume-author.md` — never `references/urs-spec.md`, which defines no view key |
-| **The knowledge base format** | `references/kb-spec.md` | `src/jsk/kb.py` — the template and the spec are one rule in two languages, and a heading in one and not the other is a defect |
-| What `jsk new` scaffolds | `src/jsk/kb.py` | `references/kb-spec.md`, `references/mode-setup.md` |
-| A posting's or assessment's shape | `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` — the format is written out in the agent, so it is one place |
-| How postings are ranked | `agents/jsk-tailor-analyst.md` | nowhere else — there is no scorer, and the weighting table in that file is the whole of it |
+| **The career record's format** | `src/jsk/graph/ontology.py` | `references/kb-format.md` — the ontology is the format and the reference is its prose; a class, predicate or section in one and not the other is a defect. The writer and the tier-1 rules follow the ontology by themselves |
+| A rule across entries | `src/jsk/graph/rules.py` | a mutation in `tests/test_graph_rules.py` — a rule with no mutation fails the suite |
+| The shipped vocabulary | `src/jsk/data/vocabulary.ttl` | technologies only, no `implies`; `tests/test_graph_vocabulary.py` |
+| What `jsk new` scaffolds | `src/jsk/kb.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
+| A posting's or assessment's shape | `Posting` and `Requirement` in `ontology.py`, `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` |
+| How postings are ranked | `src/jsk/graph/queries.py` | the weighting table in `agents/jsk-tailor-analyst.md`; the weights live in `kbindex.WEIGHTS` until release N+1 moves them |
+| What the claims gate checks | `src/jsk/gates/claims.py` | `docs/SCRIPTS.md`'s table of its six checks, `tests/test_claims.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
@@ -231,25 +287,49 @@ directory named after what they have in common.
 
 ## What is frozen
 
-This is a published plugin. Two surfaces may not move without a major version and a migration story:
+This is a published plugin. Three surfaces may not move without a major version and a migration
+story:
 
 1. **The `jsk` command surface.** Subcommand names and flags — `jsk check --strict`,
-   `jsk render --view` and the rest — are public API. They appear in shell histories, in README
-   examples, and in every mode file. Module names inside the package are free; the invocation
-   surface is not.
+   `jsk render --view`, `jsk kb apply --dry-run` and the rest — are public API. They appear in shell
+   histories, in README examples, and in every mode file. Module names inside the package are free;
+   the invocation surface is not.
 
    Version 4.0 replaced the `okf` command and its bundle format outright, with no compatibility shim:
    a shim over a per-noun write command would have to write into a file whose shape it cannot know.
+   The graph record retires one subcommand the same way, with a pointer rather than a shim:
+   `jsk index` read `user-knowledgebase.md` and now exits 2 naming `jsk match`, `jsk kb view` and
+   `jsk migrate`.
 
-2. **The record's shape and gate behaviour.** What the renderer reads stays wire-compatible with an
-   archived `resume.json` — an application filed two years ago is still re-renderable — and a gate
-   keeps failing on exactly what it fails on today.
+2. **The record's shape and gate behaviour.** **`resume.json` is still the narrow waist.** The graph
+   rewrite changed everything above it and nothing below: `src/jsk/urs/`, `validate_urs.py`,
+   `check_ats.py`, `check_prose.py` and `jsk render`/`preview`/`fit`/`validate`/`check` are the
+   ones that were there before it. What the renderer reads stays wire-compatible with an archived
+   `resume.json` — an application filed two years ago is still re-renderable — and a gate keeps
+   failing on exactly what it fails on today. The claims gate is an addition beside the record gate,
+   not a change to it, and it says `NOT RUN` rather than failing where there is no graph record.
 
-The knowledge base's **headings** are a contract of the same weight. `references/kb-spec.md` says
-never to rename or reorder one, and `jsk new` writes them all; the two are one rule in two languages.
-A bundle from an older version is migrated by reading it and writing the new file —
-`references/mode-setup.md` has the procedure, and it is a conversation rather than a command because
-every relation the old format left in prose is a judgement a script would only guess at.
+3. **The career record's format.** `career/kb.ttl` is the person's file, and it outlives any one
+   release. `ontology.FORMAT` is the format revision every kb.ttl carries (`j:format 3`); the
+   section order in `ontology.SECTIONS["kb"]` is the order the Markdown headings always had, and it
+   does not change. Adding an optional predicate or an enum value is compatible - a file written
+   before it still loads. Renaming or removing one, or making one required, is a new format revision
+   with a migration, and the writer's layout moving is a `jsk kb fmt`, logged on its own, never a
+   silent rewrite. `career/log.ttl` is append-only: nothing rewrites an entry, and `jsk new --force`
+   starts the record over as the next revision rather than a new log.
+
+**The graph package and its boundaries** are what hold the third one: every write to `kb.ttl`
+goes through `record.prepare`/`record.commit` after the would-be workspace validates, and the
+package never imports `urs/` nor is imported by it. See "Inside the graph package" above.
+
+A Markdown knowledge base moves across with `jsk migrate`, once, round-trip checked, deleting
+nothing. **It exists for one release.** The next deletes `jsk migrate`, `kbindex.py`,
+`tests/test_kbindex.py` and the `[index]`/`[migrate]` extras; before it can, `graph/queries.py`
+and `graph/named.py` need the weights, `SENIORITY` and `experience` they still import from
+`kbindex`. A bundle from a version before 4.0 is migrated by reading it and writing a Markdown
+knowledge base first — `references/mode-setup.md` has that procedure, and it is a conversation
+rather than a command because every relation the old format left in prose is a judgement a script
+would only guess at.
 
 One more, discovered the hard way: **the tests assert on output text.** Some 200 `assertIn` calls
 check strings like `PASS - safe to send` and `DO NOT SEND`. You may *add* lines to a command's
@@ -280,8 +360,10 @@ text layers, because the claim they check — five templates, one document — c
 other way. Where a TeX engine or `pymupdf` is absent those tests skip themselves, so a bare-Python
 run finishes in seconds on fewer assertions rather than failing on the machine's setup.
 
-Fixtures are built into temp directories by `tests/fixtures.py`; nothing is committed. Every test
-pins a specific documented rule — the checker is the gate, so it does not go unchecked.
+Records are built into temp directories by `tests/fixtures.py`; the committed fixtures are
+workspaces (`tests/graph_fixtures/`, `tests/match_fixtures/`, `tests/claims_fixtures/`) that tests
+copy before they change anything. Every test pins a specific documented rule — the checker is the
+gate, so it does not go unchecked.
 
 `tests/test_budget.py` and `tests/test_plugin_surface.py` are the two that read the markdown rather
 than the code, and they are what stops the skill and the CLI drifting apart. The first caps what a
@@ -293,16 +375,22 @@ change in behaviour unless the behaviour change is the point and it is written d
 
 ## Dependencies
 
-Deliberately close to zero, and **`pyproject.toml` declares none as required** — `pymupdf` is an
-optional extra, imported at the point of use. `pip install jsk-resume` gives a working record gate,
-prose gate and `.txt` parse gate on a bare interpreter. `jsk doctor` especially, because a preflight
-that needs installing first is not a preflight.
+Deliberately close to zero. **`pyproject.toml` declares one as required: `pyoxigraph`**, the graph
+engine that parses, validates and queries `career/kb.ttl` - the career itself, not a capability
+layered on top, and the cost [WHY.md](WHY.md) states for choosing a graph. It is pinned to one
+minor version, ships wheels for every supported platform, and has no dependencies of its own. It is
+imported inside functions only, so `jsk doctor` stays standard-library and reports its absence
+("cannot read or validate the graph record") rather than failing to start. `pymupdf` is an
+optional extra, imported at the point of use.
 
 ```bash
-pip install jsk-resume              # the record gate, prose gate, .txt parse gate
-pip install 'jsk-resume[all]'       # + pymupdf (the same as [pdf])
+pip install jsk-resume              # the graph record, record and claims gates, prose gate, .txt parse gate
+pip install 'jsk-resume[all]'       # + pymupdf, and the Markdown reader for jsk migrate
 pip install -e '.[dev]'             # the above plus pytest, pytest-xdist, ruff
 ```
+
+The `migrate` extra (markdown-it-py, pyyaml; `index` is its alias) reads a `user-knowledgebase.md`
+for `jsk migrate`, and goes with it in release N+1.
 
 Two things are optional to install and required to ship:
 
