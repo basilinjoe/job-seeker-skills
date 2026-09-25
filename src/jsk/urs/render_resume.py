@@ -223,8 +223,17 @@ def main(argv):
 
     # Built from the career the file sits in. A legacy URS record is refused here, by
     # short.read, with `jsk migrate` as the fix: nothing but migrate reads one now.
+    from ..cli import frozen_refusal
     from ..resume import build as B
     from ..resume.short import ShortError
+
+    # A frozen application's resume.json builds from today's career, so a render into or
+    # from it would overwrite the PDF that was sent with one that was not. Ship refused
+    # this; render did not, until the final review.
+    refusal = frozen_refusal(out_dir, os.path.dirname(os.path.abspath(src)))
+    if refusal:
+        print("\n".join(refusal))
+        return 1
 
     try:
         store, short_doc, _ = B.load(src)
@@ -243,7 +252,10 @@ def main(argv):
         if company:
             base = f"{base}_{safe_name(company)}"
 
-    targets = select_targets(fmt, profile)
+    # The file's own `format` is the variant when the call names none: the final review
+    # found it, documented as the place to choose, doing nothing - --ats-max or
+    # presentation, whatever the file said.
+    targets = select_targets(fmt, profile or short_doc.get("format"))
 
     written, warnings, notes, first = [], [], [], None
     held = {}                      # pdf path -> the variant it holds

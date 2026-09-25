@@ -2116,9 +2116,10 @@ def shorten(record, store, view_id=None):
     if not view:
         notes.append("no view: every bullet the record holds is carried")
     include = [i for i in view.get("include") or [] if isinstance(i, dict)]
-    chosen = [a for i in include for a in i.get("achievements") or []]
+    lists = {i.get("ref"): i.get("achievements") for i in include
+             if isinstance(i.get("achievements"), list)}
     engagements = [e for e in record.get("engagements") or [] if isinstance(e, dict)]
-    projects = [p for p in record.get("projects") or [] if isinstance(p, dict)]
+    projects = {p.get("id"): p for p in record.get("projects") or [] if isinstance(p, dict)}
     refs = {i.get("ref") for i in include}
     # The renderer showed only the engagements the view included, or all of them when it
     # named none - the same rule decides which bullets and which bare roles carry.
@@ -2127,25 +2128,41 @@ def shorten(record, store, view_id=None):
     def shown(eid):
         return not named or eid in named
 
-    if not chosen:
-        # No include lists: the renderer showed every bullet of what it showed, so the
-        # short file names each of them, in the record's order.
-        in_eng = {pid: e.get("id") for e in engagements for pid in e.get("projects") or []}
-        for e in engagements:
-            if shown(e.get("id")):
-                chosen += [a.get("id") for a in e.get("achievements") or []
-                           if isinstance(a, dict)]
-        for p in projects:
-            eid = p.get("engagement") or in_eng.get(p.get("id"))
-            if shown(eid) or p.get("id") in refs:
-                chosen += [a.get("id") for a in p.get("achievements") or []
-                           if isinstance(a, dict)]
+    def drawn(holder, ref):
+        """A holder's bullets as the renderer drew them: its include list, in that
+        order, or every bullet when the view listed none for it."""
+        ids = [a.get("id") for a in holder.get("achievements") or [] if isinstance(a, dict)]
+        if lists.get(ref):          # an empty list was no list to the renderer either
+            for a in lists[ref]:
+                if a not in ids:
+                    notes.append(f"dropped bullet {a} - the view lists it under {ref}, "
+                                 "which holds no such bullet in the record")
+            return [a for a in lists[ref] if a in ids]
+        return ids
+
+    # Walked the way the renderer walked it: each engagement it showed, its own bullets,
+    # then its projects in the order it lists them. The final review migrated a view
+    # that listed bullets for one employer and none for another - the renderer showed
+    # every bullet of the second, and the short file dropped that employer; and ordering
+    # by the career's project ids did nothing for a Markdown-era draft, whose ids differ.
+    chosen = []
+    for e in engagements:
+        if not shown(e.get("id")):
+            continue
+        chosen += drawn(e, e.get("id"))
+        for pid in e.get("projects") or []:
+            if pid in projects:
+                chosen += drawn(projects[pid], pid)
+    listed = {pid for e in engagements for pid in e.get("projects") or []}
+    for pid, p in projects.items():
+        if pid not in listed and (not named or pid in refs):
+            chosen += drawn(p, pid)
     # A draft from before the graph names bullets by their Markdown ids - ach_unitng_1 -
     # and the graph minted new ones. On the real workspace the ABB draft shortened to 1
     # bullet of 13 because every other id was "not in kb.ttl", though each bullet was
     # there under its new name. The career notes an old id it kept ("id: ach_x_1"); the
     # rest are found by their words, when exactly one live bullet says the same thing.
-    texts = {a.get("id"): a.get("text") for holder in engagements + projects
+    texts = {a.get("id"): a.get("text") for holder in engagements + list(projects.values())
              for a in holder.get("achievements") or [] if isinstance(a, dict)}
     by_note, by_words = {}, {}
     for iri in career.live("Achievement"):
@@ -2171,16 +2188,6 @@ def shorten(record, store, view_id=None):
     for aid in dict.fromkeys(current(a) for a in chosen if isinstance(a, str)):
         if live(aid, "Achievement", "bullet"):
             bullets.append(aid)
-    # In the order the old renderer drew them: project by project as each engagement
-    # lists them, a project's bullets in include order. The include lists alone put
-    # the ElevenLabs draft's Catholic Healthcare bullets above Chloe's, under the same
-    # role, where the render had them below. The sort is stable, so include order holds
-    # within a project.
-    listed = [pid for e in engagements for pid in e.get("projects") or []]
-    listed += [p.get("id") for p in projects if p.get("id") not in listed]
-    place = {pid: n for n, pid in enumerate(listed)}
-    bullets.sort(key=lambda aid: place.get(
-        (career.get(O.K + aid, "project") or "")[len(O.K):], len(place)))
     if not bullets:
         raise short.ShortError("no bullet the view chose is still in career/kb.ttl",
                                "write the short file with `jsk kb export --select ...`")
@@ -2197,12 +2204,25 @@ def shorten(record, store, view_id=None):
     for e in engagements:
         if not shown(e.get("id")):
             continue
+        kept = False
         for p in e.get("positions") or []:
             pid = p.get("id") if isinstance(p, dict) else None
-            if not pid or known.get(O.K + pid) != "Position" or career.get(O.K + pid, "retired"):
+            if not pid:
                 continue
-            if career.get(O.K + pid, "organisation") not in with_bullets:
+            if known.get(O.K + pid) != "Position" or career.get(O.K + pid, "retired"):
+                notes.append(f"dropped role {pid} - career/kb.ttl holds no live Position "
+                             "of that id")
+                continue
+            if career.get(O.K + pid, "organisation") in with_bullets:
+                kept = True
+            else:
                 roles.append(pid)
+                kept = True
+        if not kept:
+            # Said, not silent: the renderer showed this employer, and the short file
+            # would not - name its role in `roles`, or a bullet of it in `bullets`.
+            notes.append(f"{e.get('id')} was on the resume and carries nothing - no bullet "
+                         "or role of it is in the career under the ids the record used")
 
     doc = {"resume": short.VERSION}
     fmt = view.get("format_profile")
@@ -2228,8 +2248,15 @@ def shorten(record, store, view_id=None):
                     if isinstance(n, dict) and n.get("id") == nid), None)
         if nar and isinstance(nar.get("text"), str) and nar["text"].strip():
             status = (nar.get("provenance") or {}).get("status")
-            doc["summary"] = {"text": nar["text"],
-                              "status": "confirmed" if status == "confirmed" else "inferred"}
+            if status in ("needs-verification", "disputed"):
+                # A short file's summary is confirmed or inferred; raising one below
+                # that to inferred would render it under an inferred floor, where the
+                # old renderer withheld it.
+                notes.append(f"the view's narrative {nid} is {status} - left out, so the "
+                             "career's positioning renders; write the summary again")
+            else:
+                doc["summary"] = {"text": nar["text"],
+                                  "status": "confirmed" if status == "confirmed" else "inferred"}
         else:
             notes.append(f"the view's narrative {nid} is not in the record - the career's "
                          "positioning renders instead")

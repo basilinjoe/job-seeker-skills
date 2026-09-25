@@ -399,8 +399,11 @@ def build(store, doc, *, region=None, fmt=None, today=None):
         "profile": profile["id"],
         # The profile's own region is a family - "XX" covers the US, the UK and much of
         # Europe - so it cannot answer paper size. A region named explicitly is the more
-        # specific answer, and it wins: without it a US resume rendered A4.
-        "region": (region or "").strip().upper() or profile.get("region"),
+        # specific answer, and it wins: without it a US resume rendered A4. The file's
+        # region, else the person's country, is the next most specific - "us" in the
+        # file rendered A4 too until the final review.
+        "region": (region or doc.get("region") or country or "").strip().upper()
+                  or profile.get("region"),
         "pages": pages,
         "name": name,
         "header_lines": header_lines,

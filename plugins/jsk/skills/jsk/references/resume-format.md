@@ -22,12 +22,14 @@ a confirm or a corrected bullet is on the next render with nothing to update her
 | `resume` | yes | `2` |
 | `bullets` | yes | `ach_` ids in render order within each role. Roles, employers and their order follow from the career, by date. |
 | `format` | no | `presentation` (default) or `ats-maximal` |
-| `region` | no | `au`, `ae`, `in`, or any other code for the default profile; default the person's country |
+| `region` | no | a two-letter code: `au`, `ae`, `in` pick their profile, any other (`us`, `xx`) the default one; it also sets the paper. Default the person's country |
 | `pages`, `ats_pages` | no | page budgets; `ats_pages` for the ATS-maximal variant |
 | `floor` | no | provenance floor, default `confirmed`: a bullet or summary below it is withheld, with a warning |
 | `summary` | no | `{text, status}`, `status` `inferred` or `confirmed`; absent, the career's positioning |
 | `roles` | no | `pos_` ids to show with no bullet, for chronology |
 | `skills` | no | `skill_` ids in row order; absent, every skill |
+
+`jsk ship --ats-max` overrides `format`, and `jsk render --region` overrides `region`, for one render.
 
 **The summary is the only prose in it.** A reworded bullet goes into the career first
 (`jsk kb apply`) and is named here by its id; an unknown key fails. Once the person confirms the

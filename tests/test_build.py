@@ -299,6 +299,10 @@ class RegionAndPages(BuildCase):
         self.assertEqual(self.plan(short(pages=1, ats_pages=3), fmt="ats-maximal")["pages"], 3)
         self.assertEqual(self.plan(short(pages=1), fmt="ats-maximal")["pages"], 1)
 
+    def test_the_file_s_region_decides_the_paper_too(self):
+        # A US posting's file says "us": Letter, not the A4 the default profile implies.
+        self.assertIn("letterpaper", emit_latex.emit(self.plan(short(region="us"))))
+
     def test_the_explicit_region_decides_the_paper(self):
         self.assertEqual(self.plan(region="us")["region"], "US")
         self.assertIn("letterpaper", emit_latex.emit(self.plan(region="us")))
@@ -392,6 +396,35 @@ class RenderCommand(unittest.TestCase):
             self.assertEqual(code, 2)
             self.assertIn("career/kb.ttl", text)
             self.assertNotIn("Traceback", text)
+
+    def test_the_file_s_format_decides_the_variant_and_its_budget(self):
+        """Final review: `format` and `ats_pages`, documented as the place to choose the
+        variant, did nothing - the render took --ats-max or presentation."""
+        with tempfile.TemporaryDirectory() as tmp:
+            _, path = careerkit.workspace(Path(tmp, "ws"),
+                                          short=short(format="ats-maximal", ats_pages=1))
+            out = Path(tmp, "out")
+            code, text = self.render(path, "--out", str(out))
+            self.assertEqual(code, 0, text)
+            self.assertIn("jsk-variant:ats-maximal", next(out.glob("*_Resume.tex")).read_text(
+                encoding="utf-8"))
+            self.assertIn("page budget: 1", text)
+            code, text = self.render(path, "--out", str(out), "--profile", "presentation")
+            self.assertIn("jsk-variant:presentation", next(out.glob("*_Resume.tex")).read_text(
+                encoding="utf-8"))
+
+    def test_a_frozen_application_is_not_rendered_over(self):
+        """Its resume.json now builds from today's career, so a render there would
+        overwrite the PDF that was sent with one that was not (final review)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            _, path = careerkit.workspace(Path(tmp, "ws"), short=short())
+            app = Path(path).parent
+            (app / "application.ttl").write_text("# sent\n", encoding="utf-8")
+            for out in (app, Path(tmp, "elsewhere")):
+                code, text = self.render(path, "--out", str(out))
+                self.assertEqual(code, 1, text)
+                self.assertIn("frozen", text)
+            self.assertFalse(any(app.glob("*.tex")))
 
     def test_view_is_refused_for_a_short_file(self):
         with tempfile.TemporaryDirectory() as tmp:

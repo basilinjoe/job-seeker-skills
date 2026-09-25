@@ -85,6 +85,14 @@ class Shape(unittest.TestCase):
         self.assertTrue(self.check(summary={"status": "inferred"}))
         self.assertTrue(self.check(floor="sure"))
 
+    def test_a_region_is_a_two_letter_code(self):
+        """Final review: "aus" validated and rendered the default profile - two pages and
+        no work-rights line - over the person's AU country that would have been right."""
+        self.assertTrue(any("region" in f for f in self.check(region="aus")))
+        self.assertTrue(self.check(region="Australia"))
+        for good in ("au", "in", "us", "xx"):
+            self.assertEqual(self.check(region=good), [], good)
+
     def test_wrong_types(self):
         self.assertTrue(self.check(pages="2"))
         self.assertTrue(self.check(bullets="ach_events_latency"))
@@ -144,6 +152,17 @@ class Ids(unittest.TestCase):
         found = self.ids({**OK, "bullets": ["ach_events_terraform"]}, edits=[careerkit.RETIRE])
         self.assertTrue(any("ach_events_terraform" in f and "not true any more" in f
                             for f in found), found)
+
+    def test_a_bullet_whose_role_or_project_is_retired(self):
+        """Final review: a retired role passed the gate, and its live bullet then vanished
+        from the render without a warning - and from what freeze carried."""
+        role = ('    j:seniority j:hands-on-senior ;\n    j:provenance j:confirmed .\n',
+                '    j:seniority j:hands-on-senior ;\n'
+                '    j:retired "2026-09-01"^^xsd:date ; j:reason "merged into lead" ;\n'
+                '    j:provenance j:confirmed .\n')
+        found = self.ids({**OK, "bullets": ["ach_identity_sso"]}, edits=[role])
+        self.assertTrue(any("ach_identity_sso" in f and "pos_meridian_engineer" in f
+                            and "retired" in f for f in found), found)
 
     def test_a_bullet_whose_project_has_no_role(self):
         edit = ("k:prj_data j:name \"Data\" ;\n    j:position k:pos_lakeside_contractor ;\n",

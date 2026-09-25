@@ -1033,33 +1033,92 @@ class ShortenOldIds(unittest.TestCase):
         edit = ('k:ach_identity_sso j:project k:prj_identity ; j:rank 1 ;\n',
                 'k:ach_identity_sso j:project k:prj_identity ; j:rank 1 ;\n'
                 '    j:note "id: ach_identity_1" ;\n')
-        record = renamed(legacy(include=[{"ref": "prj_identity",
-                                          "achievements": ["ach_identity_sso"]}]),
-                         "ach_identity_sso", "ach_identity_1")
+        record = renamed(legacy(include=[
+            {"ref": "eng_meridian"},
+            {"ref": "prj_events", "achievements": ["ach_events_latency"]},
+            {"ref": "prj_identity", "achievements": ["ach_identity_sso"]}]),
+            "ach_identity_sso", "ach_identity_1")
         doc, notes = self.shorten(record, edits=[edit])
-        self.assertEqual(doc["bullets"], ["ach_identity_sso"])
+        self.assertEqual(doc["bullets"], ["ach_events_latency", "ach_identity_sso"])
         self.assertTrue(any("ach_identity_1 is now ach_identity_sso" in n for n in notes), notes)
 
     def test_an_old_id_whose_words_match_one_bullet_maps_to_it(self):
-        record = renamed(legacy(include=[{"ref": "prj_events",
-                                          "achievements": ["ach_events_team"]}]),
-                         "ach_events_team", "ach_events_2")
+        record = renamed(legacy(include=[
+            {"ref": "eng_meridian"},
+            {"ref": "prj_events", "achievements": ["ach_events_team"]},
+            {"ref": "prj_identity", "achievements": ["ach_identity_sso"]}]),
+            "ach_events_team", "ach_events_2")
         # The fixture's record reworded this bullet; here it says what the career says.
         record = json.loads(json.dumps(record).replace(
             "Led a team of 6 engineers through the platform rebuild.", "Led a team of 6 engineers."))
         doc, notes = self.shorten(record)
-        self.assertEqual(doc["bullets"], ["ach_events_team"])
+        self.assertEqual(doc["bullets"], ["ach_events_team", "ach_identity_sso"])
         self.assertTrue(any("ach_events_2 is now ach_events_team" in n for n in notes), notes)
 
     def test_an_old_id_with_no_note_and_changed_words_is_still_dropped(self):
-        record = renamed(legacy(include=[{"ref": "prj_events",
-                                          "achievements": ["ach_events_team", "ach_events_latency"]}]),
-                         "ach_events_team", "ach_events_2")
+        record = renamed(legacy(include=[
+            {"ref": "eng_meridian"},
+            {"ref": "prj_events", "achievements": ["ach_events_team", "ach_events_latency"]},
+            {"ref": "prj_identity", "achievements": ["ach_identity_sso"]}]),
+            "ach_events_team", "ach_events_2")
         record = json.loads(json.dumps(record).replace("Led a team of 6 engineers.",
                                                        "Led six engineers."))
         doc, notes = self.shorten(record)
-        self.assertEqual(doc["bullets"], ["ach_events_latency"])
+        self.assertEqual(doc["bullets"], ["ach_events_latency", "ach_identity_sso"])
         self.assertTrue(any("dropped bullet ach_events_2" in n for n in notes), notes)
+
+
+class ShortenAsItRendered(unittest.TestCase):
+    """What the old renderer drew is what carries. The final review migrated a view
+    that listed bullets for one employer and none for another: the renderer showed
+    every bullet of the second, and the short file lost that employer without a note."""
+
+    def shorten(self, record):
+        import careerkit
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root, _ = careerkit.workspace(tmp)
+            return migrate.shorten(record, careerkit.store(root))
+
+    def test_an_include_with_no_list_carries_every_bullet_it_showed(self):
+        record = legacy(include=[{"ref": "eng_meridian"}, {"ref": "eng_lakeside"},
+                                 {"ref": "prj_events", "achievements": ["ach_events_latency"]}])
+        doc, _ = self.shorten(record)
+        self.assertEqual(doc["bullets"], ["ach_events_latency", "ach_identity_sso",
+                                          "ach_data_ingestion"])
+
+    def test_the_order_is_the_record_s_even_when_its_project_ids_are_old(self):
+        record = legacy(include=[{"ref": "eng_meridian"},
+                                 {"ref": "proj_identity", "achievements": ["ach_identity_sso"]},
+                                 {"ref": "proj_events",
+                                  "achievements": ["ach_events_team", "ach_events_latency"]}])
+        record = renamed(renamed(record, "prj_identity", "proj_identity"),
+                         "prj_events", "proj_events")
+        doc, _ = self.shorten(record)
+        self.assertEqual(doc["bullets"], ["ach_events_team", "ach_events_latency",
+                                          "ach_identity_sso"])
+
+    def test_an_employer_that_carries_nothing_is_said(self):
+        record = legacy(include=[{"ref": "eng_meridian"}, {"ref": "eng_lakeside"},
+                                 {"ref": "prj_events", "achievements": ["ach_events_latency"]},
+                                 {"ref": "prj_identity", "achievements": ["ach_identity_sso"]},
+                                 {"ref": "prj_data", "achievements": []}])
+        record = renamed(record, "pos_lakeside_contractor", "pos_l1")
+        record["projects"] = [p for p in record["projects"] if p["id"] != "prj_data"]
+        doc, notes = self.shorten(record)
+        self.assertNotIn("roles", doc)
+        self.assertTrue(any("pos_l1" in n for n in notes), notes)
+        self.assertTrue(any("eng_lakeside" in n and "nothing" in n for n in notes), notes)
+
+    def test_a_summary_below_inferred_is_left_out(self):
+        record = legacy()
+        nid = record["views"][0]["narrative"]
+        for n in record["narratives"]:
+            if n["id"] == nid:
+                n["provenance"] = {"status": "disputed"}
+        doc, notes = self.shorten(record)
+        self.assertNotIn("summary", doc)
+        self.assertTrue(any("disputed" in n for n in notes), notes)
 
 
 class Shorten(unittest.TestCase):
@@ -1097,15 +1156,15 @@ class Shorten(unittest.TestCase):
             "floor": "confirmed",
             "summary": {"text": "Platform engineer with 5 years of Kubernetes, building event "
                                 "platforms that other teams build on.", "status": "confirmed"},
-            # The order the old renderer drew them in: project by project as the
-            # engagement lists them, each project's bullets in include order (not the
+            # What the old renderer drew, in the order it drew it: project by project as
+            # the engagement lists them, each project's bullets in include order (not the
             # career's rank - the author ordered them for the posting). On the ElevenLabs
             # draft the include order put Catholic Healthcare's bullets above Chloe's,
-            # where the render had them below.
-            "bullets": ["ach_events_team", "ach_events_latency", "ach_identity_sso"],
-            # Lakeside was in the view with no bullet - its role keeps the chronology;
-            # Meridian's two roles come whole with its bullets, so neither is listed.
-            "roles": ["pos_lakeside_contractor"],
+            # where the render had them below. Lakeside's project had no list, so the
+            # renderer drew all of it - its inferred bullet, which the floor withholds on
+            # the page exactly as it did then - and its role needs no line of its own.
+            "bullets": ["ach_events_team", "ach_events_latency", "ach_identity_sso",
+                        "ach_data_ingestion"],
             "skills": ["skill_kubernetes"]})
 
     def test_a_view_with_no_include_takes_every_bullet_in_record_order(self):
@@ -1119,7 +1178,9 @@ class Shorten(unittest.TestCase):
             "ach_events_gone", "ach_events_terraform", "ach_events_latency"]}],
             skills=["skill_kubernetes", "skill_cobol"])
         doc, notes = self.shorten(record)
-        self.assertEqual(doc["bullets"], ["ach_events_latency"])
+        # The projects the view listed nothing for were drawn whole, as they rendered.
+        self.assertEqual(doc["bullets"], ["ach_events_latency", "ach_identity_sso",
+                                          "ach_data_ingestion"])
         self.assertEqual(doc["skills"], ["skill_kubernetes"])
         text = "\n".join(notes)
         self.assertIn("ach_events_gone", text)
@@ -1136,7 +1197,7 @@ class Shorten(unittest.TestCase):
 
     def test_an_inferred_narrative_stays_inferred(self):
         record = legacy()
-        record["narratives"][0]["provenance"] = {"status": "needs-verification"}
+        record["narratives"][0]["provenance"] = {"status": "inferred"}
         doc, _ = self.shorten(record)
         self.assertEqual(doc["summary"]["status"], "inferred")
 

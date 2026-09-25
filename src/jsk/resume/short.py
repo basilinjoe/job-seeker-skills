@@ -9,6 +9,7 @@ is what `ids` checks.
 import difflib
 import json
 import os
+import re
 
 VERSION = 2
 FORMATS = ("presentation", "ats-maximal")
@@ -85,6 +86,13 @@ def shape(doc):
     for key in ("pages", "ats_pages"):
         if isinstance(doc.get(key), int) and doc[key] < 1:
             out.append(f"{key!r} must be at least 1")
+    # A two-letter code, or xx for the default profile. "aus" validated and rendered the
+    # default profile - two pages, no work-rights line - over the person's AU country
+    # that would have been right (final review); a code with no profile of its own still
+    # means the default one, and sets the paper.
+    if isinstance(doc.get("region"), str) and not re.fullmatch(r"[A-Za-z]{2}", doc["region"]):
+        out.append(f"region {doc['region']!r} is not a two-letter country code - au, in, "
+                   "us, ... or xx for the default profile")
     if isinstance(doc.get("format"), str) and doc["format"] not in FORMATS:
         out.append(f"format {doc['format']!r} is not one of {', '.join(FORMATS)}")
     if isinstance(doc.get("floor"), str) and doc["floor"] not in FLOORS:
@@ -133,9 +141,19 @@ def ids(doc, store):
                 continue
             if key == "bullets":
                 project = career.get(iri, "project")
-                if not career.get(project, "position"):
+                role = career.get(project, "position")
+                if not role:
                     out.append(f"bullets: {ident}'s project {project[len(O.K):]} names no "
                                "role (j:position), so it would render under no employer")
+                # A retired project or role takes its live bullet off the page with it:
+                # the final review retired a role, and the bullet under it vanished from
+                # the render without a warning, and from what freeze carried.
+                for held, what in ((project, "project"), (role, "role")):
+                    if held and career.get(held, "retired"):
+                        out.append(f"bullets: {ident}'s {what} {held[len(O.K):]} was retired "
+                                   f"on {career.get(held, 'retired')} "
+                                   f"({career.get(held, 'reason', 'no reason given')}) - drop "
+                                   "the bullet, or move it to a live one in the career")
     return out
 
 
