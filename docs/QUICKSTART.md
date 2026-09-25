@@ -110,10 +110,11 @@ verdict. It reports the page count but leaves the last check to you: open the PD
 page. `jsk freeze` refuses until the checks pass, then records in `application.ttl` what was sent,
 when, and which bullets and metric versions it carried, and names the directory after the
 submission date. Use `--submitted false` for an application you worked through and decided not to
-send. When something comes back, `/jsk:pipeline` records it:
+send. When something comes back, `/jsk:pipeline` records it - against the directory's new name,
+which `jsk freeze` prints:
 
 ```bash
-jsk event applications/<stem> screen-scheduled --date 2026-09-15
+jsk event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15
 jsk kb query pipeline            # every application's stage, and how long since
 ```
 
@@ -130,7 +131,7 @@ jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms to 20
 jsk match applications/<stem>/posting.ttl     # the posting against the career, with the paths
 jsk ship applications/<stem>/resume.json --out applications/<stem> --view <id>
 jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
-jsk event applications/<stem> screen-scheduled --date 2026-09-15
+jsk event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15   # freeze renamed it
 ```
 
 A changeset is a small TriG file; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new

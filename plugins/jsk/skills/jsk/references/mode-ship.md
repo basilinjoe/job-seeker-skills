@@ -8,7 +8,7 @@ inline at the end of `mode-tailor.md` or `mode-resume.md`.
 A `resume.json` that validates, and the view to render. Everything else has a default.
 
 ```
-/jsk:ship <applications/<stem>/resume.json> [--template NAME] [--ats-max] [--pages N]
+/jsk:ship <applications/<stem>/resume.json> [--view ID] [--template NAME] [--ats-max] [--pages N]
 ```
 
 `$ARGUMENTS` names the record. Empty → look for `applications/*/resume.json` and any `resume.json`

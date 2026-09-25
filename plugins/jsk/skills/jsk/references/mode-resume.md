@@ -35,8 +35,10 @@ two files in the other variant, never four.
 
 3. **Write the summary as a claim**, per `writing-rules.md`.
 
-4. **Write `resume.json`** — the only place authoring happens. Copy the shape from `urs-spec.md` and
-   the shipped example; `view-format.md` has the view keys.
+4. **Write `resume.json`** from the career's bullets. A new or reworded bullet goes into the career
+   first — a changeset through `jsk kb apply`, which mints its id and marks it inferred — and is
+   copied here with that id; never a bullet only in the record. Copy the shape from `urs-spec.md`
+   and the shipped example; `view-format.md` has the view keys.
 
    - Every bullet is an `Achievement` with the career's own id (`ach_…`), `text`, `provenance` and —
      whenever the prose carries a number — `metrics` mirroring the current version of each metric it

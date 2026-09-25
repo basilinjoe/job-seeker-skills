@@ -48,9 +48,11 @@ k:ach_clinical_events_cut_latency j:project k:prj_clinical_events ; j:rank 1 ;
 whole workspace - `kb.ttl`, `log.ttl`, every `posting.ttl` and `application.ttl` - into an
 in-memory graph and runs every rule over it before doing anything else: a bullet citing a metric
 that does not exist, a role pointing at an organisation that does not exist, a confirmed entry with
-no answer behind it, a date that does not parse. A finding names the file and the line. About ten
-thousand triples - four hundred projects and a hundred applications - load and validate in well
-under a tenth of a second, so there is no reason to check less than everything.
+no answer behind it, a date that does not parse. A finding names the file and the line. A far larger
+career than anyone has - three hundred projects of three bullets each and a hundred applications,
+about sixteen thousand triples - loads and validates in about 0.3 seconds on a laptop
+(`tests/test_graph_budget.py` measures it and fails past 1.2), so there is no reason to check less
+than everything.
 
 **Hand edits are allowed.** Open the file, fix a typo, save it. The next load validates it like
 anything else, and says `kb.ttl changed outside jsk kb apply`: `jsk kb adopt` logs the edit and
