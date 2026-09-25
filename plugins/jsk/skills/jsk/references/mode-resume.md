@@ -13,7 +13,7 @@ renders the PDF in the ATS-maximal variant instead of the presentation one.
 
 ## Output
 
-For a general rebuild, save the record as `resume.json` beside the knowledge base. For an
+For a general rebuild, save the record as `resume.json` in the workspace. For an
 application, it belongs in that application's directory.
 
 | File | For |
@@ -28,20 +28,22 @@ two files in the other variant, never four.
 
 ## Build order
 
-1. **Read `user-knowledgebase.md` whole** — `## Open questions` as much as `## Projects`: know what
-   is unresolved before you publish it.
+1. **Read the career whole** — `jsk kb view`, then `jsk kb query open` as much as the projects: know
+   what is unresolved before you publish it.
 
-2. **Rank evidence** by `strength`, `recency` and fit to their stated target.
+2. **Rank evidence** by `j:strength`, `j:recency` and fit to their stated target.
 
 3. **Write the summary as a claim**, per `writing-rules.md`.
 
 4. **Write `resume.json`** — the only place authoring happens. Copy the shape from `urs-spec.md` and
    the shipped example; `view-format.md` has the view keys.
 
-   - Every bullet is an `Achievement` with `text`, `provenance` and — whenever the prose carries a
-     number — `metrics` mirroring the row in the knowledge base's `## Metrics` table.
+   - Every bullet is an `Achievement` with the career's own id (`ach_…`), `text`, `provenance` and —
+     whenever the prose carries a number — `metrics` mirroring the current version of each metric it
+     cites (`jsk kb show <ids>`). Shared ids are what the claims gate joins on.
    - `provenance.status` copies straight across. Anything `inferred` stays `inferred`. **Do not
-     launder a status while transcribing** — nothing downstream can detect it.
+     launder a status while transcribing** — the claims gate refuses a record more confirmed than
+     the career.
    - One employer with several roles is **one** `engagement` with several `positions` — the
      promotion story is the point.
    - Declare the region profile on each view: `urs:profile:au/1`, `in/1`, `ae/1`, or omit it for the

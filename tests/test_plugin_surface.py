@@ -135,29 +135,32 @@ class AgentFrontmatter(unittest.TestCase):
 
         It used to be a tool grant: both authoring agents held neither Write nor Edit,
         because every change they made went through a write command that checked its
-        shape. There is no write layer over one Markdown file, so both now hold Edit,
-        and the guarantee is only as good as the sentence stating it. So the sentence
-        is asserted.
+        shape. Over one Markdown file both came to hold Edit, and the guarantee became
+        only as good as the sentence stating it. So the sentence is asserted.
 
-        The analyst's boundary is absolute: it writes the posting and the assessment
-        and never the knowledge base, because a claim that becomes `confirmed` without
-        the person saying so is the defect this framework exists to prevent.
+        The graph record has a write command again, `jsk kb apply`, and it cannot
+        confirm anything - but the analyst still holds Bash, so it could run apply, and
+        Write, so it could edit `career/kb.ttl` by hand. The analyst's boundary is
+        absolute: it writes posting.ttl and the assessment and never the career.
         """
         body = (PLUGIN / "agents" / "jsk-tailor-analyst.md").read_text(encoding="utf-8")
-        self.assertIn("Never touch `user-knowledgebase.md`", body)
+        self.assertIn("Never touch `career/kb.ttl`", " ".join(body.split()))
 
     def test_the_author_is_told_in_writing_that_everything_it_writes_is_inferred(self):
         """The author's boundary is different from the analyst's, because it does write
-        into the knowledge base - bullets belong in the project they are about, so the
-        next application can reuse them. What holds it is the status: everything it
-        authors arrives `inferred`, and `provenance_floor: confirmed` on the view means
-        the record gate refuses to render it until a person has confirmed each clause.
+        into the career - bullets belong in the project they are about, so the next
+        application can reuse them. What holds it is the status: a bullet it adds
+        through `jsk kb apply` arrives `j:inferred` whatever the changeset says (apply
+        refuses one that says confirmed), `provenance_floor: confirmed` on the view means
+        the record gate refuses to render it, and the claims gate refuses a record more
+        confirmed than the career.
 
-        That is enforcement rather than instruction, which is why the author may hold
-        Edit and the analyst's rule has to be a sentence.
+        That is enforcement rather than instruction, which is why the author may run
+        apply and the analyst's rule has to be a sentence.
         """
         body = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
-        self.assertIn("status: inferred", body)
+        self.assertIn("`j:inferred`", body)
+        self.assertIn("jsk kb apply", body)
         self.assertIn("provenance_floor", body)
 
     def test_both_authoring_agents_keep_bash(self):
@@ -168,92 +171,125 @@ class AgentFrontmatter(unittest.TestCase):
                 self.assertIn("Bash", tools)
 
 
-class TheTemplateAndTheSpecAgree(unittest.TestCase):
-    """`jsk new` writes the headings; `kb-spec.md` says what goes under each.
+class TheBannersAndTheFormatAgree(unittest.TestCase):
+    """The writer prints the banners; `kb-format.md` shows them to a model.
 
-    They are one rule in two languages and in two repositories' worth of distance from
-    each other - the template is Python in `src/`, the spec is Markdown in `plugins/`.
-    A heading in one and not the other is the whole failure: the skill writes a section
-    the file does not have, or the file carries one nothing is ever written into.
-
-    The headings are also the contract with every knowledge base already on disk.
-    `kb-spec.md` says never to rename or reorder one, and this is what makes that
-    enforceable rather than merely stated.
+    This used to check that `jsk new`'s Markdown headings and `kb-spec.md` named the
+    same sections - one rule in two languages, Python in `src/` and Markdown in
+    `plugins/`. The rule is the same with the graph record, one level down: the
+    sections are `ontology.SECTIONS["kb"]`, which the writer prints as `# == <Section>`
+    banners in that order, and a model reads kb.ttl by them. A banner missing from the
+    format reference, or listed in another order, sends a model to the wrong place in
+    the file - or has it add a section the writer would never print.
     """
 
-    def headings(self, text):
-        return re.findall(r"^## (.+)$", text, re.M)
+    def format_text(self):
+        return (SKILL / "references" / "kb-format.md").read_text(encoding="utf-8")
 
-    def test_the_scaffold_writes_every_heading_the_spec_documents(self):
-        from jsk.kb import TEMPLATE
+    def banners(self):
+        """The banners kb-format.md lists for kb.ttl: its Layout section's, not the
+        posting.ttl example's further down."""
+        layout = self.format_text().split("## Layout", 1)[1].split("\n## ", 1)[0]
+        return re.findall(r"^# == (.+)$", layout, re.M)
 
-        spec = (SKILL / "references" / "kb-spec.md").read_text(encoding="utf-8")
-        written = self.headings(TEMPLATE)
-        self.assertTrue(written, "the template has no headings")
-        # The spec names each one in its section table as `## Identity` and friends.
-        documented = set(re.findall(r"`## ([A-Za-z ]+)`", spec))
-        missing = sorted(h for h in written if h not in documented)
-        self.assertEqual(missing, [],
-                         f"jsk new writes headings kb-spec.md does not document: {missing}")
+    def test_the_format_lists_every_banner_in_the_writers_order(self):
+        from jsk.graph.ontology import SECTIONS
 
-    def test_the_scaffold_leaves_no_heading_empty_of_guidance(self):
-        """Every section a person opens to an empty file has to say what goes in it.
+        self.assertEqual(self.banners(), list(SECTIONS["kb"]))
 
-        Guidance in a template somebody is looking at gets read; guidance in a
-        specification they have to go and find does not - and this file is the one
-        thing between a blank document and an abandoned one.
-        """
-        from jsk.kb import TEMPLATE
+    def test_the_writer_prints_the_banners_as_the_format_shows_them(self):
+        """The shape, not only the names: an empty record from the writer carries
+        exactly the banner lines kb-format.md lists."""
+        from jsk.graph import writer
 
-        sections = re.split(r"^## ", TEMPLATE, flags=re.M)[1:]
-        for section in sections:
-            name = section.split("\n", 1)[0]
-            with self.subTest(heading=name):
-                self.assertTrue(
-                    "<!--" in section or "```" in section or "|" in section,
-                    f"## {name} offers neither guidance, a block, nor a table")
+        text = writer.write([], "kb")
+        self.assertEqual(re.findall(r"^# == (.+)$", text, re.M),
+                         self.banners())
+
+    def test_the_format_names_every_predicate_a_model_may_draft(self):
+        """A predicate kb-format.md does not name is one a model drafting a changeset
+        cannot know exists - it reaches for `j:note`, or invents a name that apply
+        refuses. So every predicate of every class that kb.ttl or posting.ttl holds is
+        named in it, backticked."""
+        from jsk.graph.ontology import CLASSES
+
+        named = set(re.findall(r"`(?:j:)?([A-Za-z]+)`", self.format_text()))
+        missing = sorted({f"{c.name}.{p}" for c in CLASSES
+                          if set(c.kinds) & {"kb", "posting"}
+                          for p in c.preds if p not in named})
+        self.assertEqual(missing, [], f"kb-format.md does not name: {missing}")
 
 
 class TheLogIsItsOwnFile(unittest.TestCase):
-    """The history moved out of the knowledge base into `log.md` beside it.
+    """The history is `career/log.ttl`, written by `jsk kb` and nothing else.
 
-    Nothing that tailors or authors a resume reads the history, and three agents
-    read the knowledge base whole on every tailoring run - 14k characters of log,
-    three times, for nothing. The failure this guards is the section drifting back:
-    one mode file still saying "append a row to `## Log`" puts it back in the file.
+    It moved out of the knowledge base into `log.md` because nothing that tailors or
+    authors a resume reads the history, then became `log.ttl` when every change started
+    going through `jsk kb apply`, which logs it. The failure this guards is an
+    instruction drifting back: a mode file still saying "append a row to `## Log`", or
+    to `log.md`, has a model hand-writing a log that apply owns.
     """
 
-    def test_the_template_has_no_log_section(self):
-        from jsk.kb import LOG_TEMPLATE, TEMPLATE
-
-        self.assertNotIn("## Log", TEMPLATE)
-        self.assertIn("| date | what changed |", LOG_TEMPLATE)
-
-    def test_jsk_new_writes_the_log_and_force_never_overwrites_it(self):
-        import tempfile
-
-        from jsk.kb import LOG_FILENAME, scaffold
-
-        with tempfile.TemporaryDirectory() as root:
-            code, _ = scaffold(root, "Test Person")
-            self.assertEqual(code, 0)
-            log = Path(root) / LOG_FILENAME
-            self.assertIn("Knowledge base created.", log.read_text(encoding="utf-8"))
-            with log.open("a", encoding="utf-8") as fh:
-                fh.write("| 2026-09-24 | a row somebody wrote |\n")
-            before = log.read_bytes()
-            code, _ = scaffold(root, "Test Person", force=True)
-            self.assertEqual(code, 0)
-            self.assertEqual(log.read_bytes(), before)
-
-    def test_no_instruction_writes_to_a_log_section(self):
-        """Only kb-spec's migration note may still name the old section."""
+    def test_no_instruction_writes_a_log_by_hand(self):
         for path in sorted(PLUGIN.rglob("*.md")):
             text = path.read_text(encoding="utf-8")
-            if path.name == "kb-spec.md":
-                text = text.replace("**A `kb: 1` file still has `## Log` as its last section.**", "")
             with self.subTest(file=path.name):
                 self.assertNotIn("## Log", text)
+                self.assertNotIn("log.md", text)
+
+
+class ChangesetsRouteThroughApply(unittest.TestCase):
+    """The P6 rule, asserted where it can be: the career changes through `jsk kb apply`,
+    and no mode or agent tells a model to grep, sed or Edit it by hand.
+
+    Hand edits are legal - `jsk kb adopt` logs them - but an instruction to make one is
+    the okf failure again: the verb a model is not told about is the one it routes around.
+    """
+
+    def plugin_texts(self):
+        return {p.name: p.read_text(encoding="utf-8") for p in sorted(PLUGIN.rglob("*.md"))}
+
+    def test_nothing_names_the_markdown_knowledge_base_except_its_migration(self):
+        allowed = {"SKILL.md", "mode-setup.md", "setup.md"}
+        for name, text in self.plugin_texts().items():
+            if name in allowed:
+                continue
+            with self.subTest(file=name):
+                self.assertNotIn("user-knowledgebase.md", text)
+
+    def test_no_file_names_the_index_command(self):
+        """`jsk index` leaves with the Markdown reader; `jsk match` replaced it."""
+        for name, text in self.plugin_texts().items():
+            with self.subTest(file=name):
+                self.assertNotIn("jsk index", text)
+                self.assertNotIn("kb-spec.md", text)
+
+    def test_SKILL_md_states_the_one_rule(self):
+        text = " ".join((SKILL / "SKILL.md").read_text(encoding="utf-8").split())
+        self.assertIn("change it with `jsk kb apply <changeset.trig>`", text)
+        self.assertIn("Confirm only with `jsk kb confirm <id> --answer", text)
+        self.assertIn("then `jsk kb adopt`", text)
+        self.assertIn("Never edit `career/kb.ttl` blind.", text)
+        self.assertNotIn("## Editing the knowledge base", text)
+
+    def test_every_changeset_the_plugin_shows_is_one_apply_accepts(self):
+        """A worked example a model copies is code, and unverified code in a document
+        reads as checked. Every TriG block with a changeset graph in it must get past
+        apply's own reader - the refusals that need no career in front of them."""
+        from jsk.graph import changeset
+
+        seen = 0
+        for name, text in self.plugin_texts().items():
+            for block in re.findall(r"```turtle\n(.*?)```", text, re.S):
+                if "op:add" not in block and "op:set" not in block:
+                    continue
+                seen += 1
+                with self.subTest(file=name, block=block[:60]):
+                    try:
+                        changeset.read(block.replace("…", "x"), name)
+                    except changeset.Refused as exc:
+                        self.fail("\n".join(r.text() for r in exc.refusals))
+        self.assertGreaterEqual(seen, 3)
 
 
 class Manifests(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 They talk. You structure. This mode fails if you interrupt.
 
-Everything goes into `user-knowledgebase.md`. Nothing else is written.
+Everything goes into `career/kb.ttl`, through one `jsk kb apply`. Nothing else is written.
 
 ## Let them finish
 
@@ -16,8 +16,8 @@ If they have not started, open wide:
 
 ## Then, before writing anything
 
-1. **Say how many concepts you heard.** "That's three separate things — the platform, the application
-   on top of it, and the migration."
+1. **Say how many projects you heard.** "That's three separate things — the platform, the
+   application on top of it, and the migration."
 2. **Flag ambiguities and probable transcription errors.** Voice input mangles technical terms; ask
    rather than guess. "evals" heard as "emails" changes what goes on a resume.
 3. **Ask the questions that make it resume-grade**, only the ones missing:
@@ -33,46 +33,59 @@ If they have not started, open wide:
 Prompt with where the number might live: monitoring dashboards, cloud billing, release notes,
 incident reviews, performance reviews, the original project brief, a colleague who would know.
 
-An honest approximation is marked `estimated` in the metrics table. No number at all → write the
-bullet true without one and put a row in `## Open questions`.
+An honest approximation is `j:confidence j:estimated`. No number at all → write the bullet true
+without one; set `j:noneQuantified true` on the project if nothing is measurable.
 
-## Before the first edit
+## Is it already there?
 
 ```bash
-grep -n -i "<a distinctive phrase from what they described>" <path>/user-knowledgebase.md
+jsk kb view --section Projects        # every project, to read
+jsk kb query holds c:<concept>        # the projects holding one concept
 ```
 
-If something turns up, **extend the section that exists** rather than adding a rival to it.
+If it turns up, **extend the project that exists** (`jsk kb show <id>`) rather than adding a rival:
+two entries for one project split its evidence so neither reads as strong.
 
 ## Write it up
 
-Ordinary `Edit` calls. A project touches four sections — in this order, because each names something
-the previous established:
+One changeset for the session, in this order, because each names what the previous established:
+the organisation (`org_`) if new, the role (`pos_`), the metric and its first version, then the
+project with its prose and bullets. A concept it uses that no vocabulary has goes in too.
 
-1. **`## Organisations`** — the employer, if it is not already there.
-2. **`## Roles`** — the job, pointing at `organisation:`.
-3. **`## Metrics`** — the number, before the bullet that rests on it. Give it an id.
-4. **`## Projects`** — the project, pointing at `role:`, then its prose, then its `**Bullets**`
-   naming the metric id.
+```turtle
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix op: <tag:jsk,2026:op#> .
+op:changeset op:base 7 ; op:summary "Payments platform, from the braindump." .
+op:add {
+  k:met_settlement j:subject "settlement latency" ; j:unit "ms" ; j:direction j:decrease .
+  k:met_settlement.v1 j:of k:met_settlement ; j:baseline 800 ; j:value 200 ; j:confidence j:reported .
+  k:prj_payments j:name "Payments platform" ; j:position k:pos_acme_lead ; j:strength 4 ;
+      j:recency 2025 ; j:uses c:kafka ; j:headlineMetric k:met_settlement ;
+      j:problem "…" ; j:decision "…" ; j:outcome "…" .
+  [] j:project k:prj_payments ; j:rank 1 ; j:text "Cut settlement latency from 800 ms to 200 ms." ;
+      j:cites k:met_settlement ; j:shows c:kafka .
+}
+```
 
-Add any new `capabilities` or `domains` value to `## Vocabulary` **in the same edit that first uses
-it** — matching compares exact strings, so an unrecorded term silently breaks the next tailoring run.
+`op:base` is the revision `jsk kb show` prints. `references/kb-format.md` lists every field.
 
-Nothing checks references until `jsk validate` runs over a record, so:
+```bash
+jsk kb apply braindump.trig --dry-run      # read the diff
+jsk kb apply braindump.trig
+```
 
-- **Every `id:` you reference must exist.** Read the section you are pointing at.
-- **Every id you create must be new.** Grep it before you use it.
-- **Never renumber, never reuse a retired id.**
+Leave provenance out: everything you write lands `inferred`, each with a question. Only what they
+said in so many words gets `jsk kb confirm <ids> --answer "…"`, afterwards. A refusal names its fix
+— an unknown concept, a dangling id, a missing `j:rank`; fix the changeset and re-run.
 
-Anything you reconstructed, inferred from context, or wrote to fill a shape is `status: inferred`
-and gets a row in `## Open questions`. **Tell them which parts you inferred**, every time, in plain
-words.
+**Tell them which parts you inferred**, every time, in plain words.
 
 ## Close out
 
-One `log.md` row for the session, not one per edit. Then say back what you wrote: how many projects,
-which metrics, what you marked `inferred`, and what is still open. Show the section headings, not the
-YAML, unless they want it.
+Say back what was written — the ids apply minted, the metrics, what is `inferred`, what is still open
+(`jsk kb query open`). Show names, not Turtle, unless they want it.
 
 ## Look for what they undersold
 

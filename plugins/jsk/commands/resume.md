@@ -1,5 +1,5 @@
 ---
-description: Build a verified resume from the knowledge base - one PDF plus plain text, through all four gates
+description: Build a verified resume from the knowledge base - one PDF plus plain text, through every gate
 argument-hint: 'Optional: region code (au, in, ae) or a view id'
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task
 ---

@@ -6,8 +6,8 @@ Turn unverified and unquantified material into confirmed facts.
 
 | Entry | Subject | Asks about |
 |---|---|---|
-| `/jsk:gaps` — a record audit | the knowledge base, no posting in view | record quality: unconfirmed claims, missing metrics, illegible titles, unexplored territory |
-| A tailoring round — see `mode-tailor.md` | a posting **and** the knowledge base | both, ranked together: what this posting wants that the record cannot answer, alongside the record-quality problems that would reach *this* resume |
+| `/jsk:gaps` — a record audit | the career, no posting in view | record quality: unconfirmed claims, missing metrics, illegible titles, unexplored territory |
+| A tailoring round — see `mode-tailor.md` | a posting **and** the career | both, ranked together: what this posting wants that the record cannot answer, alongside the record-quality problems that would reach *this* resume |
 
 Both write the same Markdown assessment (`agents/jsk-tailor-analyst.md` has the format). This file is
 the record audit's conversation.
@@ -18,14 +18,14 @@ reads well.
 
 ## Run it
 
-**Scan first, then talk.** Send `jsk-kb-auditor` the knowledge base path. It writes `audit.gaps.md`
-beside it — the gaps ordered, each with its question ready to ask.
+**Scan first, then talk.** Send `jsk-kb-auditor` the workspace. It writes `audit.gaps.md` beside
+`career/` — the gaps ordered, each with its question ready to ask.
 
-For a quick look without spawning anything, the queue is two greps:
+For a quick look without spawning anything, the queue is two queries:
 
 ```bash
-grep -n "status: inferred\|status: needs-verification" <path>/user-knowledgebase.md
-sed -n '/^## Open questions/,$p' <path>/user-knowledgebase.md
+jsk kb query unconfirmed      # every entry not confirmed, with its open question
+jsk kb query open             # every question not yet answered
 ```
 
 They cannot miss one, and cannot judge one — that is what the auditor is for.
@@ -38,7 +38,7 @@ tailoring round asks its whole queue at once because it is bounded; an audit is 
 
 Order by what unblocks most:
 
-1. **Blocking** — anything stopping a resume going out: an empty `## Identity` block, an unnamed
+1. **Blocking** — anything stopping a resume going out: no email or phone on `k:person`, an unnamed
    project, a date conflict
 2. **Inferred claims**
 3. **Illegible titles** — a job title a reader outside that employer cannot place
@@ -49,13 +49,13 @@ Order by what unblocks most:
 
 ## For inferred claims
 
-Quote it exactly, say where it came from, offer the exit:
+Quote it exactly (`jsk kb show <id>`), say where it came from, offer the exit:
 
 > "On the care-plan project I wrote that policy grounding was there to stop hallucinated guidance
 > reaching staff. You described the mechanism but not the reason — I supplied that. Is it right? If
 > not, I'll cut the clause."
 
-Confirm, correct, or delete. Leaving it as-is is not an option.
+Confirm, correct, or cut. Leaving it as-is is not an option.
 
 ## For illegible titles
 
@@ -65,9 +65,9 @@ Inside the company the title was clear, so people rarely notice. Ask plainly:
 > never worked at that company, what would they think you did? What would the same job be called
 > somewhere else?"
 
-Record the answer as `functional_title` on the role and leave the official `title` untouched — it is
-what a reference check confirms. An answer that is a level up rather than a translation ("really I
-was doing staff engineer work") is a claim about scope: it belongs in the evidence, not in a
+Record the answer as `j:functionalTitle` on the role and leave `j:title` untouched — it is what a
+reference check confirms. An answer that is a level up rather than a translation ("really I was
+doing staff engineer work") is a claim about scope: it belongs in the evidence, not in a
 parenthesis. Skip titles that already read plainly.
 
 ## For missing metrics
@@ -76,9 +76,9 @@ Prompt with where the number might live: monitoring dashboards, APM, cloud billi
 release notes, incident reviews, performance and promotion documents, the original project brief, a
 colleague.
 
-If unavailable, take an honest approximation and record it as `confidence: estimated` — **"~50
+If unavailable, take an honest approximation and record it as `j:confidence j:estimated` — **"~50
 tenants" is worth far more than silence**. No number at all → make the bullet read as true and
-complete without one, then close the question.
+complete without one.
 
 ## For unexplored territory
 
@@ -87,17 +87,14 @@ awards, process changes, cost savings, and work that prevented a problem rather 
 
 ## Record and close
 
-Ordinary `Edit` calls into `user-knowledgebase.md` — the only place to write. Each answer touches two
-places:
+Each answer is one of three commands — never a hand edit of `career/kb.ttl`:
 
-1. **The section it was about** — the metrics row, the bullet, the role's `functional_title`, the
-   project's block. Set its `status` to `confirmed`.
-2. **`## Open questions`** — fill the `answered` date on that row. Leave the row.
-
-**Unavailable is a real outcome**: a metric nobody can reconstruct closes the question and should
-soften or cut the claim rather than leave it pending forever.
-
-Then append one row to `log.md`, and update `updated:` in the frontmatter.
+- **Confirmed as it stands**: `jsk kb confirm <id> --answer "their words"`. It answers the open
+  questions about that entry too.
+- **Corrected, or a new number or title**: a changeset through `jsk kb apply` (`jsk kb show <id>`
+  first for the `op:base`). It comes back `inferred`; confirm it with the answer they just gave.
+- **Unavailable**: soften the claim in a changeset, or `op:retire` it with a `j:reason` — a real
+  outcome, never a question left pending forever.
 
 Report what resolved, what is still open, and **which claims should be softened or cut** because no
 evidence turned up — better to lose a bullet now than be asked about it across a table. **End by
