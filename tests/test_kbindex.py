@@ -1,5 +1,7 @@
-"""jsk index: the overview an agent reads instead of the whole knowledge base, and the
-ranking it used to do in its head.
+"""jsk.kbindex: the Markdown knowledge base reader, and the ranking it used to do.
+
+Retired as `jsk index`; the module stays one release because `jsk migrate` reads the
+Markdown with it, and release N+1 deletes it and this file.
 
 The scores below are worked by hand from the table in jsk-tailor-analyst.md, not read
 back from the code - a test that recites the implementation's output proves only that
@@ -10,9 +12,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import CLI, run
+from fixtures import PACKAGE, run
 
 from jsk import kbindex
+
+KBINDEX = f"{PACKAGE}.kbindex"
 
 TODAY = datetime.date(2026, 9, 23)
 
@@ -346,12 +350,12 @@ class ItRefusesRatherThanGuesses(unittest.TestCase):
 
 class TheCommand(unittest.TestCase):
 
-    def test_jsk_index_ranks_and_exits_zero(self):
+    def test_the_module_ranks_and_exits_zero(self):
         with tempfile.TemporaryDirectory() as root:
             kb, posting = Path(root) / "user-knowledgebase.md", Path(root) / "posting.md"
             kb.write_text(KB, encoding="utf-8")
             posting.write_text(POSTING, encoding="utf-8")
-            code, out = run(CLI, "index", kb, "--rank", posting, "--today", "2026-09-23")
+            code, out = run(KBINDEX, kb, "--rank", posting, "--today", "2026-09-23")
         self.assertEqual(code, 0, out)
         self.assertIn("# Ranking", out)
         self.assertIn("| proj_alpha | 19 |", out)
@@ -360,7 +364,7 @@ class TheCommand(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             kb = Path(root) / "user-knowledgebase.md"
             kb.write_text(KB.replace("strength: 4\n", "strength: many\n"), encoding="utf-8")
-            code, out = run(CLI, "index", kb)
+            code, out = run(KBINDEX, kb)
         self.assertEqual(code, 1, out)
         self.assertIn("FAIL", out)
         self.assertIn("fix:", out)

@@ -3,7 +3,7 @@
 
 Usage: python3 preflight.py [--verify] [--kb PATH] [--json]
        --verify   render the shipped example end to end and run every gate
-       --kb       check a specific user-knowledgebase.md rather than searching
+       --kb       check a specific career/kb.ttl (or its workspace) rather than searching
        --json     machine-readable output
 
 On Windows use `python` or `py -3` in place of `python3`.
@@ -34,8 +34,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 MIN_PYTHON = (3, 10)
 
-# The whole career, in one file. Named here because this is the only module that goes
-# looking for it - everything else in the package starts at the record written from it.
+# The whole career, in one file: career/kb.ttl in a workspace. The Markdown file it
+# replaced is still looked for, only to point it at `jsk migrate` (until release N+1).
+GRAPH_KB_FILENAME = "kb.ttl"
 KB_FILENAME = "user-knowledgebase.md"
 
 # Module names rather than filenames since these became a package. A filename check
@@ -80,8 +81,8 @@ INSTALL = {
                            "applications. A dependency of jsk-resume, so a missing one "
                            "means the install skipped dependencies."},
     "index": {"pip": "markdown-it-py pyyaml",
-              "note": "Reads the Markdown knowledge base for jsk index and jsk migrate: "
-                      "its headings and its yaml blocks (the `migrate` extra)."},
+              "note": "Reads a Markdown knowledge base for jsk migrate, once: its "
+                      "headings and its yaml blocks (the `migrate` extra)."},
 }
 
 
@@ -119,23 +120,44 @@ def which_any(names):
     return None, None
 
 
+def walk_for(start, found):
+    """The first path `found(root, files)` returns, three directories down at most."""
+    start = os.path.abspath(start)
+    for root, dirs, files in os.walk(start):
+        dirs[:] = sorted(d for d in dirs if not d.startswith((".", "__", "node_modules")))
+        if depth(root, start) > 3:
+            dirs[:] = []
+            continue
+        hit = found(root, files)
+        if hit:
+            return hit
+    return None
+
+
 def find_kb(start="."):
-    """The knowledge base is one file, so finding it is finding that file.
+    """The career record, `career/kb.ttl`: the file, found by its name and its folder.
 
     Searched for by name rather than by a directory shape. A bundle used to be
     recognised by the folders inside it, which meant a half-created one - `projects/`
     made, `resume-generation/` not yet - was invisible to this check and reported as
-    "no bundle" while the person was looking straight at it.
+    "no bundle" while the person was looking straight at it. `kb.ttl` alone is not
+    enough of a name - `.jsk/kb.last.ttl` is a cache, and a stray kb.ttl elsewhere is
+    nobody's career - so it counts only inside a folder named `career`.
     """
-    start = os.path.abspath(start)
-    for root, dirs, files in os.walk(start):
-        dirs[:] = [d for d in dirs if not d.startswith((".", "__", "node_modules"))]
-        if depth(root, start) > 3:
-            dirs[:] = []
-            continue
-        if KB_FILENAME in files:
-            return os.path.join(root, KB_FILENAME)
-    return None
+    return walk_for(start, lambda root, files: os.path.join(root, GRAPH_KB_FILENAME)
+                    if os.path.basename(root) == "career" and GRAPH_KB_FILENAME in files
+                    else None)
+
+
+def find_markdown_kb(start="."):
+    """A `user-knowledgebase.md` - a career not yet migrated - or None.
+
+    Looked for only when there is no graph record, and reported as a gap pointing at
+    `jsk migrate`, never as the knowledge base: no gate reads it, `jsk kb` cannot write
+    it, and calling it found would say the career record works when it does not.
+    """
+    return walk_for(start, lambda root, files: os.path.join(root, KB_FILENAME)
+                    if KB_FILENAME in files else None)
 
 
 def depth(path, base):
@@ -228,21 +250,55 @@ def gather(kb_arg=None):
         disables="cannot read or validate the graph record (kb.ttl) - matching and "
                  "career writes are unavailable"))
 
-    # Optional: a machine without them still renders and gates a resume. What it
-    # loses is the index, so the tailor-analyst stops and asks for the install.
+    # Optional: a machine without them still renders, gates, matches and writes the
+    # graph record. What it loses is the one-way move from Markdown.
     checks.append(Check(
         "markdown-it-py and pyyaml",
         module_available("markdown_it") and module_available("yaml"), key="index",
-        disables="jsk index and jsk migrate cannot run, so tailoring stops before the "
-                 "ranking and a Markdown knowledge base cannot move to kb.ttl"))
+        disables="jsk migrate cannot run, so a Markdown knowledge base cannot move to "
+                 "kb.ttl"))
 
-    kb = kb_arg or find_kb()
-    checks.append(Check(
-        f"knowledge base at {kb}" if kb else "knowledge base", bool(kb),
-        disables="nothing to render from yet - `jsk new` creates one",
-        detail=kb or ""))
+    kb, markdown = resolve_kb(kb_arg)
+    if kb:
+        checks.append(Check(f"knowledge base at {kb}", True, detail=kb))
+    elif markdown:
+        # A gap, not a FAIL: the render path starts at resume.json and still works, and a
+        # doctor that blocked on it would hide every other finding behind one migration.
+        checks.append(Check(
+            f"knowledge base at {markdown} (Markdown, not migrated)", False,
+            disables="no gate reads it and `jsk kb` cannot write it, so the claims gate "
+                     f"says NOT RUN - `jsk migrate {markdown}` moves it to career/kb.ttl, "
+                     "once, round-trip checked, deleting nothing",
+            detail=markdown))
+    else:
+        checks.append(Check(
+            "knowledge base", False,
+            disables="nothing to render from yet - `jsk new PATH --name NAME` creates "
+                     "career/kb.ttl"))
 
-    return checks, kb
+    return checks, kb or markdown
+
+
+def resolve_kb(kb_arg=None):
+    """(career/kb.ttl or None, user-knowledgebase.md or None) - the second only when the
+    first is missing. `--kb` may name either file, or the workspace folder."""
+    if kb_arg is None:
+        kb = find_kb()
+        return (kb, None) if kb else (None, find_markdown_kb())
+    if os.path.isdir(kb_arg):
+        graph = os.path.join(kb_arg, "career", GRAPH_KB_FILENAME)
+        if os.path.isfile(graph):
+            return graph, None
+        markdown = os.path.join(kb_arg, KB_FILENAME)
+        return None, (markdown if os.path.isfile(markdown) else None)
+    if not os.path.isfile(kb_arg):
+        return None, None
+    if kb_arg.endswith(".md"):
+        # A migrated workspace keeps its Markdown file; the record beside it is the career.
+        graph = os.path.join(os.path.dirname(os.path.abspath(kb_arg)), "career",
+                             GRAPH_KB_FILENAME)
+        return (graph, None) if os.path.isfile(graph) else (None, kb_arg)
+    return kb_arg, None
 
 
 # LibreOffice used to appear here. It rendered the .docx for page measurement;
@@ -312,7 +368,9 @@ def main(argv):
             print("--kb needs a path")
             return 2
 
-    checks, kb = gather(kb_arg)
+    checks, found = gather(kb_arg)
+    kb = found if found and not found.endswith(".md") else None
+    markdown = found if found and found.endswith(".md") else None
     blocked = [c for c in checks if not c.ok and is_required(c)]
     degraded = [c for c in checks if not c.ok and not is_required(c)]
 
@@ -325,6 +383,7 @@ def main(argv):
         print(json.dumps({
             "ok": not blocked and all(s[1] for s in steps),
             "knowledge_base": kb,
+            "markdown_knowledge_base": markdown,
             "checks": [{"name": c.name, "ok": c.ok, "required": is_required(c),
                         "disables": c.disables} for c in checks],
             "verify": [{"step": s[0], "ok": s[1]} for s in steps],

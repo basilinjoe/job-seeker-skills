@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Index a career knowledge base, and rank its projects against one posting.
 
-Usage: jsk index <user-knowledgebase.md> [--rank <posting.md>] [--today YYYY-MM-DD]
+Retired as `jsk index`: the career is career/kb.ttl, ranked by `jsk match` and read with
+`jsk kb view`. The module stays this release only because `jsk migrate` reads the
+Markdown with it; release N+1 deletes it with `jsk migrate` and the `migrate` extra.
+
+Usage: python -m jsk.kbindex <user-knowledgebase.md> [--rank <posting.md>] [--today YYYY-MM-DD]
        --rank     also score every project against the posting's requirements
        --today    the date recency and experience are measured to (default: today)
 
@@ -451,7 +455,7 @@ def main(argv=None):
             options[flag] = argv[at + 1]
             del argv[at:at + 2]
     if len(argv) != 1:
-        print("usage: jsk index <user-knowledgebase.md> [--rank <posting.md>] [--today YYYY-MM-DD]")
+        print("usage: python -m jsk.kbindex <user-knowledgebase.md> [--rank <posting.md>] [--today YYYY-MM-DD]")
         return 2
     try:
         today = datetime.date.fromisoformat(options["--today"]) if "--today" in options else None
@@ -460,7 +464,7 @@ def main(argv=None):
         return 2
 
     if yaml is None or MarkdownIt is None:
-        print("FAIL  jsk index needs markdown-it-py and pyyaml, and this Python has not got them")
+        print("FAIL  jsk.kbindex needs markdown-it-py and pyyaml, and this Python has not got them")
         print('fix:  python -m pip install markdown-it-py pyyaml   (the "index" extra)')
         return 1
 

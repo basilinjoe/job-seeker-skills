@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import CLI, KB as KB_MODULE, REPO_ROOT, kb_text, run
+from fixtures import CLI, REPO_ROOT, kb_text, run, scaffold_markdown_kb
 
 from jsk import migrate
 from jsk.graph import ontology as O
@@ -720,9 +720,8 @@ class TheCommand(Tmp):
         self.assertEqual(run(CLI, "migrate")[0], 2)
         self.assertEqual(run(CLI, "migrate", self.root / "nothing.md")[0], 2)
 
-    def test_the_template_jsk_new_writes_migrates(self):
-        code, out = run(KB_MODULE, self.root, "--name", "Test Person")
-        self.assertEqual(code, 0, out)
+    def test_the_template_jsk_new_used_to_write_migrates(self):
+        scaffold_markdown_kb(self.root, "Test Person")
         self.assertIn("## Projects", kb_text(self.root))
         code, out = run(CLI, "migrate", self.root / "user-knowledgebase.md")
         self.assertEqual(code, 0, out)

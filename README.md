@@ -4,13 +4,18 @@ Claude skills for job seekers. Currently ships one plugin: **Job Seeker Skill**.
 
 ## Job Seeker Skill
 
-Most resume tools start from a blank page every time. This one keeps your career in **one Markdown
-file you own** — `user-knowledgebase.md` — and treats a resume as one *rendering* of it.
+Most resume tools start from a blank page every time. This one keeps your career in **one file you
+own** — `career/kb.ttl`, a graph laid out as one readable file and checked every time it is loaded
+— and treats a resume as one *rendering* of it.
 
 **Interview once. Regenerate resumes, tailored variants, LinkedIn copy and interview briefs forever.**
 
-Four things make it different:
+Five things make it different:
 
+- **The career checks itself.** Every entry has an id and every link is by id, so a bullet citing a
+  metric that does not exist, or a role at an employer that is not there, is found the next time
+  anything runs. Changes go in through `jsk kb apply` - validated, written, logged, with the diff
+  shown - and nothing can be marked confirmed except by your own answer.
 - **Nothing is hand-built.** One JSON record is written from your knowledge base, and the PDF and the
   paste-in plain text are both emitted from it — so they cannot drift apart or contradict each other.
 - **Gaps close first.** The posting, the gap assessment between it and your record, and the record
@@ -18,7 +23,8 @@ Four things make it different:
   first and writes the resume last — there is no reason to author a document from a record you are
   about to change.
 - **Nothing is invented.** Tailoring is selection: a view references your evidence by id and reorders
-  it. Every number in a bullet must trace to a recorded metric, or the record fails before anything
+  it. Every number in a bullet must trace to the current version of a recorded metric, and every
+  claim to your career at the confidence your career gives it, or the record fails before anything
   renders.
 - **Nothing is assumed.** Four checks run before a resume is handed over, and if no PDF renderer is
   available it is marked *unverified* rather than called fine.
@@ -53,6 +59,9 @@ Already have a resume? Point at it — it is the fastest starting point availabl
 /jsk:setup ./old-resume.docx
 ```
 
+Already have a `user-knowledgebase.md` from an earlier version? `jsk migrate` moves it to
+`career/kb.ttl` once, checks the round trip, and deletes nothing. It is in this release only.
+
 Works in Claude Code and Claude Cowork. Full instructions, including manual install, in the
 [Quickstart](docs/QUICKSTART.md).
 
@@ -82,31 +91,38 @@ details. Every quarter → `refresh`. Before applying → `gaps`, then `resume`.
 ### Your career folder
 
 ```
-career/
-  user-knowledgebase.md     the whole career, under fixed headings
+my-career/                  `jsk new ./my-career --name "Your Name"` makes this
+  career/
+    kb.ttl                  the whole career, in fixed sections
+    log.ttl                 every change to it, numbered, each with kb.ttl's hash
   applications/
     2026-09-08-acme-platform-engineer/
-      posting.md            the advertisement, and what it asks for
+      posting.md            the advertisement, verbatim
+      posting.ttl           what it asks for, each requirement quoting the advert
       gaps.md               the assessment, and the question queue
       resume.json           the record this submission rendered from
-      application.md        what was sent, and what came back
+      application.ttl       what was sent, what it carried, and what came back
       Priya_Raman_Resume.{tex,pdf}
       Priya_Raman_Resume_ATS.txt
+  .gitattributes            keeps *.ttl and *.trig LF, so the hashes hold on Windows
 ```
 
-One file, and a frozen directory per application. `user-knowledgebase.md` holds identity,
-positioning, organisations, roles, projects, metrics, skills, education, certifications, the open
-questions and a log — each under a fixed heading, described in
-[the format spec](plugins/jsk/skills/jsk/references/kb-spec.md). `jsk freeze` writes
-`application.md` once the gates pass and names the directory after the day it was sent; from then on
-it is an archive, and what came back is appended to its timeline.
+One file for the career, and a frozen directory per application. `kb.ttl` holds identity,
+positioning, work rights, vocabulary, organisations, roles, projects, metrics, skills, education,
+certifications, open source and the open questions — each under a fixed banner, in the order the
+format reference ([kb-format.md](plugins/jsk/skills/jsk/references/kb-format.md)) describes.
+`jsk freeze` writes `application.ttl` once the gates pass and names the directory after the day it
+was sent; from then on it is an archive, and `jsk event` adds what came back.
 
-A folder of linked concepts with a compiler over it is the right shape for a knowledge base too large
-to hold in one context. A career is not. One file is readable end to end by the person whose career
-it is, which is the property that actually decides whether a career record survives a year.
+It is a graph - every entry an id, every link between entries by id - because that is what lets a
+program check it on every load, match a posting one way through a vocabulary, keep every version of
+a number, and join a resume back to the career it claims. It is laid out as one file, in the old
+section order, because a career record survives a year only if the person whose career it is can
+read it end to end and correct it. [Why it works this way](docs/WHY.md) has the whole argument,
+including what it costs.
 
-Plain Markdown: readable in any editor, versionable in Git, readable by AI tools without a
-translation layer. Keep it in a repo you control so it outlives any single tool, including this one.
+Plain text in Turtle: readable in any editor, versionable in Git, parsed by any graph library. Keep
+it in a repo you control so it outlives any single tool, including this one.
 
 ### Documentation
 
@@ -116,7 +132,7 @@ translation layer. Keep it in a repo you control so it outlives any single tool,
 | [Concepts](docs/CONCEPTS.md) | The vocabulary, on one screen |
 | [Why it works this way](docs/WHY.md) | The reasoning behind every design decision |
 | [Commands](docs/SCRIPTS.md) | The `jsk` command: every subcommand, flags, dependencies, exit codes |
-| [The knowledge base format](plugins/jsk/skills/jsk/references/kb-spec.md) | Every heading in `user-knowledgebase.md`, and what goes under it |
+| [The knowledge base format](plugins/jsk/skills/jsk/references/kb-format.md) | Every section, class and predicate of `career/kb.ttl`, and what goes in each |
 | [Architecture](docs/ARCHITECTURE.md) | For anyone editing this repo |
 | [URS, explained](docs/urs-guide.md) | The résumé record format, walked through a real document |
 | [URS spec](plugins/jsk/skills/jsk/references/urs-spec.md) | The normative definition of the record: every type, every MUST |

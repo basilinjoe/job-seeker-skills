@@ -17,8 +17,8 @@ already in the record — so a renderer that cannot invent text is a renderer th
 ```
 media type   application/resume+json
 file         resume.json, one per application
-written by   the skill, out of user-knowledgebase.md
-validated by jsk validate
+written by   the skill, out of career/kb.ttl (ids shared with it)
+validated by jsk validate, then the claims gate against career/kb.ttl
 profiles     schema/profiles/<region>.json
 ```
 

@@ -9,24 +9,26 @@ in place of `python3`.
 Every subcommand below also exists as a module you can run or import directly —
 `python3 -m jsk.gates.check_ats resume.pdf`, `from jsk.urs import plan`. The headings name both.
 
-**Nothing here reads `user-knowledgebase.md`** except `jsk index`. That file is Markdown a person
-and the skill edit with ordinary tools; this toolchain starts at the URS record written out of it,
-and carries it to a document somebody can send. The graph record, `career/kb.ttl`, is read and
-written by `jsk kb`, `jsk match`, `jsk event` and the claims gate.
+**The career is `career/kb.ttl`**, the graph record: one Turtle file in the old knowledge base's
+section order, loaded and validated on every run. `jsk kb` changes it (through changesets) and
+reads it back, `jsk match` ranks it against a posting, `jsk freeze` and `jsk event` record what
+was sent and what came back, and the claims gate checks each `resume.json` against it. The
+rendering half starts at the URS record written out of it, and carries that to a document
+somebody can send. **Only `jsk migrate` reads a `user-knowledgebase.md`** - once, to move it
+across.
 
 ## The whole surface
 
 ```bash
 jsk doctor                       # what works on this machine
-jsk new ./my-career --name "Your Name"
-jsk index user-knowledgebase.md --rank applications/<dir>/posting.md
-jsk match applications/<dir>/posting.ttl   # the same question, over the graph record
+jsk new ./my-career --name "Your Name"     # career/kb.ttl and its log, at r1
 jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
+jsk match applications/<dir>/posting.ttl   # a posting against the career, through the vocabulary
 jsk migrate user-knowledgebase.md   # the Markdown knowledge base to career/kb.ttl, once
 jsk validate resume.json         # the record gate
 jsk render resume.json --out . --view view_default --pdf
 jsk check resume.pdf             # both document gates, one pass
-jsk gates .                      # all three mechanical gates
+jsk gates .                      # record, claims, parse and prose gates
 jsk fit resume.tex --target-pages 2
 jsk preview resume.json --out ./looks
 jsk ship resume.json --out . --view view_default   # validate, render, gate
@@ -63,7 +65,7 @@ The `jsk.preflight` module.
 jsk doctor                 # verifies end to end
 jsk doctor --quick         # skip the render
 jsk doctor --json          # machine-readable
-jsk doctor --kb PATH       # check a specific user-knowledgebase.md
+jsk doctor --kb PATH       # check a specific career/kb.ttl, or the workspace holding it
 ```
 
 Bare `jsk doctor` renders the shipped example document and runs the parse and prose gates on the
@@ -75,10 +77,18 @@ is present but failed its own gates — that is a bug in the skill, not in your 
 Gaps are reported by what they *disable*, not by package name. Runs on a bare Python: a preflight
 that needs installing first is not a preflight.
 
-Without `--kb` it searches for `user-knowledgebase.md` three directories down. Searching by filename
-rather than by a directory shape is deliberate — a bundle used to be recognised by the folders inside
-it, so a half-created one was invisible here and reported as absent while the person was looking
-straight at it.
+Without `--kb` it searches three directories down for `career/kb.ttl` - a `kb.ttl` counts only
+inside a folder named `career`, and dot folders (`.jsk/`, `.git/`) are never searched. Searching by
+filename rather than by a directory shape is deliberate — a bundle used to be recognised by the
+folders inside it, so a half-created one was invisible here and reported as absent while the person
+was looking straight at it.
+
+With no graph record but a `user-knowledgebase.md`, the knowledge-base line is a **gap**, not a
+FAIL: `knowledge base at …/user-knowledgebase.md (Markdown, not migrated)`, naming
+`jsk migrate <path>`. The render path starts at `resume.json` and still works on such a machine,
+and blocking on the migration would hide every other finding behind it. `--json` reports the two
+apart: `knowledge_base` is the graph record or `null`, `markdown_knowledge_base` the Markdown
+file or `null`.
 
 ### `jsk new`
 
@@ -86,43 +96,41 @@ The `jsk.kb` module.
 
 ```bash
 jsk new ./my-career --name "Your Name"
-jsk new ./my-career --name "Your Name" --force   # overwrite an existing file
+jsk new ./my-career --name "Your Name" --force   # start career/kb.ttl over from the empty record
 ```
 
-Writes `user-knowledgebase.md` with every heading present and empty, plus `log.md` and an
-`applications/` directory beside it. No dependencies. It refuses rather than overwriting, because the
-file it would replace is somebody's career; `--force` replaces the knowledge base but never an
-existing `log.md`.
+Writes a graph workspace:
 
-What each heading is for is written into the file itself, as HTML comments beneath each one.
-Guidance in a template a person is looking at gets read; guidance in a specification they have to go
-and find does not.
+| Path | Is |
+|---|---|
+| `career/kb.ttl` | the empty record in the canonical layout: a header naming the person (`k:kb j:name`) and every section banner, `# == Identity` to `# == Open questions`, at `j:revision 1` |
+| `career/log.ttl` | `k:rev_1`, `j:by j:new`, holding kb.ttl's hash |
+| `applications/README.md` | what each application directory holds |
+| `.gitattributes` | `*.ttl text eol=lf` and `*.trig text eol=lf`, added to whatever is there already |
 
-### `jsk index`
+Both record files come out of the same writer and the same kb.ttl-then-log.ttl commit every
+`jsk kb` write uses, so the record is **clean at r1** and `jsk kb apply` works on it straight away:
+writes refuse a record that is unlogged or hand-edited, and a workspace that started any other way
+would first have to be adopted. The `.gitattributes` lines matter on Windows: a checkout that
+turned kb.ttl's line endings to CRLF would change the bytes whose hash `log.ttl` holds.
 
-The `jsk.kbindex` module.
+The empty record holds no identity: `k:person` arrives with the first changeset, like any other
+entry, as `j:inferred` with a question - the name on the command line says whose record this is,
+not that anyone confirmed how it should head a resume. Needs pyoxigraph, a dependency of the
+package.
 
-```bash
-jsk index user-knowledgebase.md                          # the overview
-jsk index user-knowledgebase.md --rank posting.md        # plus the ranking and coverage
-jsk index user-knowledgebase.md --rank posting.md --today 2026-09-23   # replay a past run
-```
+It refuses (exit 1, nothing written) when `career/kb.ttl` exists, or when a `user-knowledgebase.md`
+is in the folder and no `career/kb.ttl` is - that career is already written down, and
+`jsk migrate` moves it across checked; `jsk new` would leave it behind, and migrate refuses once a
+kb.ttl exists. `--force` overrides both. Over an existing record it starts over **as the next
+revision** - kb.ttl becomes the empty record, `log.ttl` keeps every earlier entry and gains one by
+`new`, and git holds the old text - and it is refused where a frozen application carried an entry
+the empty record would not have, or where `log.ttl` does not parse.
 
-Needs markdown-it-py and pyyaml (`pip install markdown-it-py pyyaml`, the `index` extra); without
-them it exits 1 saying so. Prints, never writes. Every section and entry with its line range; each project's strength,
-recency, seniority, status and tags; roles with their dates and the years they cover, overlaps
-counted once; the vocabulary, skills with aliases, metric ids and the unanswered questions. About a
-seventh of the file it describes. It is generated each time because line numbers move on every edit.
-
-`--rank` scores every project against the posting's `requirements` by the table in
-`jsk-tailor-analyst.md`: required ×3, preferred ×1, strength ×2, recency +1 within three years and
-+0.5 at four to six, seniority +1 at or above the posting's (the eight levels, most senior first).
-Matches are exact strings against `capabilities` and `technologies`. A **Coverage** table follows:
-which projects carry each requirement's term, and which terms the vocabulary does not have.
-
-Exit 1 when the file is not in the shape `kb-spec.md` describes — a project with no `yaml` block, a
-nested value in a flat block, a strength outside 1–5 — naming the entry. A project that failed to
-parse quietly would score as absent evidence on every posting.
+Guidance that the Markdown template carried in HTML comments is not in kb.ttl: a comment is not
+part of the graph, and `jsk kb fmt` and `adopt` refuse a file holding one. What each section holds
+is the format reference's job (`references/kb-format.md` in the skill), and every refused write
+names what it refused.
 
 ## The record
 
@@ -136,8 +144,7 @@ jsk match applications/<dir>/posting.ttl --cover 2       # a cover of at most tw
 jsk match applications/<dir>/posting.ttl --json --today 2026-09-24
 ```
 
-The graph record's `jsk index --rank`: a posting's requirements joined with the career through the
-vocabulary - the shipped `jsk/data/vocabulary.ttl` and the knowledge base's own additions. Reads the
+A posting's requirements joined with the career through the vocabulary - the shipped `jsk/data/vocabulary.ttl` and the knowledge base's own additions. Reads the
 whole workspace the posting sits in (`career/kb.ttl`, `applications/*/`) and validates it first;
 any FAIL is printed and nothing is matched. Needs pyoxigraph, a dependency of the package.
 
@@ -146,9 +153,11 @@ one within two hops - `via c:aks, 1 hop`), `near` (only an `implies` path, for a
 only something broader), `missing`, `ambiguous` (the label names several concepts; the analyst
 answers with `j:concept`), `candidate` (it names none), `implicit`. Evidence per project is
 `confirmed` (a confirmed bullet shows it), `unconfirmed` or `tag` (only the project's tags say so).
-**Ranking** scores exactly as `jsk index --rank` does. **Cover** is the smallest set of projects,
-at most `--cover` (default 3), carrying every required requirement anything carries. **Questions**
-are derived from the gaps, never invented.
+**Ranking** scores by the table in `jsk-tailor-analyst.md` - required ×3, preferred ×1, strength
+×2, recency +1 within three years and +0.5 at four to six, seniority +1 at or above the posting's -
+the same arithmetic the retired `jsk index --rank` did, now over concepts rather than exact
+strings. **Cover** is the smallest set of projects, at most `--cover` (default 3), carrying every
+required requirement anything carries. **Questions** are derived from the gaps, never invented.
 
 Exit 0 with the result - missing requirements included, since this is an assessment, not a gate;
 1 when the workspace has a FAIL; 2 called wrong, or a path that is not
@@ -165,13 +174,48 @@ jsk kb apply changes.trig --dry-run      # the diff it would make, nothing writt
 jsk kb apply changes.trig                # merged, validated, written, logged
 ```
 
-**`apply`** is how an agent changes `career/kb.ttl`: a changeset, in TriG, with four graphs.
+**`apply`** is how an agent changes `career/kb.ttl`: a changeset, in TriG, with four graphs. A
+first braindump into the empty record `jsk new` writes (r1) - it applies as it stands:
 
-```turtle
+```trig
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix op: <tag:jsk,2026:op#> .
-op:changeset op:base 7 ; op:summary "The payments project, from the braindump." .
-op:add    { k:prj_payments j:name "Payments platform" ; j:strength 4 ; j:recency 2025 .
-            [] j:project k:prj_payments ; j:rank 1 ; j:text "Cut settlement latency by 75%." . }
+
+op:changeset op:base 1 ; op:summary "Who she is, and the payments project, from the first braindump." .
+
+op:add {
+    k:person j:fullName "Priya Raman" ; j:email "priya@example.com" ; j:phone "+61 400 000 000" .
+    k:org_meridian j:name "Meridian Health" ; j:relationship j:employer .
+    k:pos_meridian_principal j:organisation k:org_meridian ;
+        j:title "Principal Solution Architect" ;
+        j:start "2023-07" ; j:state j:ongoing ; j:seniority j:architecture-ownership .
+    k:prj_payments j:name "Payments platform" ; j:position k:pos_meridian_principal ;
+        j:strength 4 ; j:recency 2025 ; j:uses c:kafka, c:payments ;
+        j:headlineMetric k:met_settlement .
+    [] j:project k:prj_payments ; j:rank 1 ;
+        j:text "Cut settlement latency from 800 ms to 200 ms." ;
+        j:cites k:met_settlement ; j:shows c:kafka .
+    k:met_settlement j:subject "settlement latency" ; j:unit "ms" ; j:direction j:decrease .
+    k:met_settlement.v1 j:of k:met_settlement ; j:baseline 800 ; j:value 200 ;
+        j:confidence j:reported .
+    c:payments a j:Domain ; j:label "payments" .
+}
+```
+
+The other three graphs, against a record that has been growing for a while (the prefix block is
+the same, and always all five lines):
+
+```trig
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix op: <tag:jsk,2026:op#> .
+
+op:changeset op:base 7 ; op:summary "Tidying after the quarterly review." .
 op:set    { k:prj_legacy j:strength 2 . }                     # replaces every value it names
 op:retire { k:prj_intranet j:reason "Too old to earn a line." . }
 op:delete { k:q_duplicate a op:Entry . k:ach_x j:shows c:java . }
@@ -277,16 +321,20 @@ is minted from its project and its words. An entry with no `status` is `j:inferr
 never raises a provenance. A value the ontology has no field for is kept as a `j:note` on its entry
 and named in the output; an unknown section is kept word for word as a note on `k:kb`.
 
-It refuses, writing nothing, when `career/kb.ttl` exists; when the file is not in `kb-spec.md`'s
-shape (`jsk index`'s reader decides); when a required value is missing (a role with no
-organisation, a metric whose value is not a number); when the new workspace would have a FAIL; or
+It refuses, writing nothing, when `career/kb.ttl` exists; when the file is not in the Markdown
+format's shape (the old reader, `jsk.kbindex`, decides); when a required value is missing (a role
+with no organisation, a metric whose value is not a number); when the new workspace would have a FAIL; or
 when the round trip fails - the graph, written and parsed back, must read as exactly the entries
-read from the Markdown, and `jsk index`'s own view of the projects, roles, years of experience,
+read from the Markdown, and the old reader's own view of the projects, roles, years of experience,
 metrics and questions must match the same view of the graph. After writing it runs the claims
 gate over every `resume.json`, where the install has it. Needs markdown-it-py and pyyaml (the
 `migrate` extra).
 
 Exit 0 migrated (or would be); 1 refused, with every reason; 2 called wrong.
+
+**`jsk migrate` is for one release.** The release after this one deletes it, with the Markdown
+reader (`jsk/kbindex.py`) and the `migrate` and `index` extras. Migrate before upgrading past it; a
+`user-knowledgebase.md` left after that stays readable by a person and by nothing in `jsk`.
 
 ### `jsk validate`
 
@@ -727,8 +775,14 @@ Exit 0 added, 1 refused, 2 called wrong.
 
 ## What is not here any more
 
-The `okf` commands left with the bundle format; what each one did is now an edit or a `grep` on
-`user-knowledgebase.md`, `jsk validate` over the record written from it, or `jsk freeze`.
+**`jsk index`** read `user-knowledgebase.md`: an overview with line ranges, and `--rank` against
+a posting's frontmatter. The career is `career/kb.ttl` now - `jsk match` ranks it against a
+`posting.ttl`, `jsk kb view` and `jsk kb show` read it - and `jsk index` says so and exits 2. Its
+module, `jsk.kbindex`, stays one release because `jsk migrate` reads the Markdown with it.
+
+The `okf` commands left with the bundle format, in 4.0. The graph record brings back a write path -
+see [WHY.md](WHY.md) for why that is not the same decision made twice - but one generic verb,
+`jsk kb apply`, whose coverage is the ontology, not a command per noun.
 
 ---
 

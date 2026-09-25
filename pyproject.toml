@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "jsk-resume"
 dynamic = ["version"]
-description = "Render verified, ATS-safe resumes from a career kept in one Markdown file"
+description = "Render verified, ATS-safe resumes from a career kept as one validated graph file"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -40,12 +40,13 @@ dependencies = ["pyoxigraph>=0.5.11,<0.6"]
 # a hundred lines of hand-written Markdown and YAML parsing, and they are optional -
 # `jsk index` says what to install rather than failing on import.
 #
-# `migrate` is the same two: the Markdown reader, which now exists to move a
-# user-knowledgebase.md to career/kb.ttl once. `index` stays as its alias while
-# `jsk index` does; both go in the release after the graph record (the roadmap's P7).
+# `migrate` is the same two: the Markdown reader, which now exists only to move a
+# user-knowledgebase.md to career/kb.ttl once. `jsk index` is retired (P7); `index`
+# stays as an alias of `migrate` this release so an existing install line still works.
+# Release N+1 deletes both extras, with kbindex.py and `jsk migrate` itself.
 pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
 migrate = ["markdown-it-py", "pyyaml"]  # jsk migrate: the Markdown knowledge base, read once
-index = ["markdown-it-py", "pyyaml"]    # alias of migrate, for jsk index
+index = ["markdown-it-py", "pyyaml"]    # alias of migrate; removed in release N+1
 all = ["pymupdf", "markdown-it-py", "pyyaml"]
 dev = ["pymupdf", "markdown-it-py", "pyyaml", "pytest", "pytest-xdist", "ruff"]
 

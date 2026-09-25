@@ -26,7 +26,7 @@ VERDICT = 0 if tex.available_engine() else 1
 
 
 class KnowledgeBaseDiscovery(unittest.TestCase):
-    """The career is one file, so finding it is finding that file.
+    """The career is one file, `career/kb.ttl`, so finding it is finding that file.
 
     A bundle used to be recognised by the directories inside it, which meant a
     half-created one was invisible here and reported as "no bundle" while the person
@@ -38,20 +38,47 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
 
-    def make_kb(self, parent, name="career"):
-        root = parent / name
+    def make_kb(self, parent, name="my-career"):
+        root = parent / name / "career"
         root.mkdir(parents=True)
+        path = root / "kb.ttl"
+        path.write_text("k:kb j:format 3 .", encoding="utf-8")
+        return path
+
+    def make_markdown(self, parent, name="my-career"):
+        root = parent / name
+        root.mkdir(parents=True, exist_ok=True)
         path = root / "user-knowledgebase.md"
         path.write_text("# Career knowledge base", encoding="utf-8")
         return path
 
-    def test_finds_the_knowledge_base_by_name(self):
+    def test_finds_the_graph_record_by_name(self):
         path = self.make_kb(self.tmp)
         self.assertEqual(Path(preflight.find_kb(self.tmp)), path)
+
+    def test_a_kb_ttl_outside_a_career_folder_is_not_one(self):
+        (self.tmp / "notes").mkdir()
+        (self.tmp / "notes" / "kb.ttl").write_text("", encoding="utf-8")
+        self.assertIsNone(preflight.find_kb(self.tmp))
+
+    def test_a_markdown_knowledge_base_is_not_the_record(self):
+        """It is still found - to be pointed at `jsk migrate` - but never as the record."""
+        path = self.make_markdown(self.tmp)
+        self.assertIsNone(preflight.find_kb(self.tmp))
+        self.assertEqual(Path(preflight.find_markdown_kb(self.tmp)), path)
+
+    def test_a_migrated_workspace_is_its_graph_record(self):
+        self.make_markdown(self.tmp)
+        path = self.make_kb(self.tmp)
+        self.assertEqual(preflight.resolve_kb(str(self.tmp / "my-career")),
+                         (str(path), None))
+        md = self.tmp / "my-career" / "user-knowledgebase.md"
+        self.assertEqual(preflight.resolve_kb(str(md)), (str(path), None))
 
     def test_a_directory_with_no_knowledge_base_is_not_one(self):
         (self.tmp / "notacareer" / "projects").mkdir(parents=True)
         self.assertIsNone(preflight.find_kb(self.tmp))
+        self.assertIsNone(preflight.find_markdown_kb(self.tmp))
 
     def test_a_differently_named_markdown_file_is_not_one(self):
         """Every other .md in a career folder - a posting, a log, a draft - would
@@ -59,16 +86,45 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         first."""
         (self.tmp / "career").mkdir()
         (self.tmp / "career" / "resume.md").write_text("draft", encoding="utf-8")
-        self.assertIsNone(preflight.find_kb(self.tmp))
+        self.assertIsNone(preflight.find_markdown_kb(self.tmp))
 
     def test_dot_directories_are_not_searched(self):
+        """`.jsk/kb.last.ttl` is a cache, and a .git folder holds old copies."""
         self.make_kb(self.tmp / ".hidden")
         self.assertIsNone(preflight.find_kb(self.tmp))
 
     def test_search_does_not_descend_forever(self):
-        deep = self.tmp / "a" / "b" / "c" / "d" / "e"
+        deep = self.tmp / "a" / "b" / "c" / "d"
         self.make_kb(deep)
         self.assertIsNone(preflight.find_kb(self.tmp))
+
+
+class AMarkdownKnowledgeBaseIsPointedAtMigrate(unittest.TestCase):
+    """A user-knowledgebase.md with no kb.ttl beside it is a gap, never a FAIL: the
+    render path starts at resume.json and still works, and blocking on it would hide
+    every other finding behind one migration."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        self.md = self.tmp / "user-knowledgebase.md"
+        self.md.write_text("# Career knowledge base", encoding="utf-8")
+
+    def test_it_is_a_gap_naming_migrate(self):
+        checks, found = preflight.gather(str(self.md))
+        kb = next(c for c in checks if c.name.startswith("knowledge base"))
+        self.assertFalse(kb.ok)
+        self.assertFalse(preflight.is_required(kb))
+        self.assertIn(f"jsk migrate {self.md}", kb.disables)
+        self.assertEqual(found, str(self.md))
+
+    def test_json_reports_it_apart_from_the_record(self):
+        code, out = run(PREFLIGHT, "--kb", self.md, "--json")
+        self.assertEqual(code, VERDICT, out)
+        payload = json.loads(out)
+        self.assertIsNone(payload["knowledge_base"])
+        self.assertEqual(Path(payload["markdown_knowledge_base"]), self.md)
 
 
 class GapsAreDescribedByWhatTheyCost(unittest.TestCase):
@@ -189,9 +245,9 @@ class CliBehaviour(unittest.TestCase):
         self.assertEqual(len(payload["verify"]), 5)
 
     def test_kb_override_is_honoured(self):
-        path = self.tmp / "mine" / "user-knowledgebase.md"
+        path = self.tmp / "mine" / "career" / "kb.ttl"
         path.parent.mkdir(parents=True)
-        path.write_text("# Career knowledge base", encoding="utf-8")
+        path.write_text("k:kb j:format 3 .", encoding="utf-8")
         code, out = run(PREFLIGHT, "--kb", path, "--json")
         self.assertEqual(code, VERDICT, out)
         self.assertEqual(Path(json.loads(out)["knowledge_base"]), path)
