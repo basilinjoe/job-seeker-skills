@@ -246,7 +246,7 @@ class CliBehaviour(unittest.TestCase):
     def test_verify_runs_the_pipeline_and_every_gate(self):
         code, out = run(PREFLIGHT, "--verify")
         self.assertEqual(code, 0, out)
-        for step in ("validate the example record", "render the example to a PDF",
+        for step in ("validate the example resume", "render the example to a PDF",
                      "parse gate, rendered PDF",
                      "parse gate, plain text (strict)", "prose gate"):
             self.assertIn(step, out)
@@ -269,6 +269,26 @@ class CliBehaviour(unittest.TestCase):
         render = next(c for c in calls if any("render_resume" in a for a in c))
         self.assertIn(paths.EXAMPLE_SHORT, render)
         self.assertNotIn("--view", render)
+
+    def test_verify_validates_the_short_file_not_the_legacy_record(self):
+        """The validate step read example.resume.json - a URS record nothing renders any
+        more - so doctor passed a check on a file the render never touched."""
+        from unittest import mock
+
+        from jsk import paths, preflight
+        calls = []
+
+        def fake(args, **_):
+            calls.append(args)
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(preflight.subprocess, "run", fake):
+            steps = preflight.verify(str(self.tmp))
+        check = next(c for c in calls if any("resume.short" in a for a in c))
+        self.assertIn(paths.EXAMPLE_SHORT, check)
+        self.assertFalse(any("validate_urs" in a for c in calls for a in c))
+        self.assertEqual(steps[0][0], "validate the example resume")
+        self.assertEqual(len(steps), 5)
 
     def test_json_output_is_machine_readable(self):
         code, out = run(PREFLIGHT, "--json")

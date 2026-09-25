@@ -29,7 +29,7 @@ import sys
 import tempfile
 
 from . import __version__
-from .paths import EXAMPLE_RECORD as EXAMPLE, EXAMPLE_SHORT, SCHEMA_DIR as SCHEMA
+from .paths import EXAMPLE_SHORT, SCHEMA_DIR as SCHEMA
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -352,13 +352,16 @@ def verify(tmp):
                       (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]))
         return proc.returncode == 0
 
-    if not os.path.exists(EXAMPLE):
+    if not os.path.exists(EXAMPLE_SHORT):
         steps.append(("example document present", False,
-                      [f"{EXAMPLE} missing"]))
+                      [f"{EXAMPLE_SHORT} missing"]))
         return steps
 
-    run("validate the example record",
-        [f"{__package__}.gates.validate_urs", EXAMPLE])
+    # The file the render reads, not example.resume.json: validating a URS record the
+    # render no longer touches passed a check on the wrong file. Shape and ids until
+    # the record gate (jsk.gates.record) lands and takes this step over.
+    run("validate the example resume",
+        [f"{__package__}.resume.short", EXAMPLE_SHORT])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the resolver works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",

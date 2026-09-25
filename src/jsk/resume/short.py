@@ -137,3 +137,44 @@ def ids(doc, store):
                     out.append(f"bullets: {ident}'s project {project[len(O.K):]} names no "
                                "role (j:position), so it would render under no employer")
     return out
+
+
+def main(argv):
+    """`python -m jsk.resume.short <resume.json>`: shape and ids, PASS or FAIL.
+
+    doctor spawns it over the example workspace: the record gate (jsk.gates.record)
+    replaces it there once it lands, and this stays the check with no gate behind it."""
+    import sys
+
+    args = argv[1:]
+    if len(args) != 1 or args[0].startswith("-"):
+        print("usage: python -m jsk.resume.short <resume.json>")
+        return 2
+    path = args[0]
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:                                        # pragma: no cover
+        pass
+    print(f"checking: {path}")
+    try:
+        doc = read(path)
+        root = workspace(path)
+    except ShortError as e:
+        print(f"FAIL  {e}\n      fix: {e.fix}")
+        return 1
+    from ..graph import store as S
+
+    fails = shape(doc) or ids(doc, S.load(root))
+    for line in fails:
+        print(f"FAIL  {line}")
+    if fails:
+        print(f"FAIL {len(fails)}")
+        return 1
+    print("PASS - safe to render")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main(sys.argv))

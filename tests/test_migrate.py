@@ -5,7 +5,6 @@ read from the Markdown is what the graph holds, and nothing it read from is dele
 """
 import contextlib
 import hashlib
-import importlib.util
 import io
 import json
 import os
@@ -578,12 +577,11 @@ class ARealKnowledgeBaseMigrates(Tmp):
         self.assertTrue((draft / "posting.ttl").is_file())
         self.assertFalse((draft / "application.ttl").exists())
 
-    def test_the_claims_gate_runs_over_every_resume_it_found(self):
-        # A gate that did not run is not a gate that passed: "did not run" is a failure here.
-        self.assertTrue(importlib.util.find_spec("jsk.gates.claims"))
-        self.assertNotIn("did not run", self.out)
-        self.assertRegex(self.out, r"claims   applications/2026-09-10-acme-platform-engineer/"
-                                   r"resume\.json: \d+ FAIL")
+    def test_a_frozen_application_s_record_is_named_and_left_alone(self):
+        # Its resume.json is the archive of what was sent: converting it would rewrite
+        # the file its application.ttl's recordSha256 names.
+        self.assertRegex(self.out, r"frozen +applications/2026-09-10-acme-platform-engineer")
+        self.assertNotIn("claims   ", self.out)
 
     def test_a_second_fmt_changes_nothing(self):
         code, out = run(CLI, "kb", "fmt", "--root", self.root)
@@ -978,6 +976,212 @@ class TheCommand(Tmp):
         t = triples(self.root)
         self.assertEqual(t[("k:met_event_latency.v1", "value")], {"1"})
         self.assertIn("c:kafka", t[("k:prj_clinical_events", "uses")])
+
+
+class ADraftBesideTheMarkdownIsShortened(Tmp):
+    """The Markdown path converts an unfrozen application's full record once the career
+    is written, and checks the short file against it - the claims gate it ran before
+    compared a copy with the career, and there is no copy any more."""
+
+    def test_the_draft_is_shortened_and_checked(self):
+        workspace(self.root)
+        draft = self.root / "applications" / "globex-staff-engineer"
+        (draft / "resume.json").write_text(json.dumps(RESUME, indent=2), encoding="utf-8")
+        code, out = migrated(self.root)
+        self.assertEqual(code, 0, out)
+        doc = json.loads((draft / "resume.json").read_text(encoding="utf-8"))
+        self.assertEqual(doc, {"resume": 2, "bullets": ["ach_latency"]})
+        self.assertEqual(json.loads((draft / "resume.urs.json").read_text(encoding="utf-8")),
+                         RESUME)
+        self.assertIn("ach_retuned", out)                   # dropped, and said so
+        self.assertRegex(out, r"record +applications/globex-staff-engineer/resume\.json: 0 FAIL")
+
+
+LEGACY = Path(__file__).parent / "claims_fixtures" / "applications" / "contoso-platform" / \
+    "resume.json"
+
+
+def legacy(**view):
+    """The fixture's full record, its one view renamed and changed by `view`."""
+    record = json.loads(LEGACY.read_text(encoding="utf-8"))
+    record["views"] = [{**record["views"][0], "id": "view_contoso_platform", **view}]
+    return record
+
+
+class Shorten(unittest.TestCase):
+    """A full URS record's choices - its view - carried into a short file, and nothing
+    the career already holds."""
+
+    def setUp(self):
+        import careerkit
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root, _ = careerkit.workspace(self._tmp.name, edits=[careerkit.RETIRE])
+        self.store = careerkit.store(self.root)
+
+    def shorten(self, record, view_id=None):
+        from jsk.resume import short
+
+        doc, notes = migrate.shorten(record, self.store, view_id)
+        self.assertEqual(short.shape(doc), [])
+        self.assertEqual(short.ids(doc, self.store), [])
+        return doc, notes
+
+    def test_the_view_s_choices_become_the_short_file(self):
+        record = legacy(
+            format_profile="ats-maximal",
+            include=[{"ref": "eng_meridian"}, {"ref": "eng_lakeside"},
+                     {"ref": "prj_identity", "achievements": ["ach_identity_sso"]},
+                     {"ref": "prj_events",
+                      "achievements": ["ach_events_team", "ach_events_latency"]}],
+            skills=["skill_kubernetes"],
+            budget={"pages": 2, "ats_maximal_pages": 3})
+        doc, notes = self.shorten(record)
+        self.assertEqual(doc, {
+            "resume": 2, "format": "ats-maximal", "region": "au", "pages": 2, "ats_pages": 3,
+            "floor": "confirmed",
+            "summary": {"text": "Platform engineer with 5 years of Kubernetes, building event "
+                                "platforms that other teams build on.", "status": "confirmed"},
+            # include order, not the career's rank: the author ordered them for the posting
+            "bullets": ["ach_identity_sso", "ach_events_team", "ach_events_latency"],
+            # Lakeside was in the view with no bullet - its role keeps the chronology;
+            # Meridian's two roles come whole with its bullets, so neither is listed.
+            "roles": ["pos_lakeside_contractor"],
+            "skills": ["skill_kubernetes"]})
+
+    def test_a_view_with_no_include_takes_every_bullet_in_record_order(self):
+        doc, _ = self.shorten(legacy())
+        self.assertEqual(doc["bullets"], ["ach_events_latency", "ach_events_team",
+                                          "ach_identity_sso", "ach_data_ingestion"])
+        self.assertNotIn("roles", doc)
+
+    def test_a_bullet_the_career_no_longer_holds_is_dropped_with_a_note(self):
+        record = legacy(include=[{"ref": "prj_events", "achievements": [
+            "ach_events_gone", "ach_events_terraform", "ach_events_latency"]}],
+            skills=["skill_kubernetes", "skill_cobol"])
+        doc, notes = self.shorten(record)
+        self.assertEqual(doc["bullets"], ["ach_events_latency"])
+        self.assertEqual(doc["skills"], ["skill_kubernetes"])
+        text = "\n".join(notes)
+        self.assertIn("ach_events_gone", text)
+        self.assertIn("ach_events_terraform", text)        # retired in careerkit.RETIRE
+        self.assertIn("skill_cobol", text)
+
+    def test_the_positioning_is_not_carried_as_a_summary(self):
+        # nar_positioning is the career's own; absent, the short file renders it anyway.
+        record = legacy(narrative="nar_positioning")
+        record["narratives"].append({"id": "nar_positioning", "kind": "summary",
+                                     "text": "Platform Engineer."})
+        doc, _ = self.shorten(record)
+        self.assertNotIn("summary", doc)
+
+    def test_an_inferred_narrative_stays_inferred(self):
+        record = legacy()
+        record["narratives"][0]["provenance"] = {"status": "needs-verification"}
+        doc, _ = self.shorten(record)
+        self.assertEqual(doc["summary"]["status"], "inferred")
+
+    def test_several_views_and_none_named_is_refused(self):
+        from jsk.resume import short
+
+        record = legacy()
+        record["views"].append({"id": "view_other"})
+        with self.assertRaises(short.ShortError) as err:
+            migrate.shorten(record, self.store)
+        self.assertIn("view_contoso_platform", str(err.exception))
+        self.assertIn("--view", err.exception.fix)
+        doc, _ = self.shorten(record, "view_contoso_platform")
+        self.assertEqual(doc["region"], "au")
+
+    def test_a_default_region_is_left_out(self):
+        doc, _ = self.shorten(legacy(region_profile="urs:profile:xx/1"))
+        self.assertNotIn("region", doc)
+
+
+class ConvertAGraphWorkspace(Tmp):
+    """`jsk migrate` in a workspace that already has career/kb.ttl: each unfrozen
+    application's full record becomes a short file, the old one kept beside it."""
+
+    def setUp(self):
+        super().setUp()
+        import careerkit
+
+        careerkit.workspace(self.root)
+        self.draft = self.root / "applications" / "contoso-platform"
+        shutil.copy(LEGACY, self.draft / "resume.json")
+        self.sent = self.root / "applications" / "2026-09-01-contoso-sent"
+        shutil.copytree(self.draft, self.sent)
+        (self.sent / "application.ttl").write_text("# frozen\n", encoding="utf-8")
+        self.sent_before = snapshot(self.sent)
+
+    def migrate(self, *args):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = migrate.main([*map(str, args)])
+        return code, out.getvalue()
+
+    def test_the_draft_is_shortened_and_the_old_one_kept(self):
+        code, out = self.migrate(self.root)
+        self.assertEqual(code, 0, out)
+        doc = json.loads((self.draft / "resume.json").read_text(encoding="utf-8"))
+        self.assertEqual(doc["resume"], 2)
+        self.assertEqual((self.draft / "resume.urs.json").read_bytes(), LEGACY.read_bytes())
+        self.assertRegex(out, r"shortened +applications/contoso-platform/resume\.json")
+        self.assertRegex(out, r"record +applications/contoso-platform/resume\.json: 0 FAIL")
+
+    def test_a_frozen_application_is_named_and_left_alone(self):
+        code, out = self.migrate(self.root)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(snapshot(self.sent), self.sent_before)
+        self.assertRegex(out, r"frozen +applications/2026-09-01-contoso-sent")
+
+    def test_a_second_run_changes_nothing(self):
+        self.migrate(self.root)
+        before = snapshot(self.root)
+        code, out = self.migrate(self.root)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(snapshot(self.root), before)
+        self.assertIn("nothing to shorten", out)
+
+    def test_a_dry_run_writes_nothing(self):
+        before = snapshot(self.root)
+        code, out = self.migrate(self.root, "--dry-run")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(snapshot(self.root), before)
+        self.assertIn('"resume": 2', out)
+
+    def test_no_argument_means_the_workspace_above_here(self):
+        # Task 10's run: `jsk migrate` from inside the workspace, nothing named.
+        import subprocess
+        import sys
+
+        from fixtures import child_env
+        proc = subprocess.run([sys.executable, "-m", CLI, "migrate"], cwd=self.draft,
+                              capture_output=True, text=True, env=child_env())
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(json.loads((self.draft / "resume.json").read_text(
+            encoding="utf-8"))["resume"], 2)
+
+    def test_one_record_and_its_view_by_name(self):
+        record = json.loads(LEGACY.read_text(encoding="utf-8"))
+        record["views"].append({"id": "view_other", "narrative": "nar_contoso"})
+        (self.draft / "resume.json").write_text(json.dumps(record), encoding="utf-8")
+        code, out = self.migrate(self.root)
+        self.assertEqual(code, 1, out)
+        self.assertIn("--view", out)
+        self.assertIn("urs", json.loads((self.draft / "resume.json").read_text(encoding="utf-8")))
+        code, out = self.migrate(self.draft / "resume.json", "--view", "view_other")
+        self.assertEqual(code, 0, out)
+        doc = json.loads((self.draft / "resume.json").read_text(encoding="utf-8"))
+        self.assertNotIn("region", doc)                     # view_other named no region
+
+    def test_the_markdown_path_still_refuses_and_points_here(self):
+        (self.root / "user-knowledgebase.md").write_text(EVERY_SECTION, encoding="utf-8")
+        code, out = self.migrate(self.root / "user-knowledgebase.md")
+        self.assertEqual(code, 1, out)
+        self.assertIn("REFUSED  career/kb.ttl already exists", out)
+        self.assertIn("shortens", out)
 
 
 if __name__ == "__main__":

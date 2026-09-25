@@ -2,14 +2,28 @@
 """Migrate a Markdown knowledge base to the graph record, one way.
 
 Usage: jsk migrate <user-knowledgebase.md> [--dry-run]
+       jsk migrate [<workspace> | <resume.json> [--view ID]] [--dry-run]
        --dry-run   print every file it would write, and write nothing
+       --view ID   the view to carry, for a record holding several
 
 The workspace is the folder holding user-knowledgebase.md. It writes career/kb.ttl and
 career/log.ttl there (logged as r1, `j:by j:migrate`, so `jsk kb` reads it as clean),
 and for each applications/<dir>/: posting.ttl, posting.md as the advert alone, and
 application.ttl when the application was frozen. The old posting.md is kept whole as
-posting.orig.md. Nothing is deleted: user-knowledgebase.md, log.md, application.md,
-gaps.md and resume.json stay where they are.
+posting.orig.md. Then each unfrozen application's full record is shortened, as the
+second form does. Nothing is deleted: user-knowledgebase.md, log.md, application.md,
+gaps.md and a frozen application's resume.json stay where they are, and a shortened
+one's full record is kept as resume.urs.json.
+
+The second form is for a workspace already on the graph (career/kb.ttl exists; with no
+argument, the one above the current folder): each applications/<dir>/resume.json still
+holding a full URS record, in an application with no application.ttl, is shortened in
+place to the short resume.json - its view's bullets in include order, skills, format,
+region, page budgets, floor and authored summary - and the full record is kept beside
+it as resume.urs.json. A frozen application's record is the archive of what was sent
+and is left as it is. Each short file is then checked against the career. Exit 0 =
+every record shortened and checked clean, 1 = one was refused or fails, 2 = no
+workspace or called wrongly.
 
 Exit 0 = migrated (or, with --dry-run, would be). Exit 1 = refused and nothing was
 written: career/kb.ttl already exists, the file is not in the shape docs/legacy-kb-spec.md
@@ -243,7 +257,6 @@ class Plan:
     files: dict = field(default_factory=dict)            # workspace name -> text
     copies: list = field(default_factory=list)           # (from name, to name)
     renamed: dict = field(default_factory=dict)         # numbered bullet id -> minted id
-    records: list = field(default_factory=list)          # resume.json paths
     apps: int = 0
     defaulted: int = 0                                   # entries with no status: inferred
     store: object = None                                 # the new workspace, validated
@@ -1905,7 +1918,8 @@ def plan_migration(kb_path, today=None):
     plan = Plan(root)
     if os.path.exists(os.path.join(root, R.KB)):
         raise Refused([(f"{R.KB} already exists in {root}: this knowledge base was migrated",
-                        "`jsk kb check` reads it; to migrate again, move career/kb.ttl and "
+                        "`jsk kb check` reads it; `jsk migrate <workspace>` shortens its "
+                        "applications' resume.json; to migrate again, move career/kb.ttl and "
                         "career/log.ttl aside first")])
     with open(kb_path, encoding="utf-8") as fh:
         text = normalise(fh.read())
@@ -1993,7 +2007,6 @@ def plan_migration(kb_path, today=None):
         plan.refusals += [(f.text(), None) for f in fails]
     if plan.refusals:
         raise Refused(plan.refusals)
-    plan.records = records_of(root)
     plan.store = store
     return plan
 
@@ -2020,32 +2033,307 @@ def write_plan(plan):
     print(f"wrote  {R.LOG} (r1, by migrate)")
 
 
-def claims_gate(root, records):
-    """The claims gate over every resume.json, when this install has it (P5)."""
-    try:
-        from .gates import claims
-    except ImportError:
-        print("claims   gate not available (jsk.gates.claims is not in this install) - "
-              "no resume.json was checked against the new record")
-        return 0
-    from .graph import store as S
+# --- full records shortened ----------------------------------------------------------------
+#
+# An application's resume.json was a 30-47KB URS record copied out of career/kb.ttl, of
+# which the view and the summary - all anyone authored - were 3KB (ElevenLabs,
+# 2026-09-25). The short file keeps those choices and nothing the career holds, so this
+# is the one place a full record is still read: an unfrozen draft is converted once.
+# A frozen application's record is the archive of what was sent - its application.ttl
+# names the file's hash - and is left as it is.
 
-    store = S.load(root)                   # the record just written, as the gate reads it
-    worst = 0
-    for record in records:
-        name = os.path.relpath(record, root).replace("\\", "/")
-        try:
-            report = claims.check(record, store)
-        except Exception as e:                      # noqa: BLE001 - a verdict, not a traceback
-            print(f"claims   did not run on {name}: {type(e).__name__}: {e}")
-            worst = 1                               # a gate that did not run did not pass
+KEPT = "resume.urs.json"
+
+
+def region_code(ref):
+    """`urs:profile:au/1` -> "au"; the default profile (`xx`) -> None, which the short
+    file says by leaving `region` out."""
+    token = str(ref or "")
+    if token.startswith("urs:profile:"):
+        token = token[len("urs:profile:"):].split("/")[0]
+    token = token.strip().lower()
+    return None if token in ("", "xx", "none", "default") else token
+
+
+def pick_view(record, view_id):
+    """The view to carry. Several and none named is refused, not guessed: views[0] was
+    how the renderer used to pick, and a person with three live targets got an arbitrary
+    one of them and was told nothing."""
+    from .resume.short import ShortError
+
+    views = [v for v in record.get("views") or [] if isinstance(v, dict)]
+    if view_id:
+        view = next((v for v in views if v.get("id") == view_id), None)
+        if view is None:
+            raise ShortError(f"no view {view_id!r} in this record; it holds "
+                             f"{', '.join(str(v.get('id')) for v in views) or 'none'}",
+                             "name one of those with --view")
+        return view
+    if len(views) > 1:
+        raise ShortError(f"this record holds {len(views)} views and none was named: "
+                         f"{', '.join(str(v.get('id')) for v in views)}",
+                         "name the one this application sent: jsk migrate "
+                         "<its resume.json> --view <id>")
+    return views[0] if views else {}
+
+
+def shorten(record, store, view_id=None):
+    """(short file, notes) for a full URS record over the career in `store`.
+
+    What carries is what the view chose: its include lists' bullets in include order,
+    its skills, format, region, page budgets, floor and an authored summary. Every id
+    must be live in the career, so one it no longer holds - retired, or never migrated -
+    is dropped and noted rather than failing the whole file. Raises short.ShortError
+    when the view cannot be picked or no bullet it chose survives."""
+    from .graph import ontology as O
+    from .graph import record as R
+    from .resume import short
+    from .resume.career import Career
+
+    if not isinstance(record, dict) or "urs" not in record:
+        raise short.ShortError("not a full URS record (no \"urs\" key)",
+                               "only a legacy resume.json is shortened")
+    career = Career(store.graph(R.KB))
+    known = {iri: c.name for iri, c in career.sub.cls.items()}
+    notes = []
+
+    def live(ident, cls, what):
+        iri = O.K + str(ident)
+        if known.get(iri) != cls:
+            notes.append(f"dropped {what} {ident} - career/kb.ttl holds no {cls} of that id")
+            return False
+        if career.get(iri, "retired"):
+            notes.append(f"dropped {what} {ident} - retired on {career.get(iri, 'retired')} "
+                         f"({career.get(iri, 'reason', 'no reason given')})")
+            return False
+        return True
+
+    view = pick_view(record, view_id)
+    if not view:
+        notes.append("no view: every bullet the record holds is carried")
+    include = [i for i in view.get("include") or [] if isinstance(i, dict)]
+    chosen = [a for i in include for a in i.get("achievements") or []]
+    engagements = [e for e in record.get("engagements") or [] if isinstance(e, dict)]
+    projects = [p for p in record.get("projects") or [] if isinstance(p, dict)]
+    refs = {i.get("ref") for i in include}
+    # The renderer showed only the engagements the view included, or all of them when it
+    # named none - the same rule decides which bullets and which bare roles carry.
+    named = {e.get("id") for e in engagements} & refs
+
+    def shown(eid):
+        return not named or eid in named
+
+    if not chosen:
+        # No include lists: the renderer showed every bullet of what it showed, so the
+        # short file names each of them, in the record's order.
+        in_eng = {pid: e.get("id") for e in engagements for pid in e.get("projects") or []}
+        for e in engagements:
+            if shown(e.get("id")):
+                chosen += [a.get("id") for a in e.get("achievements") or []
+                           if isinstance(a, dict)]
+        for p in projects:
+            eid = p.get("engagement") or in_eng.get(p.get("id"))
+            if shown(eid) or p.get("id") in refs:
+                chosen += [a.get("id") for a in p.get("achievements") or []
+                           if isinstance(a, dict)]
+    bullets = []
+    for aid in dict.fromkeys(a for a in chosen if isinstance(a, str)):
+        if live(aid, "Achievement", "bullet"):
+            bullets.append(aid)
+    if not bullets:
+        raise short.ShortError("no bullet the view chose is still in career/kb.ttl",
+                               "write the short file with `jsk kb export --select ...`")
+
+    # An employer comes whole with any of its bullets (the builder shows its every role),
+    # so a role is named only where the view showed an employer and chose none of its
+    # bullets - the line that keeps the chronology unbroken.
+    def org_of(aid):
+        return career.get(career.get(career.get(O.K + aid, "project"), "position"),
+                          "organisation")
+
+    with_bullets = {org_of(a) for a in bullets}
+    roles = []
+    for e in engagements:
+        if not shown(e.get("id")):
             continue
-        fails = report.fails
-        print(f"claims   {name}: {len(fails)} FAIL")
+        for p in e.get("positions") or []:
+            pid = p.get("id") if isinstance(p, dict) else None
+            if not pid or known.get(O.K + pid) != "Position" or career.get(O.K + pid, "retired"):
+                continue
+            if career.get(O.K + pid, "organisation") not in with_bullets:
+                roles.append(pid)
+
+    doc = {"resume": short.VERSION}
+    fmt = view.get("format_profile")
+    if fmt in short.FORMATS:
+        doc["format"] = fmt
+    elif fmt:
+        notes.append(f"format {fmt!r} is not one a resume.json takes - presentation it is")
+    region = region_code(view.get("region_profile"))
+    if region:
+        doc["region"] = region
+    budget = view.get("budget") if isinstance(view.get("budget"), dict) else {}
+    for old, new in (("pages", "pages"), ("ats_maximal_pages", "ats_pages")):
+        n = budget.get(old)
+        if isinstance(n, int) and not isinstance(n, bool) and n >= 1:
+            doc[new] = n
+    if view.get("provenance_floor") in short.FLOORS:
+        doc["floor"] = view["provenance_floor"]
+    nid = view.get("narrative")
+    if nid and nid != "nar_positioning":
+        # nar_positioning is the career's own positioning, which a short file with no
+        # summary renders anyway; any other narrative was written for this posting.
+        nar = next((n for n in record.get("narratives") or []
+                    if isinstance(n, dict) and n.get("id") == nid), None)
+        if nar and isinstance(nar.get("text"), str) and nar["text"].strip():
+            status = (nar.get("provenance") or {}).get("status")
+            doc["summary"] = {"text": nar["text"],
+                              "status": "confirmed" if status == "confirmed" else "inferred"}
+        else:
+            notes.append(f"the view's narrative {nid} is not in the record - the career's "
+                         "positioning renders instead")
+    doc["bullets"] = bullets
+    if roles:
+        doc["roles"] = roles
+    skills = [s for s in dict.fromkeys(view.get("skills") or []) if isinstance(s, str)
+              and live(s, "Skill", "skill")]
+    if skills:
+        doc["skills"] = skills
+    elif view.get("skills"):
+        notes.append("none of the view's skills is in the career - every skill renders")
+    return doc, notes
+
+
+def unshortened(root):
+    """(to convert, frozen): the applications' resume.json holding a full record, split
+    by whether an application.ttl beside it says it was sent."""
+    todo, frozen = [], []
+    for path in records_of(root):
+        if os.path.isfile(os.path.join(os.path.dirname(path), "application.ttl")):
+            frozen.append(path)
+            continue
+        try:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            continue                          # not ours to judge; jsk validate names it
+        if isinstance(data, dict) and "urs" in data:
+            todo.append(path)
+    return todo, frozen
+
+
+def rel(root, path):
+    return os.path.relpath(path, root).replace("\\", "/")
+
+
+def shorten_files(root, store, paths, view_id=None, dry=False):
+    """Shorten each resume.json in `paths` in place, the full record kept beside it as
+    resume.urs.json. Prints a line for each and its notes; returns (written, refused)."""
+    from .resume.short import ShortError
+
+    written, refused = [], 0
+    for path in paths:
+        name = rel(root, path)
+        kept = os.path.join(os.path.dirname(path), KEPT)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                raw = fh.read()
+            if os.path.exists(kept):
+                raise ShortError(f"{rel(root, kept)} already exists",
+                                 "move it aside - it may be the only copy of an earlier "
+                                 "record - then run jsk migrate again")
+            doc, notes = shorten(json.loads(raw), store, view_id)
+        except (OSError, ValueError, ShortError) as e:
+            print(f"REFUSED  {name}: {e}")
+            if getattr(e, "fix", None):
+                print(f"        fix: {e.fix}")
+            refused += 1
+            continue
+        text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
+        extra = [f"{len(doc[k])} {k if len(doc[k]) > 1 else k[:-1]}"
+                 for k in ("bullets", "roles", "skills") if doc.get(k)]
+        print(f"would shorten  {name} ({', '.join(extra)})" if dry else
+              f"shortened  {name} ({', '.join(extra)}; the full record kept as {KEPT})")
+        for note in notes:
+            print(f"  note  {note}")
+        if dry:
+            print(text, end="")
+            continue
+        with open(kept, "w", encoding="utf-8", newline="") as fh:
+            fh.write(raw)
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        written.append(path)
+    return written, refused
+
+
+def record_check(root, store, paths):
+    """Shape and ids over each short file just written, listed as claims_gate listed its
+    findings. The record gate (jsk.gates.record) replaces this once it is merged."""
+    from .resume import short
+
+    worst = 0
+    for path in paths:
+        try:
+            doc = short.read(path)
+            fails = short.shape(doc) or short.ids(doc, store)
+        except short.ShortError as e:
+            fails = [str(e)]
+        print(f"record   {rel(root, path)}: {len(fails)} FAIL")
         for f in fails:
             print(f"  {f}")
         worst = max(worst, 1 if fails else 0)
     return worst
+
+
+def say_frozen(root, frozen):
+    if frozen:
+        print(f"frozen   {', '.join(rel(root, os.path.dirname(p)) for p in frozen)} - left as "
+              "they are: each resume.json is the record of what was sent")
+
+
+def shorten_workspace(root, store, dry=False):
+    """Every unfrozen full record in the workspace shortened, then checked - after the
+    Markdown path writes kb.ttl, and as the whole of the graph-workspace path. 0, or 1
+    when one was refused or fails its check."""
+    todo, frozen = unshortened(root)
+    say_frozen(root, frozen)
+    if not todo:
+        print("nothing to shorten: no unfrozen application holds a full record")
+        return 0
+    written, refused = shorten_files(root, store, todo, dry=dry)
+    worst = record_check(root, store, written)
+    return 1 if refused or worst else 0
+
+
+def main_workspace(target, view_id, dry):
+    """`jsk migrate [<workspace> | <resume.json> [--view ID]]`, where career/kb.ttl exists."""
+    from .graph import store as S
+    from .graph.kbcli import find_root
+
+    one = target if target and os.path.isfile(target) else None
+    start = os.path.dirname(os.path.abspath(one)) if one else (target or os.getcwd())
+    root = find_root(start)
+    if root is None:
+        print(f"not a workspace: {target or os.getcwd()}")
+        print("fix:  pass the folder holding career/kb.ttl, or a user-knowledgebase.md to "
+              "migrate")
+        return 2
+    if view_id and not one:
+        print("--view names one record's view: pass that application's resume.json")
+        return 2
+    store = S.load(root)
+    if not one:
+        code = shorten_workspace(root, store, dry)
+    elif os.path.isfile(os.path.join(os.path.dirname(one), "application.ttl")):
+        say_frozen(root, [one])
+        return 1
+    else:
+        written, refused = shorten_files(root, store, [one], view_id, dry)
+        code = 1 if refused or record_check(root, store, written) else 0
+    if dry:
+        print("dry run: nothing was written")
+    return code
 
 
 def main(argv=None):
@@ -2053,12 +2341,32 @@ def main(argv=None):
     if wants_help(args):
         print(docstring_usage(__doc__))
         return 0
+    usage = ("usage: jsk migrate <user-knowledgebase.md> [--dry-run]\n"
+             "       jsk migrate [<workspace> | <resume.json> [--view ID]] [--dry-run]")
     dry = "--dry-run" in args
     args = [a for a in args if a != "--dry-run"]
-    if len(args) != 1 or args[0].startswith("-"):
-        print("usage: jsk migrate <user-knowledgebase.md> [--dry-run]")
+    view_id = None
+    if "--view" in args:
+        at = args.index("--view")
+        if at + 1 >= len(args) or args[at + 1].startswith("-"):
+            print(usage)
+            return 2
+        view_id = args[at + 1]
+        del args[at:at + 2]
+    if len(args) > 1 or (args and args[0].startswith("-")):
+        print(usage)
         return 2
-    path = args[0]
+    path = args[0] if args else None
+    # A folder, a resume.json, or nothing named: the workspace is on the graph already
+    # and what is left to migrate is its applications' full records.
+    if path is None or os.path.isdir(path) or path.lower().endswith(".json"):
+        code = main_workspace(path, view_id, dry)
+        if code == 2 and path is None:
+            print(usage)
+        return code
+    if view_id:
+        print(usage)
+        return 2
     if not os.path.isfile(path):
         print(f"not a file: {path}")
         print("fix:  pass the user-knowledgebase.md to migrate")
@@ -2107,7 +2415,9 @@ def main(argv=None):
     st = R.state(store)
     print(f"record   {st.kind} at r1 - {len(store.fails())} FAIL, {len(store.warns())} WARN "
           f"(`jsk kb check` lists them)")
-    claims_gate(plan.root, plan.records)
+    # The drafts beside the Markdown were full records over the career just written;
+    # shortened now, they are checked against it the way the claims gate checked them.
+    shorten_workspace(plan.root, store)
     print("nothing was deleted: user-knowledgebase.md, log.md and every application.md stay "
           "where they are")
     return 0 if not store.fails() else 1

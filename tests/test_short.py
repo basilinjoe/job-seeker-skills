@@ -150,3 +150,55 @@ class Ids(unittest.TestCase):
                 "k:prj_data j:name \"Data\" ;\n")
         found = self.ids({**OK, "bullets": ["ach_data_ingestion"]}, edits=[edit])
         self.assertTrue(any("ach_data_ingestion" in f and "role" in f for f in found), found)
+
+
+class Main(unittest.TestCase):
+    """`python -m jsk.resume.short <resume.json>`: the check doctor spawns over the
+    example, until the record gate (jsk validate) takes its place."""
+
+    def main(self, *args):
+        import contextlib
+        import io
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = short.main(["short.py", *map(str, args)])
+        return code, out.getvalue()
+
+    def test_the_example_passes(self):
+        from jsk import paths
+
+        code, out = self.main(paths.EXAMPLE_SHORT)
+        self.assertEqual(code, 0, out)
+        self.assertIn("PASS - safe to render", out)
+
+    def test_a_retired_bullet_fails_naming_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, path = careerkit.workspace(
+                tmp, edits=[careerkit.RETIRE],
+                short={**OK, "bullets": ["ach_events_terraform"]})
+            code, out = self.main(path)
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL", out)
+        self.assertIn("ach_events_terraform", out)
+        self.assertNotIn("PASS", out)
+
+    def test_a_legacy_record_fails_with_the_fix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp, "resume.json")
+            p.write_text(json.dumps({"urs": "1.0.0"}), encoding="utf-8")
+            code, out = self.main(p)
+        self.assertEqual(code, 1, out)
+        self.assertIn("jsk migrate", out)
+
+    def test_called_wrong_exits_two(self):
+        self.assertEqual(self.main()[0], 2)
+
+    def test_it_runs_as_a_module(self):
+        # Doctor spawns it: an entry point that only works imported proves nothing there.
+        from fixtures import run
+        from jsk import paths
+
+        code, out = run("jsk.resume.short", paths.EXAMPLE_SHORT)
+        self.assertEqual(code, 0, out)
+        self.assertIn("PASS - safe to render", out)
