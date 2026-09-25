@@ -392,13 +392,15 @@ confirmed. This gate checks the record against the career. Ids are shared (`prj_
 |---|---|---|
 | 1 | `absent-confirmed` - an achievement `kb.ttl` does not hold is anything above `inferred` in the record | FAIL |
 | 2 | `provenance-raised` - any id the two share is more confirmed in the record than in `kb.ttl` | FAIL |
+| 2a | `project-moved` - a bullet `kb.ttl` holds sits under another project than its `j:project` (or under an engagement that neither lists that project nor holds its role): the id carries a confirmation of work somewhere else | FAIL |
+| 2b | `text-changed` - a bullet `kb.ttl` holds keeps fewer than half of `kb.ttl`'s content words for it, or adds more than twice as many new ones as it kept; a warning, since wording is retuned per posting | WARN |
 | 3 | `number-superseded` / `number-untraced` - a numeral in a bullet is in no current version of a metric the bullet cites in `kb.ttl`, and not in the words of the confirmed `kb.ttl` bullet it carries; a bullet `kb.ttl` does not hold may instead name metrics by `"id": "met_x"` in its `metrics` (for one it holds, those names trace nothing). Superseded when an older, closed version has it, even if the `kb.ttl` words still say it | FAIL |
 | 4 | `label-unheld` - a vocabulary label in a bullet names a concept its project does not hold (tags, domains, what its live bullets show, and what those count as without an `implies`) | WARN |
 | 5 | `alias-unheld` - a skill's name or alias names a concept no project holds | WARN |
 | 6 | `years-overstated` - "N years of X" in the headline, a narrative or a bullet exceeds what the roles behind the projects holding X cover (`jsk kb query experience`) | WARN |
 
 1-3 read ids and numbers. 4-6 read prose, where a word may or may not be a technology, so they
-warn until they have been measured at zero false positives on real records. A label of three
+warn until they have been measured at zero false positives on real records; 2b reads prose too. A label of three
 characters or fewer matches only as written ("Go", never "go"); a longer one also with its
 first letter in the other case; the longest label is read first, so ".NET Framework" is never
 read as ".NET". An alias that names no concept is not a claim this gate can read and is left

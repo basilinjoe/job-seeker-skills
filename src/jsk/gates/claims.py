@@ -18,6 +18,10 @@ so each check is a join:
 
   FAIL  1  an achievement kb.ttl does not hold must be inferred in the record
   FAIL  2  no record provenance above the one kb.ttl holds for the same id
+  FAIL  2a a bullet kb.ttl holds sits under the project kb.ttl's j:project names (or an
+           engagement listing that project or holding its role)
+  WARN  2b a bullet kb.ttl holds keeps at least half of kb.ttl's content words and adds
+           no more than twice as many as it kept - wording is retuned per posting
   FAIL  3  every numeral in a bullet is in the current version of a metric it cites
            (kb.ttl's j:cites for a bullet kb.ttl holds; the record's metric ids only for
            one it does not), or in the words of the confirmed kb bullet it carries -
@@ -27,7 +31,8 @@ so each check is a join:
   WARN  6  "N years of X" beyond what the roles behind the projects holding X cover
 
 4-6 read prose, where a word can be a technology or not ("Go"), so they warn until they
-have been measured at zero false positives on real records. 1-3 read ids and numbers.
+have been measured at zero false positives on real records, and 2b reads it too. 1-3 read
+ids and numbers.
 """
 import datetime
 import os
@@ -100,6 +105,8 @@ class Career:
                 self.cites.setdefault(r["a"].value, set()).add(r["m"].value)
         self.text = {r["a"].value: r["t"].value for r in store.select(
             PRE + "SELECT ?a ?t WHERE { ?a a j:Achievement ; j:text ?t }")}
+        self.position = {r["p"].value: r["pos"].value for r in store.select(
+            PRE + "SELECT ?p ?pos WHERE { ?p a j:Project ; j:position ?pos }")}
         self.versions = {}               # metric -> [(version, {numbers}, closed day or None)]
         for r in store.select(PRE + """SELECT ?m ?v ?val ?base ?until WHERE {
                 ?v j:of ?m ; j:value ?val OPTIONAL { ?v j:baseline ?base }
@@ -259,6 +266,83 @@ def numbers(doc, career, found):
                     "and cite it (j:cites) from the bullet"))
 
 
+def moved(doc, career, found):
+    """A kb bullet sits where kb.ttl's j:project puts it.
+
+    Its id carries kb.ttl's confirmation, and the confirmation was of the work on that
+    project: the same words under another employer are a claim nobody confirmed. Under
+    a project, the record's project id must be kb.ttl's; under an engagement, kb.ttl's
+    project must be one the engagement lists, or its role one the engagement holds."""
+    engagements = {e.get("id"): e for e in doc.get("engagements") or []
+                   if isinstance(e, dict)}
+    for a, where in walk_achievements(doc):
+        ident = a.get("id")
+        project = career.project.get(career.iri(ident or ""))
+        if project is None or career.iri(ident) not in career.kb:
+            continue
+        kind, _, parent = where.partition(" ")
+        if kind == "project":
+            if career.iri(parent) == project:
+                continue
+        else:
+            e = engagements.get(parent) or {}
+            listed = {career.iri(p) for p in e.get("projects") or [] if isinstance(p, str)}
+            roles = {career.iri(p.get("id")) for p in e.get("positions") or []
+                     if isinstance(p, dict) and isinstance(p.get("id"), str)}
+            if project in listed or career.position.get(project) in roles:
+                continue
+        found.append(Finding(
+            "project-moved", "FAIL", ident,
+            f"kb.ttl holds it under {curie(project)}; the record puts it under {where}",
+            f"move it back under {curie(project)}, or write a new bullet for {where} - "
+            "inferred until the person confirms it"))
+
+
+# Words too common to say whether two bullets make the same claim.
+STOPWORDS = frozenset(
+    "the and for with from into onto over under that this these those its their our was "
+    "were has had have than then across through per via also while who which all each "
+    "whom".split())
+
+
+def words(text):
+    """A bullet's content words: lower case, no numbers (check 3 reads those), no
+    possessive, a plural's s dropped, nothing shorter than three letters."""
+    text = re.sub(r"['’]s\b", "", text.lower())
+    out = set()
+    for w in re.findall(r"[a-z][a-z0-9]*", text):
+        if len(w) > 3 and w.endswith("s") and not w.endswith("ss"):
+            w = w[:-1]
+        if len(w) >= 3 and w not in STOPWORDS:
+            out.add(w)
+    return out
+
+
+def retold(doc, career, found):
+    """A kb bullet's words are still kb.ttl's words.
+
+    The author retunes wording for each posting, so this warns rather than fails. It
+    warns when the record keeps fewer than half of kb.ttl's content words (the id is
+    carrying a different claim), or adds more than twice as many new ones as it kept
+    (a claim appended to confirmed words)."""
+    for a, _ in walk_achievements(doc):
+        ident, text = a.get("id"), a.get("text")
+        held = career.text.get(career.iri(ident or ""))
+        if held is None or not isinstance(text, str):
+            continue
+        kb, rec = words(held), words(text)
+        if not kb:
+            continue
+        kept, added = kb & rec, rec - kb
+        if len(kept) * 2 < len(kb) or len(added) > 2 * len(kept):
+            found.append(Finding(
+                "text-changed", "WARN", ident,
+                f"keeps {len(kept)} of kb.ttl's {len(kb)} content words and adds "
+                f"{len(added)} ({', '.join(sorted(added)[:6]) or 'none'}); kb.ttl says "
+                f"{held!r}", "say what kb.ttl says - retuned, not replaced - or record the new "
+                "claim with `jsk kb apply` and confirm it with the person"))
+
+
 def source_project(a, owner, career):
     """The project a record bullet is evidence from: kb.ttl's, or the record's own."""
     iri = career.iri(a.get("id") or "")
@@ -372,7 +456,9 @@ def findings(record, store, today=None):
     career = Career(store)
     found = []
     provenance(doc, career, found)
+    moved(doc, career, found)
     numbers(doc, career, found)
+    retold(doc, career, found)
     vocabulary(doc, career, found)
     skills(doc, career, found)
     years(doc, career, found, today)

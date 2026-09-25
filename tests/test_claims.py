@@ -269,6 +269,59 @@ class Numbers(unittest.TestCase):
                          {("number-superseded", "FAIL", "ach_events_latency")})
 
 
+GAME = "Grew a Go server to 100,000 players."
+
+
+class Carried(unittest.TestCase):
+    """A kb bullet's id carries its confirmation only onto its own words and project."""
+
+    def test_a_kb_bullet_moved_under_another_project_fails(self):
+        doc = clean()
+        doc["projects"][0]["achievements"].append({
+            "id": "ach_game_players", "text": GAME,
+            "metrics": [{"kind": "count", "subject": "players",
+                         "quantity": {"value": 100000}}],
+            "provenance": {"status": "confirmed"}})
+        fails = {k for k in keys(found(doc)) if k[1] == "FAIL"}
+        self.assertEqual(fails, {("project-moved", "FAIL", "ach_game_players")})
+        [f] = [f for f in found(doc) if f.check == "project-moved"]
+        self.assertIn("k:prj_game", f.detail)
+        self.assertIn("prj_events", f.detail)
+
+    def test_or_under_another_engagement(self):
+        doc = clean()
+        doc["engagements"][0]["achievements"].append({
+            "id": "ach_game_players", "text": GAME, "metrics": [],
+            "provenance": {"status": "confirmed"}})
+        self.assertIn(("project-moved", "FAIL", "ach_game_players"), keys(found(doc)))
+
+    def test_under_the_engagement_its_project_belongs_to_it_stays_put(self):
+        doc = clean()
+        a = doc["projects"][0]["achievements"].pop(1)          # ach_events_team
+        doc["engagements"][0]["achievements"].append(a)
+        self.assertEqual(found(doc), [])
+
+    def test_words_that_are_not_kbs_warn(self):
+        doc = clean()
+        achievement(doc, "ach_events_team")["text"] = \
+            "Designed the bank's entire payments architecture single-handedly."
+        self.assertEqual(keys(found(doc)), {("text-changed", "WARN", "ach_events_team")})
+
+    def test_so_does_a_claim_appended_to_kbs_words(self):
+        doc = clean()
+        achievement(doc, "ach_events_team")["text"] = (
+            "Led a team of 6 engineers and single-handedly designed the bank's entire "
+            "payments architecture.")
+        self.assertEqual(keys(found(doc)), {("text-changed", "WARN", "ach_events_team")})
+
+    def test_wording_retuned_for_a_posting_does_not(self):
+        doc = clean()
+        achievement(doc, "ach_identity_sso")["text"] = (
+            "Moved 40 internal applications onto Entra ID single sign-on, retiring the "
+            "legacy identity providers.")
+        self.assertEqual(found(doc), [])
+
+
 class Labels(unittest.TestCase):
     def test_a_short_label_matches_only_as_written(self):
         """"Go" is the language; "go" is a verb, and "go live" claims nothing."""
