@@ -17,11 +17,11 @@ import difflib
 import os
 
 from ..paths import SCHEMA_DIR
+from ..resume.career import (CONTACTS, Career, enum, instant, latest_first,  # noqa: F401
+                             local, number, period)
 from . import ontology as O
-from .writer import Subjects
 
 URS_VERSION = "1.0.0"
-CONTACTS = ("email", "phone", "linkedin", "github", "website")
 # kb.ttl's language scheme is "reported"; URS spells the same thing "self-reported".
 SCHEME = {"reported": "self-reported"}
 SELECTS = ("Project", "Achievement", "Position")
@@ -33,56 +33,8 @@ class ExportError(Exception):
         self.fix = fix
 
 
-def local(iri):
-    return iri[len(O.K):]
-
-
-def enum(value):
-    return value[len(O.J):] if value and value.startswith(O.J) else value
-
-
-def number(term):
-    text = term.value
-    if term.datatype.value == O.XSD + "integer":
-        return int(text)
-    n = float(text)
-    return int(n) if n.is_integer() else n
-
-
-def instant(value):
-    if not value:
-        return None
-    precision = {4: "year", 7: "month", 10: "day"}.get(len(value), "day")
-    return {"value": value, "precision": precision}
-
-
-def period(start, end, state):
-    out = {}
-    if start:
-        out["start"] = instant(start)
-    if end:
-        out["end"] = instant(end)
-    out["state"] = state
-    return out
-
-
 def provenance(sub, s):
     return {"status": enum(sub.get(s, "provenance"))}
-
-
-class Career:
-    def __init__(self, triples):
-        self.sub = Subjects(triples)
-
-    def live(self, name):
-        """Subjects of a class, retired ones left out."""
-        return [s for s in self.sub.of(name) if not self.sub.get(s, "retired")]
-
-    def get(self, s, pred, default=None):
-        return self.sub.get(s, pred, default)
-
-    def all(self, s, pred):
-        return self.sub.props.get(s, {}).get(pred, [])
 
 
 def chosen(career, select):
@@ -266,12 +218,6 @@ def organisation(career, o):
 def role_period(career, r):
     return period(career.get(r, "start"), career.get(r, "end"),
                   enum(career.get(r, "state")))
-
-
-def latest_first(p):
-    """Sort key: ongoing first, then the latest end, then the latest start."""
-    end = p.get("end", {}).get("value") if p.get("state") != "ongoing" else "9999"
-    return (end or "", p.get("start", {}).get("value", ""))
 
 
 def engagement_list(career, roles, projects):

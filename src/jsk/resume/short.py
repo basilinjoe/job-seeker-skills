@@ -106,7 +106,7 @@ def ids(doc, store):
     names no role - it would render under no employer."""
     from ..graph import ontology as O
     from ..graph import record as R
-    from ..graph.export import Career
+    from .career import Career
 
     career = Career(store.graph(R.KB))
     known = {iri: c.name for iri, c in career.sub.cls.items()}
