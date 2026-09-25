@@ -62,7 +62,8 @@ different things.
    it first, then offer to capture it.
 3. **A `user-knowledgebase.md`** is the old Markdown format: offer `jsk migrate` (mode-setup.md);
    never run it unasked.
-4. **`rules/*.md` beside `career/`** override `references/` here.
+4. **`rules/writing-rules.md`, `ats-rules.md`, `structure-rules.md`** beside `career/` override
+   their defaults.
 
 ## Changing the career
 

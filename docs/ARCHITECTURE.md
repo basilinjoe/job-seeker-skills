@@ -327,12 +327,13 @@ A Markdown knowledge base moves across with `jsk migrate`, once, round-trip chec
 nothing. **It exists for one release.** The next deletes `jsk migrate`, `kbindex.py`,
 `tests/test_kbindex.py` and the `[index]`/`[migrate]` extras; before it can, `graph/queries.py`
 and `graph/named.py` need the weights, `SENIORITY` and `experience` they still import from
-`kbindex`. A bundle from a version before 4.0 has one route: read it whole, write a
-`user-knowledgebase.md` in the shape `docs/legacy-kb-spec.md` gives, each status as the bundle held
-it, then `jsk migrate` it, which carries every status and checks the round trip. Not changesets: a
-changeset cannot confirm, so the statuses would all arrive `inferred`. `references/mode-setup.md`
-states the same route, and it is a conversation rather than a command because every relation the old
-format left in prose is a judgement a script would only guess at.
+`kbindex`. A bundle from a version before 4.0 has one route: read it whole and build the record from it
+with `jsk new` and changesets - and a changeset cannot confirm, so it carries `needs-verification` and
+`disputed` as the bundle held them and everything else arrives `inferred`; `jsk kb confirm <ids>
+--answer` then raises what the bundle held confirmed, the answer naming the bundle file, so the log
+says where each confirmation came from. `references/mode-setup.md` states the same route, and it is
+a conversation rather than a command because every relation the old format left in prose is a
+judgement a script would only guess at.
 
 One more, discovered the hard way: **the tests assert on output text.** Some 200 `assertIn` calls
 check strings like `PASS - safe to send` and `DO NOT SEND`. You may *add* lines to a command's
