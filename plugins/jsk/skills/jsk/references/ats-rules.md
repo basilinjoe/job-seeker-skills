@@ -60,9 +60,7 @@ produces a second file. When unsure what an employer runs, send ATS-maximal.
 ## The arrow trap
 
 `Engineer → Senior Engineer → Lead → Architect`: stripped of the glyph, four titles become one string
-and a parser may extract a phantom title. Write it as a sentence:
-
-> Promoted through four roles: Engineer, Senior Engineer, Lead, Architect.
+and a parser may extract a phantom title. Give each role its own dated line, its bullets beneath it.
 
 ## Keywords
 

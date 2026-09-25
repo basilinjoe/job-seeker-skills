@@ -16,10 +16,9 @@ bullet you write.
 ## The three guardrails
 
 1. **Everything you author is `j:inferred`** — in the career, where apply sets it, and as
-   `"status": "inferred"` in the record, unless it is a verbatim lift of a confirmed bullet. Set
-   `provenance_floor: confirmed` on the view: the render drops unconfirmed prose, each drop shown
-   only as a `withheld …` warning — every one confirmed or cut before the resume is handed over.
-   Never mark your own work confirmed; the claims gate refuses a record more confirmed than the career.
+   `"status": "inferred"` in the record, unless it lifts a confirmed bullet verbatim. Keep
+   `provenance_floor: confirmed` on the view: the render drops unconfirmed prose as `withheld …`
+   warnings, each confirmed or cut before hand-over. Never mark your own work confirmed.
 2. **Every numeral traces to the current version of a metric the bullet cites.** Retune the
    *wording*, never the *number* ("62%" does not become "by two thirds"). A number the career lacks
    is one you do not have.
@@ -50,7 +49,7 @@ for what was answered.
 
 | a project's bullets | what to do |
 |---|---|
-| **present** | Choose and order them. Reworded is a new claim: `op:set` its `j:text` in the changeset below — `inferred` until the person confirms the new words. |
+| **present** | Choose and order them. Reworded is a new claim: `op:set` its `j:text` below — `inferred` until confirmed. |
 | **absent** | Write its first bullets from `j:problem`, `j:decision`, `j:outcome`. |
 
 **Rules: the caller names each rule file**, default or override. An override (`rules/…` beside
@@ -91,10 +90,11 @@ jsk kb export --urs --select <prj_, ach_ and pos_ ids> --out applications/<stem>
 
 Ids, provenance, periods and each metric's current version come from `career/kb.ttl`, one
 engagement per employer; the claims gate joins on those ids. **A `WARN` from export names a selected
-bullet the gates already refuse** — fix it in the career, as it says, before any words. Edit only the words, a `narrative`,
+bullet the gates already refuse** — fix it in the career first. Edit only the words, a `narrative`,
 and the view `view_draft`: rename it, set `format_profile`, `region_profile` and `budget`
-(`ats_maximal_pages` too), keep `provenance_floor`, and order `include` — the `achievements` order
-within an entry is the render order. A view references content and cannot contain it.
+(`ats_maximal_pages` too), keep `provenance_floor`, order `include` (its `achievements` order is the
+render order), and list the view's `skills` ids, the posting's first: that orders the rows, and a row
+past ten drops the rest. No practice a bullet already shows. A view references content only.
 
 ## Retuning the summary
 

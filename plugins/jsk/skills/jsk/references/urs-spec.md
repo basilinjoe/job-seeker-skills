@@ -157,7 +157,8 @@ Indian resumes) is `private` by default.
 
 `kind` is `employment`, `contract`, `freelance`, `internship`, `volunteer`, `break` or
 `education-fulltime`. `employment.via` names the agency or umbrella company for a contractor.
-`kind: "break"` declares a career break, with an optional reason.
+`kind: "break"` declares a career break, with an optional reason. A project's `position` names the
+position of its engagement the work was done in; its bullets render under that role line.
 
 `functional_title` glosses a title that is internal-only, niche, or does not describe the work. It
 renders in parentheses **after** `title` on the role line, in both variants:
@@ -221,8 +222,7 @@ No self-rated level; a skill points at evidence.
   "last_used": { "value": "2026", "precision": "year" } }
 ```
 
-`aliases` lets a renderer emit the variant a portal's literal keyword match expects. `identifier` is
-against ESCO or O*NET.
+`aliases` serve matching and never render. `identifier` is against ESCO or O*NET.
 
 ## Views
 

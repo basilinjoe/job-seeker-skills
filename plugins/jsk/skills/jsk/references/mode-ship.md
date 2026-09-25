@@ -21,9 +21,10 @@ around by loosening a check.
 
 ## 1. Choose the variant and the look
 
-**The template defaults to the ink-only default** (`monolith`); `--template NAME` is the only way to
-get another. Let the employer choose — a design studio's careers page argues for `ember`, a bank's
-for the default. `templates.md` has the catalogue; every template extracts to the same text.
+**Pick `--template` from the posting's field** and say which: software, data, security →
+`circuit`; consulting, product, platform, engineering leadership → `meridian`; design, research →
+`ember`; executive one-pagers → `atrium`; banking, law, government, academia → `monolith`, the
+default. Every template extracts to the same text.
 
 `--ats-max` switches which variant the one PDF holds. Reach for it when the posting names a portal
 known to parse badly (Workday, Taleo, SuccessFactors, Naukri) or the target is a form rather than a

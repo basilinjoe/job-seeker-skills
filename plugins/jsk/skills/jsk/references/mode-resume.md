@@ -23,8 +23,8 @@ application, it belongs in that application's directory.
 | `<Name>_Resume.tex` | What the PDF is compiled from; the prose gate and the fitter both read it |
 | `<Name>_Resume_ATS.txt` | Paste-in boxes |
 
-With `--ats-max` the first two become `<Name>_Resume_ATS.pdf` and `<Name>_Resume_ATS.tex` — the same
-two files in the other variant, never four.
+With `--ats-max` the same two files hold the other variant, never four — named for the recruiter who
+reads them; the gates read the variant from the PDF. Beside a `posting.ttl`, `<Name>` gains the company.
 
 ## Build order
 
