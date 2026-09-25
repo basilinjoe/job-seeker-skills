@@ -12,8 +12,7 @@ The scripts remain the stable, documented API. They are callable directly and al
 will be. This exists so that nobody has to remember every name to get started.
 
     jsk doctor                  what works on this machine
-    jsk new PATH --name NAME    scaffold user-knowledgebase.md and applications/
-    jsk index KB [--rank POST]  a line-pointing overview of the knowledge base, ranked
+    jsk new PATH --name NAME    scaffold career/kb.ttl, its log at r1, and applications/
     jsk match POSTING.ttl       a posting against the graph record, through the vocabulary
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
     jsk migrate KB.md           user-knowledgebase.md to career/kb.ttl, once, round-trip checked
@@ -28,14 +27,14 @@ will be. This exists so that nobody has to remember every name to get started.
     jsk freeze APP --submitted DATE|false --channel TEXT   archive a sent application
     jsk event APP KIND --date DATE      add a screen, an offer, a rejection to one
 
-Only `jsk index` and `jsk migrate` read `user-knowledgebase.md`, and neither writes it. That file is
-Markdown a person and the skill edit with ordinary file tools, and the skill writes
-the URS record out of it. This package starts at the record: it is the last point at which a
-mistake is still cheap, which is why `jsk validate` runs before anything renders. Where the
-career is the graph record (career/kb.ttl), the claims gate joins the record with it too.
+The career is the graph record, career/kb.ttl: changed through `jsk kb apply`, read with
+`jsk kb show` and `jsk kb view`, validated on every load. The skill writes each URS record
+out of it, and `jsk validate` checks that record before anything renders - the last point at
+which a mistake is still cheap - and the claims gate joins the record with the career.
+Only `jsk migrate` reads a user-knowledgebase.md, once, and it writes nothing into it.
 
-Standard library only, pymupdf to read a PDF, and markdown-it-py with pyyaml for
-`jsk index` and `jsk migrate`.
+pyoxigraph for the graph record, pymupdf to read a PDF, and markdown-it-py with pyyaml
+for `jsk migrate`.
 """
 
 import contextlib
@@ -53,8 +52,7 @@ from .cliutil import wants_help
 
 # subcommand -> (script, what it does)
 SIMPLE = {
-    "new": ("kb.py", "scaffold an empty knowledge base"),
-    "index": ("kbindex.py", "overview the knowledge base; rank it against a posting"),
+    "new": ("kb.py", "scaffold an empty graph workspace, logged at r1"),
     "match": ("match.py", "a posting matched against the graph record, through the vocabulary"),
     "kb": ("kbcli.py", "the graph record: changed through changesets, read by id"),
     "migrate": ("migrate.py", "a Markdown knowledge base to the graph record, one way"),
@@ -185,7 +183,7 @@ def record_refusal(target):
     if os.path.isdir(target):
         return [f"FAIL  cannot validate a directory: {target}",
                 "fix:  there is no bundle format any more. Pass the resume.json the",
-                "      skill wrote from user-knowledgebase.md"]
+                "      skill wrote from the career record"]
     if not os.path.exists(target):
         return [f"file not found: {target}"]
     if target.endswith(FROZEN):
@@ -197,6 +195,11 @@ def record_refusal(target):
         return [f"FAIL  cannot validate: {target}",
                 "fix:  the knowledge base is prose and is not machine-checked. What is",
                 "      checked is the record written from it - pass resume.json"]
+    if target.endswith(".ttl"):
+        return [f"FAIL  cannot validate: {target}",
+                "fix:  the graph record is validated on every load - `jsk kb check`",
+                "      shows its findings. This gate reads the record written from it -",
+                "      pass resume.json"]
     if not target.endswith(".json"):
         return [f"FAIL  cannot validate: {target}",
                 "fix:  pass a URS record - resume.json"]
@@ -775,7 +778,7 @@ DATED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 def frontmatter_scalars(path):
     """{key: raw value} for the top-level scalar lines of a Markdown file's frontmatter.
 
-    Not a YAML parser, deliberately: pyyaml is optional (only `jsk index` needs
+    Not a YAML parser, deliberately: pyyaml is optional (only `jsk migrate` needs
     it), and the two keys read here are one-line scalars. Indented lines are
     skipped, so a block list such as `requirements:` cannot lend a key to its items.
     The value is kept as written - quotes included - so writing it back out into
@@ -1030,6 +1033,18 @@ def cmd_freeze(args):
     return 0
 
 
+# Subcommands that went, with what replaced them. Said by name rather than as an unknown
+# command: a shell history or an old mode file still holds them, and "unknown command"
+# reads as a broken install. kbindex.py stays one more release because `jsk migrate`
+# reads the Markdown with it; release N+1 deletes both.
+RETIRED = {
+    "index": "it read user-knowledgebase.md, and the career is career/kb.ttl now.\n"
+             "fix:  `jsk match applications/<dir>/posting.ttl` ranks the career against a "
+             "posting;\n      `jsk kb view` reads it; `jsk migrate user-knowledgebase.md` "
+             "moves an old file across, once",
+}
+
+
 HANDLERS = {
     "doctor": cmd_doctor,
     "validate": cmd_validate,
@@ -1041,7 +1056,7 @@ HANDLERS = {
 
 
 def usage():
-    print(__doc__.strip().split("\n\n", 1)[1].rsplit("\n\nStandard library", 1)[0])
+    print(__doc__.strip().split("\n\n", 1)[1].rsplit("\n\npyoxigraph for", 1)[0])
     return 2
 
 
@@ -1060,6 +1075,9 @@ def main(argv):
         return HANDLERS[sub](rest)
     if sub in SIMPLE:
         return run_in_process(SIMPLE[sub][0], rest)
+    if sub in RETIRED:
+        print(f"jsk {sub} was retired: {RETIRED[sub]}")
+        return 2
     print(f"unknown command: {sub}")
     known = sorted(list(HANDLERS) + list(SIMPLE))
     print(f"fix:  one of {', '.join(known)} - or run jsk --help")

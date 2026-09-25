@@ -20,8 +20,8 @@ JSK = CLI
 EXAMPLE = EXAMPLE_URS
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
-SUBCOMMANDS = ["doctor", "new", "index", "match", "migrate", "validate", "render", "preview",
-               "check", "gates", "fit", "ship", "freeze"]
+SUBCOMMANDS = ["doctor", "new", "match", "kb", "migrate", "validate", "render", "preview",
+               "check", "gates", "fit", "ship", "freeze", "event"]
 
 
 class Usage(unittest.TestCase):
@@ -67,6 +67,17 @@ class Usage(unittest.TestCase):
         self.assertEqual(code, 0, out)
         for flag in ("--view", "--pdf", "--ats-max", "--template"):
             self.assertIn(flag, out)
+
+    def test_jsk_index_is_retired_and_says_what_replaced_it(self):
+        """It read user-knowledgebase.md. The career is career/kb.ttl now: `jsk match`
+        ranks it against a posting, `jsk kb view` reads it, `jsk migrate` moves an old
+        file across. A bare "unknown command" would read as a broken install."""
+        code, out = run(JSK, "index", "user-knowledgebase.md")
+        self.assertEqual(code, 2, out)
+        for pointer in ("jsk match", "jsk kb view", "jsk migrate"):
+            self.assertIn(pointer, out)
+        from jsk import cli
+        self.assertNotIn("index", cli.SIMPLE)
 
     def test_unknown_subcommand_names_the_real_ones(self):
         code, out = run(JSK, "frobnicate")
@@ -139,6 +150,14 @@ class ValidateRouting(unittest.TestCase):
         kb.write_text("# Career knowledge base", encoding="utf-8")
         code, out = run(JSK, "validate", kb)
         self.assertEqual(code, 2, out)
+        self.assertIn("resume.json", out)
+
+    def test_the_graph_record_is_refused_and_pointed_at_kb_check(self):
+        kb = self.tmp / "kb.ttl"
+        kb.write_text("k:kb j:format 3 .", encoding="utf-8")
+        code, out = run(JSK, "validate", kb)
+        self.assertEqual(code, 2, out)
+        self.assertIn("jsk kb check", out)
         self.assertIn("resume.json", out)
 
     def test_validate_with_no_target(self):
