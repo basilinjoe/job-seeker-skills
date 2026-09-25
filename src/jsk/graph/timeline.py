@@ -246,6 +246,11 @@ def main(argv=None):
         return usage(f"--due needs YYYY-MM-DD, got {due!r}")
     if not os.path.isdir(app_dir):
         return usage(f"not a directory: {app_dir}")
+    if os.path.basename(os.path.dirname(os.path.abspath(app_dir))) != "applications":
+        # The loader finds applications/*/application.ttl and nothing else, so an event
+        # written anywhere else would be one no query ever reads.
+        return usage(f"{app_dir} is not in an applications/ folder - pass "
+                     "applications/<dir>, beside career/")
     path = os.path.join(app_dir, APPLICATION)
     if not os.path.isfile(path):
         if os.path.isfile(os.path.join(app_dir, "application.md")):

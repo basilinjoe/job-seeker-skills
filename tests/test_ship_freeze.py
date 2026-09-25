@@ -840,6 +840,11 @@ class Event(GraphCase):
         self.assertEqual(code, 1, out)
         self.assertIn("jsk kb fmt", out)
 
+    def test_a_directory_outside_applications_is_a_call_error(self):
+        code, out = self.jsk("event", self.root / "career", "note", "--date", "2026-09-27")
+        self.assertEqual(code, 2, out)
+        self.assertIn("not in an applications/ folder", out)
+
     def test_a_markdown_application_is_pointed_at_its_timeline_table(self):
         md = self.root / "applications" / "old"
         md.mkdir()
