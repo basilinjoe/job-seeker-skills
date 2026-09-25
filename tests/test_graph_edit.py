@@ -155,6 +155,55 @@ class Versions(unittest.TestCase):
         self.assertIn("closed k:met_sites.v1: k:met_sites.v2 is current", e.notes)
 
 
+class Restored(unittest.TestCase):
+    """git restored kb.ttl and log.ttl to an older commit; an application.ttl frozen since
+    still names a metric version and a bullet that commit never had. Neither id is free."""
+
+    APP = "applications/acme-platform-engineer/application.ttl"
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        from pathlib import Path
+
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
+        app = self.root / self.APP
+        text = app.read_text(encoding="utf-8")
+        text = text.replace("k:ach_clinical_events_led_migration ;",
+                            "k:ach_clinical_events_led_migration, "
+                            "k:ach_clinical_events_cut_event_latency ;")
+        text = text.replace("k:met_team.v1 .", "k:met_team.v1, k:met_team.v2 .")
+        app.write_text(text, encoding="utf-8", newline="\n")
+        self.store = load(self.root)
+
+    def run_(self, body):
+        return edit.apply(self.store, changeset.read(PFX + body), TODAY)
+
+    def test_the_next_version_skips_a_number_an_application_still_names(self):
+        e = self.run_('op:set { k:met_team.v1 j:value 7 . }\n')
+        self.assertIn(O.K + "met_team.v3", e.minted)
+        self.assertNotIn(O.K + "met_team.v2", e.minted)
+
+    def test_a_minted_bullet_id_skips_one_an_application_still_names(self):
+        e = self.run_('op:add { [] j:project k:prj_clinical_events ; j:rank 3 ; '
+                      'j:text "Cut event latency again, twice." . }\n')
+        self.assertIn(O.K + "ach_clinical_events_cut_event_latency_again", e.minted)
+        self.assertNotIn(O.K + "ach_clinical_events_cut_event_latency", e.minted)
+
+    def test_defining_a_sent_id_again_is_refused(self):
+        try:
+            self.run_('op:add { k:met_team.v2 j:of k:met_team ; j:value 9 ; '
+                      'j:confidence j:measured . }\n')
+        except Refused as err:
+            text = "\n".join(r.text() for r in err.refusals)
+        else:
+            raise AssertionError("not refused")
+        self.assertIn("was sent in " + self.APP, text)
+        self.assertIn("never reused", text)
+
+
 class Retiring(unittest.TestCase):
     def test_retiring_dates_it_and_keeps_the_reason(self):
         e = run('op:retire { k:prj_site_onboarding j:reason "Superseded." . }\n')
