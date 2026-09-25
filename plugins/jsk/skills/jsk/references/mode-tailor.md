@@ -52,7 +52,8 @@ Phenom-style `careers.<company>` portals) **go straight to a browser tool** when
 plain fetch sees an empty shell and can report a live posting as closed. When a fetch fails, say what
 happened and ask them to paste it — an ordinary outcome, not an error.
 
-Create `<workspace>/applications/<stem>/` and write `posting.md`: **the advertisement verbatim and
+Create `<workspace>/applications/<stem>/` and write `posting.md` **with the Write tool, never a
+shell heredoc** (an advert's quotes and apostrophes break the shell): **the advertisement verbatim and
 nothing else**, the URL on its first line. **Never paraphrase it** — the archive has to say what the
 application was answering, and every requirement quotes it.
 
@@ -81,9 +82,11 @@ a call, so a longer queue is several calls, one after another, in the same turn.
 - **A blocking question goes alone, first.** If the answer ends it ("I can't do Pacific hours"),
   say so, record it, and ask nothing else.
 - **Every question gets real options**, 2–4 of them. An inferred claim: *Confirm* / *Correct it* /
-  *Cut it*, the claim quoted in the question. An exposure or metric question: the likely answers
-  (*Yes, some* / *No, none*), with a description saying what "some" would need to be. The tool adds
-  *Other* for free text; the person's own words go there.
+  *Cut it*, the claim quoted in the question.
+- **Never offer a bare "Yes".** A "yes" to an exposure or metric question is useless without its
+  detail, and asking for it costs a whole round. Offer *No, none* and *Skip*, and end the question
+  with what a yes should say, typed in the tool's *Other*: "If yes, choose Other: what, where,
+  roughly when." For a number: "…the figure, the project, and where it comes from."
 - **Offer the skip every round**: a *Skip* option on each question, and one question can be
   "Skip the rest of these?" when the queue is long.
 - `header` is the id or topic in 12 characters or fewer: `GraphQL`, `ach_unitng`.

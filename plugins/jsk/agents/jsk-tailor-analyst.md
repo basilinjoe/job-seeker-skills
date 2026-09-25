@@ -27,14 +27,13 @@ back to `python -m jsk`, then `py -3 -m jsk`.
 `mode-gaps.md`, `templates.md` or any other) and do not read another application's files as an
 example: the shapes you write are below.
 
-**Your first command is `jsk kb path`**, run from the application directory. It prints the
-workspace, `kb.ttl`, `log.ttl` and `applications/` as absolute paths; read and grep the files at
-exactly those paths. Never work out `<workspace>/career/kb.ttl` by hand: a workspace can itself be
-named `career`, which puts the record at `career/career/kb.ttl`.
+**Your first command is `jsk kb path`**, from the application directory: it prints `kb.ttl`'s
+absolute path. Never build it yourself (a workspace named `career` holds `career/career/kb.ttl`).
 
 ## 1. Requirements, as posting.ttl
 
-Read `posting.md` whole. Write `posting.ttl` beside it:
+Read `posting.md` whole, then run `jsk kb query concepts` once: every concept, its labels, what it
+counts as, and how many projects hold it. Write `posting.ttl` beside it:
 
 ```turtle
 @prefix j: <tag:jsk,2026:ns#> .
@@ -54,7 +53,15 @@ k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;
 k:req_acme_platform_k8s j:posting k:post_acme_platform ;
     j:asked "K8s" ; j:necessity j:required ;
     j:quote "Deep, hands-on K8s experience in production" .
+
+k:req_acme_platform_integration j:posting k:post_acme_platform ;
+    j:asked "integration patterns" ; j:concept c:system-integration ; j:necessity j:required ;
+    j:quote "Strong grasp of integration patterns" .
 ```
+
+- **`j:concept`** names the concept an advert's phrase means, when the list has it exactly:
+  "mentoring senior engineers" is `c:mentoring`; "cloud-native architecture" is not
+  `c:cloud-migration`. No exact fit: leave it off, and the match reports a new term.
 
 - **`j:asked`** is the term as the advert writes it; **`j:quote`** the advert's own words, **copied
   verbatim** (checked against `posting.md`). `j:seniority` is one of architecture-ownership ·
@@ -81,11 +88,13 @@ prints four sections: **Requirements**, each bucketed `matched` / `near` / `miss
 
 - **`ambiguous`**: the term names several concepts. Add `j:concept c:…` for the one the advert means
   and re-run.
-- **`candidate`**: it names no concept the vocabulary has. Report it as a new term — do not bend it
-  onto a near-match.
+- **`candidate`**: no concept has the label; the match names the nearest. If one is exactly meant,
+  add `j:concept` and re-run, once. Otherwise report it as a new term — do not bend it onto a
+  near-match.
 
 Copy the Ranking into `gaps.md` as printed. **Read a project before citing it as evidence** —
-`jsk kb show <ids>` for its bullets. A `tag` is not evidence. Do not read the whole career.
+`jsk kb show <ids> --bullets`, for the top-ranked ones you cite. A `tag` is not evidence.
+Do not read the whole career.
 
 **Ask the record; never grep `kb.ttl`.** Two queries answer what the match does not:
 
@@ -95,7 +104,8 @@ jsk kb query person          # location, work mode, rights to work, ongoing role
 ```
 
 `evidence` gives each term its concept's holders, then every entry whose text names it (an
-all-capitals term matches as written). A `nothing` row is the answer: do not search again.
+all-capitals term matches as written). Query the posting's own terms, never generic words like
+"AI" or "architecture", which match everything. A `nothing` row is the answer: do not search again.
 `person` is what `# Eligibility` is judged against — an ongoing role is a constraint too.
 
 ## 3. The assessment
