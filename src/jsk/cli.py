@@ -13,6 +13,7 @@ has to remember every name to get started.
 
     jsk doctor                  what works on this machine
     jsk new PATH --name NAME    scaffold career/kb.ttl, its log at r1, and applications/
+    jsk posting fetch URL APP   an Ashby, Greenhouse or Lever posting, as APP/posting.md
     jsk match POSTING.ttl       a posting against the graph record, through the vocabulary
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
     jsk migrate KB.md           user-knowledgebase.md to career/kb.ttl, once, round-trip checked
@@ -61,6 +62,7 @@ HELP_ENDS_BEFORE = "\n\npyoxigraph for the graph record"
 # once, in the docstring above, which is what `jsk --help` prints.
 SIMPLE = {
     "new": "kb.py",
+    "posting": "posting.py",
     "match": "match.py",
     "kb": "kbcli.py",
     "migrate": "migrate.py",
@@ -683,6 +685,60 @@ def print_results(title, results):
         print(f"--- {header}")
         print(result["output"], end="" if result["output"].endswith("\n") else "\n")
         print()
+    print("\n".join(summary_lines(results)))
+
+
+# A gate's own count line, and the render's: every checker prints `FAIL n   WARN n`
+# after its heading, and render_resume.py prints `WARN n` over its warnings.
+COUNTS = re.compile(r"^(?:FAIL (\d+)\s+)?WARN (\d+)\s*$", re.M)
+PAGES = re.compile(r"^  pages  (.+?): (\d+) pages? against a budget of (\d+)", re.M)
+# resolve.py's warning for a line below the view floor, as render_resume.py prints it:
+# once per variant rendered, `  warn  [<variant>/<kind>] withheld <what> - ...`.
+WITHHELD = re.compile(r"^  warn  \[[^\]]*\] withheld (.+?) - provenance", re.M)
+
+
+def summary_lines(results):
+    """The verdicts again, one line a step, printed after all of them.
+
+    The ElevenLabs ship (2026-09-25) ran to about 6KB - nineteen prose WARNs among it -
+    and was read through `tail -60`, which cut the record and claims gates off the top;
+    the whole ship was run a second time into a file to grep for them. This block is
+    derived from the results already printed above it and restates no verdict: each
+    count is the gate's own line, read back."""
+    width = max(len(r["gate"]) for r in results)
+    lines = ["=== summary"]
+    rendered = any(r["gate"] == "render" for r in results)
+    for result in results:
+        output = result["output"] or ""
+        parts = [result["status"]]
+        counts = COUNTS.findall(output)
+        if counts:
+            fails, warns = counts[-1]
+            parts.append((f"FAIL {fails}   " if fails else "") + f"WARN {warns}")
+        command = result["command"] or ""
+        if result["gate"] in ("parse gate", "prose gate") and command:
+            parts.append(command.split()[1] if len(command.split()) > 1 else command)
+        # The render's measurement, or - under `jsk gates`, which renders nothing -
+        # the render gate's under --pages. Never both: ship's --pages is a second
+        # budget for the same count.
+        if result["gate"] == "render" or (result["gate"] == "render gate"
+                                          and not rendered):
+            parts.extend(f"{name} {count} of {budget} pages"
+                         for name, count, budget in PAGES.findall(output))
+        if result["gate"] == "render":
+            # One line per line held back, however many variants carried it.
+            withheld = set(WITHHELD.findall(output))
+            parts.append(f"withheld {len(withheld)} below the view floor")
+        lines.append(f"  {result['gate']:<{width}}  " + "   ".join(parts))
+    worst = worst_exit(results)
+    if worst:
+        failed = [r["gate"] for r in results if r["exit"]]
+        lines.append(f"verdict: FAIL - {', '.join(dict.fromkeys(failed))}; "
+                     f"read that section above")
+    else:
+        lines.append("verdict: PASS on the mechanical gates - the render gate is still "
+                     "a person's: open the PDF and read every page")
+    return lines
 
 
 # --- jsk ship -------------------------------------------------------------------

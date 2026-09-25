@@ -21,7 +21,7 @@ EXAMPLE = EXAMPLE_URS
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
 SUBCOMMANDS = ["doctor", "new", "match", "kb", "migrate", "validate", "render", "preview",
-               "check", "gates", "fit", "ship", "freeze", "event"]
+               "check", "gates", "fit", "ship", "freeze", "event", "posting"]
 
 
 class Usage(unittest.TestCase):
@@ -450,7 +450,9 @@ class GatesMissingInput(GatesCase):
     def test_an_empty_directory_skips_both_document_gates_and_fails(self):
         code, out = self.gates("--record", self.record)
         self.assertEqual(code, 1, out)
-        self.assertEqual(out.count("SKIPPED"), 2, out)
+        sections, summary = out.split("=== summary")
+        self.assertEqual(sections.count("SKIPPED"), 2, out)
+        self.assertEqual(summary.count("SKIPPED"), 2, out)
         self.assertIn("--- parse gate", out)
         self.assertIn("--- prose gate", out)
 
@@ -478,8 +480,10 @@ class GatesRenderGate(GatesCase):
         self.render()
         code, out = self.gates("--record", self.record)
         del code
-        render = out.split("--- render gate")[1]
+        # The section, not the summary under it - which says PASS for the gates above.
+        render = out.split("--- render gate")[1].split("=== summary")[0]
         self.assertNotIn("PASS", render)
+        self.assertIn("render gate  UNVERIFIED", out.split("=== summary")[1])
 
     def test_it_says_so_when_there_is_no_pdf_at_all(self):
         self.render()

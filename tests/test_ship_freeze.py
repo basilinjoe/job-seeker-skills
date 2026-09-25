@@ -9,12 +9,13 @@ both of them have to say out loud that they did not run.
 import contextlib
 import io
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from fixtures import (CLI, CLEAN_RESUME, build_pdf, build_text, run, urs_doc,
+from fixtures import (CLI, CLEAN_RESUME, achievement, build_pdf, build_text, run, urs_doc,
                       write_urs)
 
 JSK = CLI
@@ -186,7 +187,8 @@ class ShipRenderGate(ShipCase):
     def test_a_clean_ship_still_says_the_pdf_is_unread(self):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
-        render = out.split("--- render gate")[1]
+        # The section, not the summary under it - which says PASS for the gates above.
+        render = out.split("--- render gate")[1].split("=== summary")[0]
         self.assertIn("UNVERIFIED", render)
         self.assertIn("read every page", render)
         self.assertNotIn("PASS", render)
@@ -208,6 +210,78 @@ class ShipRenderGate(ShipCase):
                          ("NOT RUN", None))
         self.assertEqual(report["steps"][-1]["status"], "UNVERIFIED")
         self.assertIn("wrote  Test_Person_Resume.pdf", report["steps"][2]["output"])
+
+
+class ShipSummary(ShipCase):
+    """The block the output ends with. The ElevenLabs ship (2026-09-25) was read
+    through `tail -60`, which cut the record and claims gates off the top."""
+
+    def summary(self, out):
+        self.assertIn("=== summary", out)
+        return out.split("=== summary\n")[1].splitlines()
+
+    def step(self, line):
+        """The gate a summary line is for: the name before its two-space column."""
+        return line.strip().split("  ")[0]
+
+    def test_it_is_last_with_one_line_a_step_and_a_verdict(self):
+        code, out = self.ship()
+        self.assertEqual(code, 0, out)
+        lines = self.summary(out)
+        self.assertEqual([self.step(line) for line in lines[:-1]], self.headings(out), out)
+        self.assertTrue(lines[-1].startswith("verdict: PASS"), out)
+        self.assertTrue(out.rstrip().endswith(lines[-1]), out)
+
+    def test_the_counts_are_the_gates_own(self):
+        code, out = self.ship()
+        self.assertEqual(code, 0, out)
+        lines = self.summary(out)
+        sections = out.split("=== summary")[0].split("\n--- ")[1:]
+        for section, line in zip(sections, lines):
+            counts = re.findall(r"^FAIL (\d+)\s+WARN (\d+)\s*$", section, re.M)
+            with self.subTest(step=line):
+                if counts:
+                    self.assertIn(f"FAIL {counts[-1][0]}   WARN {counts[-1][1]}", line)
+        self.assertIn("record gate  PASS   FAIL 0   WARN 0", out)
+        self.assertIn("claims gate  NOT RUN", out)
+        self.assertIn("Test_Person_Resume.pdf 1 of 2 pages", lines[2])
+        self.assertIn("render gate  UNVERIFIED", out)
+
+    def test_it_counts_the_lines_the_render_withheld_once_each(self):
+        """resolve.py warns once per variant rendered; the line held back is one."""
+        doc = urs_doc()
+        doc["engagements"][0]["achievements"].append(
+            achievement("Led the migration to the new platform.", aid="ach_guess",
+                        status="inferred"))
+        self.record = write_urs(self.tmp, doc)
+        code, out = self.ship()
+        self.assertEqual(code, 0, out)
+        self.assertGreater(out.count("withheld bullet ach_guess"), 1, out)
+        [render] = [line for line in self.summary(out) if self.step(line) == "render"]
+        self.assertIn("withheld 1 below the view floor", render)
+
+    def test_a_stop_names_the_step_that_failed(self):
+        self.record = write_urs(self.tmp, urs_doc(views=[]))
+        code, out = self.ship()
+        self.assertEqual(code, 1, out)
+        lines = self.summary(out)
+        self.assertEqual(len(lines), 3, out)
+        self.assertTrue(lines[0].split()[2] == "FAIL", out)
+        self.assertEqual(lines[-1].split(";")[0], "verdict: FAIL - record gate", out)
+
+    def test_jsk_gates_ends_with_it_too(self):
+        code, out = self.ship()
+        self.assertEqual(code, 0, out)
+        code, out = run(JSK, "gates", self.out, "--record", self.record)
+        self.assertEqual(code, 0, out)
+        lines = self.summary(out)
+        self.assertEqual([self.step(line) for line in lines[:-1]], self.headings(out), out)
+        self.assertTrue(lines[-1].startswith("verdict: PASS"), out)
+
+    def test_the_json_form_has_no_summary(self):
+        code, out = self.ship("--json")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("=== summary", out)
 
 
 class ShipUsage(ShipCase):
