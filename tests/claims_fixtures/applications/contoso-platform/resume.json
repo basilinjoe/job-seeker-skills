@@ -10,6 +10,16 @@
       {"kind": "phone", "value": "+61 400 000 000"}
     ]
   },
+  "work_authorization": [
+    {"jurisdiction": "AU", "kind": "citizen", "status": "held", "label": "Australian citizen"}
+  ],
+  "education": [
+    {"id": "edu_bsc", "institution": "University of Melbourne", "level": "isced-6",
+     "qualification": "Bachelor of Science", "field": "Computer Science",
+     "period": {"start": {"value": "2010", "precision": "year"},
+                "end": {"value": "2013", "precision": "year"}, "state": "ended"},
+     "provenance": {"status": "confirmed"}}
+  ],
   "organizations": [
     {"id": "org_meridian", "name": "Meridian Health", "provenance": {"status": "confirmed"}},
     {"id": "org_lakeside", "name": "Lakeside Data", "provenance": {"status": "confirmed"}}

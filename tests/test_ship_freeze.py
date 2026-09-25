@@ -78,8 +78,19 @@ class ShipOrder(ShipCase):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
         self.assertEqual(self.headings(out),
-                         ["record gate", "render", "parse gate", "parse gate",
+                         ["record gate", "claims gate", "render", "parse gate", "parse gate",
                           "prose gate", "prose gate", "render gate"], out)
+
+    def test_with_no_graph_record_the_claims_gate_says_it_did_not_run(self):
+        """A record outside a graph workspace has no career to be joined with. Said,
+        and never counted as passed - nor as failed, or no Markdown workspace ships."""
+        code, out = self.ship()
+        self.assertEqual(code, 0, out)
+        claims = out.split("--- claims gate")[1].split("--- render")[0]
+        self.assertIn(": not run", claims)
+        self.assertIn("NOT RUN - no career/kb.ttl", claims)
+        self.assertIn("A gate that did not run is not a gate that passed.", claims)
+        self.assertNotIn("PASS", claims)
         self.assertIn("PASS - safe to render", out)
         self.assertIn("PASS - safe to send", out)
         self.assertIn("PASS - prose rules satisfied", out)
@@ -189,9 +200,11 @@ class ShipRenderGate(ShipCase):
         report = json.loads(out)
         self.assertEqual(report["exit"], 0)
         gates = [step["gate"] for step in report["steps"]]
-        self.assertEqual(gates[:2], ["record gate", "render"])
+        self.assertEqual(gates[:3], ["record gate", "claims gate", "render"])
+        self.assertEqual((report["steps"][1]["status"], report["steps"][1]["exit"]),
+                         ("NOT RUN", None))
         self.assertEqual(report["steps"][-1]["status"], "UNVERIFIED")
-        self.assertIn("wrote  Test_Person_Resume.pdf", report["steps"][1]["output"])
+        self.assertIn("wrote  Test_Person_Resume.pdf", report["steps"][2]["output"])
 
 
 class ShipUsage(ShipCase):
@@ -411,7 +424,7 @@ class FreezeRefuses(FreezeCase):
         (self.tmp / "user-knowledgebase.md").unlink()
         code, out = self.freeze()
         self.assertEqual(code, 2, out)
-        self.assertIn("no user-knowledgebase.md beside", out)
+        self.assertIn("no career/kb.ttl or user-knowledgebase.md beside", out)
         self.assertIn("fix:", out)
         self.assertFalse((self.app / "application.md").exists())
         self.assertUntouched()
@@ -497,6 +510,24 @@ class FreezeRefuses(FreezeCase):
         self.assertUntouched()
 
 
+class FreezeMarkdownWorkspace(FreezeCase):
+    """A workspace whose career is still user-knowledgebase.md freezes as it always has."""
+
+    def test_the_claims_gate_says_it_did_not_run_and_the_freeze_goes_ahead(self):
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertIn("--- claims gate: not run", out)
+        self.assertTrue((self.sent / "application.md").exists())
+        self.assertFalse((self.sent / "application.ttl").exists())
+
+    def test_an_application_ttl_already_there_is_never_refrozen(self):
+        (self.app / "application.ttl").write_text("original\n", encoding="utf-8")
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("never re-frozen", out)
+        self.assertFalse((self.app / "application.md").exists())
+
+
 class FreezeUsage(FreezeCase):
     def test_submitted_is_required(self):
         code, out = self.freeze(submitted=None)
@@ -519,6 +550,303 @@ class FreezeUsage(FreezeCase):
                         "--channel", "email")
         self.assertEqual(code, 2, out)
         self.assertIn("fix:", out)
+
+
+# --- the graph record: career/kb.ttl ---------------------------------------------------
+
+class GraphCase(unittest.TestCase):
+    """graphsim's career (tests/claims_fixtures) with the Contoso application rendered and
+    ready to freeze - built without a TeX engine."""
+
+    def setUp(self):
+        import shutil
+
+        from test_claims import FIXTURES as CLAIMS
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        shutil.copytree(CLAIMS, self.root, dirs_exist_ok=True)
+        self.app = self.root / "applications" / "contoso-platform"
+        self.render()
+
+    def render(self, lines=None):
+        lines = CLEAN_RESUME if lines is None else lines
+        build_pdf(self.app / "Jane_Doe_Resume.pdf", lines)
+        build_text(self.app / "Jane_Doe_Resume_ATS.txt", lines)
+        (self.app / "Jane_Doe_Resume.tex").write_text(
+            TEX_PREAMBLE + "\n".join("\\item " + l for l in lines) + "\n\\end{document}\n",
+            encoding="utf-8")
+
+    def record(self, doc):
+        write_urs(self.app, doc)
+
+    def jsk(self, *args):
+        from jsk import cli
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = cli.main(["jsk", *map(str, args)])
+        return code, buf.getvalue()
+
+    def freeze(self, *args, submitted="2026-09-24", channel="Workday portal"):
+        return self.jsk("freeze", self.app, "--submitted", submitted, "--channel", channel,
+                        *args)
+
+    @property
+    def sent(self):
+        return self.root / "applications" / "2026-09-24-contoso-platform"
+
+    def application(self, where=None):
+        """{predicate: sorted values} of the frozen application, and its events."""
+        from jsk.graph import ontology as O
+        from jsk.graph.io import parse
+
+        parsed = parse(str((where or self.sent) / "application.ttl"))
+        app, events = {}, {}
+        for q in parsed.quads:
+            name, value = q.predicate.value[len(O.J):], q.object.value
+            if O.class_of(q.subject.value) == "Application":
+                app.setdefault(name, []).append(value)
+            else:
+                events.setdefault(q.subject.value[len(O.K):], {})[name] = value
+        return {k: sorted(v) for k, v in app.items()}, events
+
+    def store(self):
+        from jsk.graph import store as S
+        return S.load(self.root)
+
+
+def k(*ids):
+    from jsk.graph import ontology as O
+    return sorted(O.K + i for i in ids)
+
+
+class FreezeGraph(GraphCase):
+    def test_it_writes_application_ttl_with_what_it_carried(self):
+        import hashlib
+
+        raw = (self.app / "resume.json").read_bytes()
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertFalse((self.sent / "application.md").exists())
+        app, events = self.application()
+        self.assertEqual(app["posting"], k("post_contoso_platform"))
+        self.assertEqual((app["view"], app["submitted"], app["channel"]),
+                         (["view_contoso"], ["2026-09-24"], ["Workday portal"]))
+        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt"])
+        self.assertEqual(app["recordSha256"], [hashlib.sha256(raw).hexdigest()])
+        # The inferred ingestion bullet is under the view's floor: it was not sent.
+        self.assertEqual(app["carried"], k("ach_events_latency", "ach_events_team",
+                                           "ach_identity_sso"))
+        self.assertEqual(app["carriedVersion"], k("met_apps.v1", "met_latency.v2", "met_team.v1"))
+        self.assertEqual(events["evt_contoso_platform_2026_09_24_submitted"]["kind"],
+                         "tag:jsk,2026:ns#submitted")
+
+    def test_what_it_writes_is_canonical_and_the_workspace_validates(self):
+        from jsk.graph.writer import write
+
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        s = self.store()
+        self.assertEqual([f.text() for f in s.fails()], [])
+        name = "applications/2026-09-24-contoso-platform/application.ttl"
+        self.assertEqual(write(s.graph(name), "application"), s.parsed[name].text)
+
+    def test_the_claims_gate_runs_and_its_output_is_shown(self):
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertIn("--- claims gate: claims.py", out)
+        self.assertIn("PASS - every id, provenance and number traces", out)
+
+    def test_the_career_is_never_touched(self):
+        before = [(self.root / "career" / f).read_bytes() for f in ("kb.ttl", "log.ttl")]
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertEqual([(self.root / "career" / f).read_bytes()
+                          for f in ("kb.ttl", "log.ttl")], before)
+        self.assertIn("jsk event", out)
+
+    def test_held_back_has_no_submitted_event(self):
+        code, out = self.freeze(submitted="false")
+        self.assertEqual(code, 0, out)
+        app, events = self.application(self.app)
+        self.assertEqual(app["submitted"], ["false"])
+        self.assertEqual(events, {})
+
+    def test_a_record_that_fails_the_claims_gate_is_never_frozen(self):
+        from test_claims import S8, draft
+
+        self.record(draft(*S8))
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("number-superseded", out)
+        self.assertIn("never frozen", out)
+        self.assertTrue(self.app.exists())
+        self.assertFalse((self.app / "application.ttl").exists())
+        self.assertFalse(self.sent.exists())
+
+    def test_no_posting_ttl_is_refused(self):
+        (self.app / "posting.ttl").unlink()
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("no posting.ttl", out)
+        self.assertFalse(self.sent.exists())
+
+    def test_a_frozen_application_is_never_refrozen(self):
+        code, out = self.freeze(submitted="false")
+        self.assertEqual(code, 0, out)
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("never re-frozen", out)
+
+
+class Stale(GraphCase):
+    """graphsim S9: an application sent a metric's number; the number is revised; the
+    application is named as having sent the old one."""
+
+    def test_revising_a_carried_metric_makes_the_application_stale(self):
+        from test_graph_changeset import PFX
+
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        code, out = self.jsk("kb", "query", "stale", "--json", "--root", self.root)
+        self.assertEqual((code, json.loads(out)), (0, []))
+        change = self.root / "revise.trig"
+        change.write_text(PFX + 'op:changeset op:base 1 ; op:summary "Re-measured." .\n'
+                          'op:set { k:met_latency.v2 j:value 350 . }\n', encoding="utf-8")
+        code, out = self.jsk("kb", "apply", change, "--root", self.root)
+        self.assertEqual(code, 0, out)
+        self.assertIn("the new number is k:met_latency.v3", out)
+        code, out = self.jsk("kb", "query", "stale", "--json", "--root", self.root)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(json.loads(out), [{
+            "application": "k:app_contoso_platform", "sent": "k:met_latency.v2",
+            "replaced": __import__("datetime").date.today().isoformat(),
+            "current": "k:met_latency.v3"}])
+
+
+class ShipGraph(GraphCase):
+    def ship(self):
+        from jsk.urs import render_resume
+
+        out_dir = self.root / "out"
+        with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
+            return self.jsk("ship", self.app / "resume.json", "--out", out_dir,
+                            "--view", "view_contoso")
+
+    def test_a_clean_record_ships_through_the_claims_gate(self):
+        code, out = self.ship()
+        self.assertEqual(code, 0, out)
+        self.assertIn("--- claims gate: claims.py", out)
+        self.assertIn("PASS - every id, provenance and number traces", out)
+
+    def test_the_s8_draft_stops_at_the_claims_gate_and_renders_nothing(self):
+        from test_claims import S8, draft
+
+        self.record(draft(*S8))
+        code, out = self.ship()
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL 3   WARN 4", out)
+        self.assertIn("the claims gate did not pass", out)
+        self.assertNotIn("--- render:", out)
+        self.assertFalse((self.root / "out").exists())
+
+
+class Gates(GraphCase):
+    def test_jsk_gates_runs_the_claims_gate_after_the_record_gate(self):
+        code, out = self.jsk("gates", self.app)
+        heads = [line[4:].split(":")[0] for line in out.splitlines() if line.startswith("--- ")]
+        self.assertEqual(heads[:2], ["record gate", "claims gate"], out)
+        self.assertEqual(code, 0, out)
+
+
+class Event(GraphCase):
+    def setUp(self):
+        super().setUp()
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+
+    def event(self, *args):
+        return self.jsk("event", self.sent, *args)
+
+    def test_an_event_is_appended_and_the_stage_follows_it(self):
+        before = (self.sent / "application.ttl").read_text(encoding="utf-8")
+        code, out = self.event("screen-scheduled", "--date", "2026-09-26", "--channel", "email",
+                               "--due", "2026-09-30", "--note", "Phone screen, 30 min")
+        self.assertEqual(code, 0, out)
+        self.assertIn("added    k:evt_contoso_platform_2026_09_26_screen_scheduled", out)
+        after = (self.sent / "application.ttl").read_text(encoding="utf-8")
+        self.assertTrue(after.startswith(before.split("# == Timeline")[0]), after)
+        _, events = self.application()
+        e = events["evt_contoso_platform_2026_09_26_screen_scheduled"]
+        self.assertEqual((e["date"], e["channel"], e["due"], e["note"]),
+                         ("2026-09-26", "email", "2026-09-30", "Phone screen, 30 min"))
+        code, out = self.jsk("kb", "query", "pipeline", "--json", "--root", self.root)
+        self.assertEqual(code, 0, out)
+        [row] = json.loads(out)
+        self.assertEqual((row["application"], row["stage"], row["since"], row["due"],
+                          row["events"]),
+                         ("k:app_contoso_platform", "screen-scheduled", "2026-09-26",
+                          "2026-09-30", 2))
+
+    def test_the_same_event_twice_is_refused(self):
+        code, out = self.event("submitted", "--date", "2026-09-24")
+        self.assertEqual(code, 1, out)
+        self.assertIn("already recorded", out)
+
+    def test_an_unknown_kind_is_refused_with_the_nearest(self):
+        before = (self.sent / "application.ttl").read_bytes()
+        code, out = self.event("interview-schedule", "--date", "2026-09-26")
+        self.assertEqual(code, 2, out)
+        self.assertIn("did you mean 'interview-scheduled'?", out)
+        self.assertEqual((self.sent / "application.ttl").read_bytes(), before)
+
+    def test_a_bad_date_is_a_call_error(self):
+        for bad in ("26/09/2026", "2026-02-30", "soon"):
+            with self.subTest(date=bad):
+                code, out = self.event("note", "--date", bad)
+                self.assertEqual(code, 2, out)
+
+    def test_an_unknown_date_is_an_event_too(self):
+        code, out = self.event("recruiter-contact", "--date", "unknown")
+        self.assertEqual(code, 0, out)
+        self.assertIn("evt_contoso_platform_unknown_recruiter_contact", out)
+
+    def test_an_event_that_would_not_validate_is_never_written(self):
+        """The workspace is loaded with the event in it before the file is replaced. The
+        flags are checked first, so reaching this takes an event the command itself got
+        wrong - which is what the check is for."""
+        from jsk.graph import timeline
+
+        real = timeline.event_quads
+
+        def broken(*args, **kwargs):
+            iri, quads = real(*args, **kwargs)
+            return iri, quads + [timeline.quad(iri, "due", timeline.lit("soon"))]
+        path = self.sent / "application.ttl"
+        before = path.read_bytes()
+        with mock.patch.object(timeline, "event_quads", broken):
+            code, out = self.event("note", "--date", "2026-09-27")
+        self.assertEqual(code, 1, out)
+        self.assertIn("would leave", out)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_a_hand_formatted_file_is_refused_until_fmt(self):
+        path = self.sent / "application.ttl"
+        path.write_text(path.read_text(encoding="utf-8") + "\n\n", encoding="utf-8",
+                        newline="\n")
+        code, out = self.event("note", "--date", "2026-09-27")
+        self.assertEqual(code, 1, out)
+        self.assertIn("jsk kb fmt", out)
+
+    def test_a_markdown_application_is_pointed_at_its_timeline_table(self):
+        md = self.root / "applications" / "old"
+        md.mkdir()
+        (md / "application.md").write_text("---\n---\n", encoding="utf-8")
+        code, out = self.jsk("event", md, "note", "--date", "2026-09-27")
+        self.assertEqual(code, 1, out)
+        self.assertIn("# Timeline", out)
 
 
 if __name__ == "__main__":

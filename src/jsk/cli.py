@@ -25,11 +25,13 @@ will be. This exists so that nobody has to remember every name to get started.
     jsk fit TEX [...]           fit a render to a page budget
     jsk ship RECORD --out D --view ID   validate, render and gate, in one pass
     jsk freeze APP --submitted DATE|false --channel TEXT   archive a sent application
+    jsk event APP KIND --date DATE      add a screen, an offer, a rejection to one
 
 Only `jsk index` reads `user-knowledgebase.md`, and it never writes it. That file is
 Markdown a person and the skill edit with ordinary file tools, and the skill writes
 the URS record out of it. This package starts at the record: it is the last point at which a
-mistake is still cheap, which is why `jsk validate` runs before anything renders.
+mistake is still cheap, which is why `jsk validate` runs before anything renders. Where the
+career is the graph record (career/kb.ttl), the claims gate joins the record with it too.
 
 Standard library only, pymupdf to read a PDF, and markdown-it-py with pyyaml for
 `jsk index`.
@@ -54,6 +56,7 @@ SIMPLE = {
     "index": ("kbindex.py", "overview the knowledge base; rank it against a posting"),
     "match": ("match.py", "a posting matched against the graph record, through the vocabulary"),
     "kb": ("kbcli.py", "the graph record: changed through changesets, read by id"),
+    "event": ("timeline.py", "an event added to a frozen application's timeline"),
     "render": ("render_resume.py", "one record to .tex/PDF plus .txt"),
     "preview": ("preview_templates.py", "one record in every template, side by side"),
     "fit": ("fit_pages.py", "fit a render to a page budget"),
@@ -105,8 +108,10 @@ SUBPACKAGE = {
     "check_ats.py": "gates",
     "check_prose.py": "gates",
     "validate_urs.py": "gates",
+    "claims.py": "gates",
     "match.py": "graph",
     "kbcli.py": "graph",
+    "timeline.py": "graph",
 }
 
 
@@ -122,7 +127,7 @@ def module_for(script):
 # Normalised here rather than in those scripts: their CLIs are the documented API and
 # must not move to suit a caller.
 WHOLE_ARGV = {"validate_urs.py", "render_resume.py", "preview_templates.py",
-              "preflight.py"}
+              "preflight.py", "claims.py"}
 
 
 def run_in_process(script, args):
@@ -517,6 +522,44 @@ def cmd_gates(args):
     return worst
 
 
+def graph_workspace(path):
+    """The workspace holding career/kb.ttl that `path` - a record or a directory - sits
+    in, or None: an old Markdown workspace, or none at all."""
+    from .graph.kbcli import find_root                # noqa: PLC0415 - only when asked
+
+    here = path if os.path.isdir(path) else os.path.dirname(os.path.abspath(path))
+    return find_root(here)
+
+
+def claims_not_run(where):
+    """The claims gate's entry where there is no graph record to join the record with.
+
+    Not SKIPPED, which fails: a Markdown workspace has no career record any gate can
+    read, and failing every one of its ships would teach that the gate is noise. Not
+    PASS either. Said, like the render gate, and never counted as passed."""
+    return {"gate": "claims gate", "command": None, "status": "NOT RUN", "exit": None,
+            "output": f"NOT RUN - no career/kb.ttl in the workspace {where} sits in, so no\n"
+                      f"  claim in this record was checked against a career record. A\n"
+                      f"  user-knowledgebase.md is read by no gate; `jsk migrate` turns it\n"
+                      f"  into the graph record this gate reads.\n"
+                      f"  A gate that did not run is not a gate that passed.\n"}
+
+
+def claims_step(record, out_dir, limit=None):
+    """The claims gate over `record`: a result, SKIPPED with no record in a graph
+    workspace, or NOT RUN outside one."""
+    root = graph_workspace(record if record is not None else out_dir)
+    if root is None:
+        return claims_not_run(record if record is not None else out_dir)
+    if record is None:
+        return skipped_gate("claims gate", "claims.py",
+                            f"no record given, and no {DEFAULT_RECORD} in {out_dir}; "
+                            f"pass --record <resume.json>.")
+    args = [record] + (["--max-findings", str(limit)] if limit is not None else [])
+    code, output = call_gate("claims.py", args + ["--root", root])
+    return gate_result("claims gate", " ".join(["claims.py"] + args), code, output)
+
+
 def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only=None):
     """Every `jsk gates` result over one directory, the render gate last.
 
@@ -524,9 +567,9 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only
     rather than a second copy of them: three commands that each decided what "the
     mechanical gates" meant would be three chances to disagree about it.
 
-    `record_gate=False` is for `jsk ship`, which has just run that gate on the same
-    file with the same arguments and stopped had it failed. `only` names the
-    documents to gate - see rendered_documents().
+    `record_gate=False` is for `jsk ship`, which has just run that gate and the
+    claims gate on the same file with the same arguments and stopped had either
+    failed. `only` names the documents to gate - see rendered_documents().
     """
     results = []
     if record_gate and record is None:
@@ -541,6 +584,8 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only
         results.append(gate_result("record gate",
                                    " ".join(["validate_urs.py"] + record_args),
                                    code, output))
+    if record_gate:
+        results.append(claims_step(record, out_dir, limit))
 
     for gate, script, extensions in DOC_GATES:
         found = rendered_documents(out_dir, extensions, only)
@@ -581,6 +626,8 @@ def print_results(title, results):
             header += f": {result['command']}"
         elif result["gate"] == "render gate":
             header += ": nobody else can run this one"
+        elif result["status"] == "NOT RUN":
+            header += ": not run"
         print(f"--- {header}")
         print(result["output"], end="" if result["output"].endswith("\n") else "\n")
         print()
@@ -611,11 +658,12 @@ def not_rendered(why):
 
 
 def cmd_ship(args):
-    """Record gate, render, mechanical gates - one process, stopping at a failure.
+    """Record gate, claims gate, render, mechanical gates - one process, stopping at a
+    failure.
 
     Every step is an existing function: the record gate is what `jsk validate`
-    runs, the render is render_resume.py's main(), and the gates are gate_results(),
-    so none of their verdicts is restated here.
+    runs, the claims gate is claims_step(), the render is render_resume.py's main(),
+    and the gates are gate_results(), so none of their verdicts is restated here.
     """
     if wants_help(args):
         print(SHIP_USAGE)
@@ -660,8 +708,14 @@ def cmd_ship(args):
     results = []
     code, output = call_gate("validate_urs.py", [record])
     results.append(gate_result("record gate", f"validate_urs.py {record}", code, output))
+    claims = claims_step(record, None) if code == 0 else None
+    if claims is not None:
+        results.append(claims)
     if code != 0:
         results.append(not_rendered("the record gate did not pass"))
+    elif claims["exit"]:
+        # A number the career replaced renders as a sendable PDF with that number in it.
+        results.append(not_rendered("the claims gate did not pass"))
     else:
         render_args = [record, "--out", out_dir, "--view", view, "--pdf"]
         render_args += ["--ats-max"] if flags.get("--ats-max") else []
@@ -696,12 +750,23 @@ def cmd_ship(args):
 # hand: the directory renamed to the day it was sent, application.md written, and
 # nothing in the directory edited again. The command does the first two and refuses
 # whenever the third is already true or the documents would not survive their gates.
+#
+# Two workspaces, one command. Where the career is the graph record (career/kb.ttl)
+# it writes application.ttl - what was sent, and the bullets and metric versions it
+# carried - and later events go in with `jsk event`. Where it is still
+# user-knowledgebase.md it writes application.md exactly as it always has: a
+# Markdown workspace keeps working until it is migrated, and `jsk migrate` turns its
+# application.md into application.ttl. Never both: two archives of one submission
+# are two chances to disagree.
 FREEZE_USAGE = ("usage: jsk freeze <app-dir> --submitted YYYY-MM-DD|false "
                 "--channel TEXT [--view ID] [--doc FILE ...]")
 
 APPLICATION = "application.md"
+APPLICATION_TTL = "application.ttl"
 POSTING = "posting.md"
+POSTING_TTL = "posting.ttl"
 KNOWLEDGE_BASE = "user-knowledgebase.md"
+GRAPH_KB = os.path.join("career", "kb.ttl")
 DATED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 
 
@@ -775,10 +840,12 @@ def application_text(company, title, view, submitted, channel, documents):
 
 
 def cmd_freeze(args):
-    """Archive one application directory: rename it to its day and write application.md.
+    """Archive one application directory: rename it to its day and write application.ttl
+    - or application.md, in a workspace whose career is still user-knowledgebase.md.
 
-    Never touches user-knowledgebase.md or log.md. The log row is the agent's, written in
-    words a person reads; this command only freezes what the row points at.
+    Never touches the career: not kb.ttl or log.ttl, not user-knowledgebase.md or log.md.
+    The log row is the agent's, written in words a person reads; this command only
+    freezes what the row points at.
     """
     if wants_help(args):
         print(FREEZE_USAGE)
@@ -802,9 +869,12 @@ def cmd_freeze(args):
     # check never looks in, so an application frozen there is invisible to every later
     # round. It happened: a session wrote them relative to its working directory.
     apps = os.path.dirname(os.path.abspath(app_dir))
-    if not os.path.isfile(os.path.join(os.path.dirname(apps), KNOWLEDGE_BASE)):
-        print(f"no {KNOWLEDGE_BASE} beside {apps}")
-        print(f"fix:  move the directory into the applications/ folder next to {KNOWLEDGE_BASE}")
+    workspace = os.path.dirname(apps)
+    graph = os.path.isfile(os.path.join(workspace, GRAPH_KB))
+    if not graph and not os.path.isfile(os.path.join(workspace, KNOWLEDGE_BASE)):
+        print(f"no career/kb.ttl or {KNOWLEDGE_BASE} beside {apps}")
+        print("fix:  move the directory into the applications/ folder next to the career "
+              "record - career/ or " + KNOWLEDGE_BASE)
         return 2
     submitted = flags.get("--submitted")
     if submitted is None:
@@ -826,28 +896,39 @@ def cmd_freeze(args):
         print("fix:  --channel \"Workday portal\"   - where it was sent")
         return 2
 
-    target = os.path.join(app_dir, APPLICATION)
-    if os.path.exists(target):
-        return freeze_refusal(
-            f"{target} already exists. A frozen application is never re-frozen.",
-            "Later events are one appended row each in its # Timeline table.")
+    for name in (APPLICATION_TTL, APPLICATION):
+        target = os.path.join(app_dir, name)
+        if os.path.exists(target):
+            return freeze_refusal(
+                f"{target} already exists. A frozen application is never re-frozen.",
+                "Later events are `jsk event` in a graph workspace, one appended row each"
+                " in application.md's # Timeline table in a Markdown one.")
 
-    posting = os.path.join(app_dir, POSTING)
-    if not os.path.isfile(posting):
-        return freeze_refusal(f"no {POSTING} in {app_dir}",
-                              "company and title are read from its frontmatter.")
-    scalars = frontmatter_scalars(posting)
-    for key in ("company", "title"):
-        if not scalars.get(key, "").strip("'\""):
-            return freeze_refusal(f"{POSTING} has no `{key}:` in its frontmatter",
-                                  "add it there - the archive names what it answered.")
-    company, title = scalars["company"], scalars["title"]
+    company = title = None
+    if graph:
+        # company and title live in posting.ttl; timeline.freeze() reads and checks it.
+        if not os.path.isfile(os.path.join(app_dir, POSTING_TTL)):
+            return freeze_refusal(f"no {POSTING_TTL} in {app_dir}",
+                                  "application.ttl names the posting it answered; the "
+                                  "analyst writes posting.ttl beside posting.md.")
+    else:
+        posting = os.path.join(app_dir, POSTING)
+        if not os.path.isfile(posting):
+            return freeze_refusal(f"no {POSTING} in {app_dir}",
+                                  "company and title are read from its frontmatter.")
+        scalars = frontmatter_scalars(posting)
+        for key in ("company", "title"):
+            if not scalars.get(key, "").strip("'\""):
+                return freeze_refusal(f"{POSTING} has no `{key}:` in its frontmatter",
+                                      "add it there - the archive names what it answered.")
+        company, title = scalars["company"], scalars["title"]
 
     record = os.path.join(app_dir, DEFAULT_RECORD)
     try:
-        with open(record, encoding="utf-8") as fh:
-            views = [v.get("id") for v in json.load(fh).get("views") or []
-                     if isinstance(v, dict)]
+        with open(record, "rb") as fh:
+            record_bytes = fh.read()
+        doc = json.loads(record_bytes.decode("utf-8"))
+        views = [v.get("id") for v in doc.get("views") or [] if isinstance(v, dict)]
     except (OSError, ValueError, AttributeError) as exc:
         return freeze_refusal(f"cannot read the record {record}: {exc}",
                               "the view is read from it, and its gate has to pass.")
@@ -914,15 +995,24 @@ def cmd_freeze(args):
             "a gate above did not pass. A failing document is never frozen -",
             "an archive of something that was not sendable reads, later, as though it was.")
 
+    if graph:
+        from .graph import timeline                   # noqa: PLC0415 - only when asked
+        text, problems = timeline.freeze(workspace, app_dir, doc, view, submitted, channel,
+                                         documents, record_bytes)
+        if problems:
+            return freeze_refusal(*problems, "nothing was renamed or written.")
+    else:
+        text = application_text(company, title, view, submitted, channel, documents)
+
     if final != app_dir:
         try:
             os.rename(app_dir, final)
         except OSError as exc:
             return freeze_refusal(f"cannot rename {app_dir} to {final}: {exc}",
                                   "nothing was written.")
-    written = os.path.join(final, APPLICATION)
+    written = os.path.join(final, APPLICATION_TTL if graph else APPLICATION)
     with open(written, "x", encoding="utf-8", newline="\n") as fh:
-        fh.write(application_text(company, title, view, submitted, channel, documents))
+        fh.write(text)
     print(f"froze  {written}")
     if final != app_dir:
         print(f"moved  {app_dir} -> {final}")
@@ -930,7 +1020,11 @@ def cmd_freeze(args):
     print()
     print("Frozen on the mechanical gates. The render gate is a person's: freezing")
     print("assumes somebody opened the PDF and read it. Nothing in this directory is")
-    print("edited again; append the row to log.md beside the knowledge base yourself.")
+    if graph:
+        print("edited again; later events are `jsk event <dir> <kind> --date ...`, and")
+        print("`jsk kb query pipeline` gives each application's stage.")
+    else:
+        print("edited again; append the row to log.md beside the knowledge base yourself.")
     return 0
 
 
