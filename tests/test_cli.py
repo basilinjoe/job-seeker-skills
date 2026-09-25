@@ -550,6 +550,13 @@ class GatesUsage(GatesCase):
         self.assertEqual(code, 0, out)
         self.assertIn("view: view_default", out)
 
+    def test_the_help_says_the_view_is_only_a_label(self):
+        """The usage listed `[--view <id>]` beside the flags that change what runs, so
+        it read as a filter. It says it names the view in the report."""
+        code, out = run(JSK, "gates", "--help")
+        self.assertEqual(code, 0, out)
+        self.assertIn("names the view in the report", out)
+
     def test_an_out_directory_that_does_not_exist_is_a_call_error(self):
         code, out = run(JSK, "gates", self.tmp / "nowhere")
         self.assertEqual(code, 2, out)
@@ -668,6 +675,7 @@ class InProcessDispatch(unittest.TestCase):
             code, out = in_process("render", "x.json")
         self.assertEqual(code, 2, out)
         self.assertIn("render_resume.py raised RuntimeError: boom", out)
+        # `python render_resume.py` stops at its first relative import; the module runs.        self.assertIn("python -m jsk.urs.render_resume x.json", out)
 
 
 class PreviewInProcess(unittest.TestCase):

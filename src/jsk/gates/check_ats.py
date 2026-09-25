@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Check a generated resume against the rules in references/ats-rules.md
 
-Usage: python3 check_ats.py resume.pdf [--strict]
-       python3 check_ats.py resume.txt [--strict]
+Usage: jsk check resume.pdf --only parse [--strict]
+       python -m jsk.gates.check_ats resume.pdf [--strict]
+       python -m jsk.gates.check_ats resume.txt [--strict]
        --strict  also enforce ATS-maximal rules (ASCII only, employer per role)
-
-On Windows use `python` or `py -3` in place of `python3`.
 
 Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
 Reading a PDF needs pymupdf; the .txt path is standard library only.
@@ -22,6 +21,8 @@ What remains is everything that was never structural in the first place - what
 the extracted text says, and whether a parser can extract it at all.
 """
 import sys, os, re, html, unicodedata
+
+from ..cliutil import docstring_usage, wants_help
 
 # A heading is short and unpunctuated. Longer than this is prose, whatever it says.
 HEADING_MAX = 40
@@ -108,8 +109,13 @@ def main(argv=None):
     except Exception:
         pass
 
+    if wants_help(argv):
+        # Before the path is read: `--help` used to be looked up as a file and
+        # reported "file not found: --help" with the usage-error exit.
+        print(docstring_usage(__doc__))
+        return 0
     if not argv:
-        print("usage: check_ats.py resume.pdf | resume.txt [--strict]")
+        print("usage: python -m jsk.gates.check_ats resume.pdf | resume.txt [--strict]")
         return 2
     path = argv[0]
     strict = "--strict" in argv

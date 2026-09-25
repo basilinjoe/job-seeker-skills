@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Report what this machine can actually do, and what each gap disables.
 
-Usage: python3 preflight.py [--verify] [--kb PATH] [--json]
-       --verify   render the shipped example end to end and run every gate
+Usage: jsk doctor [--quick] [--kb PATH] [--json]
+       python -m jsk.preflight [--verify] [--kb PATH] [--json]
+       --quick    (jsk doctor) check the toolchain without the end-to-end render
+       --verify   (python -m) render the shipped example end to end and run every gate;
+                  `jsk doctor` does this unless given --quick
        --kb       check a specific career/kb.ttl (or its workspace) rather than searching
        --json     machine-readable output
-
-On Windows use `python` or `py -3` in place of `python3`.
 
 Exit 0 = the core pipeline works. Exit 1 = something required is broken.
 
@@ -50,14 +51,14 @@ MODULES = ["cli", "cliutil", "kb", "kbindex", "migrate", "paths"]
 GRAPH_MODULES = ["graph", "graph.ontology", "graph.io", "graph.writer", "graph.shapes",
                  "graph.rules", "graph.store", "graph.queries", "graph.match", "graph.record",
                  "graph.changeset", "graph.edit", "graph.kbcli", "graph.named", "graph.view",
-                 "graph.timeline"]
+                 "graph.timeline", "graph.export"]
 GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.validate_urs",
                 "gates.claims"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken urs package takes all
 # three with it and reporting them separately would name three symptoms of one cause.
-URS_MODULES = ["urs", "urs.plan", "urs.profiles", "urs.tex",
-               "urs.emit_latex", "urs.emit_text",
+URS_MODULES = ["urs", "urs.plan", "urs.profiles", "urs.tex", "urs.resolve", "urs.themes",
+               "urs.formatting", "urs.emit_latex", "urs.emit_text",
                "urs.render_resume", "urs.preview_templates", "urs.fit_pages"]
 
 SCHEMA_FILES = ["profile.schema.json", "example.resume.json"]
@@ -80,7 +81,7 @@ INSTALL = {
                    "note": "The graph engine: reads, validates and queries kb.ttl and the "
                            "applications. A dependency of jsk-resume, so a missing one "
                            "means the install skipped dependencies."},
-    "index": {"pip": "markdown-it-py pyyaml",
+    "migrate": {"pip": "markdown-it-py pyyaml",
               "note": "Reads a Markdown knowledge base for jsk migrate, once: its "
                       "headings and its yaml blocks (the `migrate` extra)."},
 }
@@ -242,25 +243,31 @@ def gather(kb_arg=None):
                  "and fit_pages.py cannot measure its pages, so the parse gate "
                  "and the page budget are both unverifiable"))
 
-    # Not REQUIRED while nothing on the render path reads the graph: a machine without
-    # it still renders and gates a resume from a hand-written record. find_spec, not an
-    # import - this module stays standard-library only.
+    # REQUIRED: the career is kb.ttl and nothing else reads it. `jsk ship` runs the
+    # claims gate against it before it renders, and `jsk kb`, `jsk match` and
+    # `jsk kb export --urs` all start there, so a machine without the engine cannot
+    # produce a resume from the career at all. It is a dependency of jsk-resume, so a
+    # missing one means the install skipped dependencies. find_spec, not an import -
+    # this module stays standard-library only.
     checks.append(Check(
         "pyoxigraph", importlib.util.find_spec("pyoxigraph") is not None, key="pyoxigraph",
-        disables="cannot read or validate the graph record (kb.ttl) - matching and "
-                 "career writes are unavailable"))
+        disables="cannot read or validate the graph record (kb.ttl): `jsk kb`, `jsk match` "
+                 "and the claims gate `jsk ship` runs cannot start"))
 
     # Optional: a machine without them still renders, gates, matches and writes the
     # graph record. What it loses is the one-way move from Markdown.
     checks.append(Check(
         "markdown-it-py and pyyaml",
-        module_available("markdown_it") and module_available("yaml"), key="index",
+        module_available("markdown_it") and module_available("yaml"), key="migrate",
         disables="jsk migrate cannot run, so a Markdown knowledge base cannot move to "
                  "kb.ttl"))
 
-    kb, markdown = resolve_kb(kb_arg)
+    kb, markdown, problem = resolve_kb(kb_arg)
     if kb:
-        checks.append(Check(f"knowledge base at {kb}", True, detail=kb))
+        # The path once, on the detail line: in the name as well, it printed twice.
+        checks.append(Check("knowledge base", True, detail=kb))
+    elif problem:
+        checks.append(Check("knowledge base", False, disables=problem))
     elif markdown:
         # A gap, not a FAIL: the render path starts at resume.json and still works, and a
         # doctor that blocked on it would hide every other finding behind one migration.
@@ -280,25 +287,39 @@ def gather(kb_arg=None):
 
 
 def resolve_kb(kb_arg=None):
-    """(career/kb.ttl or None, user-knowledgebase.md or None) - the second only when the
-    first is missing. `--kb` may name either file, or the workspace folder."""
+    """(career/kb.ttl or None, user-knowledgebase.md or None, what is wrong with `--kb`
+    or None) - the second only when the first is missing.
+
+    `--kb` may name either file by its name, or the workspace folder. Anything else is
+    refused by name rather than taken on trust: `--kb pyproject.toml` used to report
+    "ok knowledge base", and a path that does not exist said there was nothing to
+    render from yet, which reads as an empty career rather than a typo.
+    """
     if kb_arg is None:
         kb = find_kb()
-        return (kb, None) if kb else (None, find_markdown_kb())
+        return (kb, None, None) if kb else (None, find_markdown_kb(), None)
+    wanted = (f"pass career/{GRAPH_KB_FILENAME}, the workspace folder holding it, or a "
+              f"{KB_FILENAME} to migrate")
+    if not os.path.exists(kb_arg):
+        return None, None, f"--kb {kb_arg} does not exist - {wanted}"
     if os.path.isdir(kb_arg):
         graph = os.path.join(kb_arg, "career", GRAPH_KB_FILENAME)
         if os.path.isfile(graph):
-            return graph, None
+            return graph, None, None
         markdown = os.path.join(kb_arg, KB_FILENAME)
-        return None, (markdown if os.path.isfile(markdown) else None)
-    if not os.path.isfile(kb_arg):
-        return None, None
-    if kb_arg.endswith(".md"):
+        if os.path.isfile(markdown):
+            return None, markdown, None
+        return None, None, (f"--kb {kb_arg} holds no career/{GRAPH_KB_FILENAME} and no "
+                            f"{KB_FILENAME}, so it is not a career workspace - {wanted}")
+    name = os.path.basename(kb_arg)
+    if name == GRAPH_KB_FILENAME:
+        return kb_arg, None, None
+    if name == KB_FILENAME:
         # A migrated workspace keeps its Markdown file; the record beside it is the career.
         graph = os.path.join(os.path.dirname(os.path.abspath(kb_arg)), "career",
                              GRAPH_KB_FILENAME)
-        return (graph, None) if os.path.isfile(graph) else (None, kb_arg)
-    return kb_arg, None
+        return (graph, None, None) if os.path.isfile(graph) else (None, kb_arg, None)
+    return None, None, f"--kb {kb_arg} is not a career record - {wanted}"
 
 
 # LibreOffice used to appear here. It rendered the .docx for page measurement;
@@ -309,8 +330,11 @@ def resolve_kb(kb_arg=None):
 # nicety. Now the PDF is the only rendered deliverable, so a machine without
 # them cannot produce a resume at all - reporting that as a degraded install
 # would be telling someone their toolchain works when it does not.
+#
+# pyoxigraph is required for the same reason: the career is kb.ttl, and the claims gate
+# `jsk ship` runs reads it.
 REQUIRED = {"Python", "modules", "urs renderer package", "gates package", "graph record package",
-            "URS schema", "TeX engine", "pymupdf"}
+            "URS schema", "TeX engine", "pymupdf", "pyoxigraph"}
 
 
 def is_required(check):

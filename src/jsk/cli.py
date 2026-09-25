@@ -21,7 +21,8 @@ will be. This exists so that nobody has to remember every name to get started.
     jsk preview RECORD --out D  the same record in every template, to pick a look
     jsk check PDF [--strict]    the parse gate and the prose gate, both
       ... --only parse|prose    one of them, for re-checking one repaired file
-    jsk gates DIR [--record R]  the record, parse and prose gates over one render
+    jsk gates DIR [--record R]  the record, claims, parse and prose gates over one render
+      ... --view ID             names the view in the report; gates every render still
     jsk fit TEX [...]           fit a render to a page budget
     jsk ship RECORD --out D --view ID   validate, render and gate, in one pass
     jsk freeze APP --submitted DATE|false --channel TEXT   archive a sent application
@@ -291,8 +292,15 @@ def cmd_check(args):
 # the render profile decides which files exist: the default writes
 # <name>_Resume.{tex,pdf} beside <name>_Resume_ATS.txt, while --profile ats-maximal
 # writes <name>_Resume_ATS.{tex,pdf,txt} and nothing else.
+#
+# --view filters nothing: every render in the directory is gated whatever it says. It
+# names the view in the report's heading and in --json, so that a saved report says
+# which view it was run for - and the usage says so, rather than letting the flag's
+# name promise a filter.
 GATES_USAGE = ("usage: jsk gates <out-dir> [--record <resume.json>] [--view <id>] "
-               "[--pages N] [--json] [--max-findings N]")
+               "[--pages N] [--json] [--max-findings N]\n"
+               "       --view  names the view in the report; it does not narrow what is "
+               "gated")
 
 DOC_GATES = [
     ("parse gate", "check_ats.py", (".pdf", ".txt")),
@@ -386,11 +394,12 @@ def call_gate(script, args, argv0=None, capture=True):
     except Exception as exc:                      # noqa: BLE001 - deliberately broad
         # In-process gates share this interpreter, so an unhandled error inside one
         # would print a traceback where a verdict belongs and take the other gates
-        # down with it. Report it as its own failure and keep going.
+        # down with it. Report it as its own failure and keep going. The hint names the
+        # module, not the file: `python fit_pages.py` stops at its first relative import.
         return 2, buf.getvalue() + (
             f"FAIL  {script} raised {type(exc).__name__}: {exc}\n"
             f"fix:  run it directly to see the whole story - "
-            f"python {script} {' '.join(str(a) for a in args)}\n")
+            f"python -m {name} {' '.join(str(a) for a in args)}\n")
     return (code if isinstance(code, int) else 0), buf.getvalue()
 
 
