@@ -7,6 +7,7 @@ kb.ttl. A career is edited the way a person's is, in Turtle; the short file says
 this resume picks.
 """
 import tempfile
+from pathlib import Path
 import unittest
 
 import careerkit
@@ -333,6 +334,67 @@ class EmittersDoNotDiverge(BuildCase):
                     "Lead Engineer", "Cut p95 event latency", "Senior Engineer",
                     "Moved 40 applications")]
                 self.assertEqual(order, sorted(order), fmt)
+
+
+class RenderCommand(unittest.TestCase):
+    """`jsk render <resume.json>` - the short file, built and emitted."""
+
+    def render(self, *args):
+        import contextlib
+        import io
+
+        from jsk.urs import render_resume
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = render_resume.main(["render_resume.py", *args])
+        return code, out.getvalue()
+
+    def test_a_short_file_renders_named_for_the_person_and_the_company(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, path = careerkit.workspace(Path(tmp, "ws"), short=short())
+            out = Path(tmp, "out")
+            code, text = self.render(path, "--out", str(out))
+            self.assertEqual(code, 0, text)
+            names = sorted(p.name for p in out.iterdir())
+            self.assertEqual(names, ["Test_Person_Contoso_Resume.tex",
+                                     "Test_Person_Contoso_Resume_ATS.txt"])
+            txt = Path(out, "Test_Person_Contoso_Resume_ATS.txt").read_text(encoding="ascii")
+            self.assertIn("Moved 40 applications to Entra ID single sign-on.", txt)
+
+    def test_the_plain_text_is_ascii_whatever_the_career_holds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, path = careerkit.workspace(Path(tmp, "ws"), edits=[
+                ('"Led a team of 6 engineers."', '"Led a team of 6 engineers — hiring two."')],
+                short=short())
+            out = Path(tmp, "out")
+            self.render(path, "--out", str(out))
+            txt = next(out.glob("*.txt")).read_bytes()
+            self.assertTrue(all(b < 128 for b in txt))
+
+    def test_outside_a_workspace_is_a_refusal_with_the_fix(self):
+        # Review Focus 1.
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, "resume.json")
+            path.write_text(json.dumps(short()), encoding="utf-8")
+            code, text = self.render(str(path), "--out", str(Path(tmp, "out")))
+            self.assertEqual(code, 2)
+            self.assertIn("career/kb.ttl", text)
+            self.assertNotIn("Traceback", text)
+
+    def test_view_is_refused_for_a_short_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, path = careerkit.workspace(Path(tmp, "ws"), short=short())
+            code, text = self.render(path, "--out", tmp, "--view", "view_x")
+            self.assertEqual(code, 2)
+            self.assertIn("drop --view", text)
+
+    def test_the_example_renders(self):
+        from jsk import paths
+        with tempfile.TemporaryDirectory() as tmp:
+            code, text = self.render(paths.EXAMPLE_SHORT, "--out", tmp)
+            self.assertEqual(code, 0, text)
+            self.assertTrue(Path(tmp, "Priya_Raman_Resume.tex").exists())
 
 
 class FromPath(unittest.TestCase):

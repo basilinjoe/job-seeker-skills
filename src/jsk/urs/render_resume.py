@@ -232,9 +232,33 @@ def main(argv):
         print("      the ordinary first failure - run `jsk validate` on it once it parses")
         return 1
 
+    if isinstance(doc, dict) and "resume" in doc:
+        # The short file: built from the career it sits in. One resume per file, so
+        # there is no view to name.
+        from ..resume import build as B
+        from ..resume.short import ShortError
+
+        if view_id:
+            print("usage: a resume.json is one resume; drop --view")
+            return 2
+        try:
+            store, short_doc, _ = B.load(src)
+        except ShortError as err:
+            print(f"FAIL  {err}")
+            print(f"fix:  {err.fix}")
+            return 2
+
+        def plan_for(variant):
+            return B.build(store, short_doc, region=region, fmt=variant)
+        name_of = None
+    else:
+        def plan_for(variant):
+            return planner.build(doc, view_id=view_id, region=region, fmt=variant)
+        name_of = ((doc.get("person") or {}).get("name") or {}).get("full")
+
     base = arg(argv, "--name")
     if not base:
-        base = safe_name(((doc.get("person") or {}).get("name") or {}).get("full"))
+        base = safe_name(name_of if name_of is not None else plan_for("presentation")["name"])
         company = company_of(src)
         if company:
             base = f"{base}_{safe_name(company)}"
@@ -247,7 +271,7 @@ def main(argv):
     unverified = False
     for variant, kind, stem in targets:
         try:
-            rendered = planner.build(doc, view_id=view_id, region=region, fmt=variant)
+            rendered = plan_for(variant)
         except KeyError as e:
             print(f"FAIL  {e}")
             return 1

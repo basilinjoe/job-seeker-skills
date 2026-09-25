@@ -29,7 +29,7 @@ import sys
 import tempfile
 
 from . import __version__
-from .paths import EXAMPLE_RECORD as EXAMPLE, SCHEMA_DIR as SCHEMA
+from .paths import EXAMPLE_RECORD as EXAMPLE, EXAMPLE_SHORT, SCHEMA_DIR as SCHEMA
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -362,8 +362,7 @@ def verify(tmp):
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the resolver works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",
-             [f"{__package__}.urs.render_resume", EXAMPLE, "--out", tmp,
-              "--view", "view_au_default", "--pdf"])
+             [f"{__package__}.urs.render_resume", EXAMPLE_SHORT, "--out", tmp, "--pdf"])
     if not ok:
         return steps
 

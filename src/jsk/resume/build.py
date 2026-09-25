@@ -375,7 +375,7 @@ def build(store, doc, *, region=None, fmt=None, today=None):
     fmt = fmt or doc.get("format") or "presentation"
     country = career.get(O.K + "person", "country")
     profile = profiles.load(region or doc.get("region") or (country or "").lower() or None)
-    ascii_only = fmt == "ats-maximal"
+    ascii_only = fmt in ("ats-maximal", "plaintext")
     b = Builder(career, doc, profile, ascii_only, today)
     name, header_lines = b.header()
 
@@ -415,9 +415,10 @@ def build(store, doc, *, region=None, fmt=None, today=None):
     }
 
 
-def from_path(path, *, region=None, fmt=None, today=None):
-    """(plan, workspace root) for the resume.json at `path`. Raises short.ShortError
-    for a file that cannot be read, sits outside a workspace, or fails its checks."""
+def load(path):
+    """(store, doc, root) for the resume.json at `path`, checked. Raises
+    short.ShortError for a file that cannot be read, sits outside a workspace, or fails
+    its checks - loaded once, so a render building two variants reads the career once."""
     from ..graph import store as S
     from . import short
 
@@ -428,4 +429,10 @@ def from_path(path, *, region=None, fmt=None, today=None):
     if fails:
         raise short.ShortError(f"{path}: " + "; ".join(fails),
                                "`jsk validate` it and fix what it names")
+    return store, doc, root
+
+
+def from_path(path, *, region=None, fmt=None, today=None):
+    """(plan, workspace root) for the resume.json at `path`."""
+    store, doc, root = load(path)
     return build(store, doc, region=region, fmt=fmt, today=today), root

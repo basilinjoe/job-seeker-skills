@@ -252,6 +252,24 @@ class CliBehaviour(unittest.TestCase):
             self.assertIn(step, out)
         self.assertNotIn("FAIL", out)
 
+    def test_verify_renders_the_example_workspace_s_short_file(self):
+        """doctor renders the resume the way a person's is rendered: a short resume.json
+        built from a career, not a record copied out of one."""
+        from unittest import mock
+
+        from jsk import paths, preflight
+        calls = []
+
+        def fake(args, **_):
+            calls.append(args)
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(preflight.subprocess, "run", fake):
+            preflight.verify(str(self.tmp))
+        render = next(c for c in calls if any("render_resume" in a for a in c))
+        self.assertIn(paths.EXAMPLE_SHORT, render)
+        self.assertNotIn("--view", render)
+
     def test_json_output_is_machine_readable(self):
         code, out = run(PREFLIGHT, "--json")
         self.assertEqual(code, VERDICT, out)
