@@ -33,7 +33,8 @@ body. A validator enforces this by rejecting any unknown free-text field inside 
 unrecognised one. Application bookkeeping (when sent, frozen, which posting) belongs in the
 application's `application.md`, never in the view; a `frozen: true` key fails the record gate.
 
-`provenance_floor` makes a view refuse content below a given status. `confirmed` is the default for
+`provenance_floor` makes a view withhold content below a given status (a `withheld` warning, not a
+failure). `confirmed` is the default for
 anything a person will send.
 
 `format_profile` is `presentation`, `ats-maximal`, `plaintext` or `web`, matching the variants in

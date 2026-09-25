@@ -142,8 +142,9 @@ and what holds them is partly what their files say and partly what the write pat
   career go in through a changeset — they belong in the project they are about, so the next
   application can reuse them. What holds it is not a tool grant: `jsk kb apply` makes every new or
   changed claim `j:inferred` and refuses a changeset asserting `confirmed`, a view carrying
-  `provenance_floor: confirmed` means the record gate refuses to render it until a person has
-  confirmed each clause, and the claims gate fails a record that claims more than the career holds.
+  `provenance_floor: confirmed` means the renderer withholds each unconfirmed clause - it prints a
+  `withheld` warning rather than failing, so the mode files make every warning a confirm-or-cut
+  before hand-over - and the claims gate fails a record that claims more than the career holds.
   **The guarantee lives in the gates, not in the agent.**
 
 That asymmetry is the design. Where a rule can be enforced by a gate, it is; where it cannot, it is
@@ -326,10 +327,12 @@ A Markdown knowledge base moves across with `jsk migrate`, once, round-trip chec
 nothing. **It exists for one release.** The next deletes `jsk migrate`, `kbindex.py`,
 `tests/test_kbindex.py` and the `[index]`/`[migrate]` extras; before it can, `graph/queries.py`
 and `graph/named.py` need the weights, `SENIORITY` and `experience` they still import from
-`kbindex`. A bundle from a version before 4.0 is migrated by reading it and writing a Markdown
-knowledge base first — `references/mode-setup.md` has that procedure, and it is a conversation
-rather than a command because every relation the old format left in prose is a judgement a script
-would only guess at.
+`kbindex`. A bundle from a version before 4.0 has one route: read it whole, write a
+`user-knowledgebase.md` in the shape `docs/legacy-kb-spec.md` gives, each status as the bundle held
+it, then `jsk migrate` it, which carries every status and checks the round trip. Not changesets: a
+changeset cannot confirm, so the statuses would all arrive `inferred`. `references/mode-setup.md`
+states the same route, and it is a conversation rather than a command because every relation the old
+format left in prose is a judgement a script would only guess at.
 
 One more, discovered the hard way: **the tests assert on output text.** Some 200 `assertIn` calls
 check strings like `PASS - safe to send` and `DO NOT SEND`. You may *add* lines to a command's
@@ -406,7 +409,11 @@ a capability and never actually used is worse than none, because it teaches peop
 decorative — which is how `jsonschema` left the list: there was no URS JSON Schema for it to
 validate against.
 
-Anything that cannot run reports loudly and exits non-zero rather than passing quietly.
+Anything that cannot run reports loudly and exits non-zero rather than passing quietly - `SKIPPED`,
+a failure. The one exception is the claims gate's `NOT RUN`: with no `career/kb.ttl` above the
+record there is no career to join against, so it says so and exits 0, because a Markdown workspace
+has nothing it could run on. In a graph workspace it means the record was saved outside it, and the
+plugin treats it as unfinished: move the record in and re-run, never freeze over it.
 
 ## Releasing
 

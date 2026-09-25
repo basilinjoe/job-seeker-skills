@@ -100,9 +100,13 @@ cannot hold by itself. A simulation of twelve scenarios over the graph
   an application sent can never change, and `jsk kb query stale` names every application that sent
   a number since replaced.
 - **A claims gate.** Ids are shared between the career and every `resume.json`, so "is this
-  record's bullet one the career holds, at the provenance the career gives it, with numbers from
-  the metric's current version" is a join, run inside `jsk gates`, `jsk ship` and `jsk freeze`.
-  The simulation's seven planted defects were all caught.
+  record's bullet one the career holds, under the project the career puts it in, at no higher a
+  provenance than the career gives it, with numbers from the metric's current version" is a join,
+  run inside `jsk gates`, `jsk ship` and `jsk freeze`; an entry the career lacks counts as at most
+  inferred. What it does not check is wording: a bullet reworded in the record keeps its id, and
+  one that shares too few words with the career's text gets a `text-changed` WARN - a prompt to
+  look, not a proof the new words were confirmed. The simulation's seven planted defects were all
+  caught.
 
 None of those needs the career to be large. All of them need it to be structured data with ids.
 
@@ -163,7 +167,7 @@ third is why the prose gate exists at all.
 
 | Gate | Question | How |
 |---|---|---|
-| Record | Is the source coherent, does every number trace to a metric, and does every claim trace to the career? | `jsk validate`, then the claims gate, before anything renders |
+| Record | Is the source coherent, does every number trace to a metric, and does every claim's id trace to the career? | `jsk validate`, then the claims gate, before anything renders |
 | Parse | Will an ATS read this without mangling it? | `jsk check --only parse`, on the PDF |
 | Prose | Does it obey the writing rules? | `jsk check --only prose`, on the `.tex` |
 | Render | Does it *look* right, and is it *true*? | Open the PDF and read every page |

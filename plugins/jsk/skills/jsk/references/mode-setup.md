@@ -91,8 +91,11 @@ held. **It never deletes anything** and never raises a provenance. Show them its
 kept as notes, and any claims-gate failures it found in their old records. Then `jsk kb view` is
 their career, read end to end; keep the Markdown until they confirm it is complete.
 
-An older **bundle** (`projects/` and `resume-generation/`) has no migration: read it whole and write
-it as changesets, carrying every status across unchanged.
+An older **bundle** (`projects/` and `resume-generation/`) goes through the Markdown format: read it
+whole, write a `user-knowledgebase.md` beside it in the old Markdown shape, each entry's status
+copied as the bundle held it, then `jsk migrate` it as above (`--dry-run` first; each refusal names
+its fix) — migrate carries every status across and checks the round trip. Not as changesets: a changeset
+cannot confirm, so every status would arrive `inferred`.
 
 ### Then go deeper
 

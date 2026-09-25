@@ -97,7 +97,8 @@ has the format, for a changeset you are unsure of.
 | `jsk event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |
 
 Exit codes: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are required — the
-PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
+PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure. The claims gate's
+`NOT RUN` (no `career/kb.ttl` above the record) exits 0, but is not a pass.
 
 ## Agents
 
@@ -146,7 +147,8 @@ wrote it), or `needs-verification`.
 - **Say why**, flag every inference, and offer options with a recommendation.
 - **Tell them where they fall short.** Being flattered costs interviews.
 
-Save deliverables in the workspace (Claude Code) or the outputs folder (Cowork); tell them the path.
+Keep `resume.json` inside the workspace, where the claims gate finds the career; copy only the
+rendered files to an outputs folder (Cowork). Tell them the path.
 
 ## References, on demand
 
