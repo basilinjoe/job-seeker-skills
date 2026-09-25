@@ -1,13 +1,12 @@
 # Templates
 
-Five visual templates for the rendered PDF. `--template NAME` on `render_resume.py` picks one;
-`--list-templates` prints them; `preview_templates.py` renders all five from one record so the
-choice can be made by looking rather than by reading a sentence about it.
+Five visual templates for the rendered PDF. `jsk render --template NAME` picks one;
+`jsk render --list-templates` prints them; `jsk preview <resume.json> --out DIR` renders all five from
+one record, with page counts, so the choice is made by looking.
 
-**A template changes how the resume looks and nothing else.** Every content decision was made in
-`urs/resolve.py` before a template is consulted, and all five extract to the same text — the same
-words, in the same order. `tests/test_themes.py` compiles all five and compares the extracted text
-layers rather than taking the claim on trust.
+**A template changes how the resume looks and nothing else.** All content decisions are made before
+a template is consulted, and all five extract to the same text in the same order
+(`tests/test_themes.py` compares the extracted text layers).
 
 ## The catalogue
 
@@ -19,96 +18,65 @@ layers rather than taking the claim on trust.
 | **`circuit`** | Teal bars hung in the left margin, geometric heads, dense | Software, data, security, infrastructure |
 | **`atrium`** | Hairlines, 1in margins, muted slate, maximum white space | Executive one-pagers and short senior resumes |
 
-`monolith` is the default because colour should be opt-in: re-rendering a resume mid-search gives
-you the document you had, not a redesign you did not ask for.
+`monolith` is the default so colour is opt-in: a re-render mid-search gives back the document they
+had.
 
-Density is the one difference that is not a matter of taste. The same record is one page in
-`circuit` and two in `atrium`. `preview_templates.py` prints the page count for each, and a
-two-page resume where a one-page resume was available is a decision worth making on purpose.
+Density differs: the same record is one page in `circuit` and two in `atrium`. Choose a two-page
+render over an available one-page one on purpose.
 
 ## Choosing
 
-The templates say the same words in the same order. What differs is **which of those words a
-reader sees first**, and the honest input to that choice is the employer, not the applicant's
-taste. Send `monolith` when you do not know. Send the expressive ones when the reader's own
-materials are expressive — a design studio's careers page tells you more than any rule here can.
+The honest input is the employer, not the applicant's taste. Send `monolith` when you do not know;
+send an expressive one when the employer's own materials are expressive.
 
-None of this affects a parser. If the posting goes into a portal, the thing that matters is
-`--ats-max`, which chooses the *variant*; the template is orthogonal and any of them is safe.
+No template affects a parser. For a portal, what matters is `--ats-max`, which chooses the
+*variant*; any template is safe.
 
 ## What the design is doing
 
-Recruiter eye-tracking is consistent about two things: the top third of page one takes most of the
-attention, and what is left runs down the left edge. Roughly six items absorb most of a first
-pass — name, current title, current employer, previous title, previous employer, dates. Every
-template is built around those two facts.
+The top third of page one takes most of a recruiter's attention, then the left edge; about six items
+absorb the first pass — name, current title, current employer, previous title, previous employer,
+dates. Every template is built around that.
 
 - **The header block is the investment.** Name at display size, then the professional title at its
-  own size and colour, then contact details a step *down* in size and in the muted grey. The title
-  is one of the six; a phone number is not, and sizing them alike wastes the most valuable space
-  on the page.
-- **Section heads own the left edge.** They are the only element there, so size, weight and colour
-  move together — a heading that is merely bigger reads as bigger text, not as a new section. In
-  `circuit` the accent bar is hung in the margin with a zero-width box so the heading text still
-  starts on the same vertical as every body line: an indented heading destroys the one edge the
-  whole argument rests on.
+  own size and colour, then contact details a step *down* in size, in muted grey.
+- **Section heads own the left edge.** Size, weight and colour move together. In `circuit` the accent
+  bar hangs in the margin in a zero-width box so heading text starts on the same vertical as body
+  lines.
 - **Proximity carries the structure.** The gap above a section head is the largest in the document
-  and always beats the gap between entries inside a section. Get that backwards and each heading
-  looks attached to the section it just ended.
-- **The accent has a budget of three text sites.** Typically the headline, the section heads and
-  the skills labels. Rules and bullet markers are marks rather than text and are excluded — they
-  guide without competing. More than three and the eye has no path, because everything is
-  emphasised and so nothing is.
-- **Employer bold, title italic, both in ink.** Weight separates the two anchors. Muting the title
-  to grey is how a resume loses one of its six anchors while looking more designed.
-- **One vertical rhythm unit per template.** Every gap is a multiple of it, so the spacing reads as
-  intentional instead of as four numbers tuned by eye until they stopped looking wrong.
-- **Ragged right** in four of the five. At a 6.5-inch measure, justification opens word gaps wide
-  enough to read as rivers, and every extra millimetre between words costs a scan being done in
-  seconds.
+  and always beats the gap between entries.
+- **The accent has a budget of three text sites** — typically the headline, section heads and skills
+  labels. Rules and bullet markers are excluded.
+- **Employer bold, title italic, both in ink.** Never mute the title to grey.
+- **One vertical rhythm unit per template.** Every gap is a multiple of it.
+- **Ragged right** in four of the five: justification at a 6.5-inch measure opens rivers.
 
 ## What a template may not do
 
-The structural rules in `ats-rules.md` are unchanged and unchangeable here: no second column, no
-table, no text box, no image, no header or footer. No template loads a package that could draw
-one, and the package list is pinned by a test.
+The structural rules in `ats-rules.md` apply unchanged: no second column, table, text box, image,
+header or footer. No template loads a package that could draw one; the package list is pinned by a
+test. Also:
 
-Three further prohibitions are less obvious, and two of them were found by rendering and looking:
-
-- **No letterspacing.** The standard way to get airy capitals sets each character as its own
-  positioned glyph, so `SUMMARY` extracts as `S U M M A R Y` and the heading a parser matches on
-  stops existing.
-- **No uppercased name.** Two templates shipped `\MakeUppercase` on the name, because a heavy
-  all-caps name is the strongest anchor available at the top of a page. It is also the one choice
-  on this list a parser can see: it changes the glyphs, so the text layer said `PRIYA RAMAN` where
-  every other template said `Priya Raman`. Uppercase *headings* are fine — a heading is matched
-  against a known word and `check_ats.py` lowercases first. A name is not matched against
-  anything; it is extracted, by a heuristic that expects a name to look like a name. The option is
-  gone rather than discouraged.
-- **No `microtype` protrusion.** It pushes punctuation past the margin, and a test measures that
+- **No letterspacing** — `SUMMARY` extracts as `S U M M A R Y`.
+- **No uppercased name** — it changes the extracted name, which a parser finds by heuristic.
+  Uppercase *headings* are fine; headings are matched case-insensitively.
+- **No `microtype` protrusion** — it pushes punctuation past the margin, and a test measures that
   nothing does.
 
 ## Fonts
 
-TeX Gyre (Termes, Pagella, Heros, Adventor) with Latin Modern as the floor. Every font package is
-loaded inside `\IfFileExists`, so a thin TeX distribution substitutes Latin Modern and warns
-rather than failing. A typeface is worth a package; it is not worth a build failure on someone
-else's machine.
+TeX Gyre (Termes, Pagella, Heros, Adventor) with Latin Modern as the floor. Every font package loads
+inside `\IfFileExists`, so a thin TeX distribution substitutes Latin Modern and warns rather than
+failing.
 
 ## Templates and the fitter
 
-`fit_pages.py` shrinks the body copy and leaves the name and the section heads at full size. That
-is not luck: display sizes are written unit-less — `\fontsize{24}{27}`, which LaTeX reads as points
-just the same — specifically to keep them outside the regex the body-size lever matches. A fitter
-that shrank the anchors along with the body would hold the page count and dismantle the hierarchy
-the page count exists to protect, and it would do it silently.
-
-The four density levers are still there in every template, written as multiples of that template's
-rhythm unit. Fitting a resume works the same whichever one you chose.
+`jsk fit` shrinks the body copy and leaves the name and section heads at full size: display sizes are
+written unit-less (`\fontsize{24}{27}`) to stay outside the regex the body-size lever matches. The
+four density levers exist in every template as multiples of its rhythm unit.
 
 ## Adding one
 
-`urs/themes.py`, one entry in `THEMES`. State only what the template's idea is; `_theme()` fills in
-the rest. Then run the tests: contrast floors, the accent budget, the guarded font loads, the text
-layer and the right margin are all checked for every template in the dictionary, so a new one is
-covered the moment it exists.
+`urs/themes.py`, one entry in `THEMES`. State only the template's idea; `_theme()` fills in the rest.
+The tests check contrast floors, the accent budget, guarded font loads, the text layer and the right
+margin for every template in the dictionary.

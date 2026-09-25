@@ -240,7 +240,7 @@ class EmittersDoNotDiverge(PlanCase):
     """The point of the narrow waist: the same bullets in every format."""
 
     def test_latex_and_text_carry_the_same_bullets(self):
-        from urs import emit_latex, emit_text  # noqa
+        from jsk.urs import emit_latex, emit_text  # noqa
         plan = self.plan()
         bullets = plan["sections"][2]["entries"][0]["bullets"]
         tex = emit_latex.emit(plan)
@@ -250,7 +250,7 @@ class EmittersDoNotDiverge(PlanCase):
             self.assertIn(bullet.replace("%", r"\%"), tex)
 
     def test_latex_escapes_specials(self):
-        from urs import emit_latex
+        from jsk.urs import emit_latex
         doc = urs_doc()
         doc["engagements"][0]["achievements"] = [achievement(
             "Raised margin by 30% on R&D spend under $2 budgets.",
@@ -265,6 +265,24 @@ class EmittersDoNotDiverge(PlanCase):
         self.assertIn(r"30\%", tex)
         self.assertIn(r"R\&D", tex)
         self.assertIn(r"\$2", tex)
+
+
+class ABadValueIsTheRecordsFault(unittest.TestCase):
+    """Only "several views and none named" is the caller's to fix. Every other value
+    the planner cannot read is the record's - and was reported as a missing --view,
+    exit 2, to someone who had passed one."""
+
+    def test_a_malformed_date_names_the_record_not_the_view(self):
+        from fixtures import ended
+
+        doc = urs_doc()
+        doc["engagements"][0]["positions"][0]["period"] = ended("2021-xx", "2023-06")
+        with tempfile.TemporaryDirectory() as root:
+            record = write_urs(Path(root), doc)
+            code, out = run(RENDER_RESUME, record, "--out", root, "--view", "view_default")
+        self.assertEqual(code, 1, out)
+        self.assertIn("jsk validate", out)
+        self.assertNotIn("--view <id>", out)
 
 
 class RenderedFilesPassTheGates(unittest.TestCase):

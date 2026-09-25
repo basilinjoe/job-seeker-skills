@@ -1,0 +1,17 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Vocabulary
+
+c:azure a j:Technology ; j:label "Azure", "Microsoft Azure" .
+c:azure-ai-foundry a j:Technology ; j:label "Azure AI Foundry" ; j:partOf c:azure .
+c:bicep a j:Technology ; j:label "Bicep" ; j:partOf c:azure .
+c:docker a j:Technology ; j:label "Docker" .
+c:dotnet a j:Technology ; j:label ".NET", "dot net", "dotnet" .
+c:kafka a j:Technology ; j:label "Apache Kafka", "Kafka" .
+c:kubernetes a j:Technology ; j:label "Kubernetes", "k8s" .
+c:python a j:Technology ; j:label "Python" .
+c:sql-server a j:Technology ; j:label "MSSQL", "SQL Server" .
+c:terraform a j:Technology ; j:label "Terraform" .

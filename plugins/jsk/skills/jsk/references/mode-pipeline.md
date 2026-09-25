@@ -2,88 +2,90 @@
 
 What the job search needs from you this week, and recording what has happened since last time.
 
-## Why it matters
+If they named a company, "have I been here before?" is Glob `applications/*<company>*` — also the
+first thing `mode-tailor.md` runs, before a posting is written down.
 
-A bundle that records only what was *sent* describes the smaller half of a job search. At ten
-applications the rest fits in someone's head. At a hundred it does not, and the failures are
-mundane: an offer nobody replied to for four days, a recruiter chased twice in one week, a role
-still counted as live six weeks after it died.
+## Read the board
 
-## Run the script first
+The board is every `applications/*/application.ttl`. `jsk freeze` writes each one with its
+`submitted` event; everything after that is `jsk event`. **Read the whole board before saying
+anything:**
 
 ```bash
-python3 <skill-dir>/scripts/pipeline.py <bundle>
+jsk kb query pipeline      # each application: stage, since, days, due, events
+jsk kb query stale         # any that sent a metric since revised
 ```
 
-It reads every application's timeline and derives the stage, the staleness and the next action.
-Nothing is computed by hand, and nothing is stored twice — *the board and the application files
-cannot disagree, because the board decided nothing.*
+There is no `outcome` and no stored status anywhere — the stage is derived from the events every
+time, so nothing can disagree with them. The query gives, per application:
 
-| Flag | For |
+| Thing | Is |
 |---|---|
-| *(none)* | the week: what needs attention, most urgent first |
-| `--all` | the full board, closed applications included |
-| `--company NAME` | every application to one employer — "have I been here before?" |
-| `--as-of DATE` | what the board looked like on a given day |
-| `--top N` | rows per block, default 15 — the board is a list of what to do today, not an inventory |
-| `--markdown` / `--json` | a table to paste into a file · the whole board, for something else to read |
+| **stage** | the kind of the latest dated event — `submitted`, `screen-scheduled`, `onsite-done`, `offer`, `rejected`, `no-response` |
+| **days** | since that event. `follow-up-sent` restarts the clock; `note` does not |
+| **due** | a date somebody committed to. It beats the staleness rule in both directions |
+| **live** | no terminal event yet — not `rejected`, `withdrawn`, `no-response`, `offer-declined` |
 
-`--company` is the first thing `mode-tailor.md` runs, before a posting is even written down. It is
-cheap, and re-applying to a company mid-search is not.
-
-**Lead with the overdue items**, in your own words. The person does not need the table read out;
-they need to know which two things matter today.
+**Lead with the overdue items**, in your own words, most urgent first — the two things that matter
+today, not the table read out. Cap it at about fifteen rows.
 
 ## Record what happened
 
-One row per event, appended to the application's `# Timeline`. Never edit an existing row: a
-correction is a new row, for the same reason `log.md` records mistakes rather than hiding them.
+One command per event:
 
-- **Use the date it happened**, not the date you were told. "They called last Tuesday" is
-  last Tuesday.
-- **Use the vocabulary** in `framework/pipeline-vocabulary.md`. A synonym is not a small mistake —
-  the row stops counting, and the validator rejects it.
-- **Fill in `Due` when someone commits to something.** "They'll come back by the 22nd" belongs in
-  that column, and it beats the staleness rule in both directions.
-- **`follow-up-sent` when they chase.** It does not move the stage but it restarts the clock, which
-  is what stops the board nagging about work already done.
+```bash
+jsk event applications/<dir> screen-scheduled --date 2026-09-11 --channel email --due 2026-09-15 --note "Phone screen, 30 min"
+```
+
+**Add-only**: an event is never edited or removed — a correction is a new `note` event.
+
+- **Use the date it happened**, not the date you were told. "They called last Tuesday" is last
+  Tuesday.
+- **Use the vocabulary below exactly.** A kind outside it is refused, with the nearest suggested.
+- **Pass `--due` when someone commits to something.** "They'll come back by the 22nd" is a due date.
+- **`follow-up-sent` when they chase.** It does not move the stage but restarts the clock, so the
+  board stops nagging about work already done.
+
+An application frozen as `application.md` belongs to a career not yet migrated: offer `jsk migrate`
+(`mode-setup.md`) first, which writes its `application.ttl`; then `jsk event` as above.
+
+### The event vocabulary
+
+Advancing: `submitted` · `acknowledged` · `screen-scheduled` · `screen-done` ·
+`interview-scheduled` · `interview-done` · `onsite-scheduled` · `onsite-done` · `offer` ·
+`offer-accepted`
+
+Terminal: `rejected` · `withdrawn` · `no-response` · `offer-declined`
+
+Neither: `follow-up-sent` · `note` · `referral` · `recruiter-contact`
+
+Dates are `YYYY-MM-DD` or the literal `unknown`.
 
 ## Fill in the backlog, one at a time
 
-After a migration, live applications have a `submitted` row and nothing else — every subsequent
-event is in someone's inbox, not the bundle.
+Live applications often have a `submitted` event and nothing else — the later events are in someone's
+inbox. Work through them **one at a time**, most overdue first, since that is where a forgotten event
+is most likely hiding.
 
-Work through them **one at a time**, the way `mode-gaps.md` works `open-questions.md`. A list of
-twelve gets abandoned; one gets answered. Start with whatever the board says is most overdue, since
-that is where a forgotten event is most likely to be hiding.
-
-Do not reconstruct dates they cannot remember. `unknown` is a legitimate value and an honest one;
-a plausible date is indistinguishable from a recorded one, which is the whole problem.
+Do not reconstruct dates they cannot remember. `unknown` is honest; a plausible date is
+indistinguishable from a recorded one.
 
 ## Name the dead ones
 
-An application with no contact for six weeks is a `no-response`, and saying so is worth more than
-leaving it "live" forever — a board full of things that are not really happening is a board people
-stop reading.
-
-Offer to close it. Never close it silently: they may know something the bundle does not.
+No contact for six weeks is a `no-response` — a board full of things not really happening is a board
+people stop reading. Offer to close it; never close it silently, since they may know something the
+file does not.
 
 ## Companies
 
-When an application is to an employer already in `organisations/`, link it with `company_ref` and
-add whoever you learn about to that file's `# People` table — recruiter, referrer, hiring manager.
-
-The application points at the company; **the company does not list its applications.** That list is
-derived, so it cannot drift, and `--company` answers it on demand.
-
-If they are applying somewhere they once worked, that is one organisation with
-`relationship: both`, not two files.
+When an application is to an employer already in the career (`org_`), recruiters, referrers and
+hiring managers you learn about go on that organisation as a `j:note`, through `jsk kb apply`.
+Applying somewhere they once worked is one organisation with `j:relationship j:both`, not two.
 
 ## Close the loop
 
-Report what moved, what is still waiting, and what you closed. Append to `log.md`, then run
-`validate_bundle.py`.
+Report what moved, what is still waiting, and what you closed.
 
-Then say the useful thing: **what the pattern is.** Two rejections in a row for the same missing
-capability is a positioning problem, not a resume problem, and it belongs in `open-questions.md`
-rather than in another round of applications.
+Then name **the pattern.** Two rejections in a row for the same missing capability is a positioning
+problem, not a resume problem, and it belongs as a question in the career rather than in another
+round of applications.

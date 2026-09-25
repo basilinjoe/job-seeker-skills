@@ -1,5 +1,6 @@
 {
   "name": "job-seeker-skills",
+  "description": "Claude skills for job seekers: a validated career record and verified, ATS-safe resumes rendered from it.",
   "owner": {
     "name": "Basilin Joe",
     "url": "https://github.com/basilinjoe"
@@ -8,8 +9,8 @@
     {
       "name": "jsk",
       "source": "./plugins/jsk",
-      "description": "Portable career knowledge base in Open Knowledge Format, with verified ATS-safe resume generation and job-description tailoring",
-      "version": "2.3.0",
+      "description": "A career knowledge base as a validated graph record, with verified ATS-safe resumes and job-description tailoring.",
+      "version": "4.0.0",
       "author": {
         "name": "Basilin Joe"
       }

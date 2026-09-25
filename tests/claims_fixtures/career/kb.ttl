@@ -1,0 +1,191 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+k:kb j:format 3 ; j:name "Graph Simulation" ; j:updated "2026-09-24"^^xsd:date ; j:revision 1 .
+
+# == Identity
+
+k:person j:fullName "Test Person" ; j:headline "Platform Engineer" ; j:provenance j:confirmed .
+
+# == Positioning
+
+# == Work authorization and languages
+
+# == Vocabulary
+
+c:event-driven-architecture a j:Capability ; j:label "Event-driven architecture" .
+c:infrastructure-as-code a j:Capability ; j:label "IaC", "Infrastructure as Code" .
+c:mentoring a j:Capability ; j:label "Mentoring" ; j:partOf c:team-leadership .
+c:team-leadership a j:Capability ; j:label "Team leadership" .
+c:go-game a j:Domain ; j:label "Go (board game)" .
+c:bicep j:implies c:infrastructure-as-code .
+c:kafka j:implies c:event-driven-architecture .
+c:terraform j:implies c:infrastructure-as-code .
+
+# == Organisations
+
+k:org_meridian j:name "Meridian Health" ; j:relationship j:employer ; j:provenance j:confirmed .
+k:org_lakeside j:name "Lakeside Data" ; j:relationship j:employer ; j:provenance j:confirmed .
+k:org_harbour j:name "Harbour Systems" ; j:relationship j:employer ; j:provenance j:confirmed .
+k:org_pixel j:name "Pixel Games" ; j:relationship j:employer ; j:provenance j:confirmed .
+
+# == Roles
+
+k:pos_meridian_lead j:organisation k:org_meridian ;
+    j:title "Lead Engineer" ;
+    j:start "2023-01" ; j:end "2026-06" ; j:state j:ended ;
+    j:seniority j:team-leadership ;
+    j:provenance j:confirmed .
+
+k:pos_meridian_engineer j:organisation k:org_meridian ;
+    j:title "Senior Engineer" ;
+    j:start "2021-09" ; j:end "2022-12" ; j:state j:ended ;
+    j:seniority j:hands-on-senior ;
+    j:provenance j:confirmed .
+
+k:pos_lakeside_contractor j:organisation k:org_lakeside ;
+    j:title "Data Engineer" ;
+    j:start "2019-06" ; j:end "2020-12" ; j:state j:ended ;
+    j:seniority j:hands-on ; j:engagementKind j:contract ;
+    j:provenance j:confirmed .
+
+k:pos_harbour_engineer j:organisation k:org_harbour ;
+    j:title "Software Engineer" ;
+    j:start "2018-01" ; j:end "2021-05" ; j:state j:ended ;
+    j:seniority j:hands-on ;
+    j:provenance j:confirmed .
+
+k:pos_pixel_developer j:organisation k:org_pixel ;
+    j:title "Developer" ;
+    j:start "2014-03" ; j:end "2016-10" ; j:state j:ended ;
+    j:seniority j:junior ;
+    j:provenance j:confirmed .
+
+# == Projects
+
+k:prj_events j:name "Event platform" ;
+    j:position k:pos_meridian_lead ;
+    j:strength 5 ; j:recency 2026 ;
+    j:uses c:aks, c:csharp, c:kafka, c:team-leadership, c:terraform ;
+    j:headlineMetric k:met_latency ;
+    j:provenance j:confirmed .
+
+k:ach_events_latency j:project k:prj_events ; j:rank 1 ;
+    j:text "Cut p95 event latency from 5 s to 400 ms on AKS with Kafka." ;
+    j:cites k:met_latency ; j:shows c:aks, c:kafka ;
+    j:provenance j:confirmed .
+
+k:ach_events_team j:project k:prj_events ; j:rank 2 ;
+    j:text "Led a team of 6 engineers." ;
+    j:cites k:met_team ; j:shows c:team-leadership ;
+    j:provenance j:confirmed .
+
+k:ach_events_terraform j:project k:prj_events ; j:rank 3 ;
+    j:text "Wrote the platform's Terraform." ;
+    j:shows c:terraform ;
+    j:provenance j:confirmed .
+
+k:prj_identity j:name "Identity" ;
+    j:position k:pos_meridian_engineer ;
+    j:strength 4 ; j:recency 2022 ;
+    j:uses c:bicep, c:dotnet, c:entra-id, c:kafka ;
+    j:headlineMetric k:met_apps ;
+    j:provenance j:confirmed .
+
+k:ach_identity_sso j:project k:prj_identity ; j:rank 1 ;
+    j:text "Moved 40 applications to Entra ID single sign-on." ;
+    j:cites k:met_apps ; j:shows c:entra-id ;
+    j:provenance j:confirmed .
+
+k:ach_identity_events j:project k:prj_identity ; j:rank 2 ;
+    j:text "Published sign-in events to Kafka." ;
+    j:shows c:kafka ;
+    j:provenance j:confirmed .
+
+k:prj_data j:name "Data" ;
+    j:position k:pos_lakeside_contractor ;
+    j:strength 2 ; j:recency 2020 ;
+    j:uses c:fastapi, c:kubernetes, c:python, c:terraform ;
+    j:noneQuantified true ;
+    j:provenance j:confirmed .
+
+k:ach_data_ingestion j:project k:prj_data ; j:rank 1 ;
+    j:text "Built a FastAPI ingestion service." ;
+    j:shows c:fastapi ;
+    j:provenance j:inferred .
+
+k:prj_portal j:name "Portal" ;
+    j:position k:pos_harbour_engineer ;
+    j:strength 3 ; j:recency 2021 ;
+    j:uses c:angularjs, c:java, c:sql-server ;
+    j:noneQuantified true ;
+    j:provenance j:confirmed .
+
+k:ach_portal_frontend j:project k:prj_portal ; j:rank 1 ;
+    j:text "Built the AngularJS front end." ;
+    j:shows c:angularjs ;
+    j:provenance j:confirmed .
+
+k:prj_game j:name "Game" ;
+    j:position k:pos_pixel_developer ;
+    j:strength 2 ; j:recency 2016 ;
+    j:uses c:go-game, c:javascript ;
+    j:headlineMetric k:met_players ;
+    j:provenance j:confirmed .
+
+k:ach_game_players j:project k:prj_game ; j:rank 1 ;
+    j:text "Grew a Go server to 100,000 players." ;
+    j:cites k:met_players ; j:shows c:go-game ;
+    j:provenance j:confirmed .
+
+# == Metrics
+
+k:met_apps j:subject "applications migrated" .
+k:met_apps.v1 j:of k:met_apps ; j:value 40 ; j:confidence j:measured ; j:provenance j:confirmed .
+k:met_latency j:subject "p95 event latency" .
+
+k:met_latency.v1 j:of k:met_latency ;
+    j:baseline 5 ; j:value 1 ;
+    j:confidence j:measured ;
+    j:validUntil "2026-03-01"^^xsd:date ;
+    j:provenance j:confirmed .
+
+k:met_latency.v2 j:of k:met_latency ;
+    j:baseline 5 ; j:value 400 ;
+    j:confidence j:measured ;
+    j:validFrom "2026-03-01"^^xsd:date ;
+    j:provenance j:confirmed .
+
+k:met_players j:subject "players" .
+
+k:met_players.v1 j:of k:met_players ;
+    j:value 100000 ;
+    j:confidence j:measured ;
+    j:provenance j:confirmed .
+
+k:met_team j:subject "engineers led" .
+k:met_team.v1 j:of k:met_team ; j:value 6 ; j:confidence j:measured ; j:provenance j:confirmed .
+
+# == Skills
+
+k:skill_dotnet j:name ".NET" ; j:category "Languages" ; j:alias "C#" .
+k:skill_kubernetes j:name "Kubernetes" ; j:category "Platforms" ; j:alias "AKS", "K8s" .
+
+# == Education
+
+k:edu_bsc j:institution "University of Melbourne" ;
+    j:qualification "Bachelor of Science" ; j:field "Computer Science" ; j:level j:isced-6 ;
+    j:start "2010" ; j:end "2013" ;
+    j:provenance j:confirmed .
+
+# == Certifications
+
+# == Open source
+
+# == Open questions
+
+k:q_data_ingestion j:about k:ach_data_ingestion ;
+    j:question "Did you build the FastAPI service, or maintain it?" ;
+    j:asked "2026-09-20"^^xsd:date .

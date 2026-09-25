@@ -1,0 +1,51 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Posting
+
+k:post_contoso j:company "Contoso" ; j:title "Platform Engineer" ;
+    j:captured "2026-09-01"^^xsd:date ; j:advert "posting.md" .
+
+# == Requirements
+
+k:req_contoso_azure_ad j:posting k:post_contoso ;
+    j:asked "Azure AD" ; j:necessity j:preferred ;
+    j:quote "Azure AD experience helps" .
+
+k:req_contoso_dotnet j:posting k:post_contoso ;
+    j:asked ".NET" ; j:necessity j:required ;
+    j:quote "Our services are .NET" .
+
+k:req_contoso_eks j:posting k:post_contoso ;
+    j:asked "EKS" ; j:necessity j:preferred ;
+    j:quote "EKS exposure helps" .
+
+k:req_contoso_go j:posting k:post_contoso ;
+    j:asked "Go" ; j:necessity j:preferred ;
+    j:quote "Some Go would help" .
+
+k:req_contoso_iac j:posting k:post_contoso ;
+    j:asked "Infrastructure as Code" ; j:necessity j:required ;
+    j:quote "Infrastructure as Code throughout" .
+
+k:req_contoso_k3s j:posting k:post_contoso ;
+    j:asked "K3s" ; j:necessity j:preferred ;
+    j:quote "K3s at the edge helps" .
+
+k:req_contoso_k8s j:posting k:post_contoso ;
+    j:asked "K8s" ; j:necessity j:required ;
+    j:quote "Hands-on K8s in production" .
+
+k:req_contoso_mentoring j:posting k:post_contoso ;
+    j:asked "Mentoring" ; j:necessity j:implicit ;
+    j:quote "You will mentor juniors" .
+
+k:req_contoso_team_leadership j:posting k:post_contoso ;
+    j:asked "Team leadership" ; j:necessity j:required ;
+    j:quote "Team leadership of four engineers" .
+
+k:req_contoso_terraform j:posting k:post_contoso ;
+    j:asked "Terraform" ; j:necessity j:required ;
+    j:quote "Everything is written in Terraform" .

@@ -9,8 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (EXAMPLE_URS, VALIDATE_URS, achievement, ended, ongoing,
-                      run, urs_doc, write_urs)
+from fixtures import (EXAMPLE_URS, VALIDATE_URS, achievement, ended, run, urs_doc, write_urs)
 
 
 class UrsCase(unittest.TestCase):
@@ -46,6 +45,14 @@ class ShippedExample(UrsCase):
     def test_baseline_fixture_is_valid(self):
         self.assertPasses(urs_doc())
 
+    def test_help_is_an_answer_not_an_unknown_flag(self):
+        """`python -m jsk.gates.validate_urs --help` read --help as an unknown flag and
+        exited 2."""
+        code, out = run(VALIDATE_URS, "--help")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("unknown flag", out)
+        self.assertIn("--max-findings", out)
+
 
 class NumeralsMustBeBacked(UrsCase):
     """The rule that stops a rewritten bullet from quietly inflating a number."""
@@ -79,10 +86,13 @@ class NumeralsMustBeBacked(UrsCase):
         whose number disagreed with its own metric failed, while one that invented a
         number and attached nothing passed and rendered. The second is what tailoring
         produces - prose written fresh against a posting - so it is the case worth
-        failing, and the message names the row to add."""
+        failing, and the message says where the number is recorded - the career, not
+        the achievements/metrics.md the bundle format kept, which no longer exists."""
         out = self.assertFails(self.bullet("Rolled out to 42 sites."),
                                "carries no metrics at all")
-        self.assertIn("achievements/metrics.md", out)
+        self.assertIn("career/kb.ttl", out)
+        self.assertIn("jsk kb export --urs", out)
+        self.assertNotIn("metrics.md", out)
 
     def test_standard_designators_are_not_quantities(self):
         # ISO 27001 and SOC 2 are names. Counting them would make the gate noise.
@@ -174,6 +184,93 @@ class IdentityAndReferences(UrsCase):
         doc = urs_doc()
         doc["views"][0]["include"] = [{"ref": "eng_ghost"}]
         self.assertFails(doc, "unknown id")
+
+
+class BulletIdsAViewNamesMustBeWrittenDown(UrsCase):
+    """The compensating control for an achievement id that encodes a position.
+
+    An id of the shape `ach_projects_<stem>_md_<n>` numbers a bullet by where it sits,
+    so inserting one above it shifts every id below onto the next sentence. Nothing
+    fails - the id still resolves - so a view keeps rendering and quietly quotes
+    different work: `prj_care` with two bullets gives `ach_projects_care_md_1` and
+    `..._2`, and a bullet added above them moves `..._1` onto what had been `..._2`.
+
+    A compiler minted these, and the write layer materialised them before mutating a
+    concept, so the exposure was bounded to a bundle nobody had written to. Both are
+    gone: the skill writes ids by hand now, and this warning is the only thing standing
+    between a positional id and a view that quotes the wrong sentence. It matters more
+    than it did, not less - `references/kb-spec.md` says to write ids down for exactly
+    this reason.
+    """
+
+    NEEDLE = "points at a different sentence"
+
+    def bundle(self, aids, referenced=()):
+        doc = urs_doc()
+        # No `engagement` key: a project that names one must appear in that
+        # engagement's projects[], and a missing back-reference fails the document
+        # for a reason this test is not about. No numerals in the text either, for
+        # the same reason - an unbacked number is its own failure.
+        doc["projects"] = [{
+            "id": "prj_care",
+            "title": "Care coordination platform",
+            "strength": 5,
+            "provenance": {"status": "confirmed"},
+            "achievements": [
+                achievement(text, aid=aid) for text, aid in zip(
+                    ("Rebuilt the ingestion pipeline end to end.",
+                     "Led the compliance workstream to sign-off."), aids)],
+        }]
+        if referenced:
+            doc["views"][0]["include"] = [
+                {"ref": "prj_care", "achievements": list(referenced)}]
+        return doc
+
+    def warnings(self, out):
+        return [ln for ln in out.splitlines() if ln.startswith("  warn  ")]
+
+    def test_a_view_naming_a_positional_id_warns(self):
+        out = self.assertPasses(self.bundle(
+            ["ach_projects_care_md_1", "ach_projects_care_md_2"],
+            referenced=["ach_projects_care_md_1"]))
+        self.assertIn(self.NEEDLE, out)
+        # The finding has to name all three, or nobody can act on it.
+        self.assertIn("view_default", out)
+        self.assertIn("ach_projects_care_md_1", out)
+        self.assertIn("prj_care", out)
+
+    def test_an_id_the_concept_wrote_down_does_not_warn(self):
+        out = self.assertPasses(self.bundle(
+            ["ach_care_pipeline", "ach_care_compliance"],
+            referenced=["ach_care_pipeline"]))
+        self.assertNotIn(self.NEEDLE, out)
+        self.assertIn("WARN 0", out)
+
+    def test_a_positional_id_no_view_names_does_not_warn(self):
+        """An unmaterialised id nobody points at is not yet a hazard, and warning on
+        every numbered bullet would bury the ones that are."""
+        out = self.assertPasses(
+            self.bundle(["ach_projects_care_md_1", "ach_projects_care_md_2"]))
+        self.assertNotIn(self.NEEDLE, out)
+        self.assertIn("WARN 0", out)
+
+    def test_only_the_named_id_is_reported(self):
+        out = self.assertPasses(self.bundle(
+            ["ach_projects_care_md_1", "ach_projects_care_md_2"],
+            referenced=["ach_projects_care_md_2"]))
+        self.assertEqual(len(self.warnings(out)), 1, out)
+        self.assertIn("ach_projects_care_md_2", out)
+        self.assertNotIn("ach_projects_care_md_1", out)
+
+    def test_it_never_changes_the_exit_code(self):
+        """This is a warning about a hole, not a defect in the record: the ids resolve
+        and the document renders. A bundle that passed before must still pass."""
+        code, out = self.validate(self.bundle(
+            ["ach_projects_care_md_1", "ach_projects_care_md_2"],
+            referenced=["ach_projects_care_md_1", "ach_projects_care_md_2"]))
+        self.assertEqual(code, 0, out)
+        self.assertIn("FAIL 0", out)
+        self.assertIn("PASS - safe to render", out)
 
 
 class ProvenanceAndPlaceholders(UrsCase):
@@ -303,6 +400,54 @@ class Malformed(UrsCase):
         doc = urs_doc()
         doc["urs"] = "2.0.0"
         self.assertFails(doc, "unsupported urs version")
+
+
+class WrongShapeFailsRatherThanCrashes(UrsCase):
+    """A hand-written record gets a collection's type wrong - `"skills": "Python,
+    Azure"` - and every check after the shape check walks that collection as a list
+    of objects. A traceback there is a gate that did not answer, so the shape failure
+    has to be the answer, and nothing downstream of it may run on a shape it assumes.
+    """
+
+    def assertShapeFails(self, doc, needle):
+        out = self.assertFails(doc, needle)
+        self.assertNotIn("Traceback", out)
+        self.assertIn("DO NOT RENDER", out)
+        return out
+
+    def test_a_string_where_a_list_belongs(self):
+        doc = urs_doc()
+        doc["skills"] = "Python, Azure"
+        self.assertShapeFails(doc, "'skills' must be a list")
+
+    def test_a_list_of_strings_where_objects_belong(self):
+        doc = urs_doc()
+        doc["skills"] = ["Python", "Azure"]
+        self.assertShapeFails(doc, "'skills[0]' must be an object")
+
+    def test_every_list_key_is_guarded(self):
+        from jsk.gates.validate_urs import LIST_KEYS
+        for key in LIST_KEYS:
+            with self.subTest(key=key):
+                doc = urs_doc()
+                doc[key] = "oops"
+                self.assertShapeFails(doc, f"{key!r} must be a list")
+                doc[key] = ["oops"]
+                self.assertShapeFails(doc, f"'{key}[0]' must be an object")
+
+    def test_a_string_where_an_object_belongs(self):
+        for key in ("person", "meta"):
+            with self.subTest(key=key):
+                doc = urs_doc()
+                doc[key] = "Priya Raman"
+                self.assertShapeFails(doc, f"{key!r} must be an object")
+
+    def test_it_says_the_deeper_checks_did_not_run(self):
+        """A shape failure with nothing else listed must not read as the only defect."""
+        doc = urs_doc()
+        doc["skills"] = "Python"
+        out = self.assertShapeFails(doc, "must be a list")
+        self.assertIn("not run", out)
 
 
 if __name__ == "__main__":

@@ -1,179 +1,144 @@
 # Mode: tailor
 
-Close the gaps against a posting, then write the resume once.
+Match the career against a posting, close the gaps, then write the resume once.
 
 ## The one rule
 
 **Tailoring is selection and emphasis. It is never invention.**
 
-Every claim must trace to a `confirmed` concept. If the posting wants something they have not done,
-say so — do not manufacture a bullet. Anything `inferred` needs confirmation before it appears.
-
-Not only ethics: someone who bluffs past a screen gets found out in the first technical conversation,
-having burned both the opportunity and their credibility.
+Every claim must trace to a `confirmed` entry in `career/kb.ttl`. If the posting wants something
+they have not done, say so — do not manufacture a bullet; someone who bluffs past a screen is found
+out in the first technical conversation. The claims gate refuses a record that claims more than the
+career holds.
 
 ## The shape
 
 ```
-posting.md   ──►  requirements[] in its own frontmatter
-bundle       ──►  the record, compiled in under a second
-      └────────►  gaps.md     verdicts, shortfalls, the question queue
-answers      ──►  the concepts, and the record recompiles
-                        └──► author once, confirm, ship
+posting.md     the advert, verbatim   ──►  posting.ttl  its requirements, each quoting it
+jsk match      requirements × career  ──►  gaps.md      verdicts, shortfalls, the question queue
+answers        jsk kb apply / confirm ──►  resume.json  authored once, confirmed, shipped
 ```
 
-**Two agent passes, and the person in between.** One reads the posting and the record and writes the
-assessment; one authors the resume after the questions are answered. Everything else — the record, the
-ranking, the checks — is a script, because none of it needs judgement.
+One directory per application:
 
-The resume is written **last**. There is no reason to author a document from a record you are about to
-change, and doing it at the end drops every wasted authoring pass.
+```
+applications/<yyyy-mm-dd>-<company>-<role>/
+  posting.md  posting.ttl  gaps.md  resume.json  application.ttl  <Name>_<Company>_Resume.{tex,pdf,txt}
+```
+
+Name it for the day it is being worked on; `jsk freeze` renames it if it is sent later.
+
+**Two agent passes, and the person in between.** One writes the assessment; one authors the record
+after the questions are answered. The resume is written **last** — never from a career you are
+about to change.
 
 ## 0. Have they been here before?
 
+**Before the posting is written down**, Glob `<workspace>/applications/*<company>*`, then:
+
 ```bash
-python3 <skill-dir>/scripts/pipeline.py <bundle> --company "<name>"
+jsk kb query pipeline      # each sent application's stage, and when
 ```
 
-**Before the posting is written down and before the analyst runs.** The match is a case-insensitive
-substring, so a partial name is fine and a wrong guess costs a second.
-
-`bundle-spec.md` calls applying twice ordinary, and that is exactly why this is a check rather than a
-prohibition: the second round is often the right move, and it is only ever the right move on purpose.
-Over a hundred-application search the mistake this catches is mundane and expensive — a company
-applied to eleven weeks ago, a screen that went quiet and was never closed out, a second application
-landing on the desk of a recruiter who already has one. None of that is visible in the posting, and by
-the time it surfaces the round has been paid for.
-
-If anything comes back, **show it**: the stem, the role it was for, the stage derived from its
-timeline, and when the last event was. Then stop. A rejection two years old, a screen that went silent
-last month and a live application to a different team at the same employer are three different
-situations and only one person can tell them apart. **That decision is theirs and it comes before the
-work**, the same as the fit verdict at step 2.
-
-Nothing back means nothing recorded, which is not quite the same as never applied — if they think they
-have been here before, that is a `pipeline` backlog item, not a reason to skip the round.
+Applying twice is ordinary, so this is a check, not a prohibition. If anything comes back, **show
+them** the role, its stage and when. Then stop: **that decision is theirs and it comes before the
+work.** Nothing back means nothing recorded, not never applied.
 
 ## 1. Get the posting
 
-`$ARGUMENTS` may hold a URL, the text, or a path. **Fetch a URL yourself**; the analyst has no network
-tools. Job boards refuse often — LinkedIn and most Workday tenants sit behind a wall — so when a fetch
-fails, say what happened and ask them to paste it. That is an ordinary outcome, not an error.
+`$ARGUMENTS` may hold a URL, the text, or a path. **Fetch a URL yourself**; the analyst has no
+network tools. **Career sites that render with JavaScript** (Workday, SuccessFactors, iCIMS,
+Phenom-style `careers.<company>` portals) **go straight to a browser tool** when one is available: a
+plain fetch sees an empty shell and can report a live posting as closed. When a fetch fails, say what
+happened and ask them to paste it — an ordinary outcome, not an error.
 
-Write it to `tailoring/targets/<slug>.posting.md` with the advertisement verbatim in the body and the
-URL in the frontmatter. Keep the URL either way; the archive needs it.
+Create `<workspace>/applications/<stem>/` and write `posting.md`: **the advertisement verbatim and
+nothing else**, the URL on its first line. **Never paraphrase it** — the archive has to say what the
+application was answering, and every requirement quotes it.
 
 ## 2. Assess
 
-`jsk-tailor-analyst` writes the requirements into the posting's frontmatter and the assessment into
-`tailoring/targets/<slug>.gaps.md`, and returns the ranking.
+Send `jsk-tailor-analyst` the application directory, the workspace and the skill directory, all
+absolute. It writes `posting.ttl`, runs `jsk match`, and
+writes `gaps.md` from the match. It never touches `career/kb.ttl`.
 
-**Show them the assessment.** Not a summary of it. It is written to be read aloud, which is the whole
-reason it is Markdown and not a document with a schema.
-
-**Surface what came back in your own words**, and stop before anything is authored when: the ranking
-is close between projects with materially different ownership verbs, a top-ranked project carries
-unconfirmed content, eligibility fails, or the posting suggests the role may not be worth applying to
-at all. That last decision is theirs and it comes before the work.
+**Show them the assessment**, not a summary of it. **Stop before anything is authored** when: the
+ranking is close between projects with materially different ownership verbs, a top-ranked project
+carries unconfirmed content, eligibility fails, or the role may not be worth applying to at all.
 
 ## 3. Ask the whole queue at once
 
 Present the ordered queue and take a bulk reply. Then go one at a time **only** for answers that came
-back ambiguous, incomplete, or that contradict what the record already says.
+back ambiguous, incomplete, or contradicting the career. **Offer the skip every round.**
 
-This departs from `mode-gaps.md`'s standing rule — *"one question at a time… a list of fifteen gets
-abandoned; one gets answered"* — and the departure is deliberate. That rule was written for an
-open-ended bundle audit with no natural end. A tailoring round is bounded, ordered by priority, and
-every question names the requirement it would close, so the person can see the whole cost before
-starting it. `/jsk:gaps` keeps one-at-a-time.
+For an inferred claim, quote it, say where it came from, and offer confirm, correct, or cut. For a
+missing metric, prompt with where the number might live — dashboards, billing, retros, release
+notes, incident reviews, promotion documents, a colleague. An honest "~50 tenants" beats silence.
 
-**Offer the skip.** It is the ordinary exit, not a failure.
+### Answers go into the career
 
-For a claim the record only infers, quote it exactly, say where it came from, and offer confirm,
-correct, or cut. For a missing metric, prompt with where the number might live — dashboards, billing,
-retros, release notes, incident reviews, promotion documents, a colleague. **Ask twice, then let go**:
-an honest "~50 tenants" beats silence, and a bullet permanently awaiting a number is a bullet nobody
-improved.
+An answer changes **`career/kb.ttl`** — never `gaps.md` or the record, both downstream of it.
 
-### Answers go into the concepts
+- **A round's corrections and new facts are one changeset**, one `jsk kb apply`, after
+  `jsk kb show <ids>` for the `op:base`. A corrected claim comes back `inferred`; confirm it next.
+- **What they confirmed**: `jsk kb confirm <ids> --answer "their words"`, which also answers the
+  open questions about them.
+- **Unanswerable**: soften or cut the claim in the changeset; never leave it pending forever.
 
-An answer edits **the concept it belongs to** — the project file, `achievements/metrics.md`, the role.
-One place, because there is only one source now: the record recompiles from it. That is the whole
-reason the old procedure's "write it to both places, then reconcile" step is gone, along with the class
-of bug it existed to catch.
+## 4. Another round only if a verdict moved
 
-Then recompile, so everything after this reads the answers:
+Revise `gaps.md` **only when an answer changed what the career holds**. Re-run `jsk match`.
 
-```bash
-python3 <skill-dir>/scripts/okf_compile.py <bundle> --quiet
-```
+**Patch it yourself when every change is a row** — a verdict with its evidence, a ranking row from the
+new match, an answered question struck. **Send it back only when the fit could change or an answer
+needs a row the assessment lacks**: `SendMessage` to the same agent with what changed.
 
-## 4. A second round only if a verdict moved
-
-Run the analyst again **only when an answer changed what the record holds** — a metric arrived, an
-unevidenced claim got its evidence, a requirement that was indeterminate can now be judged.
-
-**Continue the same agent with `SendMessage`; do not spawn a second one.** It still holds the posting,
-the record and the vocabulary — about 60 KB it would otherwise read again to learn what it already
-knows. Send it what changed and which concepts moved, and let it revise `gaps.md` rather than
-re-derive it. A fresh agent is not merely slower: it re-reads a record the answers have just changed
-and has no memory of which verdicts it had already settled, so it re-opens them.
-
-Only start a cold analyst if the first one is gone — the run was interrupted, or the session ended.
-Then pass it the previous `gaps.md` so it revises rather than starting over.
-
-Otherwise stop. A round that re-asks what was already answered is how a loop stops ending, and three
-rounds of a document nobody's answers changed is where the old procedure spent most of its time.
-
-**Say why it ended.** "Nothing left worth asking" and "you skipped with four things open" call for
-different next moves.
+The loop ends when they skip, when nothing is left worth asking, when a round produces no new
+answerable question, or at three rounds (`--rounds N` in `$ARGUMENTS` overrides). **Say which reason
+ended it.**
 
 ## 5. Author, once
 
-`jsk-resume-author` writes the view and the prose. Three things carry that:
+`jsk-resume-author` writes `resume.json`. **Resolve its paths before dispatching; it reads only what
+the prompt names:**
 
-- **Everything it authors is `inferred`**, and `provenance_floor: confirmed` on the view means
-  `validate_urs.py` refuses to render it until a person confirms. A failing render here is the
-  guardrail working, not a problem to route around.
-- **Every numeral must trace to a metric** in `achievements/metrics.md`. Tailoring is exactly when a
-  rewritten clause inflates a number, and that check is what catches it.
-- **It quotes every clause back**, with what it derived it from.
+- the application directory and the workspace — absolute paths;
+- whichever of `rules/writing-rules.md`, `rules/ats-rules.md`, `rules/structure-rules.md` exist beside
+  `career/` (one `ls`), or "no overrides";
+- the example record: `python -c "from jsk.paths import EXAMPLE_RECORD; print(EXAMPLE_RECORD)"`.
 
-**Read those quotes to the person and get confirm-correct-or-cut on each**, then flip the confirmed
-ones. This step is yours and is not delegable.
+Bullets it adds or rewords in the career arrive `inferred`, and a view with
+`provenance_floor: confirmed` does not fail on them: the render drops them, shown only as `withheld …`
+warnings, each confirmed or cut before the resume is handed over. **It quotes every clause back.**
+**Read those quotes to the person and get confirm-correct-or-cut on each**, then
+`jsk kb confirm <ids> --answer "…"` and flip them in the record. Confirm confirms the career's
+current text: a bullet reworded only in the record stays `inferred` until its words are in the
+career — never on the strength of the old text. This step is yours and is not delegable.
 
-**A view references content; it cannot contain it.** The validator rejects free text inside one and
-fails on a key it does not recognise. That is the structural expression of the rule at the top of this
-file: a format where invention is impossible beats a process where invention is merely discouraged. If
-the posting wants something the record does not have, the view has nothing to point at — which is the
-honest outcome, and the thing to say out loud.
+**A view references content; it cannot contain it.** If the posting wants something the career does
+not have, say so out loud.
 
 ## 6. Ship
 
-`/jsk:ship`, or `references/mode-ship.md` inline. It renders, runs the four gates, freezes the archive
-and logs the submission. It never freezes a document that failed a gate.
+Follow `references/mode-ship.md`: `jsk ship`, the render gate, `jsk freeze`. Nothing is frozen that
+failed a gate.
 
 ## 7. Tell them where they fall short
 
-Every time, in chat, before they ask. By now this is a reading of the assessment rather than a
-judgement you are forming:
+Every time, in chat, before they ask:
 
-> "Two gaps survived. They want direct people-management — you have technical leadership and mentoring
-> evidence, but nothing on hiring or performance reviews. And they name Terraform throughout; your IaC
-> evidence is all Bicep. The concepts transfer and you could say so in interview, but the resume can't
-> claim Terraform depth you don't have."
+> "Two gaps survived. They want direct people-management — you have technical leadership and
+> mentoring evidence, but nothing on hiring. And they name Terraform throughout; your IaC evidence is
+> all Bicep. The resume can't claim Terraform depth you don't have."
 
-A named gap can be prepared for, addressed in a cover letter, or used to decide the role is not worth
-applying to. That decision is theirs and needs real information. If the fit is genuinely poor, say so.
+If the fit is genuinely poor, say so.
 
 ## Cover letter, if asked
 
-Under 250 words. Strongest capability match first. One concrete piece of evidence with its metric.
-Address the obvious gap in one honest line rather than hoping nobody notices. No enthusiasm padding.
+Under 250 words. Strongest match first. One concrete piece of evidence with its metric. The obvious
+gap in one honest line. No enthusiasm padding.
 
 ## Running it inline
 
-Where agents are unavailable, the procedure is the same and the scripts are the same. What you lose is
-the separation, not the method — so be stricter about the two places it matters: keep the
-advertisement before you read anything out of it, and run the scripts rather than trusting your own
-arithmetic.
+Without agents, the procedure and commands are the same: keep the advertisement before you read
+anything out of it, and trust `jsk match` and `jsk validate` over your own reading.

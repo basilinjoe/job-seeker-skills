@@ -1,0 +1,32 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Vocabulary
+
+c:aks a j:Technology ;
+    j:label "AKS", "Azure Kubernetes Service" ;
+    j:isA c:kubernetes ; j:partOf c:azure .
+
+c:angular a j:Technology ; j:label "Angular" ; j:distinct c:angularjs .
+c:angularjs a j:Technology ; j:label "AngularJS" .
+c:aws a j:Technology ; j:label "AWS" ; j:isA c:cloud-platform .
+c:azure a j:Technology ; j:label "Azure", "Microsoft Azure" ; j:isA c:cloud-platform .
+c:bicep a j:Technology ; j:label "Bicep" ; j:partOf c:azure .
+c:cloud-platform a j:Technology ; j:label "Cloud platform" ; j:isA c:computing .
+c:computing a j:Technology ; j:label "Computing" .
+c:csharp a j:Technology ; j:label "C#" ; j:partOf c:dotnet .
+c:dotnet a j:Technology ; j:label ".NET", "Dot Net" ; j:distinct c:dotnet-framework .
+c:dotnet-framework a j:Technology ; j:label ".NET Framework" .
+c:eks a j:Technology ; j:label "Amazon EKS", "EKS" ; j:isA c:kubernetes ; j:partOf c:aws .
+c:entra-id a j:Technology ; j:label "Entra ID" ; j:former "Azure AD" ; j:partOf c:azure .
+c:fastapi a j:Technology ; j:label "FastAPI" ; j:partOf c:python .
+c:golang a j:Technology ; j:label "Go", "Golang" .
+c:java a j:Technology ; j:label "Java" ; j:distinct c:javascript .
+c:javascript a j:Technology ; j:label "JS", "JavaScript" .
+c:kafka a j:Technology ; j:label "Apache Kafka", "Kafka" .
+c:kubernetes a j:Technology ; j:label "K8s", "Kubernetes" .
+c:python a j:Technology ; j:label "Python" .
+c:sql-server a j:Technology ; j:label "MSSQL", "SQL Server" .
+c:terraform a j:Technology ; j:label "Terraform" .

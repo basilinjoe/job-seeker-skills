@@ -1,0 +1,35 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Posting
+
+k:post_northwind j:company "Northwind" ; j:title "Data Engineer" ;
+    j:captured "2026-09-01"^^xsd:date ; j:advert "posting.md" .
+
+# == Requirements
+
+k:req_northwind_computing j:posting k:post_northwind ;
+    j:asked "Computing" ; j:necessity j:preferred ;
+    j:quote "General computing background" .
+
+k:req_northwind_eda j:posting k:post_northwind ;
+    j:asked "Event-driven architecture" ; j:necessity j:preferred ;
+    j:quote "Event-driven architecture helps" .
+
+k:req_northwind_javascript j:posting k:post_northwind ;
+    j:asked "JavaScript" ; j:necessity j:preferred ;
+    j:quote "Some JavaScript helps" .
+
+k:req_northwind_kafka j:posting k:post_northwind ;
+    j:asked "Kafka" ; j:necessity j:required ;
+    j:quote "Kafka pipelines" .
+
+k:req_northwind_python j:posting k:post_northwind ;
+    j:asked "Python" ; j:necessity j:required ;
+    j:quote "Python every day" .
+
+k:req_northwind_terraform j:posting k:post_northwind ;
+    j:asked "Terraform" ; j:necessity j:required ;
+    j:quote "Terraform for the platform" .

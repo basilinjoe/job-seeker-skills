@@ -9,9 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import SCRIPTS, load_script, run
+from fixtures import CHECK_PROSE, load_script, run
 
-CHECK_PROSE = SCRIPTS / "check_prose.py"
 cp = load_script(CHECK_PROSE)
 
 # A resume whose prose satisfies every documented rule. The regression guard.
@@ -251,6 +250,16 @@ class MalformedInput(ProseCase):
         code, out = run(CHECK_PROSE, junk)
         self.assertEqual(code, 2)
         self.assertIn("unsupported", out.lower())
+
+    def test_help_is_an_answer_not_a_missing_file(self):
+        """`python -m jsk.gates.check_prose --help` read --help as a path and printed
+        "file not found: --help" with the usage-error exit."""
+        for flag in ("--help", "-h"):
+            code, out = run(CHECK_PROSE, flag)
+            self.assertEqual(code, 0, out)
+            self.assertNotIn("file not found", out)
+            self.assertIn("python -m jsk.gates.check_prose", out)
+            self.assertNotIn("The sibling gate", out)
 
     def test_missing_file_reports_a_verdict(self):
         code, out = run(CHECK_PROSE, self.tmp / "absent.tex")

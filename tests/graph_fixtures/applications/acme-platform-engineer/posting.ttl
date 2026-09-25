@@ -1,0 +1,21 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Posting
+
+k:post_acme_platform_engineer j:company "Acme Health" ; j:title "Platform Engineer" ;
+    j:url "https://acme.example/jobs/42" ;
+    j:seniority j:platform-design ; j:domain c:healthcare ;
+    j:captured "2026-09-08"^^xsd:date ; j:advert "posting.md" .
+
+# == Requirements
+
+k:req_acme_platform_engineer_eda j:posting k:post_acme_platform_engineer ;
+    j:asked "event-driven" ; j:necessity j:preferred ;
+    j:quote "Event-driven systems a plus" .
+
+k:req_acme_platform_engineer_kubernetes j:posting k:post_acme_platform_engineer ;
+    j:asked "K8s" ; j:necessity j:required ;
+    j:quote "Deep, hands-on K8s experience in production" .

@@ -174,6 +174,16 @@ class MalformedInput(CheckATSCase):
         self.assertNotEqual(code, 0)
         self.assertNotIn("Traceback", out)
 
+    def test_help_is_an_answer_not_a_missing_file(self):
+        """`python -m jsk.gates.check_ats --help` read --help as a path and printed
+        "file not found: --help" with the usage-error exit."""
+        for flag in ("--help", "-h"):
+            code, out = run(CHECK_ATS, flag)
+            self.assertEqual(code, 0, out)
+            self.assertNotIn("file not found", out)
+            self.assertIn("--strict", out)
+            self.assertIn("python -m jsk.gates.check_ats", out)
+
     def test_the_docx_is_no_longer_accepted(self):
         """It was the deliverable; it is not one any more, and a gate that
         silently accepted it would be checking a file nobody sends."""
@@ -278,7 +288,7 @@ class ThePdfItself(CheckATSCase):
 
 
 class InProcessEntryPoint(CheckATSCase):
-    """`okf gates` calls main() instead of spawning a fifth interpreter to do it.
+    """`jsk gates` calls main() instead of spawning a fifth interpreter to do it.
 
     The CLI is the documented API - SKILL.md tells people to run this script
     directly - so the two forms must not be able to disagree. These compare them on

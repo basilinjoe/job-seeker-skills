@@ -28,7 +28,10 @@ AGENTS = PLUGIN / "agents"
 
 
 def tokens(*paths):
-    return sum(p.stat().st_size for p in paths) // 4
+    # Counted with LF line endings whatever the checkout wrote. A clone with
+    # core.autocrlf=true adds a byte per line, which moved the resume author's
+    # total across its ceiling on a fresh Windows checkout and nowhere else.
+    return sum(len(p.read_bytes().replace(b"\r\n", b"\n")) for p in paths) // 4
 
 
 class ResidentCost(unittest.TestCase):
@@ -36,7 +39,33 @@ class ResidentCost(unittest.TestCase):
     said what they want. It is the only file here nobody can opt out of."""
 
     def test_the_always_loaded_file_stays_small(self):
-        self.assertLess(tokens(SKILL / "SKILL.md"), 4800)
+        # 5200 -> 4400 when the career became one file. Measured: 5128 before,
+        # 4246 after.
+        #
+        # Almost all of the fall is a surface that stopped existing. SKILL.md had
+        # to NAME every write noun and every read verb - thirty-odd commands, plus
+        # the fourteen `list` nouns - because an agent that does not know a verb
+        # exists hand-authors the file instead, and the index entry, log row and
+        # vocabulary term that a write implies were then left to be remembered.
+        # There is one file now, so hand-authoring IS the interface: eight
+        # subcommands, none of which writes anything a person owns.
+        #
+        # This ceiling is the one number in this file that should be defended
+        # hardest, because SKILL.md loads for every mode before anyone has said
+        # what they want.
+        #
+        # 4400 -> 2400 when SKILL.md became a router. Measured: 4,246 before, 2,202
+        # after. What left was history (how the write layer and the compiler used to
+        # work), gate and agent detail each mode file already carries, and rationale
+        # paragraphs that rationale.md holds in long form.
+        #
+        # Ceiling kept at 2400 when the career became a graph record. Measured: 2,282
+        # before, 2,169 after. "Editing the knowledge base" - three habits standing in
+        # for a write command - became one rule naming the write command, `jsk kb
+        # apply`, and `jsk index` left the table; the claims gate, `jsk migrate` and
+        # `jsk event` came in. The okf lesson is the reason it fell rather than grew:
+        # the subverbs live in `jsk kb --help` and in each refusal's fix line, not here.
+        self.assertLess(tokens(SKILL / "SKILL.md"), 2400)
 
 
 class AgentReadBudget(unittest.TestCase):
@@ -47,16 +76,36 @@ class AgentReadBudget(unittest.TestCase):
     """
 
     def test_the_tailor_analyst_reads_only_what_it_ranks_from(self):
-        self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 3200)
+        # 3200 -> 2300: 2,841 -> 2,096 measured, history and rationale cut.
+        # Ceiling kept when it moved to posting.ttl and `jsk match`: 2,188 -> 1,754. The
+        # weights table it applied by hand left with the arithmetic; an inline
+        # posting.ttl, so it never needs kb-format.md, came in.
+        self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 2300)
 
-    def test_the_resume_author_stays_off_the_record_schema(self):
-        """It authors a view and reads the compiled record, so `urs-spec.md` - the
-        record's own schema - is the half it does not need. `view-format.md` is the
-        half it does, and the split took that read from 4,127 tokens to 968."""
+    def test_the_resume_author_reads_both_halves_of_the_record_spec(self):
+        """It writes the record by hand now, so `urs-spec.md` went from the half it
+        did not need to the half it cannot do without.
+
+        This ceiling went UP - 8,600 to 11,400 - and that is the cost of removing the
+        compiler, stated rather than absorbed. A compiled record could not carry an
+        unrecognised key, so the agent needed only the view format; a hand-written one
+        can, and `experience:` written where `engagements:` belongs renders a resume
+        with no jobs on it. 3,727 tokens of schema against a defect invisible in the
+        PDF is the trade, and it is the right way round.
+        """
         author = tokens(AGENTS / "jsk-resume-author.md")
-        spec = tokens(REFS / "view-format.md")
+        spec = tokens(REFS / "view-format.md", REFS / "urs-spec.md")
         rules = tokens(REFS / "ats-rules.md", REFS / "writing-rules.md")
-        self.assertLess(author + spec + rules, 8600)
+        # 11400 -> 7600: 11,214 -> 7,138 measured. Every key, type and shape stayed;
+        # the prose around them, and each half's account of why it was split, went.
+        #
+        # 7600 -> 7200: 7,211 -> 7,124 measured, the author alone 1,842 -> 1,754. It
+        # stopped reading user-knowledgebase.md whole: `jsk match` then `jsk kb show
+        # <ids>` hands it only the entries the posting selects, and the Markdown bullet
+        # shape it had to copy became a four-line changeset. The fall is small because
+        # the changeset carries its own prefix block rather than sending the author to
+        # kb-format.md for it - that read would have cost 1,788.
+        self.assertLess(author + spec + rules, 7200)
 
     def test_the_view_format_is_the_smaller_half(self):
         """If it ever grows past the file it was split out of, the split has stopped
@@ -65,36 +114,190 @@ class AgentReadBudget(unittest.TestCase):
                         tokens(REFS / "urs-spec.md"))
 
 
-class TheAgentsCompileNarrowly(unittest.TestCase):
-    """The flags are the mechanism. A record compiled without them scales with the
-    number of postings a person has answered, which is the defect this budget exists
-    to prevent - and it is invisible until somebody has applied for eighty jobs.
+class TheWritePathStaysCheap(unittest.TestCase):
+    """Recording one project must not cost the whole format specification.
+
+    This class used to assert the opposite thing by the same measure. `mode-braindump.md`
+    opened its write section with "Follow references/bundle-spec.md. Read two existing
+    project concepts first so you match house style" - 6,453 tokens of specification
+    plus two files off the person's own disk, before writing a single frontmatter key.
+    The write layer removed that read entirely: the command emitted house style, so the
+    spec became something nobody on the write path opened.
+
+    There was no write layer over one Markdown file, so the read became legitimate
+    again - `kb-spec.md` was how anybody knew what a project block looked like.
+
+    The graph record has one write command again, `jsk kb apply`, but its input is a
+    changeset in the record's own format, so the reference - now `kb-format.md` - is
+    still the thing that says what an entry looks like. What is asserted stays the
+    honest statement: it is not MANDATED, because the mode shows the changeset it needs
+    inline, and apply's refusals name the fix for anything the example did not cover.
     """
 
-    def compile_command(self, name):
-        """The `okf_compile.py` line the agent is told to run - not the prose around
-        it. Both files discuss the flags they do and do not pass, so searching the
-        whole file finds an argument against a flag and reads it as the flag."""
-        for line in (AGENTS / name).read_text(encoding="utf-8").splitlines():
-            if "okf_compile.py" in line and "--dump-record" in line:
-                return line
-        self.fail(f"{name}: no okf_compile.py --dump-record command found")
+    WRITE_MODES = ("mode-braindump.md", "mode-refresh.md", "mode-gaps.md",
+                   "mode-tailor.md", "mode-ship.md", "mode-resume.md")
 
-    def test_the_analyst_compiles_without_views_or_prose(self):
-        """It ranks projects against requirements and never reads a bullet."""
-        line = self.compile_command("jsk-tailor-analyst.md")
-        for flag in ("--no-views", "--for score", "--compact"):
-            with self.subTest(flag=flag):
-                self.assertIn(flag, line)
+    # An instruction to read something, as these files write one: the imperative
+    # at the start of a line or a bolded sentence. Deliberately narrow.
+    #
+    # A looser rule that matched "read" anywhere flagged mode-braindump.md's own
+    # disclaimer - the sentence that replaced the instruction. Reading a negation as
+    # the thing it negates is the one failure mode a check like this must not have,
+    # because the fix a person would reach for is to delete the disclaimer.
+    INSTRUCTION = ("Follow ", "Read ", "Open ", "**Follow ", "**Read ", "**Open ")
 
-    def test_the_author_compiles_without_views_but_keeps_the_prose(self):
-        """`--for score` drops achievement text, which is the thing this agent
-        retunes. A well-meaning future edit adding it here for symmetry with the
-        analyst would leave the author with nothing to rewrite."""
-        line = self.compile_command("jsk-resume-author.md")
-        self.assertIn("--no-views", line)
-        self.assertIn("--compact", line)
-        self.assertNotIn("--for score", line)
+    # The two agents that write a record file: the analyst writes posting.ttl, the
+    # author a changeset. Each carries the shape it writes inline for the same reason.
+    WRITE_AGENTS = ("jsk-tailor-analyst.md", "jsk-resume-author.md")
+
+    def mandated(self, path):
+        """The lines that tell a reader to open a file, not the ones about one."""
+        return [line for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip().startswith(self.INSTRUCTION)]
+
+    def test_no_write_path_mandates_the_format_specification(self):
+        paths = [REFS / n for n in self.WRITE_MODES] + [AGENTS / n for n in self.WRITE_AGENTS]
+        for path in paths:
+            for line in self.mandated(path):
+                if "kb-format.md" not in line:
+                    continue
+                with self.subTest(file=path.name):
+                    self.fail(f"{path.name} mandates reading kb-format.md: {line.strip()!r}. "
+                              f"Show the changeset inline instead - the reference is for "
+                              f"the case the file does not already cover.")
+
+    def test_the_braindump_path_stays_small(self):
+        """SKILL.md plus the mode file, which is the whole mandated read.
+
+        Measured rather than estimated, because an estimate here was wrong by 450
+        tokens on the first try:
+
+            bundle era   SKILL 4,391 + braindump   956 + bundle-spec 6,453 = 11,800
+            write layer  SKILL 5,128 + braindump 1,241                     =  6,369
+            one file     SKILL 4,246 + braindump 1,414                     =  5,660
+
+        The middle row was the write layer removing the specification read; the last
+        is SKILL.md losing a command surface that no longer exists. The mode file grew
+        both times, and both times that was the trade - it now carries the four
+        sections a project touches and the ids that have to agree across them, which
+        is what nothing checks any more.
+        """
+        #   router       SKILL 2,202 + braindump   890                     =  3,092
+        #   graph        SKILL 2,169 + braindump 1,041                     =  3,210
+        #
+        # The last row is the graph record: SKILL.md's hand-edit habits became one
+        # rule, and the mode's four-sections-in-order paragraph became a worked
+        # changeset with its prefix block - the one thing apply cannot infer.
+        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-braindump.md"), 3300)
+
+    def test_the_format_specification_is_loaded_on_demand(self):
+        """`kb-format.md` is the reference, and its size is therefore free - but only
+        while it stays off every write path. The moment a mode or a writing agent
+        mandates it, it becomes the read it replaced, and its tokens land on recording
+        one project.
+        """
+        # New file, new ceiling: 1,788 measured. It replaced kb-spec.md (2,315, under a
+        # 2400 ceiling), which described thirteen Markdown headings and the block under
+        # each. kb-format.md describes the Turtle file a model must read and draft: the
+        # banners, one table row per class with every predicate, provenance, and a
+        # changeset. Smaller because the predicates are a table, not an example per
+        # section; `jsk kb apply`'s refusals carry what an example used to.
+        self.assertLess(tokens(REFS / "kb-format.md"), 2000)
+
+
+class TheAgentsReadTheFileWhole(unittest.TestCase):
+    """How an agent gets the career into its context.
+
+    This class used to assert three compile flags. `--no-views` kept a bundle that had
+    answered eighty postings from handing eighty of them to an agent that needed none;
+    `--for score` dropped the achievement prose for the one agent that ranks and never
+    reads a bullet. Both were real, and both were solving a problem the folder created:
+    a record assembled out of 345 concepts, most of which no verdict was computed from.
+
+    One file had no such problem, so the flags went with the compiler. What replaced
+    them was an instruction - read it once, as a file - guarding the opposite failure:
+    the same content read twenty times through greps, each one a round trip.
+
+    The graph record answers both with a query. `jsk match` does the selection a
+    whole read was for, and `jsk kb show <ids>` reads exactly the entries it selected,
+    so neither writing agent reads the career whole any more.
+    """
+
+    def body(self, name):
+        return (AGENTS / name).read_text(encoding="utf-8")
+
+    def test_neither_agent_is_sent_at_a_compile(self):
+        """A stale instruction here sends an agent at a command that no longer exists,
+        and the run stops on a `unknown command` before it has read anything."""
+        for name in ("jsk-tailor-analyst.md", "jsk-resume-author.md"):
+            with self.subTest(agent=name):
+                self.assertNotIn("compile <", self.body(name))
+                self.assertNotIn("--dump-record", self.body(name))
+                self.assertNotIn("--for score", self.body(name))
+
+    def test_the_author_reads_the_match_then_only_the_entries_it_uses(self):
+        body = self.body("jsk-resume-author.md")
+        self.assertIn("jsk match applications/<stem>/posting.ttl", body)
+        self.assertIn("jsk kb show <the ids you will use>", body)
+        self.assertIn("not the whole career", body)
+
+    def test_the_analyst_runs_the_match_and_reads_what_it_cites(self):
+        """The analyst stopped reading the file whole. On the ABB run it read 165k
+        characters and then spent six and a half minutes in one reasoning turn,
+        most of it 900 exact-string lookups and the arithmetic over them - which
+        a command does in milliseconds and cannot miscount. That command was `jsk
+        index --rank`; it is `jsk match` now, which matches through the vocabulary
+        rather than by exact string. The analyst reads the entries it cites, and no
+        more, and no index is named anywhere: it is leaving with the Markdown."""
+        analyst = self.body("jsk-tailor-analyst.md")
+        self.assertIn("jsk match applications/<stem>/posting.ttl", analyst)
+        self.assertIn("Read a project before citing it as evidence", analyst)
+        self.assertIn("Do not read the whole career", analyst)
+        self.assertNotIn("jsk index", analyst)
+
+    def test_the_author_is_warned_off_a_sibling_application(self):
+        """The one read that got MORE dangerous. A record written for another posting
+        is now a complete, valid, hand-written example of exactly the file this agent
+        is about to write - which makes it a template to copy, and a tailored resume
+        that copies one has stopped being tailored. A master record is the same
+        template by another name, so the warning names it too."""
+        body = self.body("jsk-resume-author.md")
+        self.assertIn("Do not read any other `resume.json`", body)
+        self.assertIn("master", body)
+
+    def test_the_author_is_handed_its_paths_rather_than_searching(self):
+        """Left to find its own rules and shape reference, the author spent its first
+        fifty seconds on `find` and `ls` - and opened a sibling record and the master
+        on the way. The caller resolves the paths; the agent reads only those."""
+        self.assertIn("never search for rules, references or examples",
+                      self.body("jsk-resume-author.md"))
+        self.assertIn("EXAMPLE_RECORD", (REFS / "mode-tailor.md").read_text(encoding="utf-8"))
+
+    def test_applications_live_beside_the_knowledge_base(self):
+        """Written as a bare `applications/<stem>`, a session resolved it against its
+        working directory and grew a second applications/ that the been-here-before
+        check never looks in. SKILL.md anchors it once; the step that creates the
+        directory names the anchor."""
+        self.assertIn("`applications/` is the directory beside `career/`",
+                      (SKILL / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertIn("<workspace>/applications/<stem>/",
+                      (REFS / "mode-tailor.md").read_text(encoding="utf-8"))
+
+    def test_a_second_round_is_a_patch_not_a_second_analyst(self):
+        """On the ABB run a second analyst round took 193 seconds to rewrite a whole
+        gaps.md whose changes were four verdicts and a struck question - and the main
+        thread then patched a row itself in two. Row-local changes are the caller's;
+        the analyst comes back only for the fit or a row that does not exist yet.
+
+        The caller used to rescore a project by hand with the analyst's weights,
+        restated in one line, and this test kept the two statements agreeing. `jsk
+        match` prints the weights and the scores, so the caller re-runs it instead and
+        neither file restates them - one statement cannot disagree with itself."""
+        tailor = (REFS / "mode-tailor.md").read_text(encoding="utf-8")
+        self.assertIn("Patch it yourself when every change is a row", tailor)
+        self.assertIn("Re-run `jsk match`", tailor)
+        self.assertNotIn("+3 a required term", tailor)
+        self.assertNotIn("×3", self.body("jsk-tailor-analyst.md"))
 
 
 class TheMainThreadBudget(unittest.TestCase):
@@ -103,11 +306,36 @@ class TheMainThreadBudget(unittest.TestCase):
     so this is the ceiling most likely to be pushed by an honest change."""
 
     def test_a_tailoring_run_to_ship(self):
+        # 10900 -> 10100 when the career became one file. Measured: 10,900 before,
+        # 9,841 after.
+        #
+        # SKILL.md gave back 882 of it by losing a command surface. The two mode
+        # files roughly held: mode-tailor.md lost the compile and the write commands
+        # and gained the application directory; mode-ship.md lost `jsk application
+        # file` - which performed the freeze - and gained the four edits that
+        # replace it, because freezing a directory by hand is something somebody has
+        # to be told how to do.
+        #
+        # That last one is the shape of this whole change in one file: a command
+        # that did a thing correctly becomes a paragraph telling a model to do it
+        # correctly. Cheaper to read, and one more thing nothing checks.
+        #
+        # 10100 -> 6000, and the freeze went back to being a command. Measured:
+        # 9,841 -> 5,613. `jsk ship` replaced three gate steps and `jsk freeze` the
+        # hand-written freeze, so the paragraph became an invocation that refuses
+        # when a gate fails; the rest was history and rationale.
+        #
+        # Ceiling kept at 6000 when the career became a graph record. Measured: 5,999
+        # before, 5,105 after (SKILL 2,169, tailor 1,628, ship 1,306). mode-tailor.md
+        # gave back 636: `jsk match` ranks, so the posting frontmatter, the weights and
+        # the hand-rescoring left, and a round's answers became one changeset and one
+        # confirm instead of a scripted find-and-replace. mode-ship.md lost the
+        # hand-appended timeline rows to `jsk event` and gained the claims gate.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
                    REFS / "mode-ship.md"),
-            10400)
+            6000)
 
 
 if __name__ == "__main__":

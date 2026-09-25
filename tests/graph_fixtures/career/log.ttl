@@ -1,0 +1,16 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Log
+
+k:rev_1 j:revision 1 ; j:date "2026-09-20"^^xsd:date ; j:by j:migrate ;
+    j:summary "Migrated from user-knowledgebase.md (kb: 2)." ;
+    j:kbSha256 "0000000000000000000000000000000000000000000000000000000000000000" .
+
+k:rev_2 j:revision 2 ; j:date "2026-09-21"^^xsd:date ; j:by j:confirm ;
+    j:summary "Confirmed the team size." ;
+    j:touched k:met_team.v1, k:q_team_size ;
+    j:answer "Six throughout; two joined in the second month and two left." ;
+    j:kbSha256 "4ae3636cbec680050cd4cfbc7478e1a256fa53e6e66d5a953ef3fdaba1bccc56" .

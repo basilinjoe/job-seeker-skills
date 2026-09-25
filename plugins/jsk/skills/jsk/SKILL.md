@@ -6,269 +6,153 @@ description: >-
   job description; check whether a resume will survive applicant tracking systems (ATS); resolve
   gaps or missing metrics in their career records; says their resume is outdated or vague; describes
   their work in long unstructured messages; wants a periodic career review; or asks about a career
-  bundle, OKF, brag document or resume framework.
+  knowledge base, brag document or resume framework.
 license: MIT
 ---
 
 # Job Seeker Skill
 
-A career knowledge base as a folder of linked Markdown files with YAML frontmatter — the
-**Open Knowledge Format** — plus tooling to render verified, ATS-safe resumes from it.
+A career knowledge base kept as **one readable Turtle file**, `career/kb.ttl`, validated on every
+load, plus a toolchain that renders verified, ATS-safe resumes from it. Interview someone once;
+regenerate resumes, tailored variants and interview briefs from the file forever after.
 
-Interview someone **once**, then regenerate resumes, tailored variants, LinkedIn copy and interview
-briefs forever without re-interviewing them.
-
-**The bundle is the source of truth. A resume is one rendering of it.**
-
-Rendering goes through JSON, always:
+**The knowledge base is the source of truth. A resume is one rendering of it.**
 
 ```
-bundle (Markdown)  ->  resume.json (URS)  ->  .tex -> .pdf   (the deliverable)
-                                          \-> .txt          (paste-in boxes)
+career/kb.ttl  ->  resume.json (URS)  ->  .tex -> .pdf   (the deliverable)
+  jsk kb apply      you write it        \-> .txt          (paste-in boxes)
 ```
 
-The PDF is the only rendered deliverable. `--ats-max` chooses which variant it holds - presentation
-or ATS-maximal - rather than producing a second file.
+**Never hand-author a `.tex`.** Write the URS record, validate it, render every format from it —
+two hand-built documents stop agreeing the moment one is edited.
 
-**Never hand-author a `.tex`.** Build the URS record, validate it, render every format
-from it. *Two hand-built documents stop agreeing the moment one is edited — silently, usually in the
-copy that gets sent.* `references/urs-spec.md` has the format, `references/mode-resume.md` the
-procedure.
-
-## One source, and what compiles from it
-
-**The bundle is the only thing anyone edits.** Everything a tool reads is built from it:
-
-| Thing | Is | Made by |
+| Thing | Is | Written by |
 |---|---|---|
-| the bundle — `projects/`, `roles/`, `achievements/`, … | the source of truth, hand-written Markdown | the person |
-| the record | the bundle as URS, in memory, in under a second | `okf_compile.py` |
-| `<slug>.posting.md` | the advertisement verbatim, plus its requirements in frontmatter | `jsk-tailor-analyst` |
-| `<slug>.gaps.md` | verdicts, shortfalls and the question queue, written to be read aloud | `jsk-tailor-analyst` |
-| `<slug>.view.md` | which evidence appears, in what order, and the prose retuned for this posting | `jsk-resume-author` |
+| `career/kb.ttl` · `career/log.ttl` | the career · every change to it | `jsk kb` |
+| `applications/<stem>/posting.md` · `posting.ttl` | the advert verbatim · its requirements | you · `jsk-tailor-analyst` |
+| `applications/<stem>/gaps.md` | verdicts, shortfalls and the question queue | `jsk-tailor-analyst` |
+| `applications/<stem>/resume.json` | the URS record for this posting | `jsk-resume-author` |
+| `applications/<stem>/application.ttl` | what was sent, and its timeline | `jsk freeze`, `jsk event` |
 
-The record is **compiled, never transcribed**. Every field in it is a frontmatter key or a table
-cell, so a model reading them across adds no judgement — and a transcription that can drift is what
-checksums, conformance levels and a reconcile pass all used to police.
-
-**The gaps close before the resume is written**: assess, ask the queue, write the answers into the
-concepts, recompile. Only then does `jsk-resume-author` write the view, once.
-`references/mode-tailor.md` has the procedure.
+`applications/` is the directory beside `career/` — resolve it to an absolute path, never the
+working directory.
 
 ## Modes
 
-Route on what the user asked for. If they passed an argument (`braindump`, `resume`, `tailor`,
-`ship`, `refresh`, `gaps`, `setup`, `pipeline`), use it. Otherwise infer from their message.
+Route on the argument if one was passed, otherwise on the message. Ambiguous? Ask — the modes do
+different things.
 
 | Mode | Trigger | Read |
 |---|---|---|
-| **setup** | no bundle exists, or "set this up" | `references/mode-setup.md` |
+| **setup** | no knowledge base, a Markdown one, or "set this up" | `references/mode-setup.md` |
 | **braindump** | telling you about their work; long unstructured messages | `references/mode-braindump.md` |
 | **resume** | "build my resume", "is this ATS-safe" | `references/mode-resume.md` |
-| **tailor** | pasted a job description or a URL; "customise for this role" | `references/mode-tailor.md` |
-| **ship** | a record is finished and needs rendering, checking, freezing and logging | `references/mode-ship.md` |
-| **refresh** | "update my bundle", quarterly review, got promoted | `references/mode-refresh.md` |
+| **tailor** | a job description or URL; "customise for this role" | `references/mode-tailor.md` |
+| **ship** | a finished record needs rendering, gating, freezing | `references/mode-ship.md` |
+| **refresh** | "update my knowledge base", quarterly review, got promoted | `references/mode-refresh.md` |
 | **gaps** | "what's missing", "resume feels vague", verify before applying | `references/mode-gaps.md` |
 | **pipeline** | "what do I chase", "where are my applications", weekly review | `references/mode-pipeline.md` |
 
-Ambiguous? Ask which they want rather than guessing — the modes do genuinely different things.
+## Every session, first
 
-## Always do this first
+1. **Run `jsk --version`**. Not found → `python3 -m jsk` (`python` or `py -3` on Windows). Neither →
+   say so and stop.
+2. **Find the knowledge base** — `jsk doctor`, or search for `career/kb.ttl`. Sessions share no
+   state; never assume one exists. None → setup, unless they asked for something deliverable: deliver
+   it first, then offer to capture it.
+3. **A `user-knowledgebase.md`** is the old Markdown format: offer `jsk migrate` (mode-setup.md);
+   never run it unasked.
+4. **`rules/writing-rules.md`, `ats-rules.md`, `structure-rules.md`** beside `career/` override
+   their defaults.
 
-**Find the bundle.** Search the working directory and any connected folder for a directory
-containing both `projects/` and `resume-generation/`, or matching `*-okf`, or a zip with `okf` in
-the name. Read its `index.md` then `log.md` — they orient you.
+## Changing the career
 
-**Check its revision.** `index.md` carries `okf_bundle:`. Absent, or below the current
-revision, means the bundle predates the current layout:
+**One rule: change it with `jsk kb apply <changeset.trig>`**, a small TriG file of `op:add`,
+`op:set` and `op:retire`; `--dry-run` shows the diff. Read with `jsk kb show <ids>` (it prints the
+`op:base`), `jsk kb view` or `jsk kb query`, and before adding anything: people re-tell one project
+months apart in different words. **Confirm only with `jsk kb confirm <id> --answer "their words"`.**
+A hand edit is legal, then `jsk kb adopt`. Every refusal names its fix. `references/kb-format.md`
+has the format, for a changeset you are unsure of.
 
-```bash
-python3 <skill-dir>/scripts/migrate_bundle.py <bundle>
-```
+**Never edit `career/kb.ttl` blind.** No pyoxigraph → draft the changeset to a file for later.
 
-Report mode writes nothing. Say what it found and **offer** the `--apply` run — never migrate
-unasked, because it writes into their record. An older bundle still works, so this is a suggestion
-and never a blocker. Where the migration says something needs a person, that goes on the list for
-gaps mode rather than being filled in for them.
+## The `jsk` command
 
-Sessions do not share state. Never assume a bundle exists because one was created before.
+`jsk --help` and `jsk kb --help` are the full surface.
 
-**No bundle?** Switch to setup mode — unless they asked for something you can deliver anyway. If
-someone wants a resume right now, build the resume, then offer to capture it as a bundle. Setup
-should never block the actual ask.
-
-**A bundle's own rules win.** If `resume-generation/*.md` exists in their bundle, it takes precedence
-over `references/` here. These files are optional and hand-created — setup does not scaffold them, so
-absent just means "use the defaults". When one does exist, somebody customised it deliberately and
-their edits should stick.
-
-## Shared references
-
-Load as needed rather than upfront:
-
-| File | Holds |
+| Command | Does |
 |---|---|
-| `references/bundle-spec.md` | directory layout, frontmatter schema, selection keys, concept types |
-| `references/writing-rules.md` | X-Y-Z bullets, verb accuracy, phrases that damage seniority |
-| `references/ats-rules.md` | hard rules, the two-variant strategy, keyword placement |
-| `references/urs-spec.md` | the shape the record compiles to, and the region profiles a view renders through |
-| `references/view-format.md` | the other half of that spec: every key a view may carry, and the rule that it may carry no prose |
-| `references/rationale.md` | why the rules are what they are — read it when you need to *explain* one |
+| `jsk doctor [--quick]` | what this machine can do and what each gap disables |
+| `jsk new <path> --name "Name"` | an empty `career/kb.ttl`, `career/log.ttl` and `applications/` |
+| `jsk migrate <user-knowledgebase.md>` | a Markdown knowledge base to the graph, once |
+| `jsk kb apply\|confirm\|show\|view\|query\|check\|adopt\|export` | the career, changed and read; `export --urs` drafts `resume.json` |
+| `jsk match <posting.ttl>` | requirements matched through the vocabulary, ranked, questions |
+| `jsk validate <resume.json>` | the record gate |
+| `jsk render <resume.json> --out DIR --view ID --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
+| `jsk preview <resume.json> --out DIR` | every template, with page counts |
+| `jsk check <file> [--strict] [--only parse\|prose]` | the parse and prose gates on one file |
+| `jsk gates <out-dir> [--record R] [--pages N]` | record, claims, parse and prose gates |
+| `jsk ship <resume.json> --out DIR --view ID [--pages N]` | validate, render, gates; stops at a failure |
+| `jsk fit <resume.tex> --target-pages 2` | fits the render to a page budget |
+| `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | writes `application.ttl`, if the gates pass |
+| `jsk event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |
 
-## Scripts
-
-They live in `scripts/`, **relative to this skill's own directory** — the absolute path you were
-given when this skill loaded, or `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install.
-Always invoke them by that absolute path. The working directory is the person's project, not the
-skill, so a bare `scripts/…` will not resolve.
-
-| Script | Does | Needs |
-|---|---|---|
-| `preflight.py [--verify]` | what this machine can do, and what each gap disables | — |
-| `init_bundle.py <path> --name "Their Name"` | creates an empty bundle skeleton | — |
-| `validate_bundle.py <bundle> [--scope SUBDIR] [--exclude-archive] [--max-findings N]` | bundle is well-formed | `pyyaml` |
-| `migrate_bundle.py <bundle> [--apply]` | brings an older bundle up to the current layout; reports what it cannot establish rather than guessing | — |
-| `pipeline.py <bundle> [--all] [--company N] [--as-of D] [--top N] [--json]` | what the job search needs from you this week, derived from the application timelines | `pyyaml` |
-| `check_ats.py resume.pdf [--strict]` | the rendered PDF (or the `.txt`) is safe to send; also `main(argv)` for an in-process caller | `pymupdf` for a PDF |
-| `check_prose.py resume.tex` | the writing rules `check_ats.py` cannot see; also `main(argv)` | — |
-| `okf.py compile <bundle> [--view ID] [--no-views] [--compact] [--for score]` | the bundle as the record everything downstream reads — the concepts only, never the frozen archive | — |
-| `okf.py gates <out-dir> --view ID [--bundle DIR] [--pages N] [--json]` | the record, parse and prose gates in one process, each one's output verbatim; never the render gate | `pyyaml`, `pymupdf` for a PDF |
-| `okf.py score <bundle> <posting.md>` | ranks the projects against the posting's requirements | — |
-| `validate_urs.py <bundle \| resume.json> [--strict] [--max-findings N]` | the record is coherent, carries evidence, and lost nothing in compilation, before anything renders | `pyyaml` for a bundle |
-| `render_resume.py <bundle \| resume.json> --out DIR --view ID [--pdf] [--ats-max] [--template N]` | one record to `.tex`/PDF plus `.txt`; `--view` is required wherever the record holds more than one | TeX engine for the PDF |
-| `preview_templates.py resume.json --out DIR` | the same record in every template, with page counts, so the look is chosen by looking | TeX engine, `pymupdf` for thumbnails |
-| `fit_pages.py resume.tex --target-pages 2` | fits the render to a page budget without breaching the floors | TeX engine, `pymupdf` |
-
-```bash
-python3 <skill-dir>/scripts/check_ats.py resume.pdf --strict
-```
-
-Use `python` or `py -3` on Windows, where `python3` is usually absent.
-
-**`compile` narrows what it emits, never what it reads.** `--compact` drops the indentation;
-`--for score` emits projects with only the keys a ranking runs on. Together they take an agent's
-record read from 32,190 bytes to 12,840 — but `--for score` drops the achievement prose with them,
-so it belongs to a caller that ranks projects and never to one that writes bullets.
-
-**`gates` is the five mechanical gate invocations as one**, at about 0.6x the wall clock — four
-interpreter starts saved — calling the same checkers with the same arguments. It prints each gate's
-output verbatim, treats a missing input as `SKIPPED` **and** a failure, and never attempts the render
-gate, in `--json` no less than in prose: a command that exited 0 having quietly skipped that one
-would be the most dangerous thing here. `--pages N` reports the page count and never fails on it;
-`fit_pages.py` still owns that verdict.
-
-Exit codes are uniform: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are
-required, not optional: the PDF is the only rendered deliverable, so without them there is nothing to
-send, nothing to check and nothing to measure. `render_resume.py --pdf` exits **non-zero** when no PDF
-was produced, and the page count it prints is counted off that PDF rather than repeated back from the
-view's budget — *because a page count nobody measured is a page count nobody knows.* Over budget is
-named, not failed: `fit_pages.py` owns that verdict and is the script that can act on it. Everything
-else runs on a bare Python.
-
-The scripts stay with the skill and a bundle never carries copies, so every bundle gets the current
-version. If they are genuinely missing — the skill was installed as `SKILL.md` alone — write them
-into the bundle's `framework/` from the specifications in `references/ats-rules.md` and
-`references/bundle-spec.md`. *A rule nobody checks stops being true.*
+Exit codes: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are required — the
+PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure. The claims gate's
+`NOT RUN` (no `career/kb.ttl` above the record) exits 0, but is not a pass.
 
 ## Agents
 
-Four parts of this work are read-heavy or mechanical and need nobody in the room. Delegate those and
-keep the conversation for the judgment.
-
 | Agent | Hand it | Get back |
 |---|---|---|
-| `jsk-verifier` | the rendered files, the view id, the page budget — when a gate has failed, or the render gate needs reading | every gate's verdict verbatim, and the concept in which each defect is repaired |
-| `jsk-bundle-auditor` | the bundle path | what the bundle is missing, and a prioritised queue with the questions written ready to ask |
-| `jsk-tailor-analyst` | the posting file, the bundle path | the requirements written into the posting, the assessment, the ranking, the honest fit and the question queue |
-| `jsk-resume-author` | the posting, the gaps, the bundle path | the view, every clause it authored quoted, and what it cut |
+| `jsk-tailor-analyst` | app directory, workspace | `posting.ttl`, the match, `gaps.md` and questions |
+| `jsk-resume-author` | posting, gaps, workspace | `resume.json`, every authored clause quoted |
+| `jsk-kb-auditor` | workspace | what is missing, as a prioritised question queue |
+| `jsk-verifier` | a **failed** gate, or the render gate to read | each verdict verbatim, and the id to repair |
 
-**They never interview.** Confirming an `inferred` claim, choosing between two close-ranked projects,
-and telling someone where they fall short all stay here, with the person present.
+**They never interview**: confirming claims, choosing between close projects and telling someone
+where they fall short stay with you and the person. Their output does not reach the person, so
+**relay the evidence verbatim**. No agents available? Run the mode file's procedure inline.
 
-`jsk-resume-author` is the one that writes prose, and everything it authors arrives marked `inferred`.
-A view with `provenance_floor: confirmed` will not render it until the person has confirmed each
-clause — so the rule is enforced by the record gate rather than by the agent's restraint.
+## The gates
 
-Their output does not reach the person, so **relay the evidence rather than summarising it.** A
-checker's verdict line, shown, is evidence; your description of it is not.
-
-Nothing depends on them. Where agents are unavailable, run the same procedure inline — the mode files
-hold it either way.
-
-## The verification gates
-
-**Never hand over a resume you have not checked.** There are four gates, they answer different
-questions, and **passing one says nothing about the others** — *a checker verifies that a document
-parses, not that it is correct.*
+**Never hand over a resume you have not checked.** Passing one gate says nothing about the others.
 
 | Gate | Question | How |
 |---|---|---|
-| **Record** | Is the source coherent, and does every number trace to a metric? | `validate_urs.py` on `resume.json`, before anything renders |
-| **Parse** | Will an ATS read this without mangling it? | `check_ats.py` on the rendered `.pdf`, and `--strict` on the `.txt` (or on an ATS-maximal PDF) |
-| **Prose** | Does it obey the writing rules? | `check_prose.py` on the `.tex` and on the plain text |
-| **Render** | Does it *look* right, and is it *true*? | Convert to PDF and look at every page |
+| **Record** | coherent, shaped right, every number traced to a metric? | `jsk validate` |
+| **Claims** | nothing more confirmed, or bigger, than `kb.ttl` holds? | inside `jsk gates` |
+| **Parse** | will an ATS read it? | `jsk check` on the PDF; `--strict` on the `.txt` |
+| **Prose** | does it obey the writing rules? | `jsk check --only prose` on the `.tex` |
+| **Render** | does it look right, and is it true? | open every page of the PDF |
 
-The first three run together as `okf.py gates <out-dir> --view ID`. The fourth is a person opening
-the PDF, and no command claims it.
+`jsk gates` (or `jsk ship`) runs all but the last. **Show the output**; fix and re-run, never explain
+a failure away. The render gate is half yours: only the person can confirm it is true — until they
+have, the resume is unverified. Repair a defect in the career or record and re-render; never the PDF.
 
-All gates must pass. Show the output — the person should see the evidence rather than take your word
-for it. Fix and re-run; never explain away a failure.
+## Provenance
 
-`jsk-verifier` is for a gate that failed and a failure that needs tracing back to the concept it came
-from. A clean ship runs `okf gates` and reads the output rather than spawning it — relaying three
-checkers is work a command does more cheaply, while turning a `FAIL` line into a repair site is work
-an agent does better. It has no way to edit a document, which is deliberate: a defect is repaired in
-the concept and re-rendered, never patched into the PDF.
+Every claim carries one: `confirmed` (they said it, or a source document does), `inferred` (you
+wrote it), or `needs-verification`.
 
-**If no PDF renderer is available**, say so and mark the resume unverified rather than treating a
-passing `check_ats.py` as sufficient. *An unverified resume the person knows about is fine; one they
-think was checked is not.*
-
-Run `validate_bundle.py` after any change to the bundle.
-
-`references/rationale.md` holds the three real resumes that passed the parse gate and should not
-have. Read it when someone asks why there are four gates.
-
-## Provenance — the habit that makes this last
-
-Every concept carries `status`:
-
-- `confirmed` — they said it, or it is in a source document
-- `inferred` — you wrote it while drafting; plausible but unverified
-- `needs-verification` — a known gap
-
-**Never let `inferred` content reach a resume without asking them to confirm it.** *The danger is
-precisely that it reads well — plausible, well-written, and indefensible when an interviewer asks a
-follow-up.*
-
-**Never invent a credential**, or claim one is "in progress", unless they said so.
-
-**Never hide text in a resume**, and never add a term the person cannot defend in an interview.
-The parse rules keep a document readable; they are not a ranking to game. Hidden keywords, invisible
-type and resume-score tools are out of scope — `references/ats-rules.md` has the boundary and the
-reasoning.
+- **Never let `inferred` content reach a resume unconfirmed.** It reads well and is indefensible in
+  interview. A changed claim drops to `inferred` by itself.
+- **Never invent a credential**, or call one "in progress", unless they said so.
+- **Never hide text or add a term they cannot defend.** `references/ats-rules.md` has the boundary.
 
 ## Working with people
 
-Adapt to what they know. Some will not know what YAML or an ATS is — explain briefly in plain terms
-and never make the framework their problem. Others will want the schema. Read the cues.
+- **Let them ramble**, then structure it. Adapt the vocabulary to what they know.
+- **Push for a number twice, then let go** — write the bullet true without it and leave the question
+  open. Never leave a placeholder in a document they might send.
+- **Say why**, flag every inference, and offer options with a recommendation.
+- **Tell them where they fall short.** Being flattered costs interviews.
 
-- **Let them ramble.** People recall work in unstructured bursts. Take the whole thing, then
-  structure it. Interrupting to impose format loses material.
-- **Push for numbers, then let go.** Ask twice. If they do not have one, write the bullet true
-  without it and log the gap. Never leave a placeholder in a document they might send.
-- **Say why, not just what.** "I downgraded this to co-designed because you said you supported the
-  design" teaches them something and lets them correct you.
-- **Flag what you inferred.** Every time.
-- **Offer options with a recommendation** rather than one take-it-or-leave-it draft.
-- **Tell them where they fall short**, especially when tailoring. Being flattered costs interviews.
+Keep `resume.json` inside the workspace, where the claims gate finds the career; copy only the
+rendered files to an outputs folder (Cowork). Tell them the path.
 
-Append a dated `log.md` entry after every session. When you find your own earlier mistake, record the
-correction rather than editing silently — *a knowledge base that hides its errors cannot be trusted.*
+## References, on demand
 
-## Portability
-
-Works in Claude Code and Cowork. Use ordinary file tools and paths; do not assume either environment.
-In Cowork, save deliverables to the outputs folder and present them. In Claude Code, write beside the
-bundle and tell them the path. Prefer the bundle living in a folder the person controls — ideally
-version-controlled — so it outlives any single session.
+Formats: `kb-format.md` (the career), `urs-spec.md` and `view-format.md` (the record, in two
+halves). Rules: `writing-rules.md`, `ats-rules.md`, `templates.md`. `rationale.md` explains why any
+rule exists, for when someone asks.

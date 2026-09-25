@@ -1,8 +1,7 @@
 # Rationale
 
 Why the rules in `SKILL.md` are what they are. **Load this when you need to explain a rule to
-someone**, or when someone pushes back on one. You do not need it to follow the rules — `SKILL.md`
-carries a compressed reason for each.
+someone**, or when someone pushes back on one. You do not need it to follow the rules.
 
 Every item here is a failure that actually happened.
 
@@ -12,33 +11,32 @@ Two hand-built documents have to agree about every date, bullet and number. They
 moment one is edited — silently, usually in the copy that gets sent. One record with several emitters
 cannot drift, because no emitter decides what the document says.
 
-`render_resume.py` resolves the record once — selection, ordering, provenance filtering, region
-gating, ASCII folding, date formatting — and the emitters translate that plan into markup without
-deciding anything.
+The renderer resolves the record once — selection, ordering, provenance filtering, region gating,
+ASCII folding, date formatting — and the emitters translate that plan into markup without deciding
+anything.
 
 It is also what makes a resume answerable a year later. The record carries the provenance of every
 claim and the view that selected it, so "what did this application claim, and where did that come
 from" has an answer.
 
-**How to say it to someone:** *"If I build the Word file and the PDF separately, they agree today and
-disagree in a month. Building both from one record means they can't."*
+**How to say it to someone:** *"If I build the PDF and the plain-text copy separately, they agree
+today and disagree in a month. Building both from one record means they can't."*
 
-## Why four gates and not one
+## Why five gates and not one
 
-**A checker verifies that a document parses, not that it is correct.** That sentence is the whole
-reason there are four.
+**A checker verifies that a document parses, not that it is correct.**
 
-`check_ats.py` passed all three of these, correctly, because all three were outside its scope:
+The parse gate passed all three of these, correctly, because all three were outside its scope:
 
 1. A resume whose bullets rendered as **tofu boxes** — the glyphs were valid, the font could not draw
-   them. Visual. Cannot be linted out of the XML.
-2. A resume whose headings **silently resolved to a theme font**. Also visual. Also invisible to a
-   parser.
-3. A resume written **in the third person**. Not a parsing defect at all — which is exactly why
-   `check_prose.py` had to exist.
+   them. Visual.
+2. A resume whose headings **silently resolved to a different font**. Also visual. Also invisible to
+   a parser.
+3. A resume written **in the third person**. Not a parsing defect at all.
 
 The first two are why the render gate exists: somebody has to look at the page. The third is why the
-prose gate exists.
+prose gate exists. The record gate checks the record is coherent before anything renders; the claims
+gate, that it says nothing more confirmed, or bigger, than the career holds.
 
 **How to say it to someone:** *"The ATS checker tells you a robot can read it. It can't tell you the
 letters showed up, or that it reads like someone else wrote it about you."*
@@ -48,13 +46,10 @@ letters showed up, or that it reads like someone else wrote it about you."*
 A page count nobody measured is a page count nobody knows. If no TeX engine is present, no one has
 looked at a rendered page, so the render gate did not run — it did not pass.
 
-An unverified resume the person knows about is fine. One they think was checked is not. That is the
-entire distinction, and it is worth being pedantic about.
+An unverified resume the person knows about is fine. One they think was checked is not.
 
-Being pedantic about it has a consequence: `render_resume.py --pdf` **exits non-zero** when no PDF
-came out, and `preflight.py` reports a missing engine as BLOCKED rather than a gap. It used to
-record the failure as a note and exit 0 — so a caller could ask for a PDF, be told in passing there
-was not one, and still see success. A warning that does not change the exit code is a warning
+So `jsk render --pdf` **exits non-zero** when no PDF came out, and `jsk doctor` reports a missing
+engine as BLOCKED rather than a gap. A warning that does not change the exit code is a warning
 nothing acts on.
 
 ## Why tailoring is selection and never invention
@@ -71,26 +66,22 @@ done, it shows up as a gap, not as a sentence."*
 
 ## Why every numeral must trace to a metric
 
-Every numeral in a bullet must appear in a structured metric on that bullet, or `validate_urs.py`
-fails the record before anything renders.
+Every numeral in a bullet must appear in a structured metric on that bullet, or `jsk validate` fails
+the record before anything renders.
 
-It catches the specific failure of a bullet being rewritten for flow and the figure quietly moving
-with it — 30% becoming 40% because the sentence scanned better.
+It catches a bullet being rewritten for flow and the figure quietly moving with it — 30% becoming 40%
+because the sentence scanned better.
 
 ## Why two variants, but only one file
 
-Readability and machine-parsing genuinely conflict. A layout that reads well for a human uses the
-constructs that make parsers drop content; a layout that parses perfectly looks flat.
+Readability and machine-parsing conflict. A layout that reads well for a human uses the constructs
+that make parsers drop content; a layout that parses perfectly looks flat. One document cannot be
+optimal for both readers.
 
-One document cannot be optimal for both readers. Pretending otherwise means quietly losing one of
-them, and you do not find out which.
-
-So there are two variants — but they are not two files sent together. `--ats-max` chooses which one
-the single PDF holds, at the moment you know who is receiving it. Shipping both was worse than
-useless: it meant four artefacts per application, and the fitter measured the `.docx` while the PDF
-was what went out. A resume it reported as two pages shipped as three. **A gate that measures a
-document nobody sends is not a gate**, and the cheapest way to keep it honest is to have one
-rendered document.
+So there are two variants, but one rendered document: `--ats-max` chooses which one the PDF holds, at
+the moment you know who is receiving it. Shipping several artefacts per application once meant the
+fitter measured one file while another went out, and a resume reported as two pages shipped as
+three. **A gate that measures a document nobody sends is not a gate.**
 
 ## Why we do not optimise for the ranker
 
@@ -99,10 +90,9 @@ a table that fragments a bullet, a ligature that eats a word, a header that gets
 phone number in it. Every one of them is about **not losing content**.
 
 Nothing here tries to raise a score. Hidden keyword blocks, invisible type and term-stuffing all fail
-in the same specific way: they work on the machine and then the document reaches a person. The
-keyword got the resume into the room and the interview is the room. Resume-score tools fail
-differently — they score against a model of a parser rather than the parser the employer runs, so the
-number moves for reasons unrelated to the work, and people rewrite good bullets to chase it.
+in the same way: they work on the machine and then the document reaches a person. Resume-score tools
+fail differently — they score against a model of a parser rather than the parser the employer runs,
+so the number moves for reasons unrelated to the work, and people rewrite good bullets to chase it.
 
 **How to say it to someone:** *"A hidden keyword block is a lie told to a machine that a human then
 reads back to you in the interview."*
@@ -113,8 +103,8 @@ You will often write better prose than the person spoke. That is useful. But rea
 is yours until they agree with it.
 
 The danger is precisely that it reads well — plausible, well-written, and indefensible when an
-interviewer asks a follow-up. `inferred` is not a filing detail; it is the flag that stops a
-well-written sentence from becoming an ambush in an interview.
+interviewer asks a follow-up. `inferred` is the flag that stops a well-written sentence from becoming
+an ambush in an interview.
 
 ## Why a new schema rather than JSON Resume
 
@@ -128,20 +118,20 @@ JSON Resume is a JSON container around unstructured prose:
 URS keeps a mapping to JSON Resume at conformance level 0, so adopting it costs nothing and is
 reversible.
 
-## Why `fit_pages.py` refuses rather than shrinking further
+## Why `jsk fit` refuses rather than shrinking further
 
 It applies density levers in a fixed order — spacing, bullet spacing, margins, font size — and stops
 at the 10pt and 0.5" floors.
 
 Below those floors a document is not two pages, it is two pages nobody will read. When the target is
 unreachable without a breach, the remedy is to cut evidence. That is a decision for the person whose
-evidence it is, so the script exits non-zero and says so instead of making it for them.
+evidence it is, so the command exits non-zero and says so instead of making it for them.
 
-## Why a bundle never carries copies of the scripts
+## Why the knowledge base never carries copies of the tooling
 
-The scripts stay with the skill, so every bundle gets the current version. A bundle carrying its own
-copies gets the version that existed the day it was created, and a rule nobody checks stops being
-true.
+The toolchain stays with the skill, so everybody gets the current version. A career folder carrying
+its own copy gets the version that existed the day it was created, and a rule nobody checks stops
+being true.
 
 ## Why the log records corrections rather than editing silently
 

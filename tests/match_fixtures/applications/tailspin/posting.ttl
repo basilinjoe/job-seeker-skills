@@ -1,0 +1,27 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Posting
+
+k:post_tailspin j:company "Tailspin" ; j:title "Cloud Engineer" ;
+    j:captured "2026-09-01"^^xsd:date ; j:advert "posting.md" .
+
+# == Requirements
+
+k:req_tailspin_aws j:posting k:post_tailspin ;
+    j:asked "AWS" ; j:necessity j:preferred ;
+    j:quote "AWS helps" .
+
+k:req_tailspin_azure_kubernetes j:posting k:post_tailspin ;
+    j:asked "Azure Kubernetes" ; j:necessity j:preferred ;
+    j:quote "Azure Kubernetes helps" .
+
+k:req_tailspin_kubernetes j:posting k:post_tailspin ;
+    j:asked "Kubernetes" ; j:necessity j:required ;
+    j:quote "Kubernetes in production" .
+
+k:req_tailspin_terraform j:posting k:post_tailspin ;
+    j:asked "Terraform" ; j:necessity j:required ;
+    j:quote "Terraform for everything" .

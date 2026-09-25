@@ -16,8 +16,9 @@ already in the record — so a renderer that cannot invent text is a renderer th
 
 ```
 media type   application/resume+json
-file         *.resume.json
-compiler     scripts/okf_compile.py
+file         resume.json, one per application
+written by   the skill, out of career/kb.ttl (ids shared with it)
+validated by jsk validate, then the claims gate against career/kb.ttl
 profiles     schema/profiles/<region>.json
 ```
 
@@ -37,11 +38,11 @@ costs nothing and is reversible.
 
 ## A walk through a real record
 
-[`schema/example.resume.json`](../plugins/jsk/skills/jsk/schema/example.resume.json) is
+[`schema/example.resume.json`](../src/jsk/data/schema/example.resume.json) is
 a complete, valid document. Its top level:
 
 ```
-$schema · urs · meta          what this file is
+urs · meta                    what this file is
 person · work_authorization · languages
 organizations                 who you worked for
 engagements                   what you did there — the evidence
@@ -68,7 +69,8 @@ This is the structure JSON Resume cannot express without duplicating the employe
 ```
 
 One employer, one continuous period, two titles, and the promotion is visible *as* a promotion. A
-renderer can show the progression, and a scorer can see seniority increase over time.
+renderer can show the progression, and anything ranking the evidence can see seniority increase over
+time.
 
 ### Every date carries its precision
 
@@ -91,7 +93,8 @@ month was unknown or merely omitted.
 ```
 
 The `text` is what a resume shows. The `metrics` are what makes it checkable — every numeral in the
-text must appear in a metric, or `validate_urs.py` fails the record before anything renders. It is
+text must appear in a metric, or the record gate — `jsk validate` — fails the record before anything
+renders. It is
 the check that catches a bullet rewritten for flow with the figure quietly moving too.
 
 The `id` is what makes it selectable. A view points at `ach_latency`; it never copies the sentence.

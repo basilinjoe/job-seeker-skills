@@ -1,0 +1,123 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jsk-resume"
+dynamic = ["version"]
+description = "Render verified, ATS-safe resumes from a career kept as one validated graph file"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Basilin Joe" }]
+keywords = [
+    "resume", "cv", "ats", "career", "job-search",
+    "knowledge-base", "tailoring", "urs", "latex", "pdf",
+]
+
+# One dependency, and only one. Everything else this toolchain uses is optional and
+# imported at the point of use, so a bare install still gives a working record gate,
+# prose gate and .txt parse gate, and `jsk doctor` still reports on a machine before
+# anything optional is installed - preflight.py stays standard-library only.
+#
+# pyoxigraph is the exception because the graph record (kb.ttl and the applications) is
+# the career itself, not a capability layered on top. It ships abi3 wheels for every
+# platform jsk supports and has no dependencies of its own, which the graph rewrite's
+# first spike measured before the dependency was taken. The pin is one minor: raising it
+# means rerunning the Windows and Linux CI jobs - the lesson LadybugDB taught, whose
+# Windows wheels were broken for five releases while Linux passed.
+dependencies = ["pyoxigraph>=0.5.11,<0.6"]
+
+[project.optional-dependencies]
+# What it buys is spelt out in `jsk doctor`, which reports a missing package as the
+# capability it costs you rather than as a package name.
+#
+# `pyyaml` went with the bundle format and `jsonschema` went with a URS schema that
+# never existed - nothing imported it, so it was a dependency that bought a line in
+# the doctor's report and nothing else.
+#
+# `pyyaml` came back with `jsk index`, beside markdown-it-py: the two replaced about
+# a hundred lines of hand-written Markdown and YAML parsing, and they are optional -
+# `jsk index` says what to install rather than failing on import.
+#
+# `migrate` is the same two: the Markdown reader, which now exists only to move a
+# user-knowledgebase.md to career/kb.ttl once. `jsk index` is retired (P7); `index`
+# stays as an alias of `migrate` this release so an existing install line still works.
+# Release N+1 deletes both extras, with kbindex.py and `jsk migrate` itself.
+pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
+migrate = ["markdown-it-py", "pyyaml"]  # jsk migrate: the Markdown knowledge base, read once
+index = ["markdown-it-py", "pyyaml"]    # alias of migrate; removed in release N+1
+all = ["pymupdf", "markdown-it-py", "pyyaml"]
+dev = ["pymupdf", "markdown-it-py", "pyyaml", "pytest", "pytest-xdist", "ruff"]
+
+[project.scripts]
+jsk = "jsk.cli:main_console"
+
+[project.urls]
+Homepage = "https://github.com/basilinjoe/job-seeker-skills"
+Repository = "https://github.com/basilinjoe/job-seeker-skills"
+
+[tool.hatch.version]
+path = "src/jsk/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jsk"]
+
+[tool.hatch.build.targets.sdist]
+# The tests ship, so everything they read ships with them: an unpacked sdist has to pass
+# its own suite. The plugin surface and the budget tests read plugins/ and the
+# marketplace file; the docs tests read the top-level docs/*.md, never docs/superpowers.
+# Anchored with a leading slash: these are gitignore patterns, and a bare `README.md`
+# also matched every README.md under docs/superpowers.
+include = ["/src/jsk", "/tests", "/plugins", "/docs/*.md", "/.claude-plugin", "/README.md",
+           "/LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Deliberately not `-n auto`. The suite is dominated by TeX - the render tests compile
+# real PDFs and read their text layers back - and the tests share nothing but temp
+# directories they create themselves, so `python -m pytest tests -n auto` is the way to
+# run it while working. It is not in addopts because pytest-xdist is a dev extra:
+# putting it here makes every bare checkout fail on an unrecognised flag, and the
+# suite has to keep running on a plain interpreter.
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Scoped so that `ruff check src tests` is CLEAN today, which is the only thing that
+# makes it a gate rather than a wall of pre-existing noise nobody runs. This codebase
+# predates any linter; a config that reported 257 findings on arrival would have been
+# switched off within a week.
+#
+# `E,F,W` catch the things that are actually wrong - an undefined name, an unused
+# import, a redefinition. Those are worth failing a build over from now on.
+select = ["E", "F", "W"]
+ignore = [
+    "E501",     # line-length is set above; what is left over is prose inside strings
+    "E741",
+    # 16 f-strings with no placeholder, all of them refusal messages sitting in a block
+    # of siblings that do interpolate. Removing the `f` one line at a time makes the
+    # block harder to read than leaving it.
+    "F541",
+    "E702", "E701", "E401",   # `if x: continue` and paired imports, used deliberately
+]
+
+# Deferred, each its own commit, none of them a correctness problem:
+#
+#   UP031    96x  %-formatting. Mechanical, and a big diff across every module.
+#   I001     40x  import order. Same.
+#   PLC0415  38x  lazy imports - DELIBERATE and documented at every site: a command
+#                 must not pay for a module it never reaches, which is what keeps a
+#                 write at about the interpreter floor. If PL is ever selected, this
+#                 one stays ignored permanently.
+#   BLE001         blind excepts - also deliberate, and also documented: they are what
+#                 turn a would-be traceback into a verdict a person can act on.
+#   PLW1510   9x  subprocess.run without check= - every call site reads returncode.
+#   PLR09xx        argument and branch counts. These are CLIs; that is the job.
+
+[tool.ruff.lint.per-file-ignores]
+# The tests assert on exact output text, so their long string literals are the point.
+"tests/*" = ["E501", "PLR2004"]

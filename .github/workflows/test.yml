@@ -5,9 +5,10 @@ name: tests
 # the deleted files. A suite nobody runs is a suite that gets deleted again, so it runs
 # here on every push rather than on somebody's machine when they remember.
 
+# A push to main, and every pull request. A branch pushed with a PR open used to run twice.
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
   workflow_dispatch:
 
@@ -16,21 +17,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Two jobs, because the suite deliberately covers both worlds. Four tests are
-  # skipUnless(tex.available_engine()) and two more are the mirror image - they run only
-  # when no engine is present, checking that the tooling says so rather than pretending
-  # a resume was verified. Running one job would always skip one of those sets, and the
-  # no-engine path is the one a new contributor actually hits.
+  # With and without a TeX engine, because the suite deliberately covers both worlds.
+  # Four tests are skipUnless(tex.available_engine()) and two more are the mirror image -
+  # they run only when no engine is present, checking that the tooling says so rather than
+  # pretending a resume was verified. The no-engine path is the one a new contributor hits.
+  #
+  # Python 3.10 because it is the floor pyproject.toml states, and a floor nobody runs is a
+  # guess. Windows because the graph record is files a person edits: CRLF, paths and file
+  # locks differ there, and pyoxigraph's wheel is a separate build (LadybugDB's Windows
+  # wheels were broken for five releases while Linux passed).
   suite:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: with a TeX engine
+            os: ubuntu-latest
+            python: "3.13"
             tex: true
           - name: without a TeX engine
+            os: ubuntu-latest
+            python: "3.13"
+            tex: false
+          - name: Python 3.10, without a TeX engine
+            os: ubuntu-latest
+            python: "3.10"
+            tex: false
+          - name: Windows, without a TeX engine
+            os: windows-latest
+            python: "3.13"
             tex: false
 
     steps:
@@ -38,13 +58,13 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python }}
           cache: pip
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pyyaml jsonschema pymupdf
+          pip install -e '.[dev]'
 
       - name: Install tectonic
         if: matrix.tex
@@ -70,17 +90,93 @@ jobs:
           done
           echo "ok    no TeX engine on PATH"
 
-      # preflight is the script that tells a person what this machine can do. If it
-      # disagrees with the machine, every gap it reports afterwards is untrustworthy -
-      # so it runs first and its output is the log's header.
+      # A linter that is not run is a linter that is switched off. Scoped in
+      # pyproject.toml to the rules that pass clean today, so a new finding here is a
+      # new problem rather than a pre-existing one.
+      - name: Lint
+        run: python -m ruff check src tests
+
+      # `jsk doctor` is what tells a person what this machine can do. If it disagrees
+      # with the machine, every gap it reports afterwards is untrustworthy - so it runs
+      # before the tests and its output is the log's header. `--quick` because the
+      # verifying run renders a PDF, which the no-engine job cannot do and the tests
+      # cover anyway.
+      #
+      # Without an engine doctor is BLOCKED by design - the PDF is the deliverable - and
+      # exits 1. That failed every no-engine run from 2026-09-01. Those jobs now assert
+      # the verdict is BLOCKED for that reason and no other: the TeX engine is the only FAIL.
       - name: Preflight
-        run: python plugins/jsk/skills/jsk/scripts/preflight.py
+        run: |
+          set +e
+          jsk doctor --quick | tee doctor.txt
+          code=${PIPESTATUS[0]}
+          set -e
+          if [ "${{ matrix.tex }}" = "true" ]; then exit "$code"; fi
+          fails=$(grep -c '^  FAIL' doctor.txt || true)
+          if grep -q '^  FAIL  TeX engine' doctor.txt && [ "$fails" = "1" ]; then
+            echo "ok    BLOCKED only by the missing TeX engine, as this job intends"
+          else
+            echo "FAIL  expected the TeX engine to be the only FAIL, found $fails"
+            exit 1
+          fi
 
       - name: Tests
-        run: python -m pytest tests -q -rs
+        run: python -m pytest tests -q -rs -n auto
 
-# The manifest surface - the two versions agreeing, the three revision constants
-# agreeing, both documented revision tables reaching the current one, every script
-# SKILL.md names being installed - is pinned by tests/test_plugin_surface.py rather
+      # The graph record is loaded and validated by every graph command, so its cost is a
+      # gate. Timed alone: beside the parallel suite it measures the other processes.
+      - name: Load budget
+        run: python -m pytest tests/test_graph_budget.py -q -rs -s
+
+  # The suite above runs from the checkout, where every file is at hand. What a person
+  # installs is the wheel, and what a packager rebuilds from is the sdist - so both are
+  # built, the wheel installed into a clean venv outside the checkout and driven through a
+  # first record, and the suite run from the unpacked sdist. A data file left out of either
+  # passes every job above.
+  package:
+    name: the wheel and the sdist, outside the checkout
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --outdir "$RUNNER_TEMP/dist"
+          ls -l "$RUNNER_TEMP/dist"
+
+      - name: The wheel, in a clean venv
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m venv wheelenv
+          wheelenv/bin/pip install dist/*.whl
+          wheelenv/bin/jsk --version
+          wheelenv/bin/jsk new ws --name "Package Check"
+          wheelenv/bin/jsk kb check --root ws
+          set +e
+          wheelenv/bin/jsk doctor --quick
+          code=$?
+          set -e
+          # No TeX engine here, so BLOCKED (exit 1) is the expected verdict; a crash is not.
+          if [ "$code" -gt 1 ]; then exit "$code"; fi
+
+      - name: The suite, from the unpacked sdist
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir sdist && tar -xzf dist/*.tar.gz -C sdist --strip-components=1
+          python -m venv sdistenv
+          sdistenv/bin/pip install "./sdist[dev]"
+          cd sdist && ../sdistenv/bin/python -m pytest tests -q -rs -n auto
+
+# The manifest surface - the two plugin versions agreeing, every subcommand `jsk`
+# dispatches being named in SKILL.md and docs/SCRIPTS.md, the agent boundary still
+# being written in the agent files - is pinned by tests/test_plugin_surface.py rather
 # than by a job here. It belongs in the suite: a contributor gets the failure on their
 # own machine, and there is only ever one copy of the rule to keep true.
