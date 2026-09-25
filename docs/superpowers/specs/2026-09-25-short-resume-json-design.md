@@ -1,19 +1,30 @@
-# resume.json holds only what was authored
+# Remove URS: the resume is built from the career
 
-**Status:** design, 2026-09-25. Supersedes the roadmap's "resume.json stays the narrow waist".
+**Status:** design, 2026-09-25. Supersedes the graph roadmap's "resume.json stays the narrow waist".
 
 ## Why
 
-An application's `resume.json` is a 30–47KB copy of `career/kb.ttl` (ElevenLabs: 41KB, of which
-the view and the summary - the only parts anyone authors - are 3KB). The copy is why the format
-needs an 11KB spec, why agents read and edit a file that is mostly the career, and why a family of
-machinery exists only to keep a copy honest: `--refresh`, alias dropping, hand-flipped provenance,
-the claims gate's drift checks. `kb.ttl` has been the truth since the graph rewrite; the renderer
-and the gates already take an in-memory dict, and `export.urs()` already builds it.
+An application's `resume.json` is a 30–47KB URS record copied out of `career/kb.ttl`
+(ElevenLabs: 41KB, of which the view and the summary - all anyone authors - are 3KB). The copy is
+why the format has an 11KB spec written as a public standard nobody else reads, why agents read
+and edit a file that is mostly the career, and why machinery exists only to keep a copy honest:
+`--refresh`, alias dropping, hand-flipped provenance, the claims gate's drift checks, a record
+gate that mostly checks the shape of a file a program wrote.
 
-## The design
+`kb.ttl` has been the truth since the graph rewrite. The emitters never read URS: they read the
+render **plan** (`resolve.build`'s output). So URS can go entirely: the career and a short
+per-application file build the plan, and nothing in between is a format.
 
-### The file
+```
+today   kb.ttl ─export─► resume.json (URS, 41KB) ─resolve─► plan ─► .tex/.pdf/.txt
+after   kb.ttl ─┐
+                ├─ build ─► plan ─► .tex/.pdf/.txt        (emitters unchanged)
+resume.json ────┘  (about 20 lines: what was chosen for this posting)
+```
+
+## The short file
+
+`applications/<stem>/resume.json` (or `resume.json` at the workspace root for a general resume):
 
 ```json
 {
@@ -32,102 +43,128 @@ and the gates already take an in-memory dict, and `export.urs()` already builds 
 
 | key | required | meaning |
 |---|---|---|
-| `resume` | yes | `2`. Marks this shape; a legacy full record carries `urs` instead. |
-| `bullets` | yes | `ach_` ids, render order. Their projects, roles and employers follow from `kb.ttl`. |
+| `resume` | yes | `2`. |
+| `bullets` | yes | `ach_` ids in render order within each role. Projects, roles, employers and their order follow from `kb.ttl`. |
 | `format` | no | `presentation` (default) or `ats-maximal`. |
-| `region` | no | a profile code (`in`, `au`, `ae`, ...); default: the person's country, else the default profile. |
-| `pages`, `ats_pages` | no | page budgets; `pages` defaults to 2. |
-| `floor` | no | provenance floor; default `confirmed`. |
-| `summary` | no | `{text, status}`, `status` `inferred` or `confirmed`; absent means the career's positioning. |
-| `roles` | no | `pos_` ids to show with no bullet, for chronology. |
-| `skills` | no | `skill_` ids, row order; absent means every skill, as today. |
+| `region` | no | a profile code; default the person's country, else `default`. |
+| `pages`, `ats_pages` | no | page budgets; `pages` defaults to the profile's, then 2. |
+| `floor` | no | provenance floor, default `confirmed`: a bullet or summary below it is withheld with a warning. |
+| `summary` | no | `{text, status}`, status `inferred` or `confirmed`. Absent: the career's positioning. |
+| `roles` | no | `pos_` ids shown with no bullet, for chronology. |
+| `skills` | no | `skill_` ids in row order. Absent: every skill, as today. |
 
-An unknown key fails. Every id must be live in `kb.ttl`. Nothing else is in the file.
+An unknown key fails. Every id must be live in `kb.ttl`. The summary is the only prose in the file.
 
-### Assembly
+## Components
 
-`src/jsk/graph/assemble.py`:
+### `jsk.resume.build` - career + short file → plan
 
-- `assemble(store, short, today) -> dict` - the full URS dict the renderer and gates read today.
-  Bullets are grouped under their `kb.ttl` project in list order (a project's position is its
-  first bullet's); `export.urs()` is driven with that `Selection` plus `roles`, so employers,
-  roles, periods, metrics and provenance come out exactly as export writes them now. It adds one
-  view, `view_resume`, from the file's settings, and the summary as `nar_summary`.
-- `load_record(path) -> dict` - the one way a command opens a record. `resume: 2` → find the
-  workspace (`kbcli.find_root`), load the store, assemble. `urs` → the legacy full record, as is.
-  Anything else → a refusal naming the fix.
+Replaces `resolve.py`. Reads the store (`graph/store.py`) and the short file, returns the same
+plan dict the emitters take today, plus `sent`: the bullet ids rendered, for freeze. Behaviour
+kept, each reading the graph instead of URS:
 
-Every command that opens a record from disk calls `load_record`: `validate_urs.load_target`,
-`claims.main`/`load_record`, `render_resume.main`, `cli.cmd_freeze`. `jsk ship`, `jsk gates`
-and `jsk preview` pass paths to those, so they follow. The renderer, the emitters, the record
-gate's checks and the claims gate's checks are unchanged: they see the dict they see today.
+- header: name, headline, location, contacts; the work-rights line when the profile asks for it
+- summary: the file's, else the positioning; withheld below the floor
+- skills rows: the file's ids (else all), grouped by category, deduped, ten a row with a warning
+- experience: one entry per employer and kind of work (today's synthesised engagement), roles by
+  date with functional titles, each bullet under its project's role, the kind word for contract,
+  freelance, internship and volunteer work, the ATS variant's "Title, Org" role lines
+- education with grade formatting; credentials; languages where the profile's sections list them
+- the IN declaration; ASCII folding for `ats-maximal`; the bracket and withheld warnings; paper
+  size by region; the page budget
 
-### The record gate on a short file
+Dropped, because `kb.ttl` holds no data for them: demographics, photo, referees, availability,
+compensation, identity documents, related names, engagement location/summary/domains/via,
+career breaks, in-progress credentials, view `redact`/`sections`/`locale`/`target`, and the
+region profiles' `forbidden`/`expected`/private-field machinery. A feature comes back by adding
+its data to the ontology first.
 
-`jsk validate resume.json` checks the short file's shape and ids first (unknown key, a bullet not
-an `ach_`, an id `kb.ttl` does not hold or retired, a bullet whose project has no role), then
-runs the existing checks on the assembled dict. A number no metric backs is then a fault in
-`kb.ttl` - which is what it always was.
+### Region profiles
 
-### Writing it
+`data/schema/profiles/*.json` shrink to what is read: `id`, `region` (paper size), `pages`,
+`sections` (order, kb-fed keys only), `declaration`, `work_rights` (render the header line).
 
-- `jsk kb export --from-match <posting.ttl> [--select <ids>] --out <resume.json>` writes a short
-  file: the selection's bullets and skills, the person's region, no summary.
-- `jsk kb export --select <ids> --out resume.json` (a general resume) writes one the same way.
-- `jsk kb export --upgrade <resume.json>` rewrites a legacy full record as a short file in place:
-  the view's `include` order becomes `bullets`, its `skills`, `format_profile`, `region_profile`,
-  `budget` and `provenance_floor` their keys, an authored narrative the `summary`. It replaces
-  `--refresh`, which only existed to keep a copy current.
-- `jsk kb export --urs [--select ...]` with no `--out` still prints a full record, for inspection.
+### The record gate - `jsk.gates.record`
 
-### Freeze and ship
+Replaces `validate_urs.py` and `claims.py` with one gate over the short file and what it selects:
 
-- `jsk freeze` reads the short file, assembles it for the carried bullets and metric versions
-  (as now, from the dict), and hashes the short file's bytes into `recordSha256`. No assembled
-  copy is written: the PDF, `.txt` and `.tex` are the words sent, `application.ttl` the carried
-  ids and versions.
-- `jsk ship` refuses in a directory that holds `application.ttl`: re-rendering a frozen
-  application from today's career would overwrite the PDF that was sent.
-- `--view` becomes optional for a record with one view (every short file; most legacy ones).
+| check | severity |
+|---|---|
+| shape: unknown key, wrong type, `resume` not 2, no bullets | FAIL |
+| an id `kb.ttl` does not hold, a retired one, a bullet whose project has no role | FAIL |
+| a number in a selected bullet no current version of a metric it cites holds (untraced), or a replaced version's number (superseded) | FAIL |
+| a vocabulary label in a bullet its project does not hold | WARN |
+| "N years of X" in the headline, summary or a bullet beyond the roles behind X | WARN |
+| a bracket in the summary or a bullet | WARN |
+
+The number check is one function over graph bullets, returning structured results; `jsk kb
+check` runs it over every live bullet, and `jsk match` over the posting's (replacing
+`gate_failures` and the string parsing in `record_faults`). `Report`/`show` and the numeral
+helpers move to `jsk/gates/report.py` and `jsk/gates/numbers.py`; `check_prose`, `store.py` and
+`kb.py` import from there.
+
+### Commands
+
+- `jsk validate <resume.json>` runs the record gate.
+- `jsk render <resume.json>` / `jsk preview` / `jsk ship <resume.json> --out DIR` find the
+  workspace from the file (`kbcli.find_root`) and build. `--view` goes: a file is one resume.
+  `jsk ship` runs record gate → render → document gates; there is no separate claims step.
+  It refuses in a directory holding `application.ttl`.
+- `jsk kb export --from-match <posting.ttl> [--select <ids>] --out <resume.json>` and
+  `jsk kb export --select <ids> --out resume.json` write a short file. `--urs` and `--refresh` go.
+- `jsk freeze` records `j:carried` / `j:carriedVersion` from the plan's `sent` ids and the short
+  file's hash; no copy of the content is written - the PDF, `.txt` and `.tex` are the words sent.
+- `jsk migrate` converts a legacy full record in an unfrozen application to a short file (its
+  view's include order, skills, format, region, budget, floor, authored narrative). Frozen
+  applications' records are left as they are and nothing reads them again.
+- `jsk doctor`'s self-check renders a shipped example workspace (`data/example/`: a small
+  `kb.ttl` and a short `resume.json`) instead of `example.resume.json`.
 
 ### Agents and docs
 
-- `references/resume-format.md` (new, about 40 lines): the table above, the normative rule (no
-  content text but the summary), and the three export commands. It replaces `view-format.md`.
-  `urs-spec.md` stays as the internal reference for the assembled shape; no agent is sent to it.
-- `jsk-resume-author.md`: export the short file; reword bullets in the career first; edit
-  `bullets` order, `summary`, `pages`, `format`; `jsk validate`. The export/refresh/record-reading
-  paragraphs go.
-- `mode-tailor.md` step 5: after `jsk kb confirm`, nothing to bring up to date - the next ship
-  assembles from the career; a confirmed summary gets `"status": "confirmed"`.
+- `references/resume-format.md` (new, about 40 lines) is the short file's table and rules. It
+  replaces `urs-spec.md` and `view-format.md`, both deleted. `docs/urs-guide.md` is deleted.
+- `jsk-resume-author.md`: export the short file; reword bullets in the career; edit `bullets`
+  order, `summary`, `pages`, `format`; `jsk validate`. Nothing to refresh.
+- `mode-tailor.md`: after `jsk kb confirm`, nothing to update - the next ship builds from the
+  career; a confirmed summary gets `"status": "confirmed"`.
 - `mode-resume.md`, `mode-ship.md`, `mode-setup.md`, `SKILL.md`, `jsk-verifier.md`,
-  `docs/SCRIPTS.md`, `docs/ARCHITECTURE.md`: the short file where they describe the record.
+  `jsk-kb-auditor.md`, `commands/ship.md`, `README.md`, `docs/{SCRIPTS,ARCHITECTURE,WHY,CONCEPTS,
+  QUICKSTART}.md`: the short file and the one gate where they describe the record.
 
 ## Rulings
 
-1. **The name stays `resume.json`**, the shape marked by `"resume": 2`. Renaming would touch
-   every doc and command for no reader's benefit. *If wrong:* a rename later is mechanical.
-2. **Legacy full records keep working everywhere** - the four frozen ones, the five unfrozen
-   drafts, `example.resume.json` (doctor's self-check) and the test fixtures - so the renderer's
-   and validator's tests stand. *If wrong:* the legacy path is one branch in `load_record`,
-   removable once nothing carries `urs`.
-3. **`--upgrade` replaces `--refresh`.** *If wrong:* you keep a mode for maintaining copies.
-4. **The claims gate is not trimmed now.** It runs on the assembled dict; most checks become
-   trivially true, and the years check on the summary still matters. Trimming is a later cleanup.
-5. **Dropped from the authored surface:** view `redact`, `sections`, `locale`, `label`, `target`,
-   `include[].order`, several views per file. Nothing exported writes them; a legacy record keeps
-   them. *If wrong:* each is one optional key.
-6. **One summary per file**, `nar_summary`; the career's positioning when absent.
+1. **The plan is the boundary.** The emitters, templates and `jsk fit` are untouched; only what
+   builds the plan changes. *If wrong:* nothing downstream moves, so the cost is in the builder.
+2. **Renderer features with no data in `kb.ttl` are removed**, not carried as dead branches (the
+   list above). *If wrong:* each comes back with its ontology data - AE postings would want
+   nationality first.
+3. **One record gate replaces the record and claims gates.** The drift checks have nothing to
+   compare once there is no copy. *If wrong:* a check is one function to restore.
+4. **The alias check goes.** Aliases never render; they only serve `jsk match`. *If wrong:* it
+   comes back as a kb WARN.
+5. **The file keeps the name `resume.json`**, marked `"resume": 2`.
+6. **No legacy reading outside `jsk migrate`.** Unfrozen drafts are converted once; frozen ones
+   are the archive and are never rendered again (the PDF is what was sent).
+7. **One summary per file**; the career's positioning when absent.
 
-## Out of scope
+## Order of work
 
-Pruning the URS in-memory shape (approach A), trimming the claims gate, converting the real
-workspace's drafts (run `--upgrade` on them when wanted).
+1. **Foundation (one agent, first):** the short file's loader and shape check, the plan builder
+   over the graph, a test helper that writes a small `kb.ttl` from Python, and the example
+   workspace. Port the plan-level render tests to it.
+2. **In parallel:** (a) the record gate + `numbers.py`/`report.py`, wired into validate, ship,
+   gates, `kb check` and `match`; (b) export writing short files, freeze and timeline from
+   `sent`, the ship guard; (c) migrate's conversion and doctor's example.
+3. **Then:** delete `resolve.py`, `validate_urs.py`, `claims.py`, `export.urs`/`refresh`, the
+   URS docs and their tests; rewrite agents and docs; re-measure the budget tests.
+4. **Convert the real workspace's five unfrozen drafts** with `jsk migrate`, on a copy first.
 
 ## Testing
 
-`tests/test_assemble.py`: assemble a short file over `claims_fixtures` and compare with
-today's export for the same selection; every shape and id refusal; legacy passthrough; order of
-bullets, projects, roles; summary absent and present. The file-based suites (`test_ship_freeze`
-`GraphCase`, `test_cli` gates, `test_graph_export` `Command`) gain short-file cases; `Refresh`
-becomes `Upgrade`. Budget tests re-measure the author and main-thread reading.
+Plan-level tests (about 60 in `test_render_resume.py` and `test_themes.py`) move to the graph
+helper and keep their assertions. URS structure tests (`test_validate_urs.py`, most of
+`test_claims.py` and `test_graph_export.py`) are replaced by `test_record_gate.py` and
+`test_build.py`, keeping every (b)-class case: numbers untraced and superseded, periods, labels,
+years. File-based suites (`test_ship_freeze.py`, `test_cli.py`) switch to short files over
+`claims_fixtures`. The ElevenLabs run's six untraced numbers become a record-gate test.
