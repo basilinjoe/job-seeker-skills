@@ -198,6 +198,58 @@ class Provenance(unittest.TestCase):
         self.assertEqual(found(doc), [])
 
 
+def carried(ident, text, metrics=()):
+    """A kb bullet carried into the record under prj_identity."""
+    doc = clean()
+    doc["projects"][1]["achievements"].append({
+        "id": ident, "text": text, "metrics": list(metrics),
+        "provenance": {"status": "confirmed"}})
+    return doc
+
+
+REGULATORS = "Published sign-in events to Kafka that 3 state regulators accepted."
+
+
+class Numbers(unittest.TestCase):
+    def regulators(self, provenance="confirmed"):
+        """A kb bullet with a number in its own words and no metric behind it."""
+        ws = workspace(self)
+        edit(ws, "career/kb.ttl", 'j:text "Published sign-in events to Kafka." ;\n'
+             '    j:shows c:kafka ;\n    j:provenance j:confirmed .',
+             f'j:text "{REGULATORS}" ;\n    j:shows c:kafka ;\n'
+             f'    j:provenance j:{provenance} .', relog=True)
+        return S.load(ws)
+
+    def test_a_number_in_the_confirmed_kb_bullets_own_words_is_traced(self):
+        """The person confirmed those words; carried word for word, nothing is new."""
+        s = self.regulators()
+        self.assertEqual(s.fails(), [])
+        self.assertEqual(found(carried("ach_identity_events", REGULATORS), s), [])
+
+    def test_not_when_the_kb_bullet_is_unconfirmed(self):
+        s = self.regulators("inferred")
+        doc = carried("ach_identity_events", REGULATORS)
+        achievement(doc, "ach_identity_events")["provenance"]["status"] = "inferred"
+        self.assertEqual(keys(found(doc, s)),
+                         {("number-untraced", "FAIL", "ach_identity_events")})
+
+    def test_a_number_the_kb_bullets_words_do_not_hold_is_still_untraced(self):
+        doc = carried("ach_identity_events", REGULATORS.replace("3", "5"))
+        self.assertEqual(keys(found(doc, self.regulators())),
+                         {("number-untraced", "FAIL", "ach_identity_events")})
+
+    def test_an_older_versions_number_is_superseded_even_in_the_kb_bullets_words(self):
+        """kb text that still states a replaced number is stale; the version says so."""
+        ws = workspace(self)
+        stale = "Cut p95 event latency from 5 s to 1 s on AKS with Kafka."
+        edit(ws, "career/kb.ttl", "from 5 s to 400 ms on AKS", "from 5 s to 1 s on AKS",
+             relog=True)
+        doc = clean()
+        achievement(doc, "ach_events_latency")["text"] = stale
+        self.assertEqual(keys(found(doc, S.load(ws))),
+                         {("number-superseded", "FAIL", "ach_events_latency")})
+
+
 class Labels(unittest.TestCase):
     def test_a_short_label_matches_only_as_written(self):
         """"Go" is the language; "go" is a verb, and "go live" claims nothing."""

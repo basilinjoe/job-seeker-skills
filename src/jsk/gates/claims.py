@@ -33,7 +33,7 @@ import re
 import sys
 from dataclasses import dataclass
 
-from .validate_urs import Report, covered, numerals, show, walk_achievements
+from .validate_urs import SCALE, Report, covered, numerals, show, walk_achievements
 
 MAX_FINDINGS = 25
 RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
@@ -96,6 +96,8 @@ class Career:
             self.project[r["a"].value] = r["proj"].value
             if "m" in r:
                 self.cites.setdefault(r["a"].value, set()).add(r["m"].value)
+        self.text = {r["a"].value: r["t"].value for r in store.select(
+            PRE + "SELECT ?a ?t WHERE { ?a a j:Achievement ; j:text ?t }")}
         self.versions = {}               # metric -> [(version, {numbers}, closed day or None)]
         for r in store.select(PRE + """SELECT ?m ?v ?val ?base ?until WHERE {
                 ?v j:of ?m ; j:value ?val OPTIONAL { ?v j:baseline ?base }
@@ -191,8 +193,25 @@ def provenance(doc, career, found):
                 f"`jsk kb confirm {ident} --answer \"...\"`"))
 
 
+def confirmed_numbers(iri, career):
+    """The numbers in a kb bullet's own words, when the person confirmed those words.
+
+    A confirmed bullet may state a number no metric records ("that 3 state regulators
+    accepted"): `jsk kb check` passes it, so carrying it word for word must too. An
+    unconfirmed bullet's words are nobody's evidence, so they trace nothing."""
+    if career.provenance.get(iri) != "confirmed":
+        return set()
+    pool = set()
+    for value, suffix, _ in numerals(career.text.get(iri, "")):
+        pool.add(value * SCALE.get(suffix, 1))
+    return pool
+
+
 def numbers(doc, career, found):
-    """Check 3: every numeral in a bullet is a number the career holds now."""
+    """Check 3: every numeral in a bullet is a number the career holds now - in the
+    current version of a metric it cites, or in the confirmed words of the kb bullet it
+    carries. A number an older version holds is superseded even when the kb bullet's
+    words still say it: those words are stale, and the version history says when."""
     for a, where in walk_achievements(doc):
         ident, text = a.get("id"), a.get("text") or ""
         if not ident or not isinstance(text, str):
@@ -207,12 +226,15 @@ def numbers(doc, career, found):
                                          f"names metric {mid}, which kb.ttl does not hold",
                                          "name a metric kb.ttl holds: `jsk kb view --section Metrics`"))
                 cited.add(career.iri(mid))
+        worded = confirmed_numbers(iri, career)
+        now = set().union(*(nums for m in cited for _, nums, _ in career.current(m)))
         for value, suffix, shown in numerals(text):
-            now = set().union(*(nums for m in cited for _, nums, _ in career.current(m)))
             if covered(value, suffix, now):
                 continue
             old = sorted((v, until) for m in cited for v, nums, until in career.versions.get(m, [])
                          if until is not None and covered(value, suffix, nums))
+            if not old and covered(value, suffix, worded):
+                continue
             if old:
                 v, until = old[-1]
                 metric = v.rsplit(".v", 1)[0]
