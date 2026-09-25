@@ -27,7 +27,7 @@ it only with `jsk kb show <id>`, to name where a defect is repaired). If a file 
 
 A missing skill directory is the one thing you cannot work around: report it and stop.
 
-On Windows fall back from `python3` to `python`, then `py -3`. Report which you used.
+Run `jsk`; not found, fall back to `python -m jsk`, then `py -3 -m jsk`. Report which you used.
 
 ## The gates
 

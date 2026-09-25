@@ -350,16 +350,18 @@ class TheProseSaysWhatTheGatesDo(unittest.TestCase):
         self.assertIn("`NOT RUN`", skill)
         self.assertIn("`NOT RUN`", self.doc("docs/ARCHITECTURE.md").split("## Releasing")[0][-1500:])
 
-    def test_a_bundle_goes_through_markdown_and_migrate(self):
-        """A changeset cannot write `confirmed`, so a bundle written as changesets loses
-        every status. `jsk migrate` carries them; both files name the one route."""
+    def test_a_bundle_keeps_its_statuses(self):
+        """A changeset cannot write `confirmed`, so a bundle written as changesets alone
+        loses every status. The plugin ships no shape for the old Markdown file, so
+        mode-setup.md builds the record with changesets and then raises what the bundle
+        held confirmed through `jsk kb confirm`, naming the bundle as the source."""
         setup = self.ref("mode-setup.md")
         arch = self.doc("docs/ARCHITECTURE.md")
         self.assertNotIn("carrying every status across unchanged", setup)
-        for name, text in (("mode-setup.md", setup), ("ARCHITECTURE.md", arch)):
-            with self.subTest(file=name):
-                self.assertIn("write a `user-knowledgebase.md`", text)
-                self.assertIn("a changeset cannot confirm", text)
+        self.assertNotIn("write a `user-knowledgebase.md`", setup)
+        self.assertIn("A changeset cannot confirm", setup)
+        self.assertIn("`jsk kb confirm <every id the bundle held confirmed> --answer`", setup)
+        self.assertIn("a changeset cannot confirm", arch)
 
 
 class Manifests(unittest.TestCase):
@@ -368,6 +370,13 @@ class Manifests(unittest.TestCase):
         market = json.loads((REPO / ".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
         entry = next(p for p in market["plugins"] if p["name"] == plugin["name"])
         self.assertEqual(plugin["version"], entry["version"])
+
+    def test_the_plugin_ships_the_package_it_describes(self):
+        """The plugin runs `jsk`; a manifest a major version behind the package it
+        drives advertises a surface the commands no longer have."""
+        import jsk
+        plugin = json.loads((PLUGIN / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
+        self.assertEqual(plugin["version"], jsk.__version__)
 
 
 class DocumentedSurface(unittest.TestCase):

@@ -5,13 +5,14 @@ inline at the end of `mode-tailor.md` or `mode-resume.md`.
 
 ## What it needs
 
-A `resume.json` that validates, and the view to render. Everything else has a default.
+A `resume.json` that validates, and the view to render — `--view` is required. Everything else has
+a default.
 
 ```
-/jsk:ship <applications/<stem>/resume.json> [--view ID] [--template NAME] [--ats-max] [--pages N]
+/jsk:ship <applications/<stem>/resume.json> --view ID [--template NAME] [--ats-max] [--pages N]
 ```
 
-`$ARGUMENTS` names the record. Empty → look for `applications/*/resume.json` and any `resume.json`
+`$ARGUMENTS` names the record. No `--view` → the record's only view, or ask which. Empty → look for `applications/*/resume.json` and any `resume.json`
 in the workspace, and ask which if there is more than one.
 
 **Nothing here decides what the document says.** A gate failure is repaired in the record — and in
@@ -100,7 +101,7 @@ It re-runs the gates and refuses on a failure, or if `application.ttl` exists. I
 `application.ttl`: the posting, view, date, channel, documents, the `resume.json` hash, the bullets
 carried and the metric versions they cite — so `jsk kb query stale` can later name an application
 that sent a number since revised — and a `submitted` event. It renames the directory to the
-submitted date. Then:
+submitted date and prints the new path — **use that path from here on**, for `jsk event` too. Then:
 
 - **Stop editing that directory.** `posting.md`, `posting.ttl`, `gaps.md` and `resume.json` are the
   archive — it must still say what the application was answering.

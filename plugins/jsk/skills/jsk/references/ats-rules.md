@@ -81,7 +81,7 @@ when asked for:
 - **Keyword injection.** A term the person cannot defend. Mirroring the posting's wording for work
   they did is the rule above; adding Kubernetes because the posting says Kubernetes is not.
 - **Resume-score tools.** They score against a *model* of a parser, not the one the employer runs.
-  The four gates answer questions that can be answered.
+  The five gates answer questions that can be answered.
 
 ## What the parse gate verifies
 

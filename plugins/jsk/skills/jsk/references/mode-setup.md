@@ -21,7 +21,7 @@ gate. `--quick` skips the render. **Show the output**, then read the verdict:
 |---|---|
 | `READY` | Everything works, PDF included. Go to phase 3. |
 | `READY, with gaps` | The core pipeline works. Go to phase 2 and offer to close the gaps. |
-| `BLOCKED` | The install is broken — modules or schema missing. Fix that first; nothing else is worth doing. |
+| `BLOCKED` | The core pipeline cannot run — a module, the schema, a TeX engine or `pymupdf` missing. Fix the FAIL lines first (phase 2 for an engine or `pymupdf`); nothing else is worth doing. |
 | `BROKEN` | The toolchain is present but failed its own gates — a bug in the skill, not their setup. Report the failing step verbatim rather than working around it. |
 
 ## Phase 2: Close the gaps — with permission, never silently
@@ -52,7 +52,7 @@ jsk new <path> --name "Their Name"
 
 That writes `career/kb.ttl` with every section banner present and empty, `career/log.ttl` at
 revision 1, `.gitattributes` and `applications/`. Everything after that goes in through
-`jsk kb apply`.
+`jsk kb apply`. On a new record there is nothing for `jsk kb show` to show: `op:base` is 1.
 
 **Fill the identity first — email and phone** on `k:person`. The parse gate fails a resume without
 them; it is the most common thing left empty.
@@ -91,11 +91,12 @@ held. **It never deletes anything** and never raises a provenance. Show them its
 kept as notes, and any claims-gate failures it found in their old records. Then `jsk kb view` is
 their career, read end to end; keep the Markdown until they confirm it is complete.
 
-An older **bundle** (`projects/` and `resume-generation/`) goes through the Markdown format: read it
-whole, write a `user-knowledgebase.md` beside it in the old Markdown shape, each entry's status
-copied as the bundle held it, then `jsk migrate` it as above (`--dry-run` first; each refusal names
-its fix) — migrate carries every status across and checks the round trip. Not as changesets: a changeset
-cannot confirm, so every status would arrive `inferred`.
+An older **bundle** (`projects/` and `resume-generation/`) has no migration command: read it whole
+and build the record from it like a resume — `jsk new`, then changesets through `jsk kb apply`
+(`--dry-run` first; each refusal names its fix). A changeset cannot confirm, so it carries
+`j:needs-verification` and `j:disputed` as the bundle held them and everything else lands `inferred`;
+then `jsk kb confirm <every id the bundle held confirmed> --answer` naming the bundle file it came
+from. Keep the bundle until they confirm the record is complete.
 
 ### Then go deeper
 

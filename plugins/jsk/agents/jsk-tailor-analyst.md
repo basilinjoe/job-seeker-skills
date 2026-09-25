@@ -38,7 +38,7 @@ Read `posting.md` whole. Write `posting.ttl` beside it:
 
 k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;
     j:url "https://…" ;
-    j:seniority j:platform-design ; j:domain c:healthcare ;
+    j:seniority j:platform-design ;
     j:captured "2026-09-08"^^xsd:date ; j:advert "posting.md" .
 
 # == Requirements
@@ -67,7 +67,7 @@ jsk match applications/<stem>/posting.ttl
 
 It validates the workspace (a FAIL is printed and nothing is matched — **report it and stop**), then
 prints four sections: **Requirements**, each bucketed `matched` / `near` / `missing` / `ambiguous` /
-`candidate` with the projects carrying it and the evidence (`confirmed`, `unconfirmed`, `tag`);
+`candidate` / `implicit` (not matched) with the projects carrying it and the evidence (`confirmed`, `unconfirmed`, `tag`);
 **Ranking**, the scores; **Cover**, the smallest set of projects carrying every required one; and
 **Questions**, derived from the gaps.
 

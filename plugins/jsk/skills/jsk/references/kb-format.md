@@ -1,6 +1,6 @@
 # The record: Turtle files in git
 
-For reading `career/kb.ttl` and drafting a changeset. Nobody writes these files but `jsk`; you
+For reading `career/kb.ttl` and drafting a changeset. Nobody writes `career/` but `jsk`; you
 change the career with `jsk kb apply`, and read it with `jsk kb show`, `view` and `query`.
 
 ```
@@ -126,7 +126,7 @@ lists every provenance it raised, to check with the person.
 
 k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;
     j:url "https://…" ;
-    j:seniority j:platform-design ; j:domain c:healthcare ;
+    j:seniority j:platform-design ;
     j:captured "2026-09-08"^^xsd:date ; j:advert "posting.md" .
 
 # == Requirements

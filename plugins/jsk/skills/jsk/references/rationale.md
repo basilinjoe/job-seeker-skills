@@ -22,7 +22,7 @@ from" has an answer.
 **How to say it to someone:** *"If I build the PDF and the plain-text copy separately, they agree
 today and disagree in a month. Building both from one record means they can't."*
 
-## Why four gates and not one
+## Why five gates and not one
 
 **A checker verifies that a document parses, not that it is correct.**
 
@@ -35,7 +35,8 @@ The parse gate passed all three of these, correctly, because all three were outs
 3. A resume written **in the third person**. Not a parsing defect at all.
 
 The first two are why the render gate exists: somebody has to look at the page. The third is why the
-prose gate exists.
+prose gate exists. The record gate checks the record is coherent before anything renders; the claims
+gate, that it says nothing more confirmed, or bigger, than the career holds.
 
 **How to say it to someone:** *"The ATS checker tells you a robot can read it. It can't tell you the
 letters showed up, or that it reads like someone else wrote it about you."*

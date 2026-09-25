@@ -104,7 +104,7 @@ PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure. The
 
 | Agent | Hand it | Get back |
 |---|---|---|
-| `jsk-tailor-analyst` | the application directory | `posting.ttl`, the match, `gaps.md` and questions |
+| `jsk-tailor-analyst` | app directory, workspace | `posting.ttl`, the match, `gaps.md` and questions |
 | `jsk-resume-author` | posting, gaps, workspace | `resume.json`, every authored clause quoted |
 | `jsk-kb-auditor` | workspace | what is missing, as a prioritised question queue |
 | `jsk-verifier` | a **failed** gate, or the render gate to read | each verdict verbatim, and the id to repair |

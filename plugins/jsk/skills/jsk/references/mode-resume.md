@@ -37,31 +37,23 @@ two files in the other variant, never four.
 
 4. **Draft `resume.json` from the career's bullets.** A new or reworded bullet goes into the career
    first — a changeset through `jsk kb apply`, which mints its id and marks it inferred; never a
-   bullet only in the record. Then `jsk kb export --urs --select <ids> --out
-   applications/<stem>/resume.json` writes the record: the career's own ids, provenance, periods
-   and each metric's current version, one `engagement` per employer with its `positions`. It passes
-   `jsk validate` and the claims gate as written — retune words and the view, never retype a status
-   or a number. `view-format.md` has the view keys.
-   - Declare the region profile on each view: `urs:profile:au/1`, `in/1`, `ae/1`, or omit it for the
-     region-neutral default. It decides whether a photograph, date of birth, referees, a declaration
+   bullet only in the record. Then `jsk kb export --urs --select <ids> --out resume.json` writes the
+   record in the workspace (for an application, `--out applications/<stem>/resume.json`): the
+   career's own ids, provenance, periods and each metric's current version, one `engagement` per
+   employer with its `positions`. It passes `jsk validate` and the claims gate as written — retune
+   words and the view, never retype a status or a number. `view-format.md` has the view keys.
+   - Set the view's `region_profile`: `urs:profile:au/1`, `in/1`, `ae/1`, or export's `default/1`,
+     the region-neutral one. It decides whether a photograph, date of birth, referees, a declaration
      block or a salary expectation are emitted.
    - **One view per variant.** A view selects: it references ids, orders them, redacts; it never
      contains content text.
 
-   A general rebuild wants the simplest view — the whole record, presentation profile, no
-   provenance floor:
+   A general rebuild keeps the view export wrote, `view_draft` — presentation profile,
+   `provenance_floor: confirmed`, and `nar_positioning` when the career has a positioning. Rename it
+   if they want, and set `budget`; leave the floor alone, or unconfirmed prose ships.
 
-   ```json
-   "views": [{
-     "id": "view_default",
-     "format_profile": "presentation",
-     "narrative": "nar_default",
-     "budget": {"pages": 2}
-   }]
-   ```
-
-   **If they need a selection** — a floor, a redaction, a region profile, a chosen subset — that is a
-   target, even an informal one, and belongs in `mode-tailor.md` with a posting written first.
+   **If they need a selection** — a redaction, a chosen subset — that is a target, even an informal
+   one, and belongs in `mode-tailor.md` with a posting written first.
 
 5. **Validate while you iterate** on the record — `jsk validate resume.json` — until it passes.
 
@@ -122,9 +114,7 @@ exposure".
 
 ## If the tooling is missing
 
-If the skill was installed as `SKILL.md` alone, write the record as URS anyway (`urs-spec.md`).
-LaTeX can be written with the standard library and compiled by any engine; keep the preamble minimal
-— `geometry` and `enumitem` are enough. Whatever you use, the output must satisfy the parse gate.
+No `jsk`, or no TeX engine: say so and stop. Never hand-author a `.tex` in its place.
 
 ## Deliver
 

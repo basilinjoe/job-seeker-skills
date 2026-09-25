@@ -13,7 +13,7 @@ discovery    https://example.com/.well-known/resume.json
 
 **The document is the record; a resume is a view over it.** A tailored resume is a *selection*,
 expressed as references to IDs, so the renderer cannot invent text. URS maps to JSON Resume at
-Level 0 (see *Interoperability*; `docs/urs-guide.md` has the gap table).
+Level 0 (see *Interoperability*).
 
 ## Design rules
 
@@ -298,5 +298,4 @@ Time zones · rich text in any field · embedded image binaries (URIs only) · s
 
 Not claimed as supported: **Japan's rirekisho** (a JIS form a profile can only approximate) and
 **Australian public-sector selection criteria** (accommodated as
-`narratives[].kind: "criterion-response"`, but a companion document). `docs/urs-guide.md` covers
-both.
+`narratives[].kind: "criterion-response"`, but a companion document).

@@ -1,8 +1,8 @@
 {
   "name": "jsk",
   "displayName": "Job Seeker Skill",
-  "version": "3.0.0",
-  "description": "Keep a career in one Markdown file, then generate verified ATS-safe resumes from it. Interview once; regenerate resumes, tailored variants and interview briefs forever.",
+  "version": "4.0.0",
+  "description": "Keep a career as a validated graph record, changed only through reviewed changesets, and render verified ATS-safe resumes from it. Interview once; tailor forever.",
   "author": {
     "name": "Basilin Joe",
     "url": "https://github.com/basilinjoe"
