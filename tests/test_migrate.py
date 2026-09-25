@@ -688,6 +688,27 @@ class Refusals(Tmp):
         self.assertFalse((self.root / "career").exists())
 
 
+class OlderShapes(Tmp):
+    def test_a_bullet_may_name_its_own_id_and_cite_two_metrics(self):
+        kb = EVERY_SECTION.replace(
+            "  - metric: metric_team\n",
+            "  - id: ach_led_migration\n  - metric: metric_team, metric_jobs\n")
+        workspace(self.root, kb=kb, apps=False)
+        self.assertEqual(migrated(self.root)[0], 0)
+        t = triples(self.root)
+        self.assertEqual(t[("k:ach_led_migration", "cites")], {"k:met_team", "k:met_jobs"})
+
+    def test_a_kb_1_file_s_log_section_joins_the_history(self):
+        kb = EVERY_SECTION.replace("kb: 2", "kb: 1") + (
+            "\n## Log\n\n| date | what changed |\n|---|---|\n| 2026-01-01 | Began. |\n")
+        workspace(self.root, kb=kb, apps=False)
+        code, out = migrated(self.root)
+        self.assertEqual(code, 0, out)
+        note = next(iter(triples(self.root, R.LOG)[("k:rev_1", "note")]))
+        self.assertIn("| 2026-01-01 | Began. |", note)
+        self.assertIn("Added the clinical event pipeline.", note)
+
+
 class TheCommand(Tmp):
     def test_help_exits_zero(self):
         code, out = run(CLI, "migrate", "--help")
