@@ -269,7 +269,7 @@ class ShipSummary(ShipCase):
         self.assertEqual(code, 0, out)
         self.assertGreater(out.count("withheld bullet ach_data_ingestion"), 1, out)
         [render] = [line for line in self.summary(out) if self.step(line) == "render"]
-        self.assertIn("withheld 1 below the view floor", render)
+        self.assertIn("withheld 1 below the floor", render)
 
     def test_a_stop_names_the_step_that_failed(self):
         self.write(BROKEN)

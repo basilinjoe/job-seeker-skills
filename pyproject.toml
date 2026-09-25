@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [{ name = "Basilin Joe" }]
 keywords = [
     "resume", "cv", "ats", "career", "job-search",
-    "knowledge-base", "tailoring", "urs", "latex", "pdf",
+    "knowledge-base", "tailoring", "latex", "pdf",
 ]
 
 # One dependency, and only one. Everything else this toolchain uses is optional and

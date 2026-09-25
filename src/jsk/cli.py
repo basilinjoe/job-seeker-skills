@@ -687,7 +687,7 @@ def summary_lines(results):
         if result["gate"] == "render":
             # One line per line held back, however many variants carried it.
             withheld = set(WITHHELD.findall(output))
-            parts.append(f"withheld {len(withheld)} below the view floor")
+            parts.append(f"withheld {len(withheld)} below the floor")
         lines.append(f"  {result['gate']:<{width}}  " + "   ".join(parts))
     worst = worst_exit(results)
     if worst:

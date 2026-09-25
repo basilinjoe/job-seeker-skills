@@ -112,7 +112,7 @@ class Builder:
 
     def keep(self, status, what):
         if PROVENANCE_RANK.get(status, 0) < self.floor:
-            self.warnings.append(f"withheld {what} - provenance '{status}' is below the view floor")
+            self.warnings.append(f"withheld {what} - provenance '{status}' is below the floor")
             return False
         return True
 
