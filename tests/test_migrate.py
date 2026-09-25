@@ -518,8 +518,8 @@ class ARealKnowledgeBaseMigrates(Tmp):
         self.assertEqual(self.t[("k:skill_dotnet", "alias")], {"C#", ".NET", "ASP.NET Core"})
         self.assertEqual(self.t[("k:skill_python", "category")], {"language"})
         self.assertEqual(self.t[("k:skill_python", "rank")], {"2"})
-        # YAML reads 8.40 as the number 8.4: the value survives, the trailing zero cannot.
-        self.assertEqual(self.t[("k:edu_meng", "gradeValue")], {"8.4"})
+        # The value as written: YAML's float would have made it 8.4.
+        self.assertEqual(self.t[("k:edu_meng", "gradeValue")], {"8.40"})
         self.assertEqual(self.t[("k:os_carbon_scheduler", "role")], {"j:maintainer"})
         self.assertEqual(self.t[("k:lang_en", "language")], {"en"})
         self.assertEqual(self.t[("k:lang_ta", "provenance")], {"j:confirmed"})
@@ -687,6 +687,122 @@ class Refusals(Tmp):
         self.assertIn("the migrated record would not validate", out)
         self.assertIn("j:about k:met_nowhere: nothing defines it", out)
         self.assertFalse((self.root / "career").exists())
+
+
+def line_of(text, fragment):
+    """The 1-based line of `text` holding `fragment`."""
+    return next(n for n, line in enumerate(text.split("\n"), 1) if fragment in line)
+
+
+class NothingReadIsLostOrChanged(Tmp):
+    """Each value the reader used to drop or alter without a word - found by review, each
+    exiting 0 with "round trip ok". YAML 1.1 read them as numbers, octals and booleans;
+    the reader skipped what it had no branch for."""
+
+    def migrate(self, kb):
+        workspace(self.root, kb=kb, apps=False)
+        code, out = migrated(self.root)
+        self.assertEqual(code, 0, out)
+        return triples(self.root)
+
+    def test_a_phone_number_with_a_leading_zero_is_kept_as_written(self):
+        t = self.migrate(EVERY_SECTION.replace('value: "+61 400 000 000"', "value: 0400123456"))
+        self.assertEqual(t[("k:person", "phone")], {"0400123456"})
+
+    def test_a_phone_number_with_a_plus_keeps_it(self):
+        t = self.migrate(EVERY_SECTION.replace('value: "+61 400 000 000"', "value: +61400000000"))
+        self.assertEqual(t[("k:person", "phone")], {"+61400000000"})
+
+    def test_a_contact_that_is_a_bare_string_is_a_note(self):
+        t = self.migrate(EVERY_SECTION.replace("pronouns: she/her",
+                                               "  - someone@example.org\npronouns: she/her"))
+        self.assertIn("contact: someone@example.org", t[("k:person", "note")])
+
+    def test_frontmatter_keys_no_field_holds_are_notes_and_the_old_updated_is_kept(self):
+        t = self.migrate(EVERY_SECTION.replace(
+            "updated: 2026-09-08\n",
+            "updated: 2026-09-08\ntarget_roles: [Staff Engineer, Principal]\n"
+            "notice_period: 4 weeks\n"))
+        notes = t[("k:kb", "note")]
+        self.assertIn("notice_period: 4 weeks", notes)
+        self.assertIn('target_roles: ["Staff Engineer", "Principal"]', notes)
+        self.assertIn("updated: 2026-09-08", notes)
+
+    def test_a_language_with_no_language_key_is_a_note(self):
+        t = self.migrate(EVERY_SECTION.replace(
+            "    status: confirmed\n```\n\n## Vocabulary",
+            "    status: confirmed\n  - level: C1\n    scheme: cefr\n```\n\n## Vocabulary"))
+        self.assertTrue(any("C1" in n and "cefr" in n for n in t[("k:person", "note")]),
+                        t[("k:person", "note")])
+
+    def test_a_country_code_yaml_reads_as_false_stays_the_code(self):
+        t = self.migrate(EVERY_SECTION.replace("country: Australia", "country: NO"))
+        self.assertEqual(t[("k:person", "country")], {"NO"})
+
+    def test_two_ids_that_normalise_to_one_are_refused_naming_both(self):
+        kb = EVERY_SECTION.replace("## Roles\n", (
+            f"### Meridian again `org_Meridian`\n\n{FENCE}yaml\nid: org_Meridian\n"
+            f"relationship: employer\nstatus: confirmed\n{FENCE}\n\n## Roles\n"))
+        workspace(self.root, kb=kb, apps=False)
+        code, out = migrated(self.root)
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"REFUSED  .*org_meridian.*org_Meridian")
+        self.assertFalse((self.root / "career").exists())
+
+    def test_a_key_written_twice_in_one_block_is_refused(self):
+        kb = EVERY_SECTION.replace("given_name: Priya\n", "given_name: Priya\ngiven_name: X\n")
+        workspace(self.root, kb=kb, apps=False)
+        code, out = migrated(self.root)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"line {line_of(kb, 'given_name: X')}", out)
+        self.assertIn("duplicate key", out)
+
+    def test_a_body_line_the_reader_lost_is_refused_naming_the_line(self):
+        workspace(self.root, apps=False)
+        real = migrate.Reader.sec_positioning
+        migrate.Reader.sec_positioning = lambda self, s: None
+        try:
+            code, out = migrated(self.root)
+        finally:
+            migrate.Reader.sec_positioning = real
+        self.assertEqual(code, 1, out)
+        n = line_of(EVERY_SECTION, "Architect who turns")
+        self.assertIn(f"REFUSED  line {n}: 'Architect who turns regulated estates", out)
+        self.assertFalse((self.root / "career").exists())
+
+    def test_a_yaml_value_the_reader_lost_is_refused_naming_the_line(self):
+        workspace(self.root, apps=False)
+        real = migrate.Reader.sec_identity
+
+        def forgetful(self, s):
+            real(self, s)
+            # Handed to the graph, then lost: the check reads the graph, not the reader.
+            self.plan.nodes[O.K + "person"].props["region"].clear()
+        migrate.Reader.sec_identity = forgetful
+        try:
+            code, out = migrated(self.root)
+        finally:
+            migrate.Reader.sec_identity = real
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"REFUSED  line {line_of(EVERY_SECTION, 'region: VIC')}: 'VIC'", out)
+
+    def test_a_yaml_value_the_reader_never_handed_on_is_refused(self):
+        workspace(self.root, apps=False)
+        real = migrate.Reader.status
+        # The person's status dropped: "confirmed" is still all over the graph, so only
+        # the record of what the reader handed on can see it went missing.
+
+        def forgetful(self, iri, value, other=None):
+            if iri != O.K + "person":
+                real(self, iri, value, other)
+        migrate.Reader.status = forgetful
+        try:
+            code, out = migrated(self.root)
+        finally:
+            migrate.Reader.status = real
+        self.assertEqual(code, 1, out)
+        n = line_of(EVERY_SECTION, "pronouns: she/her") + 1
+        self.assertIn(f"REFUSED  line {n}: 'confirmed'", out)
 
 
 class OlderShapes(Tmp):

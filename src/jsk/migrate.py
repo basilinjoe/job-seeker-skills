@@ -18,13 +18,24 @@ read back as what was read; also when markdown-it-py, pyyaml or pyoxigraph is mi
 Exit 2 = called wrongly.
 
 Why it refuses rather than doing its best: a migration that loses a line loses it for
-good, because the next thing anyone reads is kb.ttl, not the Markdown it came from. So
-the Markdown is read into a dictionary of entries - every value it holds, including
-the ones the ontology has no field for, which become `j:note`s on their entry - the
-graph is built from that, written, parsed back and projected into the same dictionary,
-and the two must be equal. Separately, `jsk index`'s own reader (kbindex) is run over
-the Markdown and its view of the projects, roles, years of experience, metrics and
-questions must equal the same view of the graph. Either mismatch refuses.
+good, because the next thing anyone reads is kb.ttl, not the Markdown it came from.
+The Markdown is read into a dictionary of entries - every value it holds, including
+the ones the ontology has no field for, which become `j:note`s on their entry. YAML is
+read with nothing retyped (0400123456 stays a phone number, NO a country, 8.40 a
+grade): the predicate a value lands in decides its type, and numbers keep their
+characters. Three checks follow, and any failure refuses:
+
+- the round trip: the graph is written, parsed back and projected into the same
+  dictionary, and must equal it, datatype and characters. This proves the writer and
+  the parser, not the reader - a value the reader dropped is in neither side.
+- coverage, which proves the reader against the Markdown itself: every YAML value was
+  handed to a triple or a note and is still spelled out in kb.ttl, and every other
+  non-blank line has each of its words in kb.ttl or in log.ttl's note. Section
+  headings, HTML comments and the template's placeholders are layout, not content.
+  It compares words, not order: it finds a line that vanished, not one reworded.
+- `jsk index`'s own reader (kbindex) is run over the Markdown, and its view of the
+  projects, roles, years of experience, metrics and questions must equal the same view
+  of the graph.
 
 Every write happens after every check: the new files are validated together, in
 memory, with the loader `jsk kb` uses, before the first byte lands. kb.ttl is written
@@ -70,6 +81,7 @@ PROSE = (("problem", re.compile(r"^\*\*The problem\.?\*\*\s*")),
          ("outcome", re.compile(r"^\*\*What changed\.?\*\*\s*")),
          ("bullets", re.compile(r"^\*\*Bullets\.?\*\*\s*$")))
 CONTACTS = ("email", "phone", "linkedin", "github", "website")
+COVERAGE_SHOWN = 12                     # lost lines named in a refusal; the rest counted
 EVENT_COLUMNS = ("date", "event", "channel", "note", "due")
 
 # Language names a KB wrote where BCP 47 wants a tag.
@@ -92,6 +104,108 @@ class Refused(Exception):
         self.reasons = reasons
 
 
+# --- values as written ---------------------------------------------------------------------
+
+class Leaf(str):
+    """A YAML scalar exactly as written, with the file line it came from. The coverage
+    check reads every one back out of the graph by that line."""
+    line = 0
+
+
+class Lex(str):
+    """A number's lexical form, kept as written - 8.40 stays 8.40, 0400 stays 0400 - with
+    its datatype. The writer and the parser both keep lexical forms, so the round trip
+    can hold a number to the exact characters the Markdown had."""
+
+    def __new__(cls, text, dt):
+        out = super().__new__(cls, text)
+        out.dt = dt
+        return out
+
+
+# Only null keeps its YAML 1.1 reading. Everything else a YAML 1.1 loader would turn
+# into a number, a boolean or a date - 0400123456 read as octal, NO as false, 8.40 as
+# 8.4 - is a string here, and the ontology predicate it lands in decides its type.
+KEEP_RESOLVERS = ("tag:yaml.org,2002:null", "tag:yaml.org,2002:merge")
+_LOADER = []
+
+
+def yaml_loader():
+    if _LOADER:
+        return _LOADER[0]
+    import yaml
+
+    class Loader(yaml.SafeLoader):
+        first = 1
+
+        def construct_mapping(self, node, deep=False):
+            # SafeLoader keeps the last of two equal keys and says nothing.
+            seen = set()
+            for key, _ in node.value:
+                if isinstance(key, yaml.ScalarNode):
+                    if key.value in seen:
+                        raise yaml.constructor.ConstructorError(
+                            None, None, f"duplicate key {key.value!r}", key.start_mark)
+                    seen.add(key.value)
+            return super().construct_mapping(node, deep)
+
+    def scalar(loader, node):
+        leaf = Leaf(loader.construct_scalar(node))
+        leaf.line = loader.first + node.start_mark.line
+        return leaf
+
+    Loader.yaml_implicit_resolvers = {
+        ch: [(tag, rx) for tag, rx in rs if tag in KEEP_RESOLVERS]
+        for ch, rs in yaml.SafeLoader.yaml_implicit_resolvers.items()}
+    Loader.add_constructor("tag:yaml.org,2002:str", scalar)
+    _LOADER.append(Loader)
+    return Loader
+
+
+def load_yaml(text, where, first_line, leaves,
+              fix="fix the block; docs/legacy-kb-spec.md shows each one's shape"):
+    """One block as a mapping of Leaf values, as kbindex.load_yaml reads it but with
+    nothing retyped. Every value (not key) is appended to `leaves`."""
+    import yaml
+
+    from .kbindex import KBError
+
+    loader = yaml_loader()(text)
+    loader.first = first_line
+    try:
+        data = loader.get_single_data()
+    except yaml.YAMLError as exc:
+        mark = getattr(exc, "problem_mark", None)
+        at = f", line {first_line + mark.line}" if mark else ""
+        raise KBError(f"{where}{at}: not valid YAML - {getattr(exc, 'problem', None) or exc}",
+                      fix) from None
+    finally:
+        loader.dispose()
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise KBError(f"{where}: the block is not `key: value` lines",
+                      "docs/legacy-kb-spec.md shows the shape")
+
+    def walk(x):
+        if isinstance(x, dict):
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+        elif isinstance(x, str):
+            leaves.append(x)
+    walk(data)
+    return data
+
+
+def tokens(text):
+    """The words and numbers of a text, case-folded; "40,000" is one number, 40000."""
+    text = re.sub(r"\d{1,3}(?:,\d{3})+", lambda m: m.group().replace(",", ""), str(text))
+    return set(re.findall(r"[^\W_]+", text.casefold()))
+
+
 # --- the entries, as a dictionary ----------------------------------------------------------
 
 @dataclass
@@ -100,7 +214,23 @@ class Node:
     props: dict = field(default_factory=lambda: defaultdict(set))
 
     def frozen(self):
-        return (self.cls, {p: frozenset(v) for p, v in self.props.items() if v})
+        return (self.cls, {p: frozenset(lexical(x) for x in v) for p, v in self.props.items()
+                           if v})
+
+
+def lexical(v):
+    """A value as its datatype and exact characters: 8.40 and 8.4 are different values."""
+    if isinstance(v, bool):
+        return ("boolean", "true" if v else "false")
+    if isinstance(v, Lex):
+        return (v.dt, str(v))
+    if isinstance(v, int):
+        return ("integer", str(v))
+    if isinstance(v, Decimal):
+        return ("decimal", str(v))
+    if isinstance(v, datetime.date):
+        return ("date", v.isoformat())
+    return ("string", str(v))
 
 
 @dataclass
@@ -116,9 +246,26 @@ class Plan:
     apps: int = 0
     defaulted: int = 0                                   # entries with no status: inferred
     store: object = None                                 # the new workspace, validated
+    used: set = field(default_factory=set)               # id() of each Leaf handed on
+    unwritten: set = field(default_factory=set)          # ... that no triple spells out
 
     def refuse(self, detail, fix):
         self.refusals.append((detail, fix))
+
+    def mark(self, value, spelled=True):
+        """Record that a value read from YAML was handed on - into a triple or a note.
+        `spelled=False` when what it became does not spell it: `retired: true` is a
+        date, the kb: format number is no triple at all."""
+        if isinstance(value, dict):
+            for v in value.values():
+                self.mark(v, spelled)
+        elif isinstance(value, list):
+            for v in value:
+                self.mark(v, spelled)
+        elif isinstance(value, Leaf):
+            self.used.add(id(value))
+            if not spelled:
+                self.unwritten.add(id(value))
 
 
 def ontology():
@@ -160,20 +307,23 @@ def empty(value):
 
 
 def number(value):
-    """int or Decimal from a number or its text ("40,000" is 40000); None otherwise."""
+    """A Lex (integer or decimal) from a number or its text, the characters kept - except
+    a thousands comma, which no xsd number can hold ("40,000" is 40000). None otherwise."""
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
-        return value
+        return Lex(str(value), "integer")
     if isinstance(value, float):
-        return Decimal(repr(value))
+        return Lex(repr(value), "decimal")
+    if isinstance(value, Decimal):
+        return Lex(str(value), "decimal")
     text = str(value).strip()
     if re.fullmatch(r"[+-]?\d{1,3}(,\d{3})+(\.\d+)?", text):
         text = text.replace(",", "")
     if re.fullmatch(r"[+-]?\d+", text):
-        return int(text)
+        return Lex(text, "integer")
     if re.fullmatch(r"[+-]?\d*\.\d+", text):
-        return Decimal(text)
+        return Lex(text, "decimal")
     return None
 
 
@@ -206,6 +356,7 @@ class Builder:
         return self.nodes.setdefault(iri, Node(cls))
 
     def note(self, iri, key, value, why=None):
+        self.plan.mark(value)
         self.nodes[iri].props["note"].add(f"{key}: {raw_text(value)}")
         if why:
             self.plan.notices.append(f"{curie(iri)}: {key} {raw_text(value)!r} kept as a "
@@ -215,6 +366,7 @@ class Builder:
         """Set `pred` on the entry from a Markdown value; returns True when it fit."""
         onto = ontology()
         key = key or pred
+        self.plan.mark(value)
         if empty(value):
             return False
         n = self.nodes[iri]
@@ -227,6 +379,10 @@ class Builder:
             self.note(iri, key, value, f"it already has a {pred}")
             return False
         n.props[pred].add(typed)
+        if isinstance(typed, str) and isinstance(value, str) and FULL_DATE.fullmatch(value.strip()) \
+                and typed != value.strip():
+            # A day where the ontology keeps a month: the month is the value, the day a note.
+            self.note(iri, key, value.strip())
         return True
 
     def typed(self, p, value):
@@ -258,10 +414,11 @@ class Builder:
                 return None, "not true or false"
         if "integer" in types or "decimal" in types:
             num = number(value)
-            if num is not None and isinstance(num, Decimal) and "decimal" not in types:
+            if num is not None and num.dt not in types:
                 num = None
             if num is not None:
-                if (obj.lo is not None and num < obj.lo) or (obj.hi is not None and num > obj.hi):
+                at = Decimal(str(num))
+                if (obj.lo is not None and at < obj.lo) or (obj.hi is not None and at > obj.hi):
                     return None, f"outside {obj.lo}-{obj.hi}"
                 return num, None
             if "string" not in types:
@@ -294,6 +451,7 @@ class Vocabulary:
 
         onto = ontology()
         self.shipped, self.labels = {}, defaultdict(set)
+        self.names = defaultdict(set)            # concept iri -> its labels, as written
         try:
             quads = io.parse(SHIPPED_VOCABULARY).quads
         except (OSError, io.GraphError):
@@ -303,6 +461,7 @@ class Vocabulary:
                 self.shipped[q.subject.value] = q.object.value[len(onto.J):]
             elif q.predicate.value in (onto.J + "label", onto.J + "former"):
                 self.labels[onto.norm(q.object.value)].add(q.subject.value)
+                self.names[q.subject.value].add(q.object.value)
 
     def concept(self, term):
         """(iri, own) - own when the person's kb.ttl must define it."""
@@ -349,21 +508,24 @@ def body_without_yaml(entry):
     return [line for n, line in entry["body"] if n not in skip]
 
 
-def yaml_blocks(lines, where):
-    """(blocks, the other lines) - each ```yaml fence parsed as a mapping."""
-    from .kbindex import load_yaml
-
-    blocks, rest, inside, buf = [], [], False, []
-    for line in lines:
-        if not inside and re.match(r"^\s*```\s*yaml\s*$", line):
-            inside, buf = True, []
-        elif inside and re.match(r"^\s*```\s*$", line):
-            blocks.append(load_yaml("\n".join(buf), where, 1))
-            inside = False
-        elif inside:
+def yaml_blocks(numbered, where, leaves, fenced):
+    """(blocks, the other lines) - each ```yaml fence in [(line no, line)] parsed as a
+    mapping; the fence's line numbers go into `fenced`. A fence that never closes is
+    not a block: its lines stay text."""
+    blocks, rest, inside, buf = [], [], None, []
+    for n, line in numbered:
+        if inside is None and re.match(r"^\s*```\s*yaml\s*$", line):
+            inside, buf = n, [line]
+        elif inside is not None and re.match(r"^\s*```\s*$", line):
+            blocks.append(load_yaml("\n".join(buf[1:]), where, inside + 1, leaves))
+            fenced.update(range(inside, n + 1))
+            inside = None
+        elif inside is not None:
             buf.append(line)
         else:
             rest.append(line)
+    if inside is not None:
+        rest += buf
     return blocks, rest
 
 
@@ -414,16 +576,44 @@ def table(lines):
     return header, rows, leftover
 
 
+# What `jsk new`'s template pre-filled in a row the person never completed: a contact
+# with no value, a work authorization with no jurisdiction, a language with no language.
+# A row holding only these carries nothing; a row holding anything more is kept.
+TEMPLATE_DEFAULTS = {"contact": {"kind", "primary"}, "work_authorization": {"status"},
+                     "language": {"native"}}
+
+# Words the coverage check reads as the file's layout rather than its content: section
+# and prose headings, table columns, sub-item keys, the old id prefixes and enum values
+# the migration renames.
+STRUCTURE_WORDS = tokens(" ".join(
+    list(KNOWN_SECTIONS) + ["Log", "The problem", "What I decided", "What changed", "Bullets",
+                            "aliases alias metric metrics status state id true false",
+                            "none quantified reason retired", " ".join(EVENT_COLUMNS),
+                            "subject baseline value unit direction confidence source",
+                            "question about asked answered"]
+    + list(RENAMES) + [k for m in ENUM_MAP.values() for k in m]))
+
+TITLE = re.compile(r"#\s+Career knowledge base\s*[-–—]\s*(?P<who>.+?)\s*")
+
+
 class Reader:
-    """user-knowledgebase.md into Plan.nodes: one Node per entry the graph will hold."""
+    """user-knowledgebase.md into Plan.nodes: one Node per entry the graph will hold.
+
+    Every value it reads lands in a triple or in a `j:note` on the nearest entry, or the
+    migration is refused - nothing is skipped. `coverage()` holds it to that afterwards,
+    against the graph as written."""
 
     def __init__(self, plan, text, vocab, today):
         from .kbindex import read_kb
 
         self.plan, self.vocab, self.today = plan, vocab, today
         self.b = Builder(plan)
-        self.front, self.by_title, self.sections = read_kb(text)
+        self.leaves = []                         # every YAML value read, as a Leaf
+        self.structure = set()                   # line numbers read as layout, not content
+        self.ids = {}                            # entry iri -> the id it was written as
         self.lines = text.split("\n")
+        self.front, blanked, self.front_end = self.frontmatter(text)
+        _, self.by_title, self.sections = read_kb(blanked)
         self.concept_use = defaultdict(set)      # iri -> {"Domain", "Capability", "Technology"}
         self.concept_terms = defaultdict(set)    # own concept iri -> terms written
         self.bullets = []                        # (project iri, text, explicit id, rank, subs)
@@ -431,10 +621,59 @@ class Reader:
         updated = as_date(self.front.get("updated"))
         self.retired_on = updated or today
 
+    def frontmatter(self, text):
+        """(the --- block, the text with it blanked, its closing line's index or -1).
+        Read here with migrate's loader; kbindex then sees a file with no frontmatter,
+        whose line numbers still hold."""
+        from .kbindex import KBError
+
+        lines = text.split("\n")
+        if not lines or lines[0].strip() != "---":
+            return {}, text, -1
+        closing = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+        if closing is None:
+            raise KBError("the knowledge base's frontmatter never closes", "end it with a --- line")
+        front = load_yaml("\n".join(lines[1:closing]), "the knowledge base's frontmatter", 2,
+                          self.leaves, 'quote any value holding a colon - title: "Engineer II: '
+                                       'Payments"')
+        self.structure.update(range(1, closing + 2))
+        return front, "\n" * (closing + 1) + "\n".join(lines[closing + 1:]), closing
+
     # -- helpers
+    def numbered(self, s):
+        """[(line no, line)] of a section, below its heading."""
+        return [(n, self.lines[n - 1]) for n in range(s["start"] + 1, s["end"] + 1)]
+
+    def claim(self, old):
+        """The iri an entry's id names - refused when another entry already has it, even
+        one written differently: org_Acme and org_acme are one id once normalised, and
+        two entries merged into one is a meaning changed."""
+        self.plan.mark(old)
+        iri = kid(old)
+        if iri in self.ids:
+            self.plan.refuse(f"{self.ids[iri]} and {old} both name {curie(iri)}",
+                             "give one of them another id")
+        else:
+            self.ids[iri] = str(old)
+        return iri
+
+    def unique(self, iri):
+        n, out = 2, iri
+        while out in self.plan.nodes:
+            out, n = f"{iri}_{n}", n + 1
+        self.ids.setdefault(out, "an entry written with no id (its id was minted)")
+        return out
+
+    def heading(self, iri, entry, *values):
+        """A ### heading that says more than the values taken from it is kept as a note."""
+        taken = tokens(" ".join(str(v) for v in values if not empty(v)))
+        if not tokens(entry["title"]) <= taken:
+            self.b.note(iri, "heading", entry["title"])
+
     def status(self, iri, value, other=None):
         """`status:` split: an `other` enum's value goes there; a provenance is provenance."""
         onto = ontology()
+        self.plan.mark(value)
         if empty(value):
             return
         text = str(value).strip()
@@ -448,14 +687,25 @@ class Reader:
 
     def retired(self, iri, block):
         value = block.get("retired")
-        if value is True or str(value).strip().lower() == "true":
+        text = value.strip().lower() if isinstance(value, str) else value
+        if value is True or text == "true":
+            self.plan.mark(value, spelled=False)      # it becomes the day it was retired
             n = self.plan.nodes[iri]
             n.props["retired"].add(self.retired_on)
-            reason = block.get("reason") or block.get("retired_reason")
-            n.props["reason"].add(str(reason).strip() if not empty(reason) else
-                                  "Retired in user-knowledgebase.md, which recorded no reason.")
-        elif not empty(value) and value is not False:
+            given = False
+            for key in ("reason", "retired_reason"):
+                given = self.b.put(iri, "reason", block.get(key), key) or given
+            if not given and not n.props["reason"]:
+                n.props["reason"].add("Retired in user-knowledgebase.md, which recorded no "
+                                      "reason.")
+            return
+        if value is False or text == "false":
+            self.plan.mark(value, spelled=False)
+        elif not empty(value):
             self.b.note(iri, "retired", value, "not true or false")
+        for key in ("reason", "retired_reason"):
+            if not empty(block.get(key)):
+                self.b.note(iri, key, block[key], "a reason, but the entry is not retired")
 
     def extra(self, iri, block, known, prefix=""):
         for k, v in block.items():
@@ -463,6 +713,7 @@ class Reader:
                 self.b.note(iri, prefix + k, v, "the ontology has no field for it")
 
     def use(self, term, as_class):
+        self.plan.mark(term)
         iri, own = self.vocab.concept(term)
         if own:
             self.concept_use[iri].add(as_class)
@@ -471,11 +722,30 @@ class Reader:
             self.concept_use.setdefault(iri, set())
         return iri
 
+    def terms(self, iri, pred, value, cls, key):
+        for t in value if isinstance(value, list) else [value]:
+            if empty(t):
+                continue
+            if isinstance(t, str):
+                self.b.put(iri, pred, self.use(t, cls), key)
+            else:
+                self.b.note(iri, key, t, "not a term")
+
     def kb_note(self, heading, lines):
         lines = clean(lines)
         if lines:
             self.b.note(ontology().K + "kb", heading, "\n".join(lines),
                         "no field of the graph holds it, so it is kept word for word")
+
+    def sub_map(self, iri, pairs):
+        """`  - key: value` sub-items as a mapping; a key written twice keeps its earlier
+        value as a note, where a plain dict would have dropped it."""
+        out = {}
+        for k, v in pairs:
+            if k in out and not empty(out[k]):
+                self.b.note(iri, k, out[k], "written twice under one item; the last is read")
+            out[k] = v
+        return out
 
     # -- the whole file
     def read(self):
@@ -486,17 +756,27 @@ class Reader:
         if empty(name):
             self.plan.refuse("the frontmatter has no name:", "add `name: Their Name` to it")
         else:
+            self.plan.mark(name)
             kb.props["name"].add(str(name).strip())
         kb.props["updated"].add(self.today)
-        if self.front.get("kb") not in (1, 2):
-            self.plan.refuse(f"kb: {self.front.get('kb')!r} - this reads the kb: 2 format",
+        version = self.front.get("kb")
+        if str(version).strip() not in ("1", "2"):
+            self.plan.refuse(f"kb: {version!r} - this reads the kb: 2 format",
                              "set `kb: 2` once the file follows docs/legacy-kb-spec.md")
+        self.plan.mark(version, spelled=False)
+        if not empty(self.front.get("updated")):
+            self.b.note(onto.K + "kb", "updated", self.front["updated"],
+                        "the day this migration ran is j:updated; the Markdown's is kept here")
+        self.extra(onto.K + "kb", self.front, {"name", "kb", "updated"})
         self.b.node(onto.K + "person", "Person")
         first = self.sections[0]["start"] if self.sections else len(self.lines) + 1
-        closing = -1
-        if self.lines and self.lines[0].strip() == "---":
-            closing = next(i for i in range(1, len(self.lines)) if self.lines[i].strip() == "---")
-        before = [line for line in self.lines[closing + 1:first - 1] if not line.startswith("# ")]
+        before = []
+        for n in range(self.front_end + 2, first):
+            m = TITLE.fullmatch(self.lines[n - 1])
+            if m and not empty(name) and m["who"] == str(name).strip():
+                self.structure.add(n)                # the template's own title
+            else:
+                before.append(self.lines[n - 1])
         self.kb_note("before the first section", before)
         seen = set()
         for s in self.sections:
@@ -505,6 +785,7 @@ class Reader:
                 self.kb_note(f"## {title}", self.lines[s["start"]:s["end"]])
                 continue
             seen.add(title)
+            self.structure.add(s["start"])
             if title == "Log":
                 self.log_text = clean(self.lines[s["start"]:s["end"]])
                 continue
@@ -517,37 +798,63 @@ class Reader:
     # -- sections
     def sec_identity(self, s):
         person = ontology().K + "person"
-        blocks, rest = yaml_blocks(own_lines(s, self.lines), "## Identity")
+        blocks, rest = yaml_blocks(self.numbered(s), "## Identity", self.leaves, self.structure)
         self.kb_note("## Identity", rest)
         for block in blocks:
             for key, pred in (("full_name", "fullName"), ("given_name", "givenName"),
                               ("family_name", "familyName"), ("headline", "headline")):
                 self.b.put(person, pred, block.get(key), key)
-            loc = block.get("location") or {}
+            loc = block.get("location")
             if isinstance(loc, dict):
                 for key, pred in (("city", "city"), ("region", "region"), ("country", "country"),
                                   ("mode", "workMode")):
                     v = loc.get(key)
+                    self.plan.mark(v)
                     if key == "country" and isinstance(v, str) and len(v.strip()) == 2:
                         v = v.strip().upper()
                     self.b.put(person, pred, v, "location." + key)
                 self.extra(person, loc, {"city", "region", "country", "mode"}, "location.")
-            else:
+            elif not empty(loc):
                 self.b.note(person, "location", loc, "not a mapping")
-            for c in block.get("contacts") or []:
-                if not isinstance(c, dict) or empty(c.get("value")):
-                    continue
-                kind = str(c.get("kind") or "").strip()
-                if kind in CONTACTS and self.b.put(person, kind, c["value"], "contact " + kind):
-                    if c.get("primary") is True:
-                        self.b.put(person, "primary", c["value"], "primary")
-                else:
-                    self.b.note(person, f"contact {kind or '(no kind)'}", c["value"],
-                                f"not one of {', '.join(CONTACTS)}")
-                self.extra(person, c, {"kind", "value", "primary"}, f"contact {kind}.")
+            contacts = block.get("contacts")
+            if not empty(contacts) and not isinstance(contacts, list):
+                self.b.note(person, "contacts", contacts, "not a list")
+            elif contacts:
+                for c in contacts:
+                    self.contact(person, c)
             self.status(person, block.get("status"))
             self.extra(person, block, {"full_name", "given_name", "family_name", "headline",
                                        "location", "contacts", "status"})
+
+    def contact(self, person, c):
+        if not isinstance(c, dict):
+            if not empty(c):
+                self.b.note(person, "contact", c, "a contact is a kind: and a value:")
+            return
+        kind = str(c.get("kind") or "").strip()
+        if empty(c.get("value")):
+            if {k for k, v in c.items() if not empty(v)} <= TEMPLATE_DEFAULTS["contact"]:
+                self.plan.mark(c, spelled=False)      # the template's row, never filled in
+            else:
+                self.b.note(person, f"contact {kind or '(no kind)'}", c, "a contact with no value:")
+            return
+        self.plan.mark(c.get("kind"))
+        primary = c.get("primary")
+        flag = primary.strip().lower() if isinstance(primary, str) else primary
+        landed = False
+        if kind in CONTACTS:
+            landed = self.b.put(person, kind, c["value"], "contact " + kind)
+        else:
+            self.b.note(person, f"contact {kind or '(no kind)'}", c["value"],
+                        f"not one of {', '.join(CONTACTS)}")
+        if landed and (flag is True or flag == "true"):
+            self.plan.mark(primary, spelled=False)
+            self.b.put(person, "primary", c["value"], "primary")
+        elif landed and (flag is False or flag == "false"):
+            self.plan.mark(primary, spelled=False)
+        elif not empty(primary):
+            self.b.note(person, f"contact {kind}.primary", primary)
+        self.extra(person, c, {"kind", "value", "primary"}, f"contact {kind}.")
 
     def sec_positioning(self, s):
         # Prose, all of it: a ### inside it is part of what they wrote.
@@ -555,15 +862,32 @@ class Reader:
         if lines:
             self.b.put(ontology().K + "person", "positioning", "\n".join(lines))
 
+    def listed_in(self, block, key, iri):
+        """A block's list under `key`, or [] with anything else there kept as a note."""
+        value = block.get(key)
+        if not empty(value) and not isinstance(value, list):
+            self.b.note(iri, key, value, "not a list")
+            return []
+        return value or []
+
     def sec_work_authorization_and_languages(self, s):
         onto = ontology()
-        blocks, rest = yaml_blocks(own_lines(s, self.lines), "## Work authorization and languages")
+        person = onto.K + "person"
+        blocks, rest = yaml_blocks(self.numbered(s), "## Work authorization and languages",
+                                   self.leaves, self.structure)
         self.kb_note("## Work authorization and languages", rest)
         for block in blocks:
-            for item in block.get("work_authorization") or []:
-                if not isinstance(item, dict) or empty(item.get("jurisdiction")):
-                    if isinstance(item, dict) and any(not empty(v) for k, v in item.items()
-                                                      if k != "status"):
+            for item in self.listed_in(block, "work_authorization", person):
+                if not isinstance(item, dict):
+                    if not empty(item):
+                        self.b.note(person, "work authorization", item,
+                                    "not a mapping with a jurisdiction:")
+                    continue
+                if empty(item.get("jurisdiction")):
+                    filled = {k for k, v in item.items() if not empty(v)}
+                    if filled <= TEMPLATE_DEFAULTS["work_authorization"]:
+                        self.plan.mark(item, spelled=False)   # the template's row
+                    else:
                         self.plan.refuse(f"a work authorization with no jurisdiction: {item}",
                                          "write its jurisdiction: (a country code, or EU)")
                     continue
@@ -574,13 +898,24 @@ class Reader:
                 self.b.put(iri, "authorization", item.get("authorization"))
                 self.status(iri, item.get("status"), ("authorization", "authorization"))
                 self.b.put(iri, "provenance", item.get("provenance"))
-                self.b.put(iri, "validUntil", item.get("valid_until") or item.get("expires"),
-                           "valid_until")
+                self.b.put(iri, "validUntil", item.get("valid_until"), "valid_until")
+                self.b.put(iri, "validUntil", item.get("expires"), "expires")
                 self.extra(iri, item, {"jurisdiction", "kind", "authorization", "status",
                                        "provenance", "valid_until", "expires"})
-            for item in block.get("languages") or []:
-                if not isinstance(item, dict) or empty(item.get("language")):
+            for item in self.listed_in(block, "languages", person):
+                if not isinstance(item, dict):
+                    if not empty(item):
+                        self.b.note(person, "language", item, "not a mapping with a language:")
                     continue
+                if empty(item.get("language")):
+                    filled = {k for k, v in item.items() if not empty(v)}
+                    if filled <= TEMPLATE_DEFAULTS["language"]:
+                        self.plan.mark(item, spelled=False)   # the template's row
+                    else:
+                        self.b.note(person, "language", item,
+                                    "a language with no language: - kept whole")
+                    continue
+                self.plan.mark(item["language"])
                 name = str(item["language"]).strip()
                 tag = LANGUAGES.get(name.lower(), name)
                 iri = self.unique(onto.K + "lang_" + slug(tag, "_"))
@@ -597,57 +932,87 @@ class Reader:
             self.extra(onto.K + "kb", block, {"work_authorization", "languages"},
                        "work authorization block ")
 
-    def unique(self, iri):
-        n, out = 2, iri
-        while out in self.plan.nodes:
-            out, n = f"{iri}_{n}", n + 1
-        return out
-
     def sec_vocabulary(self, s):
-        from .kbindex import vocabulary
+        from .kbindex import SENIORITY
 
         self.kb_note("## Vocabulary", own_lines(s, self.lines))
         classes = {"capabilit": "Capability", "domain": "Domain", "technolog": "Technology"}
         for e in s["entries"]:
+            body = [x for _, x in e["body"]]
+            whole = [f"### {e['title']}"] + body
             if e["title"].lower().startswith("seniority"):
+                # The fixed list, as the template wrote it, is the ontology's seniority
+                # enum already; anything else under it is theirs and is kept.
+                text = "\n".join(clean(body))
+                if re.findall(r"`([^`]+)`", text) == SENIORITY and \
+                        not re.sub(r"`[^`]+`|[-\s]", "", text):
+                    self.structure.update(range(e["start"], e["end"] + 1))
+                else:
+                    self.kb_note(f"## Vocabulary / ### {e['title']}", whole)
                 continue
             cls = next((c for k, c in classes.items() if e["title"].lower().startswith(k)), None)
-            terms = vocabulary({"entries": [e]}).get(e["title"], [])
+            if cls is None:
+                self.kb_note(f"## Vocabulary / ### {e['title']}", whole)
+                continue
+            self.structure.add(e["start"])
             rest = []
-            for _, line in e["body"]:
+            for line in body:
                 m = TERM_ITEM.match(line)
-                if m and cls:
+                if m:
                     iri = self.use(m["term"], cls)
                     tail = m["rest"].lstrip("-—–: ").strip()
                     if tail:
                         self.b.node(iri, "Concept")
                         self.b.note(iri, "vocabulary", tail)
-                elif not m or cls is None:
+                else:
                     rest.append(line)
-            if cls is None and terms:
-                rest = [f"### {e['title']}"] + [x for _, x in e["body"]]
             self.kb_note(f"## Vocabulary / ### {e['title']}", rest)
 
     def entries(self, s, kind):
-        from .kbindex import entries_with_blocks
+        """Each ### entry with its first yaml block - kbindex.entries_with_blocks, read
+        with migrate's loader."""
+        from .kbindex import KBError
+
         self.kb_note(f"## {s['title']}", own_lines(s, self.lines))
-        return entries_with_blocks(s, kind)
+        parsed = []
+        for entry in s["entries"]:
+            if entry["yaml"] is None:
+                raise KBError(f"## {s['title']}: `### {entry['title']}` (line {entry['start']}) "
+                              f"has no ```yaml block",
+                              f"every {kind} carries its block; the index cannot skip one "
+                              "quietly")
+            line, content = entry["yaml"]
+            block = load_yaml(content, f"`### {entry['title']}`", line + 1, self.leaves)
+            self.structure.update(range(line, line + content.count("\n") + 2))
+            if empty(block.get("id")):
+                raise KBError(f"`### {entry['title']}` (line {entry['start']}) has no id: in its "
+                              "block", "write the id the heading carries in backticks")
+            parsed.append({**entry, "block": block})
+        return parsed
 
     def body_note(self, iri, entry):
         lines = clean(body_without_yaml(entry))
         if lines:
             self.b.note(iri, "text", "\n".join(lines))
 
+    def ref(self, iri, pred, old, key):
+        """A reference to another entry, by its old id."""
+        if not empty(old):
+            self.plan.mark(old)
+            self.b.put(iri, pred, kid(old), key)
+
     def sec_organisations(self, s):
         for e in self.entries(s, "organisation"):
-            b, iri = e["block"], kid(e["block"]["id"])
+            b = e["block"]
+            iri = self.claim(b["id"])
             self.b.node(iri, "Organisation")
-            self.b.put(iri, "name", b.get("name") or split_id(e["title"])[0], "name")
+            name = b.get("name") or split_id(e["title"])[0]
+            self.b.put(iri, "name", name, "name")
+            self.heading(iri, e, name, b["id"])
             if empty(b.get("relationship")):
                 self.plan.notices.append(f"{curie(iri)}: no relationship: - recorded as employer")
             self.b.put(iri, "relationship", b.get("relationship") or "employer", "relationship")
-            for term in as_list(b.get("industry")):
-                self.b.put(iri, "industry", self.use(term, "Domain"), "industry")
+            self.terms(iri, "industry", b.get("industry"), "Domain", "industry")
             self.b.put(iri, "size", b.get("size"))
             self.status(iri, b.get("status"))
             self.retired(iri, b)
@@ -657,12 +1022,15 @@ class Reader:
 
     def sec_roles(self, s):
         for e in self.entries(s, "role"):
-            b, iri = e["block"], kid(e["block"]["id"])
+            b = e["block"]
+            iri = self.claim(b["id"])
             self.b.node(iri, "Position")
-            if not empty(b.get("organisation")):
-                self.b.put(iri, "organisation", kid(b["organisation"]), "organisation")
+            self.ref(iri, "organisation", b.get("organisation"), "organisation")
             title = b.get("title") or split_id(e["title"])[0].split(" - ")[0]
             self.b.put(iri, "title", title, "title")
+            org = self.plan.nodes.get(kid(b["organisation"])) if not empty(b.get("organisation")) \
+                else None
+            self.heading(iri, e, title, b["id"], *(org.props.get("name", ()) if org else ()))
             self.b.put(iri, "functionalTitle", b.get("functional_title"), "functional_title")
             self.b.put(iri, "start", b.get("start"))
             self.b.put(iri, "end", b.get("end"))
@@ -673,8 +1041,8 @@ class Reader:
             self.b.put(iri, "state", state)
             self.b.put(iri, "seniority", b.get("seniority"))
             self.b.put(iri, "change", b.get("change"))
-            self.b.put(iri, "engagementKind", b.get("engagement_kind") or b.get("kind"),
-                       "engagement_kind")
+            self.b.put(iri, "engagementKind", b.get("engagement_kind"), "engagement_kind")
+            self.b.put(iri, "engagementKind", b.get("kind"), "kind")
             self.status(iri, b.get("status"))
             self.retired(iri, b)
             self.extra(iri, b, {"id", "organisation", "title", "functional_title", "start", "end",
@@ -683,27 +1051,25 @@ class Reader:
             self.body_note(iri, e)
 
     def sec_projects(self, s):
-        from .kbindex import projects_of
-
-        self.kb_note("## Projects", own_lines(s, self.lines))
-        for p in projects_of({"Projects": s}):
-            b, iri = p["block"], kid(p["block"]["id"])
+        for p in self.entries(s, "project"):
+            b = p["block"]
+            iri = self.claim(b["id"])
             self.b.node(iri, "Project")
-            self.b.put(iri, "name", b.get("name") or split_id(p["title"])[0], "name")
-            if not empty(b.get("role")):
-                self.b.put(iri, "position", kid(b["role"]), "role")
+            name = b.get("name") or split_id(p["title"])[0]
+            self.b.put(iri, "name", name, "name")
+            self.heading(iri, p, name, b["id"])
+            self.ref(iri, "position", b.get("role"), "role")
             for key in ("strength", "recency", "seniority"):
                 self.b.put(iri, key, b.get(key))
-            for term in p["domains"]:
-                self.b.put(iri, "domain", self.use(term, "Domain"), "domains")
-            for key, cls in (("capabilities", "Capability"), ("technologies", "Technology")):
-                for term in p[key]:
-                    self.b.put(iri, "uses", self.use(term, cls), key)
+            self.terms(iri, "domain", b.get("domains"), "Domain", "domains")
+            self.terms(iri, "uses", b.get("capabilities"), "Capability", "capabilities")
+            self.terms(iri, "uses", b.get("technologies"), "Technology", "technologies")
             head = b.get("headline_metric")
-            if str(head).strip() == "none-quantified":
+            if isinstance(head, str) and head.strip() == "none-quantified":
+                self.plan.mark(head, spelled=False)
                 self.b.put(iri, "noneQuantified", True, "headline_metric")
-            elif not empty(head):
-                self.b.put(iri, "headlineMetric", kid(head), "headline_metric")
+            else:
+                self.ref(iri, "headlineMetric", head, "headline_metric")
             self.status(iri, b.get("status"))
             self.retired(iri, b)
             self.extra(iri, b, {"id", "name", "role", "strength", "recency", "seniority",
@@ -739,16 +1105,17 @@ class Reader:
                         "lines under **Bullets** that are not a bullet")
 
     def sec_metrics(self, s):
-        header, rows, leftover = table(own_lines(s, self.lines) +
-                                       [x for e in s["entries"] for _, x in e["body"]])
+        # The whole section: a ### inside it is not a row, and is kept as text.
+        header, rows, leftover = table(self.lines[s["start"]:s["end"]])
         self.kb_note("## Metrics", leftover)
         known = {"id", "subject", "baseline", "value", "unit", "direction", "confidence",
                  "source", "status"}
         for row in rows:
             if empty(row.get("id")):
-                self.kb_note("## Metrics row with no id", [" | ".join(row.values())])
+                self.kb_note("## Metrics row with no id", [" | ".join(raw_text(v) for v in
+                                                                      row.values())])
                 continue
-            iri = kid(row["id"])
+            iri = self.claim(row["id"])
             v1 = iri + ".v1"
             self.b.node(iri, "Metric")
             self.b.node(v1, "MetricVersion")
@@ -784,7 +1151,8 @@ class Reader:
                 m = re.match(r"^(?P<name>.*?)\s*(?:`(?P<id>[A-Za-z]+_[A-Za-z0-9_\-]+)`)?\s*"
                              r"(?:[—–-]+\s*aliases?:\s*(?P<aliases>.*))?$", head)
                 name = (m["name"] or "").strip()
-                iri = kid(m["id"]) if m["id"] else self.unique(onto.K + "skill_" + slug(name, "_"))
+                iri = self.claim(m["id"]) if m["id"] else \
+                    self.unique(onto.K + "skill_" + slug(name, "_"))
                 self.b.node(iri, "Skill")
                 self.b.put(iri, "name", name)
                 self.b.put(iri, "category", category)
@@ -796,10 +1164,13 @@ class Reader:
 
     def sec_education(self, s):
         for e in self.entries(s, "education"):
-            b, iri = e["block"], kid(e["block"]["id"])
+            b = e["block"]
+            iri = self.claim(b["id"])
             self.b.node(iri, "Education")
             for key in ("institution", "qualification", "field", "level", "start", "end"):
                 self.b.put(iri, key, b.get(key))
+            self.heading(iri, e, b["id"], b.get("institution"), b.get("qualification"),
+                         b.get("field"))
             grade = b.get("grade")
             if isinstance(grade, dict):
                 self.b.put(iri, "gradeScheme", grade.get("scheme"), "grade.scheme")
@@ -814,20 +1185,20 @@ class Reader:
             self.body_note(iri, e)
 
     def listed(self, s, prefix, cls):
-        """The list-item sections: Certifications, Open source."""
+        """The list-item sections: Certifications, Open source. The whole section is
+        read: a ### inside it is not an item, and is kept as text."""
         onto = ontology()
-        lines = own_lines(s, self.lines) + [x for e in s["entries"] for _, x in e["body"]]
-        items, leftover = list_items(clean(lines))
+        items, leftover = list_items(clean(self.lines[s["start"]:s["end"]]))
         self.kb_note(f"## {s['title']}", leftover)
         out = []
         for item in items:
             name, old, rest = split_id(" ".join([item["head"]] + item["more"]))
-            iri = kid(old) if old else self.unique(onto.K + f"{prefix}_" + slug(name, "_"))
+            iri = self.claim(old) if old else self.unique(onto.K + f"{prefix}_" + slug(name, "_"))
             self.b.node(iri, cls)
             self.b.put(iri, "name", name)
             if rest:
                 self.b.note(iri, "heading", rest)
-            out.append((iri, dict(item["subs"])))
+            out.append((iri, self.sub_map(iri, item["subs"])))
         return out
 
     def sec_certifications(self, s):
@@ -858,17 +1229,16 @@ class Reader:
             self.extra(iri, subs, {"url", "role", "status", "retired", "reason", "retired_reason"})
 
     def sec_open_questions(self, s):
-        header, rows, leftover = table(own_lines(s, self.lines) +
-                                       [x for e in s["entries"] for _, x in e["body"]])
+        header, rows, leftover = table(self.lines[s["start"]:s["end"]])
         self.kb_note("## Open questions", leftover)
         for row in rows:
             if empty(row.get("id")):
-                self.kb_note("## Open questions row with no id", [" | ".join(row.values())])
+                self.kb_note("## Open questions row with no id",
+                             [" | ".join(raw_text(v) for v in row.values())])
                 continue
-            iri = kid(row["id"])
+            iri = self.claim(row["id"])
             self.b.node(iri, "Question")
-            if not empty(row.get("about")):
-                self.b.put(iri, "about", kid(row["about"]), "about")
+            self.ref(iri, "about", row.get("about"), "about")
             self.b.put(iri, "question", row.get("question"))
             if empty(row.get("asked")):
                 self.plan.nodes[iri].props["asked"].add(self.retired_on)
@@ -881,6 +1251,8 @@ class Reader:
                 if k not in {"id", "about", "question", "asked", "answered", "_extra"} \
                         and not empty(v):
                     self.b.note(iri, k, v, "a column the ontology has no field for")
+            if row.get("_extra"):
+                self.b.note(iri, "cells", row["_extra"], "more cells than the header names")
 
     # -- after every section
     def concepts(self):
@@ -952,8 +1324,8 @@ def mint_bullets(plan, reader, root):
             sent[same_words(text)].append(aid)
     taken = set(plan.nodes)
     b = Builder(plan)
-    for project, text, rank, subs in reader.bullets:
-        subs = dict(subs)
+    for project, text, rank, pairs in reader.bullets:
+        subs = dict(pairs)
         iri = None
         if not empty(subs.get("id")):
             iri = kid(subs["id"])
@@ -982,6 +1354,7 @@ def mint_bullets(plan, reader, root):
             continue
         taken.add(iri)
         n = b.node(iri, "Achievement")
+        subs = reader.sub_map(iri, pairs)             # a key written twice: the first, noted
         n.props["project"].add(project)
         n.props["rank"].add(rank)
         b.put(iri, "text", text)
@@ -1051,6 +1424,8 @@ def obj(p, v):
         return ox.Literal(text, datatype=ox.NamedNode(onto.XSD + dt))
     if isinstance(v, bool):
         return lit("true" if v else "false", "boolean")
+    if isinstance(v, Lex):
+        return lit(str(v), v.dt)
     if isinstance(v, int):
         return lit(str(v), "integer")
     if isinstance(v, Decimal):
@@ -1080,7 +1455,8 @@ def project(quads):
                 else o.value
         else:
             dt = o.datatype.value[len(onto.XSD):]
-            value = {"integer": int, "decimal": Decimal, "date": datetime.date.fromisoformat,
+            value = {"integer": lambda t: Lex(t, "integer"), "decimal": lambda t: Lex(t, "decimal"),
+                     "date": datetime.date.fromisoformat,
                      "boolean": lambda t: t == "true"}.get(dt, str)(o.value)
         n.props[name].add(value)
     return nodes
@@ -1131,10 +1507,14 @@ def graph_view(nodes, today):
     def one(n, p, default=None):
         v = n.props.get(p)
         return next(iter(v)) if v else default
+
+    def whole(v):
+        return int(v) if v is not None else None
     projects, positions, roles, ids = {}, {}, [], set()
     for iri, n in nodes.items():
         if n.cls == "Project":
-            projects[iri] = (one(n, "strength"), one(n, "recency"), one(n, "seniority"),
+            projects[iri] = (whole(one(n, "strength")), whole(one(n, "recency")),
+                             one(n, "seniority"),
                              bool(n.props.get("retired")), frozenset(n.props.get("domain", ())),
                              frozenset(n.props.get("uses", ())))
         elif n.cls == "Position":
@@ -1146,6 +1526,45 @@ def graph_view(nodes, today):
             ids.add(iri)
     months, _ = experience(roles, today)
     return {"projects": projects, "positions": positions, "months": months, "ids": ids}
+
+
+def coverage(plan, reader, kb_text):
+    """[(line, text, why)] of what the Markdown held and the migration lost.
+
+    The round trip proves the writer: the graph parses back as the entries it was
+    written from. This proves the reader. Every YAML value must have been handed on -
+    into a triple or a note - and must still be spelled out in kb.ttl, word for word
+    by its words and numbers; every non-blank line outside the frontmatter and the
+    parsed yaml blocks must have each of its words in kb.ttl or in log.ttl's note.
+    Exempt, as layout: section headings, the template's title and fixed seniority list,
+    HTML comments, the template's placeholders, and the words of STRUCTURE_WORDS.
+    """
+    from .graph import record as R
+    from .graph.io import parse_text
+
+    found = set(STRUCTURE_WORDS)
+    for q in parse_text(kb_text, R.KB).quads:
+        for term in (q.subject, q.predicate, q.object):
+            found |= tokens(term.value)
+            # A term that named a shipped concept by its label is spelled by that label.
+            for label in reader.vocab.names.get(term.value, ()):
+                found |= tokens(label)
+    found |= tokens("\n".join(reader.log_text))
+    lost = []
+    for leaf in reader.leaves:
+        if empty(leaf):
+            continue
+        if id(leaf) not in plan.used:
+            lost.append((leaf.line, str(leaf), "was read and never put in the graph"))
+        elif id(leaf) not in plan.unwritten and not tokens(leaf) <= found:
+            lost.append((leaf.line, str(leaf), "is in no triple and no note"))
+    text = COMMENT.sub(lambda m: "\n" * m.group().count("\n"), "\n".join(reader.lines))
+    for n, line in enumerate(text.split("\n"), 1):
+        if n in reader.structure or not line.strip() or PLACEHOLDER.fullmatch(line.strip()):
+            continue
+        if not tokens(line) <= found:
+            lost.append((n, line.strip(), "is in no triple and no note"))
+    return sorted(lost)
 
 
 # --- applications ----------------------------------------------------------------------
@@ -1433,7 +1852,9 @@ def plan_migration(kb_path, today=None):
     if plan.refusals:
         raise Refused(plan.refusals)
 
-    # The round trip: written, parsed back, projected - and equal to what was read.
+    # The round trip: written, parsed back, projected - and equal, datatype and exact
+    # characters, to the entries the reader built. That proves the writer; coverage()
+    # then proves the reader, against the Markdown itself.
     quads = R.stamp(to_quads(plan.nodes), 1, today)
     kb_text = write(quads, "kb")
     written = project(parse_text(kb_text, R.KB).quads)
@@ -1445,10 +1866,17 @@ def plan_migration(kb_path, today=None):
         if before[part] != after[part]:
             wrong.append(f"jsk index reads {part} as {before[part]!r}, the graph as "
                          f"{after[part]!r}"[:300])
-    if wrong:
-        raise Refused([(f"the graph does not read back as the Markdown: {w}",
-                        "nothing was written; report this with the knowledge base's section")
-                       for w in wrong])
+    reasons = [(f"the graph does not read back as the Markdown: {w}",
+                "nothing was written; report this with the knowledge base's section")
+               for w in wrong]
+    lost = coverage(plan, reader, kb_text)
+    reasons += [(f"line {n}: {line[:100]!r} {why}",
+                 "a jsk bug - nothing was written; report it with that line")
+                for n, line, why in lost[:COVERAGE_SHOWN]]
+    if len(lost) > COVERAGE_SHOWN:
+        reasons.append((f"... and {len(lost) - COVERAGE_SHOWN} more lines like these", None))
+    if reasons:
+        raise Refused(reasons)
 
     log_path = os.path.join(root, "log.md")
     history = []
@@ -1583,8 +2011,8 @@ def main(argv=None):
         print(f"note     {note}")
     if plan.defaulted:
         print(f"note     {plan.defaulted} entries had no status: and are j:inferred")
-    print(f"round trip  ok: {len(plan.nodes)} entries read back as written; "
-          f"{plan.apps} application(s)")
+    print(f"round trip  ok: {len(plan.nodes)} entries read back as written, and every value "
+          f"and line of the Markdown is in a triple or a note; {plan.apps} application(s)")
     if dry:
         for src, dst in plan.copies:
             print(f"\nwould copy {src} to {dst}")
