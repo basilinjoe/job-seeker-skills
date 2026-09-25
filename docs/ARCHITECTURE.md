@@ -61,8 +61,8 @@ PDF is the one gate no command can run.
 the last step. It refuses unless the mechanical gates pass and no application archive exists yet,
 then writes `application.ttl` — what was sent, the `resume.json` hash, and the bullets and metric
 versions it carried — and renames the directory to the submitted date. After that the directory is
-an archive: later events are added with `jsk event`, never edited. (A workspace still on
-`user-knowledgebase.md` gets `application.md` instead, until it migrates.)
+an archive: later events are added with `jsk event`, never edited. A workspace still on
+`user-knowledgebase.md` is refused until it migrates.
 
 Every subcommand runs **in process**. `cli.py` imports the module behind it and calls its `main()`
 with the same arguments, so the output and the exit code are the module's own and nothing is
@@ -279,7 +279,7 @@ directory named after what they have in common.
 | The shipped vocabulary | `src/jsk/data/vocabulary.ttl` | technologies only, no `implies`; `tests/test_graph_vocabulary.py` |
 | What `jsk new` scaffolds | `src/jsk/kb.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
 | A posting's or assessment's shape | `Posting` and `Requirement` in `ontology.py`, `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` |
-| How postings are ranked | `src/jsk/graph/queries.py` | the weighting table in `agents/jsk-tailor-analyst.md`; the weights live in `kbindex.WEIGHTS` until release 5.0 moves them |
+| How postings are ranked | `src/jsk/graph/queries.py` | the weighting table in `agents/jsk-tailor-analyst.md`; the weights live in `src/jsk/graph/scoring.py` |
 | What the claims gate checks | `src/jsk/gates/claims.py` | `docs/SCRIPTS.md`'s table of its six checks, `tests/test_claims.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
@@ -325,9 +325,9 @@ package never imports `urs/` nor is imported by it. See "Inside the graph packag
 
 A Markdown knowledge base moves across with `jsk migrate`, once, round-trip checked, deleting
 nothing. **It exists for one release.** The next deletes `jsk migrate`, `kbindex.py`,
-`tests/test_kbindex.py` and the `[index]`/`[migrate]` extras; before it can, `graph/queries.py`
-and `graph/named.py` need the weights, `SENIORITY` and `experience` they still import from
-`kbindex`. A bundle from a version before 4.0 has one route: read it whole and build the record from it
+`tests/test_kbindex.py` and the `[index]`/`[migrate]` extras; nothing outside migrate imports `kbindex` (the weights,
+`SENIORITY` and `experience` live in `graph/scoring.py`, and a test holds the graph package to
+that). A bundle from a version before 4.0 has one route: read it whole and build the record from it
 with `jsk new` and changesets - and a changeset cannot confirm, so it carries `needs-verification` and
 `disputed` as the bundle held them and everything else arrives `inferred`; `jsk kb confirm <ids>
 --answer` then raises what the bundle held confirmed, the answer naming the bundle file, so the log

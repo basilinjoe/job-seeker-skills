@@ -724,51 +724,26 @@ one - and `jsk kb query stale` names every application that sent the old. The fi
 with the whole workspace before anything is renamed or written, and is written canonically. It
 is not logged in `log.ttl`, and `kb.ttl` is never touched.
 
-**`user-knowledgebase.md` - a Markdown workspace, not yet migrated.** It writes `application.md`,
-exactly as it always has, and the claims gate says `NOT RUN`:
+**A workspace still on `user-knowledgebase.md`** is refused, exit 1: `jsk migrate` it first,
+which also turns any `application.md` it froze into an `application.ttl`.
 
-```markdown
----
-company: Acme Health
-title: Platform Engineer
-view: view_acme_platform
-submitted: 2026-09-08
-channel: Workday portal
-documents:
-  - Priya_Raman_Acme_Resume.pdf
-  - Priya_Raman_Acme_Resume_ATS.txt
----
-
-# Timeline
-
-| Date | Event | Channel | Note | Due |
-|---|---|---|---|---|
-| 2026-09-08 | submitted | Workday portal | | |
-```
-
-There, `company` and `title` come from the top-level lines of `posting.md`'s frontmatter. Never
-both files: two archives of one submission are two chances to disagree, and `jsk migrate` turns
-an `application.md` into an `application.ttl`.
-
-Either way, the view is `--view`, or the record's only one; a record with several and no `--view`
+The view is `--view`, or the record's only one; a record with several and no `--view`
 is exit 2, naming them. The documents are the `--doc` files, or every `.pdf` and `.txt` in the
 directory. The final path is printed.
 
 It refuses — exit 1, saying why, with nothing renamed and nothing written — when:
 
 - **`application.ttl` or `application.md` already exists.** A frozen application is never
-  re-frozen; later events are `jsk event`, or one appended row each in `application.md`.
+  re-frozen; later events are `jsk event`.
 - **any mechanical gate fails.** It runs what `jsk gates <app-dir> --record <app-dir>/resume.json`
   runs - the claims gate included - in process, and prints it. A failing document is never frozen.
-- `posting.ttl` is missing or holds no posting (graph), `posting.md` has no `company:` or `title:`
-  (Markdown), there is nothing to list as documents, the renamed directory would land on one that
+- `posting.ttl` is missing or holds no posting, there is nothing to list as documents, the renamed directory would land on one that
   already exists, or the `application.ttl` it would write does not validate.
 
 `--submitted false` is for an application worked through and deliberately held back: it writes
-`submitted false` (`submitted: false`), leaves the directory's name alone, and records **no
-`submitted` event** (no row) — an accurate blank rather than a false green. It never touches the
-career - `kb.ttl` and `log.ttl`, or `user-knowledgebase.md` and `log.md`; the log row stays the
-skill's to write.
+`submitted false` leaves the directory's name alone, and records **no
+`submitted` event** — an accurate blank rather than a false green. It never touches the
+career: `kb.ttl` and `log.ttl` are not written.
 
 ### `jsk event`
 
