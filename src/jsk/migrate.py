@@ -2046,13 +2046,17 @@ KEPT = "resume.urs.json"
 
 
 def region_code(ref):
-    """`urs:profile:au/1` -> "au"; the default profile (`xx`) -> None, which the short
-    file says by leaving `region` out."""
+    """`urs:profile:au/1` -> "au"; the default profile -> "xx", kept rather than left
+    out: a short file with no region takes the person's country, and the Everforth draft,
+    rendered for the default profile, turned Indian - a languages block and a declaration
+    nobody chose. No region at all -> None."""
     token = str(ref or "")
     if token.startswith("urs:profile:"):
         token = token[len("urs:profile:"):].split("/")[0]
     token = token.strip().lower()
-    return None if token in ("", "xx", "none", "default") else token
+    if token in ("", "none"):
+        return None
+    return "xx" if token == "default" else token
 
 
 def pick_view(record, view_id):

@@ -1152,9 +1152,13 @@ class Shorten(unittest.TestCase):
         doc, _ = self.shorten(record, "view_contoso_platform")
         self.assertEqual(doc["region"], "au")
 
-    def test_a_default_region_is_left_out(self):
+    def test_a_default_region_is_kept(self):
+        """Left out, the builder takes the person's country instead: the Everforth draft
+        rendered for the default profile turned Indian - a languages block and a
+        declaration nobody chose - because its `xx` was dropped."""
         doc, _ = self.shorten(legacy(region_profile="urs:profile:xx/1"))
-        self.assertNotIn("region", doc)
+        self.assertEqual(doc["region"], "xx")
+        self.assertNotIn("region", self.shorten(legacy(region_profile=None))[0])
 
 
 class ConvertAGraphWorkspace(Tmp):
