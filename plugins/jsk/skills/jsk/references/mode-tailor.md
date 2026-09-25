@@ -58,18 +58,39 @@ application was answering, and every requirement quotes it.
 
 ## 2. Assess
 
-Send `jsk-tailor-analyst` the application directory, the workspace and the skill directory, all
-absolute. It writes `posting.ttl`, runs `jsk match`, and
-writes `gaps.md` from the match. It never touches `career/kb.ttl`.
+Send `jsk-tailor-analyst` the application directory and the workspace, both absolute, and the
+`kb` path `jsk kb path` printed. Name it as that file's path, never as "the folder holding
+career/kb.ttl": a workspace named `career` makes that phrase point at the wrong folder. Add the
+posting facts worth flagging, then stop: **its definition holds the procedure and the return, so
+do not send the skill directory or ask for a report.** It writes `posting.ttl`, runs `jsk match`,
+and writes `gaps.md` from the match. It never touches `career/kb.ttl`.
 
-**Show them the assessment**, not a summary of it. **Stop before anything is authored** when: the
-ranking is close between projects with materially different ownership verbs, a top-ranked project
-carries unconfirmed content, eligibility fails, or the role may not be worth applying to at all.
+It returns three lines: the fit, what is blocking, and the path to `gaps.md`. **Read `gaps.md` and
+show them the assessment whole**, not a summary of it and not a rewrite, leading with the blocking
+line when there is one. **Author nothing yet** when: the ranking is close between projects with
+materially different ownership verbs, a top-ranked project carries unconfirmed content,
+eligibility fails, or the role may not be worth applying to at all. That holds the resume back; it
+does not end the turn. **Showing the assessment is never the last thing you do: go straight on to
+step 3 in the same turn.** Printing the questions as text and ending the turn is how a run stalls.
 
 ## 3. Ask the whole queue at once
 
-Present the ordered queue and take a bulk reply. Then go one at a time **only** for answers that came
-back ambiguous, incomplete, or contradicting the career. **Offer the skip every round.**
+**Ask with `AskUserQuestion`**, the questions from `gaps.md` in its order. It takes four questions
+a call, so a longer queue is several calls, one after another, in the same turn.
+
+- **A blocking question goes alone, first.** If the answer ends it ("I can't do Pacific hours"),
+  say so, record it, and ask nothing else.
+- **Every question gets real options**, 2–4 of them. An inferred claim: *Confirm* / *Correct it* /
+  *Cut it*, the claim quoted in the question. An exposure or metric question: the likely answers
+  (*Yes, some* / *No, none*), with a description saying what "some" would need to be. The tool adds
+  *Other* for free text; the person's own words go there.
+- **Offer the skip every round**: a *Skip* option on each question, and one question can be
+  "Skip the rest of these?" when the queue is long.
+- `header` is the id or topic in 12 characters or fewer: `GraphQL`, `ach_unitng`.
+
+Then go one at a time, in plain chat, **only** for answers that came back ambiguous, incomplete,
+or contradicting the career. Where `AskUserQuestion` is not available, list the queue in chat
+numbered, ask for a bulk reply, and that is the one time the turn ends on the questions.
 
 For an inferred claim, quote it, say where it came from, and offer confirm, correct, or cut. For a
 missing metric, prompt with where the number might live — dashboards, billing, retros, release

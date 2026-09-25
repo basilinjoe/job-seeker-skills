@@ -21,6 +21,11 @@ plugin install). If the caller narrows you — recent projects only, one role, t
 posting — respect it and say what you skipped. Run `jsk` from the workspace; on Windows fall back to
 `python -m jsk`, then `py -3 -m jsk`.
 
+**Your first command is `jsk kb path --root <workspace>`.** It prints the workspace, `kb.ttl`,
+`log.ttl` and `applications/` as absolute paths; read and grep the files at exactly those paths.
+Never work out `<workspace>/career/kb.ttl` by hand: a workspace can itself be named `career`, which
+puts the record at `career/career/kb.ttl`.
+
 ## Start with what is already derived
 
 ```bash

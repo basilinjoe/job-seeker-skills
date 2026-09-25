@@ -34,6 +34,9 @@ fall back to `python -m jsk`, then `py -3 -m jsk`. The caller also lists **the r
 exist** and **the example record's path**. **Read exactly the files the prompt names** —
 never search for rules, references or examples with `find`, `ls` or Glob.
 
+**First run `jsk kb path`** in the application directory; read `kb.ttl` at the path it prints,
+never one worked out by hand (a workspace named `career` holds `career/career/kb.ttl`).
+
 **Read what the posting selects, not the whole career:**
 
 ```bash

@@ -1,6 +1,6 @@
 ---
 name: jsk-tailor-analyst
-description: Use when a job posting needs turning into something a resume can be tailored against — once per tailoring run. Reads the advertisement, writes its requirements as posting.ttl, runs jsk match against the career record, and writes the gap assessment the conversation then works through. Expects the application directory, the workspace (the folder holding career/kb.ttl) and the skill directory. Assesses only; it never interviews, never decides and never writes a resume.
+description: Use when a job posting needs turning into something a resume can be tailored against — once per tailoring run. Reads the advertisement, writes its requirements as posting.ttl, runs jsk match against the career record, and writes the gap assessment the conversation then works through. Expects the application directory and the workspace; everything else it needs is in its definition. Assesses only; it never interviews, never decides and never writes a resume.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 color: orange
@@ -20,9 +20,17 @@ of. Report what should change; the conversation makes the change.
 ## Inputs
 
 The **application directory** (`<workspace>/applications/<stem>/`, holding `posting.md`, the
-advertisement verbatim), the **workspace**, and the **skill directory** (absolute —
-`${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install). Run `jsk` from the workspace; on Windows
-fall back to `python -m jsk`, then `py -3 -m jsk`.
+advertisement verbatim) and the **workspace**. Run `jsk` from the workspace; on Windows fall
+back to `python -m jsk`, then `py -3 -m jsk`.
+
+**This file is the whole procedure.** Do not open the skill's references (`mode-tailor.md`,
+`mode-gaps.md`, `templates.md` or any other) and do not read another application's files as an
+example: the shapes you write are below.
+
+**Your first command is `jsk kb path`**, run from the application directory. It prints the
+workspace, `kb.ttl`, `log.ttl` and `applications/` as absolute paths; read and grep the files at
+exactly those paths. Never work out `<workspace>/career/kb.ttl` by hand: a workspace can itself be
+named `career`, which puts the record at `career/career/kb.ttl`.
 
 ## 1. Requirements, as posting.ttl
 
@@ -79,6 +87,17 @@ prints four sections: **Requirements**, each bucketed `matched` / `near` / `miss
 Copy the Ranking into `gaps.md` as printed. **Read a project before citing it as evidence** —
 `jsk kb show <ids>` for its bullets. A `tag` is not evidence. Do not read the whole career.
 
+**Ask the record; never grep `kb.ttl`.** Two queries answer what the match does not:
+
+```bash
+jsk kb query evidence GraphQL "React Native" BFF caching   # every term, one call
+jsk kb query person          # location, work mode, rights to work, ongoing roles
+```
+
+`evidence` gives each term its concept's holders, then every entry whose text names it (an
+all-capitals term matches as written). A `nothing` row is the answer: do not search again.
+`person` is what `# Eligibility` is judged against — an ongoing role is a constraint too.
+
 ## 3. The assessment
 
 Write `gaps.md` beside the posting, to be read aloud:
@@ -107,7 +126,7 @@ Pass. The posting offers no sponsorship; the career holds Australian permanent r
 
 # Ranking
 
-<the table from jsk match>
+<the Ranking and the Cover from jsk match, as printed>
 
 # Where this falls short
 
@@ -117,6 +136,10 @@ Pass. The posting offers no sponsorship; the career holds Australian permanent r
 # Surplus worth knowing about
 
 - **Data sovereignty.** The posting never asks. It is the strongest thing in the record.
+
+# New terms
+
+- **TanStack Query** — `candidate`: no concept holds it. The conversation adds it, not you.
 
 # Questions
 
@@ -149,10 +172,11 @@ No resume, view or record — that is `jsk-resume-author`, after the person answ
 
 ## What you return
 
-1. **The ranking table and the cover**, as printed.
-2. **The honest fit** in a sentence. If it is poor, say so.
-3. **The required things not satisfied**, with what each would take to close.
-4. **Every `unevidenced` verdict**, quoted.
-5. **Every `candidate` term**, named — the caller adds it to the vocabulary, not you.
-6. **The surplus worth mentioning**, especially anything that changes the argument.
-7. **The question queue**, in order, each ready to ask.
+`gaps.md` is the report: the caller shows it to the person whole. **Do not repeat it.** Return
+three lines and nothing else:
+
+```
+fit: partial - <the honest fit, one sentence>
+blocking: <what must be settled before anything is written, one sentence> | none
+gaps: <absolute path to gaps.md>
+```
