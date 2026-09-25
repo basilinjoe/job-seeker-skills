@@ -48,6 +48,15 @@ class Draft(unittest.TestCase):
         rep = claims.check(self.doc, store(), today=TODAY)
         self.assertEqual(rep.fails, [])
 
+    def test_gate_failures_names_a_claims_gate_fail_rather_than_raising(self):
+        """It read `.focus` off check()'s strings, so the one case it exists for - a
+        draft the claims gate fails - raised AttributeError instead."""
+        doc = json.loads(json.dumps(self.doc))
+        _, bullet = achievements(doc)["ach_data_ingestion"]      # inferred in kb.ttl
+        bullet["provenance"]["status"] = "confirmed"
+        lines = export.gate_failures(store(), doc, today=TODAY)
+        self.assertTrue(any("ach_data_ingestion" in line for line in lines), lines)
+
     def test_a_country_with_no_profile_gets_the_default_profile_s_own_id(self):
         """The fallback was "urs:profile:default/1", which no profile declares, so the
         record gate refused it as unresolvable."""
@@ -284,7 +293,9 @@ class Qualified(unittest.TestCase):
         return claims.check(doc, self.store, today=TODAY).fails
 
 
-class Command(unittest.TestCase):
+class Workspace(unittest.TestCase):
+    """A copy of the fixture career to run `jsk kb` in."""
+
     def setUp(self):
         self.root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.root, True)
@@ -296,6 +307,8 @@ class Command(unittest.TestCase):
             code = cli.main(["jsk", "kb", *args, "--root", self.root])
         return code, out.getvalue(), err.getvalue()
 
+
+class Command(Workspace):
     def test_stdout_is_the_record(self):
         code, out, _ = self.kb("export", "--urs")
         self.assertEqual(code, 0)
@@ -346,6 +359,220 @@ class Command(unittest.TestCase):
         code, out, _ = self.kb("export", "--urs")
         self.assertEqual(code, 1)
         self.assertIn("REFUSED", out)
+
+
+class Aliases(unittest.TestCase):
+    """The claims gate warns of an alias no project holds, and export copied every alias
+    kb.ttl holds - so the draft shipped the warning, and someone hand-edited it away."""
+
+    def setUp(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        shutil.copytree(FIXTURES / "career", os.path.join(root, "career"))
+        path = os.path.join(root, "career", "kb.ttl")
+        text = Path(path).read_text(encoding="utf-8")
+        old = 'j:alias "AKS", "K8s" .'
+        self.assertIn(old, text)
+        Path(path).write_bytes(text.replace(old, 'j:alias "AKS", "EKS", "K8s" .').encode())
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(["jsk", "kb", "adopt", "--root", root]), 0)
+        self.store = S.load(root)
+
+    def test_an_unheld_alias_is_left_out_and_a_held_one_kept(self):
+        notes = []
+        doc = export.urs(self.store, today=TODAY, notes=notes)
+        skill = {s["id"]: s for s in doc["skills"]}["skill_kubernetes"]
+        self.assertEqual(skill["aliases"], ["AKS", "K8s"])
+        (note,) = notes
+        self.assertIn("skill_kubernetes alias 'EKS' left out", note)
+        self.assertTrue(note.startswith("NOTE  "))
+        found = [f for f in claims.findings(doc, self.store, TODAY) if f.check == "alias-unheld"]
+        self.assertEqual(found, [])
+
+    def test_the_rule_is_the_claims_gate_s(self):
+        """Put back, the gate warns of exactly the alias export left out."""
+        doc = export.urs(self.store, today=TODAY)
+        {s["id"]: s for s in doc["skills"]}["skill_kubernetes"]["aliases"].append("EKS")
+        found = [f for f in claims.findings(doc, self.store, TODAY) if f.check == "alias-unheld"]
+        self.assertEqual([(f.focus, "'EKS'" in f.detail) for f in found],
+                         [("skill_kubernetes", True)])
+
+
+OPEN_SOURCE = ('k:os_widget j:name "Widget" ; j:url "https://github.com/test/widget" ; '
+               'j:role j:maintainer ; j:provenance j:confirmed .\n')
+
+
+class OpenSource(unittest.TestCase):
+    def test_selecting_open_source_names_its_url_and_where_it_can_go(self):
+        """On the ElevenLabs run the old refusal ("select the bullets that cite it") sent
+        the author to rewrite a confirmed bullet around the repo's URL."""
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        shutil.copytree(FIXTURES / "career", os.path.join(root, "career"))
+        path = os.path.join(root, "career", "kb.ttl")
+        text = Path(path).read_text(encoding="utf-8")
+        Path(path).write_bytes(text.replace("# == Open source\n",
+                                            "# == Open source\n\n" + OPEN_SOURCE).encode())
+        with self.assertRaises(export.ExportError) as caught:
+            export.urs(S.load(root), select=["os_widget"], today=TODAY)
+        self.assertIn("os_widget is open source (https://github.com/test/widget)",
+                      str(caught.exception))
+        self.assertIn("contacts carry their github profile", caught.exception.fix)
+        self.assertIn("only if the person confirms that wording", caught.exception.fix)
+        self.assertIn("drops to inferred", caught.exception.fix)
+
+
+PFX = """@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix op: <tag:jsk,2026:op#> .
+"""
+
+
+class Refresh(Workspace):
+    """`--refresh`: on the ElevenLabs run every change to kb.ttl after exporting cost an
+    `rm`, a re-export and the author's view and summary redone by hand - and a confirm was
+    hand-patched into resume.json with ad-hoc Python, since re-exporting would wipe them."""
+
+    def setUp(self):
+        super().setUp()
+        self.path = os.path.join(self.root, "applications", "x", "resume.json")
+        code, out, _ = self.kb("export", "--urs", "--select", "prj_events", "prj_data",
+                               "--out", self.path)
+        self.assertEqual(code, 0, out)
+        doc = self.record()
+        # What the author wrote: a view retuned, a summary, a key export never writes.
+        view = doc["views"][0]
+        view["id"] = "view_elevenlabs"
+        view["budget"] = {"pages": 1}
+        view["format_profile"] = "ats-safe"
+        view["skills"] = ["skill_kubernetes"]
+        for i in view["include"]:
+            if i["ref"] == "prj_events":
+                i["achievements"] = ["ach_events_team", "ach_events_terraform",
+                                     "ach_events_latency"]
+        doc["narratives"] = [{"id": "nar_elevenlabs", "kind": "summary",
+                              "text": "Platform engineer who ships event systems.",
+                              "provenance": {"status": "inferred"}}]
+        view["narrative"] = "nar_elevenlabs"
+        doc["availability"] = {"notice_period_days": 30}
+        doc["meta"]["lang"] = "en-GB"
+        self.authored = json.loads(json.dumps(doc))
+        Path(self.path).write_text(json.dumps(doc, indent=2), encoding="utf-8")
+
+    def record(self):
+        return json.loads(Path(self.path).read_text(encoding="utf-8"))
+
+    def apply(self, body):
+        cs = os.path.join(self.root, "changes.trig")
+        Path(cs).write_text(PFX + body, encoding="utf-8")
+        code, out, _ = self.kb("apply", cs)
+        self.assertEqual(code, 0, out)
+
+    def test_a_confirm_and_a_text_change_come_in_and_what_was_authored_stays(self):
+        code, out, _ = self.kb("confirm", "ach_data_ingestion", "--answer",
+                               "I built it, from the first commit")
+        self.assertEqual(code, 0, out)
+        self.apply('op:set { k:ach_events_team j:text "Led a team of 6 platform engineers." . }\n')
+        code, out, _ = self.kb("export", "--urs", "--refresh", self.path)
+        self.assertEqual(code, 0, out)
+        self.assertIn("changed  ach_data_ingestion  inferred -> confirmed", out)
+        self.assertIn("changed  ach_events_team  confirmed -> inferred; text changed", out)
+        self.assertIn(f"wrote {self.path}: 2 projects, 4 bullets", out)
+        doc = self.record()
+        got = achievements(doc)
+        self.assertEqual(got["ach_data_ingestion"][1]["provenance"], {"status": "confirmed"})
+        self.assertEqual(got["ach_events_team"][1]["text"], "Led a team of 6 platform engineers.")
+        self.assertEqual(doc["views"], self.authored["views"])
+        self.assertEqual(doc["narratives"], self.authored["narratives"])
+        self.assertEqual(doc["availability"], {"notice_period_days": 30})
+        self.assertEqual(doc["meta"]["lang"], "en-GB")
+        self.assertEqual(list(doc), list(self.authored))
+        self.assertNotIn("ach_events_latency", out)          # what did not change is quiet
+
+    def test_a_metric_s_new_number_is_named(self):
+        self.apply("op:set { k:met_latency.v2 j:value 350 . }\n")
+        code, out, _ = self.kb("export", "--urs", "--refresh", self.path)
+        self.assertEqual(code, 0, out)
+        self.assertIn("changed  ach_events_latency  met_latency 400 -> 350", out)
+        # The words still say 400, and the gates say so, as they do for any export.
+        self.assertIn("WARN  the draft fails", out)
+        (m,) = achievements(self.record())["ach_events_latency"][1]["metrics"]
+        self.assertEqual(m["quantity"], {"value": 350})
+
+    def test_a_refresh_with_nothing_changed_changes_nothing(self):
+        code, out, _ = self.kb("export", "--urs", "--refresh", self.path)
+        self.assertEqual(code, 0, out)
+        self.assertIn("nothing the career holds for this record has changed", out)
+        doc = self.record()
+        self.assertEqual({k: v for k, v in doc.items() if k != "meta"},
+                         {k: v for k, v in self.authored.items() if k != "meta"})
+
+    def test_a_retired_bullet_is_dropped_from_its_project_and_the_view(self):
+        self.apply('op:retire { k:ach_events_terraform j:reason "Not mine after all." . }\n')
+        code, out, _ = self.kb("export", "--urs", "--refresh", self.path)
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"DROPPED  ach_events_terraform  retired on \S+ "
+                              r"\(Not mine after all\.\)")
+        self.assertIn("view     view_elevenlabs  include less ach_events_terraform", out)
+        doc = self.record()
+        self.assertNotIn("ach_events_terraform", achievements(doc))
+        for i in doc["views"][0]["include"]:
+            self.assertNotIn("ach_events_terraform", i.get("achievements", []), i)
+
+    def test_select_adds_a_bullet_to_its_project_and_the_view(self):
+        code, out, _ = self.kb("export", "--urs", "--refresh", self.path,
+                               "--select", "ach_identity_sso")
+        self.assertEqual(code, 0, out)
+        self.assertIn("added    ach_identity_sso  by --select, under prj_identity; appended to "
+                      "view_elevenlabs", out)
+        doc = self.record()
+        self.assertEqual(achievements(doc)["ach_identity_sso"][0], "prj_identity")
+        by_ref = {i["ref"]: i for i in doc["views"][0]["include"]}
+        self.assertEqual(by_ref["prj_identity"]["achievements"], ["ach_identity_sso"])
+        # A project the record listed keeps its bullets, and the view the author's order.
+        self.assertEqual(by_ref["prj_events"]["achievements"],
+                         ["ach_events_team", "ach_events_terraform", "ach_events_latency"])
+        self.assertEqual(validate_urs.check_doc(doc).fails, [])
+
+    def test_a_project_keeps_the_bullets_the_record_lists_in_its_order(self):
+        doc = self.record()
+        events = next(p for p in doc["projects"] if p["id"] == "prj_events")
+        events["achievements"] = [events["achievements"][2], events["achievements"][0]]
+        Path(self.path).write_text(json.dumps(doc), encoding="utf-8")
+        code, out, _ = self.kb("export", "--urs", "--refresh", self.path)
+        self.assertEqual(code, 0, out)
+        events = next(p for p in self.record()["projects"] if p["id"] == "prj_events")
+        self.assertEqual([a["id"] for a in events["achievements"]],
+                         ["ach_events_terraform", "ach_events_latency"])
+
+    def test_with_out_or_from_match_is_a_usage_error(self):
+        other = os.path.join(self.root, "other.json")
+        code, _, _ = self.kb("export", "--urs", "--refresh", self.path, "--out", other)
+        self.assertEqual(code, 2)
+        self.assertFalse(os.path.exists(other))
+        code, _, _ = self.kb("export", "--urs", "--refresh", self.path, "--from-match",
+                             os.path.join(self.root, "posting.ttl"))
+        self.assertEqual(code, 2)
+        self.assertEqual(self.record(), self.authored)
+
+    def test_a_file_that_is_not_a_record_is_refused(self):
+        for name, text in (("notes.json", '{"views": []}'), ("broken.json", "{not json")):
+            path = os.path.join(self.root, name)
+            Path(path).write_text(text, encoding="utf-8")
+            code, out, _ = self.kb("export", "--urs", "--refresh", path)
+            self.assertEqual(code, 1, name)
+            self.assertIn("REFUSED", out)
+            self.assertIn("fix:", out)
+            self.assertEqual(Path(path).read_text(encoding="utf-8"), text)
+        code, out, _ = self.kb("export", "--urs", "--refresh",
+                               os.path.join(self.root, "missing.json"))
+        self.assertEqual(code, 1)
+        self.assertIn("does not exist", out)
+
+    def test_out_over_a_record_points_at_refresh(self):
+        code, out, _ = self.kb("export", "--urs", "--out", self.path)
+        self.assertEqual(code, 1)
+        self.assertIn(f"`jsk kb export --urs --refresh {self.path}`", out)
 
 
 if __name__ == "__main__":

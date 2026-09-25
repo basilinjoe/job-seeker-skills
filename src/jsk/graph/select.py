@@ -162,6 +162,7 @@ def skill_order(store, matches):
     """Every live skill: those matching a required requirement, then a preferred one, then
     the rest; within each by the first requirement matched, then export's own order.
     Skills are display entries, not concepts, so they match by label."""
+    from ..gates import claims
     from . import record as R
     from .export import Career, skills
 
@@ -179,7 +180,8 @@ def skill_order(store, matches):
             labels |= names.get(m.concept, set())
         wanted.append((NEEDS.index(need), i, labels))
     order = []
-    for at, item in enumerate(skills(Career(store.graph(R.KB)))):
+    # The aliases as export writes them: one it leaves out cannot rank its skill.
+    for at, item in enumerate(skills(Career(store.graph(R.KB)), claims.Career(store))):
         own = {O.norm(item["name"])} | {O.norm(a) for a in item.get("aliases", [])}
         key = min(((g, i) for g, i, labels in wanted if own & labels), default=(2, 0))
         order.append((key, at, O.K + item["id"]))

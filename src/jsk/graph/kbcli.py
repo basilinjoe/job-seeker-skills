@@ -13,8 +13,9 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
                                        experience <concept> | pipeline |
                                        evidence <term>... | person
   export --urs [--select <id>...]      a draft resume.json, ids and metrics as held;
-         [--from-match <posting.ttl>]  --from-match chooses the evidence for a posting
-         [--cover N] [--out FILE]
+         [--from-match <posting.ttl>]  --from-match chooses the evidence for a posting;
+         [--cover N] [--out FILE]      --refresh rebuilds a record in place from kb.ttl,
+         [--refresh <resume.json>]     keeping its views and authored narratives
   check                                validate the workspace; exit 1 on a FAIL
   path                                 the workspace, kb.ttl, log.ttl and applications/,
                                        as absolute paths - read these, never guess them
@@ -575,6 +576,7 @@ def cmd_view(args, root):
 def cmd_export(args, root):
     """jsk kb export --urs [--select <id>...] [--from-match <posting.ttl> [--cover N]
                      [--today YYYY-MM-DD]] [--out resume.json]
+       jsk kb export --urs --refresh <resume.json> [--select <id>...]
 
     A draft resume.json out of career/kb.ttl: every id, provenance, period and metric as
     the career holds them (a metric at its current version), so the draft passes
@@ -594,6 +596,19 @@ def cmd_export(args, root):
 
     --out writes the file, never over an existing one; without it the record is printed.
 
+    --refresh rebuilds a record already exported, in place, after kb.ttl has changed - a
+    changeset applied, a bullet confirmed or corrected. The selection is the record's own:
+    its projects, each with exactly the bullets it lists in its order, and its roles;
+    --select adds to it, and a bullet added is appended to each view. What the career
+    holds comes from kb.ttl as it stands; the views, every narrative but the positioning,
+    meta and the keys export never writes (referees, availability, ...) are kept as the
+    record has them. An entry the career no longer holds, or has retired, is dropped -
+    from the views too - and named. Each change prints as a line: a provenance, a text,
+    a metric's number, an entry added or dropped.
+
+    An alias no project in kb.ttl holds is left out, with a NOTE: the claims gate warns of
+    it, because an ATS reads it as a claim of that experience.
+
     It then runs both gates on the draft as written and names what they refuse: those
     faults are in kb.ttl, not in anything authored, so fix them there first.
     """
@@ -602,13 +617,14 @@ def cmd_export(args, root):
     from . import ontology as O
     from . import record as R
     from . import store as S
-    from .export import Career, ExportError, chosen, gate_failures, urs
+    from .export import Career, ExportError, chosen, urs
     from .match import COVER, blocks, workspace_of
     from .writer import curie
 
     out = take(args, "--out", value=True)
     fmt = take(args, "--urs")
     posting = take(args, "--from-match", value=True)
+    again = take(args, "--refresh", value=True)
     cover_text = take(args, "--cover", value=True)
     today_text = take(args, "--today", value=True)
     select = None
@@ -625,6 +641,9 @@ def cmd_export(args, root):
                      "one format it writes")
     if (cover_text or today_text) and not posting:
         return usage("--cover and --today go with --from-match")
+    if again and (out or posting):
+        return usage("--refresh writes over the record it is given: it takes no --out, and "
+                     "no --from-match (the record's own selection is the selection)")
     today, budget = datetime.date.today(), COVER
     try:
         if today_text:
@@ -658,8 +677,11 @@ def cmd_export(args, root):
         return 1
     if out and os.path.exists(out):
         return refuse([f"{out} exists - export writes a draft, never over a record"],
-                      "export to a new path, or delete the old record first")
-    selection = None
+                      f"`jsk kb export --urs --refresh {out}` rebuilds it from kb.ttl and keeps "
+                      "its views and authored narratives")
+    if again:
+        return refreshed(store, again, select)
+    selection, notes = None, []
     try:
         if posting:
             from . import select as SEL
@@ -670,22 +692,12 @@ def cmd_export(args, root):
                 return refuse([f"{posting} holds no posting"], "check it with `jsk kb check`")
             extra = [O.K + t.removeprefix("k:") for t in select or []]
             selection = SEL.select(store, posts[0], today, budget, extra)
-        doc = urs(store, select, today=today, selection=selection)
+        doc = urs(store, select, today=today, selection=selection, notes=notes)
     except ExportError as err:
         return refuse([str(err)], err.fix)
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
     report = sys.stdout if out else sys.stderr
-    faults = gate_failures(store, doc, today=today)
-    if faults:
-        print(f"WARN  the draft fails {len(faults)} gate check(s) as exported - the fault is "
-              "in kb.ttl, so fix it there (`jsk kb apply`) before retuning any words:",
-              file=report)
-        for line in faults:
-            print(f"        {line}", file=report)
-    loose = [p["id"] for p in doc.get("projects", []) if "engagement" not in p]
-    for pid in loose:
-        print(f"NOTE  {pid} names no role (j:position), so no engagement lists it and it "
-              "will not render", file=sys.stderr if not out else sys.stdout)
+    warn_draft(store, doc, today, notes, report)
     for p in selection.projects if selection else ():
         if not selection.bullets.get(p):
             print(f"NOTE  {curie(p)} has no confirmed bullet, so it comes with none - name "
@@ -695,16 +707,75 @@ def cmd_export(args, root):
     if not out:
         sys.stdout.write(text)
         return 0
-    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-    with open(out, "w", encoding="utf-8", newline="\n") as fh:
+    wrote(store, out, text, doc)
+    print("next: retune the words and the view, then `jsk validate` it - a reworded "
+          "bullet goes into the career first, with `jsk kb apply`")
+    return 0
+
+
+def warn_draft(store, doc, today, notes, report):
+    """What export says of every record it writes: what it left out, what the gates
+    refuse in it as written, and a project that will not render."""
+    from .export import gate_failures
+
+    for note in notes:
+        print(note, file=report)
+    faults = gate_failures(store, doc, today=today)
+    if faults:
+        print(f"WARN  the draft fails {len(faults)} gate check(s) as exported - the fault is "
+              "in kb.ttl, so fix it there (`jsk kb apply`) before retuning any words:",
+              file=report)
+        for line in faults:
+            print(f"        {line}", file=report)
+    for p in doc.get("projects", []):
+        if "engagement" not in p:
+            print(f"NOTE  {p['id']} names no role (j:position), so no engagement lists it and "
+                  "it will not render", file=report)
+
+
+def wrote(store, path, text, doc):
+    from . import record as R
+
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
     bullets = sum(len(p["achievements"]) for p in doc.get("projects", []))
     st = R.state(store)
     at = f" at r{st.log_revision}" if st.log_revision else ""
-    print(f"wrote {out}: {len(doc.get('projects', []))} projects, {bullets} bullets "
+    print(f"wrote {path}: {len(doc.get('projects', []))} projects, {bullets} bullets "
           f"from career/kb.ttl{at}")
-    print("next: retune the words and the view, then `jsk validate` it - a reworded "
-          "bullet goes into the career first, with `jsk kb apply`")
+
+
+def refreshed(store, path, select):
+    """`jsk kb export --urs --refresh`: the record at `path` rebuilt from kb.ttl and
+    written over itself, each change a line."""
+    import json
+
+    from .export import ExportError, refresh
+
+    fix = "pass a resume.json `jsk kb export --urs --out` wrote; a new one is `--out FILE`"
+    try:
+        with open(path, encoding="utf-8") as fh:
+            old = json.load(fh)
+    except FileNotFoundError:
+        return refuse([f"{path} does not exist - --refresh rebuilds a record already "
+                       "exported"], fix)
+    except (OSError, UnicodeDecodeError, ValueError) as err:
+        return refuse([f"{path} is not a JSON record ({err})"], fix)
+    if not isinstance(old, dict) or "urs" not in old:
+        return refuse([f"{path} is not a URS record: it has no `urs` key"], fix)
+    today, notes = datetime.date.today(), []
+    try:
+        doc, lines = refresh(store, old, select, today=today, notes=notes)
+    except ExportError as err:
+        return refuse([str(err)], err.fix)
+    for line in lines:
+        print(line)
+    if not lines:
+        print("nothing the career holds for this record has changed")
+    warn_draft(store, doc, today, notes, sys.stdout)
+    wrote(store, path, json.dumps(doc, indent=2, ensure_ascii=False) + "\n", doc)
+    print("kept     its views, its authored narratives, meta and the keys export never writes")
     return 0
 
 

@@ -381,9 +381,24 @@ def vocabulary(doc, career, found):
                     "work really used it"))
 
 
+def held_anywhere(career):
+    """Every concept some live project holds."""
+    return set().union(*career.held.values()) if career.held else set()
+
+
+def unheld(name, career, anywhere):
+    """The concepts `name` names when no project holds any of them, else an empty set.
+
+    Check 5's rule, and export's: it drops the aliases this would warn of, since it
+    copied every alias kb.ttl holds and so shipped the warning with each draft for
+    someone to hand-edit away (ElevenLabs, 2026-09-25)."""
+    concepts = career.by_norm.get(career.O.norm(name), set())
+    return concepts if concepts and not concepts & anywhere else set()
+
+
 def skills(doc, career, found):
     """Check 5: a skill's name and aliases name concepts some project holds."""
-    anywhere = set().union(*career.held.values()) if career.held else set()
+    anywhere = held_anywhere(career)
     for s in doc.get("skills") or []:
         if not isinstance(s, dict):
             continue
@@ -391,8 +406,8 @@ def skills(doc, career, found):
         for name in names:
             if not isinstance(name, str):
                 continue
-            concepts = career.by_norm.get(career.O.norm(name), set())
-            if concepts and not concepts & anywhere:
+            concepts = unheld(name, career, anywhere)
+            if concepts:
                 found.append(Finding(
                     "alias-unheld", "WARN", s.get("id"),
                     f"{name!r} ({', '.join(sorted(curie(c) for c in concepts))}) is held by "
