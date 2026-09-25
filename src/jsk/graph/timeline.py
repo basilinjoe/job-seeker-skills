@@ -158,12 +158,48 @@ def application_quads(stem, posting, view, submitted, channel, documents, record
     return app, out
 
 
-def freeze(root, app_dir, doc, view, submitted, channel, documents, record_bytes):
-    """(application.ttl text, None) for the directory as it is now, validated with the
-    whole workspace - or (None, [lines saying why not]).
+def sent_versions(store, bullets):
+    """The current version of each metric the bullets cite - what `jsk kb query stale`
+    compares against when a metric is later revised."""
+    from . import queries as Q
 
-    Validated where it stands, before any rename: renaming the directory changes no
-    triple, and the posting beside it, which the rules read, is there only now."""
+    if not bullets:
+        return []
+    values = " ".join(f"<{b}>" for b in bullets)
+    rows = store.select(Q.PRE + f"""
+        SELECT DISTINCT ?v WHERE {{ VALUES ?b {{ {values} }} ?b j:cites ?m . ?v j:of ?m .
+                                    FILTER NOT EXISTS {{ ?v j:validUntil ?u }} }}""")
+    return sorted(r["v"].value for r in rows)
+
+
+def freeze(root, app_dir, plan, short_bytes, submitted, channel, documents):
+    """(application.ttl text, None) for an application whose resume.json is a short file,
+    validated with the whole workspace - or (None, [lines saying why not]).
+
+    `plan` is what the builder rendered: its `sent` names the bullets that cleared the
+    floor, so a bullet the file lists but the render withheld is not claimed as sent. No
+    copy of the words is kept - the PDF, .txt and .tex beside it are what went out - so
+    the short file's own hash is what `recordSha256` pins."""
+    def sent(store):
+        bullets = [O.K + b for b in plan["sent"]]
+        return bullets, sent_versions(store, bullets)
+
+    return write_application(root, app_dir, "resume", submitted, channel, documents,
+                             short_bytes, sent)
+
+
+def freeze_urs(root, app_dir, doc, view, submitted, channel, documents, record_bytes):
+    """freeze() for a legacy full URS record: the view's own selection, read off the
+    record. It goes with resolve.py; until then an unmigrated draft still freezes."""
+    return write_application(root, app_dir, view, submitted, channel, documents,
+                             record_bytes, lambda store: carried(doc, view, store))
+
+
+def write_application(root, app_dir, view, submitted, channel, documents, record_bytes,
+                      carried_of):
+    """Validated where it stands, before any rename: renaming the directory changes no
+    triple, and the posting beside it, which the rules read, is there only now.
+    `carried_of(store)` is (bullet iris, metric version iris) for what was sent."""
     from . import store as S
     from .kbcli import new_failures
     from .writer import write
@@ -176,7 +212,7 @@ def freeze(root, app_dir, doc, view, submitted, channel, documents, record_bytes
         return None, ([f"no {POSTING} in {app_dir} with a posting in it"] + broken +
                       ["the application.ttl names the posting it answered; the analyst "
                        "writes posting.ttl beside posting.md"])
-    bullets, versions = carried(doc, view, store)
+    bullets, versions = carried_of(store)
     _, quads = application_quads(stem, posting, view, submitted, channel, documents,
                                  record_bytes, bullets, versions)
     text = write(quads, "application")
