@@ -51,7 +51,7 @@ MODULES = ["cli", "cliutil", "kb", "kbindex", "migrate", "paths"]
 GRAPH_MODULES = ["graph", "graph.ontology", "graph.io", "graph.writer", "graph.shapes",
                  "graph.rules", "graph.store", "graph.queries", "graph.match", "graph.record",
                  "graph.changeset", "graph.edit", "graph.kbcli", "graph.named", "graph.view",
-                 "graph.timeline", "graph.export"]
+                 "graph.timeline", "graph.export", "graph.scoring"]
 GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.validate_urs",
                 "gates.claims"]
 # Rendering, the preview and the page fitter moved in here: they drive the
