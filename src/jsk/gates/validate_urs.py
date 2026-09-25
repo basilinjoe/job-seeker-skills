@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """Validate a URS document against references/urs-spec.md.
 
-Usage: python3 validate_urs.py <resume.json> [--strict]
+Usage: jsk validate <resume.json> [--strict] [--max-findings N]
+       python -m jsk.gates.validate_urs <resume.json> [--strict] [--max-findings N]
        --strict            treat warnings as failures
        --max-findings N    print at most N failures and N warnings (default 25;
                            0 prints every one)
 
-On Windows use `python` or `py -3` in place of `python3`.
-
 Exit 0 = valid. Exit 1 = do not render this. Exit 2 = usage error.
 
-Standard library only. **This record is written by hand** - the skill reads
-`user-knowledgebase.md` and writes the record for one application out of it - so this
-gate is the only thing between a slip in that writing and a resume somebody sends. It
-used to be weaker on purpose: a compiler built the record, so a structural check here
-would only have been re-checking the compiler. There is no compiler now, and
-`check_shape` is the rule that came back with the hand-authoring - a key nobody
-recognises is a field that renders as nothing, and reads on the page as an omission.
+Standard library only. **This record is edited by hand** - `jsk kb export --urs` drafts
+it from career/kb.ttl, ids and metrics as held, and the skill then retunes the summary,
+the view and the bullets for one posting - so this gate is the only thing between a slip
+in that editing and a resume somebody sends. `check_shape` is the rule the editing
+needs: a key nobody recognises is a field that renders as nothing, and reads on the page
+as an omission. The claims gate (claims.py) is the other half, joining what the record
+says with what the career holds.
 
 The rules that matter are still the ones no schema can express:
 
@@ -32,6 +31,7 @@ import os
 import re
 import sys
 
+from ..cliutil import docstring_usage, wants_help
 from ..paths import SCHEMA_DIR
 
 # This gate is what jsk-verifier runs and reports back verbatim, so its output lands
@@ -51,10 +51,10 @@ ID_PREFIX = {
 # Every key a URS 1.x document may carry at the top level, and the two it must.
 #
 # This is the check that replaced the old conservation check, and it is checking the
-# same thing from the only side still available. Conservation compared the record
-# against a bundle on disk: a concept type present there and absent from the record
-# meant the compiler had dropped it. There is no disk side any more, so the question
-# becomes the one a hand-authored document can actually be asked - is every key here
+# same thing from the only side this gate reads. Conservation compared the record
+# against the source it was built from: a section present there and absent from the
+# record meant it had been dropped. This gate reads the record alone, so the question
+# becomes the one a hand-edited document can actually be asked - is every key here
 # one the renderer knows?
 #
 # It has to be a failure rather than a warning. `resolve.py` reads the keys it knows
@@ -120,8 +120,8 @@ def check_shape(doc, rep):
 # The strength at or above which a project with no evidence fails rather than warns.
 # Keyed to strength because that is the person's own assertion that a project is worth
 # putting on a resume - which makes the floor self-scaling, and non-retroactive without
-# needing a bundle-revision gate: a bundle of low-strength stubs warns, a bundle
-# claiming strong work with nothing behind it fails.
+# needing a revision gate: a record of low-strength stubs warns, a record claiming
+# strong work with nothing behind it fails.
 COVERAGE_FAIL_STRENGTH = 4
 
 VIEW_KEYS = {
@@ -175,7 +175,7 @@ def metric_values(metrics):
             q = m.get(key) or {}
             if isinstance(q.get("value"), (int, float)):
                 out.add(float(q["value"]))
-        # A metric compiled from `achievements/metrics.md` carries the row as written -
+        # A metric whose `value` is a string carries the number as the person wrote it -
         # "5 min to under 1 s", "2,000+", "-30%" - because that is how a person records
         # a number they verified. Every numeral in it counts as recorded, which is what
         # the check is asking: does this number appear in something someone wrote down.
@@ -361,8 +361,9 @@ def check_metrics(doc, rep):
                 continue
             rep.fail(f"achievement {a.get('id')} in {where}: {shown!r} appears in the text "
                      "but in no metric - the number cannot be verified" +
-                     (" (this achievement carries no metrics at all: add the row to "
-                      "achievements/metrics.md and name it in the bullet's `metric:`)"
+                     (" (this achievement carries no metrics at all: record the number "
+                      "as a metric in career/kb.ttl with `jsk kb apply`, then cite it in "
+                      "the bullet's `metrics` - `jsk kb export --urs` writes them as held)"
                       if missing else ""))
 
 
@@ -404,8 +405,8 @@ def check_renderable(doc, rep):
     every statement you can make about its elements - which is how `views: []` passed
     the record gate for months while `provenance_floor` never ran on anything at all.
 
-    The old conservation check caught that by comparing the record against a bundle on
-    disk. Without one, the weaker statement is still worth failing on: a record with
+    The old conservation check caught that by comparing the record against its source.
+    Reading the record alone, the weaker statement is still worth failing on: a record with
     no views renders no document, and a record with no engagements and no projects
     renders a page with a name at the top of it.
     """
@@ -435,23 +436,24 @@ def check_backrefs(doc, rep):
 
 
 def positional_bullet_ids(doc):
-    """{derived id: project id} for every bullet whose id the compiler numbered.
+    """{derived id: project id} for every bullet whose id was numbered by position.
 
-    A project's id is `prj_<slug>` and the id its nth bullet
-    gets when the concept wrote none down is `ach_<slug("projects/<stem>.md")>_<n>`
-    is derived from it - so the slug recovered from the project id
-    reconstructs the exact string the compiler would have minted. That makes this an
-    equality test rather than a pattern guess. Measured on a compiled bundle:
-    `prj_care` with two bullets yields `ach_projects_care_md_1` and `..._2`, and
-    inserting a bullet above them moves `..._1` onto the sentence that was `..._2`.
+    The retired bundle compiler gave a bullet with no id of its own the id
+    `ach_<slug("projects/<stem>.md")>_<n>`, derived from its project's `prj_<slug>`, so
+    the slug recovered from the project id reconstructs the exact string it minted.
+    That makes this an equality test rather than a pattern guess: `prj_care` with two
+    bullets yields `ach_projects_care_md_1` and `..._2`, and inserting a bullet above
+    them moves `..._1` onto the sentence that was `..._2`.
 
-    Only `projects[]` is walked. Engagement achievements exist in the record, but
-    The skill writes bullets in one place - inside the project - and gives every
-    engagement `achievements: []`, so no engagement bullet can carry a derived id.
+    A record drafted by `jsk kb export --urs` carries the career's own bullet ids and
+    never one of these. This stays for a record edited by hand from an older one, which
+    can still hold them.
 
-    A concept that declares its own `id:` in frontmatter breaks the reconstruction
-    and is skipped: under-reporting is the right way to be wrong here, because the
-    alternative is naming a bullet that was never at risk.
+    Only `projects[]` is walked: bullets are written in one place - inside the project -
+    and every engagement carries `achievements: []`, so no engagement bullet can carry
+    a derived id. A project whose id does not reconstruct is skipped: under-reporting is
+    the right way to be wrong here, because the alternative is naming a bullet that was
+    never at risk.
     """
     out = {}
     for p in doc.get("projects") or []:
@@ -468,15 +470,13 @@ def positional_bullet_ids(doc):
 def check_unmaterialised_ids(doc, rep):
     """A view pointing at a bullet id nobody wrote down.
 
-    The write layer materialises explicit ids before it mutates a concept's bullets,
-    so a bundle that has been written to is immune. There is no migration, which
-    leaves a bundle nobody has written to exposed: insert a bullet above one that a
-    view names positionally and every id below it shifts down a sentence. Nothing
-    fails, because the id still resolves - check_references is satisfied either way -
-    and the view quietly starts quoting different work.
+    A record carrying positional ids is exposed: insert a bullet above one that a view
+    names positionally and every id below it shifts down a sentence. Nothing fails,
+    because the id still resolves - check_references is satisfied either way - and the
+    view quietly starts quoting different work.
 
     Only ids a view actually names are reported. An unmaterialised id nobody points
-    at is not yet a hazard, and warning on every numbered bullet in the bundle would
+    at is not yet a hazard, and warning on every numbered bullet in the record would
     bury the ones that are.
     """
     positional = positional_bullet_ids(doc)
@@ -493,25 +493,25 @@ def check_unmaterialised_ids(doc, rep):
                 # spends the finding cap saying so.
                 seen.add((v.get("id"), aid))
                 rep.warn(f"view {v.get('id')}: names achievement {aid!r} in project "
-                         f"{positional[aid]}, an id the compiler derived from that "
-                         f"bullet's position - inserting a bullet above it renumbers "
-                         f"the rest and this view points at a different sentence "
-                         f"(write the id down under the bullet in that concept's "
-                         f"`# Bullets` block)")
+                         f"{positional[aid]}, an id derived from that bullet's "
+                         f"position - inserting a bullet above it renumbers the rest "
+                         f"and this view points at a different sentence (use the "
+                         f"bullet's id in career/kb.ttl - `jsk kb export --urs` "
+                         f"writes the career's ids)")
 
 
 def check_coverage(doc, rep):
     """A project the person called resume-worthy must have something to quote.
 
-    Nothing else here reads a body for evidence, so a bundle of 15 projects and no
-    `# Bullets` block anywhere validates clean and then costs whoever tailors against
-    it the authoring pass the bundle should already have had.
+    Nothing else here reads a body for evidence, so a record of 15 projects and no
+    bullet anywhere validates clean and then costs whoever tailors against it the
+    authoring pass the career should already have had.
     """
     empty = [p for p in doc.get("projects") or [] if not (p.get("achievements") or [])]
     for p in sorted(empty, key=lambda p: -(p.get("strength") or 0)):
         strength = p.get("strength") or 0
-        msg = (f"project {p.get('id')}: strength {strength}, no evidence - nothing in "
-               f"its `# Bullets` block for a resume to quote")
+        msg = (f"project {p.get('id')}: strength {strength}, no evidence - no bullet "
+               f"under it for a resume to quote")
         if strength >= COVERAGE_FAIL_STRENGTH:
             rep.fail(msg)
         else:
@@ -530,8 +530,7 @@ def check_coverage(doc, rep):
 def load_target(path):
     """The record to check.
 
-    One shape, now that nothing compiles: the URS document the skill wrote for one
-    application, live in `applications/<stem>/resume.json` or frozen there after it
+    One shape: the URS document written for one application, live in `applications/<stem>/resume.json` or frozen there after it
     was sent. Both are the same file read the same way, which is the point of freezing
     it - a document sent two years ago is still re-checkable by this command.
     """
@@ -601,6 +600,10 @@ def check_doc(doc):
 
 
 def main(argv):
+    if wants_help(argv[1:]):
+        # Before parse(), which would read --help as an unknown flag and exit 2.
+        print(docstring_usage(__doc__))
+        return 0
     args, flags = parse(argv[1:])
     # An ignored flag reads as an honoured one: `--level 2` used to exit 0, which
     # looks like "level 2 confirmed" to anyone who remembers the old gate.
@@ -610,7 +613,7 @@ def main(argv):
             print(f"unknown flag: {', '.join(unknown)}")
         elif len(args) > 1:
             print(f"one record at a time, got {len(args)}: {' '.join(args)}")
-        print("usage: validate_urs.py <resume.json> [--strict] "
+        print("usage: python -m jsk.gates.validate_urs <resume.json> [--strict] "
               "[--max-findings N]")
         return 2
     path = args[0]
@@ -635,11 +638,11 @@ def main(argv):
         print("\nDO NOT RENDER - fix the failures above")
         return 1
     except Exception as e:
-        # A bundle that will not compile cannot be checked, and saying which concept
-        # is wrong is more use than a stack trace about a dict that was never built.
+        # A file that cannot be read - bytes that are not UTF-8, a permission refused -
+        # cannot be checked, and saying why is more use than a stack trace.
         print(f"checking: {os.path.basename(path)}\n\nFAIL 1   WARN 0")
         print(f"  FAIL  {e}")
-        print("\nDO NOT RENDER - fix the concept named above")
+        print("\nDO NOT RENDER - fix the problem named above")
         return 1
 
     if not isinstance(doc, dict):

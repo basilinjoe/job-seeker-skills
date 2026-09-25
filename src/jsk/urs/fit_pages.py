@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Fit a rendered resume to a page budget by applying density levers in a fixed order.
 
-Usage: python3 fit_pages.py resume.tex [--target-pages 2]
-                                       [--dry-run] [-o out.tex] [--in-place]
-
-On Windows use `python` or `py -3` in place of `python3`.
+Usage: jsk fit resume.tex [--target-pages 2] [--dry-run] [-o out.tex] [--in-place]
+       python -m jsk.urs.fit_pages resume.tex [the same flags]
 
 Measures geometry FIRST, then applies levers, cheapest-looking first, stopping at the
 floors `references/ats-rules.md` sets rather than crossing them:

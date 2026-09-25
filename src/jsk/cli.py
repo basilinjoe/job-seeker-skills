@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """jsk - one entry point for the Job Seeker Skill's rendering and verification tools.
 
-A convenience layer, never a replacement. Each subcommand calls the script that does
+A convenience layer, never a replacement. Each subcommand calls the module that does
 the work in this interpreter, with the same arguments and the same exit code, so
-anything documented for the underlying script is still true here:
+anything documented for the underlying module is still true here:
 
-    jsk check resume.pdf      ==     check_ats.py resume.pdf
-                                     check_prose.py resume.tex
+    jsk check resume.pdf      ==     python -m jsk.gates.check_ats resume.pdf
+                                     python -m jsk.gates.check_prose resume.tex
 
-The scripts remain the stable, documented API. They are callable directly and always
-will be. This exists so that nobody has to remember every name to get started.
+Every module with a CLI runs as `python -m jsk.<module>`. This exists so that nobody
+has to remember every name to get started.
 
     jsk doctor                  what works on this machine
     jsk new PATH --name NAME    scaffold career/kb.ttl, its log at r1, and applications/
@@ -32,6 +32,7 @@ The career is the graph record, career/kb.ttl: changed through `jsk kb apply`, r
 `jsk kb show` and `jsk kb view`, validated on every load. The skill writes each URS record
 out of it, and `jsk validate` checks that record before anything renders - the last point at
 which a mistake is still cheap - and the claims gate joins the record with the career.
+`jsk kb export --urs` drafts that record from the career, ids and metrics as held.
 Only `jsk migrate` reads a user-knowledgebase.md, once, and it writes nothing into it.
 
 pyoxigraph for the graph record, pymupdf to read a PDF, and markdown-it-py with pyyaml
@@ -51,16 +52,22 @@ import sys
 from . import __version__
 from .cliutil import wants_help
 
-# subcommand -> (script, what it does)
+# Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
+# this file. Named once, here, and a test holds the docstring to it, so rewording that
+# paragraph fails a test rather than quietly printing it as part of the help.
+HELP_ENDS_BEFORE = "\n\npyoxigraph for the graph record"
+
+# subcommand -> the script it runs, arguments unchanged. What each one does is said
+# once, in the docstring above, which is what `jsk --help` prints.
 SIMPLE = {
-    "new": ("kb.py", "scaffold an empty graph workspace, logged at r1"),
-    "match": ("match.py", "a posting matched against the graph record, through the vocabulary"),
-    "kb": ("kbcli.py", "the graph record: changed through changesets, read by id"),
-    "migrate": ("migrate.py", "a Markdown knowledge base to the graph record, one way"),
-    "event": ("timeline.py", "an event added to a frozen application's timeline"),
-    "render": ("render_resume.py", "one record to .tex/PDF plus .txt"),
-    "preview": ("preview_templates.py", "one record in every template, side by side"),
-    "fit": ("fit_pages.py", "fit a render to a page budget"),
+    "new": "kb.py",
+    "match": "match.py",
+    "kb": "kbcli.py",
+    "migrate": "migrate.py",
+    "event": "timeline.py",
+    "render": "render_resume.py",
+    "preview": "preview_templates.py",
+    "fit": "fit_pages.py",
 }
 
 # The gates jsk check runs, in order. Both always run: a document that fails the parse
@@ -194,8 +201,9 @@ def record_refusal(target):
                 "      frozen document is meant to be read, not re-checked."]
     if target.endswith(".md"):
         return [f"FAIL  cannot validate: {target}",
-                "fix:  the knowledge base is prose and is not machine-checked. What is",
-                "      checked is the record written from it - pass resume.json"]
+                "fix:  a user-knowledgebase.md is an old career: `jsk migrate` moves it to",
+                "      career/kb.ttl, which `jsk kb check` validates. This gate reads the",
+                "      record written from the career - pass resume.json"]
     if target.endswith(".ttl"):
         return [f"FAIL  cannot validate: {target}",
                 "fix:  the graph record is validated on every load - `jsk kb check`",
@@ -1065,7 +1073,7 @@ HANDLERS = {
 
 
 def usage():
-    print(__doc__.strip().split("\n\n", 1)[1].rsplit("\n\npyoxigraph for", 1)[0])
+    print(__doc__.strip().split("\n\n", 1)[1].split(HELP_ENDS_BEFORE, 1)[0])
     return 2
 
 
@@ -1083,7 +1091,7 @@ def main(argv):
     if sub in HANDLERS:
         return HANDLERS[sub](rest)
     if sub in SIMPLE:
-        return run_in_process(SIMPLE[sub][0], rest)
+        return run_in_process(SIMPLE[sub], rest)
     if sub in RETIRED:
         print(f"jsk {sub} was retired: {RETIRED[sub]}")
         return 2

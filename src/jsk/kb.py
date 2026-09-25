@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Scaffold a career workspace: the graph record, its log, and a place to file applications.
 
-Usage: python3 -m jsk.kb <path> --name "Their Name" [--force]
+Usage: jsk new <path> --name "Their Name" [--force]
+       python -m jsk.kb <path> --name "Their Name" [--force]
        <path>     the workspace folder to create; career/ goes inside it
        --name     the person's full name; the record's header says whose it is
        --force    start an existing career/kb.ttl over from the empty record, logged, the
                   old one kept beside it as career/kb.r<N>.ttl
-
-On Windows use `python` or `py -3` in place of `python3`.
 
 Exit 0 = written. Exit 1 = refused, because something was already there, or --force was
 asked for without pyoxigraph (a first scaffold does not need it). Exit 2 = called wrongly.
