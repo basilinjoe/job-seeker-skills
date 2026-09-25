@@ -762,8 +762,10 @@ Adds one event to a frozen application's `application.ttl`: `k:evt_<stem>_<date>
 `recruiter-contact` - and a kind outside it is exit 2 with the nearest one suggested. The date is
 `YYYY-MM-DD` or `unknown`.
 
-Add-only: it never edits or removes an event, and the same kind on the same day is already
-recorded, so it is refused (a `note` event says more). The whole workspace is loaded with the
+Add-only: it never edits or removes an event. A second event of the same kind on the same day -
+another note, a round-2 `interview-done`, a second `unknown`-dated contact - is minted
+`k:evt_<stem>_<date>_<kind>_2`, then `_3`, as `jsk migrate` mints a timeline's repeats; only an
+event identical to one already there (same kind, date, channel, note and due) is refused. The whole workspace is loaded with the
 event in it and validated before the file is replaced; a file with hand comments, or not in the
 canonical layout, is refused until `jsk kb fmt <file>`, so the event is the only change in its
 diff. An application frozen as `application.md` is pointed at its `# Timeline` table. Not logged
