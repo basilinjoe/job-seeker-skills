@@ -281,6 +281,9 @@ jsk kb show prj_payments met_settlement  # the entries, and the op:base to draft
 jsk kb view --section Projects           # the career as Markdown, to read
 jsk kb query unconfirmed --json          # open | unconfirmed | holds <concept> | stale
 jsk kb query experience c:kubernetes     # | experience <concept> | pipeline
+jsk kb query evidence GraphQL "React Native" BFF  # each term: holders, then text naming it
+jsk kb query person                      # location, work mode, rights to work, ongoing roles
+jsk kb path                              # the workspace, kb.ttl, log.ttl, applications/
 jsk kb check                             # every rule, the record's state, the layout
 ```
 

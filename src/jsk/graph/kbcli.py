@@ -9,10 +9,13 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   show <id>...                         entries as kb.ttl holds them, and the op:base to use
   view [--section NAME]                the whole career as Markdown, to read
   query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale |
-                                       experience <concept> | pipeline
+                                       experience <concept> | pipeline |
+                                       evidence <term>... | person
   export --urs [--select <id>...]      a draft resume.json, ids and metrics as held
          [--out FILE]
   check                                validate the workspace; exit 1 on a FAIL
+  path                                 the workspace, kb.ttl, log.ttl and applications/,
+                                       as absolute paths - read these, never guess them
 
 --root is the workspace, the folder holding career/; by default the nearest one above
 the current directory. `jsk kb <verb> --help` says more about one verb.
@@ -637,6 +640,9 @@ def cmd_query(args, root):
       stale               applications that sent a metric version since replaced
       experience <concept>  months the roles behind the projects holding it cover
       pipeline            each application's stage: its latest event, and how long ago
+      evidence <term>...  per term: projects holding its concept, then entries whose text
+                          names it (whole words; an all-capitals term matches as written)
+      person              location, work mode, rights to work, and the roles held now
 
     A table by default; --json for the same rows, structured.
     """
@@ -650,7 +656,7 @@ def cmd_query(args, root):
         return usage(f"jsk kb query takes one of: {', '.join(QUERIES)}")
     name, rest = args[0], args[1:]
     want, _, fn = QUERIES[name]
-    if len(rest) != len(want.split()):
+    if want.endswith("...") and not rest or not want.endswith("...") and len(rest) != len(want.split()):
         return usage(f"jsk kb query {name} {want}".rstrip())
     columns, rows = fn(S.load(root), *rest)
     print(json.dumps(rows, indent=2, ensure_ascii=False) if as_json else table(columns, rows))
@@ -690,6 +696,34 @@ def cmd_check(args, root):
     return 1 if rep.fails else 0
 
 
+@verb
+def cmd_path(args, root):
+    """jsk kb path [--root DIR]
+
+    Prints where the record is, as absolute paths: the workspace, career/kb.ttl,
+    career/log.ttl and applications/. Run it from anywhere inside the workspace - an
+    application directory will do - and read the files at the paths it prints.
+
+    The workspace is the folder holding career/, so kb.ttl sits at
+    <workspace>/career/kb.ttl. A workspace that is itself named `career` puts it at
+    career/career/kb.ttl, which is why the path is printed rather than worked out.
+    Needs nothing but the files; exit 1 when there is no career/kb.ttl there.
+    """
+    if args:
+        return usage("jsk kb path takes no arguments")
+    kb = os.path.join(root, "career", "kb.ttl")
+    if not os.path.isfile(kb):
+        print(f"no career/kb.ttl under {root}")
+        if os.path.isfile(os.path.join(root, "kb.ttl")):
+            print(f"        fix: that folder is career/ itself - the workspace is {os.path.dirname(root)}")
+        return 1
+    print(f"workspace     {root}")
+    print(f"kb            {kb}")
+    print(f"log           {os.path.join(root, 'career', 'log.ttl')}")
+    print(f"applications  {os.path.join(root, 'applications')}")
+    return 0
+
+
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or (wants_help(args) and args[0] not in VERBS):
@@ -708,6 +742,8 @@ def main(argv=None):
     if root is None or not os.path.isdir(root):
         return usage("no workspace here: run it inside one, or pass --root DIR "
                      "(the folder holding career/)")
+    if name == "path":
+        return cmd_path(rest, os.path.abspath(root))
     try:
         import pyoxigraph  # noqa: F401
     except ImportError:

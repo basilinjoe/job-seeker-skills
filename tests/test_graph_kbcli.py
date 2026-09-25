@@ -440,6 +440,54 @@ class Query(Workspace):
         self.assertIn(f"| k:app_acme_platform_engineer | k:met_team.v1 | {today} | k:met_team.v2 |",
                       out)
 
+    def evidence(self, *terms):
+        code, out = self.kb("query", "evidence", *terms, "--json")
+        self.assertEqual(code, 0, out)
+        return json.loads(out)
+
+    def test_evidence_reports_the_projects_holding_a_term_s_concept(self):
+        rows = self.evidence("event-driven")
+        self.assertIn({"term": "event-driven", "found": "c:event-driven-architecture",
+                       "entry": "k:prj_clinical_events", "via": "holds c:kafka, 1 hop",
+                       "evidence": "tag", "text": ""}, rows)
+
+    def test_evidence_finds_the_text_naming_a_term_but_not_the_vocabulary_s_labels(self):
+        rows = [r for r in self.evidence("event-driven") if r["found"] == "text"]
+        self.assertEqual([(r["entry"], r["via"], r["evidence"]) for r in rows],
+                         [("k:person", "j:positioning", "confirmed")])
+        self.assertTrue(rows[0]["text"].startswith("Architect who turns"))
+
+    def test_evidence_names_a_bullet_s_project(self):
+        rows = self.evidence("platform")
+        self.assertIn("k:ach_site_onboarding_sites_one_platform (k:prj_site_onboarding)",
+                      [r["entry"] for r in rows])
+
+    def test_evidence_says_so_when_the_record_holds_nothing(self):
+        self.assertEqual(self.evidence("Haskell"),
+                         [{"term": "Haskell", "found": "nothing", "entry": "",
+                           "via": "no concept, and no text in the record names it",
+                           "evidence": "", "text": ""}])
+
+    def test_evidence_matches_an_acronym_in_capitals_only(self):
+        def text(term):
+            return [r["entry"] for r in self.evidence(term) if r["found"] == "text"]
+        self.assertEqual(text("EVENT-DRIVEN"), [])
+        self.assertEqual(text("Event-Driven"), ["k:person"])
+
+    def test_evidence_answers_every_term_in_one_call_and_needs_one(self):
+        rows = self.evidence("Kafka", "Haskell")
+        self.assertEqual({r["term"] for r in rows}, {"Kafka", "Haskell"})
+        self.assertEqual(self.kb("query", "evidence")[0], 2)
+
+    def test_the_person_behind_eligibility(self):
+        code, out = self.kb("query", "person")
+        self.assertEqual(code, 0, out)
+        self.assertIn("| location | Sydney, AU | k:person | confirmed |", out)
+        self.assertIn("| work mode | hybrid | k:person | confirmed |", out)
+        self.assertIn("| work authorization | AU: citizen, held | k:auth_au | confirmed |", out)
+        self.assertIn("| ongoing role | Principal Solution Architect at Meridian Health, "
+                      "since 2023-07 (employment) | k:pos_meridian_principal | confirmed |", out)
+
     def test_an_unknown_query(self):
         code, out = self.kb("query", "everything")
         self.assertEqual(code, 2)
@@ -491,6 +539,52 @@ class Dispatch(Workspace):
         with contextlib.redirect_stdout(out):
             code = cli.main(["jsk", "kb", "apply", self.changeset(BRAINDUMP), "--dry-run"])
         self.assertEqual(code, 0, out.getvalue())
+
+
+class KbPath(unittest.TestCase):
+    """`jsk kb path` - the paths an agent reads, printed rather than worked out."""
+
+    def setUp(self):
+        # A workspace that is itself named `career`: kb.ttl sits at career/career/kb.ttl.
+        self.outer = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.outer)
+        self.root = os.path.join(self.outer, "career")
+        shutil.copytree(FIXTURES, self.root)
+
+    def run_path(self, *args, cwd=None):
+        here = os.getcwd()
+        if cwd:
+            os.chdir(cwd)
+            self.addCleanup(os.chdir, here)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cli.main(["jsk", "kb", "path", *args])
+        return code, out.getvalue()
+
+    def test_it_prints_the_absolute_paths(self):
+        code, out = self.run_path("--root", self.root)
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"workspace     {self.root}\n", out)
+        self.assertIn(f"kb            {os.path.join(self.root, 'career', 'kb.ttl')}\n", out)
+        self.assertIn(f"log           {os.path.join(self.root, 'career', 'log.ttl')}\n", out)
+        self.assertIn(f"applications  {os.path.join(self.root, 'applications')}\n", out)
+
+    def test_it_finds_the_workspace_from_an_application_directory(self):
+        code, out = self.run_path(cwd=os.path.join(self.root, "applications"))
+        self.assertEqual(code, 0, out)
+        self.assertIn(os.path.join(self.root, "career", "kb.ttl"), out)
+
+    def test_the_career_folder_itself_is_named_as_the_mistake(self):
+        inner = os.path.join(self.root, "career")
+        code, out = self.run_path("--root", inner)
+        self.assertEqual(code, 1)
+        self.assertIn(f"no career/kb.ttl under {inner}", out)
+        self.assertIn(f"the workspace is {self.root}", out)
+
+    def test_it_takes_no_arguments(self):
+        code, out = self.run_path("kb.ttl", "--root", self.root)
+        self.assertEqual(code, 2)
+        self.assertIn("takes no arguments", out)
 
 
 if __name__ == "__main__":

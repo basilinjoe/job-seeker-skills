@@ -4,7 +4,9 @@ Each returns (columns, rows), rows as dicts, so the same answer prints as a tabl
 JSON. A query is here because an agent would otherwise work it out by reading the whole
 file - which is the reading the graph exists to save. `experience` and `pipeline` came
 with the claims gate and `jsk event` (P5); the roadmap's `inconsistent` and `demand` are
-not here yet.
+not here yet. `evidence` and `person` replaced the tailor analyst's grep of kb.ttl: on the
+Taskrabbit run it spent five of its seven minutes on some forty greps and reads for terms
+and a location that two queries answer in half a second.
 """
 import datetime
 
@@ -54,7 +56,8 @@ def unconfirmed(store):
 
 @query("holds", "<concept>", "live projects holding a concept, or one that counts as it")
 def holds(store, concept):
-    iri = O.C + concept[2:] if concept.startswith("c:") else O.C + concept
+    iri = concept if concept.startswith(O.C) else \
+        O.C + concept[2:] if concept.startswith("c:") else O.C + concept
     rows = sorted(paths_to(store, iri), key=lambda r: (r[2], r[0], r[1]))
     seen, out = set(), []
     for proj, held, hops, implied in rows:
@@ -167,6 +170,132 @@ def pipeline(store, today=None):
                     "due": last["due"].value if last and "due" in last else "",
                     "events": len(evs)})
     return (("application", "submitted", "stage", "since", "days", "due", "events"), out)
+
+
+TEXT_HITS = 12                   # per term; past it, the term is too broad to read row by row
+
+
+def snippet(text, at, end, width=60):
+    """The match with `width` characters either side, whitespace collapsed."""
+    lo, hi = max(0, at - width), min(len(text), end + width)
+    body = " ".join(text[lo:hi].split())
+    return ("…" if lo else "") + body + ("…" if hi < len(text) else "")
+
+
+def text_pattern(term):
+    """A whole-word match of `term`. An all-capitals term is an acronym and matches in
+    capitals only - REST is not "the rest of", BFF is not "bff"."""
+    import re
+    words = r"\s+".join(re.escape(w) for w in term.split())
+    return re.compile(rf"(?<!\w){words}(?!\w)", 0 if term.isupper() else re.IGNORECASE)
+
+
+def kb_text(store):
+    """(entry, predicate, text, provenance, project) for every string in career/kb.ttl
+    on a live entry - what a grep of the file would find, without the retired, and
+    without the vocabulary's labels, which the concept match has already answered."""
+    from . import record as R
+    from .store import graph_iri
+    rows = store.select(PRE + f"""SELECT ?s ?p ?o ?pv ?proj WHERE {{
+        GRAPH <{graph_iri(R.KB)}> {{ ?s ?p ?o
+          FILTER(isIRI(?s) && !STRSTARTS(STR(?s), STR(c:)) && isLiteral(?o)
+                 && DATATYPE(?o) = <http://www.w3.org/2001/XMLSchema#string>) }}
+        OPTIONAL {{ ?s j:provenance ?pv }} OPTIONAL {{ ?s j:project ?proj }}
+        FILTER NOT EXISTS {{ ?s j:retired ?r }} }} ORDER BY ?s ?p""")
+    return [(r["s"].value, r["p"].value, r["o"].value,
+             local(r["pv"].value) if "pv" in r else "",
+             r["proj"].value if "proj" in r else None) for r in rows]
+
+
+@query("evidence", "<term>...", "per term: projects holding its concept, then the record's text naming it")
+def evidence_for(store, *terms):
+    """What the record holds for each term, in one call: the concept the term names and
+    the live projects holding it (as `holds` reports them), then every live entry whose
+    text names it as a whole word - the grep an agent would otherwise run once per term,
+    over a file it would have to find first. A term the record says nothing about gets a
+    row saying so, so an absence is an answer and not a reason to look again."""
+    from .queries import Requirement, concepts, labels, resolve
+
+    index, known, text = labels(store), concepts(store), kb_text(store)
+    out = []
+    for term in terms:
+        start = len(out)
+        res = resolve(Requirement("", term, "", ""), index, known)
+        for concept in res.concepts:
+            held = holds(store, concept)[1]
+            if not held:
+                out.append({"term": term, "found": curie(concept), "entry": "",
+                            "via": "no project holds it", "evidence": "", "text": ""})
+            for h in held:
+                via = f"holds {h['holds']}" + (f", {h['hops']} hop" if h["hops"] else "") + \
+                      (", implies" if h["implied"] else "")
+                out.append({"term": term, "found": curie(concept), "entry": h["project"],
+                            "via": via, "evidence": h["evidence"], "text": ""})
+        pattern, hits = text_pattern(term), []
+        for entry, pred, body, pv, proj in text:
+            m = pattern.search(body)
+            if m:
+                name = curie(entry) + (f" ({curie(proj)})" if proj else "")
+                hits.append({"term": term, "found": "text", "entry": name, "via": curie(pred),
+                             "evidence": pv, "text": snippet(body, m.start(), m.end())})
+        out += hits[:TEXT_HITS]
+        if len(hits) > TEXT_HITS:
+            out.append({"term": term, "found": "text", "entry": "",
+                        "via": f"{len(hits) - TEXT_HITS} more - a narrower term finds them",
+                        "evidence": "", "text": ""})
+        if len(out) == start:
+            out.append({"term": term, "found": "nothing", "entry": "",
+                        "via": "no concept, and no text in the record names it",
+                        "evidence": "", "text": ""})
+    return (("term", "found", "entry", "via", "evidence", "text"), out)
+
+
+@query("person", doc="where they are, how they work, their rights to work, and the roles they hold now")
+def person(store):
+    """What eligibility and logistics are judged against: location and work mode, each
+    work authorization, and every ongoing role - a second job is a constraint on the
+    first. Anything not recorded says so. Willingness to relocate or keep other hours
+    lives in prose: `jsk kb query evidence relocate remote` finds it."""
+    out = []
+
+    def row(fact, value, entry="", pv=""):
+        out.append({"fact": fact, "value": value, "entry": entry, "provenance": pv})
+
+    who = store.select(PRE + """SELECT ?city ?region ?country ?mode ?pv WHERE {
+        k:person j:provenance ?pv
+        OPTIONAL { k:person j:city ?city } OPTIONAL { k:person j:region ?region }
+        OPTIONAL { k:person j:country ?country } OPTIONAL { k:person j:workMode ?mode } }""")
+    w = who[0] if who else {}
+    place = ", ".join(w[k].value for k in ("city", "region", "country") if k in w)
+    pv = local(w["pv"].value) if "pv" in w else ""
+    row("location", place or "not recorded", "k:person" if place else "", pv if place else "")
+    row("work mode", local(w["mode"].value) if "mode" in w else "not recorded",
+        "k:person" if "mode" in w else "", pv if "mode" in w else "")
+
+    auths = store.select(PRE + """SELECT ?a ?where ?kind ?status ?until ?pv WHERE {
+        ?a a j:WorkAuthorization ; j:jurisdiction ?where ; j:kind ?kind ;
+           j:authorization ?status ; j:provenance ?pv
+        OPTIONAL { ?a j:validUntil ?until } FILTER NOT EXISTS { ?a j:retired ?r } }
+        ORDER BY ?where""")
+    for a in auths:
+        value = f"{a['where'].value}: {local(a['kind'].value)}, {local(a['status'].value)}" + \
+                (f" until {a['until'].value}" if "until" in a else "")
+        row("work authorization", value, curie(a["a"].value), local(a["pv"].value))
+    if not auths:
+        row("work authorization", "not recorded")
+
+    roles = store.select(PRE + """SELECT ?pos ?title ?org ?start ?kind ?pv WHERE {
+        ?pos a j:Position ; j:state j:ongoing ; j:title ?title ; j:start ?start ;
+             j:provenance ?pv ; j:organisation ?o . ?o j:name ?org
+        OPTIONAL { ?pos j:engagementKind ?kind } FILTER NOT EXISTS { ?pos j:retired ?r } }
+        ORDER BY ?start""")
+    for r in roles:
+        kind = local(r["kind"].value) if "kind" in r else "employment"
+        row("ongoing role", f"{r['title'].value} at {r['org'].value}, since {r['start'].value} ({kind})",
+            curie(r["pos"].value), local(r["pv"].value))
+    if not roles:
+        row("ongoing role", "none recorded")
+    return (("fact", "value", "entry", "provenance"), out)
 
 
 def table(columns, rows):
