@@ -578,11 +578,12 @@ class ARealKnowledgeBaseMigrates(Tmp):
         self.assertTrue((draft / "posting.ttl").is_file())
         self.assertFalse((draft / "application.ttl").exists())
 
-    def test_claims_gate_is_run_or_said_to_be_missing(self):
-        if importlib.util.find_spec("jsk.gates.claims") is None:
-            self.assertIn("claims   gate not available", self.out)
-        else:
-            self.assertIn("claims   ", self.out)
+    def test_the_claims_gate_runs_over_every_resume_it_found(self):
+        # A gate that did not run is not a gate that passed: "did not run" is a failure here.
+        self.assertTrue(importlib.util.find_spec("jsk.gates.claims"))
+        self.assertNotIn("did not run", self.out)
+        self.assertRegex(self.out, r"claims   applications/2026-09-10-acme-platform-engineer/"
+                                   r"resume\.json: \d+ FAIL")
 
     def test_a_second_fmt_changes_nothing(self):
         code, out = run(CLI, "kb", "fmt", "--root", self.root)

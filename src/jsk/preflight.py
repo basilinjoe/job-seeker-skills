@@ -48,8 +48,10 @@ MODULES = ["cli", "cliutil", "kb", "kbindex", "migrate", "paths"]
 # a machine without the engine - the engine is its own check below.
 GRAPH_MODULES = ["graph", "graph.ontology", "graph.io", "graph.writer", "graph.shapes",
                  "graph.rules", "graph.store", "graph.queries", "graph.match", "graph.record",
-                 "graph.changeset", "graph.edit", "graph.kbcli", "graph.named", "graph.view"]
-GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.validate_urs"]
+                 "graph.changeset", "graph.edit", "graph.kbcli", "graph.named", "graph.view",
+                 "graph.timeline"]
+GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.validate_urs",
+                "gates.claims"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken urs package takes all
 # three with it and reporting them separately would name three symptoms of one cause.

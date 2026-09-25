@@ -1,0 +1,10 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Log
+
+k:rev_1 j:revision 1 ; j:date "2026-09-24"^^xsd:date ; j:by j:migrate ;
+    j:summary "Migrated from user-knowledgebase.md (kb: 2)." ;
+    j:kbSha256 "14d833f86980d87cd365e852512917c9df8373ff8a629c67c627c24088e21b16" .

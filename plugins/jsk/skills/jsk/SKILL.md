@@ -90,14 +90,15 @@ It never edits `user-knowledgebase.md`; `jsk --help` is the full surface.
 | `jsk index <kb> [--rank <posting.md>]` | every entry with its lines, and the ranking |
 | `jsk match <posting.ttl>` | a posting matched through the vocabulary |
 | `jsk kb <verb>` | the graph record, changed and read |
+| `jsk migrate <kb.md>` · `jsk event <app-dir> <kind>` | Markdown to graph, once; a timeline event |
 | `jsk validate <resume.json>` | the record gate |
 | `jsk render <resume.json> --out DIR --view ID --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
 | `jsk preview <resume.json> --out DIR` | every template, with page counts |
 | `jsk check <file> [--strict] [--only parse\|prose]` | the parse and prose gates on one file |
 | `jsk gates <out-dir> [--record R] [--pages N]` | record, parse and prose gates together |
-| `jsk ship <resume.json> --out DIR --view ID [--pages N]` | validate, render and gates; stops at the first failure |
+| `jsk ship <resume.json> --out DIR --view ID [--pages N]` | validate, render, gates; stops at a failure |
 | `jsk fit <resume.tex> --target-pages 2` | fits the render to a page budget |
-| `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | refuses unless the gates pass, then writes `application.md` |
+| `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | archives it, if the gates pass |
 
 Exit codes: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are required — the
 PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
@@ -106,7 +107,7 @@ PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
 
 | Agent | Hand it | Get back |
 |---|---|---|
-| `jsk-tailor-analyst` | posting, knowledge base path | requirements, ranking, `gaps.md` and its question queue |
+| `jsk-tailor-analyst` | posting, knowledge base path | requirements, ranking, `gaps.md` and questions |
 | `jsk-resume-author` | posting, gaps, knowledge base path | `resume.json`, every authored clause quoted |
 | `jsk-kb-auditor` | knowledge base path | what is missing, as a prioritised question queue |
 | `jsk-verifier` | a **failed** gate, or the render gate to read | each verdict verbatim, and where the defect is repaired |
@@ -122,7 +123,7 @@ procedure inline.
 
 | Gate | Question | How |
 |---|---|---|
-| **Record** | coherent, shaped right, every number traced to a metric? | `jsk validate` — the only thing that sees a key the renderer ignores |
+| **Record** | coherent, shaped right, every number traced to a metric? | `jsk validate` |
 | **Parse** | will an ATS read it? | `jsk check` on the PDF; `--strict` on the `.txt` |
 | **Prose** | does it obey the writing rules? | `jsk check --only prose` on the `.tex` |
 | **Render** | does it look right, and is it true? | open every page of the PDF |

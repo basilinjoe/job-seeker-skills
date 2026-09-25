@@ -1,0 +1,15 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Posting
+
+k:post_contoso_platform j:company "Contoso" ; j:title "Platform Engineer" ;
+    j:captured "2026-09-20"^^xsd:date ; j:advert "posting.md" .
+
+# == Requirements
+
+k:req_contoso_platform_kubernetes j:posting k:post_contoso_platform ;
+    j:asked "K8s" ; j:necessity j:required ;
+    j:quote "Production K8s experience required." .

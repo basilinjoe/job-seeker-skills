@@ -82,11 +82,41 @@ def log_entries(store):
 
 
 def taken_ids(store):
-    """Every id the record has ever used: what exists, and what the log says existed."""
+    """Every id the record has ever used: what exists, what the log says existed, and every
+    k: id any workspace file names, as subject or object.
+
+    The last is what survives git restoring kb.ttl and log.ttl together to an older
+    commit: the log no longer remembers a bullet or a metric version minted since, but an
+    application.ttl that sent it still names it - and a new entry minted onto that id
+    would read, in that application, as what it sent.
+    """
+    import pyoxigraph as ox
+
     ids = set(store.homes)
     for _, named in log_entries(store):
         ids |= named
+    for parsed in store.parsed.values():
+        for q in parsed.quads:
+            for t in (q.subject, q.object):
+                if isinstance(t, ox.NamedNode) and t.value.startswith(O.K):
+                    ids.add(t.value)
     return ids
+
+
+def sent_elsewhere(store):
+    """k: ids an application.ttl names that no file defines: what was sent, and has since
+    left the career - by a delete, or by git restoring an older kb.ttl."""
+    import pyoxigraph as ox
+
+    out = {}
+    for name, parsed in store.parsed.items():
+        if parsed.kind != "application":
+            continue
+        for q in parsed.quads:
+            if isinstance(q.object, ox.NamedNode) and q.object.value.startswith(O.K) \
+                    and q.object.value not in store.homes:
+                out.setdefault(q.object.value, name)
+    return out
 
 
 def words(text):
@@ -202,6 +232,16 @@ def apply(store, cs, today):
         else:
             add(s, p, o)
 
+    # An id an application sent, that the career no longer holds, is not free to define
+    # again: that application would then read as having sent the new entry.
+    gone = sent_elsewhere(store)
+    for s in sorted({s for s, _, _ in cs.add if isinstance(s, ox.NamedNode)} - in_kb,
+                    key=lambda s: s.value):
+        if s.value in gone:
+            refuse(s, f"was sent in {gone[s.value]}, and kb.ttl no longer defines it",
+                   "a sent id is never reused: give the new entry another id "
+                   "(a metric's next free version number)")
+
     minted_bullets = []
     for b, props in blanks.items():
         project = next(o for p, o in props if local(p) == "project")
@@ -242,7 +282,7 @@ def apply(store, cs, today):
 
     edit = Edit([])
     for v, changes in redirects.items():
-        new_version(after, v, changes, today, carried, edit)
+        new_version(after, v, changes, today, carried, edit, taken)
     close_versions(after, before, today, edit)
     provenance(after, before, cs, minted_bullets, edit)
     questions(after, before, today, taken, edit)
@@ -311,11 +351,15 @@ def versions_of(triples, metric):
                   key=lambda s: version_number(s.value))
 
 
-def new_version(after, v, changes, today, carried, edit):
-    """A sent version's new number, as the next version of its metric."""
+def new_version(after, v, changes, today, carried, edit, taken=frozenset()):
+    """A sent version's new number, as the next version of its metric - the next number
+    no file has used, so a version an application still names after git restored an older
+    kb.ttl is never minted again with another value."""
     of = node(O.J + "of")
     metric = next(o for s, p, o in after if s == v and p == of)
     n = max(version_number(x.value) for x in versions_of(after, metric)) + 1
+    while f"{metric.value}.v{n}" in taken or node(f"{metric.value}.v{n}") in {s for s, _, _ in after}:
+        n += 1
     new = node(f"{metric.value}.v{n}")
     copy = {(new, p, o) for s, p, o in after if s == v and local(p) not in NOT_INHERITED
             and p not in changes}

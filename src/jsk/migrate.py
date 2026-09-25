@@ -1525,16 +1525,20 @@ def claims_gate(root, records):
         print("claims   gate not available (jsk.gates.claims is not in this install) - "
               "no resume.json was checked against the new record")
         return 0
+    from .graph import store as S
+
+    store = S.load(root)                   # the record just written, as the gate reads it
     worst = 0
     for record in records:
+        name = os.path.relpath(record, root).replace("\\", "/")
         try:
-            report = claims.check(record, root)
+            report = claims.check(record, store)
         except Exception as e:                      # noqa: BLE001 - a verdict, not a traceback
-            print(f"claims   did not run on {os.path.relpath(record, root)}: "
-                  f"{type(e).__name__}: {e}")
+            print(f"claims   did not run on {name}: {type(e).__name__}: {e}")
+            worst = 1                               # a gate that did not run did not pass
             continue
-        fails = getattr(report, "fails", [])
-        print(f"claims   {os.path.relpath(record, root)}: {len(fails)} FAIL")
+        fails = report.fails
+        print(f"claims   {name}: {len(fails)} FAIL")
         for f in fails:
             print(f"  {f}")
         worst = max(worst, 1 if fails else 0)
