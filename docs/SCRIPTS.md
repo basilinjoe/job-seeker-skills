@@ -165,13 +165,48 @@ jsk kb apply changes.trig --dry-run      # the diff it would make, nothing writt
 jsk kb apply changes.trig                # merged, validated, written, logged
 ```
 
-**`apply`** is how an agent changes `career/kb.ttl`: a changeset, in TriG, with four graphs.
+**`apply`** is how an agent changes `career/kb.ttl`: a changeset, in TriG, with four graphs. A
+first braindump into the empty record `jsk new` writes (r1) - it applies as it stands:
 
-```turtle
+```trig
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix op: <tag:jsk,2026:op#> .
-op:changeset op:base 7 ; op:summary "The payments project, from the braindump." .
-op:add    { k:prj_payments j:name "Payments platform" ; j:strength 4 ; j:recency 2025 .
-            [] j:project k:prj_payments ; j:rank 1 ; j:text "Cut settlement latency by 75%." . }
+
+op:changeset op:base 1 ; op:summary "Who she is, and the payments project, from the first braindump." .
+
+op:add {
+    k:person j:fullName "Priya Raman" ; j:email "priya@example.com" ; j:phone "+61 400 000 000" .
+    k:org_meridian j:name "Meridian Health" ; j:relationship j:employer .
+    k:pos_meridian_principal j:organisation k:org_meridian ;
+        j:title "Principal Solution Architect" ;
+        j:start "2023-07" ; j:state j:ongoing ; j:seniority j:architecture-ownership .
+    k:prj_payments j:name "Payments platform" ; j:position k:pos_meridian_principal ;
+        j:strength 4 ; j:recency 2025 ; j:uses c:kafka, c:payments ;
+        j:headlineMetric k:met_settlement .
+    [] j:project k:prj_payments ; j:rank 1 ;
+        j:text "Cut settlement latency from 800 ms to 200 ms." ;
+        j:cites k:met_settlement ; j:shows c:kafka .
+    k:met_settlement j:subject "settlement latency" ; j:unit "ms" ; j:direction j:decrease .
+    k:met_settlement.v1 j:of k:met_settlement ; j:baseline 800 ; j:value 200 ;
+        j:confidence j:reported .
+    c:payments a j:Domain ; j:label "payments" .
+}
+```
+
+The other three graphs, against a record that has been growing for a while (the prefix block is
+the same, and always all five lines):
+
+```trig
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix op: <tag:jsk,2026:op#> .
+
+op:changeset op:base 7 ; op:summary "Tidying after the quarterly review." .
 op:set    { k:prj_legacy j:strength 2 . }                     # replaces every value it names
 op:retire { k:prj_intranet j:reason "Too old to earn a line." . }
 op:delete { k:q_duplicate a op:Entry . k:ach_x j:shows c:java . }

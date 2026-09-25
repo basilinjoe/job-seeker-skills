@@ -130,7 +130,7 @@ live on its versions, so a bullet cites `met_x` and the current version is resol
 | | Requirement `req_<stem>_<term>` | posting 1, asked 1 (the term as written), quote 1 (the advert's words), necessity 1 (required·preferred·implicit), concept ? (-> Concept: the analyst's choice when a label is ambiguous) |
 | application.ttl | Application `app_` | posting 1, view ?, submitted 1 (date, or `false` when held back), channel ?, document *, recordSha256 ?, carried * (-> Achievement), carriedVersion * (-> MetricVersion) |
 | | Event `evt_<stem>_<date>_<kind>` | application 1, date 1 (date, or `"unknown"`), kind 1 (the pipeline vocabulary: submitted·acknowledged·screen-scheduled·screen-done·interview-scheduled·interview-done·onsite-scheduled·onsite-done·offer·offer-accepted·rejected·withdrawn·no-response·offer-declined·follow-up-sent·note·referral·recruiter-contact), channel ?, note ?, due ? (date) |
-| log.ttl | LogEntry `rev_<N>` | revision 1, date 1, by 1 (apply·confirm·adopt·migrate·fmt), summary 1, touched * (k: ids and concepts), minted *, answer ? (only with `by confirm`), kbSha256 1 |
+| log.ttl | LogEntry `rev_<N>` | revision 1, date 1, by 1 (apply·confirm·adopt·migrate·fmt·new - `new` added by P7 for `jsk new`'s r1), summary 1, touched * (k: ids and concepts), minted *, answer ? (only with `by confirm`), kbSha256 1 |
 | vocabulary.ttl | Concept `c:` | as in kb.ttl, restricted to Technology with no `implies` (a P2 rule) |
 | changeset.trig | reserved graphs | `op:set`, `op:add`, `op:retire`, `op:delete`, and the header `op:changeset op:base N ; op:summary "…"`. P1 names them; P3 gives them meaning (docs/superpowers/plans/2026-09-24-graph-write.md) |
 

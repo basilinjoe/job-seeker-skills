@@ -136,7 +136,9 @@ ENUMS = {
                   "interview-scheduled", "interview-done", "onsite-scheduled", "onsite-done",
                   "offer", "offer-accepted", "rejected", "withdrawn", "no-response",
                   "offer-declined", "follow-up-sent", "note", "referral", "recruiter-contact"),
-    "logBy": ("apply", "confirm", "adopt", "migrate", "fmt"),
+    # `new` is `jsk new`'s r1 (and a --force start-over): neither adopted from a hand
+    # edit nor migrated, so neither of those words would say what happened.
+    "logBy": ("apply", "confirm", "adopt", "migrate", "fmt", "new"),
 }
 
 ANY = ("*",)

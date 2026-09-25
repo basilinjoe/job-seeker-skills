@@ -150,8 +150,21 @@ def run(module, *args):
 
 
 def kb_text(directory):
-    """Read the knowledge base `jsk new` wrote into `directory`."""
+    """Read the Markdown knowledge base in `directory`."""
     return (Path(directory) / "user-knowledgebase.md").read_text(encoding="utf-8")
+
+
+def scaffold_markdown_kb(directory, name, date="2026-09-01"):
+    """Write the `kb: 2` template into `directory`: exactly the user-knowledgebase.md
+    `jsk new` wrote before it wrote the graph record (git 364ca6f:src/jsk/kb.py). Every
+    Markdown knowledge base on disk started from it, so `jsk migrate` is held to it for
+    as long as `jsk migrate` exists."""
+    template = (Path(__file__).parent / "kb2_template.md").read_text(encoding="utf-8")
+    path = Path(directory) / "user-knowledgebase.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(template.replace("__NAME__", name).replace("__DATE__", date),
+                    encoding="utf-8", newline="\n")
+    return path
 
 
 # --- URS -------------------------------------------------------------------
