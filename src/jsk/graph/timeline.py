@@ -9,8 +9,9 @@ Usage: jsk event <app-dir> <kind> --date YYYY-MM-DD|unknown [--channel TEXT] [--
            follow-up-sent, note, referral, recruiter-contact
 
 Adds one event, k:evt_<stem>_<date>_<kind>, to applications/<dir>/application.ttl - never
-edits one, never removes one. The same kind on the same day is already recorded, and is
-refused. The whole workspace is validated with the event in it before the file is
+edits one, never removes one. A second of the same kind on the same day - another note,
+a second interview round - is k:evt_..._<kind>_2, then _3; only an event identical to
+one already there (kind, date, channel, note and due) is refused. The whole workspace is validated with the event in it before the file is
 written, and the file is written in the canonical layout. application.ttl is not logged
 in career/log.ttl: the log is the career's, and an application is not the career.
 
@@ -56,8 +57,8 @@ def event_iri(stem, date, kind):
     return f"{O.K}evt_{stem}_{date.replace('-', '_')}_{kind.replace('-', '_')}"
 
 
-def event_quads(app, stem, date, kind, channel=None, note=None, due=None):
-    s = event_iri(stem, date, kind)
+def event_quads(app, stem, date, kind, channel=None, note=None, due=None, iri=None):
+    s = iri or event_iri(stem, date, kind)
     out = [quad(s, "application", node(app)), quad(s, "date", date_literal(date)),
            quad(s, "kind", node(O.J + kind))]
     if channel:
@@ -269,6 +270,25 @@ def main(argv=None):
                flags.get("--channel"), flags.get("--note"), due)
 
 
+def free_iri(store, base, quads):
+    """(iri to mint, None), or (None, the iri of an event that is this one exactly).
+
+    Two notes on one day, a round-1 and a round-2 interview-done, two recruiter-contacts
+    dated unknown are all real, so the id is the first of base, base_2, base_3... that is
+    free - as `jsk migrate` mints a timeline's repeats. Only an event identical in every
+    field (kind, date, channel, note, due) is a duplicate: running the same command
+    twice records nothing new."""
+    want = {(q.predicate, q.object) for q in quads}
+    iri, n = base, 2
+    while iri in store.homes:
+        have = {(q.predicate, q.object) for parsed in store.parsed.values()
+                for q in parsed.quads if q.subject.value == iri}
+        if have == want:
+            return None, iri
+        iri, n = f"{base}_{n}", n + 1
+    return iri, None
+
+
 def add(root, path, kind, date, channel, note, due):
     from . import record as R
     from . import store as S
@@ -297,10 +317,13 @@ def add(root, path, kind, date, channel, note, due):
         return refuse([f"{rel} holds no application"], "`jsk freeze` writes one")
     stem = app[len(O.K) + len("app_"):]
     iri, quads = event_quads(app, stem, date, kind, channel, note, due)
-    if iri in store.homes:
-        return refuse([f"{curie(iri)} is already recorded: one {kind} on {date}"],
-                      f"`jsk kb show {curie(iri)}`; an event is never edited - add a `note` "
+    iri, same = free_iri(store, iri, quads)
+    if same:
+        return refuse([f"{curie(same)} is already recorded: this {kind} on {date}, with the "
+                       "same channel, note and due"],
+                      f"`jsk kb show {curie(same)}`; an event is never edited - add a `note` "
                       "event to say more")
+    iri, quads = event_quads(app, stem, date, kind, channel, note, due, iri=iri)
     text = write(list(parsed.quads) + quads, "application")
     after = S.load(root, texts={rel: text})
     broken = new_failures(store, after)

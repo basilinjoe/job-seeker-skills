@@ -196,6 +196,88 @@ class Force(Scaffold):
         self.assertIn(old_log.split("# == Log\n", 1)[1].strip(), log)
         self.assertNotIn("k:prj_payments", self.path(kb.KB).read_text(encoding="utf-8"))
 
+    def hand_edit(self):
+        """A confirmed k:person typed straight into kb.ttl, not adopted."""
+        path = self.path(kb.KB)
+        path.write_text(path.read_text(encoding="utf-8") +
+                        '\nk:person j:fullName "Priya Raman" ; j:email "priya@example.com" ; '
+                        'j:phone "+61 400 000 000" ; j:provenance j:confirmed .\n',
+                        encoding="utf-8", newline="\n")
+
+    def test_force_over_a_hand_edit_is_refused_until_it_is_adopted(self):
+        """The log would never have seen the edit, and the empty record would erase it."""
+        self.new()
+        self.hand_edit()
+        before = {n: self.path(n).read_bytes() for n in (kb.KB, kb.LOG)}
+        code, out = self.new("--force")
+        self.assertEqual(code, 1, out)
+        self.assertIn("REFUSED", out)
+        self.assertIn("jsk kb adopt", out)
+        self.assertIn("nothing was written", out)
+        self.assertNotRegex(out, r"\bgit\b")
+        self.assertEqual({n: self.path(n).read_bytes() for n in (kb.KB, kb.LOG)}, before)
+        self.assertEqual(list(self.path("career").glob("kb.r*.ttl")), [])
+
+    def test_force_over_a_torn_record_is_refused(self):
+        self.new()
+        store = S.load(self.root)
+        text = write(R.stamp(store.graph(kb.KB), 2, TODAY), "kb")
+        self.path(kb.KB).write_text(text, encoding="utf-8", newline="\n")
+        code, out = self.new("--force")
+        self.assertEqual(code, 1, out)
+        self.assertIn("jsk kb adopt", out)
+
+    def test_force_keeps_the_replaced_record_beside_it(self):
+        """No git, no shadow: the only copy of what --force replaces is the one it keeps."""
+        self.new()
+        self.hand_edit()
+        code, out = self.kb("adopt")
+        self.assertEqual(code, 0, out)
+        old = self.path(kb.KB).read_bytes()
+        code, out = self.new("--force")
+        self.assertEqual(code, 0, out)
+        kept = self.path("career/kb.r2.ttl")
+        self.assertEqual(kept.read_bytes(), old)
+        self.assertIn("k:person", kept.read_text(encoding="utf-8"))
+        self.assertIn("kb.r2.ttl", out)
+        self.assertNotRegex(out, r"\bgit\b")
+        self.assertNotIn("k:person", self.path(kb.KB).read_text(encoding="utf-8"))
+        log = self.path(kb.LOG).read_text(encoding="utf-8")
+        self.assertIn("career/kb.r2.ttl", log)
+        self.assertNotRegex(log, r"\bgit\b")
+
+    def test_the_kept_copy_is_not_a_record_file(self):
+        from jsk import preflight
+
+        self.new()
+        code, out = self.new("--force")
+        self.assertEqual(code, 0, out)
+        self.assertTrue(self.path("career/kb.r1.ttl").is_file())
+        files = [Path(f) for f in S.workspace_files(self.root, vocabulary=None)]
+        self.assertEqual(files, [self.path(kb.KB), self.path(kb.LOG)])
+        self.assertEqual(Path(preflight.find_kb(self.root)), self.path(kb.KB))
+        store = S.load(self.root)
+        self.assertEqual([f.text() for f in store.fails()], [])
+        self.assertEqual(R.state(store).kind, "clean")
+
+    def test_the_kept_copy_never_overwrites_a_file(self):
+        self.new()
+        self.path("career/kb.r1.ttl").write_text("someone else's", encoding="utf-8")
+        old = self.path(kb.KB).read_bytes()
+        code, out = self.new("--force")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.path("career/kb.r1.ttl").read_text(encoding="utf-8"),
+                         "someone else's")
+        self.assertEqual(self.path("career/kb.r1-2.ttl").read_bytes(), old)
+        self.assertIn("kb.r1-2.ttl", out)
+
+    def test_the_refusal_over_an_existing_record_does_not_promise_git(self):
+        self.new()
+        code, out = self.new()
+        self.assertEqual(code, 1, out)
+        self.assertNotRegex(out, r"\bgit\b")
+        self.assertIn("kept", out)
+
     def test_force_is_refused_where_an_application_carried_the_old_record(self):
         shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
         before = self.path(kb.KB).read_bytes()

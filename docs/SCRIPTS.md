@@ -124,8 +124,12 @@ is in the folder and no `career/kb.ttl` is - that career is already written down
 `jsk migrate` moves it across checked; `jsk new` would leave it behind, and migrate refuses once a
 kb.ttl exists. `--force` overrides both. Over an existing record it starts over **as the next
 revision** - kb.ttl becomes the empty record, `log.ttl` keeps every earlier entry and gains one by
-`new`, and git holds the old text - and it is refused where a frozen application carried an entry
-the empty record would not have, or where `log.ttl` does not parse.
+`new`, and the replaced kb.ttl is kept beside it as `career/kb.r<N>.ttl`, N its revision (then
+`kb.r<N>-2.ttl` if that name is taken - it never overwrites a file; the loader and `jsk doctor` read
+only `career/kb.ttl`, so the copy is not a record file). It is refused while kb.ttl is
+hand-edited, torn or out of sync with the log - `jsk kb adopt` first, so the log records the text
+it replaces - where a frozen application carried an entry the empty record would not have, or
+where `log.ttl` does not parse.
 
 Guidance that the Markdown template carried in HTML comments is not in kb.ttl: a comment is not
 part of the graph, and `jsk kb fmt` and `adopt` refuse a file holding one. What each section holds
@@ -762,8 +766,10 @@ Adds one event to a frozen application's `application.ttl`: `k:evt_<stem>_<date>
 `recruiter-contact` - and a kind outside it is exit 2 with the nearest one suggested. The date is
 `YYYY-MM-DD` or `unknown`.
 
-Add-only: it never edits or removes an event, and the same kind on the same day is already
-recorded, so it is refused (a `note` event says more). The whole workspace is loaded with the
+Add-only: it never edits or removes an event. A second event of the same kind on the same day -
+another note, a round-2 `interview-done`, a second `unknown`-dated contact - is minted
+`k:evt_<stem>_<date>_<kind>_2`, then `_3`, as `jsk migrate` mints a timeline's repeats; only an
+event identical to one already there (same kind, date, channel, note and due) is refused. The whole workspace is loaded with the
 event in it and validated before the file is replaced; a file with hand comments, or not in the
 canonical layout, is refused until `jsk kb fmt <file>`, so the event is the only change in its
 diff. An application frozen as `application.md` is pointed at its `# Timeline` table. Not logged

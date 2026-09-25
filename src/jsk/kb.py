@@ -4,7 +4,8 @@
 Usage: python3 -m jsk.kb <path> --name "Their Name" [--force]
        <path>     the workspace folder to create; career/ goes inside it
        --name     the person's full name; the record's header says whose it is
-       --force    start an existing career/kb.ttl over from the empty record, logged
+       --force    start an existing career/kb.ttl over from the empty record, logged, the
+                  old one kept beside it as career/kb.r<N>.ttl
 
 On Windows use `python` or `py -3` in place of `python3`.
 
@@ -96,25 +97,50 @@ def first_write(root, name, today):
     return kb_text, write(log, "log")
 
 
+def kept_name(root, revision):
+    """career/kb.r<N>.ttl - or kb.r<N>-2.ttl, -3... - the first that is not there yet.
+
+    Beside kb.ttl, where the person will see it: .jsk/ is a cache that ignores itself,
+    and a workspace need not be a git repository. Never a record file - the loader and
+    `jsk doctor` read career/kb.ttl by its exact name."""
+    base = f"career/kb.r{revision}"
+    rel, n = f"{base}.ttl", 2
+    while os.path.exists(os.path.join(root, rel)):
+        rel, n = f"{base}-{n}.ttl", n + 1
+    return rel
+
+
 def restart(root, name, today):
-    """(kb_text, log_text, revision) replacing an existing kb.ttl with the empty record,
-    as the next revision of the log already there - or (None, refusal lines)."""
+    """(kb_text, log_text, revision, kept) replacing an existing kb.ttl with the empty
+    record, as the next revision of the log already there, the old text to be kept at
+    `kept` - or (None, refusal lines).
+
+    Only a clean record is started over: a hand edit, or a write that tore, is text the
+    log never recorded, so it is adopted first and the log says what was replaced."""
     import contextlib
     import io
 
     from .gates.validate_urs import show
     from .graph import record as R
     from .graph import store as S
+    from .graph.kbcli import GUIDE
 
     store = S.load(root)
-    if R.state(store).kind == "unreadable":
+    st = R.state(store)
+    if st.kind == "unreadable":
         return None, [f"REFUSED  {KB} or {LOG} does not parse, so there is no revision to "
                       "start over from",
                       "        fix: `jsk kb check` shows where; or move career/ aside"]
+    if st.kind != "clean":
+        message, fix = GUIDE[st.kind]
+        return None, [f"REFUSED  {message or st.detail} - starting over now would replace "
+                      "text the log never recorded",
+                      f"        fix: {fix}; then --force again"]
+    kept = kept_name(root, st.kb_revision)
     rev, kb_text, log_text = R.prepare(
         store, header(name), today, "new",
         f"Started over by jsk new --force for {name}: kb.ttl replaced by the empty record. "
-        f"The revision before this one is the last of the old record; git has its text.")
+        f"r{st.kb_revision}, the last of the old record, is kept as {kept}.")
     after = S.load(root, texts={KB: kb_text, LOG: log_text})
     if after.fails():
         lines = [f"REFUSED  starting over would leave {len(after.fails())} failures - an "
@@ -126,7 +152,7 @@ def restart(root, name, today):
         lines.append("        fix: a frozen application keeps its links; move career/ aside "
                      "and start a new workspace instead")
         return None, lines
-    return (kb_text, log_text, rev), None
+    return (kb_text, log_text, rev, kept), None
 
 
 def gitattributes(root):
@@ -155,7 +181,7 @@ def scaffold(root, name, force=False, today=None):
     if exists and not force:
         return 1, [f"REFUSED  already exists: {kb}",
                    "        fix: change it with `jsk kb apply`; or --force to start over from "
-                   "the empty record (logged, and the old one stays in git)"]
+                   "the empty record (logged, the old one kept beside it as career/kb.r<N>.ttl)"]
     markdown = os.path.join(root, MARKDOWN_KB)
     if not exists and os.path.exists(markdown) and not force:
         return 1, [f"REFUSED  {markdown} is here: this career is already written down",
@@ -174,7 +200,16 @@ def scaffold(root, name, force=False, today=None):
         done, refusal = restart(root, name, today)
         if refusal:
             return 1, refusal + ["nothing was written"]
-        kb_text, log_text, rev = done
+        kb_text, log_text, rev, kept = done
+        kept = os.path.normpath(os.path.join(root, kept))
+        try:
+            with open(kb, "rb") as src, open(kept, "xb") as dst:   # x: never overwrites
+                dst.write(src.read())
+        except OSError as e:
+            return 1, [f"FAIL  could not keep a copy of {kb} at {kept}: {e}",
+                       "        fix: free the path, or check the folder is writable",
+                       "nothing was written"]
+        lines.append(f"kept   {kept} (the record --force replaces)")
     else:
         kb_text, log_text = first_write(root, name, today)
         rev = 1
@@ -182,7 +217,7 @@ def scaffold(root, name, force=False, today=None):
     try:
         R.commit(root, kb_text, log_text)
     except R.RecordError as e:
-        return 1, [f"FAIL  {e}", f"        fix: {e.fix}"]
+        return 1, lines + [f"FAIL  {e}", f"        fix: {e.fix}"]
     lines.append(f"wrote  {kb}")
     lines.append(f"wrote  {os.path.normpath(os.path.join(root, LOG))} (r{rev}, by new)")
 
