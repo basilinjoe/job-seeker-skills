@@ -893,6 +893,33 @@ class OlderShapes(Tmp):
         t = triples(self.root)
         self.assertEqual(t[("k:ach_led_migration", "cites")], {"k:met_team", "k:met_jobs"})
 
+    def test_a_numbered_bullet_id_is_renamed_and_everything_naming_it_follows(self):
+        """`ach_clinical_events_1` says where the bullet sat, which the graph refuses. It
+        is minted again from the bullet's words; the question about it and the resume.json
+        that sent it still point at it, and the old id is kept in a note."""
+        kb = EVERY_SECTION.replace(
+            "  - metric: metric_event_latency\n",
+            "  - id: ach_clinical_events_1\n  - metric: metric_event_latency\n", 1)
+        kb = kb.replace("| q_latency_source | Where did the 5-minute baseline come from? | "
+                        "metric_event_latency |",
+                        "| q_latency_source | Where did the 5-minute baseline come from? | "
+                        "ach_clinical_events_1 |")
+        root = workspace(self.root, kb=kb)
+        sent = root / "applications" / "2026-09-10-acme-platform-engineer" / "resume.json"
+        record = json.loads(sent.read_text(encoding="utf-8"))
+        record["engagements"][0]["achievements"][0]["id"] = "ach_clinical_events_1"
+        sent.write_text(json.dumps(record, indent=2), encoding="utf-8")
+        code, out = migrated(self.root)
+        self.assertEqual(code, 0, out)
+        t = triples(self.root)
+        self.assertNotIn(("k:ach_clinical_events_1", "text"), t)
+        (new,) = [s for (s, p), v in t.items() if p == "text" and BULLET[:20] in next(iter(v))]
+        self.assertTrue(any("ach_clinical_events_1" in n for n in t[(new, "note")]))
+        self.assertEqual(t[("k:q_latency_source", "about")], {new})
+        app = triples(self.root, "applications/2026-09-10-acme-platform-engineer/application.ttl")
+        self.assertEqual(app[("k:app_acme_platform_engineer", "carried")], {new})
+        self.assertIn(f"k:ach_clinical_events_1 is now {new}", out)
+
     def test_a_kb_1_file_s_log_section_joins_the_history(self):
         kb = EVERY_SECTION.replace("kb: 2", "kb: 1") + (
             "\n## Log\n\n| date | what changed |\n|---|---|\n| 2026-01-01 | Began. |\n")

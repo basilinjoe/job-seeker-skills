@@ -242,6 +242,7 @@ class Plan:
     refusals: list = field(default_factory=list)         # (detail, fix)
     files: dict = field(default_factory=dict)            # workspace name -> text
     copies: list = field(default_factory=list)           # (from name, to name)
+    renamed: dict = field(default_factory=dict)         # numbered bullet id -> minted id
     records: list = field(default_factory=list)          # resume.json paths
     apps: int = 0
     defaulted: int = 0                                   # entries with no status: inferred
@@ -1381,9 +1382,13 @@ def mint_bullets(plan, reader, root):
     b = Builder(plan)
     for project, text, rank, pairs in reader.bullets:
         subs = dict(pairs)
-        iri = None
+        iri = old = None
         if not empty(subs.get("id")):
             iri = kid(subs["id"])
+            # "ach_chloe_1" says where the bullet sat, not what it says: the graph refuses
+            # it, so it is minted again below and everything that named it follows.
+            if onto.POSITIONAL.search(iri[len(onto.K):]):
+                old, iri = iri, None
         for aid in sent.get(same_words(text), []):
             if iri:
                 break
@@ -1409,6 +1414,11 @@ def mint_bullets(plan, reader, root):
             continue
         taken.add(iri)
         n = b.node(iri, "Achievement")
+        if old:
+            plan.renamed[old] = iri
+            plan.notices.append(f"{curie(old)} is now {curie(iri)}: a numbered id says where "
+                                "a bullet sat, not what it says")
+            b.note(iri, "id", subs["id"], "the numbered id it had; renamed")
         subs = reader.sub_map(iri, pairs)             # a key written twice: the first, noted
         n.props["project"].add(project)
         n.props["rank"].add(rank)
@@ -1423,6 +1433,15 @@ def mint_bullets(plan, reader, root):
             if k not in {"id", "metric", "metrics", "status", "retired", "reason",
                          "retired_reason"} and not empty(v):
                 b.note(iri, k, v, "a bullet has no such field")
+
+
+def follow_renames(plan):
+    """Every reference to a renamed bullet - a question about it - names the new id."""
+    for n in plan.nodes.values():
+        for pred, values in n.props.items():
+            hit = {v for v in values if isinstance(v, str) and v in plan.renamed}
+            if hit:
+                n.props[pred] = (values - hit) | {plan.renamed[v] for v in hit}
 
 
 def default_provenance(plan):
@@ -1819,7 +1838,7 @@ def application(plan, d, rel, stem, post):
         with open(record, "rb") as fh:
             nodes[app].props["recordSha256"].add(hashlib.sha256(fh.read()).hexdigest())
         for aid, _ in achievements(record):
-            iri = onto.K + aid
+            iri = plan.renamed.get(onto.K + aid, onto.K + aid)
             if iri in plan.nodes and plan.nodes[iri].cls == "Achievement":
                 nodes[app].props["carried"].add(iri)
                 for m in plan.nodes[iri].props.get("cites", ()):
@@ -1895,6 +1914,7 @@ def plan_migration(kb_path, today=None):
         reader = Reader(plan, text, vocab, today)
         reader.read()
         mint_bullets(plan, reader, root)
+        follow_renames(plan)
         default_provenance(plan)
         required(plan, plan.nodes, R.KB)
         before = index_view(text, vocab, today)
