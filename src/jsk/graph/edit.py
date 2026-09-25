@@ -22,7 +22,7 @@ from .changeset import OP, Refusal, Refused, curie
 
 PROVENANCE = O.J + "provenance"
 # A version's number: changing these on a sent version makes a new version instead.
-VERSIONED = {"value", "baseline", "kind"}
+VERSIONED = {"value", "baseline", "upper", "qualifier", "kind"}
 # What a new version does not inherit from the one it replaces.
 NOT_INHERITED = {"validFrom", "validUntil", "provenance", "note", "retired", "reason"}
 # Words that say nothing about what a bullet is; left out of the id minted for it.
@@ -449,6 +449,8 @@ def ask(after, s):
         metric = next(iter(values(after, s, node(O.J + "of"))))
         subject = next((o.value for t, p, o in after if t == metric and local(p) == "subject"), "it")
         unit = next((o.value for t, p, o in after if t == metric and local(p) == "unit"), "")
-        span = f"from {get('baseline')} to {get('value')}" if get("baseline") else get("value")
+        qualifier = get("qualifier")
+        now = O.stated(get("value"), get("upper"), qualifier and qualifier[len(O.J):])
+        span = f"from {get('baseline')} to {now}" if get("baseline") else now
         return f"Is {span}{' ' + unit if unit else ''} right for {subject}?"
     return f"Is {curie(s.value)} right as now recorded?"

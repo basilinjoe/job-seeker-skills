@@ -57,7 +57,7 @@ Concepts are `c:<words-with-dashes>`. A bullet's id is minted by apply.
 | `prj_` | Project | Projects | `name` `position`? `strength` `recency` `seniority`? `domain`* `uses`* `headlineMetric`? `noneQuantified`? `problem`? `decision`? `outcome`? |
 | `ach_` | Achievement (a bullet) | Projects | `project` `rank` `text` `cites`* `shows`* |
 | `met_` | Metric | Metrics | `subject` `unit`? `direction`? |
-| `met_x.v1` | MetricVersion | Metrics | `of` `baseline`? `value` `kind`? `confidence` `source`? `validFrom`? `validUntil`? |
+| `met_x.v1` | MetricVersion | Metrics | `of` `baseline`? `value` `upper`? `qualifier`? `kind`? `confidence` `source`? `validFrom`? `validUntil`? |
 | `skill_` | Skill | Skills | `name` `category` `rank`? `alias`* |
 | `edu_` | Education | Education | `institution` `qualification` `field`? `level`? `start`? `end`? `gradeScheme`? `gradeValue`? |
 | `cred_` | Credential | Certifications | `name` `issuer` `issued`? `expires`? `credentialState` `url`? |
@@ -68,7 +68,9 @@ Every entry may carry `retired` (with a `reason`) and `note`* - free text for an
 ontology has no field for. Enums are `j:` words (`j:ongoing`, `j:measured`); dates are
 `"2026-09-08"^^xsd:date`; `start`/`end` are `"YYYY-MM"` strings. Seniority is closed:
 `architecture-ownership` `product-ownership` `platform-design` `team-leadership`
-`technical-ownership` `hands-on-senior` `hands-on` `junior`.
+`technical-ownership` `hands-on-senior` `hands-on` `junior`. A number stated loosely keeps how:
+"15-20" is `j:value 15 ; j:upper 20`, "50+" `j:qualifier j:at-least` (`j:about` ~, `j:under` <,
+`j:over` >); several numbers in one are several metrics.
 
 **Tag versus evidence.** A project's `uses` is a tag; a bullet's `shows` is evidence. A concept a
 project names must exist - in the shipped vocabulary or under `# == Vocabulary`

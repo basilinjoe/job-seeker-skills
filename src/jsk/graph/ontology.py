@@ -126,6 +126,9 @@ ENUMS = {
     "direction": ("increase", "decrease"),
     "metricKind": ("absolute", "delta", "ratio", "duration", "rank", "count"),
     "confidence": ("measured", "estimated", "reported"),
+    # How a number was stated: "15+", "~12", "<1", ">5". Part of the claim - "50+ tenants"
+    # is not "50 tenants" - so it is versioned with the value it qualifies.
+    "qualifier": ("at-least", "about", "under", "over"),
     "educationLevel": ("isced-5", "isced-6", "isced-7", "isced-8"),
     "credentialState": ("active", "expired", "lapsed"),
     "openSourceRole": ("maintainer", "contributor", "author"),
@@ -235,7 +238,11 @@ CLASSES = (
     Class("MetricVersion", "met.v", ("kb",), "Metrics", (
         (Pred("of", Ref(("Metric",)), "1", "the metric it is a version of"),),
         (Pred("baseline", NUM, "?", "the value before", claim=True),
-         Pred("value", NUM, "1", "the value", claim=True),
+         Pred("value", NUM, "1", "the value; the bottom of a range", claim=True),
+         Pred("upper", NUM, "?", "the top of a range, above value", claim=True),
+         Pred("qualifier", Enum("qualifier"), "?",
+              "at-least (15+), about (~12), under (<1) or over (>5); on a range, it "
+              "qualifies the top", claim=True),
          Pred("kind", Enum("metricKind"), "?", "absolute, delta, ratio and so on", claim=True)),
         (Pred("confidence", Enum("confidence"), "1", "measured, estimated or reported"),
          Pred("source", STR, "?", "where the number comes from")),
@@ -398,3 +405,13 @@ def class_of(iri):
 def norm(label):
     """A label as it is matched: lowercased, whitespace runs turned into `-`."""
     return re.sub(r"\s+", "-", label.strip().lower())
+
+
+def stated(value, upper=None, qualifier=None):
+    """A metric version's number as a person writes it: "15+", "~12", "<1", ">5",
+    "15-20", "~20-30", "300-800+". `value`, `upper` as lexical forms, `qualifier` a
+    qualifier's name or None."""
+    text = f"{value}-{upper}" if upper is not None else str(value)
+    if qualifier == "at-least":
+        return text + "+"
+    return {"about": "~", "under": "<", "over": ">"}.get(qualifier, "") + text

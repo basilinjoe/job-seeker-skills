@@ -139,6 +139,13 @@ class Versions(unittest.TestCase):
         self.assertTrue(any("sent in k:app_acme_platform_engineer" in n for n in e.notes))
         self.assertIn(O.K + "q_met_team_v2", e.minted)
 
+    def test_a_range_or_qualifier_on_a_sent_version_is_the_next_version(self):
+        e = run('op:set { k:met_team.v1 j:upper 8 ; j:qualifier j:about . }\n')
+        self.assertEqual(props(e, "met_team.v1").get("upper"), None)
+        v2 = props(e, "met_team.v2")
+        self.assertEqual((v2["value"], v2["upper"], v2["qualifier"]),
+                         (["6"], ["8"], [O.J + "about"]))
+
     def test_a_version_never_sent_is_corrected_in_place(self):
         e = run('op:set { k:met_sites.v1 j:value 43 . }\n')
         self.assertEqual(props(e, "met_sites.v1")["value"], ["43"])

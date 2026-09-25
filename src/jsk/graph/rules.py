@@ -261,6 +261,11 @@ RULES = [
          lambda r: ("no current version" if v(r, "open") == "0"
                     else f"{v(r, 'open')} versions with no validUntil"),
          "exactly one version is current: close the older ones with j:validUntil"),
+    Rule("range-upper", FAIL,
+         """SELECT ?focus ?value ?upper WHERE { ?focus j:value ?value ; j:upper ?upper
+              FILTER(?upper <= ?value) }""",
+         lambda r: f"j:upper {v(r, 'upper')} is not above j:value {v(r, 'value')}",
+         "a range is j:value (its bottom) to j:upper, above its value; one number needs no upper"),
     Rule("version-orphan", FAIL,
          """SELECT ?focus ?m WHERE { ?focus a j:MetricVersion ; j:of ?m
               FILTER(!STRSTARTS(STR(?focus), CONCAT(STR(?m), ".v"))) }""",

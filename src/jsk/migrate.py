@@ -327,6 +327,26 @@ def number(value):
     return None
 
 
+QUALIFIED = re.compile(r"(?P<pre>[~≈<>])?\s*(?P<a>\d[\d,]*(?:\.\d+)?)"
+                       r"(?:\s*[-–]\s*(?P<b>\d[\d,]*(?:\.\d+)?))?\s*(?P<plus>\+)?")
+QUALIFIER = {"~": "about", "≈": "about", "<": "under", ">": "over"}
+
+
+def qualified(value):
+    """(value, upper or None, qualifier or None) for a metric as people write one - "15+",
+    "~12", "<1", "15-20", "~20-30", "300-800+" - or None when it is not one number, or
+    one range, stated so. Several numbers in one cell are several metrics, and stay
+    refused."""
+    m = QUALIFIED.fullmatch(str(value).strip())
+    if not m or (m["pre"] and m["plus"]):
+        return None
+    low, high = number(m["a"]), number(m["b"]) if m["b"] else None
+    if low is None or (m["b"] and (high is None or Decimal(high) <= Decimal(low))):
+        return None
+    qualifier = "at-least" if m["plus"] else QUALIFIER.get(m["pre"])
+    return low, high, qualifier
+
+
 def as_date(value):
     if isinstance(value, datetime.datetime):
         return value.date()
@@ -1124,7 +1144,15 @@ class Reader:
             self.b.put(iri, "direction", row.get("direction"))
             self.plan.nodes[v1].props["of"].add(iri)
             self.b.put(v1, "baseline", row.get("baseline"))
-            if not self.b.put(v1, "value", row.get("value")):
+            stated = qualified(row.get("value")) if number(row.get("value")) is None else None
+            if stated:
+                # "~20-30": the bottom is the value, the top and the "~" their own fields.
+                low, high, qualifier = stated
+                self.plan.mark(row.get("value"))
+                self.b.put(v1, "value", low)
+                self.b.put(v1, "upper", high)
+                self.b.put(v1, "qualifier", qualifier)
+            elif not self.b.put(v1, "value", row.get("value")):
                 self.plan.refuse(f"metric {row['id']}: value {row.get('value')!r} is not a number",
                                  "write the value as a number (the unit has its own column), "
                                  "or move the row into the project's prose")

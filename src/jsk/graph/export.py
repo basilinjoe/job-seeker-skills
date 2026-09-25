@@ -306,6 +306,12 @@ def metric(career, m):
     if career.all(v, "baseline"):
         out["baseline"] = amount("baseline")
     out["quantity"] = amount("value")
+    upper, qualifier = career.all(v, "upper"), enum(career.get(v, "qualifier"))
+    if upper or qualifier:
+        # URS has no range or qualifier on a quantity: the number as the person stated it
+        # rides beside it, and the record gate counts every numeral in it as recorded.
+        out["value"] = O.stated(career.all(v, "value")[0].value,
+                                upper[0].value if upper else None, qualifier)
     if career.get(m, "direction"):
         out["direction"] = enum(career.get(m, "direction"))
     out["confidence"] = enum(career.get(v, "confidence"))

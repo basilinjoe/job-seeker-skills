@@ -213,6 +213,41 @@ class Replaced(unittest.TestCase):
         self.assertTrue(any("ach_events_team" in f for f in validate_urs.check_doc(doc).fails))
 
 
+class Qualified(unittest.TestCase):
+    def setUp(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        shutil.copytree(FIXTURES / "career", os.path.join(root, "career"))
+        path = os.path.join(root, "career", "kb.ttl")
+        text = Path(path).read_text(encoding="utf-8")
+        old = "k:met_team.v1 j:of k:met_team ; j:value 6 ;"
+        Path(path).write_bytes(text.replace(
+            old, old + " j:upper 8 ; j:qualifier j:about ;").encode())
+        # Adopted, as a person would: until then the claims gate reports the hand edit
+        # and checks nothing else.
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(["jsk", "kb", "adopt", "--root", root]), 0)
+        self.store = S.load(root)
+        self.assertEqual([f.text() for f in self.store.fails()], [])
+
+    def test_a_range_is_exported_with_its_written_form(self):
+        doc = export.urs(self.store, today=TODAY)
+        (m,) = achievements(doc)["ach_events_team"][1]["metrics"]
+        self.assertEqual((m["quantity"], m["value"]), ({"value": 6}, "~6-8"))
+
+    def test_either_end_of_a_range_traces_and_nothing_else_does(self):
+        doc = export.urs(self.store, today=TODAY)
+        a = achievements(doc)["ach_events_team"][1]
+        a["text"] = "Led a team of 6-8 engineers."
+        self.assertEqual(self.claim_fails(doc), [])
+        self.assertEqual(validate_urs.check_doc(doc).fails, [])
+        a["text"] = "Led a team of 9 engineers."
+        self.assertTrue(any("number-untraced" in f for f in self.claim_fails(doc)))
+
+    def claim_fails(self, doc):
+        return claims.check(doc, self.store, today=TODAY).fails
+
+
 class Command(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()

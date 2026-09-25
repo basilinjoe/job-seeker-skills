@@ -109,10 +109,11 @@ class Career:
         self.position = {r["p"].value: r["pos"].value for r in store.select(
             PRE + "SELECT ?p ?pos WHERE { ?p a j:Project ; j:position ?pos }")}
         self.versions = {}               # metric -> [(version, {numbers}, closed day or None)]
-        for r in store.select(PRE + """SELECT ?m ?v ?val ?base ?until WHERE {
+        for r in store.select(PRE + """SELECT ?m ?v ?val ?base ?upper ?until WHERE {
                 ?v j:of ?m ; j:value ?val OPTIONAL { ?v j:baseline ?base }
-                OPTIONAL { ?v j:validUntil ?until } }"""):
-            nums = {float(r["val"].value)} | ({float(r["base"].value)} if "base" in r else set())
+                OPTIONAL { ?v j:upper ?upper } OPTIONAL { ?v j:validUntil ?until } }"""):
+            # Either end of a range is the career's number: "15-20" states both.
+            nums = {float(r[k].value) for k in ("val", "base", "upper") if k in r}
             self.versions.setdefault(r["m"].value, []).append(
                 (r["v"].value, nums, r["until"].value if "until" in r else None))
         self.held = holdings(store)

@@ -30,6 +30,8 @@ MUTATIONS = {
     "version-orphan": (KB, "k:met_team.v1 j:of k:met_team", "k:met_team.v1 j:of k:met_sites",
                        "k:met_team.v1", "k:met_x.vN"),
     "version-gap": (KB, "k:met_sites.v1", "k:met_sites.v2", "k:met_sites", "no gap"),
+    "range-upper": (KB, "    j:value 42 ;", "    j:value 42 ; j:upper 40 ;", "k:met_sites.v1",
+                    "above its value"),
     "rank-unique": (KB, "j:rank 2 ;", "j:rank 1 ;", "k:ach_clinical_events_led_migration",
                     "its own rank"),
     "headline-cited": (KB, "j:cites k:met_sites ;", "j:cites k:met_team ;",

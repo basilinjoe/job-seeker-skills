@@ -663,6 +663,14 @@ class Refusals(Tmp):
         self.assertIn("k:pos_one has no seniority", out)
         self.assertEqual(snapshot(self.root), before)
 
+    def test_a_qualified_metric_value_keeps_its_range_and_qualifier(self):
+        kb = EVERY_SECTION.replace("| 40,000 | jobs |", "| ~20,000-40,000 | jobs |")
+        workspace(self.root, kb=kb, apps=False)
+        code, out = migrated(self.root)
+        self.assertEqual(code, 0, out)
+        text = Path(self.root, "career", "kb.ttl").read_text(encoding="utf-8")
+        self.assertIn("j:value 20000 ; j:upper 40000 ; j:qualifier j:about", text)
+
     def test_a_metric_value_that_is_not_a_number_is_refused(self):
         kb = EVERY_SECTION.replace("| 40,000 | jobs |", "| about forty thousand | jobs |")
         workspace(self.root, kb=kb, apps=False)
@@ -803,6 +811,41 @@ class NothingReadIsLostOrChanged(Tmp):
         self.assertEqual(code, 1, out)
         n = line_of(EVERY_SECTION, "pronouns: she/her") + 1
         self.assertIn(f"REFUSED  line {n}: 'confirmed'", out)
+
+
+class QualifiedValues(unittest.TestCase):
+    """A metric as people write it: "15+" is at least fifteen, "~12" about twelve, "15-20" a
+    range. Each is one number with a qualifier, and the range has an upper bound; several
+    numbers in one cell are still refused - they are several metrics."""
+
+    CASES = {
+        "15+": ("15", None, "at-least"),
+        "2,000+": ("2000", None, "at-least"),
+        "~12": ("12", None, "about"),
+        "~ 2,000": ("2000", None, "about"),
+        "<1": ("1", None, "under"),
+        "> 5": ("5", None, "over"),
+        "15-20": ("15", "20", None),
+        "15–20": ("15", "20", None),
+        "~20-30": ("20", "30", "about"),
+        "300-800+": ("300", "800", "at-least"),
+        "0.5-1.5": ("0.5", "1.5", None),
+    }
+
+    def test_each_form_is_one_number_a_bound_and_a_qualifier(self):
+        for text, (value, upper, qualifier) in self.CASES.items():
+            with self.subTest(text=text):
+                got = migrate.qualified(text)
+                self.assertIsNotNone(got)
+                v, u, q = got
+                self.assertEqual((str(v), u and str(u), q), (value, upper, qualifier))
+
+    def test_several_numbers_are_not_one_value(self):
+        for text in ("10-50 engineers at 2-3 h each", "4 batches of ~20 (~80)",
+                     "90 days / 360+ days / 7 years", "4 sessions, avg ~60", "about forty",
+                     "20-10"):
+            with self.subTest(text=text):
+                self.assertIsNone(migrate.qualified(text))
 
 
 class OlderShapes(Tmp):
