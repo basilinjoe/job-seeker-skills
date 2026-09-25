@@ -30,7 +30,8 @@ a confirm or a corrected bullet is on the next render with nothing to update her
 | `skills` | no | `skill_` ids in row order; absent, every skill |
 
 **The summary is the only prose in it.** A reworded bullet goes into the career first
-(`jsk kb apply`) and is named here by its id; an unknown key fails.
+(`jsk kb apply`) and is named here by its id; an unknown key fails. Once the person confirms the
+summary, set its `"status": "confirmed"` — the one edit a confirm ever needs here.
 
 ```bash
 jsk kb export --from-match applications/<stem>/posting.ttl --out applications/<stem>/resume.json
@@ -38,6 +39,8 @@ jsk kb export --select <ach_/prj_/pos_ ids> --out resume.json      # a general r
 jsk validate applications/<stem>/resume.json
 ```
 
-`jsk validate` fails an id the career does not hold or has retired, and a number in a selected
-bullet that no current version of a metric it cites backs; it warns of labels, "N years of X" and
-brackets.
+Export never writes over an existing file: edit it. `jsk validate` is the record gate. It fails
+the shape, an id the career does not hold or has retired, a bullet whose project has no role, a
+number in a bullet that no current version of a metric it cites holds, and a career that does not
+validate or that `log.ttl` does not vouch for (`jsk kb adopt`); it warns of labels, "N years of X"
+and brackets. A full URS record (`"urs"` key) from before is converted once: `jsk migrate <workspace>`.

@@ -57,9 +57,9 @@ says 200 ms; a later measurement becomes `v2` rather than overwriting it.
 
 **Application directory** — everything about one submission in one place:
 `applications/<yyyy-mm-dd>-<company>-<role>/`, holding the advert (`posting.md`), what it asks for
-(`posting.ttl`), the gap assessment, the record it rendered from, the files actually sent, and
-`application.ttl`: what was sent, the bullets and metric versions it carried, and a timeline of what
-came back.
+(`posting.ttl`), the gap assessment, the `resume.json` it rendered from, the files actually sent, and
+`application.ttl`: what was sent, the bullets that rendered and the metric versions they cite, and a
+timeline of what came back.
 *Why it matters:* it is frozen once the application goes out — `jsk freeze` refuses until the gates
 pass, writes `application.ttl` and names the directory after the day it was sent; after that
 `jsk event` adds what happened next, and nothing is edited. The career keeps moving, and an
@@ -71,22 +71,15 @@ is available for this release only.
 
 ## The rendering
 
-**URS (Universal Résumé Schema)** — the JSON written out of your knowledge base before any document
-exists.
-*Why it matters:* every output is emitted from this one record, so the PDF and the paste-in plain
-text cannot say different things about a date or a number.
-
-**View** — a tailored resume, expressed as a selection: it references evidence by id, orders it, and
-hides the rest.
-*Why it matters:* the validator rejects free text inside a view. Tailoring can therefore emphasise,
-but it structurally cannot invent.
-
-**Record** — `resume.json`, the URS document written for one application. The skill writes it out
-of your knowledge base, using the same ids, which is why `jsk validate` checks its shape and its
-numbers and the claims gate checks it against `kb.ttl` before anything renders.
-*Why it matters:* every output is emitted from it, so the PDF and the paste-in plain text cannot say
-different things. And a key the renderer does not recognise is a section that renders as nothing —
-invisible in the PDF, and only the record gate sees it.
+**Resume file** — `resume.json`, about twenty lines for one resume: the bullets chosen, by id, in
+order, and settings - format, region, page budgets, the provenance floor, and the one piece of prose,
+a summary. `jsk kb export --from-match` writes it from the match. Names, dates, bullet text and
+metrics are read from `kb.ttl` every time it is built, so a bullet confirmed or corrected in the
+career is in the next render with nothing to update here.
+*Why it matters:* a selection that holds no bullet's words cannot invent one. Tailoring can
+emphasise, but a posting the career has no evidence for produces nothing to point at. And every
+output is built from the same career, so the PDF and the paste-in plain text cannot say different
+things about a date or a number.
 
 **Posting** — the advertisement verbatim in `posting.md`, and its requirements in `posting.ttl`.
 Each carries whether it was *required* or merely *preferred*, the term the advertisement actually
@@ -103,10 +96,11 @@ assessment in `gaps.md` is written from it.
 from "you claimed it with nothing behind it". Those need opposite responses, and only the last one
 ends an interview badly.
 
-**Region profile** — a JSON file deciding what a given market may and must not show. Australia, India
-and the UAE ship; the default forbids everything region-specific.
-*Why it matters:* a photograph and date of birth are conventional on a Gulf resume and a liability on
-an Australian one. Adding a market is a JSON file, not a schema change.
+**Region profile** — a JSON file holding a market's conventions: paper size, page budget, the
+sections in order, whether a declaration or a work-rights line is rendered. Australia, India and the
+UAE ship, and a default.
+*Why it matters:* India expects three pages and a declaration; Australia and the Gulf ask whether you
+may work there. Adding a market is a JSON file, not a schema change.
 
 **Variant** — the PDF comes in two variants, because readability and machine-parsing genuinely
 conflict: *presentation* for humans, *ATS-maximal* for job portals. Each render produces one of them
@@ -122,7 +116,7 @@ different question:
 
 | Gate | Asks |
 |---|---|
-| Record | Is the source coherent, does every number trace to a real metric, and does every claim trace to your career? (`jsk validate`, then the claims gate) |
+| Record | Does `resume.json` name only live career entries, and does every number in a chosen bullet trace to a current metric? (`jsk validate`) |
 | Parse | Will an ATS read this without mangling it? |
 | Prose | Does the writing obey the rules? |
 | Render | Does it *look* right, and is it *true*? |
@@ -131,11 +125,10 @@ different question:
 parses, not that it is correct — see [WHY.md](WHY.md) for the three real resumes that prove it.
 `jsk ship` runs the first three in one pass; the render gate is always a person reading the PDF.
 
-**Claims gate** — the half of the record gate that reads the record against `career/kb.ttl`: a
-bullet the career does not hold must be marked `inferred`; nothing may be more confirmed in the
-record than in the career; every number must be in the current version of a metric the bullet
-cites. It runs inside `jsk gates`, `jsk ship` and `jsk freeze`, and says `NOT RUN` where there is
-no graph record yet.
+**Record gate** — `jsk validate`, over `resume.json` and the career bullets it selects: the file's
+shape; an id the career does not hold, has retired, or a bullet whose project has no role; a number
+no current version of a metric the bullet cites holds; and a career that does not validate or that
+`log.ttl` does not vouch for. It runs first inside `jsk gates`, `jsk ship` and `jsk freeze`.
 
 **Unverified** — what a resume is called until somebody has read every rendered page, and what it
 stays when no PDF renderer was available to produce one.

@@ -7,15 +7,15 @@ the same entry point where it is importable but not on PATH, and on Windows use 
 in place of `python3`.
 
 Every subcommand below also exists as a module you can run or import directly —
-`python3 -m jsk.gates.check_ats resume.pdf`, `from jsk.urs import plan`. The headings name both.
+`python3 -m jsk.gates.check_ats resume.pdf`, `from jsk.resume import build`. The headings name both.
 
 **The career is `career/kb.ttl`**, the graph record: one Turtle file in the old knowledge base's
 section order, loaded and validated on every run. `jsk kb` changes it (through changesets) and
 reads it back, `jsk match` ranks it against a posting, `jsk freeze` and `jsk event` record what
-was sent and what came back, and the claims gate checks each `resume.json` against it. The
-rendering half starts at the URS record written out of it, and carries that to a document
-somebody can send. **Only `jsk migrate` reads a `user-knowledgebase.md`** - once, to move it
-across.
+was sent and what came back. A resume is built from it and a short `resume.json` - the bullets
+chosen for one posting, by id, and its settings - which `jsk kb export` writes and `jsk validate`
+checks against the career. The rendering half carries that to a document somebody can send.
+**Only `jsk migrate` reads a `user-knowledgebase.md`** - once, to move it across.
 
 ## The whole surface
 
@@ -27,12 +27,13 @@ jsk posting fetch <url> applications/<dir>   # an Ashby, Greenhouse or Lever pos
 jsk match applications/<dir>/posting.ttl   # a posting against the career, through the vocabulary
 jsk migrate user-knowledgebase.md   # the Markdown knowledge base to career/kb.ttl, once
 jsk validate resume.json         # the record gate
-jsk render resume.json --out . --view view_default --pdf
+jsk kb export --from-match applications/<dir>/posting.ttl --out applications/<dir>/resume.json
+jsk render resume.json --out . --pdf
 jsk check resume.pdf             # both document gates, one pass
-jsk gates .                      # record, claims, parse and prose gates
+jsk gates .                      # record, parse and prose gates
 jsk fit resume.tex --target-pages 2
 jsk preview resume.json --out ./looks
-jsk ship resume.json --out . --view view_default   # validate, render, gate
+jsk ship resume.json --out .      # validate, render, gate
 jsk freeze applications/<dir> --submitted 2026-09-08 --channel "Workday portal"
 jsk event applications/<dir> screen-scheduled --date 2026-09-15   # what happened next
 ```
@@ -69,8 +70,9 @@ jsk doctor --json          # machine-readable
 jsk doctor --kb PATH       # check a specific career/kb.ttl, or the workspace holding it
 ```
 
-Bare `jsk doctor` renders the shipped example document and runs the parse and prose gates on the
-result, so a pass means the pipeline genuinely works here rather than looking like it should.
+Bare `jsk doctor` runs the record gate over the shipped example workspace (`jsk/data/example/`:
+a small `career/kb.ttl` and a short `resume.json`), renders it and runs the parse and prose gates on
+the result, so a pass means the pipeline genuinely works here rather than looking like it should.
 
 Verdicts: `READY` · `READY, with gaps` · `BLOCKED` (the install is broken) · `BROKEN` (the toolchain
 is present but failed its own gates — that is a bug in the skill, not in your setup).
@@ -86,8 +88,8 @@ was looking straight at it.
 
 With no graph record but a `user-knowledgebase.md`, the knowledge-base line is a **gap**, not a
 FAIL: `knowledge base at …/user-knowledgebase.md (Markdown, not migrated)`, naming
-`jsk migrate <path>`. The render path starts at `resume.json` and still works on such a machine,
-and blocking on the migration would hide every other finding behind it. `--json` reports the two
+`jsk migrate <path>`. Nothing renders from that workspace until it migrates - a resume is built
+from `career/kb.ttl` - but blocking on the migration would hide every other finding behind it. `--json` reports the two
 apart: `knowledge_base` is the graph record or `null`, `markdown_knowledge_base` the Markdown
 file or `null`.
 
@@ -321,67 +323,57 @@ file, so it cannot drift from the record. **`query`** answers a named question a
 `--json`: `open` questions, `unconfirmed` entries with the question open about each, the projects
 that `holds` a concept (or one that counts as it, with the evidence), `stale` - applications
 that sent a metric version since replaced - `experience` of a concept (the months the roles
-behind the projects holding it cover, overlaps once: what the claims gate compares "N years
+behind the projects holding it cover, overlaps once: what the record gate compares "N years
 of X" against), and `pipeline`, each application's stage: the kind of its latest dated event,
 the day, the days since, and any due date on it. A stage is never stored; it is this query.
 **`check`** runs every rule over the workspace, says
 where `kb.ttl` and `log.ttl` stand, and names files out of the canonical layout; exit 1 on a FAIL.
-It also exports the whole career and warns of every bullet the record or claims gate would refuse
-in any record that selected it, so it is fixed once rather than by each resume run.
+It also asks the record gate's number check of every live bullet and warns of each one it would
+refuse in any `resume.json` that selected it, so it is fixed once rather than by each resume run.
 
 ```bash
-jsk kb export --urs --select prj_payments ach_ledger_cut_close pos_lead --out applications/2026-09-08-ashby/resume.json
+jsk kb export --from-match applications/2026-09-08-ashby/posting.ttl --out applications/2026-09-08-ashby/resume.json
+jsk kb export --select prj_payments ach_ledger_cut_close pos_lead --out resume.json
 ```
 
-**`export --urs`** drafts a `resume.json` from `kb.ttl`, so the parts of a record that were
-transcribed by hand - ids, provenance, periods, metrics - are copied by the program instead.
-Each bullet carries its career id and provenance, and each metric it cites at its current version
-(one whose every version was replaced is left off, so its number fails the gates rather than
-travelling). One engagement per employer and kind of work holds every role there, latest first,
-and lists its projects; one view, `view_draft`, selects all of it at `provenance_floor:
-confirmed`. `--select` narrows the experience - `prj_` a project and its bullets, `ach_` one
-bullet, `pos_` a role - while the person, skills, education, credentials and the positioning
-(as `nar_positioning`) always come across whole. Retired entries never do; selecting one, an id
-the career lacks, or a metric is refused. The draft should pass `jsk validate` and the claims gate
-as written, so what either reports later is what the retuning changed; export runs both on it and
-prints a `WARN` naming any bullet they refuse - a number no metric holds is a fault in `kb.ttl`,
-fixed there before any words are retuned. `--out` never replaces an
-existing file; without it the record goes to stdout. A career that fails its rules is refused:
-the draft would carry the failures.
+**`export`** writes the short `resume.json` - `"resume": 2`, the `bullets` chosen as `ach_` ids in
+order, `roles` shown with no bullet, `skills`, the `region` when a profile ships for the person's
+country, and `"pages": 2`. Nothing the career holds is copied: every render reads the words,
+numbers and dates from `kb.ttl` as it stands, so a changeset applied or a bullet confirmed
+afterwards is in the next render with nothing to update. `references/resume-format.md` in the
+skill has every key. `--out` never replaces an existing file ("edit it, or delete it to start
+again"); without it the file goes to stdout, the notes to stderr.
 
-```bash
-jsk kb export --urs --from-match applications/2026-09-08-ashby/posting.ttl --out applications/2026-09-08-ashby/resume.json
-```
+**`--from-match`** makes the selection from `jsk match`, the same way for the same posting every
+time. A project carries a requirement only when a live, confirmed bullet shows it, so a tag is not
+enough. The export takes the smallest cover of the required requirements, then the rest of the
+ranking that carries anything, up to eight projects. It scores each confirmed bullet by what it
+shows (required ×3, preferred ×1, +1 for a metric with a current version) and gives positions 1-2
+up to five bullets, 3-5 up to two, and the rest one. The cover's requirements always get a bullet,
+even past that cap. Skills the posting names come first in `skills`. What the selection cannot
+close prints as `GAP` lines for `gaps.md`: `tag-only`, `unconfirmed` (naming the bullet to
+confirm), `uncovered` and `unresolved`; a chosen project with no confirmed bullet is a `NOTE`.
+`--select` adds bullets (placed by what they show) and roles, `--cover N` and `--today` are
+`jsk match`'s, and a failure in the posting's own directory refuses the export as it refuses the
+match.
 
-**`--from-match`** makes the selection from `jsk match` instead of from a list of ids, the same
-way for the same posting every time. A project carries a requirement only when a live, confirmed
-bullet shows it, so a tag is not enough. The export takes the smallest cover of the required
-requirements, then the rest of the ranking that carries anything, up to eight projects. It
-scores each confirmed bullet by what it shows (required ×3, preferred ×1, +1 for a metric with a
-current version) and gives positions 1-2 up to five bullets, 3-5 up to two, and the rest one.
-The cover's requirements always get a bullet, even past that cap. Skills the posting names come
-first in the view's `skills`. What the selection cannot close prints as `GAP` lines for
-`gaps.md`: `tag-only`, `unconfirmed` (naming the bullet to confirm), `uncovered` and
-`unresolved`. `--select` adds to the selection, `--cover N` and `--today` are `jsk match`'s, and
-a failure in the posting's own directory refuses the export as it refuses the match.
+**`--select`** alone names what to show: `prj_` a project and every live bullet of it by `j:rank`,
+`ach_` one bullet (narrowing its project to the bullets named), `pos_` a role with no bullet.
+Projects follow by recency. With neither flag, the whole career. Retired entries never come;
+selecting one, an id the career lacks, or a metric is refused with the nearest id.
 
-```bash
-jsk kb export --urs --refresh applications/2026-09-08-ashby/resume.json [--select ach_new_bullet]
-```
+A bullet whose project names no role is left out with a `NOTE`: it would render under no employer.
+A selection holding no bullet is refused, exit 1, and nothing is written. A career that fails its
+rules is refused: the resume would carry the failures. Last, the record gate's number check runs
+over the chosen bullets and prints each it refuses as a `WARN` - a number no current metric
+version holds is in `kb.ttl`, not in anything authored, so it is a question for the person,
+answered in the career before any word is retuned.
 
-**`--refresh`** rebuilds a record in place once the career has moved under it - a confirm, a
-corrected bullet, a metric's new version. The selection is the record's own: its projects, each
-with exactly the bullets it lists, and its roles; `--select` adds to it, and a bullet added that
-way is appended to its project in every view. Everything the career holds comes from `kb.ttl`;
-the views, every narrative but `nar_positioning`, `meta` and the keys export never writes are kept
-as they were. An entry the career no longer has, or retired, is dropped from the projects and the
-views with a `DROPPED` line; every other change prints one line (`ach_x  inferred -> confirmed`),
-so nobody diffs the file. It cannot go with `--out` or `--from-match`.
+`--urs` and `--refresh` are gone with the full record, each a usage error saying so: the short file
+is the one format, and it holds nothing to refresh. A full URS record from before is converted
+once with `jsk migrate`.
 
-Every mode leaves out a skill alias no project in `kb.ttl` holds, with a `NOTE`: the claims gate
-warns of it, and an ATS reads it as a claim of that experience.
-
-Exit 0 written, or nothing to change; 1 refused, with every reason; 2 called wrong.
+Exit 0 written; 1 refused, with every reason; 2 called wrong.
 
 ### `jsk migrate`
 
@@ -415,11 +407,28 @@ format's shape (the old reader, `jsk.kbindex`, decides); when a required value i
 with no organisation, a metric whose value is not a number); when the new workspace would have a FAIL; or
 when the round trip fails - the graph, written and parsed back, must read as exactly the entries
 read from the Markdown, and the old reader's own view of the projects, roles, years of experience,
-metrics and questions must match the same view of the graph. After writing it runs the claims
-gate over every `resume.json`, where the install has it. Needs markdown-it-py and pyyaml (the
-`migrate` extra).
+metrics and questions must match the same view of the graph. After writing it shortens each
+unfrozen application's `resume.json`, as the second form below does, and runs the record gate over
+each. Needs markdown-it-py and pyyaml (the `migrate` extra).
 
 Exit 0 migrated (or would be); 1 refused, with every reason; 2 called wrong.
+
+```bash
+jsk migrate ./my-career --dry-run            # a graph workspace: what it would shorten
+jsk migrate ./my-career                      # each unfrozen full record, shortened in place
+jsk migrate applications/<dir>/resume.json --view view_acme   # one, naming the view to carry
+```
+
+The second form is for a workspace already on the graph whose applications still hold a full URS
+record (a `"urs"` key) from before the short file. Each `applications/<dir>/resume.json` in an
+application with no `application.ttl` is shortened in place - its view's bullets in include order,
+skills, format, region, page budgets, floor and authored summary - and the full record is kept
+beside it as `resume.urs.json` (an existing one refuses: it may be the only copy). Then each short
+file is checked with the record gate. A frozen application's record is the archive of what was
+sent and is left as it is; nothing reads it again. `--view` chooses the view of a record holding
+several. A legacy `resume.json` at the workspace root is not converted - export a new one. Exit 0
+every record shortened and checked clean, 1 one was refused or fails, 2 no workspace or called
+wrongly.
 
 **`jsk migrate` is for one release.** The release after this one deletes it, with the Markdown
 reader (`jsk/kbindex.py`) and the `migrate` and `index` extras. Migrate before upgrading past it; a
@@ -427,112 +436,73 @@ reader (`jsk/kbindex.py`) and the `migrate` and `index` extras. Migrate before u
 
 ### `jsk validate`
 
-The `jsk.gates.validate_urs` module.
+The `jsk.gates.record` module.
 
 ```bash
-jsk validate resume.json
+jsk validate applications/<dir>/resume.json
 jsk validate resume.json --strict            # warnings become failures
 jsk validate resume.json --max-findings 0    # print every one
 ```
 
-The **record gate**, and the one that got more important. The record used to be compiled from a
-folder of concepts, so a structural check here would only have been re-checking the compiler. It is
-written by hand now, which puts this command between a slip in that writing and a resume somebody
-sends.
+The **record gate**: a short `resume.json` and the career bullets it selects, before anything
+renders. It finds the workspace from the file (`kbcli.find_root`, so a workspace named `career`
+works) and loads it; a file outside any workspace is exit 2 naming `career/kb.ttl`, and a legacy
+URS record (`"urs"` key) is exit 2 naming `jsk migrate`.
 
-What it checks:
+| Check | Severity |
+|---|---|
+| `career-invalid` / `career-unlogged` - the career has a FAIL, or is not what `log.ttl` last recorded: a provenance raised by hand would render unseen (`jsk kb check`, `jsk kb adopt`) | FAIL |
+| shape - an unknown key, a wrong type, `resume` not 2, no `bullets`, a bad `format` or summary `status`, an id with the wrong prefix, a duplicate | FAIL |
+| ids - an id `kb.ttl` does not hold (with the nearest), a retired one (with its reason), a bullet whose project names no role | FAIL |
+| `number-untraced` - a numeral in a chosen bullet is in no current version of a metric it cites | FAIL |
+| `number-superseded` - it is only a replaced version's number; the line names the current one | FAIL |
+| `label-unheld` - a vocabulary label in a bullet names a concept its project does not hold | WARN |
+| `years-overstated` - "N years of X" in the headline, the summary (or the positioning in its place) or a bullet exceeds what the roles behind the projects holding X cover (`jsk kb query experience`) | WARN |
+| `bracket` - a bracket in the summary or a bullet, almost always a leftover placeholder | WARN |
 
-- **Shape** — every top-level key is one the renderer knows, `urs` and `person` are present, and
-  every list key holds a list. This is the check the hand-authoring brought back. `experience:`
-  written where `engagements:` belongs renders a resume with no jobs on it, and the mistake is
-  invisible in the PDF precisely because the section is simply not there.
-- **Ids** resolve, and nothing references something that is not in the document.
-- **Periods** are coherent — no end before its start, no ongoing role with an end date.
-- **Metrics** — every numeral in a bullet appears in some metric. This is the check that stops a
-  rewritten clause quietly inflating a number.
-- **Provenance** — nothing below a view's `provenance_floor` reaches that view.
-- **Views** carry no free text and no key the renderer does not know.
-- **Coverage** — a project rated `strength: 4` or better with no evidence fails; below that it warns.
-- **Renderable at all** — a record with no views, or with neither engagements nor projects, fails.
-  Every other check iterates a list, and an empty list satisfies all of them.
+The number checks read ids and numbers; the label and years checks read prose, where a word may
+or may not be a technology, so they warn. A label of three characters or fewer matches only as
+written ("Go", never "go"); a longer one also with its first letter in the other case; the
+longest label is read first, so ".NET Framework" is never read as ".NET". A shape FAIL stops the
+id checks: until the shape is right the ids may not be lists of ids.
 
-A directory is exit 2 with the file to pass instead, and so is a `.md` — failing on a JSON parse
-error would tell somebody their record is malformed when what happened is that the bundle format
-went away.
+An untraced number is the one finding never to "fix" by changing the number: it is in `kb.ttl`, so
+it is a question for the person, answered with `jsk kb apply` (the figure, cited from the bullet)
+or by changing the words. `jsk kb check` and `jsk match` ask the same of the career's bullets.
 
-### The claims gate
+It replaced two gates. `validate_urs` checked a 30-47KB URS record against itself and the claims
+gate checked that record against `kb.ttl`; most of what the two asked was whether the copy had
+drifted, and with no copy there is nothing to drift. `jsk validate`, `jsk gates`, `jsk ship` and
+`jsk freeze` all run this one.
 
-The `jsk.gates.claims` module. No verb of its own: `jsk gates`, `jsk ship` and `jsk freeze` run
-it after the record gate whenever the record sits in a workspace whose career is the graph
-record (`career/kb.ttl`, found by walking up from the record).
+A directory is exit 2 with the file to pass instead, and so is a `.md` or a `.ttl`.
 
-```bash
-python -m jsk.gates.claims applications/<dir>/resume.json
-python -m jsk.gates.claims resume.json --root ./my-career --max-findings 0
-```
-
-The record gate checks a record against itself: a numeral in a bullet has to appear in one of
-that bullet's own metrics. But the record and its metrics are both written by hand for one
-application, and a rewritten clause agrees with its rewritten metric and with nothing the person
-confirmed. This gate checks the record against the career. Ids are shared (`prj_`, `ach_`,
-`met_`, `org_`, `pos_`, ...), so every check is a join:
-
-| # | Check | Severity |
-|---|---|---|
-| 1 | `absent-confirmed` - an entry `kb.ttl` does not hold is anything above `inferred` in the record: any id whose prefix names a `kb.ttl` class (`ach_`, `prj_`, `pos_`, `org_`, `edu_`, `cred_`, ...). Narratives, views, engagements and referees have no `kb.ttl` class and are written per application, so there is nothing to join them with | FAIL |
-| 2 | `provenance-raised` - any id the two share is more confirmed in the record than in `kb.ttl` | FAIL |
-| 2a | `project-moved` - a bullet `kb.ttl` holds sits under another project than its `j:project` (or under an engagement that neither lists that project nor holds its role): the id carries a confirmation of work somewhere else | FAIL |
-| 2b | `text-changed` - a bullet `kb.ttl` holds keeps fewer than half of `kb.ttl`'s content words for it, or adds more than twice as many new ones as it kept; a warning, since wording is retuned per posting | WARN |
-| 3 | `number-superseded` / `number-untraced` - a numeral in a bullet is in no current version of a metric the bullet cites in `kb.ttl`, and not in the words of the confirmed `kb.ttl` bullet it carries; a bullet `kb.ttl` does not hold may instead name metrics by `"id": "met_x"` in its `metrics` (for one it holds, those names trace nothing). Superseded when an older, closed version has it, even if the `kb.ttl` words still say it | FAIL |
-| 4 | `label-unheld` - a vocabulary label in a bullet names a concept its project does not hold (tags, domains, what its live bullets show, and what those count as without an `implies`) | WARN |
-| 5 | `alias-unheld` - a skill's name or alias names a concept no project holds | WARN |
-| 6 | `years-overstated` - "N years of X" in the headline, a narrative or a bullet exceeds what the roles behind the projects holding X cover (`jsk kb query experience`) | WARN |
-
-1-3 read ids and numbers. 4-6 read prose, where a word may or may not be a technology, so they
-warn until they have been measured at zero false positives on real records; 2b reads prose too. A label of three
-characters or fewer matches only as written ("Go", never "go"); a longer one also with its
-first letter in the other case; the longest label is read first, so ".NET Framework" is never
-read as ".NET". An alias that names no concept is not a claim this gate can read and is left
-alone.
-
-It will not check against a career it cannot trust: a `career/kb.ttl` with a FAIL, or one that
-is not what `log.ttl` last recorded (a hand edit not yet adopted could have raised the very
-provenance check 2 compares against) is one FAIL naming `jsk kb check` or `jsk kb adopt`.
-
-Where there is no `career/kb.ttl` - a workspace still on `user-knowledgebase.md` - the gates say
-`NOT RUN` under a `claims gate` heading, with exit `null` in `--json`: not a pass, and not a
-failure either, or no Markdown workspace could ship until it migrated. Exit 0 every claim
-traces, 1 a FAIL, 2 called wrong or no `career/kb.ttl`.
-
-Called from code as `claims.check(record, store, today=None) -> validate_urs.Report`, where
-`record` is a resume.json path or its parsed dict and `store` is `jsk.graph.store.load(root)`;
-`claims.findings(...)` returns the same as `Finding` objects with the check's name.
+Exit 0 safe to render, 1 do not render it, 2 called wrong or no career to check against. Called
+from code as `record.findings(doc, store, today=None) -> (fails, warns)`, `doc` a parsed short file
+or a path, `store` `jsk.graph.store.load(root)`.
 
 ### `jsk render`
 
 The `jsk.urs.render_resume` module.
 
 ```bash
-jsk render resume.json --out DIR --view view_au_default
-jsk render resume.json --out DIR --view view_acme --pdf
-jsk render resume.json --out DIR --view view_acme --region au
-jsk render resume.json --out DIR --view view_acme --pdf --ats-max
+jsk render resume.json --out DIR
+jsk render resume.json --out DIR --pdf
+jsk render resume.json --out DIR --region au
+jsk render resume.json --out DIR --pdf --ats-max
 ```
 
-One record to `.tex` (and PDF with `--pdf`) plus `.txt`. The PDF is the only rendered deliverable;
-`--ats-max` chooses which variant it holds rather than adding a second file.
-
-**`--view` is required wherever the record holds more than one**, and leaving it out is exit 2 with
-the ids listed — usage, not failure, because nothing is wrong with the record and the missing thing
-is the one decision only a person can make. A record holding exactly one view still renders without
-it.
+One `resume.json`, built with the career it sits in (`jsk.resume.build`), to `.tex` (and PDF with
+`--pdf`) plus `.txt`. The PDF is the only rendered deliverable; `--ats-max` chooses which variant it
+holds rather than adding a second file. A file that fails its shape or id checks, or sits outside a
+workspace, is exit 2 with the fix; `jsk validate` is the full gate. A `resume.json` is one resume,
+so there is no `--view`.
 
 | Flag | Does |
 |---|---|
 | `--out DIR` | where to write (default `.`) |
 | `--pdf` | also run the TeX engine |
-| `--view ID` | which view to render — required where the record holds more than one |
-| `--region CODE` | apply a region profile |
+| `--region CODE` | apply a region profile over the file's `region` |
 | `--profile PATH` | a profile file directly |
 | `--format` | `all` (default), or one of `latex` / `txt` |
 | `--ats-max` | render the PDF in the ATS-maximal variant (shorthand for `--profile ats-maximal`) |
@@ -568,22 +538,22 @@ The `jsk.urs.preview_templates` module.
 
 ```bash
 jsk preview resume.json --out DIR
-jsk preview resume.json --out DIR --view view_acme --only meridian,ember
+jsk preview resume.json --out DIR --only meridian,ember
 ```
 
-The same record rendered in every template, with the page count for each, so the look is chosen by
+The same resume rendered in every template, with the page count for each, so the look is chosen by
 looking. Writes `DIR/<template>.pdf` and `.tex`, plus a `.png` of the first page where `pymupdf` is
 installed. The `.tex` files are written one after another; the TeX compiles run side by side, each in
 its own scratch directory, and the report still lists the templates in their fixed order.
 
-Density is the one difference between templates that is not a matter of taste: the same record is
+Density is the one difference between templates that is not a matter of taste: the same resume is
 one page in a dense template and two in an airy one, and a two-page resume where a one-page resume
 was available is a decision worth making on purpose.
 
 | Flag | Does |
 |---|---|
 | `--out DIR` | required — previews are scratch, not deliverables |
-| `--view ID` / `--region CC` / `--ats-max` | passed straight through to the renderer |
+| `--region CC` / `--ats-max` | passed straight through to the renderer |
 | `--only A,B` | just these templates |
 
 Exit 0 = every template rendered. Exit 1 = at least one did not, and that is reported rather than
@@ -643,12 +613,11 @@ A run with `--only` never closes by saying both passed. It names the three gates
 ```bash
 jsk gates <out-dir>
 jsk gates <out-dir> --record applications/acme/resume.json --pages 2
-jsk gates <out-dir> --view view_acme --json
+jsk gates <out-dir> --json
 jsk gates <out-dir> --max-findings 0
 ```
 
-The record, parse and prose gates over one rendered output directory, in **one process** - and,
-after the record gate, the claims gate, when the record sits in a graph workspace. It is the
+The record, parse and prose gates over one rendered output directory, in **one process**. It is the
 five invocations a hand-run verification used to make — the record gate on `resume.json`, the parse
 gate on the PDF and again on the `.txt` with `--strict`, the prose gate on the `.tex` and again on
 the `.txt`. It imports the checkers rather than shelling out to them, and gives them the same
@@ -675,11 +644,6 @@ Three properties, each of them an existing rule here rather than a new one:
 - **It never attempts the render gate**, and closes with a line saying somebody has to open the PDF
   and read it. That gate is the one no command can have, and a command that exited 0 having silently
   skipped it would be the most dangerous thing in this directory.
-
-`--view ID` is optional and does no work. The record names the view it was written for, so nothing
-in the run reads the flag — it exists because this output is archived beside an application as
-evidence, and passing it stamps which view was gated. It was *required* while a bundle held every
-view and the command had no other way to know.
 
 `--pages N` reports and never fails. It measures the PDF and prints the renderer's own over-budget
 line, reused rather than restated. Over budget is named rather than failed everywhere in this
@@ -726,21 +690,22 @@ Needs a TeX engine and `pymupdf`.
 ### `jsk ship`
 
 ```bash
-jsk ship <resume.json> --out DIR --view ID [--ats-max] [--template N] [--pages N] [--json]
+jsk ship <resume.json> --out DIR [--ats-max] [--template N] [--pages N] [--json]
 ```
 
 The commands a ship used to be, in one process and in order, each step's output printed
 verbatim under its own `---` heading the way `jsk gates` prints it:
 
 1. **the record gate** — what `jsk validate <resume.json>` runs. A failure stops here and **nothing
-   is rendered**: a PDF made from a record that failed its gate looks sendable and is not.
-2. **the claims gate** — the record joined with `career/kb.ttl` (see *The claims gate*). A FAIL
-   stops here too, and nothing is rendered; with no graph record it says `NOT RUN` and the ship
-   goes on.
-3. **the render** — what `jsk render <resume.json> --out DIR --view ID --pdf` runs, with `--ats-max`
-   and `--template` passed through. A render that produced no PDF stops here.
-4. **the parse and prose gates** — what `jsk gates DIR --record <resume.json> [--pages N]` runs,
-   less the record and claims gates the steps above have just run on the same file.
+   is rendered**: a PDF made from a resume that failed its gate looks sendable and is not.
+2. **the render** — what `jsk render <resume.json> --out DIR --pdf` runs, with `--ats-max` and
+   `--template` passed through. A render that produced no PDF stops here.
+3. **the parse and prose gates** — what `jsk gates DIR --record <resume.json> [--pages N]` runs,
+   less the record gate the first step has just run on the same file.
+
+It refuses before any of them, exit 1, in a frozen application - `application.ttl` beside the
+`resume.json` or in `--out` - because re-rendering would overwrite what was sent; copy the
+application to a new dated directory to reuse it.
 
 It closes with the same render-gate section `jsk gates` does: **nobody has read the PDF**, and the
 command says so rather than exiting 0 over it. When it stopped early that section says nothing was
@@ -749,7 +714,7 @@ the renderer's own line, and `--pages N`'s — and never failed; `jsk fit` owns 
 
 Last of all, as under `jsk gates` and `jsk freeze`, an `=== summary` block: one line a step with
 its status and the step's own `FAIL n   WARN n`, the render's page counts and how many lines it
-withheld below the view floor, then the verdict. Nothing in it is a new verdict - each count is
+withheld below the floor, then the verdict. Nothing in it is a new verdict - each count is
 read back off the output above - and it is there so that the tail of a long ship still holds
 every gate. `--json` has no summary; `steps[]` already is one.
 
@@ -759,7 +724,7 @@ step in `steps[]` in the `jsk gates` shape, the render gate last and `UNVERIFIED
 ### `jsk freeze`
 
 ```bash
-jsk freeze <app-dir> --submitted YYYY-MM-DD|false --channel TEXT [--view ID] [--doc FILE ...]
+jsk freeze <app-dir> --submitted YYYY-MM-DD|false --channel TEXT [--doc FILE ...]
 ```
 
 Freezes one `applications/<yyyy-mm-dd>-<company>-<role>/` directory the way `references/mode-ship.md`
@@ -772,7 +737,7 @@ career record, found beside `applications/`.
 ```turtle
 # == Application
 
-k:app_acme_platform j:posting k:post_acme_platform ; j:view "view_acme_platform" ;
+k:app_acme_platform j:posting k:post_acme_platform ; j:view "resume" ;
     j:submitted "2026-09-08"^^xsd:date ; j:channel "Workday portal" ;
     j:document "Priya_Raman_Acme_Resume.pdf", "Priya_Raman_Acme_Resume_ATS.txt" ;
     j:recordSha256 "7bc8...9f9c" ;
@@ -787,9 +752,10 @@ k:evt_acme_platform_2026_09_08_submitted j:application k:app_acme_platform ;
 
 The id's stem is the posting's (`k:post_acme_platform` in `posting.ttl`, which must be there),
 and never changes when the directory is renamed. `recordSha256` is the frozen `resume.json`'s,
-byte for byte: the record is the copy, and nothing is copied out of it. `carried` is every bullet
-the view rendered (its provenance floor, its include lists) that `kb.ttl` holds; `carriedVersion`
-is the current version, now, of every metric those bullets cite. That is what makes a later
+byte for byte. `carried` is every bullet that rendered - the plan's `sent`, so one withheld below
+the floor is not carried - and `carriedVersion` is the current version, now, of every metric those
+bullets cite. No copy of the content is written: the PDF, `.txt` and `.tex` beside it are the
+words sent. That is what makes a later
 revision visible: `jsk kb apply` never changes a sent version - a new number becomes the next
 one - and `jsk kb query stale` names every application that sent the old. The file is validated
 with the whole workspace before anything is renamed or written, and is written canonically. It
@@ -798,8 +764,7 @@ is not logged in `log.ttl`, and `kb.ttl` is never touched.
 **A workspace still on `user-knowledgebase.md`** is refused, exit 1: `jsk migrate` it first,
 which also turns any `application.md` it froze into an `application.ttl`.
 
-The view is `--view`, or the record's only one; a record with several and no `--view`
-is exit 2, naming them. The documents are the `--doc` files, or every `.pdf` and `.txt` in the
+The documents are the `--doc` files, or every `.pdf` and `.txt` in the
 directory. The final path is printed.
 
 It refuses — exit 1, saying why, with nothing renamed and nothing written — when:
@@ -807,7 +772,7 @@ It refuses — exit 1, saying why, with nothing renamed and nothing written — 
 - **`application.ttl` or `application.md` already exists.** A frozen application is never
   re-frozen; later events are `jsk event`.
 - **any mechanical gate fails.** It runs what `jsk gates <app-dir> --record <app-dir>/resume.json`
-  runs - the claims gate included - in process, and prints it. A failing document is never frozen.
+  runs - the record gate first - in process, and prints it. A failing document is never frozen.
 - `posting.ttl` is missing or holds no posting, there is nothing to list as documents, the renamed directory would land on one that
   already exists, or the `application.ttl` it would write does not validate.
 
@@ -853,6 +818,12 @@ Exit 0 added, 1 refused, 2 called wrong.
 a posting's frontmatter. The career is `career/kb.ttl` now - `jsk match` ranks it against a
 `posting.ttl`, `jsk kb view` and `jsk kb show` read it - and `jsk index` says so and exits 2. Its
 module, `jsk.kbindex`, stays one release because `jsk migrate` reads the Markdown with it.
+
+**The URS record** - the full `resume.json` copied out of the career, with its views, its 11KB
+specification and its claims gate - left on 2026-09-25. The short file names what one resume
+shows and the career supplies the rest; `jsk migrate` converts an unfrozen application's full
+record once, and a frozen one is the archive of what was sent. `--view` went from `render`,
+`preview`, `gates`, `ship` and `freeze`, and `--urs` and `--refresh` from `jsk kb export`.
 
 The `okf` commands left with the bundle format, in 4.0. The graph record brings back a write path -
 see [WHY.md](WHY.md) for why that is not the same decision made twice - but one generic verb,

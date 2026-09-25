@@ -88,8 +88,12 @@ jsk migrate <path>/user-knowledgebase.md
 It writes `career/kb.ttl` and `career/log.ttl` beside it, and `posting.ttl` and `application.ttl` in
 each application directory, and refuses unless the graph reads back as exactly what the Markdown
 held. **It never deletes anything** and never raises a provenance. Show them its output — what it
-kept as notes, and any claims-gate failures it found in their old records. Then `jsk kb view` is
-their career, read end to end; keep the Markdown until they confirm it is complete.
+kept as notes, and any record-gate failures in the `resume.json` files it shortened. Then `jsk kb
+view` is their career, read end to end; keep the Markdown until they confirm it is complete.
+
+A graph workspace whose unfrozen `applications/*/resume.json` still hold a full URS record (an
+`"urs"` key): `jsk migrate <workspace>` shortens each in place, once, keeping the old one as
+`resume.urs.json`. A frozen application's record is the archive of what was sent and stays as it is.
 
 An older **bundle** (`projects/` and `resume-generation/`) has no migration command: read it whole
 and build the record from it like a resume — `jsk new`, then changesets through `jsk kb apply`
@@ -106,17 +110,17 @@ through their most significant projects.
 
 ## Phase 4: Prove it, on their data
 
-1. Write a thin `resume.json` in the workspace from whatever the career now holds —
+1. Export a thin `resume.json` in the workspace from whatever the career now holds —
    `references/mode-resume.md` for the procedure. The point is that the path works, not that the
    resume is finished.
-2. Choose the region profile that matches where they are applying, and **say why**: a photograph and
-   date of birth are conventional on a Gulf resume and a liability on an Australian one, India
-   expects academic grades and a declaration block, and the region-neutral default forbids all of it.
+2. Choose the region profile that matches where they are applying, and **say why**: India expects
+   three pages, academic grades and a declaration block, Australia and the Gulf a work-rights line,
+   and the paper size follows the region.
    Ask if their location does not make it obvious.
 3. Validate, render and gate in one run, and show every step's output:
 
 ```bash
-jsk ship resume.json --out . --view <id> --pages 2
+jsk ship resume.json --out . --pages 2
 ```
 
 If the PDF step reports the resume **unverified**, say so plainly.

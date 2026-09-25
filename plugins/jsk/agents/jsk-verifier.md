@@ -14,8 +14,8 @@ to its source, when the render gate needs someone to read the PDF, or when `jsk 
 available here. **Run every gate either way**, even if the caller names one.
 
 **You verify. You do not fix.** Every defect is repaired where it came from — an entry in
-`career/kb.ttl`, named by its id (`ach_…`, `met_….v2`, `pos_…`), through `jsk kb apply`; or the view
-or narrative inside `resume.json` — by the caller, who re-renders. You have no Write or Edit tool.
+`career/kb.ttl`, named by its id (`ach_…`, `met_….v2`, `pos_…`), through `jsk kb apply`; or the ids,
+summary or settings in `resume.json` — by the caller, who re-renders. You have no Write or Edit tool.
 
 ## Inputs
 
@@ -35,8 +35,7 @@ Run `jsk`; not found, fall back to `python -m jsk`, then `py -3 -m jsk`. Report 
 
 | Gate | Command | Answers |
 |---|---|---|
-| **Record** | `jsk validate resume.json` | Is the record coherent, correctly shaped, and does every number in a bullet trace to a metric? |
-| **Claims** | inside `jsk gates` (or `python -m jsk.gates.claims resume.json`) | Does the record claim nothing more confirmed, or bigger, than the career holds? |
+| **Record** | `jsk validate resume.json` | Is `resume.json` shaped right, is every id it names live in the career, and does every number in a selected bullet trace to a current metric? |
 | **Parse** | `jsk check <Name>_Resume.pdf --only parse` **and** `jsk check <Name>_Resume_ATS.txt --only parse --strict` | Will an ATS read this without mangling it? |
 | **Prose** | `jsk check <Name>_Resume.tex --only prose` **and** `jsk check <Name>_Resume_ATS.txt --only prose` | Does it obey the writing rules? |
 | **Render** | open the PDF with Read and look at every page | Does it look right, and is it true? |
@@ -49,8 +48,7 @@ jsk gates <out-dir> --pages N
 
 It finds `resume.json` in that directory (`--record <path>` names one elsewhere) and never attempts
 the render gate. If it is unavailable, run the table's commands individually — the verdicts are the
-same. `--pages N` reports the page count and never fails on it. Pass `--view <id>` if the caller gave
-you one; it stamps the output with the view gated.
+same. `--pages N` reports the page count and never fails on it.
 
 Then the page budget, if one was given:
 
@@ -67,13 +65,13 @@ re-run before reporting a failure.
 
 Read the PDF and check every page:
 
-- [ ] Page count matches what the view asked for
+- [ ] Page count matches what `resume.json` asked for
 - [ ] Bullets are real glyphs, not tofu boxes, and not a typed `•`
 - [ ] One font family throughout — compare headings against body, not body against itself
 - [ ] No heading stranded at the foot of a page with its content overleaf
 - [ ] Dates aligned and consistently formatted
-- [ ] The region profile did what the view intended: no photograph or date of birth on an Australian
-  resume, no missing nationality on a Gulf one
+- [ ] The region profile did what was intended: its paper size, the work-rights line where it asks
+  for one, the declaration on an Indian resume
 - [ ] The prose reads as true — a verb that overstates ownership is no checker's to catch
 
 **No PDF available?** Report the render gate as **UNVERIFIED**, in that word — never as passed, and
@@ -95,11 +93,11 @@ Then:
 1. **Verdict per gate** — PASS / FAIL / UNVERIFIED, plus the fit result.
 2. **Overall** — safe to send, or not. One FAIL or one UNVERIFIED means not.
 3. **Every defect, with its repair site by id** — `career/kb.ttl` `k:ach_…` (the bullet's text),
-   `k:met_x.v2` (the number), `k:pos_…`, or in `resume.json` the view or narrative id. A claims-gate
-   finding already names its id; `number-superseded` means the record holds an old version's value.
+   `k:met_x.v2` (the number), `k:pos_…`, or in `resume.json` a key. A record-gate
+   finding already names its id; a superseded number means the bullet holds an old version's value.
    Never "fix in the document".
-4. **Warnings the renderer printed** — a withheld bullet, a field the region profile requires and
-   the record lacks, a stray bracket. Not failures; surface them anyway.
+4. **Warnings the renderer printed** — a withheld bullet or summary, a skills row cut at its
+   limit, a stray bracket. Not failures; surface them anyway.
 5. **What you could not check, and why** — a missing TeX engine, an absent `pymupdf`, a missing file.
 
 Never explain away or soften a failure.

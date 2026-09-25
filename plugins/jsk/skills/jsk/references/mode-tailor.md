@@ -8,8 +8,8 @@ Match the career against a posting, close the gaps, then write the resume once.
 
 Every claim must trace to a `confirmed` entry in `career/kb.ttl`. If the posting wants something
 they have not done, say so — do not manufacture a bullet; someone who bluffs past a screen is found
-out in the first technical conversation. The claims gate refuses a record that claims more than the
-career holds.
+out in the first technical conversation. `resume.json` names career entries by id, so it cannot
+hold what the career does not.
 
 ## The shape
 
@@ -28,7 +28,7 @@ applications/<yyyy-mm-dd>-<company>-<role>/
 
 Name it for the day it is being worked on; `jsk freeze` renames it if it is sent later.
 
-**Two agent passes, and the person in between.** One writes the assessment; one authors the record
+**Two agent passes, and the person in between.** One writes the assessment; one writes the resume
 after the questions are answered. The resume is written **last** — never from a career you are
 about to change.
 
@@ -96,7 +96,7 @@ numbered, ask for a bulk reply, and that is the one time the turn ends on the qu
 
 ### Answers go into the career
 
-An answer changes **`career/kb.ttl`** — never `gaps.md` or the record, both downstream of it.
+An answer changes **`career/kb.ttl`** — never `gaps.md` or `resume.json`, both downstream of it.
 
 - **A round's corrections and new facts are one changeset**, one `jsk kb apply`, after
   `jsk kb show <ids>` for the `op:base`. A corrected claim comes back `inferred`; confirm it next.
@@ -131,21 +131,20 @@ ended it.**
 `jsk-resume-author` writes `resume.json`. **Resolve its paths before dispatching; it reads only what
 the prompt names:**
 
-- the application directory and the workspace — absolute, with forward slashes;
+- the application directory, the workspace and the skill directory — absolute, forward slashes;
 - the rule files, absolute: `<skill>/references/writing-rules.md`, `ats-rules.md`, and the
   `## Structure rules for rendering` section of `mode-resume.md` (its line number), each replaced
   by `rules/<name>.md` beside `career/` where one exists (one `ls`).
 
-Bullets it adds or rewords arrive `inferred`; the render drops them below the view's floor as
+Bullets it adds or rewords arrive `inferred`; the render drops them below the floor as
 `withheld …` warnings, each confirmed or cut before hand-over. **It quotes every clause back.**
 **Read those quotes to the person and get confirm-correct-or-cut on each**, then `jsk kb confirm
-<ids> --answer "…"` and one changeset for the corrections. **Never patch the record by hand**:
-`jsk kb export --urs --refresh applications/<stem>/resume.json` re-reads what it holds from the
-career and keeps its views and narrative. The narrative lives only in the record: once confirmed, one
-edit sets its `"status"`. Confirm confirms the career's current text, never on the
-strength of the old text. This step is yours and is not delegable.
+<ids> --answer "…"` and one changeset for the corrections. Confirm confirms the career's current
+text, never on the strength of the old text. Nothing in `resume.json` needs updating — the next ship
+builds from the career — except a confirmed summary: set its `"status": "confirmed"`. This step is
+yours and is not delegable.
 
-**A view references content; it cannot contain it.** If the posting wants something the career does
+**`resume.json` references content; it cannot contain it.** If the posting wants something the career does
 not have, say so out loud.
 
 ## 6. Ship

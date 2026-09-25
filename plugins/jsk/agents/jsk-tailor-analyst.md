@@ -183,7 +183,7 @@ that no cited metric holds — the record gate would refuse them mid-authoring. 
 queue as a missing metric. The person gives the figure and its source, or changes the words;
 **never settle one by moving the number toward another metric.**
 
-No resume, view or record — that is `jsk-resume-author`, after the person answers these.
+No resume and no `resume.json` — that is `jsk-resume-author`, after the person answers these.
 
 ## What you return
 

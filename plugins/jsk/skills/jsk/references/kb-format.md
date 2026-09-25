@@ -12,7 +12,7 @@ change the career with `jsk kb apply`, and read it with `jsk kb show`, `view` an
     posting.md               the advertisement, verbatim - nothing else
     posting.ttl              what it asks for (the analyst writes it)
     gaps.md                  the assessment and the question queue
-    resume.json              the URS record this submission rendered from
+    resume.json              the bullets and settings this submission rendered from
     application.ttl          what was sent, and its timeline - jsk freeze, jsk event
 ```
 

@@ -19,11 +19,11 @@ regenerate resumes, tailored variants and interview briefs from the file forever
 **The knowledge base is the source of truth. A resume is one rendering of it.**
 
 ```
-career/kb.ttl  ->  resume.json (URS)  ->  .tex -> .pdf   (the deliverable)
-  jsk kb apply      you write it        \-> .txt          (paste-in boxes)
+career/kb.ttl + resume.json  ->  .tex -> .pdf   (the deliverable)
+  jsk kb apply   jsk kb export  \-> .txt          (paste-in boxes)
 ```
 
-**Never hand-author a `.tex`.** Write the URS record, validate it, render every format from it —
+**Never hand-author a `.tex`.** Export `resume.json`, validate it, render every format from it —
 two hand-built documents stop agreeing the moment one is edited.
 
 | Thing | Is | Written by |
@@ -31,7 +31,7 @@ two hand-built documents stop agreeing the moment one is edited.
 | `career/kb.ttl` · `career/log.ttl` | the career · every change to it | `jsk kb` |
 | `applications/<stem>/posting.md` · `posting.ttl` | the advert verbatim · its requirements | you · `jsk-tailor-analyst` |
 | `applications/<stem>/gaps.md` | verdicts, shortfalls and the question queue | `jsk-tailor-analyst` |
-| `applications/<stem>/resume.json` | the URS record for this posting | `jsk-resume-author` |
+| `applications/<stem>/resume.json` | the bullets chosen for this posting, by id | `jsk-resume-author` |
 | `applications/<stem>/application.ttl` | what was sent, and its timeline | `jsk freeze`, `jsk event` |
 
 `applications/` is the directory beside `career/` — resolve it to an absolute path, never the
@@ -85,22 +85,21 @@ has the format, for a changeset you are unsure of.
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk new <path> --name "Name"` | an empty `career/kb.ttl`, `career/log.ttl` and `applications/` |
 | `jsk migrate <user-knowledgebase.md>` | a Markdown knowledge base to the graph, once |
-| `jsk kb apply\|confirm\|show\|view\|query\|check\|adopt\|export` | the career, changed and read; `export --urs` drafts `resume.json` |
+| `jsk kb apply\|confirm\|show\|view\|query\|check\|adopt\|export` | the career, changed and read; `export` drafts `resume.json` |
 | `jsk posting fetch <url> <app-dir>` | a job board's posting as `posting.md` |
 | `jsk match <posting.ttl>` | requirements matched through the vocabulary, ranked, questions |
 | `jsk validate <resume.json>` | the record gate |
-| `jsk render <resume.json> --out DIR --view ID --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
+| `jsk render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
 | `jsk preview <resume.json> --out DIR` | every template, with page counts |
 | `jsk check <file> [--strict] [--only parse\|prose]` | the parse and prose gates on one file |
-| `jsk gates <out-dir> [--record R] [--pages N]` | record, claims, parse and prose gates |
-| `jsk ship <resume.json> --out DIR --view ID [--pages N]` | validate, render, gates; stops at a failure |
+| `jsk gates <out-dir> [--record R] [--pages N]` | record, parse and prose gates |
+| `jsk ship <resume.json> --out DIR [--pages N]` | validate, render, gates; stops at a failure |
 | `jsk fit <resume.tex> --target-pages 2` | fits the render to a page budget |
 | `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | writes `application.ttl`, if the gates pass |
 | `jsk event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |
 
 Exit codes: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are required — the
-PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure. The claims gate's
-`NOT RUN` (no `career/kb.ttl` above the record) exits 0, but is not a pass.
+PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
 
 ## Agents
 
@@ -121,15 +120,14 @@ where they fall short stay with you and the person. Their output does not reach 
 
 | Gate | Question | How |
 |---|---|---|
-| **Record** | coherent, shaped right, every number traced to a metric? | `jsk validate` |
-| **Claims** | nothing more confirmed, or bigger, than `kb.ttl` holds? | inside `jsk gates` |
+| **Record** | shaped right, every id live, every number traced to a metric? | `jsk validate` |
 | **Parse** | will an ATS read it? | `jsk check` on the PDF; `--strict` on the `.txt` |
 | **Prose** | does it obey the writing rules? | `jsk check --only prose` on the `.tex` |
 | **Render** | does it look right, and is it true? | open every page of the PDF |
 
 `jsk gates` (or `jsk ship`) runs all but the last. **Show the output**; fix and re-run, never explain
 a failure away. The render gate is half yours: only the person can confirm it is true — until they
-have, the resume is unverified. Repair a defect in the career or record and re-render; never the PDF.
+have, the resume is unverified. Repair a defect in the career or `resume.json` and re-render; never the PDF.
 
 ## Provenance
 
@@ -149,11 +147,10 @@ wrote it), or `needs-verification`.
 - **Say why**, flag every inference, and offer options with a recommendation.
 - **Tell them where they fall short.** Being flattered costs interviews.
 
-Keep `resume.json` inside the workspace, where the claims gate finds the career; copy only the
+Keep `resume.json` inside the workspace, where it finds the career it is built from; copy only the
 rendered files to an outputs folder (Cowork). Tell them the path.
 
 ## References, on demand
 
-Formats: `kb-format.md` (the career), `urs-spec.md` and `view-format.md` (the record, in two
-halves). Rules: `writing-rules.md`, `ats-rules.md`, `templates.md`. `rationale.md` explains why any
-rule exists, for when someone asks.
+Formats: `kb-format.md` (the career), `resume-format.md` (`resume.json`). Rules: `writing-rules.md`,
+`ats-rules.md`, `templates.md`. `rationale.md` explains why any rule exists, for when someone asks.

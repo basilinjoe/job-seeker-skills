@@ -101,14 +101,14 @@ cannot hold by itself. A simulation of twelve scenarios over the graph
 - **Versioned history.** A metric revised from 62% to 58% keeps both versions, dated; the version
   an application sent can never change, and `jsk kb query stale` names every application that sent
   a number since replaced.
-- **A claims gate.** Ids are shared between the career and every `resume.json`, so "is this
-  record's bullet one the career holds, under the project the career puts it in, at no higher a
-  provenance than the career gives it, with numbers from the metric's current version" is a join,
-  run inside `jsk gates`, `jsk ship` and `jsk freeze`; an entry the career lacks counts as at most
-  inferred. What it does not check is wording: a bullet reworded in the record keeps its id, and
-  one that shares too few words with the career's text gets a `text-changed` WARN - a prompt to
-  look, not a proof the new words were confirmed. The simulation's seven planted defects were all
-  caught.
+- **A record gate that joins by id.** A `resume.json` names career bullets by id, so "is every
+  bullet one the career holds, live, under a project with a role, with numbers from the metric's
+  current version" is a join, run inside `jsk validate`, `jsk ship` and `jsk freeze`. The
+  simulation's seven planted defects were all caught - by the claims gate this replaced, when
+  `resume.json` was still a full copy of the career and wording could drift from it. The file
+  holds no bullet's words now: one reworded for a posting is reworded in the career, where `jsk kb
+  apply` drops it to `inferred` and the render withholds it until `jsk kb confirm` confirms the
+  career's text.
 
 None of those needs the career to be large. All of them need it to be structured data with ids.
 
@@ -138,24 +138,31 @@ the graph, written and parsed back, must read as exactly the entries the Markdow
 deletes nothing. It exists for one release: the one after deletes it, along with the Markdown
 reader. The old text of this page, and of every argument it made, is in git history.
 
-## Every document is rendered from JSON, never hand-built
+## Every document is rendered from the career, never hand-built
 
-The career is written out as a [URS](../plugins/jsk/skills/jsk/references/urs-spec.md) record,
-and the LaTeX, the PDF and the plain text are all emitted from that one file.
+The LaTeX, the PDF and the plain text are all built from `career/kb.ttl` and a short
+[`resume.json`](../plugins/jsk/skills/jsk/references/resume-format.md) - about twenty lines naming
+the bullets chosen for one posting, by id, and its settings. Its one piece of prose is the summary.
 
 Two hand-built documents have to agree about every date, bullet and number, and they stop agreeing
-the moment one is edited; usually silently, usually in the copy that gets sent. One record with
+the moment one is edited; usually silently, usually in the copy that gets sent. One career with
 several emitters cannot drift, because no emitter decides what the document says.
 
-It is also what makes a resume answerable a year later. The record carries the provenance of every
-claim and the view that selected it, and `jsk freeze` records in `application.ttl` which bullets
-and which metric versions it carried, so "what did this application claim, and where did that come
-from" has an answer.
+`resume.json` used to be a URS record: a 30-47KB copy of the career written out for each
+application (ElevenLabs: 41KB, of which the view and the summary - all anyone authored - were 3KB).
+The copy is what needed an 11KB format specification, a `--refresh` to re-read the career into it
+after every confirm, and drift checks in a claims gate to notice when it had not been. The emitters
+never read it - they read the render plan - so the copy went (2026-09-25): the career and the short
+file build the plan directly, and a bullet confirmed or corrected in the career is on the next
+render with nothing to update.
 
-The render plan resolves the record once — selection, ordering, provenance filtering, profile
-gating, ASCII folding, date formatting — and the emitters translate that plan into markup without
-deciding anything. That split is what guarantees the PDF and the plain text cannot say different
-things.
+It is also what makes a resume answerable a year later. `jsk freeze` records in `application.ttl`
+which bullets rendered and which metric versions they cite, beside the PDF and plain text that were
+sent, so "what did this application claim, and where did that come from" has an answer.
+
+The plan is built once — selection, ordering, provenance filtering, region, ASCII folding, date
+formatting — and the emitters translate it into markup without deciding anything. That split is
+what guarantees the PDF and the plain text cannot say different things.
 
 ## Four gates, not one
 
@@ -169,13 +176,13 @@ third is why the prose gate exists at all.
 
 | Gate | Question | How |
 |---|---|---|
-| Record | Is the source coherent, does every number trace to a metric, and does every claim's id trace to the career? | `jsk validate`, then the claims gate, before anything renders |
+| Record | Does `resume.json` name only live career entries, and does every number in a chosen bullet trace to a current metric? | `jsk validate`, before anything renders |
 | Parse | Will an ATS read this without mangling it? | `jsk check --only parse`, on the PDF |
 | Prose | Does it obey the writing rules? | `jsk check --only prose`, on the `.tex` |
 | Render | Does it *look* right, and is it *true*? | Open the PDF and read every page |
 
-`jsk ship` runs the first three in one process — the record gate and the claims gate first, and
-nothing renders if either fails — and exits 0 only if all of them passed. It then says, in its own
+`jsk ship` runs the first three in one process — the record gate first, and nothing renders if it
+fails — and exits 0 only if all of them passed. It then says, in its own
 output, that the render gate has not been run, because no command can run it. A tool that exited
 green without saying so would teach everyone who used it that the fourth gate is decorative.
 
@@ -195,23 +202,21 @@ Third person, unresolved placeholders, sentences that stop before their object, 
 junior, bullets repeated across projects, and bullets that clear their throat before reaching the
 verb. A resume written in the third person is not a parsing defect, so nothing was catching it.
 
-## Numbers are checked twice
+## Numbers are checked against the career
 
-Every numeral in a bullet must appear in a structured metric on that bullet, or the record gate
-fails the record before anything renders. It is the check that catches a rewritten bullet quietly
-inflating a figure.
-
-That check reads the record against itself, and the record and its metrics are written together,
-for one application - a rewritten clause agrees with its rewritten metric. So the claims gate
-reads it against the career as well: each numeral has to be in the *current* version of a metric
-the bullet cites in `kb.ttl`. A number the career has since revised fails as superseded, and one
-the career never held fails as untraced.
+Every numeral in a chosen bullet must be in the *current* version of a metric the bullet cites in
+`kb.ttl`, or the record gate fails before anything renders. A number the career has since revised
+fails as superseded, and one no metric holds fails as untraced. It is the check that catches a
+rewritten bullet quietly inflating a figure - and the one a model must not "fix" by changing the
+number: on the ElevenLabs run "300-400 candidates" became "300-800" to match an unrelated metric.
+An untraced number is a question for the person. `jsk kb check` and `jsk match` run the same check
+over the career's bullets, so the question is asked before a resume is written.
 
 ## Tailoring cannot invent, structurally
 
-A tailored resume is a *view*: it references evidence by id, orders it, and redacts. The validator
-rejects free text inside a view, so a posting the record has no evidence for produces nothing to
-point at rather than a plausible new bullet.
+A tailored resume is a *selection*: `resume.json` names evidence by id and orders it, and holds no
+bullet's words. The record gate fails an id the career does not hold, so a posting the career has no
+evidence for produces nothing to point at rather than a plausible new bullet.
 
 A posting's requirements are written into `posting.ttl`, each with the advert's own words as a
 quote that is checked, verbatim, against the advert beside it. `jsk match` joins them with the
@@ -245,23 +250,24 @@ well-written, and indefensible when an interviewer asks a follow-up.
 So the write path cannot confirm anything. A changed claim drops to `inferred` and gets a question;
 `jsk kb confirm` is the only way up, and it takes your answer in your words and keeps it in the log.
 
-## The same record renders correctly in different markets
+## The same career renders correctly in different markets
 
-A region profile decides what each market may and must not see. A photograph and date of birth are
-conventional on a Gulf resume and a liability on an Australian one; India expects academic grades on a
-CGPA scale, a father's name and a declaration block; the Gulf screens visa status and transferability
-before anything else. Australia, India and the UAE ship as profiles, and adding a market is a JSON
-file rather than a schema change.
+A region profile holds a market's conventions: paper size, page budget, the sections in order, and
+whether a declaration or a work-rights line is rendered. India expects three pages, academic grades
+on their own scale and a declaration block; Australia and the Gulf screen the right to work before
+anything else. Australia, India and the UAE ship as profiles, and adding a market is a JSON file.
+What the career does not hold is not rendered: a photograph, a date of birth or a nationality comes
+back only when the ontology has a place for it.
 
-## Why a new schema instead of JSON Resume
+## Why a graph instead of JSON Resume
 
 JSON Resume is a JSON container around unstructured prose. A bullet is a bare string, so nothing can
 verify a metric. Nothing carries an id, so tailoring means copy-and-mutate and the copies drift.
 Nothing carries provenance, so "I measured this" and "a model wrote this" look identical. And a
 promotion has to be modelled as two duplicate employers.
 
-URS keeps a mapping to JSON Resume at conformance level 0, so adopting it costs nothing and is
-reversible.
+The career graph answers each: a bullet carries an id and a provenance and cites a metric
+version, and a promotion is two roles at one employer.
 
 ## Fitting a page budget without lying about it
 

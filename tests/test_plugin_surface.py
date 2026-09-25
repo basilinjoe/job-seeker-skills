@@ -151,9 +151,10 @@ class AgentFrontmatter(unittest.TestCase):
         into the career - bullets belong in the project they are about, so the next
         application can reuse them. What holds it is the status: a bullet it adds
         through `jsk kb apply` arrives `j:inferred` whatever the changeset says (apply
-        refuses one that says confirmed), `provenance_floor: confirmed` on the view means
-        the record gate refuses to render it, and the claims gate refuses a record more
-        confirmed than the career.
+        refuses one that says confirmed), and the short file's `floor`, `confirmed` by
+        default, means the render withholds it. The short file holds ids, never a
+        bullet's words, so there is no copy for a confirmation to be raised in - the
+        claims gate that watched for one went with the URS record.
 
         That is enforcement rather than instruction, which is why the author may run
         apply and the analyst's rule has to be a sentence.
@@ -161,7 +162,8 @@ class AgentFrontmatter(unittest.TestCase):
         body = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
         self.assertIn("`j:inferred`", body)
         self.assertIn("jsk kb apply", body)
-        self.assertIn("provenance_floor", body)
+        self.assertIn("Leave `floor` at its default, `confirmed`", " ".join(body.split()))
+        self.assertNotIn("provenance_floor", body)
 
     def test_both_authoring_agents_keep_bash(self):
         """Bash is how the record gate is run at all, and both are told to run it."""
@@ -335,20 +337,29 @@ class TheProseSaysWhatTheGatesDo(unittest.TestCase):
         for name in ("mode-tailor.md", "mode-ship.md"):
             with self.subTest(file=name):
                 self.assertIn("never on the strength of the old text", self.ref(name))
-        self.assertIn("`text-changed`", self.doc("docs/WHY.md"))
+        # WHY.md said a reworded bullet kept its id and got a `text-changed` WARN. With
+        # no copy to reword, it says where the rewording happens instead.
+        self.assertNotIn("`text-changed`", self.doc("docs/WHY.md"))
+        self.assertIn("one reworded for a posting is reworded in the career", self.doc("docs/WHY.md"))
         self.assertIn("not a proof", self.doc("docs/WHY.md"))
         self.assertNotIn("every claim to your career at the confidence", self.doc("README.md"))
 
-    def test_not_run_is_a_record_outside_the_workspace(self):
-        """The claims gate walks up from resume.json for career/kb.ttl. A record saved
-        elsewhere - an outputs folder - gets NOT RUN, and ship still exits 0."""
+    def test_a_file_outside_the_workspace_is_refused_not_passed(self):
+        """The claims gate walked up from resume.json for career/kb.ttl, and a record
+        saved elsewhere - an outputs folder - got NOT RUN while ship exited 0; the plugin
+        had to say never to freeze over one. The short file is built from the career, so
+        outside a workspace there is nothing to build: the record gate and the render
+        refuse it, exit 2, and no file may promise a NOT RUN that no longer exists."""
         ship = self.ref("mode-ship.md")
-        self.assertNotIn("A `NOT RUN` means a Markdown workspace", ship)
-        self.assertIn("Move `resume.json` into", ship)
+        for gone in ("NOT RUN", "claims gate", "Move `resume.json` into", "--view"):
+            with self.subTest(gone=gone):
+                self.assertNotIn(gone, ship)
         skill = self.text(SKILL / "SKILL.md")
         self.assertIn("Keep `resume.json` inside the workspace", skill)
-        self.assertIn("`NOT RUN`", skill)
-        self.assertIn("`NOT RUN`", self.doc("docs/ARCHITECTURE.md").split("## Releasing")[0][-1500:])
+        self.assertNotIn("`NOT RUN`", skill)
+        self.assertNotIn("**Claims**", skill)
+        self.assertIn("a `resume.json` outside a workspace has no career to build from",
+                      self.doc("docs/ARCHITECTURE.md").split("## Releasing")[0][-1500:])
 
     def test_a_bundle_keeps_its_statuses(self):
         """A changeset cannot write `confirmed`, so a bundle written as changesets alone
@@ -387,42 +398,54 @@ class DocumentedSurface(unittest.TestCase):
     run, and the failure surfaces as a broken install rather than as a stale table.
     """
 
-    # ---- the URS specification is in two halves -------------------------------
+    # ---- the short resume.json has one reference ------------------------------
 
     REFS = SKILL / "references"
 
-    def test_the_view_format_lives_in_exactly_one_file(self):
-        """`urs-spec.md` defines what a view points at; `view-format.md` defines what a
-        view may carry. The split exists so jsk-resume-author reads 968 tokens instead
-        of 4,127, and it is only safe while it stays a split rather than a copy.
+    def test_the_format_names_every_key_the_short_file_accepts(self):
+        """`resume-format.md` replaced `urs-spec.md` and `view-format.md` - an 11KB
+        specification of a copy of the career, and the half of it an author read. The
+        short file refuses an unknown key, so a key the reference does not name is one
+        an author cannot know it may set, and one it names that `short.KEYS` lacks fails
+        every file that uses it."""
+        from jsk.resume import short
 
-        This cannot be checked key by key: `id`, `label`, `skills`, `target` and
-        `include` are legitimately both view keys and record keys, so "appears in both
-        files" is not evidence of anything. What is checkable is that the normative
-        view example lives in one file, and that neither half has quietly regrown a
-        Views section of its own."""
-        spec = (self.REFS / "urs-spec.md").read_text(encoding="utf-8")
-        view = (self.REFS / "view-format.md").read_text(encoding="utf-8")
-        self.assertIn('"provenance_floor"', view,
-                      "view-format.md no longer holds the normative view example")
-        self.assertNotIn('"provenance_floor"', spec,
-                         "urs-spec.md has regrown a view example - it was moved, not copied")
+        text = (self.REFS / "resume-format.md").read_text(encoding="utf-8")
+        table = set(re.findall(r"^\| `([a-z_]+)`", text, re.M))
+        table |= set(re.findall(r"^\| `[a-z_]+`, `([a-z_]+)`", text, re.M))
+        self.assertEqual(table, set(short.KEYS))
 
-    def test_each_half_says_where_the_other_one_is(self):
-        """A reader who lands in the wrong half has to be able to get to the right one.
-        The pointers are the whole mechanism holding the split together, so losing one
-        silently is the failure this guards."""
-        spec = (self.REFS / "urs-spec.md").read_text(encoding="utf-8")
-        view = (self.REFS / "view-format.md").read_text(encoding="utf-8")
-        self.assertIn("view-format.md", spec, "urs-spec.md does not point at its other half")
-        self.assertIn("urs-spec.md", view, "view-format.md does not point at its other half")
+    def test_no_file_points_at_the_retired_specification(self):
+        """The URS spec, the view format and the URS guide were deleted with the record
+        (2026-09-25). A pointer left behind sends a reader to a file that is not there -
+        or, read by an agent, to a search for one."""
+        texts = {p.relative_to(REPO).as_posix(): p.read_text(encoding="utf-8")
+                 for p in [*PLUGIN.rglob("*.md"), REPO / "README.md", *(REPO / "docs").glob("*.md")]}
+        for name in ("urs-spec.md", "view-format.md", "urs-guide.md"):
+            self.assertFalse((self.REFS / name).exists() or (REPO / "docs" / name).exists(), name)
+            for path, text in texts.items():
+                with self.subTest(file=path, pointer=name):
+                    self.assertNotIn(name, text)
 
-    def test_the_author_is_pointed_at_the_half_it_needs(self):
-        """jsk-resume-author writes the view, so view-format.md is the half it cannot
-        do without. It reads urs-spec.md too now that the record is hand-written, but
-        losing the pointer to the view format would be the expensive one."""
+    def test_the_author_is_pointed_at_the_format_it_needs(self):
+        """jsk-resume-author exports the short file and edits its order, summary and page
+        settings, so resume-format.md is the one format reference it reads."""
         author = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
-        self.assertIn("view-format.md", author)
+        self.assertIn("references/resume-format.md", author)
+
+    def test_no_example_passes_a_view(self):
+        """A short resume.json is one resume, so `--view` left render, preview, gates,
+        ship and freeze. An example still passing it is a usage error copied into a
+        shell by whoever trusts the page."""
+        # legacy-kb-spec.md is the Markdown era's format, kept as it was; nothing runs it.
+        texts = {p.relative_to(REPO).as_posix(): p.read_text(encoding="utf-8")
+                 for p in [*PLUGIN.rglob("*.md"), REPO / "README.md", *(REPO / "docs").glob("*.md")]
+                 if p.name != "legacy-kb-spec.md"}
+        for path, text in texts.items():
+            for line in text.splitlines():
+                if re.search(r"jsk (ship|render|preview|gates|freeze)\b.*--view", line):
+                    with self.subTest(file=path):
+                        self.fail(f"{path}: {line.strip()}")
 
     def test_every_command_SKILL_md_names_is_a_real_subcommand(self):
         """The command table is how an agent decides what it may run. A row naming a

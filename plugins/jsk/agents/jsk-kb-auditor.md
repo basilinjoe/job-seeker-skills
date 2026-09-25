@@ -44,8 +44,9 @@ report: the caller fixes it (`jsk kb adopt`, a changeset) before anything else.
 `jsk kb view` — the whole career as Markdown, entries not confirmed marked — **once, end to end**.
 Then `career/log.ttl`: its last entries date the last pass, and how long a question has been open.
 `jsk kb show <id>` for an entry you need exactly as held. `rules/*.md` beside `career/`, if present
-— **their rules beat the skill's defaults**. If a `resume.json` exists, run `jsk validate <path>`
-and report its output verbatim; its absence is not a finding.
+— **their rules beat the skill's defaults**. If an unfrozen application (no `application.ttl`) holds
+a `resume.json`, run `jsk validate <path>` and report its output verbatim; its absence is not a
+finding.
 
 ## The assessment
 
@@ -92,7 +93,7 @@ drop the claim. Unmet requirement is the tailoring run's priority and has no mea
 The caller works through this one question at a time, so keep it short enough to act on.
 
 1. **Record health** — `jsk kb check` verbatim; roles, projects, metrics and the provenance mix,
-   counted; `jsk validate` output if there was a record.
+   counted; `jsk validate` output if there was a `resume.json`.
 2. **Where the gap document is**, and its queue in the order above. Each item: the id, the exact
    quote or field, and **the question to ask**, ready to say aloud.
 3. **Claims to soften or cut** — no evidence and no plausible source. The most valuable list you
