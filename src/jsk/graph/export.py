@@ -124,8 +124,11 @@ def gate_failures(store, doc, today=None):
     return out
 
 
-def urs(store, select=None, today=None):
-    """The draft record, as a dict. Raises ExportError for a selection it cannot honour."""
+def urs(store, select=None, today=None, selection=None):
+    """The draft record, as a dict. Raises ExportError for a selection it cannot honour.
+
+    `selection` is select.py's choice for one posting: its projects and bullets, in its
+    order, are the experience, and `select` adds only roles."""
     from . import record as R
 
     career = Career(store.graph(R.KB))
@@ -137,7 +140,11 @@ def urs(store, select=None, today=None):
         bullets_of[p].sort(key=lambda a: (int(career.get(a, "rank", 0)), a))
 
     projects = [p for p in career.live("Project")]
-    if picked is not None:
+    if selection is not None:
+        projects = list(selection.projects)
+        bullets_of = {p: list(bs) for p, bs in selection.bullets.items()}
+        roles = picked[2] if picked is not None else set()
+    elif picked is not None:
         want, bullets, roles = picked
         with_bullets = {career.get(a, "project") for a in bullets}
         projects = [p for p in projects if p in want or p in with_bullets]
@@ -149,7 +156,7 @@ def urs(store, select=None, today=None):
         roles = set()
     roles = roles | {career.get(p, "position") for p in projects if career.get(p, "position")}
     orgs = {career.get(r, "organisation") for r in roles}
-    if picked is None:
+    if picked is None and selection is None:
         orgs |= {career.get(r, "organisation") for r in career.live("Position")}
     # An employer comes with every role held there, so a promotion history stays whole.
     roles = {r for r in career.live("Position") if career.get(r, "organisation") in orgs}
@@ -176,7 +183,7 @@ def urs(store, select=None, today=None):
     add(doc, "skills", skills(career))
     narrative = positioning(career)
     add(doc, "narratives", [narrative] if narrative else [])
-    doc["views"] = [view(career, doc, engagements, narrative)]
+    doc["views"] = [view(career, doc, engagements, narrative, selection)]
     return doc
 
 
@@ -427,7 +434,7 @@ def region(country):
         return json.load(fh)["id"]
 
 
-def view(career, doc, engagements, narrative):
+def view(career, doc, engagements, narrative, selection=None):
     include = []
     for n, (e, _) in enumerate(engagements, 1):
         include.append({"ref": e["id"], "order": n})
@@ -440,4 +447,6 @@ def view(career, doc, engagements, narrative):
     out["provenance_floor"] = "confirmed"
     out["budget"] = {"pages": 2}
     out["include"] = include
+    if selection is not None:
+        out["skills"] = [local(s) for s in selection.skills]
     return out

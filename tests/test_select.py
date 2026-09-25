@@ -1,12 +1,15 @@
 """select.py: what a resume for one posting selects, worked by hand in the plan
 (docs/superpowers/plans/2026-09-25-export-from-match.md, "Fixture")."""
 import datetime
+import json
 import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
+from jsk.gates import validate_urs
+from jsk.graph import export
 from jsk.graph import ontology as O
 from jsk.graph import select as SEL
 from jsk.graph import store as S
@@ -145,6 +148,32 @@ class Pick(unittest.TestCase):
     def test_cap_counts_the_cover(self):
         cands = [("a", 3, {"r1"}), ("b", 3, {"r2"}), ("c", 3, {"r3"})]
         self.assertEqual(SEL.pick(cands, {"r1", "r2"}, 2, 1), ["a", "b"])
+
+
+class Exported(unittest.TestCase):
+    def setUp(self):
+        self.store = S.load(workspace(self))
+        self.doc = export.urs(self.store, today=TODAY,
+                              selection=SEL.select(self.store, POST, TODAY, 3))
+        self.view = self.doc["views"][0]
+
+    def test_only_the_selected_projects(self):
+        self.assertEqual(sorted(p["id"] for p in self.doc["projects"]),
+                         ["prj_events", "prj_identity"])
+
+    def test_the_view_orders_bullets_and_skills(self):
+        inc = {i["ref"]: i.get("achievements") for i in self.view["include"]}
+        self.assertEqual(inc["prj_events"],
+                         ["ach_events_latency", "ach_events_terraform", "ach_events_team"])
+        self.assertEqual(self.view["skills"], ["skill_kubernetes", "skill_dotnet"])
+
+    def test_it_validates(self):
+        self.assertEqual(list(validate_urs.check_doc(self.doc).fails), [])
+
+    def test_byte_identical(self):
+        store = S.load(self.store.root)
+        again = export.urs(store, today=TODAY, selection=SEL.select(store, POST, TODAY, 3))
+        self.assertEqual(json.dumps(again), json.dumps(self.doc))
 
 
 if __name__ == "__main__":
