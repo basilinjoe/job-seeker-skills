@@ -12,7 +12,7 @@ posting.orig.md. Nothing is deleted: user-knowledgebase.md, log.md, application.
 gaps.md and resume.json stay where they are.
 
 Exit 0 = migrated (or, with --dry-run, would be). Exit 1 = refused and nothing was
-written: career/kb.ttl already exists, the file is not in the shape kb-spec.md
+written: career/kb.ttl already exists, the file is not in the shape docs/legacy-kb-spec.md
 describes, a value has nowhere to go, the result would not validate, or it would not
 read back as what was read; also when markdown-it-py, pyyaml or pyoxigraph is missing.
 Exit 2 = called wrongly.
@@ -490,7 +490,7 @@ class Reader:
         kb.props["updated"].add(self.today)
         if self.front.get("kb") not in (1, 2):
             self.plan.refuse(f"kb: {self.front.get('kb')!r} - this reads the kb: 2 format",
-                             "set `kb: 2` once the file follows kb-spec.md")
+                             "set `kb: 2` once the file follows docs/legacy-kb-spec.md")
         self.b.node(onto.K + "person", "Person")
         first = self.sections[0]["start"] if self.sections else len(self.lines) + 1
         closing = -1
@@ -1012,7 +1012,7 @@ def required(plan, nodes, file):
         for p in onto.BY_NAME[n.cls].preds.values():
             if p.card in "1+" and not n.props.get(p.name):
                 plan.refuse(f"{file}: {curie(iri)} has no {p.name} - {p.doc}",
-                            "add it in the Markdown (kb-spec.md shows where), then run "
+                            "add it in the Markdown (docs/legacy-kb-spec.md shows where), then run "
                             "`jsk migrate` again")
         if n.props.get("retired") and not n.props.get("reason"):
             plan.refuse(f"{curie(iri)} is retired with no reason", "add one")

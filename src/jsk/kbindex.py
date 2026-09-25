@@ -64,7 +64,7 @@ class KBError(Exception):
 
 # --- reading ----------------------------------------------------------------
 
-def load_yaml(text, where, first_line, fix="fix the block; kb-spec.md shows each one's shape"):
+def load_yaml(text, where, first_line, fix="fix the block; docs/legacy-kb-spec.md shows each one's shape"):
     """One block as a mapping. `first_line` numbers a syntax error in the file's terms."""
     try:
         data = yaml.safe_load(text)
@@ -76,7 +76,7 @@ def load_yaml(text, where, first_line, fix="fix the block; kb-spec.md shows each
     if data is None:
         return {}
     if not isinstance(data, dict):
-        raise KBError(f"{where}: the block is not `key: value` lines", "kb-spec.md shows the shape")
+        raise KBError(f"{where}: the block is not `key: value` lines", "docs/legacy-kb-spec.md shows the shape")
     return data
 
 
@@ -180,7 +180,7 @@ def as_int(block, key, where, low, high):
 def projects_of(sections):
     section = sections.get("Projects")
     if section is None:
-        raise KBError("there is no ## Projects section", "the headings are fixed; see kb-spec.md")
+        raise KBError("there is no ## Projects section", "the headings are fixed; see docs/legacy-kb-spec.md")
     projects = entries_with_blocks(section, "project")
     for p in projects:
         where = f"{p['block']['id']} (line {p['start']})"

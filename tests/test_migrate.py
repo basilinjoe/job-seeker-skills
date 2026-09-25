@@ -710,6 +710,20 @@ class OlderShapes(Tmp):
         self.assertIn("Added the clinical event pipeline.", note)
 
 
+class TheOldFormatIsStillDocumented(unittest.TestCase):
+    """A Markdown file migrate or kbindex refuses has to be fixed against a description of
+    the old format - which left the plugin when kb-spec.md became kb-format.md."""
+
+    def test_every_pointer_names_a_file_that_exists(self):
+        spec = REPO_ROOT / "docs" / "legacy-kb-spec.md"
+        self.assertTrue(spec.is_file())
+        for module in ("migrate.py", "kbindex.py"):
+            text = (REPO_ROOT / "src" / "jsk" / module).read_text(encoding="utf-8")
+            with self.subTest(module=module):
+                self.assertNotRegex(text, r"(?<!legacy-)kb-spec\.md")
+                self.assertIn("docs/legacy-kb-spec.md", text)
+
+
 class TheCommand(Tmp):
     def test_help_exits_zero(self):
         code, out = run(CLI, "migrate", "--help")
