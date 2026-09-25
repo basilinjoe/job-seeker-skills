@@ -39,8 +39,13 @@ dependencies = ["pyoxigraph>=0.5.11,<0.6"]
 # `pyyaml` came back with `jsk index`, beside markdown-it-py: the two replaced about
 # a hundred lines of hand-written Markdown and YAML parsing, and they are optional -
 # `jsk index` says what to install rather than failing on import.
+#
+# `migrate` is the same two: the Markdown reader, which now exists to move a
+# user-knowledgebase.md to career/kb.ttl once. `index` stays as its alias while
+# `jsk index` does; both go in the release after the graph record (the roadmap's P7).
 pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
-index = ["markdown-it-py", "pyyaml"]   # jsk index: the knowledge base's overview and ranking
+migrate = ["markdown-it-py", "pyyaml"]  # jsk migrate: the Markdown knowledge base, read once
+index = ["markdown-it-py", "pyyaml"]    # alias of migrate, for jsk index
 all = ["pymupdf", "markdown-it-py", "pyyaml"]
 dev = ["pymupdf", "markdown-it-py", "pyyaml", "pytest", "pytest-xdist", "ruff"]
 

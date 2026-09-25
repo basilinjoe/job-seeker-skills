@@ -21,6 +21,7 @@ jsk new ./my-career --name "Your Name"
 jsk index user-knowledgebase.md --rank applications/<dir>/posting.md
 jsk match applications/<dir>/posting.ttl   # the same question, over the graph record
 jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
+jsk migrate user-knowledgebase.md   # the Markdown knowledge base to career/kb.ttl, once
 jsk validate resume.json         # the record gate
 jsk render resume.json --out . --view view_default --pdf
 jsk check resume.pdf             # both document gates, one pass
@@ -241,6 +242,44 @@ that sent a metric version since replaced. **`check`** runs every rule over the 
 where `kb.ttl` and `log.ttl` stand, and names files out of the canonical layout; exit 1 on a FAIL.
 
 Exit 0 written, or nothing to change; 1 refused, with every reason; 2 called wrong.
+
+### `jsk migrate`
+
+The `jsk.migrate` module. Moves a Markdown knowledge base to the graph record, once.
+
+```bash
+jsk migrate ./my-career/user-knowledgebase.md --dry-run   # every file it would write, printed
+jsk migrate ./my-career/user-knowledgebase.md             # written, logged as r1
+```
+
+The workspace is the folder holding `user-knowledgebase.md`. It writes `career/kb.ttl` and
+`career/log.ttl` there - kb.ttl at `j:revision 1`, log.ttl's `k:rev_1` (`j:by j:migrate`) holding
+its hash and `log.md`'s whole history as its note - so `jsk kb` reads the record as clean. Each
+`applications/<dir>/` gets `posting.ttl` (the requirements, each with a `j:quote` of the advert's
+words), `posting.md` rewritten as the advert alone, and `application.ttl` when `application.md`
+exists: its frontmatter, its `# Timeline` rows as events, and `j:carried` links to the bullets its
+`resume.json` sent. The old `posting.md` is kept whole as `posting.orig.md`. **Nothing is
+deleted**: `user-knowledgebase.md`, `log.md`, `application.md`, `gaps.md` and `resume.json` stay.
+
+Ids follow the ontology: `proj_` becomes `prj_`, `role_` `pos_`, `metric_` `met_`; a metric
+becomes a `Metric` and its `.v1`. Enums take URS's values (`self-reported` is `reported`,
+`work-visa` `employment-visa`), and the overloaded `status` splits into `j:provenance`,
+`j:authorization` (work rights) and `j:credentialState` (certifications). A bullet takes the id a
+`resume.json` already gave the same words, so the applications' links still join; otherwise one
+is minted from its project and its words. An entry with no `status` is `j:inferred` - a migration
+never raises a provenance. A value the ontology has no field for is kept as a `j:note` on its entry
+and named in the output; an unknown section is kept word for word as a note on `k:kb`.
+
+It refuses, writing nothing, when `career/kb.ttl` exists; when the file is not in `kb-spec.md`'s
+shape (`jsk index`'s reader decides); when a required value is missing (a role with no
+organisation, a metric whose value is not a number); when the new workspace would have a FAIL; or
+when the round trip fails - the graph, written and parsed back, must read as exactly the entries
+read from the Markdown, and `jsk index`'s own view of the projects, roles, years of experience,
+metrics and questions must match the same view of the graph. After writing it runs the claims
+gate over every `resume.json`, where the install has it. Needs markdown-it-py and pyyaml (the
+`migrate` extra).
+
+Exit 0 migrated (or would be); 1 refused, with every reason; 2 called wrong.
 
 ### `jsk validate`
 
