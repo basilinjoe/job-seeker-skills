@@ -74,11 +74,32 @@ ITEM = "\\item"
 # is why the unescape below runs first and is left alone by this.
 TEX_COMMAND = re.compile(r"\\[a-zA-Z]+\*?(?:\[[^\]]*\])?")
 PREAMBLE_CMD = re.compile(
-    r"\\(?:documentclass|usepackage|setlength|newcommand|setlist|pagestyle|begin|end)\b")
+    r"\\(?:documentclass|usepackage|setlength|newcommand|setlist|pagestyle|begin|end"
+    r"|hypersetup|hyphenpenalty|exhyphenpenalty)\b")
 TEX_UNESCAPE = [
     ("\\&", "&"), ("\\%", "%"), ("\\$", "$"), ("\\#", "#"),
     ("\\_", "_"), ("\\{", "{"), ("\\}", "}"),
+    # emit_latex.ASCII_QUOTES. Stripped as commands, "platform's" read as
+    # "platform s" - two words, one of them a stray letter.
+    ("\\textquotesingle{}", "'"), ("\\textasciigrave{}", "`"),
 ]
+# Markup that is not a command-plus-argument and so survives TEX_COMMAND with a
+# fragment of itself in the text. emit_latex's ligature break `\kern0pt{}` sits
+# INSIDE a word: stripped as a command it left "0pt" behind and split the word,
+# so the Everforth ATS render warned that "Codif 0pt ied the Azure estate" did
+# not open on a verb. `\href{url}{text}` shows only its text; its URL is not
+# something the reader sees and not prose to check.
+TEX_INVISIBLE = re.compile(r"\\kern-?[\d.]+(?:pt|em)?(?:\{\})?|\\href\{[^{}]*\}")
+
+# A bullet longer than this runs to a third rendered line. Measured, not
+# guessed: in the default 11pt body on A4 with the 0.8in two-page margin, the
+# full lines of monolith's ragged-right Everforth render held 88 to 100
+# characters (median 95). So 200 is two of the longest lines - a bullet past it
+# cannot fit on two, whatever the line breaks do - where the rough 220 first
+# suggested would have let 3-line bullets of 200-220 through silently. The
+# fitter may drop the body to 10pt, which widens a line by about a tenth; the
+# warning then fires a little early, which is the right way round to be wrong.
+LONG_BULLET = 200
 
 
 def read_tex(path):
@@ -108,6 +129,7 @@ def read_tex(path):
 
 def strip_tex(line):
     """The words a reader sees, with the markup taken off."""
+    line = TEX_INVISIBLE.sub("", line)
     for escaped, plain in TEX_UNESCAPE:
         line = line.replace(escaped, plain)
     line = TEX_COMMAND.sub(" ", line)
@@ -210,6 +232,16 @@ def check(paragraphs):
     for bullet in bullets:
         if not opens_on_a_verb(bullet):
             warns.append(f"bullet does not open on a verb: {bullet[:60]!r}")
+
+    # A warning, never a failure: length is a reading cost, not a defect, and
+    # some bullets earn a third line. But a recruiter's first pass reads the
+    # opening of a bullet and skips the rest, so a bullet that runs to three or
+    # four lines spends its space on words nobody reaches.
+    for bullet in bullets:
+        if len(bullet) > LONG_BULLET:
+            warns.append(f"long bullet, {len(bullet)} characters - more than two "
+                         f"rendered lines (~{LONG_BULLET}); split it or cut to the "
+                         f"result: {bullet[:50]!r}")
 
     quantified = None
     if numerals is not None and bullets:

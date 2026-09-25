@@ -186,6 +186,30 @@ class IdentityAndReferences(UrsCase):
         self.assertFails(doc, "unknown id")
 
 
+class AProjectsPositionIsOneItsEngagementHolds(UrsCase):
+    """The renderer puts a project's bullets under the role `position` names. One
+    naming a role its engagement does not hold would render them under the latest
+    title - the Experion misattribution the key exists to stop - silently."""
+
+    def with_project(self, position):
+        doc = urs_doc()
+        doc["projects"] = [{
+            "id": "prj_core", "name": "Core", "engagement": "eng_acme", "strength": 3,
+            "position": position,
+            "achievements": [achievement("Rebuilt the core service.", aid="ach_core")],
+            "provenance": {"status": "confirmed"}}]
+        doc["engagements"][0]["projects"] = ["prj_core"]
+        return doc
+
+    def test_a_position_of_the_engagement_passes(self):
+        self.assertPasses(self.with_project("pos_a"))
+
+    def test_a_position_the_engagement_does_not_hold_fails_with_a_fix(self):
+        out = self.assertFails(self.with_project("pos_elsewhere"), "pos_elsewhere")
+        self.assertIn("fix:", out)
+        self.assertIn("'pos_a'", out)
+
+
 class BulletIdsAViewNamesMustBeWrittenDown(UrsCase):
     """The compensating control for an achievement id that encodes a position.
 

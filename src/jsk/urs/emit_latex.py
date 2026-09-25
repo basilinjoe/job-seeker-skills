@@ -1,7 +1,7 @@
 """LaTeX emitter, for the PDF a human reads.
 
-Deliberately narrow dependencies: `geometry`, `enumitem` and `xcolor`, all
-present in any TeX distribution worth the name, plus optional typeface packages
+Deliberately narrow dependencies: `geometry`, `enumitem`, `xcolor` and
+`hyperref`, all present in any TeX distribution worth the name, plus optional typeface packages
 loaded behind `\\IfFileExists` so their absence costs appearance and never a
 build. A resume that needs texlive-full to build is a resume that will not build
 on the machine you actually have.
@@ -109,7 +109,8 @@ def emit(plan, template=None):
 
     body = [themes.preamble(
         theme, body_pt=BODY_PT, baseline_pt=f"{BODY_PT * 1.2:g}", paper=paper,
-        margin_in=0.8 if pages > 1 else 0.9, bullet=bullet)]
+        margin_in=0.8 if pages > 1 else 0.9, bullet=bullet,
+        pdf_info=pdf_info(plan))]
 
     body.extend(_header(plan, theme, esc_))
 
@@ -139,11 +140,80 @@ def _header(plan, theme, esc):
     headline = plan.get("headline")
     out = [r"\headeropen", r"\resumename{%s}" % esc(plan["name"])]
     for i, line in enumerate(plan["header_lines"]):
-        macro = "resumeheadline" if (i == 0 and headline and line == headline) else "resumecontact"
-        out.append(r"\%s{%s}" % (macro, esc(line)))
+        if i == 0 and headline and line == headline:
+            out.append(r"\resumeheadline{%s}" % esc(line))
+        else:
+            out.append(r"\resumecontact{%s}" % link_contacts(esc(line)))
     out.append(r"\headerclose")
     out.append(r"\headerrule")
     return out
+
+
+# --- PDF metadata and header links ---------------------------------------------
+
+# The keyword that names the render variant, read back by check_ats.variant_of().
+# In the metadata because the file name is the person's to change: "_ATS" in the
+# stem was the only marker, and a renamed file lost it.
+VARIANT_KEYWORD = "jsk-variant:"
+
+
+def pdf_info(plan):
+    """Title, author and variant for the PDF's information dictionary.
+
+    Escaped with the plain mapping, never the ligature break: a kern is a
+    typesetting instruction and has no meaning in a PDF string - hyperref drops
+    it with a warning at best.
+    """
+    name = esc(plan.get("name"))
+    return {
+        "pdftitle": f"{name} - Resume" if name else "",
+        "pdfauthor": name,
+        "pdfkeywords": esc(VARIANT_KEYWORD + str(plan.get("format") or "presentation")),
+    }
+
+
+# Email and web contacts, matched on a token of the ESCAPED line. The link goes
+# round the escaped text unchanged, so the visible text - and the text layer -
+# is exactly what it was; only an annotation is added. Matching after escaping
+# is what makes the URL safe to write: a token that needed escaping carries a
+# backslash and is skipped, because `\href`'s URL argument is read inside
+# \resumecontact's, where catcodes are already frozen and an escaped `\_` or
+# `\%` would reach the URL as the escape rather than the character.
+EMAIL = re.compile(r"[A-Za-z0-9.+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
+# A domain with a path, a scheme or www - or a bare domain, which a portfolio
+# often is. The TLD must be letters, so a version number or "3.5" never links;
+# the header carries place, email, phone and profiles, never a skills list, so
+# "Node.js" is not a token this can meet.
+WEB = re.compile(r"(?:https?://)?(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}(?:/[A-Za-z0-9./?=+-]*)?")
+TOKEN = re.compile(r"\S+")
+TRAILING = ".,;:)"
+
+
+def link_contacts(escaped):
+    r"""`escaped` with each email wrapped in a mailto: link and each web address
+    in an https:// one. Tokens are whitespace-delimited, so it does not matter
+    whether the contacts arrive on one line or two, or which separator joins
+    them. Trailing punctuation stays outside the link.
+    """
+    def wrap(m):
+        token = m.group(0)
+        core = token.rstrip(TRAILING)
+        tail = token[len(core):]
+        # The ligature break is the one escape that is not in the address: a
+        # handle with "fi" in it carries \kern0pt{} in the ATS variant, and the
+        # link has to point at the handle, not at the kern.
+        target = core.replace(BREAK, "")
+        if not target or "\\" in target or "{" in target or "}" in target:
+            return token
+        if EMAIL.fullmatch(target):
+            url = "mailto:" + target
+        elif WEB.fullmatch(target) and "@" not in target:
+            url = target if re.match(r"https?://", target) else "https://" + target
+        else:
+            return token
+        return r"\href{%s}{%s}%s" % (url, core, tail)
+
+    return TOKEN.sub(wrap, escaped)
 
 
 def _section(section, esc):
@@ -171,12 +241,29 @@ def _section(section, esc):
                 out.append(r"\vspace{\entrygap}")
             if entry.get("org_line"):
                 out.append(r"\entryline{%s}{%s}" % (esc(entry["org_line"]), esc(entry.get("org_right"))))
-            for role in entry["roles"]:
-                out.append(r"\roleline{%s}{%s}" % (esc(role["left"]), esc(role.get("right"))))
-            for line in entry["lines"]:
-                out.append(esc(line) + r"\par")
-            if entry["bullets"]:
-                out.append(r"\begin{itemize}")
-                out.extend(r"  \item %s" % esc(b) for b in entry["bullets"])
-                out.append(r"\end{itemize}")
+            lines = [esc(line) + r"\par" for line in entry["lines"]]
+            if any(role.get("bullets") for role in entry["roles"]):
+                # Per role: the role line, then that role's bullets, then the
+                # next role - an ATS credits a bullet to the title above it. The
+                # engagement's own lines go under its head line: the employer
+                # line where there is one, else the first role line.
+                if entry.get("org_line"):
+                    out.extend(lines)
+                for n, role in enumerate(entry["roles"]):
+                    out.append(r"\roleline{%s}{%s}" % (esc(role["left"]), esc(role.get("right"))))
+                    if n == 0 and not entry.get("org_line"):
+                        out.extend(lines)
+                    out.extend(_itemize(role["bullets"], esc))
+            else:
+                for role in entry["roles"]:
+                    out.append(r"\roleline{%s}{%s}" % (esc(role["left"]), esc(role.get("right"))))
+                out.extend(lines)
+            out.extend(_itemize(entry["bullets"], esc))
     return out
+
+
+def _itemize(bullets, esc):
+    """A list environment for `bullets`, or nothing: an empty itemize is a TeX error."""
+    if not bullets:
+        return []
+    return [r"\begin{itemize}", *(r"  \item %s" % esc(b) for b in bullets), r"\end{itemize}"]

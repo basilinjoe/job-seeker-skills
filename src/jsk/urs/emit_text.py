@@ -31,9 +31,21 @@ def _section(section):
                 lines.append("")
             if entry.get("org_line"):
                 lines.append(_pair(entry["org_line"], entry.get("org_right")))
-            for role in entry["roles"]:
-                lines.append(_pair(role["left"], role.get("right")))
-            lines.extend(entry["lines"])
+            if any(role.get("bullets") for role in entry["roles"]):
+                # Per role, as emit_latex does: a parser credits a bullet to the
+                # title above it. The engagement's own lines go under its head
+                # line - the employer line, else the first role line.
+                if entry.get("org_line"):
+                    lines.extend(entry["lines"])
+                for n, role in enumerate(entry["roles"]):
+                    lines.append(_pair(role["left"], role.get("right")))
+                    if n == 0 and not entry.get("org_line"):
+                        lines.extend(entry["lines"])
+                    lines.extend(f"- {b}" for b in role["bullets"])
+            else:
+                for role in entry["roles"]:
+                    lines.append(_pair(role["left"], role.get("right")))
+                lines.extend(entry["lines"])
             lines.extend(f"- {b}" for b in entry["bullets"])
         return lines
     return []

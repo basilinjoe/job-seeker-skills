@@ -331,6 +331,68 @@ class QuantificationCoverage(ProseCase):
         self.assertIn("quantified: 0/1 (0%)", out)
 
 
+class LongBullets(ProseCase):
+    """A bullet past two rendered lines is read to its opening and skipped. The
+    Everforth render had several running to three and four lines."""
+
+    # 233 characters: three lines in the default 11pt body on A4.
+    LONG = ("Co-designed the move from direct database coupling to Azure Service Bus "
+            "publish/subscribe across 15 integrated aged-care applications, cutting "
+            "event-propagation latency from five minutes to under one second in 2023.")
+
+    def test_a_bullet_past_two_lines_warns_with_its_opening_and_length(self):
+        code, out = self.check(with_lines((True, self.LONG)))
+        self.assertWarnsOnly(code, out, "long bullet")
+        self.assertIn(f"{len(self.LONG)} characters", out)
+        self.assertIn(repr(self.LONG[:50]), out)
+
+    def test_it_is_a_warning_never_a_failure(self):
+        code, out = self.check(with_lines((True, self.LONG), (True, self.LONG + " Again.")))
+        self.assertEqual(code, 0, out)
+        self.assertIn("FAIL 0", out)
+
+    def test_two_lines_or_fewer_is_silent(self):
+        short = self.LONG[:cp.LONG_BULLET - 1].rsplit(" ", 1)[0] + "."
+        _, out = self.check(with_lines((True, short)))
+        self.assertNotIn("long bullet", out)
+
+    def test_a_paragraph_is_not_a_bullet(self):
+        """The summary is prose and is allowed to run; the rule is about bullets."""
+        _, out = self.check(with_lines((False, self.LONG)))
+        self.assertNotIn("long bullet", out)
+
+
+class TemplateMarkupIsNotProse(ProseCase):
+    r"""The ATS variant breaks ligatures with `\kern0pt{}` inside a word, and the
+    header wraps contacts in `\href`. Stripped as ordinary commands, the kern left
+    "0pt" behind: the Everforth render warned that "Codif 0pt ied the Azure
+    estate" did not open on a verb."""
+
+    def test_a_ligature_break_does_not_split_the_word(self):
+        self.assertEqual(cp.strip_tex(r"Codif\kern0pt{}ied the Azure estate"),
+                         "Codified the Azure estate")
+
+    def test_a_link_shows_only_its_text(self):
+        self.assertEqual(
+            cp.strip_tex(r"\resumecontact{\href{mailto:a@b.io}{a@b.io} | "
+                         r"\href{https://github.com/a}{github.com/a}}"),
+            "a@b.io | github.com/a")
+
+    def test_straight_quotes_survive(self):
+        self.assertEqual(cp.strip_tex(r"the platform\textquotesingle{}s API"),
+                         "the platform's API")
+
+    def test_the_pdf_metadata_line_is_not_read_as_a_paragraph(self):
+        path = self.tex(CLEAN)
+        text = path.read_text(encoding="utf-8").replace(
+            r"\begin{document}",
+            r"\hypersetup{hidelinks,pdftitle={Jane Doe - Resume},pdfauthor={Jane Doe}}"
+            "\n\\hyphenpenalty=10000\n\\begin{document}")
+        path.write_text(text, encoding="utf-8")
+        texts = [t for _, t in cp.read_tex(path)]
+        self.assertFalse([t for t in texts if "pdftitle" in t or "10000" in t], texts)
+
+
 class OutputShape(ProseCase):
     """Same shape as check_ats.py, so it drops into the verification step without
     new conventions for a reader to learn."""

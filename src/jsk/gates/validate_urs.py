@@ -435,6 +435,31 @@ def check_backrefs(doc, rep):
                      f"engagement's projects[] - its bullets reach no rendered document")
 
 
+def check_project_positions(doc, rep):
+    """A project's `position` names a position of its own engagement.
+
+    The renderer puts a project's bullets under the role line `position` names.
+    One that names a role the engagement does not hold would render them under
+    the latest title instead - the exact misattribution the key exists to stop
+    (the Experion draft credited 2016 work to the 2025 role) - while looking
+    like a record that had said where the work belonged.
+    """
+    by_id = {e.get("id"): e for e in doc.get("engagements") or [] if isinstance(e, dict)}
+    listing = {pid: e.get("id") for e in by_id.values() for pid in (e.get("projects") or [])}
+    for p in doc.get("projects") or []:
+        role = p.get("position")
+        if not role:
+            continue
+        eng = p.get("engagement") or listing.get(p.get("id"))
+        held = [q.get("id") for q in (by_id.get(eng) or {}).get("positions") or []]
+        if role not in held:
+            where = f"engagement {eng!r}" if eng in by_id else "no engagement"
+            rep.fail(f"project {p.get('id')}: position {role!r} is not a position of {where} "
+                     f"- its bullets would render under the wrong role (fix: set position to "
+                     f"one of {', '.join(repr(h) for h in held) or 'its engagement positions'}, "
+                     f"or remove it)")
+
+
 def positional_bullet_ids(doc):
     """{derived id: project id} for every bullet whose id was numbered by position.
 
@@ -590,6 +615,7 @@ def check_doc(doc):
         check_placeholders(doc, rep)
         check_coverage(doc, rep)
         check_backrefs(doc, rep)
+        check_project_positions(doc, rep)
         check_unmaterialised_ids(doc, rep)
         check_renderable(doc, rep)
     else:

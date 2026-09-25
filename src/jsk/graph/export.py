@@ -336,6 +336,13 @@ def project(career, p, bullets, engagements):
     for e, under in engagements:
         if p in under:
             out["engagement"] = e["id"]
+            # The role the work was done in, so the renderer can put its bullets
+            # under that role's line: without it the Experion draft credited all
+            # six roles' work to the latest title. Written only when it is one of
+            # this engagement's positions - the one thing the record gate checks.
+            role = career.get(p, "position")
+            if role and local(role) in {q["id"] for q in e["positions"]}:
+                out["position"] = local(role)
     out["strength"] = int(career.get(p, "strength"))
     out["achievements"] = []
     for a in bullets:

@@ -51,6 +51,32 @@ DEMONYM = {
     "SA": "Saudi", "SG": "Singaporean", "US": "American", "ZA": "South African",
 }
 
+# The same codes, as the place a reader recognises. The location line rendered
+# "Kochi, Kerala, IN" - a bare code where a recruiter abroad expects a country,
+# on the line that tells them where the candidate is. Anything not listed
+# renders as written, as DEMONYM does.
+COUNTRY = {
+    "AE": "United Arab Emirates", "AU": "Australia", "BD": "Bangladesh", "CA": "Canada",
+    "CN": "China", "DE": "Germany", "EG": "Egypt", "ES": "Spain",
+    "FR": "France", "GB": "United Kingdom", "IE": "Ireland", "IN": "India",
+    "IT": "Italy", "JO": "Jordan", "JP": "Japan", "KE": "Kenya",
+    "LB": "Lebanon", "LK": "Sri Lanka", "MY": "Malaysia", "NG": "Nigeria",
+    "NP": "Nepal", "NZ": "New Zealand", "PH": "Philippines", "PK": "Pakistan",
+    "SA": "Saudi Arabia", "SG": "Singapore", "US": "United States", "ZA": "South Africa",
+}
+
+# Contact kinds that go on the first contact line, beside the place. Everything
+# else - linkedin, github, a website, any other URL - goes on the second. One
+# line holding all of them wrapped mid-way in every template and left a profile
+# URL orphaned on a line of its own; two deliberate lines break where a reader
+# expects them to.
+DIRECT_CONTACTS = ("email", "phone")
+
+# A skills row longer than this stops being scanned. The ATS render of the
+# Everforth application filled 45% of page 1 with its skills block while page 2
+# was half empty; ten names is what a recruiter reads in one pass of a row.
+MAX_SKILLS_PER_ROW = 10
+
 def _index(items):
     return {i["id"]: i for i in (items or []) if isinstance(i, dict) and "id" in i}
 
@@ -146,20 +172,26 @@ class Resolver:
         place = []
         for key in ("locality", "city", "region", "country"):
             if loc.get(key) and self.gate.permits(f"person.location.{key}"):
-                place.append(loc[key])
-        contact = [", ".join(place)] if place else []
+                value = loc[key]
+                if key == "country":
+                    value = COUNTRY.get(value.strip().upper(), value)
+                place.append(value)
+        direct = [", ".join(place)] if place else []
+        web = []
 
         labelled = self.ascii_only
         for c in person.get("contacts") or []:
             if not self.gate.permits(f"person.contacts.{c.get('kind')}"):
                 continue
             value = c.get("value", "")
-            if labelled and c.get("kind") in ("phone", "email"):
-                contact.append(f"{c['kind'].capitalize()}: {value}")
+            if c.get("kind") in DIRECT_CONTACTS:
+                direct.append(f"{c['kind'].capitalize()}: {value}" if labelled else value)
             else:
-                contact.append(value)
-        if contact:
-            lines.append(self.t(self.sep().join(contact)))
+                web.append(value)
+        # Two lines on purpose, each only when it has something: see DIRECT_CONTACTS.
+        for contact in (direct, web):
+            if contact:
+                lines.append(self.t(self.sep().join(contact)))
 
         auth = self.authorization_line()
         if auth:
@@ -167,7 +199,17 @@ class Resolver:
         return name, [l for l in lines if l]
 
     def authorization_line(self):
-        if not self.gate.permits("work_authorization"):
+        """Work rights, only where the market's profile requires them on the page.
+
+        Permitted was the old test, and nothing forbids the field anywhere, so
+        "Work rights: IN citizen" rendered on an application to a US posting -
+        against the person's own career record, which says work authorisation
+        does not go on the resume because the portal asks it on the form. Where
+        a profile requires it (au, ae) a recruiter screens on it first; anywhere
+        else it is a line spent on a question nobody asked.
+        """
+        if "work_authorization" not in self.gate.required \
+                or not self.gate.permits("work_authorization"):
             return None
         bits = []
         for a in self.doc.get("work_authorization") or []:
@@ -197,6 +239,22 @@ class Resolver:
                 "paragraphs": [self.t(nar["text"])]}
 
     def skills_section(self):
+        """The skills block: each name once, in the order the author chose.
+
+        Aliases are never rendered. The ATS variant used to expand them, and the
+        Everforth render read "C# / .NET, .NET, C#, ... dotnet", "Node.js,
+        NodeJS", "PostgreSQL, Postgres": a modern ATS matches those variants
+        itself, and the recruiter who reads the block next reads repetition as
+        keyword stuffing. Aliases stay in the record, for matching.
+
+        Names repeated across categories - LINQ, Entity Framework, Cosmos DB in
+        two rows each on the same render - show once, first occurrence winning,
+        compared case-insensitively.
+
+        When the view lists `skills`, the author ordered them by relevance to
+        the posting, so a category comes where its first skill does in that
+        list; CATEGORY_ORDER is only the fallback for a view that chose nothing.
+        """
         chosen = self.view.get("skills")
         items = [self.skills[s] for s in chosen if s in self.skills] if chosen \
             else list(self.doc.get("skills") or [])
@@ -209,16 +267,28 @@ class Resolver:
         def rank(cat):
             return (CATEGORY_ORDER.index(cat), cat) if cat in CATEGORY_ORDER else (len(CATEGORY_ORDER), cat)
 
-        rows = []
-        for cat in sorted(groups, key=rank):
+        # Insertion order is first appearance in the view's list.
+        order = list(groups) if chosen else sorted(groups, key=rank)
+        rows, seen = [], set()
+        for cat in order:
             names = []
             for s in groups[cat]:
-                names.append(s["name"])
-                if self.ascii_only:
-                    names.extend(s.get("aliases") or [])
+                name = (s.get("name") or "").strip()
+                if name and name.casefold() not in seen:
+                    seen.add(name.casefold())
+                    names.append(name)
+            if not names:
+                continue
             label = cat.replace("-", " ").replace("_", " ").title()
             # .title() lowercases acronyms - an "AI" row must not render as "Ai".
             label = " ".join(CATEGORY_ACRONYMS.get(w.lower(), w) for w in label.split())
+            if len(names) > MAX_SKILLS_PER_ROW:
+                dropped = names[MAX_SKILLS_PER_ROW:]
+                names = names[:MAX_SKILLS_PER_ROW]
+                self.warnings.append(
+                    f"skills row {label!r} holds {len(names) + len(dropped)} skills; the "
+                    f"first {MAX_SKILLS_PER_ROW} render and these were dropped: "
+                    f"{', '.join(dropped)} (order the view's skills to choose which stay)")
             rows.append({"label": self.t(label), "items": [self.t(n) for n in names]})
         heading = "Technical Skills" if self.ascii_only else "Skills"
         return {"kind": "rows", "heading": heading, "rows": rows}
@@ -281,28 +351,61 @@ class Resolver:
         if context:
             entry["lines"].append(self.t(self.sep().join(context)))
 
-        promotions = [p for p in positions if p.get("change") == "promotion"]
-        if len(positions) > 2 and promotions:
-            # A sentence, never an arrow chain. ats-rules.md: if the glyph is
-            # stripped, four job titles fuse into one phantom title. The
-            # progression is stated oldest-first because that is the direction
-            # a promotion runs, whatever order the roles are listed in above.
-            # Bare titles here, not role_title(): this sentence exists to defeat
-            # the arrow trap, and four parentheticals in one line defeat the
-            # reader instead. Each gloss is already on its own role line above.
-            oldest_first = sorted(positions, key=lambda p: period_key(p.get("period")))
-            titles = ", ".join(p["title"] for p in oldest_first)
-            entry["lines"].append(self.t(
-                f"Promoted through {len(positions)} roles: {titles}."))
+        # No "Promoted through N roles: ..." sentence. It was there to state a
+        # progression without an arrow chain (ats-rules.md, the arrow trap), but
+        # every role has its own dated line now, so on the Experion engagement it
+        # repeated the six role lines directly above it.
         if e.get("summary"):
             entry["lines"].append(self.t(e["summary"]))
 
-        entry["bullets"] = self.achievements_of(e, e["id"])
+        self.place_bullets(e, positions, entry)
+        return entry
+
+    def place_bullets(self, e, positions, entry):
+        """Each bullet under the role it was done in.
+
+        The Experion engagement listed six positions, 2016 to 2025, then every
+        project's bullets in one block after them. An ATS attaches a bullet to
+        the title directly above it, so 2016 work was credited to "Associate
+        Technical Architect, Jun 2025 - Present", and a human could not tell
+        which role did what. A project's `position` says which role it was; its
+        bullets go in that role's list, in the order they always had.
+
+        A bullet with no role - an engagement-level achievement, a project with
+        no position or one naming a position this engagement does not hold -
+        goes under the most recent role, the first listed under the
+        reverse-chronological convention. A role with no bullets keeps its line:
+        it is the promotion history.
+
+        When no project names a position there is nothing to split, and the
+        bullets stay in `entry["bullets"]` after every role line exactly as
+        before, so a record that predates `position` renders unchanged.
+        """
+        for role in entry["roles"]:
+            role["bullets"] = []
+        held = {p["id"]: n for n, p in enumerate(positions) if p.get("id")}
+        placed = [(None, b) for b in self.achievements_of(e, e["id"])]
         for pid in e.get("projects") or []:
             project = self.projects.get(pid)
-            if project and self.keep(project, f"project {pid}"):
-                entry["bullets"].extend(self.achievements_of(project, pid))
-        return entry
+            if not (project and self.keep(project, f"project {pid}")):
+                continue
+            role = project.get("position")
+            if role and role not in held:
+                self.warnings.append(
+                    f"project {pid} names position {role!r}, which engagement "
+                    f"{e.get('id')} does not hold - its bullets go under the most recent role")
+                role = None
+            placed.extend((role, b) for b in self.achievements_of(project, pid))
+
+        if not any(role for role, _ in placed):
+            entry["bullets"] = [b for _, b in placed]
+            return
+        # `roles` was built from `positions` one for one, so an index into one
+        # is an index into the other.
+        roles = entry["roles"]
+        for role, bullet in placed:
+            roles[held[role] if role else 0]["bullets"].append(bullet)
+        entry["bullets"] = []
 
     def education(self):
         items = [e for e in self.doc.get("education") or [] if self.keep(e, f"education {e.get('id')}")]
@@ -538,7 +641,9 @@ def build(doc, view_id=None, region=None, fmt=None):
             f"profile {profile['id']} requires {missing!r} and the record has nothing for it")
 
     # ATS-maximal is deliberately longer: it repeats the employer on every role
-    # line and expands the skills block with keyword aliases. Holding it to the
+    # line and labels the contact fields. (It no longer expands the skills block
+    # with keyword aliases - see skills_section: an ATS matches the variants
+    # itself, and a recruiter reads the repetition as stuffing.) Holding it to the
     # presentation budget would mean cutting evidence to satisfy a constraint a
     # parser does not have, so it carries its own budget and falls back to the
     # shared one when a view does not set it.

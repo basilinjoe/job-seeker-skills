@@ -283,8 +283,119 @@ class ThePdfItself(CheckATSCase):
         code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
                         "--view", "view_au_default", "--pdf", "--ats-max")
         self.assertEqual(code, 0, out)
-        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume_ATS.pdf", "--strict")
+        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume.pdf", "--strict")
         self.assertPasses(out, code)
+
+
+class SplitWords(CheckATSCase):
+    r"""A word hyphenated across a line end is two fragments in the text layer.
+
+    The default template justified and hyphenated, and the Everforth render's
+    PDF held "Mi-\ncroservices", "develop-\nment", "Applica-\ntion": a keyword
+    search for "Microservices" missed it. It fails in both modes, because people
+    upload the presentation PDF to portals too.
+    """
+
+    SPLIT = ("Cut order-processing latency 62 percent by decomposing a monolithic service.",
+             "Cut order-processing latency 62 percent by decom-\nposing a monolithic service.")
+
+    def pdf(self, lines, name="resume.pdf"):
+        return build_pdf(self.tmp / name, lines)
+
+    def test_a_split_word_fails_in_both_modes(self):
+        path = self.pdf(resume_with(self.SPLIT))
+        for args in ((), ("--strict",)):
+            with self.subTest(args=args):
+                code, out = run(CHECK_ATS, path, *args)
+                self.assertFails(out, code, "split across a line end")
+                self.assertIn("'decom-posing'", out)
+                self.assertIn("fix:", out)
+
+    def test_the_same_pdf_unsplit_passes(self):
+        """The control: the synthetic PDF is otherwise clean, so the failure above
+        is the split and nothing else."""
+        code, out = run(CHECK_ATS, self.pdf(CLEAN_RESUME), "--strict")
+        self.assertPasses(out, code)
+
+    def test_a_compound_broken_at_its_own_hyphen_is_not_a_split_word(self):
+        """A capital after the break is a compound - "Offline-Tolerant" - not a
+        word TeX cut in half, and a search for either half still matches."""
+        path = self.pdf(resume_with((BODY, "Built an Offline-\nTolerant sync engine for 40 clinics.")))
+        code, out = run(CHECK_ATS, path)
+        self.assertPasses(out, code)
+
+    def test_only_a_pdf_is_checked(self):
+        """The .txt has no line breaks a typesetter chose; a hand-wrapped line in
+        it is the person's, and the paste-in text is not what a portal parses as
+        the document."""
+        code, out = self.check(resume_with(self.SPLIT))
+        self.assertPasses(out, code)
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
+    def test_no_template_splits_a_word(self):
+        """Every theme, in both variants, with a record long enough to wrap."""
+        themes = urs_module("urs.themes")
+        for name in themes.names():
+            for flags in ((), ("--ats-max",)):
+                with self.subTest(template=name, flags=flags):
+                    out_dir = self.tmp / f"{name}{''.join(flags)}"
+                    code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", out_dir,
+                                    "--view", "view_au_default", "--template", name,
+                                    "--format", "latex", "--pdf", *flags)
+                    self.assertEqual(code, 0, out)
+                    code, out = run(CHECK_ATS, next(out_dir.glob("*.pdf")))
+                    self.assertNotIn("split across a line end", out)
+
+
+class TheVariantIsInTheMetadata(CheckATSCase):
+    """variant_of() reads the variant from the PDF's keywords, not its file name:
+    "_ATS" in the stem was the only marker, and the name is the person's to change."""
+
+    def setUp(self):
+        super().setUp()
+        self.variant_of = load_script(CHECK_ATS).variant_of
+
+    def pdf_with_keywords(self, keywords):
+        import pymupdf
+
+        path = self.tmp / "renamed.pdf"
+        doc = pymupdf.open()
+        doc.new_page().insert_text((72, 72), "Jane Doe", fontsize=11)
+        if keywords is not None:
+            doc.set_metadata({"keywords": keywords})
+        doc.save(str(path))
+        doc.close()
+        return path
+
+    def test_it_reads_the_variant_marker(self):
+        for variant in ("ats-maximal", "presentation"):
+            path = self.pdf_with_keywords(f"jsk-variant:{variant}")
+            self.assertEqual(self.variant_of(path), variant)
+
+    def test_it_finds_the_marker_among_other_keywords(self):
+        path = self.pdf_with_keywords("resume, jsk-variant:ats-maximal, azure")
+        self.assertEqual(self.variant_of(path), "ats-maximal")
+
+    def test_no_marker_is_none(self):
+        self.assertIsNone(self.variant_of(self.pdf_with_keywords(None)))
+        self.assertIsNone(self.variant_of(self.pdf_with_keywords("resume, azure")))
+
+    def test_a_file_that_is_not_a_pdf_is_none(self):
+        path = self.tmp / "fake.pdf"
+        path.write_text("not a PDF at all", encoding="utf-8")
+        self.assertIsNone(self.variant_of(path))
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
+    def test_a_render_carries_its_own_variant(self):
+        for flags, variant, stem in (((), "presentation", "Priya_Raman_Resume"),
+                                     (("--ats-max",), "ats-maximal", "Priya_Raman_Resume")):
+            out_dir = self.tmp / variant
+            code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", out_dir,
+                            "--view", "view_au_default", "--pdf", *flags)
+            self.assertEqual(code, 0, out)
+            renamed = out_dir / "resume-final.pdf"
+            (out_dir / f"{stem}.pdf").rename(renamed)
+            self.assertEqual(self.variant_of(renamed), variant)
 
 
 class InProcessEntryPoint(CheckATSCase):

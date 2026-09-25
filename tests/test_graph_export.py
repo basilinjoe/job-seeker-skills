@@ -64,11 +64,37 @@ class Draft(unittest.TestCase):
         doc = build(self.doc, "view_draft")
         experience = next(s for s in doc["sections"] if s["heading"] == "Professional Experience")
         meridian = next(e for e in experience["entries"] if e["org_line"] == "Meridian Health")
-        self.assertEqual(meridian["bullets"][:2], [
+        # Read from the roles: the draft carries each project's position now, so the
+        # bullets sit under the role they were done in, not in one block after all
+        # of them (entry["bullets"] is empty once any project names a role).
+        bullets = [b for r in meridian["roles"] for b in r["bullets"]] + meridian["bullets"]
+        self.assertEqual(bullets[:2], [
             "Cut p95 event latency from 5 s to 400 ms on AKS with Kafka.",
             "Led a team of 6 engineers."])
         self.assertIn("withheld bullet ach_data_ingestion - provenance 'inferred' is below "
                       "the view floor", doc["warnings"])
+
+    def test_a_project_carries_the_position_it_was_done_in(self):
+        """The Experion draft had no `position`, so the renderer put six roles' work
+        under the latest title. Export writes kb.ttl's j:position, and only a position
+        of the project's own engagement."""
+        by_id = {p["id"]: p for p in self.doc["projects"]}
+        self.assertEqual(by_id["prj_events"]["position"], "pos_meridian_lead")
+        self.assertEqual(by_id["prj_identity"]["position"], "pos_meridian_engineer")
+        held = {e["id"]: {q["id"] for q in e["positions"]} for e in self.doc["engagements"]}
+        for p in self.doc["projects"]:
+            if "position" in p:
+                self.assertIn(p["position"], held[p["engagement"]], p["id"])
+
+    def test_the_draft_renders_each_bullet_under_its_role(self):
+        from jsk.urs.resolve import build
+
+        plan = build(self.doc, "view_draft")
+        experience = next(s for s in plan["sections"] if s["heading"] == "Professional Experience")
+        meridian = next(e for e in experience["entries"] if e["org_line"] == "Meridian Health")
+        by_role = {r["left"]: r["bullets"] for r in meridian["roles"]}
+        lead = next(v for k, v in by_role.items() if "Lead" in k)
+        self.assertIn("Led a team of 6 engineers.", lead)
 
     def test_provenance_is_the_careers_exactly(self):
         got = achievements(self.doc)

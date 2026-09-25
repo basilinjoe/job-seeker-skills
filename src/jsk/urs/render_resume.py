@@ -40,11 +40,34 @@ from .tex import compile_pdf
 # The stem follows the VARIANT. It used to follow the format, so
 # `--format latex --profile ats-maximal` wrote `{name}_Resume.tex` and silently
 # overwrote the presentation render with a different document.
+#
+# The ATS-maximal PDF shares the presentation stem. It was `{name}_Resume_ATS.pdf`, and
+# that is the name a recruiter reads on the file they were sent. --ats-max switches
+# which variant the one PDF holds and never adds a second, so the two cannot collide;
+# the gates tell them apart by the jsk-variant keyword in the PDF's own metadata
+# (check_ats.variant_of), not by the name. The .txt keeps its suffix: it is pasted into
+# a box, never attached.
 STEMS = {
     "presentation": "{name}_Resume",
-    "ats-maximal": "{name}_Resume_ATS",
+    "ats-maximal": "{name}_Resume",
     "plaintext": "{name}_Resume_ATS",
 }
+
+
+def company_of(record_path):
+    """The employer from the posting.ttl beside the record, or None.
+
+    mode-tailor.md has always laid an application out as
+    `<Name>_<Company>_Resume.{tex,pdf,txt}`, and the renderer wrote `<Name>_Resume`:
+    a recruiter holding five candidates' files could not tell whose was for them."""
+    import re
+    posting = os.path.join(os.path.dirname(os.path.abspath(record_path)), "posting.ttl")
+    try:
+        with open(posting, encoding="utf8") as fh:
+            found = re.search(r'j:company\s+"([^"]+)"', fh.read())
+    except OSError:
+        return None
+    return found.group(1) if found else None
 
 
 def select_targets(fmt, profile):
@@ -103,13 +126,31 @@ def page_count(pdf):
         return None
 
 
-def page_report(name, count, budget):
+LAST_PAGE_FLOOR = 50      # percent of the last page's height its text reaches
+
+
+def last_page_fill(pdf):
+    """How far down the last page the text reaches, in percent, or None.
+
+    fit_pages.py's own measurement, reused. The Everforth render filled 45% of page 1
+    with a padded skills block and left page 2 half empty, and the page count - two,
+    against a budget of two - reported it as a success."""
+    try:
+        from .fit_pages import fill_percent, measure_pdf    # noqa: PLC0415
+        pages = measure_pdf(pdf)
+    except Exception:                               # noqa: BLE001 - reported, never fatal
+        return None
+    return fill_percent(pages[-1]) if pages else None
+
+
+def page_report(name, count, budget, fill=None):
     """One line about what was actually produced, against what was asked for.
 
     This printed the budget alone, which is a number nobody measured - the resume
     that prompted the fix rendered on one page against a budget of two and said so
     nowhere. Over budget is reported rather than failed: fit_pages.py owns that
-    verdict, and it is the script that can do something about it.
+    verdict, and it is the script that can do something about it. So is a last page
+    under half full: it is room the budget paid for, or a page too many.
     """
     if count is None:
         return (f"  pages  {name}: budget {budget}, not measured - "
@@ -117,6 +158,10 @@ def page_report(name, count, budget):
     measured = f"{count} page{'' if count == 1 else 's'} against a budget of {budget}"
     if count > budget:
         return f"  pages  {name}: {measured} - OVER BUDGET, run fit_pages.py"
+    if count > 1 and fill is not None and fill < LAST_PAGE_FLOOR:
+        return (f"  pages  {name}: {measured} - page {count} is {fill:.0f}% full: add the "
+                f"evidence the budget allows, or fit it to {count - 1} "
+                f"page{'' if count == 2 else 's'}")
     return f"  pages  {name}: {measured}"
 
 
@@ -187,12 +232,17 @@ def main(argv):
         print("      the ordinary first failure - run `jsk validate` on it once it parses")
         return 1
 
-    base = arg(argv, "--name") or safe_name(
-        ((doc.get("person") or {}).get("name") or {}).get("full"))
+    base = arg(argv, "--name")
+    if not base:
+        base = safe_name(((doc.get("person") or {}).get("name") or {}).get("full"))
+        company = company_of(src)
+        if company:
+            base = f"{base}_{safe_name(company)}"
 
     targets = select_targets(fmt, profile)
 
     written, warnings, notes, first = [], [], [], None
+    held = {}                      # pdf path -> the variant it holds
     pages = []
     unverified = False
     for variant, kind, stem in targets:
@@ -229,8 +279,9 @@ def main(argv):
                 notes.append(note)
                 if pdf:
                     written.append(pdf)
-                    pages.append(page_report(os.path.basename(pdf),
-                                             page_count(pdf), rendered["pages"]))
+                    held[pdf] = variant
+                    pages.append(page_report(os.path.basename(pdf), page_count(pdf),
+                                             rendered["pages"], last_page_fill(pdf)))
                 else:
                     unverified = True
         elif kind == "txt":
@@ -265,7 +316,8 @@ def main(argv):
         print("\nRendered. Now run the gates - a rendered resume is not a checked one:")
         for path in checkable:
             name = os.path.basename(path)
-            strict = " --strict" if "_ATS" in name else ""
+            ats = held.get(path) == "ats-maximal" if path.endswith(".pdf") else "_ATS" in name
+            strict = " --strict" if ats else ""
             print(f"  check_ats.py {name}{strict}")
         for path in written:
             if path.endswith((".tex", ".txt")):

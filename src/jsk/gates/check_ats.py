@@ -46,6 +46,40 @@ RISKY_BULLETS = "●▪◆▶‣⁃*·∙"
 # embedded. Either way no ATS can read a word of it.
 MIN_EXTRACTED_CHARS = 200
 
+# A word broken across a line end: a letter, a hyphen, the line break, and a
+# lowercase letter carrying on. The default template hyphenated, and the
+# Everforth render's text layer held "Mi-\ncroservices" - a search for
+# "Microservices" does not match it, and most parsers keep the hyphen because in
+# extracted text a soft break looks exactly like a real one. A lowercase
+# continuation is the tell: "Offline-\nTolerant" is a compound that happened to
+# break at its own hyphen, and the templates forbid that break too.
+SPLIT_WORD = re.compile(r"([A-Za-z]+)-\n([a-z]+)")
+
+# The keyword emit_latex.py writes into the PDF's metadata to name the variant.
+VARIANT_KEYWORD = re.compile(r"jsk-variant:([A-Za-z0-9_-]+)")
+
+
+def variant_of(pdf_path):
+    """The render variant the PDF was built as - "ats-maximal", "presentation" -
+    or None when its metadata carries no marker.
+
+    Read from the metadata rather than the file name, because the name is the
+    person's to change: "_ATS" in the stem was the only marker, and a renamed
+    file silently lost its strict check. None for a file that cannot be opened
+    as a PDF - the gate itself reports that. Raises ImportError without
+    pymupdf, as read_pdf() does: a variant nobody could read is not the same
+    answer as a variant that is not there.
+    """
+    import pymupdf                                 # noqa: PLC0415 - optional dependency
+
+    try:
+        with pymupdf.open(pdf_path) as doc:
+            keywords = (doc.metadata or {}).get("keywords") or ""
+    except Exception:
+        return None
+    m = VARIANT_KEYWORD.search(keywords)
+    return m.group(1) if m else None
+
 
 def codepoint(c):
     try:
@@ -168,6 +202,19 @@ def main(argv=None):
                          "or its fonts are not embedded; no parser can read a word of it")
         if not fonts:
             warns.append("no embedded fonts - text extraction may vary between parsers")
+        # Fatal in both modes, unlike ligatures: people upload the presentation
+        # PDF to portals, and a broken keyword is missing from either variant.
+        # Only for a PDF - the .txt has no line breaks a typesetter chose.
+        splits = SPLIT_WORD.findall(txt)
+        if splits:
+            shown = ", ".join(repr(f"{a}-{b}") for a, b in splits[:3])
+            more = f" and {len(splits) - 3} more" if len(splits) > 3 else ""
+            fails.append(
+                f"word{'s' if len(splits) > 1 else ''} split across a line end by a "
+                f"hyphen: {shown}{more} - a keyword search for "
+                f"{splits[0][0] + splits[0][1]!r} will not match this document\n"
+                f"        fix: re-render - the current templates turn hyphenation off; "
+                f"a PDF made elsewhere needs hyphenation disabled at its source")
 
     # --- bullet glyphs a parser may not map to a list item ---
     for l in lines:

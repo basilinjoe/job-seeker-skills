@@ -114,25 +114,28 @@ class ShipOrder(ShipCase):
         code, out = self.ship("--ats-max", "--template", "ember")
         self.assertEqual(code, 0, out)
         self.assertIn("--pdf --ats-max --template ember", out)
-        self.assertTrue((self.out / "Test_Person_Resume_ATS.pdf").exists())
+        self.assertTrue((self.out / "Test_Person_Resume.pdf").exists())
         self.assertIn("template: ember", out)
 
 
 class ShipGatesOnlyItsOwnRender(ShipCase):
     """A directory keeps every earlier render. `--ats-max` after a default ship left
     both PDFs side by side, and gating the directory failed the second ship on a
-    file it never made - then told the person to open that one."""
+    file it never made - then told the person to open that one.
 
-    def test_a_second_ship_gates_what_it_wrote_and_nothing_older(self):
+    Both variants now share one name, so the second ship replaces the first; what it
+    must get right is holding the replacement to the ATS rules, which it reads from
+    the render rather than from a suffix."""
+
+    def test_a_second_ship_gates_what_it_wrote_as_the_variant_it_holds(self):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
-        self.assertTrue((self.out / "Test_Person_Resume.pdf").exists())
+        self.assertIn("check_ats.py Test_Person_Resume.pdf\n", out)      # not strict
         code, out = self.ship("--ats-max")
         self.assertEqual(code, 0, out)
-        self.assertNotIn("check_ats.py Test_Person_Resume.pdf", out)
-        self.assertNotIn("check_prose.py Test_Person_Resume.tex", out)
-        self.assertIn("check_ats.py Test_Person_Resume_ATS.pdf", out)
-        self.assertIn("open Test_Person_Resume_ATS.pdf", out)
+        self.assertIn("check_ats.py Test_Person_Resume.pdf --strict", out)
+        self.assertIn("open Test_Person_Resume.pdf", out)
+        self.assertEqual(len(list(self.out.glob("*.pdf"))), 1)
 
 
 class ShipStops(ShipCase):

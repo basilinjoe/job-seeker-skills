@@ -28,6 +28,11 @@ Two further prohibitions are less obvious and were arrived at the hard way:
   space instead.
 * **No `microtype` protrusion.** It pushes punctuation past the margin, and
   `tests/test_render_resume.py` measures that nothing does.
+* **No hyphenation, and so no justification.** A word broken at a line end is
+  two fragments in the text layer - the default theme's PDF held
+  `Mi-\\ncroservices`, which no search for "Microservices" matches. Every theme
+  is ragged-right with hyphenation off; `check_ats.py` fails a PDF that still
+  has a broken word.
 * **No uppercased name.** Two themes shipped `\\MakeUppercase` on the name
   because a heavy all-caps name is the strongest possible anchor at the top of
   the page. It is also the one transformation on this list that a parser can
@@ -113,7 +118,10 @@ def _theme(**kw):
         "date_color": "jskmuted", "label_color": "jskaccent",
         "bullet_color": "jskaccent",
         # grid
-        "rhythm": 3.5, "margin_in": None, "list_indent": 12, "justify": False,
+        # No `justify` key: alignment is not a theme's to choose any more. See
+        # NO_HYPHENATION - a justified line with hyphenation off opens gaps
+        # wider than the rivers ragged-right was adopted to avoid.
+        "rhythm": 3.5, "margin_in": None, "list_indent": 12,
     }
     base.update(kw)
     return base
@@ -134,7 +142,12 @@ THEMES = {
         head_rule_pt=0.4, head_rule_color="jskink",
         headline_color="jskink", contact_color="jskink",
         label_color="jskink", bullet_color="jskink",
-        role_color="jskmuted", contact_pt=None, rhythm=3.5, justify=True,
+        # It was also justified, which is the one part of that inheritance that
+        # did not survive: justified at this measure means hyphenated, and the
+        # Everforth render's text layer held "Mi-\ncroservices" - a keyword
+        # search for "Microservices" missed the default template's own PDF.
+        # Every theme is ragged-right now; see RAGGED below.
+        role_color="jskmuted", contact_pt=None, rhythm=3.5,
     ),
     "meridian": _theme(
         blurb="Navy accent, left-aligned block, sans throughout. Modern corporate.",
@@ -413,12 +426,32 @@ def _entry_commands(theme):
     ])
 
 
-def preamble(theme, *, body_pt, baseline_pt, paper, margin_in, bullet):
+def _pdf_info(info):
+    r"""`\hypersetup` for the PDF's document-information dictionary.
+
+    `info` maps pdftitle/pdfauthor/pdfkeywords to text the caller has already
+    escaped. Every rendered PDF shipped with an empty title and author, so a
+    portal that lists uploads by title showed a blank, and nothing in the file
+    said which variant it was - the only marker was "_ATS" in a file name that
+    the person is free to rename. The keywords carry the variant for that.
+    """
+    # One line, because check_prose.py reads the .tex a line at a time and skips
+    # a preamble command only on the line that starts with it: split over three
+    # lines, "pdftitle={Priya Raman - Resume}" was a paragraph it checked.
+    fields = "".join(",%s={%s}" % (key, value)
+                     for key, value in (info or {}).items() if value)
+    return r"\hypersetup{hidelinks%s}" % fields
+
+
+def preamble(theme, *, body_pt, baseline_pt, paper, margin_in, bullet, pdf_info=None):
     """The whole preamble for one theme, ready to write.
 
     `margin_in` is the caller's page-budget margin; a theme may widen it but
     never narrow it, because narrowing is `fit_pages.py`'s job and it starts
     from what is written here.
+
+    `pdf_info` is metadata, not appearance - it is here only because this is
+    where the preamble is assembled, and no theme reads or changes it.
     """
     gaps = rhythm_lengths(theme)
     margin = max(float(margin_in), float(theme["margin_in"] or 0))
@@ -430,14 +463,40 @@ def preamble(theme, *, body_pt, baseline_pt, paper, margin_in, bullet):
         "rhythm": theme["rhythm"], "indent": theme["list_indent"],
         "header": _header_block(theme), "rule": _section_rule(theme),
         "head": _section_head(theme), "entries": _entry_commands(theme),
-        "align": "" if theme["justify"] else RAGGED,
+        "hyphenation": NO_HYPHENATION, "align": RAGGED,
+        "pdfinfo": _pdf_info(pdf_info),
         **gaps,
     }
 
 
-# Ragged right. At a 6.5-inch measure, justification opens word gaps wide enough
-# to read as rivers - visible in the first render's bullets - and every extra
-# millimetre between words costs a scan that is being done in seven seconds.
+# No hyphenation, in every theme and both variants. A word broken at a line end
+# reaches the PDF text layer as two fragments: monolith's Everforth render held
+# "Mi-\ncroservices", "develop-\nment", "Applica-\ntion", and a portal's keyword
+# search for "Microservices" did not match the default template's own output.
+# Most parsers do not rejoin a soft hyphen, because in extracted text it is
+# indistinguishable from a real one. check_ats.py now fails a PDF that has one.
+#
+# \exhyphenpenalty covers the explicit hyphen too: "Full-\nstack" is a compound
+# a search for "Full-stack" misses in the same way, and it is also exactly what
+# the check_ats pattern cannot tell apart from a soft break.
+#
+# Ragged right is what makes this safe. With infinite stretch in \rightskip
+# every line is acceptable without a break inside a word, so TeX carries the
+# whole word down. Only a single word wider than the measure could now overflow
+# - a line of body copy is some 80 characters - and tests/test_themes.py and
+# tests/test_render_resume.py measure that nothing passes the margin.
+NO_HYPHENATION = r"""%% No hyphenation: a broken word reaches the text layer as two fragments,
+%% and "Mi-croservices" does not match a search for "Microservices".
+\hyphenpenalty=10000
+\exhyphenpenalty=10000"""
+
+
+# Ragged right, in every theme. At a 6.5-inch measure, justification opens word
+# gaps wide enough to read as rivers - visible in the first render's bullets -
+# and every extra millimetre between words costs a scan that is being done in
+# seven seconds. monolith was the one justified theme, and justification is what
+# made it hyphenate; with NO_HYPHENATION a justified line would have to find the
+# same width from word gaps alone, so the option went with the hyphens.
 #
 # It is also compatible with \dateright, which is not obvious: \raggedright sets
 # \rightskip to `0pt plus 1fil`, exactly what \dateright sets locally, and the
@@ -462,9 +521,18 @@ PREAMBLE = r"""%% Rendered by jsk render_resume.py. Every content decision was m
 %% It never fails to build, because a resume that needs texlive-full to compile
 %% is a resume that will not compile on the machine you actually have.
 %(fonts)s
+%% --- metadata and links ---------------------------------------------------
+%% Loaded last, as hyperref must be, and required rather than guarded: it ships
+%% in TeX Live's collection-latex beside geometry and in every MiKTeX install,
+%% and a guard would leave \href undefined in the header on the one machine
+%% without it. hidelinks: no coloured boxes; the link is in the annotation
+%% layer, never the text layer, so the extracted text is unchanged.
+\usepackage{hyperref}
+%(pdfinfo)s
 \pagestyle{empty}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0pt}
+%(hyphenation)s
 %% --- palette --------------------------------------------------------------
 %% Colour is a drawing instruction in a PDF, never part of the text layer, so
 %% none of this is visible to a parser. tests/test_themes.py compiles each of

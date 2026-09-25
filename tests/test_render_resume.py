@@ -44,6 +44,7 @@ class PlanCase(unittest.TestCase):
                 out.append(entry.get("org_right") or "")
                 for role in entry["roles"]:
                     out.append(f"{role['left']} {role.get('right') or ''}")
+                    out.extend(role.get("bullets") or [])
                 out.extend(entry["lines"])
                 out.extend(entry["bullets"])
         return "\n".join(o for o in out if o)
@@ -131,18 +132,24 @@ class Chronology(PlanCase):
         roles = self.plan()["sections"][2]["entries"][0]["roles"]
         self.assertEqual(roles[0]["left"], "Principal Engineer")
 
-    def test_a_promotion_is_a_sentence_never_an_arrow_chain(self):
+    def test_a_promotion_is_its_role_lines_never_an_arrow_chain_or_a_sentence(self):
+        """This pinned a "Promoted through 3 roles: ..." sentence. Every role has
+        its own dated line now, so on the Experion engagement that sentence only
+        repeated the six role lines directly above it; it is gone, and the arrow
+        trap it guarded against is still guarded - there is no chain at all."""
         doc = urs_doc()
         doc["engagements"][0]["positions"].append(
             {"id": "pos_c", "title": "Distinguished Engineer",
              "period": {"start": {"value": "2025-01", "precision": "month"},
                         "state": "unknown"},
              "change": "promotion"})
-        text = self.flat(self.plan(doc))
-        self.assertIn("Promoted through 3 roles", text)
+        plan = self.plan(doc)
+        text = self.flat(plan)
+        self.assertNotIn("Promoted through", text)
         self.assertNotIn("→", text)
-        # Stated in the direction a promotion actually runs.
-        self.assertIn("Senior Engineer, Principal Engineer", text)
+        roles = [r["left"] for r in plan["sections"][2]["entries"][0]["roles"]]
+        self.assertEqual(sorted(roles), ["Distinguished Engineer", "Principal Engineer",
+                                         "Senior Engineer"])
 
     def test_ongoing_periods_read_as_present(self):
         self.assertIn("Present", self.flat(self.plan()))
@@ -189,20 +196,6 @@ class FunctionalTitles(PlanCase):
         roles = self.first_role(self.gloss(functional=None))
         self.assertEqual([r["left"] for r in roles][-1], "Member of Technical Staff")
 
-    def test_the_promotion_sentence_keeps_bare_titles(self):
-        """The sentence exists to defeat the arrow trap; four parentheticals in
-        one line defeat the reader instead. Each gloss is on its own role line."""
-        doc = self.gloss(title="Member of Technical Staff II")
-        doc["engagements"][0]["positions"].append(
-            {"id": "pos_c", "title": "Distinguished Engineer",
-             "period": {"start": {"value": "2025-01", "precision": "month"},
-                        "state": "unknown"},
-             "change": "promotion"})
-        lines = self.plan(doc)["sections"][2]["entries"][0]["lines"]
-        promoted = [l for l in lines if l.startswith("Promoted through")]
-        self.assertTrue(promoted, lines)
-        self.assertNotIn("(", promoted[0])
-
     def test_the_gloss_survives_the_ascii_fold(self):
         text = self.flat(self.plan(self.gloss(), fmt="ats-maximal"))
         self.assertIn("(Full-Stack Engineer)", text)
@@ -230,10 +223,210 @@ class AtsVariant(PlanCase):
         headings = [s["heading"] for s in self.plan(fmt="ats-maximal")["sections"]]
         self.assertIn("Technical Skills", headings)
 
-    def test_ats_variant_includes_skill_aliases_for_keyword_matching(self):
+    def test_ats_variant_never_renders_skill_aliases(self):
+        """This pinned the opposite: the ATS variant expanded aliases for keyword
+        matching. The Everforth render then read "C# / .NET, .NET, C#, ...
+        dotnet" and "PostgreSQL, Postgres" - a modern ATS matches variants
+        itself, and the recruiter reading next sees keyword stuffing."""
         doc = urs_doc()
         doc["skills"][0]["aliases"] = ["Microsoft Azure"]
-        self.assertIn("Microsoft Azure", self.flat(self.plan(doc, fmt="ats-maximal")))
+        for fmt in ("ats-maximal", "presentation"):
+            self.assertNotIn("Microsoft Azure", self.flat(self.plan(doc, fmt=fmt)), fmt)
+
+
+def with_projects(doc, *projects):
+    """`doc` with its engagement's own bullets moved into projects.
+
+    Each item is (project id, position id or None, [(achievement id, text)]).
+    """
+    doc["engagements"][0]["achievements"] = []
+    doc["projects"] = []
+    for pid, position, bullets in projects:
+        project = {"id": pid, "name": pid, "engagement": "eng_acme", "strength": 3,
+                   "achievements": [achievement(text, aid=aid) for aid, text in bullets],
+                   "provenance": {"status": "confirmed"}}
+        if position:
+            project["position"] = position
+        doc["projects"].append(project)
+    doc["engagements"][0]["projects"] = [p[0] for p in projects]
+    return doc
+
+
+class BulletsSitUnderTheirRole(PlanCase):
+    """The Experion engagement listed six positions, 2016 to 2025, then every
+    project's bullets in one block under them. An ATS credits a bullet to the
+    title directly above it, so 2016 work belonged to "Associate Technical
+    Architect, Jun 2025 - Present", and no reader could tell which role did what.
+    """
+
+    def split_doc(self):
+        return with_projects(
+            urs_doc(),
+            ("prj_new", "pos_b", [("ach_new", "Led the platform rewrite.")]),
+            ("prj_old", "pos_a", [("ach_old", "Built the original ingestion service.")]),
+            ("prj_loose", None, [("ach_loose", "Mentored four engineers.")]))
+
+    def entry(self, doc, **kwargs):
+        return self.plan(doc, **kwargs)["sections"][2]["entries"][0]
+
+    def test_each_role_carries_the_bullets_of_its_projects(self):
+        for fmt in ("presentation", "ats-maximal"):
+            entry = self.entry(self.split_doc(), fmt=fmt)
+            by_role = {r["left"].split(",")[0]: r["bullets"] for r in entry["roles"]}
+            self.assertEqual(by_role["Principal Engineer"],
+                             ["Led the platform rewrite.", "Mentored four engineers."], fmt)
+            self.assertEqual(by_role["Senior Engineer"],
+                             ["Built the original ingestion service."], fmt)
+            self.assertEqual(entry["bullets"], [], fmt)
+
+    def test_a_bullet_with_no_role_goes_under_the_most_recent_one(self):
+        """Engagement-level achievements have no project, so no position."""
+        doc = self.split_doc()
+        doc["engagements"][0]["achievements"] = [achievement("Ran the on-call rota.",
+                                                             aid="ach_rota")]
+        roles = self.entry(doc)["roles"]
+        self.assertEqual(roles[0]["left"], "Principal Engineer")
+        self.assertEqual(roles[0]["bullets"][0], "Ran the on-call rota.")
+
+    def test_a_position_the_engagement_does_not_hold_warns_and_falls_back(self):
+        doc = self.split_doc()
+        doc["projects"][1]["position"] = "pos_elsewhere"
+        plan = self.plan(doc)
+        roles = plan["sections"][2]["entries"][0]["roles"]
+        self.assertIn("Built the original ingestion service.", roles[0]["bullets"])
+        self.assertEqual(roles[1]["bullets"], [])
+        self.assertIn("pos_elsewhere", " ".join(plan["warnings"]))
+
+    def test_a_role_with_no_bullets_keeps_its_line(self):
+        """The role lines are the promotion history once the sentence is gone."""
+        doc = with_projects(urs_doc(), ("prj_new", "pos_b", [("ach_new", "Led it.")]))
+        roles = self.entry(doc)["roles"]
+        self.assertEqual([r["left"] for r in roles], ["Principal Engineer", "Senior Engineer"])
+        self.assertEqual(roles[1]["bullets"], [])
+
+    def test_no_position_anywhere_renders_as_it_always_did(self):
+        """A record that predates `position`: every bullet after every role line."""
+        from jsk.urs import emit_text
+        doc = with_projects(urs_doc(),
+                            ("prj_a", None, [("ach_a", "Did the first thing.")]),
+                            ("prj_b", None, [("ach_b", "Did the second thing.")]))
+        entry = self.entry(doc)
+        self.assertEqual(entry["bullets"], ["Did the first thing.", "Did the second thing."])
+        self.assertTrue(all(r["bullets"] == [] for r in entry["roles"]))
+        txt = emit_text.emit(self.plan(doc))
+        self.assertLess(txt.index("Senior Engineer"), txt.index("Did the first thing."))
+
+    def test_both_emitters_put_each_role_line_above_its_own_bullets(self):
+        from jsk.urs import emit_latex, emit_text
+        for fmt in ("presentation", "ats-maximal"):
+            plan = self.plan(self.split_doc(), fmt=fmt)
+            for rendered in (emit_text.emit(plan), emit_latex.emit(plan)):
+                # From the section heading on: the headline repeats a title.
+                rendered = rendered[rendered.upper().index("PROFESSIONAL EXPERIENCE"):]
+                order = [rendered.index(s) for s in (
+                    "Principal Engineer", "Led the platform rewrite.",
+                    "Mentored four engineers.", "Senior Engineer",
+                    "Built the original ingestion service.")]
+                self.assertEqual(order, sorted(order), fmt)
+
+    def test_presentation_names_the_employer_once_ats_on_every_role(self):
+        from jsk.urs import emit_text
+        txt = emit_text.emit(self.plan(self.split_doc(), fmt="presentation"))
+        self.assertEqual(txt.count("Acme Health"), 1)
+        txt = emit_text.emit(self.plan(self.split_doc(), fmt="ats-maximal"))
+        self.assertIn("Principal Engineer, Acme Health", txt)
+        self.assertIn("Senior Engineer, Acme Health", txt)
+
+
+class SkillsBlockShowsEachNameOnce(PlanCase):
+    """The Everforth ATS render filled 45% of page 1 with its skills block -
+    aliases expanded, and LINQ, Entity Framework, Cosmos DB and Azure AI Foundry
+    each in two rows - while page 2 was half empty."""
+
+    def skills_doc(self, skills, chosen=None):
+        doc = urs_doc()
+        doc["skills"] = [{"id": sid, "name": name, "category": cat}
+                         for sid, name, cat in skills]
+        if chosen is not None:
+            doc["views"][0]["skills"] = chosen
+        return doc
+
+    def rows(self, doc, **kwargs):
+        plan = self.plan(doc, **kwargs)
+        return [(r["label"], r["items"]) for r in plan["sections"][1]["rows"]], plan
+
+    def test_a_name_in_two_categories_shows_once_first_wins(self):
+        doc = self.skills_doc([("skill_linq", "LINQ", "language"),
+                               ("skill_linq2", "linq", "framework"),
+                               ("skill_ef", "Entity Framework", "framework")])
+        rows, _ = self.rows(doc, fmt="ats-maximal")
+        self.assertEqual(rows, [("Language", ["LINQ"]), ("Framework", ["Entity Framework"])])
+
+    def test_a_row_emptied_by_deduplication_is_not_rendered(self):
+        doc = self.skills_doc([("skill_a", "Cosmos DB", "database"),
+                               ("skill_b", "Cosmos DB", "data")])
+        rows, _ = self.rows(doc)
+        self.assertEqual([label for label, _ in rows], ["Data"])
+
+    def test_categories_follow_the_view_order_when_it_lists_skills(self):
+        """The author ordered the view's skills by relevance to the posting."""
+        doc = self.skills_doc([("skill_sql", "SQL", "database"),
+                               ("skill_azure", "Azure", "cloud-platform"),
+                               ("skill_cs", "C#", "language")],
+                              chosen=["skill_cs", "skill_sql", "skill_azure"])
+        rows, _ = self.rows(doc)
+        self.assertEqual([label for label, _ in rows], ["Language", "Database", "Cloud Platform"])
+
+    def test_without_a_view_list_the_category_order_holds(self):
+        doc = self.skills_doc([("skill_sql", "SQL", "database"),
+                               ("skill_azure", "Azure", "cloud-platform")])
+        rows, _ = self.rows(doc)
+        self.assertEqual([label for label, _ in rows], ["Cloud Platform", "Database"])
+
+    def test_a_row_is_capped_and_the_dropped_names_are_warned(self):
+        names = [f"Tool{n}" for n in range(12)]
+        doc = self.skills_doc([(f"skill_t{n}", name, "tooling") for n, name in enumerate(names)])
+        rows, plan = self.rows(doc)
+        self.assertEqual(rows[0][1], names[:10])
+        warning = " ".join(plan["warnings"])
+        self.assertIn("Tool10, Tool11", warning)
+
+
+class HeaderSaysOnlyWhatTheMarketAsks(PlanCase):
+    """"Work rights: IN citizen" and "Kochi, Kerala, IN" on a US application,
+    and a contact line that wrapped mid-way in every template."""
+
+    def header(self, doc=None, **kwargs):
+        return self.plan(doc, **kwargs)["header_lines"]
+
+    def test_work_rights_render_only_where_the_profile_requires_them(self):
+        self.assertTrue(any(l.startswith("Work rights") for l in self.header(region="AU")))
+        for region in ("US", "IN", "XX"):
+            self.assertFalse(any("Work rights" in l for l in self.header(region=region)), region)
+
+    def test_a_country_code_renders_as_the_country(self):
+        doc = urs_doc()
+        doc["person"]["location"] = {"city": "Kochi", "region": "Kerala", "country": "IN"}
+        line = self.header(doc, region="US")[1]
+        self.assertTrue(line.startswith("Kochi, Kerala, India"), line)
+
+    def test_an_unknown_country_renders_as_written(self):
+        doc = urs_doc()
+        doc["person"]["location"] = {"city": "Reykjavik", "country": "Iceland"}
+        self.assertIn("Reykjavik, Iceland", " ".join(self.header(doc)))
+
+    def test_contacts_split_into_direct_then_web_lines(self):
+        doc = urs_doc()
+        doc["person"]["contacts"] += [{"kind": "linkedin", "value": "linkedin.com/in/test"},
+                                      {"kind": "github", "value": "github.com/test"}]
+        lines = self.header(doc, region="US", fmt="ats-maximal")
+        self.assertEqual(lines[1:], [
+            "Melbourne, VIC, Australia | Email: test.person@example.com | "
+            "Phone: +61 400 000 000",
+            "linkedin.com/in/test | github.com/test"])
+
+    def test_no_web_profile_means_no_second_line(self):
+        self.assertEqual(len(self.header(region="US")), 2)
 
 
 class EmittersDoNotDiverge(PlanCase):
@@ -313,9 +506,12 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.assertEqual(list(self.tmp.glob("*.docx")), [])
 
     def test_ats_max_switches_the_variant_rather_than_adding_a_file(self):
+        """One .tex either way, named for the recruiter - `_ATS` was the name on the
+        file they were sent. What it holds is in its own jsk-variant keyword."""
         self.render(EXAMPLE_URS, "--view", "view_au_default", "--ats-max")
-        self.assertTrue((self.tmp / "Priya_Raman_Resume_ATS.tex").exists())
-        self.assertFalse((self.tmp / "Priya_Raman_Resume.tex").exists())
+        self.assertEqual([p.name for p in self.tmp.glob("*.tex")], ["Priya_Raman_Resume.tex"])
+        self.assertIn("jsk-variant:ats-maximal",
+                      (self.tmp / "Priya_Raman_Resume.tex").read_text(encoding="utf8"))
 
     def test_plain_text_is_ascii_only(self):
         self.render(EXAMPLE_URS, "--view", "view_au_default")
@@ -500,10 +696,20 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
     # above, which is what makes pinning the list the real guard: a hazard
     # nobody has thought of still needs a package, and a new package has to be
     # argued for here first.
+    #
+    # `hyperref` was argued for when the rendered PDFs turned out to carry an
+    # empty title and author and no clickable email or profile links. It writes
+    # the PDF information dictionary and link annotations - neither is in the
+    # text layer, and it draws no structure a parser could trip on (hidelinks:
+    # not even the coloured boxes). It is required rather than guarded because
+    # it ships in TeX Live's collection-latex beside geometry, and a guard would
+    # leave \href undefined in the header. It loads last, after the typefaces,
+    # because hyperref has to.
     ALLOWED = {"fontenc", "inputenc", "geometry", "enumitem", "xcolor",
                "lmodern", "tgtermes", "tgpagella", "tgschola", "tgheros",
-               "tgadventor"}
+               "tgadventor", "hyperref"}
     REQUIRED = ["fontenc", "inputenc", "geometry", "enumitem", "xcolor"]
+    REQUIRED_LAST = "hyperref"
 
     def packages(self, tex):
         return re.findall(r"\\usepackage(?:\[[^\]]*\])?\{([^}]*)\}", tex)
@@ -513,6 +719,7 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
         for fmt, tex in self.rendered():
             found = self.packages(tex)
             self.assertEqual(found[:len(self.REQUIRED)], self.REQUIRED, fmt)
+            self.assertEqual(found[-1], self.REQUIRED_LAST, fmt)
             self.assertEqual(set(found) - self.ALLOWED, set(), fmt)
 
     def test_every_optional_font_load_is_guarded(self):
@@ -524,7 +731,7 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
         fails loudly rather than rendering something unrecognisable."""
         for fmt, tex in self.rendered():
             for pkg in self.packages(tex):
-                if pkg in self.REQUIRED:
+                if pkg in self.REQUIRED or pkg == self.REQUIRED_LAST:
                     continue
                 self.assertIn(r"\IfFileExists{%s.sty}{\usepackage{%s}}{}" % (pkg, pkg),
                               tex, f"{fmt}: {pkg} loaded unguarded")
@@ -633,6 +840,106 @@ class TheDateColumnHolds(unittest.TestCase):
         self.assertIn("Feb 2021 - Jun 2023", text)
 
 
+class NoTemplateHyphenates(PlanCase):
+    r"""monolith justified and hyphenated, and the Everforth render's text layer
+    held "Mi-\ncroservices" - a search for "Microservices" missed the default
+    template's own PDF. Every theme in both variants now turns it off; the
+    compiled proof is check_ats.py's split-word rule, tested in test_check_ats."""
+
+    def test_every_theme_and_variant_turns_hyphenation_off_and_sets_ragged_right(self):
+        themes_mod = urs_module("urs.themes")
+        for fmt in ("presentation", "ats-maximal"):
+            for name in themes_mod.names():
+                rendered = emit_latex.emit(self.plan(fmt=fmt), template=name)
+                body = rendered.split(r"\begin{document}")
+                for line in (r"\hyphenpenalty=10000", r"\exhyphenpenalty=10000"):
+                    self.assertIn(line, body[0], f"{fmt}/{name}")
+                self.assertIn("\n\\raggedright\n", body[1], f"{fmt}/{name}")
+
+
+class TheHeaderLinksAndTheMetadata(PlanCase):
+    """The PDFs carried an empty title and author and no clickable links. A link
+    is an annotation, never text, so adding one must not move a character."""
+
+    def doc_with_profiles(self):
+        doc = urs_doc()
+        doc["person"]["contacts"] += [
+            {"kind": "linkedin", "value": "linkedin.com/in/test-person"},
+            {"kind": "github", "value": "github.com/testperson"},
+            {"kind": "website", "value": "https://testperson.dev"},
+        ]
+        return doc
+
+    def test_the_metadata_names_the_person_and_the_variant(self):
+        for fmt in ("presentation", "ats-maximal"):
+            tex = emit_latex.emit(self.plan(fmt=fmt))
+            self.assertIn(r"\hypersetup{hidelinks,pdftitle={Test Person - Resume},"
+                          r"pdfauthor={Test Person},pdfkeywords={jsk-variant:%s}}" % fmt,
+                          tex, fmt)
+
+    def test_email_and_web_contacts_are_linked(self):
+        for fmt in ("presentation", "ats-maximal"):
+            tex = emit_latex.emit(self.plan(self.doc_with_profiles(), fmt=fmt))
+            for link in (r"\href{mailto:test.person@example.com}{test.person@example.com}",
+                         r"\href{https://linkedin.com/in/test-person}{linkedin.com/in/test-person}",
+                         r"\href{https://github.com/testperson}{github.com/testperson}",
+                         r"\href{https://testperson.dev}{https://testperson.dev}"):
+                self.assertIn(link, tex, fmt)
+            self.assertNotIn(r"\href{https://+61", tex)
+
+    def test_a_link_does_not_change_the_visible_text(self):
+        link = emit_latex.link_contacts
+        line = r"Sydney, NSW \textperiodcentered{} a.b@example.com \textperiodcentered{} +61 400 000 000"
+        linked = link(line)
+        self.assertEqual(re.sub(r"\\href\{[^{}]*\}\{([^{}]*)\}", r"\1", linked), line)
+        self.assertIn(r"\href{mailto:a.b@example.com}{a.b@example.com}", linked)
+
+    def test_trailing_punctuation_stays_outside_the_link(self):
+        self.assertEqual(emit_latex.link_contacts("github.com/x,"),
+                         r"\href{https://github.com/x}{github.com/x},")
+
+    def test_a_token_that_needed_escaping_is_left_alone(self):
+        r"""`\_` in the URL argument of an \href nested in \resumecontact reaches
+        the link as the escape, not the character - a broken link is worse than
+        plain text, so the token stays plain."""
+        line = emit_latex.esc("first_last@example.com | github.com/first_last")
+        self.assertEqual(emit_latex.link_contacts(line), line)
+
+    def test_a_ligature_break_is_not_part_of_the_address(self):
+        line = emit_latex.esc("github.com/fiona", ascii_safe=True)
+        self.assertIn(r"\kern0pt", line)
+        self.assertEqual(emit_latex.link_contacts(line),
+                         r"\href{https://github.com/fiona}{%s}" % line)
+
+    def test_words_that_are_not_addresses_are_not_linked(self):
+        for text in ("Work rights: AU citizen", "Kochi, Kerala, India", "Phone: +91 95676 61005",
+                     "v3.5", "Email:"):
+            self.assertEqual(emit_latex.link_contacts(emit_latex.esc(text)),
+                             emit_latex.esc(text), text)
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
+    def test_the_compiled_pdf_carries_metadata_and_links(self):
+        import pymupdf
+
+        with tempfile.TemporaryDirectory() as root:
+            path = write_urs(Path(root), self.doc_with_profiles(), "resume.json")
+            code, out = run(RENDER_RESUME, path, "--out", root, "--pdf")
+            self.assertEqual(code, 0, out)
+            with pymupdf.open(next(Path(root).glob("*.pdf"))) as pdf:
+                meta = pdf.metadata
+                uris = sorted(l.get("uri") for page in pdf for l in page.get_links())
+                text = "".join(page.get_text() for page in pdf)
+        self.assertEqual(meta["title"], "Test Person - Resume")
+        self.assertEqual(meta["author"], "Test Person")
+        self.assertEqual(meta["keywords"], "jsk-variant:presentation")
+        self.assertEqual(uris, ["https://github.com/testperson",
+                                "https://linkedin.com/in/test-person",
+                                "https://testperson.dev",
+                                "mailto:test.person@example.com"])
+        self.assertIn("linkedin.com/in/test-person", text)
+        self.assertNotIn("mailto", text)
+
+
 class TargetSelection(unittest.TestCase):
     """--profile names a variant, --format names a file kind, and the stem
     follows the variant. It used to follow the format, so an ats-maximal .tex
@@ -650,11 +957,18 @@ class TargetSelection(unittest.TestCase):
             kinds = {k for _, k, _ in self.select("all", profile)}
             self.assertEqual(kinds, {"latex", "txt"}, profile)
 
-    def test_an_ats_render_cannot_overwrite_the_presentation_one(self):
+    def test_the_pdf_is_named_for_its_reader_and_the_text_for_its_box(self):
+        """The two variants were kept apart by an `_ATS` suffix, and that suffix was on
+        the file a recruiter received. A directory holds one PDF - freeze refuses two,
+        and --ats-max switches the variant rather than adding one - so both share the
+        stem, and the gates read which variant from the render itself. The .txt keeps
+        its suffix: it is pasted, never attached."""
         ats = self.select("latex", "ats-maximal")[0][2]
         presentation = self.select("latex", None)[0][2]
-        self.assertNotEqual(ats, presentation)
-        self.assertIn("_ATS", ats)
+        self.assertEqual(ats, presentation)
+        self.assertNotIn("_ATS", ats)
+        text = [stem for _, kind, stem in self.select("all", "ats-maximal") if kind == "txt"]
+        self.assertEqual(text, ["{name}_Resume_ATS"])
 
     def test_no_profile_renders_the_presentation_variant(self):
         rendered = self.select("all", None)

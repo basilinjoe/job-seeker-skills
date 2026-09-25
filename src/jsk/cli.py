@@ -297,9 +297,9 @@ def cmd_check(args):
 # this interpreter rather than five child ones.
 #
 # It is deliberately file-driven rather than a fixed list of five commands, because
-# the render profile decides which files exist: the default writes
-# <name>_Resume.{tex,pdf} beside <name>_Resume_ATS.txt, while --profile ats-maximal
-# writes <name>_Resume_ATS.{tex,pdf,txt} and nothing else.
+# the render profile decides which files exist: every render writes
+# <name>_Resume.{tex,pdf} beside <name>_Resume_ATS.txt, and --ats-max changes which
+# variant that one PDF holds - strict_for() reads which from the PDF, not the name.
 #
 # --view filters nothing: every render in the directory is gated whatever it says. It
 # names the view in the report's heading and in --json, so that a saved report says
@@ -439,6 +439,33 @@ def gate_result(gate, command, code, output):
             "output": output}
 
 
+def strict_for(path):
+    """Whether a rendered document is held to the ATS-maximal rules.
+
+    A PDF says which variant it holds in its own metadata (jsk-variant:), because the
+    ATS PDF no longer carries `_ATS` in its name - that was the name a recruiter read on
+    the file. A PDF whose engine wrote no metadata falls back to the .tex it was
+    compiled from, whose hypersetup line carries the same keyword; one rendered before
+    the marker existed, and every .txt, still go by the name."""
+    name = os.path.basename(path)
+    if path.lower().endswith(".pdf"):
+        from .gates.check_ats import VARIANT_KEYWORD, variant_of   # noqa: PLC0415
+        try:
+            variant = variant_of(path)
+        except ImportError:
+            variant = None
+        if variant is None:
+            try:
+                with open(os.path.splitext(path)[0] + ".tex", encoding="utf8") as fh:
+                    found = VARIANT_KEYWORD.search(fh.read())
+                variant = found.group(1) if found else None
+            except OSError:
+                variant = None
+        if variant is not None:
+            return variant == "ats-maximal"
+    return "_ATS" in name
+
+
 def render_section(out_dir, pages, only=None):
     """The gate this command will never run, said out loud.
 
@@ -468,7 +495,8 @@ def render_section(out_dir, pages, only=None):
             else:
                 lines.extend(
                     render_resume.page_report(os.path.basename(pdf),
-                                              render_resume.page_count(pdf), pages)
+                                              render_resume.page_count(pdf), pages,
+                                              render_resume.last_page_fill(pdf))
                     for pdf in pdfs)
     if pdfs:
         lines.append(f"UNVERIFIED - open {os.path.basename(pdfs[0])} and read every page.")
@@ -623,7 +651,7 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only
             # The same rule render_resume.py prints after a render: the ATS-maximal
             # variant is the one aimed at a parser, so it is the one held to the
             # ATS-maximal rules.
-            strict = script == "check_ats.py" and "_ATS" in name
+            strict = script == "check_ats.py" and strict_for(path)
             command = f"{script} {name}" + (" --strict" if strict else "")
             code, output = call_gate(script, [path] + (["--strict"] if strict else []))
             results.append(gate_result(gate, command, code, output))
