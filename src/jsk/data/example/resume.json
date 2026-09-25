@@ -1,0 +1,12 @@
+{
+  "resume": 2,
+  "region": "au",
+  "bullets": [
+    "ach_clinical_platform_cut_latency",
+    "ach_clinical_platform_consolidated_regions",
+    "ach_security_certification_led_workstream",
+    "ach_policy_migration_moved_to_azure"
+  ],
+  "roles": ["pos_northbridge_mts"],
+  "skills": ["skill_event_driven", "skill_azure", "skill_bicep", "skill_security"]
+}

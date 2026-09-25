@@ -1,0 +1,168 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+k:kb j:format 3 ; j:name "Example career" ; j:updated "2026-09-25"^^xsd:date ; j:revision 2 .
+
+# == Identity
+
+k:person j:fullName "Priya Raman" ; j:givenName "Priya" ; j:familyName "Raman" ;
+    j:headline "Principal Solution Architect" ;
+    j:city "Melbourne" ; j:region "VIC" ; j:country "AU" ; j:workMode j:hybrid ;
+    j:email "priya.raman@example.com" ;
+    j:phone "+61 400 123 456" ;
+    j:linkedin "linkedin.com/in/priyaraman" ;
+    j:primary "priya.raman@example.com" ;
+    j:provenance j:confirmed .
+
+# == Positioning
+
+k:person j:positioning "Solution architect who owns clinical data platforms end to end, from sovereignty constraints through to the latency budget the clinicians actually feel." .
+
+# == Work authorization and languages
+
+k:auth_au j:jurisdiction "AU" ; j:kind j:permanent ; j:authorization j:held ;
+    j:provenance j:confirmed .
+
+k:lang_ar j:language "ar" ; j:scheme j:cefr ; j:level "B1" ; j:provenance j:confirmed .
+k:lang_en j:language "en" ; j:native true ; j:provenance j:confirmed .
+k:lang_ta j:language "ta" ; j:native true ; j:provenance j:confirmed .
+
+# == Vocabulary
+
+c:event-driven-architecture a j:Capability ; j:label "Event-driven architecture" .
+c:mentoring a j:Capability ; j:label "Mentoring" .
+
+# == Organisations
+
+k:org_meridian j:name "Meridian Health" ; j:relationship j:employer ; j:provenance j:confirmed .
+
+k:org_northbridge j:name "Northbridge Digital" ;
+    j:relationship j:employer ;
+    j:provenance j:confirmed .
+
+# == Roles
+
+k:pos_meridian_principal j:organisation k:org_meridian ;
+    j:title "Principal Solution Architect" ;
+    j:start "2023-07" ; j:state j:ongoing ;
+    j:seniority j:architecture-ownership ; j:change j:promotion ;
+    j:provenance j:confirmed .
+
+k:pos_meridian_senior j:organisation k:org_meridian ;
+    j:title "Senior Solution Architect" ;
+    j:start "2021-02" ; j:end "2023-06" ; j:state j:ended ;
+    j:seniority j:platform-design ; j:change j:hire ;
+    j:provenance j:confirmed .
+
+k:pos_northbridge_architect j:organisation k:org_northbridge ;
+    j:title "Solution Architect" ;
+    j:start "2019-03" ; j:end "2021-01" ; j:state j:ended ;
+    j:seniority j:platform-design ; j:change j:promotion ;
+    j:provenance j:confirmed .
+
+k:pos_northbridge_mts j:organisation k:org_northbridge ;
+    j:title "Member of Technical Staff" ; j:functionalTitle "Senior Engineer" ;
+    j:start "2016-08" ; j:end "2019-02" ; j:state j:ended ;
+    j:seniority j:hands-on-senior ; j:change j:hire ;
+    j:provenance j:confirmed .
+
+# == Projects
+
+k:prj_clinical_platform j:name "Clinical data platform" ;
+    j:position k:pos_meridian_principal ;
+    j:strength 5 ; j:recency 2026 ;
+    j:uses c:azure, c:bicep, c:event-driven-architecture ;
+    j:headlineMetric k:met_latency ;
+    j:provenance j:confirmed .
+
+k:ach_clinical_platform_cut_latency j:project k:prj_clinical_platform ; j:rank 1 ;
+    j:text "Cut p95 clinical event latency from 5 minutes to under 1 second, across 40,000 daily ingestion jobs." ;
+    j:cites k:met_jobs, k:met_latency ; j:shows c:azure, c:event-driven-architecture ;
+    j:provenance j:confirmed .
+
+k:ach_clinical_platform_consolidated_regions j:project k:prj_clinical_platform ; j:rank 2 ;
+    j:text "Consolidated 3 regional data platforms into one sovereign landing zone, reducing annual run cost 28%." ;
+    j:cites k:met_platforms, k:met_run_cost ; j:shows c:azure, c:bicep ;
+    j:provenance j:confirmed .
+
+k:prj_security_certification j:name "Security certification" ;
+    j:position k:pos_meridian_senior ;
+    j:strength 4 ; j:recency 2023 ;
+    j:uses c:mentoring ;
+    j:provenance j:confirmed .
+
+k:ach_security_certification_led_workstream j:project k:prj_security_certification ; j:rank 1 ;
+    j:text "Led the architecture workstream for a security certification, mentoring a team of 6 engineers through it." ;
+    j:cites k:met_mentored ; j:shows c:mentoring ;
+    j:provenance j:confirmed .
+
+k:prj_policy_migration j:name "Policy administration migration" ;
+    j:position k:pos_northbridge_architect ;
+    j:strength 3 ; j:recency 2021 ;
+    j:uses c:azure ;
+    j:noneQuantified true ;
+    j:provenance j:confirmed .
+
+k:ach_policy_migration_moved_to_azure j:project k:prj_policy_migration ; j:rank 1 ;
+    j:text "Migrated a core policy administration system to Azure with no unplanned downtime." ;
+    j:shows c:azure ;
+    j:provenance j:confirmed .
+
+# == Metrics
+
+k:met_jobs j:subject "daily ingestion jobs" ; j:unit "jobs" .
+k:met_jobs.v1 j:of k:met_jobs ; j:value 40000 ; j:confidence j:measured ; j:provenance j:confirmed .
+k:met_latency j:subject "p95 clinical event latency" ; j:direction j:decrease .
+
+k:met_latency.v1 j:of k:met_latency ;
+    j:baseline 5 ; j:value 1 ;
+    j:confidence j:measured ;
+    j:provenance j:confirmed .
+
+k:met_mentored j:subject "engineers mentored" ; j:unit "people" .
+
+k:met_mentored.v1 j:of k:met_mentored ;
+    j:value 6 ;
+    j:confidence j:reported ;
+    j:provenance j:confirmed .
+
+k:met_platforms j:subject "regional data platforms consolidated" .
+
+k:met_platforms.v1 j:of k:met_platforms ;
+    j:value 3 ;
+    j:confidence j:measured ;
+    j:provenance j:confirmed .
+
+k:met_run_cost j:subject "annual run cost" ; j:unit "%" ; j:direction j:decrease .
+
+k:met_run_cost.v1 j:of k:met_run_cost ;
+    j:value 28 ;
+    j:confidence j:measured ;
+    j:provenance j:confirmed .
+
+# == Skills
+
+k:skill_event_driven j:name "Event-driven architecture" ; j:category "architecture" .
+k:skill_azure j:name "Azure" ; j:category "cloud-platform" ; j:alias "Microsoft Azure" .
+k:skill_bicep j:name "Bicep" ; j:category "infrastructure" .
+k:skill_security j:name "Security governance" ; j:category "practice" .
+
+# == Education
+
+k:edu_meng j:institution "Anna University" ;
+    j:qualification "Master of Engineering" ; j:field "Computer Science" ; j:level j:isced-7 ;
+    j:start "2010" ; j:end "2012" ;
+    j:gradeScheme "in-cgpa-10" ; j:gradeValue 8.4 ;
+    j:provenance j:confirmed .
+
+# == Certifications
+
+k:cred_azure_architect j:name "Azure Solutions Architect Expert" ;
+    j:issuer "Microsoft" ; j:issued "2024-05" ; j:credentialState j:active ;
+    j:provenance j:confirmed .
+
+# == Open source
+
+# == Open questions

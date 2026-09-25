@@ -97,6 +97,29 @@ class Shape(unittest.TestCase):
         self.assertTrue(self.check(bullets=["ach_events_latency", "ach_events_latency"]))
 
 
+class Example(unittest.TestCase):
+    """The workspace jsk doctor renders: a small career and a short file over it."""
+
+    def test_the_example_reads_and_every_id_is_held(self):
+        from jsk import paths
+        from jsk.graph import store as S
+
+        doc = short.read(paths.EXAMPLE_SHORT)
+        self.assertEqual(short.shape(doc), [])
+        self.assertEqual(Path(short.workspace(paths.EXAMPLE_SHORT)),
+                         Path(paths.EXAMPLE_WORKSPACE))
+        self.assertEqual(short.ids(doc, S.load(paths.EXAMPLE_WORKSPACE)), [])
+
+    def test_the_example_career_is_clean(self):
+        from jsk import paths
+        from jsk.graph import record as R
+        from jsk.graph import store as S
+
+        store = S.load(paths.EXAMPLE_WORKSPACE)
+        self.assertEqual(store.fails(), [])
+        self.assertEqual(R.state(store).kind, "clean")
+
+
 class Ids(unittest.TestCase):
     def ids(self, doc, edits=()):
         with tempfile.TemporaryDirectory() as tmp:

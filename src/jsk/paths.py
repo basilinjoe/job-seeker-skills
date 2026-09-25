@@ -19,3 +19,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # profile.schema.json, example.resume.json, and profiles/<region>.json.
 SCHEMA_DIR = os.path.join(HERE, "data", "schema")
 EXAMPLE_RECORD = os.path.join(SCHEMA_DIR, "example.resume.json")
+
+# A small career and a short resume.json over it: what `jsk doctor` renders, and what a
+# render test reaches for when any resume will do.
+EXAMPLE_WORKSPACE = os.path.join(HERE, "data", "example")
+EXAMPLE_SHORT = os.path.join(EXAMPLE_WORKSPACE, "resume.json")

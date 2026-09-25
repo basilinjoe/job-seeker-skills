@@ -1,0 +1,11 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Log
+
+k:rev_2 j:revision 2 ; j:date "2026-09-25"^^xsd:date ; j:by j:adopt ;
+    j:summary "Adopted a restored file. No copy of rNone to compare against, so every confirmed entry is listed. Raised: k:ach_clinical_platform_consolidated_regions is confirmed; k:ach_clinical_platform_cut_latency is confirmed; k:ach_policy_migration_moved_to_azure is confirmed; k:ach_security_certification_led_workstream is confirmed; k:auth_au is confirmed; k:cred_azure_architect is confirmed; k:edu_meng is confirmed; k:lang_ar is confirmed; k:lang_en is confirmed; k:lang_ta is confirmed; k:met_jobs.v1 is confirmed; k:met_latency.v1 is confirmed; k:met_mentored.v1 is confirmed; k:met_platforms.v1 is confirmed; k:met_run_cost.v1 is confirmed; k:org_meridian is confirmed; k:org_northbridge is confirmed; k:person is confirmed; k:pos_meridian_principal is confirmed; k:pos_meridian_senior is confirmed; k:pos_northbridge_architect is confirmed; k:pos_northbridge_mts is confirmed; k:prj_clinical_platform is confirmed; k:prj_policy_migration is confirmed; k:prj_security_certification is confirmed." ;
+    j:touched c:event-driven-architecture, c:mentoring, k:ach_clinical_platform_consolidated_regions, k:ach_clinical_platform_cut_latency, k:ach_policy_migration_moved_to_azure, k:ach_security_certification_led_workstream, k:auth_au, k:cred_azure_architect, k:edu_meng, k:kb, k:lang_ar, k:lang_en, k:lang_ta, k:met_jobs, k:met_jobs.v1, k:met_latency, k:met_latency.v1, k:met_mentored, k:met_mentored.v1, k:met_platforms, k:met_platforms.v1, k:met_run_cost, k:met_run_cost.v1, k:org_meridian, k:org_northbridge, k:person, k:pos_meridian_principal, k:pos_meridian_senior, k:pos_northbridge_architect, k:pos_northbridge_mts, k:prj_clinical_platform, k:prj_policy_migration, k:prj_security_certification, k:skill_azure, k:skill_bicep, k:skill_event_driven, k:skill_security ;
+    j:kbSha256 "1c3266bb63c0f630edd6fe14aa814b6381d96ea754559ac8cd9332fc7497f3d9" .
