@@ -30,22 +30,23 @@ bullet you write.
 The **application directory**, the **workspace**, and the **skill directory** (absolute —
 `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install). Run `jsk` from the workspace; on Windows
 fall back to `python -m jsk`, then `py -3 -m jsk`. The caller names **the rule files** (defaults or
-overrides) and **the example record's path**. **Read exactly the files the prompt names** —
+overrides). **Read exactly the files the prompt names** —
 never search for rules, references or examples with `find`, `ls` or Glob, nor for docs.
 
 **First run `jsk kb path`** in the application directory; read `kb.ttl` at the path it prints,
-never one worked out by hand (a workspace named `career` holds `career/career/kb.ttl`).
+never one worked out by hand (a workspace named `career` holds `career/career/kb.ttl`). Write paths
+with forward slashes: bash drops the backslashes in `cd C:\Projects\…`.
 
-**Read what the posting selects, not the whole career:**
+**Read what the posting selects, not the whole career.** `gaps.md` already holds the match's Ranking
+and Cover and what was answered — do not re-run `jsk match`. Then, once:
 
 ```bash
-jsk match applications/<stem>/posting.ttl      # the ranking, the cover, the evidence
-jsk kb show <the ids you will use>             # those projects, bullets, metrics, roles, as held
+jsk kb show <the prj_ ids gaps.md ranks> --bullets   # their bullets and metrics, without the notes
 ```
 
-Add `--bullets` for a project whose bullets you only reword: it drops the notes.
-`jsk kb view --section Positioning` and `--section Identity` for the summary and header; `gaps.md`
-for what was answered.
+Drop `--bullets` only for a project with no bullets, whose first ones you write from its notes — one
+`jsk kb show` per id set, never the same ids twice. `jsk kb view --section Positioning` and
+`--section Identity` for the summary and header.
 
 | a project's bullets | what to do |
 |---|---|
@@ -55,11 +56,16 @@ for what was answered.
 **Rules: the caller names each rule file**, default or override. An override (`rules/…` beside
 `career/`) opens by saying whether it **replaces** its default or **extends** it; silent, it extends.
 
-Read `references/view-format.md` and `references/urs-spec.md` before writing the record — it is
-hand-written, and `jsk validate` fails an unrecognised top-level key.
+The record is exported, never hand-written, so the URS specification and the example record are not
+yours to read. `references/view-format.md` is: it names every key a view may carry. A narrative has
+one shape:
+
+```json
+{ "id": "nar_<company>_summary", "kind": "summary", "text": "…", "provenance": { "status": "inferred" } }
+```
 
 **Do not read any other `resume.json`** — another posting's record or a master — it becomes a
-template to copy. The example record the caller named is the shape reference.
+template to copy.
 
 ## Where what you write goes
 
@@ -82,6 +88,11 @@ op:set { k:ach_clinical_events_cut_latency j:text "Cut event propagation to unde
 --dry-run`, then without; it prints minted `ach_` ids, each inferred. A refusal names its fix.
 Never put a bullet only in the record, and never in a view.
 
+**Every change to the career comes before the export**, in that one changeset. After it the record
+changes only by your edits, or by `jsk kb export --urs --refresh applications/<stem>/resume.json`,
+which re-reads the career for the entries the record holds and keeps its views and your narrative.
+Never delete the record and export it again: that throws your edits away.
+
 **Then draft the record from the match** — never retype it, never choose the evidence by hand:
 
 ```bash
@@ -92,8 +103,16 @@ jsk kb export --urs --from-match applications/<stem>/posting.ttl [--select <ach_
 It chooses the projects, their bullets and both orders from confirmed evidence, so **name every
 `ach_` you added or reworded with `--select`** (placed by what it shows), and any `prj_` kept for
 chronology; with neither, drop `--select`. **A `WARN` names a selected bullet the gates already
-refuse** — fix it in the career first. **Each `GAP` line goes into `gaps.md`'s "Where this falls
-short"**, except `unconfirmed … is selected`: your own bullet, to confirm with the person. Edit
+refuse, and it is a question for the person, never a fix for you.** Never change a confirmed
+bullet's number or words to pass a gate, and never cite another metric to cover it: on the
+ElevenLabs run "300-400 candidates" became "300-800" to match an unrelated metric, and the person
+had to undo it. Delete that bullet from the record's project and from the view's `include`, and
+return the WARN line as a question. **Each `GAP` line goes into `gaps.md`'s "Where this falls
+short"**, except `unconfirmed … is selected`: your own bullet, to confirm with the person.
+
+**Read only the end of the record.** The export prints what it selected; `narratives` and `views`
+are its last keys. `grep -n '"narratives"' resume.json` and Read from that line — the rest is the
+career as held, and yours to leave alone. Edit
 only the words, a `narrative`, and the view `view_draft`: rename
 it, set `format_profile`, `region_profile` and `budget` (`ats_maximal_pages` too), keep
 `provenance_floor`. Reorder `include` only with a stated reason. No practice a bullet already shows.
@@ -119,8 +138,9 @@ evidence sits mid-career, **say so, and why.** Do not cut evidence to fit the pr
 jsk validate applications/<stem>/resume.json
 ```
 
-It must pass. Do not render; that is `/jsk:ship`, where your unconfirmed prose shows as `withheld`
-warnings for the caller to clear with the person.
+It must pass. Run it once, and again only after the record changes. Do not render; that is
+`/jsk:ship`, where your unconfirmed prose shows as `withheld` warnings for the caller to clear with
+the person.
 
 ## What you return
 

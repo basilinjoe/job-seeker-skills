@@ -38,15 +38,15 @@ jsk ship applications/<stem>/resume.json --out applications/<stem> --view <id> [
 ```
 
 One process: the record gate, then the claims gate (either failing stops it, nothing renders), then
-`render --pdf`, then the parse and prose gates, each step's output printed verbatim. Exit 0 only if
-every step passed. Show that output.
+`render --pdf`, then the parse and prose gates, each step's output verbatim. Exit 0 only if every
+step passed. Show that output. Read the `=== summary` it ends with; the sections above are its
+evidence.
 
-**Unconfirmed prose does not fail anything.** Everything `jsk-resume-author` wrote is `inferred`;
-a view with `provenance_floor: confirmed` drops it from the render, and the only sign is a
-`withheld …` warning line. Every one is confirmed or cut before the resume is handed over: get
-confirm-correct-or-cut on each clause, `jsk kb confirm <ids> --answer "…"`, flip them in the record,
-re-ship. Confirm confirms the career's text, so reworded wording goes into the career first
-(`jsk kb apply`) — never on the strength of the old text.
+**Unconfirmed prose does not fail anything.** A view with `provenance_floor: confirmed` drops
+`inferred` content from the render; the only sign is a `withheld …` line. Every one is confirmed or
+cut before the resume is handed over: `jsk kb confirm <ids> --answer "…"`, `jsk kb export --urs
+--refresh <resume.json>`, re-ship. Confirm confirms the career's text, so reworded wording goes into
+the career first (`jsk kb apply`) — never on the strength of the old text.
 
 **The claims gate** joins the record with `career/kb.ttl` by id: an entry the career lacks is at
 most `inferred`; nothing may be more confirmed than the career holds it; a bullet under another

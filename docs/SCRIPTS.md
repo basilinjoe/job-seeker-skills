@@ -23,6 +23,7 @@ across.
 jsk doctor                       # what works on this machine
 jsk new ./my-career --name "Your Name"     # career/kb.ttl and its log, at r1
 jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
+jsk posting fetch <url> applications/<dir>   # an Ashby, Greenhouse or Lever posting, as posting.md
 jsk match applications/<dir>/posting.ttl   # a posting against the career, through the vocabulary
 jsk migrate user-knowledgebase.md   # the Markdown knowledge base to career/kb.ttl, once
 jsk validate resume.json         # the record gate
@@ -139,6 +140,29 @@ is the format reference's job (`references/kb-format.md` in the skill), and ever
 names what it refused.
 
 ## The record
+
+### `jsk posting fetch`
+
+The `jsk.posting` module.
+
+```bash
+jsk posting fetch https://jobs.ashbyhq.com/<org>/<job-uuid> applications/<dir>
+jsk posting fetch https://boards.greenhouse.io/<org>/jobs/<id> applications/<dir>
+jsk posting fetch https://jobs.lever.co/<org>/<id> applications/<dir>
+```
+
+Reads the board's public JSON API - Ashby's job board, Greenhouse's boards API, Lever's
+postings API; no key, no browser - and writes `applications/<dir>/posting.md`, creating the
+directory if it is missing: the URL on line 1, `# <title>`, one line of the facts the board
+states (company, department and team, locations, workplace, employment type, `Published
+YYYY-MM-DD`), then the description verbatim. Ashby's `descriptionPlain` is used as it stands;
+HTML is turned into text with the standard library's parser - blocks to paragraphs, `<li>` to
+`- ` lines, entities unescaped - and nothing else is rewritten. Standard library only.
+
+Exit 0 with one line - the path, the title, the character count; 1 refused, with a `fix:` line:
+a URL on none of the three boards (fetch it with a browser tool instead), a job its board does not
+list (it may be closed), a network failure, or a `posting.md` already there - it never overwrites
+one, and it refuses that before touching the network; 2 called wrong.
 
 ### `jsk match`
 
@@ -340,6 +364,22 @@ first in the view's `skills`. What the selection cannot close prints as `GAP` li
 `gaps.md`: `tag-only`, `unconfirmed` (naming the bullet to confirm), `uncovered` and
 `unresolved`. `--select` adds to the selection, `--cover N` and `--today` are `jsk match`'s, and
 a failure in the posting's own directory refuses the export as it refuses the match.
+
+```bash
+jsk kb export --urs --refresh applications/2026-09-08-ashby/resume.json [--select ach_new_bullet]
+```
+
+**`--refresh`** rebuilds a record in place once the career has moved under it - a confirm, a
+corrected bullet, a metric's new version. The selection is the record's own: its projects, each
+with exactly the bullets it lists, and its roles; `--select` adds to it, and a bullet added that
+way is appended to its project in every view. Everything the career holds comes from `kb.ttl`;
+the views, every narrative but `nar_positioning`, `meta` and the keys export never writes are kept
+as they were. An entry the career no longer has, or retired, is dropped from the projects and the
+views with a `DROPPED` line; every other change prints one line (`ach_x  inferred -> confirmed`),
+so nobody diffs the file. It cannot go with `--out` or `--from-match`.
+
+Every mode leaves out a skill alias no project in `kb.ttl` holds, with a `NOTE`: the claims gate
+warns of it, and an ATS reads it as a claim of that experience.
 
 Exit 0 written, or nothing to change; 1 refused, with every reason; 2 called wrong.
 
@@ -706,6 +746,12 @@ It closes with the same render-gate section `jsk gates` does: **nobody has read 
 command says so rather than exiting 0 over it. When it stopped early that section says nothing was
 rendered, instead of pointing at a PDF an earlier run left in `DIR`. The page count is reported —
 the renderer's own line, and `--pages N`'s — and never failed; `jsk fit` owns that verdict.
+
+Last of all, as under `jsk gates` and `jsk freeze`, an `=== summary` block: one line a step with
+its status and the step's own `FAIL n   WARN n`, the render's page counts and how many lines it
+withheld below the view floor, then the verdict. Nothing in it is a new verdict - each count is
+read back off the output above - and it is there so that the tail of a long ship still holds
+every gate. `--json` has no summary; `steps[]` already is one.
 
 Exit `0` only if every step passed, `1` on any failure, `2` called wrong. `--json` carries every
 step in `steps[]` in the `jsk gates` shape, the render gate last and `UNVERIFIED`.

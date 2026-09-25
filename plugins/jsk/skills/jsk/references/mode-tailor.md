@@ -47,21 +47,21 @@ work.** Nothing back means nothing recorded, not never applied.
 ## 1. Get the posting
 
 `$ARGUMENTS` may hold a URL, the text, or a path. **Fetch a URL yourself**; the analyst has no
-network tools. **Career sites that render with JavaScript** (Workday, SuccessFactors, iCIMS,
-Phenom-style `careers.<company>` portals) **go straight to a browser tool** when one is available: a
-plain fetch sees an empty shell and can report a live posting as closed. When a fetch fails, say what
-happened and ask them to paste it — an ordinary outcome, not an error.
+network tools. **Ashby, Greenhouse or Lever: `jsk posting fetch <url>
+<workspace>/applications/<stem>` first**; if it refuses, as below. **JavaScript-rendered career
+sites** (Workday, SuccessFactors, iCIMS, Phenom `careers.<company>` portals) **go straight to a
+browser tool**: a plain fetch sees an empty shell and can call a live posting closed. When a fetch
+fails, say so and ask them to paste it — an ordinary outcome, not an error.
 
 Create `<workspace>/applications/<stem>/` and write `posting.md` **with the Write tool, never a
 shell heredoc** (an advert's quotes and apostrophes break the shell): **the advertisement verbatim and
-nothing else**, the URL on its first line. **Never paraphrase it** — the archive has to say what the
-application was answering, and every requirement quotes it.
+nothing else**, the URL on its first line. **Never paraphrase it**: every requirement quotes it.
 
 ## 2. Assess
 
 Send `jsk-tailor-analyst` the application directory and the workspace, both absolute, and the
-`kb` path `jsk kb path` printed. Name it as that file's path, never as "the folder holding
-career/kb.ttl": a workspace named `career` makes that phrase point at the wrong folder. Add the
+`kb` path `jsk kb path` printed — the file, never "the folder holding career/kb.ttl", which in a
+workspace named `career` is the wrong folder. Add the
 posting facts worth flagging, then stop: **its definition holds the procedure and the return, so
 do not send the skill directory or ask for a report.** It writes `posting.ttl`, runs `jsk match`,
 and writes `gaps.md` from the match. It never touches `career/kb.ttl`.
@@ -76,8 +76,8 @@ step 3 in the same turn.** Printing the questions as text and ending the turn is
 
 ## 3. Ask the whole queue at once
 
-**Ask with `AskUserQuestion`**, the questions from `gaps.md` in its order. It takes four questions
-a call, so a longer queue is several calls, one after another, in the same turn.
+**Ask with `AskUserQuestion`**, the questions from `gaps.md` in its order: four a call, a longer
+queue several calls in the same turn.
 
 - **A blocking question goes alone, first.** If the answer ends it ("I can't do Pacific hours"),
   say so, record it, and ask nothing else.
@@ -131,19 +131,19 @@ ended it.**
 `jsk-resume-author` writes `resume.json`. **Resolve its paths before dispatching; it reads only what
 the prompt names:**
 
-- the application directory and the workspace — absolute paths;
+- the application directory and the workspace — absolute, with forward slashes;
 - the rule files, absolute: `<skill>/references/writing-rules.md`, `ats-rules.md`, and the
   `## Structure rules for rendering` section of `mode-resume.md` (its line number), each replaced
-  by `rules/<name>.md` beside `career/` where one exists (one `ls`);
-- the example record: `python -c "from jsk.paths import EXAMPLE_RECORD; print(EXAMPLE_RECORD)"`.
+  by `rules/<name>.md` beside `career/` where one exists (one `ls`).
 
-Bullets it adds or rewords in the career arrive `inferred`, and a view with
-`provenance_floor: confirmed` does not fail on them: the render drops them, shown only as `withheld …`
-warnings, each confirmed or cut before the resume is handed over. **It quotes every clause back.**
-**Read those quotes to the person and get confirm-correct-or-cut on each**, then
-`jsk kb confirm <ids> --answer "…"` and flip them in the record. Confirm confirms the career's
-current text: a bullet reworded only in the record stays `inferred` until its words are in the
-career — never on the strength of the old text. This step is yours and is not delegable.
+Bullets it adds or rewords arrive `inferred`; the render drops them below the view's floor as
+`withheld …` warnings, each confirmed or cut before hand-over. **It quotes every clause back.**
+**Read those quotes to the person and get confirm-correct-or-cut on each**, then `jsk kb confirm
+<ids> --answer "…"` and one changeset for the corrections. **Never patch the record by hand**:
+`jsk kb export --urs --refresh applications/<stem>/resume.json` re-reads what it holds from the
+career and keeps its views and narrative. The narrative lives only in the record: once confirmed, one
+edit sets its `"status"`. Confirm confirms the career's current text, never on the
+strength of the old text. This step is yours and is not delegable.
 
 **A view references content; it cannot contain it.** If the posting wants something the career does
 not have, say so out loud.

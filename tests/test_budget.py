@@ -82,9 +82,10 @@ class AgentReadBudget(unittest.TestCase):
         # posting.ttl, so it never needs kb-format.md, came in.
         self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 2300)
 
-    def test_the_resume_author_reads_both_halves_of_the_record_spec(self):
-        """It writes the record by hand now, so `urs-spec.md` went from the half it
-        did not need to the half it cannot do without.
+    def test_the_resume_author_reads_the_view_half_of_the_record_spec(self):
+        """It wrote the record by hand, so `urs-spec.md` went from the half it did not
+        need to the half it could not do without - and went back again when `jsk kb
+        export` came to write every key but the view and the narrative.
 
         This ceiling went UP - 8,600 to 11,400 - and that is the cost of removing the
         compiler, stated rather than absorbed. A compiled record could not carry an
@@ -94,7 +95,7 @@ class AgentReadBudget(unittest.TestCase):
         PDF is the trade, and it is the right way round.
         """
         author = tokens(AGENTS / "jsk-resume-author.md")
-        spec = tokens(REFS / "view-format.md", REFS / "urs-spec.md")
+        spec = tokens(REFS / "view-format.md")
         rules = tokens(REFS / "ats-rules.md", REFS / "writing-rules.md")
         # 11400 -> 7600: 11,214 -> 7,138 measured. Every key, type and shape stayed;
         # the prose around them, and each half's account of why it was split, went.
@@ -110,7 +111,14 @@ class AgentReadBudget(unittest.TestCase):
         # --from-match` took the choosing - the allocation table, ordering `include` and
         # the skills - but the author must now name its own inferred bullets with
         # --select and copy the GAP lines, which cost nearly what the table did.
-        self.assertLess(author + spec + rules, 7200)
+        #
+        # 7200 -> 5000: 7,160 -> 4,807 measured, the author 1,787 -> 2,105. On the
+        # ElevenLabs run it read urs-spec.md and the 11.8KB example record to edit a
+        # record the export had already written; both left, and a narrative's one
+        # shape came in. The author grew by what the run cost: the order of career
+        # changes before the export, `--refresh` over a delete and re-export, the
+        # WARN that is a question rather than a number to change.
+        self.assertLess(author + spec + rules, 5000)
 
     def test_the_view_format_is_the_smaller_half(self):
         """If it ever grows past the file it was split out of, the split has stopped
@@ -240,11 +248,23 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
                 self.assertNotIn("--dump-record", self.body(name))
                 self.assertNotIn("--for score", self.body(name))
 
-    def test_the_author_reads_the_match_then_only_the_entries_it_uses(self):
+    def test_the_author_reads_the_assessment_then_only_the_entries_it_uses(self):
+        """On the ElevenLabs run the author re-ran the `jsk match` the analyst had
+        already copied into gaps.md, then showed the same six projects twice - once
+        with --bullets, once without, 41.5KB of notes it read back from a spill file."""
         body = self.body("jsk-resume-author.md")
-        self.assertIn("jsk match applications/<stem>/posting.ttl", body)
-        self.assertIn("jsk kb show <the ids you will use>", body)
+        self.assertIn("do not re-run `jsk match`", body)
+        self.assertIn("jsk kb show <the prj_ ids gaps.md ranks> --bullets", body)
+        self.assertIn("never the same ids twice", body)
         self.assertIn("not the whole career", body)
+
+    def test_the_author_reads_only_the_end_of_the_exported_record(self):
+        """It read the 52KB export whole to edit the view and the summary - the last
+        two keys - and after a re-export read it again."""
+        body = self.body("jsk-resume-author.md")
+        self.assertIn("Read only the end of the record", body)
+        self.assertIn("Never delete the record and export it again", body)
+        self.assertIn("--refresh", body)
 
     def test_the_analyst_runs_the_match_and_reads_what_it_cites(self):
         """The analyst stopped reading the file whole. On the ABB run it read 165k
@@ -276,7 +296,9 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         on the way. The caller resolves the paths; the agent reads only those."""
         self.assertIn("never search for rules, references or examples",
                       self.body("jsk-resume-author.md"))
-        self.assertIn("EXAMPLE_RECORD", (REFS / "mode-tailor.md").read_text(encoding="utf-8"))
+        # The example record left with the hand-written record: an exported one is
+        # already the shape, and 11.8KB of someone else's resume was a template to copy.
+        self.assertNotIn("EXAMPLE_RECORD", (REFS / "mode-tailor.md").read_text(encoding="utf-8"))
 
     def test_applications_live_beside_the_knowledge_base(self):
         """Written as a bare `applications/<stem>`, a session resolved it against its
@@ -336,6 +358,14 @@ class TheMainThreadBudget(unittest.TestCase):
         # the hand-rescoring left, and a round's answers became one changeset and one
         # confirm instead of a scripted find-and-replace. mode-ship.md lost the
         # hand-appended timeline rows to `jsk event` and gained the claims gate.
+        #
+        # Held at 6000 through the ElevenLabs run (2026-09-25). Measured: 5,995 before,
+        # 5,998 after. Three commands replaced hand work and each cost its sentence:
+        # `jsk posting fetch` (the posting had been fetched with hand-written curl),
+        # ship's `=== summary` (`tail -60` had cut the record and claims gates off, so
+        # it shipped twice) and `export --refresh` (the confirmed bullets had been
+        # flipped in resume.json by an inline script). The prose they displaced paid
+        # for them: the example record's path, and reasons restated beside rules.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
