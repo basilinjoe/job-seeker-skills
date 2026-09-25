@@ -11,4 +11,4 @@ Skill(skill="jsk:jsk", args="pipeline")
 ```
 
 `references/mode-pipeline.md` holds the procedure. `$ARGUMENTS` may be the career folder, or a
-company to check for earlier applications (`ls applications/ | grep -i <company>`).
+company to check for earlier applications (Glob `applications/*<company>*`).

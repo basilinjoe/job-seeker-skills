@@ -12,7 +12,7 @@ A view is a rendering instruction. It selects, orders, redacts and sets a budget
   "format_profile": "ats-maximal",
   "region_profile": "urs:profile:au/1",
   "locale": "en-AU",
-  "target": { "title": "Principal Engineer", "ref": "tailoring/targets/acme.md" },
+  "target": { "title": "Principal Engineer", "ref": "applications/<stem>/posting.md" },
   "narrative": "nar_acme",
   "include": [ { "ref": "eng_1", "order": 1, "achievements": ["ach_latency", "ach_scale"] } ],
   "redact": ["person.phone"],
@@ -31,7 +31,7 @@ body. A validator enforces this by rejecting any unknown free-text field inside 
 
 **The view lives inside `resume.json` and carries only the keys above** — `jsk validate` fails an
 unrecognised one. Application bookkeeping (when sent, frozen, which posting) belongs in the
-application's `application.md`, never in the view; a `frozen: true` key fails the record gate.
+application's `application.ttl`, never in the view; a `frozen: true` key fails the record gate.
 
 `provenance_floor` makes a view withhold content below a given status (a `withheld` warning, not a
 failure). `confirmed` is the default for

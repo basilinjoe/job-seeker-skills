@@ -2,8 +2,8 @@
 
 What the job search needs from you this week, and recording what has happened since last time.
 
-If they named a company, "have I been here before?" is `ls applications/ | grep -i <company>` —
-also the first thing `mode-tailor.md` runs, before a posting is written down.
+If they named a company, "have I been here before?" is Glob `applications/*<company>*` — also the
+first thing `mode-tailor.md` runs, before a posting is written down.
 
 ## Read the board
 
@@ -46,8 +46,8 @@ jsk event applications/<dir> screen-scheduled --date 2026-09-11 --channel email 
 - **`follow-up-sent` when they chase.** It does not move the stage but restarts the clock, so the
   board stops nagging about work already done.
 
-An application frozen as `application.md` (not yet migrated) takes one row appended to its
-`# Timeline` table instead.
+An application frozen as `application.md` belongs to a career not yet migrated: offer `jsk migrate`
+(`mode-setup.md`) first, which writes its `application.ttl`; then `jsk event` as above.
 
 ### The event vocabulary
 

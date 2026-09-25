@@ -74,7 +74,7 @@ for all of them, with the `op:base` that `jsk kb show` printed:
 op:changeset op:base 7 ; op:summary "Bullets for the Ashby application." .
 op:add { [] j:project k:prj_clinical_events ; j:rank 3 ;
             j:text "Cut event propagation from five minutes to under one second." ;
-            j:cites k:met_event_latency ; j:shows c:event-driven-architecture . }
+            j:cites k:met_event_latency ; j:shows c:kafka . }
 ```
 
 `jsk kb apply <file> --dry-run`, then `jsk kb apply <file>`; it prints the minted `ach_` ids and

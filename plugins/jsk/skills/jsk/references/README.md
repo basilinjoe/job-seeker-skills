@@ -9,4 +9,5 @@ Loaded on demand by the skill; `SKILL.md` says which file each mode and task rea
 - `writing-rules.md`, `ats-rules.md`, `templates.md` — what good looks like.
 - `rationale.md` — why each rule exists, for when someone asks.
 
-A `rules/` directory beside `career/` overrides these files.
+A `rules/` directory beside `career/` can override three of them: `writing-rules.md`, `ats-rules.md`,
+and `structure-rules.md` for the structure rules at the foot of `mode-resume.md`.

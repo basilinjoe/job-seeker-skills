@@ -34,10 +34,9 @@ about to change.
 
 ## 0. Have they been here before?
 
-**Before the posting is written down:**
+**Before the posting is written down**, Glob `<workspace>/applications/*<company>*`, then:
 
 ```bash
-ls <workspace>/applications/ | grep -i "<company>"
 jsk kb query pipeline      # each sent application's stage, and when
 ```
 
@@ -59,7 +58,8 @@ application was answering, and every requirement quotes it.
 
 ## 2. Assess
 
-Send `jsk-tailor-analyst` the application directory. It writes `posting.ttl`, runs `jsk match`, and
+Send `jsk-tailor-analyst` the application directory, the workspace and the skill directory, all
+absolute. It writes `posting.ttl`, runs `jsk match`, and
 writes `gaps.md` from the match. It never touches `career/kb.ttl`.
 
 **Show them the assessment**, not a summary of it. **Stop before anything is authored** when: the
