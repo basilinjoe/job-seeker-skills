@@ -1,8 +1,8 @@
 > **Legacy.** This is the format of `user-knowledgebase.md` before the graph record. It is
 > kept for one purpose: fixing a Markdown file that `jsk migrate` refuses, so it can be
 > migrated. New records are `career/kb.ttl`; their format is
-> `plugins/jsk/skills/jsk/references/kb-format.md`. This page goes with `jsk migrate` in the
-> release after next.
+> `plugins/jsk/skills/jsk/references/kb-format.md`. This page goes with `jsk migrate` in release
+> 5.0.
 
 # The knowledge base: one file
 

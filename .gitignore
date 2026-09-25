@@ -14,3 +14,9 @@ dist/
 .ruff_cache/
 
 jsk-eval-workspace/
+# local tooling
+.claude/settings.local.json
+.claude/worktrees/
+.venv*/
+.coverage
+htmlcov/

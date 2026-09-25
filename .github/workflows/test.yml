@@ -5,9 +5,10 @@ name: tests
 # the deleted files. A suite nobody runs is a suite that gets deleted again, so it runs
 # here on every push rather than on somebody's machine when they remember.
 
+# A push to main, and every pull request. A branch pushed with a PR open used to run twice.
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
   workflow_dispatch:
 
@@ -126,6 +127,53 @@ jobs:
       # gate. Timed alone: beside the parallel suite it measures the other processes.
       - name: Load budget
         run: python -m pytest tests/test_graph_budget.py -q -rs -s
+
+  # The suite above runs from the checkout, where every file is at hand. What a person
+  # installs is the wheel, and what a packager rebuilds from is the sdist - so both are
+  # built, the wheel installed into a clean venv outside the checkout and driven through a
+  # first record, and the suite run from the unpacked sdist. A data file left out of either
+  # passes every job above.
+  package:
+    name: the wheel and the sdist, outside the checkout
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --outdir "$RUNNER_TEMP/dist"
+          ls -l "$RUNNER_TEMP/dist"
+
+      - name: The wheel, in a clean venv
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m venv wheelenv
+          wheelenv/bin/pip install dist/*.whl
+          wheelenv/bin/jsk --version
+          wheelenv/bin/jsk new ws --name "Package Check"
+          wheelenv/bin/jsk kb check --root ws
+          set +e
+          wheelenv/bin/jsk doctor --quick
+          code=$?
+          set -e
+          # No TeX engine here, so BLOCKED (exit 1) is the expected verdict; a crash is not.
+          if [ "$code" -gt 1 ]; then exit "$code"; fi
+
+      - name: The suite, from the unpacked sdist
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir sdist && tar -xzf dist/*.tar.gz -C sdist --strip-components=1
+          python -m venv sdistenv
+          sdistenv/bin/pip install "./sdist[dev]"
+          cd sdist && ../sdistenv/bin/python -m pytest tests -q -rs -n auto
 
 # The manifest surface - the two plugin versions agreeing, every subcommand `jsk`
 # dispatches being named in SKILL.md and docs/SCRIPTS.md, the agent boundary still

@@ -116,7 +116,7 @@ costs nothing on a machine without the engine and `jsk doctor` can report on it.
 Outward it has three edges, all lazy or data-only: `gates.validate_urs` for `Report` and `show` (one
 way to print a finding), `gates.claims` from `timeline` for the carried links, and `kbindex` for the
 ranking weights, `SENIORITY` and `experience` - which must move into the package before release
-N+1 deletes `kbindex.py`. Inward, `gates/claims.py` reads the store and `cli.py` finds the workspace
+5.0 deletes `kbindex.py`. Inward, `gates/claims.py` reads the store and `cli.py` finds the workspace
 with `kbcli.find_root`. Nothing in `urs/` imports it, and nothing in it imports `urs/`.
 
 ## The agent boundary
@@ -179,8 +179,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   cliutil.py                        one contract for --help across the hand-rolled entry points
   paths.py                          where the packaged schema lives - stated once
   kb.py                             `jsk new` - scaffolds career/kb.ttl, log.ttl at r1, applications/
-  migrate.py                        `jsk migrate` - user-knowledgebase.md to the graph, once (until N+1)
-  kbindex.py                        the Markdown reader migrate uses; deleted in release N+1
+  migrate.py                        `jsk migrate` - user-knowledgebase.md to the graph, once (until 5.0)
+  kbindex.py                        the Markdown reader migrate uses; deleted in release 5.0
   graph/                            the career record: see "Inside the graph package"
     ontology.py                     the format, as data     writer.py     the canonical layout
     io.py  store.py  record.py      parse, load and validate, kb.ttl and log.ttl in step
@@ -279,7 +279,7 @@ directory named after what they have in common.
 | The shipped vocabulary | `src/jsk/data/vocabulary.ttl` | technologies only, no `implies`; `tests/test_graph_vocabulary.py` |
 | What `jsk new` scaffolds | `src/jsk/kb.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
 | A posting's or assessment's shape | `Posting` and `Requirement` in `ontology.py`, `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` |
-| How postings are ranked | `src/jsk/graph/queries.py` | the weighting table in `agents/jsk-tailor-analyst.md`; the weights live in `kbindex.WEIGHTS` until release N+1 moves them |
+| How postings are ranked | `src/jsk/graph/queries.py` | the weighting table in `agents/jsk-tailor-analyst.md`; the weights live in `kbindex.WEIGHTS` until release 5.0 moves them |
 | What the claims gate checks | `src/jsk/gates/claims.py` | `docs/SCRIPTS.md`'s table of its six checks, `tests/test_claims.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
@@ -393,7 +393,7 @@ pip install -e '.[dev]'             # the above plus pytest, pytest-xdist, ruff
 ```
 
 The `migrate` extra (markdown-it-py, pyyaml; `index` is its alias) reads a `user-knowledgebase.md`
-for `jsk migrate`, and goes with it in release N+1.
+for `jsk migrate`, and goes with it in release 5.0.
 
 Two things are optional to install and required to ship:
 
