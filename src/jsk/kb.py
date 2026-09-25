@@ -150,7 +150,7 @@ def gitattributes(root):
 def scaffold(root, name, force=False, today=None):
     """(exit code, lines to print). Writes the workspace, or refuses and says why."""
     today = today or datetime.date.today()
-    kb = os.path.join(root, KB)
+    kb = os.path.normpath(os.path.join(root, KB))
     exists = os.path.exists(kb)
     if exists and not force:
         return 1, [f"REFUSED  already exists: {kb}",
@@ -184,7 +184,7 @@ def scaffold(root, name, force=False, today=None):
     except R.RecordError as e:
         return 1, [f"FAIL  {e}", f"        fix: {e.fix}"]
     lines.append(f"wrote  {kb}")
-    lines.append(f"wrote  {os.path.join(root, LOG)} (r{rev}, by new)")
+    lines.append(f"wrote  {os.path.normpath(os.path.join(root, LOG))} (r{rev}, by new)")
 
     apps = os.path.join(root, "applications")
     readme = os.path.join(apps, "README.md")

@@ -46,17 +46,36 @@ If you already have a resume, point at it — it is the fastest possible startin
 Setup checks what your machine can do, offers to close any gaps, creates your knowledge base, then
 renders a real resume from it and checks it. It asks before installing anything.
 
+**Already have a `user-knowledgebase.md`** from an earlier version? Setup finds it, and `jsk doctor`
+names it as a gap. Move it across once:
+
+```bash
+jsk migrate ./my-career/user-knowledgebase.md --dry-run   # every file it would write, printed
+jsk migrate ./my-career/user-knowledgebase.md             # career/kb.ttl and log.ttl, at r1
+```
+
+It refuses unless the new record reads back as exactly what the Markdown held, and it deletes
+nothing - `user-knowledgebase.md`, `log.md` and every application stay where they are. Each
+`resume.json` you already sent is put through the claims gate against the new record, so you see
+at once anything it claimed that the career does not back. `jsk migrate` is in this release only.
+
 ## 3. Answer the questions
 
 Setup interviews you. Ramble — unstructured is fine, and it is easier to structure your answers than
 to make you produce structure. It will push you for numbers roughly twice per accomplishment, and let
 go if you do not have them.
 
+What you say goes into your record as changesets: the skill drafts one, `jsk kb apply` checks and
+writes it and prints the diff, and everything you said is marked *inferred* until you confirm it.
+When the skill reads a line back and you say "yes, that's right - 800 ms before, 200 after", it runs
+`jsk kb confirm` with your words.
+
 ## 4. You now have two things
 
-**`user-knowledgebase.md`** — one Markdown file, yours, readable in any editor. Put it in Git. It is
-the source of truth from here on: identity, roles, projects, every verified number, and a log of what
-changed. Everything else is rendered from it.
+**`career/kb.ttl`** — your whole career in one file, yours, readable in any editor. Put the folder
+in Git (`jsk new` writes the `.gitattributes` that keeps it LF). It is the source of truth from here
+on: identity, roles, projects, every verified number, the vocabulary you are matched on. Beside it,
+`career/log.ttl` records every change. `jsk kb view` prints the whole career as Markdown to read.
 
 **A resume** — a PDF and a plain-text copy for paste-in boxes, both rendered from the same record, so
 they cannot contradict each other. The PDF is the presentation variant for people unless you ask for
@@ -85,11 +104,38 @@ jsk ship applications/<stem>/resume.json --out applications/<stem> --view <id>
 jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
 ```
 
-`jsk ship` checks the record first and renders nothing if it fails, then renders the PDF and checks
-it and the plain text, printing every verdict. It reports the page count but leaves the last check to
-you: open the PDF and read every page. `jsk freeze` refuses until the checks pass, then records what
-was sent and when in `application.md`, and names the directory after the submission date. Use
-`--submitted false` for an application you worked through and decided not to send.
+`jsk ship` checks the record first - against itself, then against your career - and renders
+nothing if either fails, then renders the PDF and checks it and the plain text, printing every
+verdict. It reports the page count but leaves the last check to you: open the PDF and read every
+page. `jsk freeze` refuses until the checks pass, then records in `application.ttl` what was sent,
+when, and which bullets and metric versions it carried, and names the directory after the
+submission date. Use `--submitted false` for an application you worked through and decided not to
+send. When something comes back, `/jsk:pipeline` records it:
+
+```bash
+jsk event applications/<stem> screen-scheduled --date 2026-09-15
+jsk kb query pipeline            # every application's stage, and how long since
+```
+
+## The same, by hand
+
+The skill runs all of this for you. Underneath, from nothing to a sent application:
+
+```bash
+jsk new ./my-career --name "Your Name"        # career/kb.ttl (empty) and log.ttl, at r1
+cd my-career
+jsk kb apply braindump.trig --dry-run         # what a changeset would change
+jsk kb apply braindump.trig                   # ... written and logged, as r2
+jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms to 200, from Grafana."
+jsk match applications/<stem>/posting.ttl     # the posting against the career, with the paths
+jsk ship applications/<stem>/resume.json --out applications/<stem> --view <id>
+jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
+jsk event applications/<stem> screen-scheduled --date 2026-09-15
+```
+
+A changeset is a small TriG file; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new
+workspace as it stands. `posting.ttl` (what the posting asks for) and `resume.json` (the record for
+that application) are what the tailoring step writes.
 
 ## If something looks wrong
 
