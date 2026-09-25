@@ -2128,15 +2128,21 @@ def shorten(record, store, view_id=None):
     def shown(eid):
         return not named or eid in named
 
+    everywhere = {a.get("id") for holder in engagements + list(projects.values())
+                  for a in holder.get("achievements") or [] if isinstance(a, dict)}
+
     def drawn(holder, ref):
         """A holder's bullets as the renderer drew them: its include list, in that
         order, or every bullet when the view listed none for it."""
         ids = [a.get("id") for a in holder.get("achievements") or [] if isinstance(a, dict)]
         if lists.get(ref):          # an empty list was no list to the renderer either
             for a in lists[ref]:
-                if a not in ids:
+                # Noted only when the record holds it nowhere: the Autodesk draft listed
+                # project bullets on its engagement's line, and those came through their
+                # projects all the same.
+                if a not in ids and a not in everywhere:
                     notes.append(f"dropped bullet {a} - the view lists it under {ref}, "
-                                 "which holds no such bullet in the record")
+                                 "and the record holds no such bullet")
             return [a for a in lists[ref] if a in ids]
         return ids
 
@@ -2145,14 +2151,16 @@ def shorten(record, store, view_id=None):
     # that listed bullets for one employer and none for another - the renderer showed
     # every bullet of the second, and the short file dropped that employer; and ordering
     # by the career's project ids did nothing for a Markdown-era draft, whose ids differ.
-    chosen = []
+    chosen, per_eng = [], {}
     for e in engagements:
         if not shown(e.get("id")):
             continue
-        chosen += drawn(e, e.get("id"))
+        mine = drawn(e, e.get("id"))
         for pid in e.get("projects") or []:
             if pid in projects:
-                chosen += drawn(projects[pid], pid)
+                mine += drawn(projects[pid], pid)
+        per_eng[e.get("id")] = mine
+        chosen += mine
     listed = {pid for e in engagements for pid in e.get("projects") or []}
     for pid, p in projects.items():
         if pid not in listed and (not named or pid in refs):
@@ -2171,7 +2179,14 @@ def shorten(record, store, view_id=None):
                 by_note[term.value[4:].strip()] = iri
         by_words.setdefault(" ".join((career.get(iri, "text") or "").split()), []).append(iri)
 
+    resolved = {}
+
     def current(aid):
+        if aid not in resolved:
+            resolved[aid] = renamed_to(aid)
+        return resolved[aid]
+
+    def renamed_to(aid):
         if known.get(O.K + aid) == "Achievement":
             return aid
         words = " ".join((texts.get(aid) or "").split())
@@ -2203,6 +2218,11 @@ def shorten(record, store, view_id=None):
     roles = []
     for e in engagements:
         if not shown(e.get("id")):
+            continue
+        # Its bullets carried: the builder shows the employer and its every role from
+        # the career, so the record's position ids - Markdown-era on the Autodesk draft,
+        # where a note then claimed Experion carried nothing - do not matter.
+        if any(current(a) in bullets for a in per_eng.get(e.get("id"), [])):
             continue
         kept = False
         for p in e.get("positions") or []:

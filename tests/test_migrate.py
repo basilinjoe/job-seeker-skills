@@ -1110,6 +1110,15 @@ class ShortenAsItRendered(unittest.TestCase):
         self.assertTrue(any("pos_l1" in n for n in notes), notes)
         self.assertTrue(any("eng_lakeside" in n and "nothing" in n for n in notes), notes)
 
+    def test_an_employer_whose_bullets_carry_is_not_said_to_carry_nothing(self):
+        # The Autodesk draft's positions had Markdown-era ids (pos_ex1..6); its eleven
+        # Experion bullets carried, and the note still said Experion carried nothing.
+        record = renamed(renamed(legacy(), "pos_meridian_lead", "pos_ex1"),
+                         "pos_meridian_engineer", "pos_ex2")
+        doc, notes = self.shorten(record)
+        self.assertIn("ach_events_latency", doc["bullets"])
+        self.assertFalse(any("eng_meridian" in n and "nothing" in n for n in notes), notes)
+
     def test_a_summary_below_inferred_is_left_out(self):
         record = legacy()
         nid = record["views"][0]["narrative"]
