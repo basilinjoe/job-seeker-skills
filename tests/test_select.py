@@ -133,6 +133,70 @@ class Nothing(unittest.TestCase):
         self.assertEqual([g.kind for g in sel.gaps], ["uncovered"])
 
 
+def career_plus(root, text):
+    kb = Path(root, "career", "kb.ttl")
+    kb.write_bytes(kb.read_bytes() + text.encode())
+
+
+def asking(*labels, need="required"):
+    return POSTING.split("k:req_sel_k8s")[0] + "".join(
+        f'k:req_p_{n} j:posting k:post_contoso_select ; j:asked "{a}" ;\n'
+        f'    j:necessity j:{need} ; j:quote "{a} is asked for." .\n'
+        for n, a in enumerate(labels))
+
+
+class NoCover(unittest.TestCase):
+    """--cover 1 cannot carry five required requirements spread over three projects: the
+    selection goes by ranking, and a project placed 3rd (cap 2) carrying three of them must
+    still show all three - or say which it could not."""
+    def test_every_carried_requirement_keeps_a_bullet(self):
+        root = workspace(self, asking("K8s", "Entra ID", "Python", "Rust", "SQL Server"))
+        career_plus(root, """
+k:prj_x j:name "X" ; j:position k:pos_harbour_engineer ; j:strength 1 ; j:recency 2015 ;
+    j:uses c:python, c:rust, c:sql-server ; j:noneQuantified true ; j:provenance j:confirmed .
+k:ach_x1 j:project k:prj_x ; j:rank 1 ; j:text "Wrote Python." ; j:shows c:python ;
+    j:provenance j:confirmed .
+k:ach_x2 j:project k:prj_x ; j:rank 2 ; j:text "Wrote Rust." ; j:shows c:rust ;
+    j:provenance j:confirmed .
+k:ach_x3 j:project k:prj_x ; j:rank 3 ; j:text "Wrote SQL." ; j:shows c:sql-server ;
+    j:provenance j:confirmed .
+""")
+        sel = SEL.select(S.load(root), POST, TODAY, 1)
+        self.assertIn(O.K + "prj_x", sel.projects)
+        self.assertEqual(ids(sel.bullets[O.K + "prj_x"]), ["ach_x1", "ach_x2", "ach_x3"])
+        self.assertEqual(sel.gaps, [])
+
+
+class Reworded(unittest.TestCase):
+    """The author rewords the flagship bullet, which makes it inferred, and names it."""
+    def setUp(self):
+        root = workspace(self)
+        kb = Path(root, "career", "kb.ttl")
+        text = kb.read_text(encoding="utf-8")
+        at = text.index("k:ach_events_latency")
+        end = text.index("k:ach_events_team")
+        kb.write_bytes((text[:at] + text[at:end].replace("j:confirmed", "j:inferred")
+                        + text[end:]).encode())
+        self.sel = SEL.select(S.load(root), POST, TODAY, 3,
+                              extra=[O.K + "ach_events_latency"])
+
+    def test_it_is_placed_by_what_it_shows(self):
+        self.assertEqual(ids(self.sel.bullets[O.K + "prj_events"])[0], "ach_events_latency")
+
+    def test_it_is_a_confirmation_not_a_shortfall(self):
+        k8s = [g for g in self.sel.gaps if g.requirement == "K8s"]
+        self.assertEqual([g.kind for g in k8s], ["unconfirmed"])
+        self.assertIn("k:ach_events_latency (inferred) is selected", k8s[0].detail)
+
+
+class Implied(unittest.TestCase):
+    def test_a_bullet_showing_what_only_implies_it_is_named(self):
+        sel = SEL.select(S.load(workspace(self, asking("IaC", need="preferred"))),
+                         POST, TODAY, 3)
+        self.assertIn("k:ach_events_terraform shows c:terraform, which only implies",
+                      sel.gaps[0].detail)
+
+
 class Pick(unittest.TestCase):
     def test_bands(self):
         self.assertEqual([SEL.band(n) for n in (1, 2, 3, 5, 6, 8, 9)],
@@ -211,6 +275,12 @@ class Command(unittest.TestCase):
                                "--select", "prj_game")
         self.assertEqual(code, 0)
         self.assertIn("prj_game", [p["id"] for p in json.loads(out)["projects"]])
+
+    def test_a_project_added_with_no_confirmed_bullet_is_named(self):
+        code, _, err = self.kb("export", "--urs", "--from-match", self.posting,
+                               "--select", "prj_data")
+        self.assertEqual(code, 0)
+        self.assertIn("NOTE  k:prj_data has no confirmed bullet", err)
 
     def test_a_posting_outside_applications_is_a_usage_error(self):
         stray = os.path.join(self.root, "posting.ttl")

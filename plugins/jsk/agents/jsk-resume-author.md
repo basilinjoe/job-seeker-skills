@@ -43,13 +43,13 @@ jsk match applications/<stem>/posting.ttl      # the ranking, the cover, the evi
 jsk kb show <the ids you will use>             # those projects, bullets, metrics, roles, as held
 ```
 
-Add `--bullets` for a project whose bullets you only choose and order: it drops the notes.
+Add `--bullets` for a project whose bullets you only reword: it drops the notes.
 `jsk kb view --section Positioning` and `--section Identity` for the summary and header; `gaps.md`
 for what was answered.
 
 | a project's bullets | what to do |
 |---|---|
-| **present** | Choose and order them. Reworded is a new claim: `op:set` its `j:text` below — `inferred` until confirmed. |
+| **present** | The export chooses and orders them. Reword where the posting's words fit better: a new claim, `op:set` its `j:text` below — `inferred` until confirmed. |
 | **absent** | Write its first bullets from `j:problem`, `j:decision`, `j:outcome`. |
 
 **Rules: the caller names each rule file**, default or override. An override (`rules/…` beside
@@ -85,17 +85,16 @@ Never put a bullet only in the record, and never in a view.
 **Then draft the record from the match** — never retype it, never choose the evidence by hand:
 
 ```bash
-jsk kb export --urs --from-match applications/<stem>/posting.ttl --select <ach_ ids you wrote> \
+jsk kb export --urs --from-match applications/<stem>/posting.ttl [--select <ach_ ids you wrote>] \
   --out applications/<stem>/resume.json
 ```
 
-It chooses the projects that carry the posting with confirmed evidence, their bullets by what they
-show, the bullets' order and the skills' order, the posting's first. It only scores confirmed
-bullets, so **name every `ach_` you added or reworded with `--select`** (a named bullet comes
-whatever its provenance), and a `prj_` kept for chronology. Ids, provenance, periods and each
-metric's current version come from `career/kb.ttl`. **A `WARN` names a selected bullet the gates
-already refuse** — fix it in the career first. **Each `GAP` line goes into `gaps.md`'s "Where this
-falls short"**, as printed. Edit only the words, a `narrative`, and the view `view_draft`: rename
+It chooses the projects, their bullets and both orders from confirmed evidence, so **name every
+`ach_` you added or reworded with `--select`** (placed by what it shows), and any `prj_` kept for
+chronology; with neither, drop `--select`. **A `WARN` names a selected bullet the gates already
+refuse** — fix it in the career first. **Each `GAP` line goes into `gaps.md`'s "Where this falls
+short"**, except `unconfirmed … is selected`: your own bullet, to confirm with the person. Edit
+only the words, a `narrative`, and the view `view_draft`: rename
 it, set `format_profile`, `region_profile` and `budget` (`ats_maximal_pages` too), keep
 `provenance_floor`. Reorder `include` only with a stated reason. No practice a bullet already shows.
 A view references content only.

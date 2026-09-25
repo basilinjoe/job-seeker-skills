@@ -604,6 +604,7 @@ def cmd_export(args, root):
     from . import store as S
     from .export import Career, ExportError, chosen, gate_failures, urs
     from .match import COVER, blocks, workspace_of
+    from .writer import curie
 
     out = take(args, "--out", value=True)
     fmt = take(args, "--urs")
@@ -685,6 +686,10 @@ def cmd_export(args, root):
     for pid in loose:
         print(f"NOTE  {pid} names no role (j:position), so no engagement lists it and it "
               "will not render", file=sys.stderr if not out else sys.stdout)
+    for p in selection.projects if selection else ():
+        if not selection.bullets.get(p):
+            print(f"NOTE  {curie(p)} has no confirmed bullet, so it comes with none - name "
+                  "the bullet with --select, or confirm one", file=report)
     for gap in selection.gaps if selection else ():
         print(gap.line(), file=report)
     if not out:

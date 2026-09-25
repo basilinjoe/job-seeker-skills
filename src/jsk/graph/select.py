@@ -137,12 +137,18 @@ def evidenced(store, matches, held, shown):
                                 and pv not in ("confirmed", "disputed")
                                 and m.concept in shown.get(b, ()))
             else:
-                tags.append(f"{curie(proj)} tags {curie(h)}")
+                # A bullet showing the held concept, when it only implies the one asked
+                # for, is not evidence - but "no bullet shows it" would send the person
+                # to write one that exists.
+                near = sorted(b for b, (p, _, pv) in held.items()
+                              if p == proj and h in shown.get(b, ()))
+                tags.append(f"{curie(near[0])} shows {curie(h)}, which only implies "
+                            f"{curie(m.concept)}" if near and h != m.concept
+                            else f"{curie(proj)} tags {curie(h)}, and no bullet shows it")
         if not n.carriers:
             n.state = "missing"
             if tags:
-                gaps.append(Gap("tag-only", req.asked, req.necessity,
-                                "; ".join(tags) + "; no bullet shows it", iri))
+                gaps.append(Gap("tag-only", req.asked, req.necessity, "; ".join(tags), iri))
             if loose:
                 named = ", ".join(f"{curie(b)} ({held[b][2]})" for b in loose)
                 gaps.append(Gap("unconfirmed", req.asked, req.necessity,
@@ -201,20 +207,24 @@ def select(store, post, today, budget, extra=()):
     # What a bullet is worth: the requirements it shows, then a number it can stand on.
     reqs = [(iri, m) for iri, m in kept.items() if m.requirement.necessity in NEEDS and m.concept]
 
-    def candidates(proj):
-        rows = []
-        for b, (p, rank, pv) in held.items():
-            if p != proj or pv != "confirmed":
-                continue
-            mine = {iri for iri, m in reqs if m.concept in shown.get(b, ())}
-            score = sum(WEIGHTS[kept[iri].requirement.necessity] for iri in mine)
-            rows.append((b, score + (1 if b in citing else 0), mine, rank))
-        rows.sort(key=lambda r: (-r[1], r[3], r[0]))
-        return [(b, s, mine) for b, s, mine, _ in rows]
+    def worth(b):
+        mine = {iri for iri, m in reqs if m.concept in shown.get(b, ())}
+        return mine, sum(WEIGHTS[kept[i].requirement.necessity] for i in mine) + (b in citing)
 
-    owner = {}                   # a required requirement the cover carries -> its project
+    def order(b):
+        return -worth(b)[1], held[b][1], b
+
+    def candidates(proj):
+        rows = sorted((b for b, (p, _, pv) in held.items() if p == proj and pv == "confirmed"),
+                      key=order)
+        return [(b, worth(b)[1], worth(b)[0]) for b in rows]
+
+    # Each required requirement to the highest-placed project that carries it: the cover's
+    # when one fits, else any selected - so no carried requirement loses its bullet to a cap.
+    anchors = cover or projects
+    owner = {}
     for iri, m in kept.items():
-        mine = [p for p in cover if p in m.carriers]
+        mine = [p for p in anchors if p in m.carriers]
         if m.requirement.necessity == "required" and mine:
             owner[iri] = min(mine, key=position.get)
     chosen = {}
@@ -236,12 +246,38 @@ def select(store, post, today, budget, extra=()):
                 projects.append(proj)
                 chosen[proj] = []
             if iri not in chosen[proj]:
-                chosen[proj].append(iri)
+                # Placed by what it shows, whatever its provenance: a reworded bullet is
+                # inferred until confirmed, and must not fall to the bottom for it.
+                chosen[proj] = sorted(chosen[proj] + [iri], key=order)
 
+    # What the picked bullets show decides the gaps: a requirement a picked confirmed
+    # bullet shows has none; one only a picked unconfirmed bullet shows needs confirming.
+    picked = [b for bs in chosen.values() for b in bs]
+    firm = set().union(*(shown.get(b, set()) for b in picked if held[b][2] == "confirmed"))
+    soft = {}
+    for b in picked:
+        if held[b][2] != "confirmed":
+            for c in shown.get(b, ()):
+                soft.setdefault(c, []).append(b)
+    concept = {iri: m.concept for iri, m in kept.items()}
+    gaps = [g for g in gaps if g.kind == "unresolved" or not (
+        concept[g.iri] in firm or (g.kind == "tag-only" and concept[g.iri] in soft))]
+    for at, g in enumerate(gaps):
+        if g.kind == "unconfirmed" and concept[g.iri] in soft:
+            named = ", ".join(f"{curie(b)} ({held[b][2]})" for b in sorted(soft[concept[g.iri]]))
+            gaps[at] = Gap(g.kind, g.requirement, g.necessity,
+                           f"{named} is selected - confirm it before it renders", g.iri)
     said = {g.iri for g in gaps}
     for iri, m in kept.items():
         req = m.requirement
-        if req.necessity != "required" or iri in said or any(p in m.carriers for p in projects):
+        if req.necessity not in NEEDS or iri in said or not m.concept or m.concept in firm:
+            continue
+        if m.concept in soft:
+            named = ", ".join(f"{curie(b)} ({held[b][2]})" for b in sorted(soft[m.concept]))
+            gaps.append(Gap("unconfirmed", req.asked, req.necessity,
+                            f"{named} is selected - confirm it before it renders", iri))
+            continue
+        if req.necessity != "required":
             continue
         if m.carriers:
             detail = "its carriers were not selected: " + ", ".join(

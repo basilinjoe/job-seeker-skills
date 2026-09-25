@@ -58,16 +58,19 @@ would be withheld at render. A carrier the filter drops becomes a gap:
 3. When no cover fits the budget (`Q.cover` returns `None`), select by step 2 alone. The export does
    not fail.
 
-**Uncovered.** A required requirement that no selected project carries with evidence is an
-`uncovered` gap, whether nothing carries it (`missing`, `near`) or its carriers were not selected -
-unless it already has a `tag-only`, `unconfirmed` or `unresolved` line, which says more.
+**Uncovered.** A required requirement that no picked bullet shows is an `uncovered` gap, whether
+nothing carries it (`missing`, `near`) or its carriers were not selected - unless it already has a
+`tag-only`, `unconfirmed` or `unresolved` line, which says more. Decided from the picked bullets,
+not the selected projects, so a requirement cannot lose its bullet to a band cap unreported.
+(Review, 2026-09-25: deciding it from projects let `--cover 1` drop a required skill silently.)
 
 A selected project's **position** is its place among the selected projects in evidenced score
 order, 1-based; cover projects sit where their score puts them.
 
-**Additions.** `--select` combines with `--from-match` and adds its ids after the scored projects,
-in the order given, unscored: the author's way to keep a project for chronology. Ids already
-selected are not duplicated.
+**Additions.** `--select` combines with `--from-match` and adds its projects after the scored ones,
+in the order given: the author's way to keep a project for chronology, and to bring back a bullet it
+reworded (which makes it `inferred`). A named bullet is placed among its project's bullets by its
+score, whatever its provenance. Ids already selected are not duplicated.
 
 **Unresolved requirements.** A required or preferred requirement whose state is `ambiguous` or
 `candidate` is an `unresolved` gap; nothing is guessed for it.
@@ -89,8 +92,9 @@ is selected.
 
 **Order:** score descending, then `j:rank` ascending, then id.
 
-**Cover first.** Each required requirement in the evidenced cover is assigned to the
-highest-positioned cover project carrying it. For each cover project, pick bullets greedily until
+**Cover first.** Each required requirement the cover carries is assigned to the highest-positioned
+cover project carrying it; when no cover fits, to the highest-positioned selected project carrying
+it. For each such project, pick bullets greedily until
 every requirement assigned to it is shown by a picked bullet: at each step the bullet showing the
 most still-unshown assigned requirements, ties by the order above. This may exceed the band.
 
@@ -102,7 +106,7 @@ most still-unshown assigned requirements, ties by the order above. This may exce
 | 3-5 | up to 2 with score above 0; none scoring, fill to 1 |
 | 6-8, or a cover project past 8 | 1 |
 | `--select prj_` addition | 1, the lowest `j:rank` |
-| `--select ach_` addition | exactly those named |
+| `--select ach_` addition | exactly those named, placed by score |
 
 Caps count bullets already picked for the cover. A project with fewer candidates than its band gets
 what it has.
@@ -135,16 +139,22 @@ Gaps print in the report stream the export already uses for `WARN` and `NOTE` (s
 stderr without), one line each, after any `WARN`:
 
 ```
-GAP   tag-only    TypeScript (required): prj_portal tags c:typescript; no bullet shows it
-GAP   unconfirmed Kafka (required): ach_clinical_events_cut_latency shows it, inferred - confirm it
+GAP   tag-only    TypeScript (required): k:prj_portal tags c:typescript, and no bullet shows it
+GAP   tag-only    IaC (preferred): k:ach_events_terraform shows c:terraform, which only implies c:infrastructure-as-code
+GAP   unconfirmed Kafka (required): k:ach_clinical_events_cut_latency (inferred) shows it - confirm it
+GAP   unconfirmed K8s (required): k:ach_events_latency (inferred) is selected - confirm it before it renders
 GAP   uncovered   Terraform (required): nothing carries it
 GAP   unresolved  BFF (required): ambiguous - c:bff or c:backend_for_frontend
 ```
 
-Kinds: `tag-only`, `unconfirmed`, `uncovered`, `unresolved`. One line per requirement and kind; a
-requirement carried by one project with evidence is not a `tag-only` gap because another project
-only tags it. Lines sort by necessity (required first), then kind in the order above, then
-requirement id. Gaps do not change the exit code.
+Kinds: `tag-only`, `unconfirmed`, `uncovered`, `unresolved`. One line per requirement and kind.
+**The picked bullets settle it:** a requirement a picked confirmed bullet shows has no line, so one
+carried by one project with evidence is not a `tag-only` gap because another only tags it; one only
+a picked unconfirmed bullet shows (a `--select`ed rewording) has just the `unconfirmed … is
+selected` line, a confirmation for the person rather than a shortfall. Lines sort by necessity
+(required first), then kind in the order above, then requirement id. Gaps do not change the exit
+code. A selected project that ends up with no bullet (a `--select prj_` with none confirmed) prints
+a `NOTE`.
 
 ## 5. Interface
 

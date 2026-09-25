@@ -106,10 +106,10 @@ class AgentReadBudget(unittest.TestCase):
         # the changeset carries its own prefix block rather than sending the author to
         # kb-format.md for it - that read would have cost 1,788.
         #
-        # Held at 7200: 7,169 -> 7,182 measured, the author 1,796 -> 1,809. `export
+        # Held at 7200: 7,169 -> 7,160 measured, the author 1,796 -> 1,787. `export
         # --from-match` took the choosing - the allocation table, ordering `include` and
         # the skills - but the author must now name its own inferred bullets with
-        # --select and copy the GAP lines, which cost what the table did.
+        # --select and copy the GAP lines, which cost nearly what the table did.
         self.assertLess(author + spec + rules, 7200)
 
     def test_the_view_format_is_the_smaller_half(self):
