@@ -22,13 +22,11 @@ DERIVED = J + "derived"
 
 # The writer's prefix block, in this order, always complete. `op` only in changesets.
 PREFIXES = (("j", J), ("k", K), ("c", C), ("xsd", XSD))
-CHANGESET_PREFIXES = PREFIXES + (("op", OP),)
 
 FORMAT = 3
 
 # The reserved graphs of a changeset (TriG). P1 names them; P3 gives them meaning.
 OPS = ("set", "add", "retire", "delete")
-OP_BASE = "base"
 
 
 # --- object kinds ----------------------------------------------------------------------
@@ -100,7 +98,6 @@ class Class:
 STR = Lit()
 TEXT = Lit()                                   # may hold newlines; written """…"""
 DATE = Lit(("date",))
-INT = Lit(("integer",))
 BOOL = Lit(("boolean",))
 NUM = Lit(("integer", "decimal"))
 YEARMONTH = Lit(("string",), r"\d{4}(-(0[1-9]|1[0-2]))?")
@@ -108,7 +105,8 @@ ISO2 = Lit(("string",), r"[A-Z]{2}")
 SHA256 = Lit(("string",), r"[0-9a-f]{64}")
 URL = Lit(("string",), r"\S+")
 
-# URS values wherever URS defines the thing; kbindex.SENIORITY for seniority.
+# URS values wherever URS defines the thing. Seniority runs most senior first, and
+# the order is the ranking: scoring.SENIORITY is this tuple.
 ENUMS = {
     "provenance": ("confirmed", "inferred", "needs-verification", "disputed"),
     "workMode": ("onsite", "hybrid", "remote"),

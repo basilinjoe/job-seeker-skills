@@ -56,9 +56,29 @@ class OntologyTests(unittest.TestCase):
                 if has_claim:
                     self.assertTrue(cls.claims, "a class with claim predicates needs provenance")
 
-    def test_seniority_matches_the_markdown_reader(self):
-        from jsk.kbindex import SENIORITY
-        self.assertEqual(tuple(SENIORITY), O.ENUMS["seniority"])
+    def test_seniority_is_one_list(self):
+        """The ranking's order and the ontology's enum were two copies of one list, one
+        in the Markdown reader. There is one now, and the reader uses it too."""
+        from jsk import kbindex
+        from jsk.graph import scoring
+        self.assertIs(scoring.SENIORITY, O.ENUMS["seniority"])
+        self.assertIs(kbindex.SENIORITY, O.ENUMS["seniority"])
+        self.assertEqual(O.ENUMS["seniority"][0], "architecture-ownership")
+
+    def test_the_graph_does_not_import_the_markdown_reader(self):
+        """Release N+1 deletes kbindex.py with `jsk migrate`. The career's ranking and
+        its experience query imported it, so deleting it would have broken `jsk match`
+        and `jsk kb query experience`."""
+        import subprocess
+        import sys
+
+        from fixtures import child_env
+        code = ("import sys\n"
+                "import jsk.graph.queries, jsk.graph.named, jsk.graph.match, jsk.graph.kbcli\n"
+                "print('jsk.kbindex' in sys.modules)\n")
+        out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                             env=child_env())
+        self.assertEqual(out.stdout.strip(), "False", out.stdout + out.stderr)
 
     def test_provenance_matches_the_renderer(self):
         from jsk.urs.resolve import PROVENANCE_RANK
