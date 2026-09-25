@@ -10,6 +10,8 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   view [--section NAME]                the whole career as Markdown, to read
   query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale |
                                        experience <concept> | pipeline
+  export --urs [--select <id>...]      a draft resume.json, ids and metrics as held
+         [--out FILE]
   check                                validate the workspace; exit 1 on a FAIL
 
 --root is the workspace, the folder holding career/; by default the nearest one above
@@ -548,6 +550,80 @@ def cmd_view(args, root):
     if R.KB not in store.parsed:
         return refuse([GUIDE[R.state(store).kind][0]], GUIDE[R.state(store).kind][1])
     print(render(store.graph(R.KB), only), end="")
+    return 0
+
+
+@verb
+def cmd_export(args, root):
+    """jsk kb export --urs [--select <id>...] [--out resume.json]
+
+    A draft resume.json out of career/kb.ttl: every id, provenance, period and metric as
+    the career holds them (a metric at its current version), so the draft passes
+    `jsk validate` and the claims gate before a word is changed. Retune the words and the
+    view; the gates check what changed.
+
+    --select narrows the experience: prj_ brings a project and its bullets, ach_ one
+    bullet (and its project), pos_ a role. An employer always comes with every role held
+    there. The person, skills, education and the rest come across whole. Retired entries
+    never do. Without --select, the whole career.
+
+    --out writes the file, never over an existing one; without it the record is printed.
+    """
+    import json
+
+    from . import record as R
+    from . import store as S
+    from .export import ExportError, urs
+
+    out = take(args, "--out", value=True)
+    fmt = take(args, "--urs")
+    select = None
+    if "--select" in args:
+        at = args.index("--select")
+        select = []
+        while at + 1 < len(args) and not args[at + 1].startswith("--"):
+            select += [i for i in args.pop(at + 1).split(",") if i]
+        args.pop(at)
+        if not select:
+            return usage("--select needs one or more ids")
+    if args or not fmt:
+        return usage("jsk kb export --urs [--select <id>...] [--out FILE] - URS is the "
+                     "one format it writes")
+    store = S.load(root)
+    if R.KB not in store.parsed:
+        st = R.state(store)
+        return refuse([GUIDE[st.kind][0] or st.detail], GUIDE[st.kind][1])
+    blocking = [f for f in store.fails() if f.rule != "log-sync"
+                and not f.file.startswith("applications/")]
+    if blocking:
+        show_findings(blocking, f"REFUSED  the career has {len(blocking)} failures - "
+                                "a draft would carry them:")
+        return 1
+    if out and os.path.exists(out):
+        return refuse([f"{out} exists - export writes a draft, never over a record"],
+                      "export to a new path, or delete the old record first")
+    try:
+        doc = urs(store, select, today=datetime.date.today())
+    except ExportError as err:
+        return refuse([str(err)], err.fix)
+    text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
+    loose = [p["id"] for p in doc.get("projects", []) if "engagement" not in p]
+    for pid in loose:
+        print(f"NOTE  {pid} names no role (j:position), so no engagement lists it and it "
+              "will not render", file=sys.stderr if not out else sys.stdout)
+    if not out:
+        sys.stdout.write(text)
+        return 0
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    with open(out, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+    bullets = sum(len(p["achievements"]) for p in doc.get("projects", []))
+    st = R.state(store)
+    at = f" at r{st.log_revision}" if st.log_revision else ""
+    print(f"wrote {out}: {len(doc.get('projects', []))} projects, {bullets} bullets "
+          f"from career/kb.ttl{at}")
+    print("next: retune the words and the view, then `jsk validate` it - a reworded "
+          "bullet goes into the career first, with `jsk kb apply`")
     return 0
 
 

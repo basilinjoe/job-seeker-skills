@@ -567,6 +567,39 @@ def show(items, mark, limit):
         print(f"  {mark}  ... and {len(items) - limit} more")
 
 
+def check_doc(doc):
+    """Every check, over a parsed record (an object at the top level): a Report."""
+    rep = Report()
+    for key in ("urs", "meta", "person"):
+        if key not in doc:
+            rep.fail(f"missing required top-level key {key!r}")
+    version = doc.get("urs", "")
+    if not re.match(r"^1\.\d+\.\d+", str(version)):
+        rep.fail(f"unsupported urs version {version!r} - this tool implements 1.x")
+
+    walkable = check_shape(doc, rep)
+    if walkable:
+        name = (doc.get("person") or {}).get("name")
+        if not (isinstance(name, dict) and name.get("full")):
+            rep.fail("person.name.full is required and is authoritative")
+        ids = check_ids(doc, rep)
+        check_periods(doc, rep)
+        check_references(doc, ids, rep)
+        check_views(doc, rep)
+        check_metrics(doc, rep)
+        check_provenance(doc, rep)
+        check_placeholders(doc, rep)
+        check_coverage(doc, rep)
+        check_backrefs(doc, rep)
+        check_unmaterialised_ids(doc, rep)
+        check_renderable(doc, rep)
+    else:
+        # Named, so a record with one shape failure listed does not read as a record
+        # with one defect: nothing that walks it has looked yet.
+        rep.fail("the remaining checks were not run - fix the shape first, then re-run")
+    return rep
+
+
 def main(argv):
     args, flags = parse(argv[1:])
     # An ignored flag reads as an honoured one: `--level 2` used to exit 0, which
@@ -609,39 +642,12 @@ def main(argv):
         print("\nDO NOT RENDER - fix the concept named above")
         return 1
 
-    rep = Report()
     if not isinstance(doc, dict):
         print("FAIL 1   WARN 0\n  FAIL  top level is not an object")
         return 1
 
-    for key in ("urs", "meta", "person"):
-        if key not in doc:
-            rep.fail(f"missing required top-level key {key!r}")
+    rep = check_doc(doc)
     version = doc.get("urs", "")
-    if not re.match(r"^1\.\d+\.\d+", str(version)):
-        rep.fail(f"unsupported urs version {version!r} - this tool implements 1.x")
-
-    walkable = check_shape(doc, rep)
-    if walkable:
-        name = (doc.get("person") or {}).get("name")
-        if not (isinstance(name, dict) and name.get("full")):
-            rep.fail("person.name.full is required and is authoritative")
-        ids = check_ids(doc, rep)
-        check_periods(doc, rep)
-        check_references(doc, ids, rep)
-        check_views(doc, rep)
-        check_metrics(doc, rep)
-        check_provenance(doc, rep)
-        check_placeholders(doc, rep)
-        check_coverage(doc, rep)
-        check_backrefs(doc, rep)
-        check_unmaterialised_ids(doc, rep)
-        check_renderable(doc, rep)
-    else:
-        # Named, so a record with one shape failure listed does not read as a record
-        # with one defect: nothing that walks it has looked yet.
-        rep.fail("the remaining checks were not run - fix the shape first, then re-run")
-
     if strict:
         rep.fails.extend(rep.warns)
         rep.warns = []

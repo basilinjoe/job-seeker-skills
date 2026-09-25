@@ -84,7 +84,7 @@ has the format, for a changeset you are unsure of.
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk new <path> --name "Name"` | an empty `career/kb.ttl`, `career/log.ttl` and `applications/` |
 | `jsk migrate <user-knowledgebase.md>` | a Markdown knowledge base to the graph, once |
-| `jsk kb apply\|confirm\|show\|view\|query\|check\|adopt` | the career, changed and read |
+| `jsk kb apply\|confirm\|show\|view\|query\|check\|adopt\|export` | the career, changed and read; `export --urs` drafts `resume.json` |
 | `jsk match <posting.ttl>` | requirements matched through the vocabulary, ranked, questions |
 | `jsk validate <resume.json>` | the record gate |
 | `jsk render <resume.json> --out DIR --view ID --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |

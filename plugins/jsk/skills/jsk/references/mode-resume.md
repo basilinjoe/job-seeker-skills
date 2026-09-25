@@ -35,19 +35,13 @@ two files in the other variant, never four.
 
 3. **Write the summary as a claim**, per `writing-rules.md`.
 
-4. **Write `resume.json`** from the career's bullets. A new or reworded bullet goes into the career
-   first — a changeset through `jsk kb apply`, which mints its id and marks it inferred — and is
-   copied here with that id; never a bullet only in the record. Copy the shape from `urs-spec.md`
-   and the shipped example; `view-format.md` has the view keys.
-
-   - Every bullet is an `Achievement` with the career's own id (`ach_…`), `text`, `provenance` and —
-     whenever the prose carries a number — `metrics` mirroring the current version of each metric it
-     cites (`jsk kb show <ids>`). Shared ids are what the claims gate joins on.
-   - `provenance.status` copies straight across. Anything `inferred` stays `inferred`. **Do not
-     launder a status while transcribing** — the claims gate refuses a record more confirmed than
-     the career.
-   - One employer with several roles is **one** `engagement` with several `positions` — the
-     promotion story is the point.
+4. **Draft `resume.json` from the career's bullets.** A new or reworded bullet goes into the career
+   first — a changeset through `jsk kb apply`, which mints its id and marks it inferred; never a
+   bullet only in the record. Then `jsk kb export --urs --select <ids> --out
+   applications/<stem>/resume.json` writes the record: the career's own ids, provenance, periods
+   and each metric's current version, one `engagement` per employer with its `positions`. It passes
+   `jsk validate` and the claims gate as written — retune words and the view, never retype a status
+   or a number. `view-format.md` has the view keys.
    - Declare the region profile on each view: `urs:profile:au/1`, `in/1`, `ae/1`, or omit it for the
      region-neutral default. It decides whether a photograph, date of birth, referees, a declaration
      block or a salary expectation are emitted.

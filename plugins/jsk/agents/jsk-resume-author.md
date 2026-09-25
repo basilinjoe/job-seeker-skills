@@ -80,24 +80,17 @@ op:add { [] j:project k:prj_clinical_events ; j:rank 3 ;
 `jsk kb apply <file> --dry-run`, then `jsk kb apply <file>`; it prints the minted `ach_` ids and
 marks each inferred. A refusal names its fix. Never put a bullet only in the record, and never in a view.
 
-**The record goes in `applications/<stem>/resume.json`**, using the career's ids (`prj_`, `ach_`,
-`met_`, `org_`, `pos_`) — the claims gate joins on them. One view:
+**Then draft the record from the career** — never retype it:
 
-```json
-"views": [{
-  "id": "view_ashby_staff",
-  "format_profile": "ats-maximal",
-  "region_profile": "urs:profile:au/1",
-  "narrative": "nar_positioning_led",
-  "provenance_floor": "confirmed",
-  "budget": {"pages": 2, "ats_maximal_pages": 3},
-  "include": [{"ref": "eng_meridian", "order": 1,
-               "achievements": ["ach_clinical_events_event_latency", "ach_clinical_events_cut_event_propagation"]}]
-}]
+```bash
+jsk kb export --urs --select <prj_, ach_ and pos_ ids> --out applications/<stem>/resume.json
 ```
 
-The `achievements` order within an entry is the render order. A view references content and cannot
-contain it.
+Ids, provenance, periods and each metric's current version come from `career/kb.ttl`, one
+engagement per employer; the claims gate joins on those ids. Edit only the words, a `narrative`,
+and the view `view_draft`: rename it, set `format_profile`, `region_profile` and `budget`
+(`ats_maximal_pages` too), keep `provenance_floor`, and order `include` — the `achievements` order
+within an entry is the render order. A view references content and cannot contain it.
 
 ## Retuning the summary
 

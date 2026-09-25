@@ -298,6 +298,24 @@ the day, the days since, and any due date on it. A stage is never stored; it is 
 **`check`** runs every rule over the workspace, says
 where `kb.ttl` and `log.ttl` stand, and names files out of the canonical layout; exit 1 on a FAIL.
 
+```bash
+jsk kb export --urs --select prj_payments ach_ledger_cut_close pos_lead --out applications/2026-09-08-ashby/resume.json
+```
+
+**`export --urs`** drafts a `resume.json` from `kb.ttl`, so the parts of a record that were
+transcribed by hand - ids, provenance, periods, metrics - are copied by the program instead.
+Each bullet carries its career id and provenance, and each metric it cites at its current version
+(one whose every version was replaced is left off, so its number fails the gates rather than
+travelling). One engagement per employer and kind of work holds every role there, latest first,
+and lists its projects; one view, `view_draft`, selects all of it at `provenance_floor:
+confirmed`. `--select` narrows the experience - `prj_` a project and its bullets, `ach_` one
+bullet, `pos_` a role - while the person, skills, education, credentials and the positioning
+(as `nar_positioning`) always come across whole. Retired entries never do; selecting one, an id
+the career lacks, or a metric is refused. The draft passes `jsk validate` and the claims gate as
+written, so what either reports later is what the retuning changed. `--out` never replaces an
+existing file; without it the record goes to stdout. A career that fails its rules is refused:
+the draft would carry the failures.
+
 Exit 0 written, or nothing to change; 1 refused, with every reason; 2 called wrong.
 
 ### `jsk migrate`
