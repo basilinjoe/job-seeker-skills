@@ -171,6 +171,23 @@ class Absent(unittest.TestCase):
     def test_an_inferred_one_is_what_it_should_be(self):
         self.assertEqual(found(self.invented("inferred")), [])
 
+    def test_so_is_anything_else_kb_ttl_could_hold_and_does_not(self):
+        """A qualification, a project, a role: absent from kb.ttl, at most inferred."""
+        doc = clean()
+        doc["education"].append({"id": "edu_phd_fake", "institution": "MIT",
+                                 "qualification": "PhD", "provenance": {"status": "confirmed"}})
+        doc["projects"].append({"id": "prj_fake", "name": "Fake", "achievements": [],
+                                "provenance": {"status": "confirmed"}})
+        self.assertEqual(keys(found(doc)), {("absent-confirmed", "FAIL", "edu_phd_fake"),
+                                            ("absent-confirmed", "FAIL", "prj_fake")})
+        doc["education"][-1]["provenance"]["status"] = "inferred"
+        doc["projects"][-1]["provenance"]["status"] = "inferred"
+        self.assertEqual(found(doc), [])
+
+    def test_a_narrative_is_written_per_application_and_kb_ttl_holds_none(self):
+        self.assertEqual(clean()["narratives"][0]["provenance"]["status"], "confirmed")
+        self.assertEqual(found(clean()), [])
+
     def test_its_words_are_checked_against_the_project_it_sits_under(self):
         doc = self.invented("inferred")
         doc["projects"][0]["achievements"][-1]["text"] = "Rebuilt the deploy pipeline on EKS."

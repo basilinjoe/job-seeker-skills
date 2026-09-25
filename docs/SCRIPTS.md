@@ -390,7 +390,7 @@ confirmed. This gate checks the record against the career. Ids are shared (`prj_
 
 | # | Check | Severity |
 |---|---|---|
-| 1 | `absent-confirmed` - an achievement `kb.ttl` does not hold is anything above `inferred` in the record | FAIL |
+| 1 | `absent-confirmed` - an entry `kb.ttl` does not hold is anything above `inferred` in the record: any id whose prefix names a `kb.ttl` class (`ach_`, `prj_`, `pos_`, `org_`, `edu_`, `cred_`, ...). Narratives, views, engagements and referees have no `kb.ttl` class and are written per application, so there is nothing to join them with | FAIL |
 | 2 | `provenance-raised` - any id the two share is more confirmed in the record than in `kb.ttl` | FAIL |
 | 2a | `project-moved` - a bullet `kb.ttl` holds sits under another project than its `j:project` (or under an engagement that neither lists that project nor holds its role): the id carries a confirmation of work somewhere else | FAIL |
 | 2b | `text-changed` - a bullet `kb.ttl` holds keeps fewer than half of `kb.ttl`'s content words for it, or adds more than twice as many new ones as it kept; a warning, since wording is retuned per posting | WARN |

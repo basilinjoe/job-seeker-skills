@@ -7,4 +7,4 @@
 
 k:rev_1 j:revision 1 ; j:date "2026-09-24"^^xsd:date ; j:by j:migrate ;
     j:summary "Migrated from user-knowledgebase.md (kb: 2)." ;
-    j:kbSha256 "14d833f86980d87cd365e852512917c9df8373ff8a629c67c627c24088e21b16" .
+    j:kbSha256 "e839313380238c9b71589a96cd09ca4f6e36aadf9f6a311fe259ccdebeefc515" .

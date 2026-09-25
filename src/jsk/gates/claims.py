@@ -16,7 +16,8 @@ with each other and with nothing the person ever confirmed. This gate checks the
 against the career instead. Ids are shared between the two (`prj_`, `ach_`, `met_`, ...),
 so each check is a join:
 
-  FAIL  1  an achievement kb.ttl does not hold must be inferred in the record
+  FAIL  1  an entry of a kind kb.ttl holds (achievement, project, role, qualification,
+           ...) that kb.ttl does not hold must be at most inferred in the record
   FAIL  2  no record provenance above the one kb.ttl holds for the same id
   FAIL  2a a bullet kb.ttl holds sits under the project kb.ttl's j:project names (or an
            engagement listing that project or holding its role)
@@ -178,19 +179,27 @@ def ids_with_provenance(node, out=None):
     return out
 
 
+def kb_could_hold(ident, career):
+    """True when `ident` names a class kb.ttl defines - an achievement, a project, a
+    role, a qualification, ... - so its absence from kb.ttl means nobody confirmed it.
+    A narrative, a view, an engagement or a referee has no kb.ttl class: it is written
+    per application, and there is nothing to join it with."""
+    cls = career.O.class_of(career.iri(ident))
+    return cls is not None and "kb" in career.O.BY_NAME[cls].kinds
+
+
 def provenance(doc, career, found):
     """Checks 1 and 2: a record never says more than the career does."""
-    achievements = {a.get("id") for a, _ in walk_achievements(doc) if a.get("id")}
     for ident, status in ids_with_provenance(doc):
         iri = career.iri(ident)
         if status not in RANK:
             continue                       # validate_urs's to report
-        if ident in achievements and iri not in career.kb:
+        if iri not in career.kb and kb_could_hold(ident, career):
             if RANK[status] > RANK["inferred"]:
                 found.append(Finding(
                     "absent-confirmed", "FAIL", ident,
-                    f"is {status} in the record, and kb.ttl holds no such bullet",
-                    "a bullet written for this application is inferred until the person "
+                    f"is {status} in the record, and kb.ttl holds no such entry",
+                    "an entry written for this application is inferred until the person "
                     "confirms it: add it to kb.ttl with `jsk kb apply`, then `jsk kb confirm`"))
             continue
         held = career.provenance.get(iri)
