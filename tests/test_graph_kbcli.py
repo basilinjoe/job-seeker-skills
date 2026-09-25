@@ -527,7 +527,28 @@ class Check(Workspace):
         code, out = self.kb("check")
         self.assertEqual(code, 0)
         self.assertIn("record   clean at r2", out)
-        self.assertIn("0 FAIL, 0 WARN", out)
+        # One WARN, and a true one: "40,000 daily ingestion jobs" is in confirmed words but
+        # in no metric, so the record gate refuses it in any record that selects the bullet.
+        self.assertIn("0 FAIL, 1 WARN", out)
+        self.assertIn("'40,000' appears in the text but in no metric", out)
+
+    def test_a_bullet_every_record_would_fail_on_is_warned_of_once(self):
+        """A number no metric holds fails the record gate in whatever record selects
+        the bullet - found, on the Everforth run, by the author one gate at a time."""
+        self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites", logged=True)
+        code, out = self.kb("check")
+        self.assertEqual(code, 0, out)                     # a WARN, not a FAIL
+        self.assertIn("a record selecting it fails a gate:", out)
+        self.assertIn("'3' appears in the text but in no metric", out)
+
+    def test_export_names_the_bullets_its_draft_already_fails(self):
+        self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites", logged=True)
+        out_file = self.path("applications/draft/resume.json")
+        code, out = self.kb("export", "--urs", "--out", str(out_file))
+        self.assertEqual(code, 0, out)
+        self.assertIn("WARN  the draft fails", out)
+        self.assertIn("'3' appears in the text but in no metric", out)
+        self.assertTrue(out_file.exists())
 
     def test_a_fail_exits_1_and_a_hand_edit_is_named(self):
         self.edit_kb("j:cites k:met_team ;", "j:cites k:met_teem ;")

@@ -81,23 +81,18 @@ a call, so a longer queue is several calls, one after another, in the same turn.
 
 - **A blocking question goes alone, first.** If the answer ends it ("I can't do Pacific hours"),
   say so, record it, and ask nothing else.
-- **Every question gets real options**, 2–4 of them. An inferred claim: *Confirm* / *Correct it* /
-  *Cut it*, the claim quoted in the question.
-- **Never offer a bare "Yes".** A "yes" to an exposure or metric question is useless without its
-  detail, and asking for it costs a whole round. Offer *No, none* and *Skip*, and end the question
-  with what a yes should say, typed in the tool's *Other*: "If yes, choose Other: what, where,
-  roughly when." For a number: "…the figure, the project, and where it comes from."
-- **Offer the skip every round**: a *Skip* option on each question, and one question can be
-  "Skip the rest of these?" when the queue is long.
+- **Every question gets real options**, 2–4 of them. An inferred claim: quoted, with where it came
+  from, and *Confirm* / *Correct it* / *Cut it*.
+- **Never offer a bare "Yes"**: its detail then costs a whole round. Offer *No, none* and *Skip*,
+  and end the question with what a yes types in *Other*: "what, where, roughly when"; for a number,
+  "the figure, the project, and its source" — dashboards, billing, retros, release notes, a
+  colleague. An honest "~50 tenants" beats silence.
+- **Offer the skip every round**, and "Skip the rest of these?" when the queue is long.
 - `header` is the id or topic in 12 characters or fewer: `GraphQL`, `ach_unitng`.
 
 Then go one at a time, in plain chat, **only** for answers that came back ambiguous, incomplete,
 or contradicting the career. Where `AskUserQuestion` is not available, list the queue in chat
 numbered, ask for a bulk reply, and that is the one time the turn ends on the questions.
-
-For an inferred claim, quote it, say where it came from, and offer confirm, correct, or cut. For a
-missing metric, prompt with where the number might live — dashboards, billing, retros, release
-notes, incident reviews, promotion documents, a colleague. An honest "~50 tenants" beats silence.
 
 ### Answers go into the career
 
@@ -105,6 +100,16 @@ An answer changes **`career/kb.ttl`** — never `gaps.md` or the record, both do
 
 - **A round's corrections and new facts are one changeset**, one `jsk kb apply`, after
   `jsk kb show <ids>` for the `op:base`. A corrected claim comes back `inferred`; confirm it next.
+  Its shape, so no reference is read for it:
+  ```turtle
+  @prefix j: <tag:jsk,2026:ns#> .
+  @prefix k: <tag:jsk,2026:id/> .
+  @prefix c: <tag:jsk,2026:concept/> .
+  @prefix op: <tag:jsk,2026:op#> .
+  op:changeset op:base 3 ; op:summary "Round 1 answers, Everforth." .
+  op:add { k:prj_unitng j:uses c:azure-logic-apps .  c:azure-logic-apps a j:Technology . }
+  op:set { k:ach_unitng_x j:text "The corrected words." . }
+  ```
 - **What they confirmed**: `jsk kb confirm <ids> --answer "their words"`, which also answers the
   open questions about them.
 - **Unanswerable**: soften or cut the claim in the changeset; never leave it pending forever.
@@ -127,8 +132,9 @@ ended it.**
 the prompt names:**
 
 - the application directory and the workspace — absolute paths;
-- whichever of `rules/writing-rules.md`, `rules/ats-rules.md`, `rules/structure-rules.md` exist beside
-  `career/` (one `ls`), or "no overrides";
+- the rule files, absolute: `<skill>/references/writing-rules.md`, `ats-rules.md`, and the
+  `## Structure rules for rendering` section of `mode-resume.md` (its line number), each replaced
+  by `rules/<name>.md` beside `career/` where one exists (one `ls`);
 - the example record: `python -c "from jsk.paths import EXAMPLE_RECORD; print(EXAMPLE_RECORD)"`.
 
 Bullets it adds or rewords in the career arrive `inferred`, and a view with

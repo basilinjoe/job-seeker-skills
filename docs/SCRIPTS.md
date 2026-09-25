@@ -302,6 +302,8 @@ of X" against), and `pipeline`, each application's stage: the kind of its latest
 the day, the days since, and any due date on it. A stage is never stored; it is this query.
 **`check`** runs every rule over the workspace, says
 where `kb.ttl` and `log.ttl` stand, and names files out of the canonical layout; exit 1 on a FAIL.
+It also exports the whole career and warns of every bullet the record or claims gate would refuse
+in any record that selected it, so it is fixed once rather than by each resume run.
 
 ```bash
 jsk kb export --urs --select prj_payments ach_ledger_cut_close pos_lead --out applications/2026-09-08-ashby/resume.json
@@ -316,8 +318,10 @@ and lists its projects; one view, `view_draft`, selects all of it at `provenance
 confirmed`. `--select` narrows the experience - `prj_` a project and its bullets, `ach_` one
 bullet, `pos_` a role - while the person, skills, education, credentials and the positioning
 (as `nar_positioning`) always come across whole. Retired entries never do; selecting one, an id
-the career lacks, or a metric is refused. The draft passes `jsk validate` and the claims gate as
-written, so what either reports later is what the retuning changed. `--out` never replaces an
+the career lacks, or a metric is refused. The draft should pass `jsk validate` and the claims gate
+as written, so what either reports later is what the retuning changed; export runs both on it and
+prints a `WARN` naming any bullet they refuse - a number no metric holds is a fault in `kb.ttl`,
+fixed there before any words are retuned. `--out` never replaces an
 existing file; without it the record goes to stdout. A career that fails its rules is refused:
 the draft would carry the failures.
 

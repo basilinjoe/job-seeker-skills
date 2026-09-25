@@ -48,6 +48,16 @@ class Draft(unittest.TestCase):
         rep = claims.check(self.doc, store(), today=TODAY)
         self.assertEqual(rep.fails, [])
 
+    def test_a_country_with_no_profile_gets_the_default_profile_s_own_id(self):
+        """The fallback was "urs:profile:default/1", which no profile declares, so the
+        record gate refused it as unresolvable."""
+        self.assertEqual(export.region("IN"), "urs:profile:in/1")
+        for country in ("US", None):
+            doc = json.loads(json.dumps(self.doc))
+            doc["views"][0]["region_profile"] = export.region(country)
+            self.assertEqual(doc["views"][0]["region_profile"], "urs:profile:xx/1")
+            self.assertEqual(validate_urs.check_doc(doc).fails, [], country)
+
     def test_the_draft_renders_each_bullet_under_its_employer(self):
         from jsk.urs.resolve import build
 

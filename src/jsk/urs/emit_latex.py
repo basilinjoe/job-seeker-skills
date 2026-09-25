@@ -40,12 +40,23 @@ BODY_PT = 11
 # "e<ffi>ciency" and the word is gone. The record is ASCII, the .txt is ASCII,
 # and check_ats.py passed the .docx: only the render was never ASCII, and
 # nothing looked at it until the PDF became the deliverable. Breaking the pair
-# with an empty group costs nothing visually and keeps the text layer flat.
+# with a zero kern costs nothing visually and keeps the text layer flat.
+#
+# An empty group was the break until the Everforth render: it holds in a short
+# word, but when TeX hyphenates a long skills line it rebuilds the word and the
+# ligature comes back - "Verif{}ication" reached the PDF as "Veri<fi>cation".
+# A kern survives the rebuild.
 #
 # Every face a theme can select forms the same pairs, so this stayed here rather
 # than moving into themes.py with the rest of the typography: it is a property
 # of the text layer, not of the look.
 LIGATURE_BREAK = re.compile(r"(?<=f)(?=[fil])|(?<=-)(?=-)")
+BREAK = r"\kern0pt{}"
+
+# T1 sets ' and ` as curly quotes, U+2019 and U+2018, so "platform's" left the
+# ASCII variant non-ASCII and failed the strict parse gate - and the run asked
+# the person to reword their bullet. These glyphs extract as the ASCII byte.
+ASCII_QUOTES = {"'": r"\textquotesingle{}", "`": r"\textasciigrave{}"}
 
 SPECIALS = {
     "\\": r"\textbackslash{}",
@@ -67,8 +78,10 @@ def esc(text, ascii_safe=False):
     before would see its own braces escaped."""
     if text is None:
         return ""
-    out = "".join(SPECIALS.get(ch, ch) for ch in str(text))
-    return LIGATURE_BREAK.sub("{}", out) if ascii_safe else out
+    if not ascii_safe:
+        return "".join(SPECIALS.get(ch, ch) for ch in str(text))
+    out = "".join(SPECIALS.get(ch) or ASCII_QUOTES.get(ch, ch) for ch in str(text))
+    return LIGATURE_BREAK.sub(lambda m: BREAK, out)
 
 
 def emit(plan, template=None):

@@ -585,12 +585,15 @@ def cmd_export(args, root):
     never do. Without --select, the whole career.
 
     --out writes the file, never over an existing one; without it the record is printed.
+
+    It then runs both gates on the draft as written and names what they refuse: those
+    faults are in kb.ttl, not in anything authored, so fix them there first.
     """
     import json
 
     from . import record as R
     from . import store as S
-    from .export import ExportError, urs
+    from .export import ExportError, gate_failures, urs
 
     out = take(args, "--out", value=True)
     fmt = take(args, "--urs")
@@ -624,6 +627,14 @@ def cmd_export(args, root):
     except ExportError as err:
         return refuse([str(err)], err.fix)
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
+    report = sys.stdout if out else sys.stderr
+    faults = gate_failures(store, doc, today=datetime.date.today())
+    if faults:
+        print(f"WARN  the draft fails {len(faults)} gate check(s) as exported - the fault is "
+              "in kb.ttl, so fix it there (`jsk kb apply`) before retuning any words:",
+              file=report)
+        for line in faults:
+            print(f"        {line}", file=report)
     loose = [p["id"] for p in doc.get("projects", []) if "engagement" not in p]
     for pid in loose:
         print(f"NOTE  {pid} names no role (j:position), so no engagement lists it and it "
@@ -684,6 +695,10 @@ def cmd_check(args, root):
     Validates the whole workspace - every rule, every file - and says where kb.ttl and
     log.ttl stand, and which record files are not in the canonical layout. Exit 1 on any
     FAIL; a WARN is printed and passes.
+
+    It also exports the whole career and runs the record and claims gates on it: a
+    bullet they refuse fails every tailored record that selects it, so it is warned of
+    here, once, rather than found by each resume run.
     """
     from ..gates.validate_urs import show
     from . import record as R
@@ -701,6 +716,17 @@ def cmd_check(args, root):
                     rep.warn(f"{name} - not in the canonical layout\n        fix: `jsk kb fmt {name}`")
             except WriteError:
                 pass                     # a file the writer cannot lay out has a FAIL already
+    if not rep.fails and R.KB in store.parsed:
+        from .export import ExportError, gate_failures, urs
+        try:
+            faults = gate_failures(store, urs(store, today=datetime.date.today()),
+                                   today=datetime.date.today())
+        except ExportError:
+            faults = []
+        for line in faults:
+            rep.warn(f"a record selecting it fails a gate: {line}\n        fix: record the "
+                     "number as a metric version and cite it (j:cites), or correct the words, "
+                     "with `jsk kb apply` - every application selecting it pays this otherwise")
     st = R.state(store)
     print(f"record   {st.kind}" + (f" at r{st.log_revision}" if st.log_revision else "")
           + (f" - {st.detail}" if st.detail else ""))

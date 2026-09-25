@@ -111,6 +111,19 @@ def chosen(career, select):
     return projects, bullets, roles
 
 
+def gate_failures(store, doc, today=None):
+    """What the record gate and the claims gate refuse in a draft exactly as exported -
+    each a line naming the bullet. Nothing an author wrote is in it yet, so every one
+    is a fault in kb.ttl: a number no metric holds, a number its metric no longer does.
+    On the Everforth run the author found four of these one gate at a time, three
+    changesets deep; every later application selecting those bullets would again."""
+    from ..gates import claims, validate_urs
+
+    out = list(validate_urs.check_doc(doc).fails)
+    out += [f"{f.focus} - {f.detail}" for f in claims.check(doc, store, today=today).fails]
+    return out
+
+
 def urs(store, select=None, today=None):
     """The draft record, as a dict. Raises ExportError for a selection it cannot honour."""
     from . import record as R
@@ -394,11 +407,17 @@ def positioning(career):
 
 
 def region(country):
-    """The region profile for a country, or the default one when none ships for it."""
+    """The region profile for a country, or the default one when none ships for it -
+    by the id default.json declares (`urs:profile:xx/1`). "urs:profile:default/1" was
+    written here, the validator refuses it as unresolvable, and a record exported for
+    a person with no shipped country failed before anything was authored."""
+    import json
+
     token = (country or "").lower()
     if token and os.path.exists(os.path.join(SCHEMA_DIR, "profiles", f"{token}.json")):
         return f"urs:profile:{token}/1"
-    return "urs:profile:default/1"
+    with open(os.path.join(SCHEMA_DIR, "profiles", "default.json"), encoding="utf8") as fh:
+        return json.load(fh)["id"]
 
 
 def view(career, doc, engagements, narrative):

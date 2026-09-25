@@ -545,11 +545,22 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
         doc["engagements"][0]["achievements"] = [achievement(
             "Improved efficiency of the affiliate workflow.", "eff-1")]
         tex = emit_latex.emit(self.plan(doc, fmt="ats-maximal"))
-        # "ff" and "fi" are both broken, so "efficiency" leaves as ef{}f{}iciency
-        # and no ligature pair survives anywhere in the bullet.
-        self.assertIn("ef{}f{}iciency", tex)
-        self.assertIn("workf{}low", tex)
+        # "ff" and "fi" are both broken - by a kern, which survives TeX rebuilding a
+        # hyphenated word where an empty group did not - and no pair survives.
+        self.assertIn(r"ef\kern0pt{}f\kern0pt{}iciency", tex)
+        self.assertIn(r"workf\kern0pt{}low", tex)
         self.assertNotIn("efficiency", tex)
+
+    def test_the_ascii_variant_sets_straight_quotes(self):
+        """T1 sets ' as U+2019 and ` as U+2018: "platform's" failed the strict parse
+        gate, and the run asked the person to reword a true bullet around it."""
+        doc = urs_doc()
+        doc["engagements"][0]["achievements"] = [achievement(
+            "Authored the platform's `retry` policies.", "q-1")]
+        tex = emit_latex.emit(self.plan(doc, fmt="ats-maximal"))
+        self.assertIn(r"platform\textquotesingle{}s", tex)
+        self.assertIn(r"\textasciigrave{}retry\textasciigrave{}", tex)
+        self.assertIn("platform's", emit_latex.emit(self.plan(doc, fmt="presentation")))
 
 
 class TheDateColumnHolds(unittest.TestCase):
