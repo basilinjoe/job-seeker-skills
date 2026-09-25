@@ -413,6 +413,15 @@ class Query(Workspace):
         self.assertIn("| k:q_sites_bullet | k:ach_site_onboarding_sites_one_platform | 2026-09-01 |", out)
         self.assertNotIn("q_team_size", out)          # answered
 
+    def test_a_question_about_several_entries_is_one_row(self):
+        self.edit_kb("k:q_sites_confirm j:about k:prj_site_onboarding ;",
+                     "k:q_sites_confirm j:about k:prj_clinical_events, k:prj_site_onboarding ;",
+                     logged=True)
+        rows = [r for r in json.loads(self.kb("query", "open", "--json")[1])
+                if r["question"] == "k:q_sites_confirm"]
+        self.assertEqual([r["about"] for r in rows],
+                         ["k:prj_clinical_events, k:prj_site_onboarding"])
+
     def test_unconfirmed_entries(self):
         code, out = self.kb("query", "unconfirmed", "--json")
         rows = json.loads(out)

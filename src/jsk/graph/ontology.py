@@ -279,7 +279,7 @@ CLASSES = (
          Pred("role", Enum("openSourceRole"), "1", "their part in it", claim=True)),
     ), "public code", claims=True),
     Class("Question", "q", ("kb",), "Open questions", (
-        (Pred("about", Ref(ANY), "1", "the entry it is about"),),
+        (Pred("about", Ref(ANY), "+", "the entries it is about; k:kb for the career as a whole"),),
         (Pred("question", STR, "1", "the question, ready to ask aloud"),),
         (Pred("asked", DATE, "1", "when it was raised"),
          Pred("answered", DATE, "?", "when it was answered")),

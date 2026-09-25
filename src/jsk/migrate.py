@@ -1015,10 +1015,37 @@ class Reader:
         if lines:
             self.b.note(iri, "text", "\n".join(lines))
 
+    def about(self, iri, qid, value):
+        """A question's `about`: an id, several ("proj_a, proj_b"), or a section's name
+        ("Skills", "Open source") - a question about the career as a whole, k:kb, with
+        the section kept in a note."""
+        if empty(value):
+            return
+        self.plan.mark(value)
+        onto = ontology()
+        sections = {s.lower(): s for s in KNOWN_SECTIONS}
+        for part in (x.strip() for x in str(value).split(",")):
+            if not part:
+                continue
+            if part.lower() in sections:
+                self.plan.nodes[iri].props["about"].add(onto.K + "kb")
+                self.b.note(iri, "about", f"the {sections[part.lower()]} section")
+            elif onto.ID.fullmatch(local_id(part)) and "_" in part:
+                self.b.put(iri, "about", kid(part), "about")
+            else:
+                self.plan.refuse(f"question {qid}: about {part!r} is not an id",
+                                 "name the entry it is about by its id, or a section by "
+                                 "its heading, then run `jsk migrate` again")
+
     def ref(self, iri, pred, old, key):
         """A reference to another entry, by its old id."""
         if not empty(old):
             self.plan.mark(old)
+            if not ("_" in str(old) and ontology().ID.fullmatch(local_id(old))):
+                self.plan.refuse(f"{curie(iri)} {key}: {str(old).strip()!r} is not an id",
+                                 "name the entry by its id (`role_x`, `proj_x`, ...), then "
+                                 "run `jsk migrate` again")
+                return
             self.b.put(iri, pred, kid(old), key)
 
     def sec_organisations(self, s):
@@ -1266,7 +1293,7 @@ class Reader:
                 continue
             iri = self.claim(row["id"])
             self.b.node(iri, "Question")
-            self.ref(iri, "about", row.get("about"), "about")
+            self.about(iri, row["id"], row.get("about"))
             self.b.put(iri, "question", row.get("question"))
             if empty(row.get("asked")):
                 self.plan.nodes[iri].props["asked"].add(self.retired_on)

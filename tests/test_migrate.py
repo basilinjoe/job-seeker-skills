@@ -671,6 +671,41 @@ class Refusals(Tmp):
         text = Path(self.root, "career", "kb.ttl").read_text(encoding="utf-8")
         self.assertIn("j:value 20000 ; j:upper 40000 ; j:qualifier j:about", text)
 
+    QUESTION = "| q_latency_source | Where did the 5-minute baseline come from? | metric_event_latency |"
+
+    def with_about(self, about):
+        kb = EVERY_SECTION.replace(self.QUESTION, self.QUESTION.replace(
+            "metric_event_latency |", f"{about} |"))
+        self.assertNotEqual(kb, EVERY_SECTION)
+        workspace(self.root, kb=kb, apps=False)
+        return migrated(self.root)
+
+    def test_a_question_about_several_entries_is_about_each(self):
+        code, out = self.with_about("proj_clinical_events, proj_intranet")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(triples(self.root)[("k:q_latency_source", "about")],
+                         {"k:prj_clinical_events", "k:prj_intranet"})
+
+    def test_a_question_about_a_section_is_about_the_career(self):
+        code, out = self.with_about("Open source")
+        self.assertEqual(code, 0, out)
+        t = triples(self.root)
+        self.assertEqual(t[("k:q_latency_source", "about")], {"k:kb"})
+        self.assertTrue(any("Open source" in n for n in t[("k:q_latency_source", "note")]))
+
+    def test_an_about_that_is_no_id_is_refused_not_crashed(self):
+        code, out = self.with_about("the platform work")
+        self.assertEqual(code, 1, out)
+        self.assertIn("q_latency_source: about 'the platform work' is not an id", out)
+
+    def test_a_reference_that_is_no_id_is_refused_not_crashed(self):
+        kb = EVERY_SECTION.replace("role: role_meridian_principal",
+                                   "role: Principal Architect", 1)
+        workspace(self.root, kb=kb, apps=False)
+        code, out = migrated(self.root)
+        self.assertEqual(code, 1, out)
+        self.assertIn("'Principal Architect' is not an id", out)
+
     def test_a_metric_value_that_is_not_a_number_is_refused(self):
         kb = EVERY_SECTION.replace("| 40,000 | jobs |", "| about forty thousand | jobs |")
         workspace(self.root, kb=kb, apps=False)

@@ -62,7 +62,7 @@ Concepts are `c:<words-with-dashes>`. A bullet's id is minted by apply.
 | `edu_` | Education | Education | `institution` `qualification` `field`? `level`? `start`? `end`? `gradeScheme`? `gradeValue`? |
 | `cred_` | Credential | Certifications | `name` `issuer` `issued`? `expires`? `credentialState` `url`? |
 | `os_` | OpenSource | Open source | `name` `url` `role` |
-| `q_` | Question | Open questions | `about` `question` `asked` `answered`? |
+| `q_` | Question | Open questions | `about`+ (`k:kb`: the whole career) `question` `asked` `answered`? |
 
 Every entry may carry `retired` (with a `reason`) and `note`* - free text for anything the
 ontology has no field for. Enums are `j:` words (`j:ongoing`, `j:measured`); dates are

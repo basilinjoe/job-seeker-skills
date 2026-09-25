@@ -31,9 +31,14 @@ def open_questions(store):
     rows = store.select(PRE + """SELECT ?q ?about ?text ?asked WHERE {
         ?q j:about ?about ; j:question ?text ; j:asked ?asked
         FILTER NOT EXISTS { ?q j:answered ?d } } ORDER BY ?asked ?q""")
-    return (("question", "about", "asked", "ask"),
-            [{"question": curie(r["q"].value), "about": curie(r["about"].value),
-              "asked": r["asked"].value, "ask": r["text"].value} for r in rows])
+    out = {}
+    for r in rows:                     # one row per question, whatever it is about
+        row = out.setdefault(r["q"].value, {"question": curie(r["q"].value), "about": [],
+                                            "asked": r["asked"].value, "ask": r["text"].value})
+        row["about"].append(curie(r["about"].value))
+    for row in out.values():
+        row["about"] = ", ".join(sorted(row["about"]))
+    return (("question", "about", "asked", "ask"), list(out.values()))
 
 
 @query("unconfirmed", doc="live entries not yet confirmed, with the question open about each")
