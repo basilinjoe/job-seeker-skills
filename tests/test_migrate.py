@@ -1010,6 +1010,58 @@ def legacy(**view):
     return record
 
 
+def renamed(record, old, new):
+    """`record` with bullet `old` called `new` everywhere it appears."""
+    return json.loads(json.dumps(record).replace(f'"{old}"', f'"{new}"'))
+
+
+class ShortenOldIds(unittest.TestCase):
+    """A draft written before the career was a graph names bullets by the ids the
+    Markdown gave them - ach_unitng_1 - and the graph minted new ones. On the real
+    workspace the ABB draft shortened to 1 bullet of 13 and Autodesk's to 1: every other
+    id was "not in kb.ttl", though each bullet was there under its new name."""
+
+    def shorten(self, record, edits=()):
+        import careerkit
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root, _ = careerkit.workspace(tmp, edits=edits)
+            store = careerkit.store(root)
+            return migrate.shorten(record, store)
+
+    def test_an_old_id_the_career_notes_maps_to_its_bullet(self):
+        edit = ('k:ach_identity_sso j:project k:prj_identity ; j:rank 1 ;\n',
+                'k:ach_identity_sso j:project k:prj_identity ; j:rank 1 ;\n'
+                '    j:note "id: ach_identity_1" ;\n')
+        record = renamed(legacy(include=[{"ref": "prj_identity",
+                                          "achievements": ["ach_identity_sso"]}]),
+                         "ach_identity_sso", "ach_identity_1")
+        doc, notes = self.shorten(record, edits=[edit])
+        self.assertEqual(doc["bullets"], ["ach_identity_sso"])
+        self.assertTrue(any("ach_identity_1 is now ach_identity_sso" in n for n in notes), notes)
+
+    def test_an_old_id_whose_words_match_one_bullet_maps_to_it(self):
+        record = renamed(legacy(include=[{"ref": "prj_events",
+                                          "achievements": ["ach_events_team"]}]),
+                         "ach_events_team", "ach_events_2")
+        # The fixture's record reworded this bullet; here it says what the career says.
+        record = json.loads(json.dumps(record).replace(
+            "Led a team of 6 engineers through the platform rebuild.", "Led a team of 6 engineers."))
+        doc, notes = self.shorten(record)
+        self.assertEqual(doc["bullets"], ["ach_events_team"])
+        self.assertTrue(any("ach_events_2 is now ach_events_team" in n for n in notes), notes)
+
+    def test_an_old_id_with_no_note_and_changed_words_is_still_dropped(self):
+        record = renamed(legacy(include=[{"ref": "prj_events",
+                                          "achievements": ["ach_events_team", "ach_events_latency"]}]),
+                         "ach_events_team", "ach_events_2")
+        record = json.loads(json.dumps(record).replace("Led a team of 6 engineers.",
+                                                       "Led six engineers."))
+        doc, notes = self.shorten(record)
+        self.assertEqual(doc["bullets"], ["ach_events_latency"])
+        self.assertTrue(any("dropped bullet ach_events_2" in n for n in notes), notes)
+
+
 class Shorten(unittest.TestCase):
     """A full URS record's choices - its view - carried into a short file, and nothing
     the career already holds."""

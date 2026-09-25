@@ -2136,8 +2136,35 @@ def shorten(record, store, view_id=None):
             if shown(eid) or p.get("id") in refs:
                 chosen += [a.get("id") for a in p.get("achievements") or []
                            if isinstance(a, dict)]
+    # A draft from before the graph names bullets by their Markdown ids - ach_unitng_1 -
+    # and the graph minted new ones. On the real workspace the ABB draft shortened to 1
+    # bullet of 13 because every other id was "not in kb.ttl", though each bullet was
+    # there under its new name. The career notes an old id it kept ("id: ach_x_1"); the
+    # rest are found by their words, when exactly one live bullet says the same thing.
+    texts = {a.get("id"): a.get("text") for holder in engagements + projects
+             for a in holder.get("achievements") or [] if isinstance(a, dict)}
+    by_note, by_words = {}, {}
+    for iri in career.live("Achievement"):
+        for term in career.all(iri, "note"):
+            if term.value.startswith("id: "):
+                by_note[term.value[4:].strip()] = iri
+        by_words.setdefault(" ".join((career.get(iri, "text") or "").split()), []).append(iri)
+
+    def current(aid):
+        if known.get(O.K + aid) == "Achievement":
+            return aid
+        words = " ".join((texts.get(aid) or "").split())
+        match = by_note.get(aid) or (by_words[words][0] if words and
+                                     len(by_words.get(words, [])) == 1 else None)
+        if match is None:
+            return aid
+        new = match[len(O.K):]
+        notes.append(f"{aid} is now {new} - "
+                     + ("the career notes the old id" if by_note.get(aid) else "the same words"))
+        return new
+
     bullets = []
-    for aid in dict.fromkeys(a for a in chosen if isinstance(a, str)):
+    for aid in dict.fromkeys(current(a) for a in chosen if isinstance(a, str)):
         if live(aid, "Achievement", "bullet"):
             bullets.append(aid)
     if not bullets:
