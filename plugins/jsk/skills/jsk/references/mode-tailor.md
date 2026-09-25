@@ -107,10 +107,13 @@ the prompt names:**
   `career/` (one `ls`), or "no overrides";
 - the example record: `python -c "from jsk.paths import EXAMPLE_RECORD; print(EXAMPLE_RECORD)"`.
 
-New bullets it adds to the career arrive `inferred`, so a view with `provenance_floor: confirmed`
-fails until a person confirms. **It quotes every clause back.** **Read those quotes to the person and
-get confirm-correct-or-cut on each**, then `jsk kb confirm` the confirmed ids and flip them in the
-record. This step is yours and is not delegable.
+Bullets it adds or rewords in the career arrive `inferred`, and a view with
+`provenance_floor: confirmed` does not fail on them: the render drops them, shown only as `withheld …`
+warnings, each confirmed or cut before the resume is handed over. **It quotes every clause back.**
+**Read those quotes to the person and get confirm-correct-or-cut on each**, then
+`jsk kb confirm <ids> --answer "…"` and flip them in the record. Confirm confirms the career's
+current text: a bullet reworded only in the record stays `inferred` until its words are in the
+career — never on the strength of the old text. This step is yours and is not delegable.
 
 **A view references content; it cannot contain it.** If the posting wants something the career does
 not have, say so out loud.

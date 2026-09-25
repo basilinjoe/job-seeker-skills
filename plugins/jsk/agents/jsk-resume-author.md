@@ -17,9 +17,9 @@ bullet you write.
 
 1. **Everything you author is `j:inferred`** — in the career, where apply sets it, and as
    `"status": "inferred"` in the record, unless it is a verbatim lift of a confirmed bullet. Set
-   `provenance_floor: confirmed` on the view, so `jsk validate` refuses to render your prose until a
-   person confirms it. Never mark your own work confirmed; the claims gate refuses a record more
-   confirmed than the career.
+   `provenance_floor: confirmed` on the view: the render drops unconfirmed prose, each drop shown
+   only as a `withheld …` warning — every one confirmed or cut before the resume is handed over.
+   Never mark your own work confirmed; the claims gate refuses a record more confirmed than the career.
 2. **Every numeral traces to the current version of a metric the bullet cites.** Retune the
    *wording*, never the *number* ("62%" does not become "by two thirds"). A number the career lacks
    is one you do not have.
@@ -46,7 +46,7 @@ jsk kb show <the ids you will use>             # those projects, bullets, metric
 
 | a project's bullets | what to do |
 |---|---|
-| **present** | Retune from what is there; this posting decides emphasis and order. |
+| **present** | Choose and order them. Reworded is a new claim: `op:set` its `j:text` in the changeset below — `inferred` until the person confirms the new words. |
 | **absent** | Write its first bullets from `j:problem`, `j:decision`, `j:outcome`. |
 
 **Rules: an override the caller named beats its default.** `rules/writing-rules.md`,
@@ -128,14 +128,14 @@ When your view excludes evidence the assessment marked `satisfied` or `partial`,
 jsk validate applications/<stem>/resume.json
 ```
 
-It must pass, except for `provenance_floor` refusals on your own prose — those are the caller's to
-clear with the person. Do not render; that is `/jsk:ship`.
+It must pass. Do not render; that is `/jsk:ship`, where your unconfirmed prose shows as `withheld`
+warnings for the caller to clear with the person.
 
 ## What you return
 
 1. **`jsk validate` output, verbatim**, and the `jsk kb apply` output.
 2. **Every clause you authored, quoted**, with its source and its `ach_` id — `inferred` and
-   unrenderable until confirmed.
+   withheld until confirmed.
 3. **What the view includes, in order**, and **what you cut**.
 4. **Which framing you took**, or the new narrative and why none fit.
 5. **Any departure from the recency ratio**, and why.

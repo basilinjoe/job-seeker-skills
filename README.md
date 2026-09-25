@@ -24,8 +24,8 @@ Five things make it different:
   about to change.
 - **Nothing is invented.** Tailoring is selection: a view references your evidence by id and reorders
   it. Every number in a bullet must trace to the current version of a recorded metric, and every
-  claim to your career at the confidence your career gives it, or the record fails before anything
-  renders.
+  bullet's id to your career at no more confidence than your career gives it, or the record fails
+  before anything renders. Reworded text only warns, so a person confirms the words that are sent.
 - **Nothing is assumed.** Four checks run before a resume is handed over, and if no PDF renderer is
   available it is marked *unverified* rather than called fine.
 

@@ -292,6 +292,76 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
         self.assertGreaterEqual(seen, 3)
 
 
+class TheProseSaysWhatTheGatesDo(unittest.TestCase):
+    """Four places the plugin and docs promised a gate would catch something it does not.
+
+    Each was run on a copy by a reviewer. A promise like this is worse than silence: a
+    model that believes the gate will fail stops looking, and ships what the gate let by.
+    """
+
+    def text(self, path):
+        return " ".join(path.read_text(encoding="utf-8").split())
+
+    def ref(self, name):
+        return self.text(SKILL / "references" / name)
+
+    def agent(self, name):
+        return self.text(PLUGIN / "agents" / name)
+
+    def doc(self, name):
+        return self.text(REPO / name)
+
+    def test_a_provenance_floor_withholds_rather_than_fails(self):
+        """`provenance_floor: confirmed` makes the renderer drop below-floor content and
+        print `withheld ...`; `jsk validate` passes and `jsk ship` exits 0. Told the gate
+        would fail, a caller hands over a resume missing the bullets it was about."""
+        texts = {"author": self.agent("jsk-resume-author.md"),
+                 "ship": self.ref("mode-ship.md"), "tailor": self.ref("mode-tailor.md")}
+        for name, text in texts.items():
+            with self.subTest(file=name):
+                self.assertIn("`withheld", text)
+                self.assertIn("confirmed or cut before", text)
+        self.assertNotIn("refuses to render your prose", texts["author"])
+        self.assertNotIn("Expect the record gate to fail", texts["ship"])
+        self.assertNotIn("fails until a person confirms", texts["tailor"])
+        self.assertNotIn("record gate refuses to render it", self.doc("docs/ARCHITECTURE.md"))
+
+    def test_reworded_text_is_confirmed_in_the_career_not_on_the_old_words(self):
+        """`jsk kb confirm <id>` confirms the career's text. A bullet retuned only in the
+        record and then confirmed by id sends words nobody confirmed, at `confirmed`."""
+        author = self.agent("jsk-resume-author.md")
+        self.assertNotIn("Retune from what is there", author)
+        self.assertIn("`op:set` its `j:text`", author)
+        for name in ("mode-tailor.md", "mode-ship.md"):
+            with self.subTest(file=name):
+                self.assertIn("never on the strength of the old text", self.ref(name))
+        self.assertIn("`text-changed`", self.doc("docs/WHY.md"))
+        self.assertIn("not a proof", self.doc("docs/WHY.md"))
+        self.assertNotIn("every claim to your career at the confidence", self.doc("README.md"))
+
+    def test_not_run_is_a_record_outside_the_workspace(self):
+        """The claims gate walks up from resume.json for career/kb.ttl. A record saved
+        elsewhere - an outputs folder - gets NOT RUN, and ship still exits 0."""
+        ship = self.ref("mode-ship.md")
+        self.assertNotIn("A `NOT RUN` means a Markdown workspace", ship)
+        self.assertIn("Move `resume.json` into", ship)
+        skill = self.text(SKILL / "SKILL.md")
+        self.assertIn("Keep `resume.json` inside the workspace", skill)
+        self.assertIn("`NOT RUN`", skill)
+        self.assertIn("`NOT RUN`", self.doc("docs/ARCHITECTURE.md").split("## Releasing")[0][-1500:])
+
+    def test_a_bundle_goes_through_markdown_and_migrate(self):
+        """A changeset cannot write `confirmed`, so a bundle written as changesets loses
+        every status. `jsk migrate` carries them; both files name the one route."""
+        setup = self.ref("mode-setup.md")
+        arch = self.doc("docs/ARCHITECTURE.md")
+        self.assertNotIn("carrying every status across unchanged", setup)
+        for name, text in (("mode-setup.md", setup), ("ARCHITECTURE.md", arch)):
+            with self.subTest(file=name):
+                self.assertIn("write a `user-knowledgebase.md`", text)
+                self.assertIn("a changeset cannot confirm", text)
+
+
 class Manifests(unittest.TestCase):
     def test_the_two_versions_agree(self):
         plugin = json.loads((PLUGIN / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))

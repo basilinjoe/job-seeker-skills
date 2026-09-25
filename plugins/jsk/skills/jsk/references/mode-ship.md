@@ -39,14 +39,22 @@ One process: the record gate, then the claims gate (either failing stops it, not
 `render --pdf`, then the parse and prose gates, each step's output printed verbatim. Exit 0 only if
 every step passed. Show that output.
 
-**Expect the record gate to fail on freshly authored prose**: everything `jsk-resume-author` wrote is
-`inferred`, and a view with `provenance_floor: confirmed` will not render it. Get confirm-correct-or-cut
-on each clause, `jsk kb confirm` the confirmed ids, and flip them in the record.
+**Unconfirmed prose does not fail anything.** Everything `jsk-resume-author` wrote is `inferred`;
+a view with `provenance_floor: confirmed` drops it from the render, and the only sign is a
+`withheld …` warning line. Every one is confirmed or cut before the resume is handed over: get
+confirm-correct-or-cut on each clause, `jsk kb confirm <ids> --answer "…"`, flip them in the record,
+re-ship. Confirm confirms the career's text, so reworded wording goes into the career first
+(`jsk kb apply`) — never on the strength of the old text.
 
-**The claims gate** joins the record with `career/kb.ttl` by id: an achievement the career lacks
-must be `inferred`; nothing may be more confirmed than the career holds it; every number must be in
-the current version of a metric the bullet cites (`number-superseded` means a revised metric — use
-the new value). Labels, aliases and "N years of X" warn. A `NOT RUN` means a Markdown workspace.
+**The claims gate** joins the record with `career/kb.ttl` by id: an entry the career lacks is at
+most `inferred`; nothing may be more confirmed than the career holds it; a bullet under another
+project fails (`project-moved`); every number must be in the current version of a metric the
+bullet cites (`number-superseded` means a revised metric — use the new value). Wording that drifted
+from the career's only warns (`text-changed`), as do labels, aliases and "N years of X".
+
+**`NOT RUN`** in a graph workspace means the record sits outside it — the gate looks for
+`career/kb.ttl` above `resume.json` — and `jsk ship` still exits 0. Move `resume.json` into
+`applications/<stem>/` and re-run; never freeze or hand over a `NOT RUN`.
 
 ## 3. Fit, if it overran
 
@@ -82,7 +90,7 @@ after one repair, `jsk gates <dir>` or `jsk check <file> --only parse|prose`.
 
 ## 5. Freeze the application
 
-Only once every gate has passed.
+Only once every gate has passed — a `NOT RUN` has not.
 
 ```bash
 jsk freeze applications/<stem> --submitted <yyyy-mm-dd>|false --channel "<Workday portal>" [--view ID] [--doc FILE ...]
