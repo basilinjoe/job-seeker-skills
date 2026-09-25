@@ -325,6 +325,22 @@ fixed there before any words are retuned. `--out` never replaces an
 existing file; without it the record goes to stdout. A career that fails its rules is refused:
 the draft would carry the failures.
 
+```bash
+jsk kb export --urs --from-match applications/2026-09-08-ashby/posting.ttl --out applications/2026-09-08-ashby/resume.json
+```
+
+**`--from-match`** makes the selection from `jsk match` instead of from a list of ids, the same
+way for the same posting every time. A project carries a requirement only when a live, confirmed
+bullet shows it, so a tag is not enough. The export takes the smallest cover of the required
+requirements, then the rest of the ranking that carries anything, up to eight projects. It
+scores each confirmed bullet by what it shows (required ×3, preferred ×1, +1 for a metric with a
+current version) and gives positions 1-2 up to five bullets, 3-5 up to two, and the rest one.
+The cover's requirements always get a bullet, even past that cap. Skills the posting names come
+first in the view's `skills`. What the selection cannot close prints as `GAP` lines for
+`gaps.md`: `tag-only`, `unconfirmed` (naming the bullet to confirm), `uncovered` and
+`unresolved`. `--select` adds to the selection, `--cover N` and `--today` are `jsk match`'s, and
+a failure in the posting's own directory refuses the export as it refuses the match.
+
 Exit 0 written, or nothing to change; 1 refused, with every reason; 2 called wrong.
 
 ### `jsk migrate`

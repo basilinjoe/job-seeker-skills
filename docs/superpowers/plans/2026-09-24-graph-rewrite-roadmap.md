@@ -76,6 +76,7 @@ The user chose **Option C**: the record becomes graph-native **text** — Turtle
 
 **P8 (optional) Record export** — `jsk kb export --urs --select <ids>`: draft resume.json with exact ids, provenance and metrics, removing hand transcription (main source of record defects); the author only retunes text and the view.
   *Built (2026-09-25), `src/jsk/graph/export.py`. Rulings:* `--select` takes `prj_`/`ach_`/`pos_` and narrows only the experience - the person, skills, education, credentials and positioning always come across whole (short, and the view decides what renders); an employer always brings every role held there (a promotion history is never halved); a named bullet narrows its project to the named bullets; a metric is exported at its current version only, and one with none is left off so its number fails the gates rather than travelling; one draft view `view_draft` at `provenance_floor: confirmed`; `--out` never replaces a file; a career with a FAIL is refused, a hand-edited one is not (export only reads). Engagement ids are `eng_<org slug>`, suffixed by kind only when one employer has two kinds of work.
+  *Extended (2026-09-25): `--from-match <posting.ttl>`* (`src/jsk/graph/select.py`, spec `docs/superpowers/specs/2026-09-25-export-from-match-design.md`) - the selection, bullet order and skill order computed from the match over confirmed evidence only; a tag-only carrier is a `GAP`, not a carrier, and the gaps print for `gaps.md`; `jsk match` output unchanged.
 
 ## Risks
 

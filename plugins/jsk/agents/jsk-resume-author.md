@@ -82,19 +82,23 @@ op:set { k:ach_clinical_events_cut_latency j:text "Cut event propagation to unde
 --dry-run`, then without; it prints minted `ach_` ids, each inferred. A refusal names its fix.
 Never put a bullet only in the record, and never in a view.
 
-**Then draft the record from the career** — never retype it:
+**Then draft the record from the match** — never retype it, never choose the evidence by hand:
 
 ```bash
-jsk kb export --urs --select <prj_, ach_ and pos_ ids> --out applications/<stem>/resume.json
+jsk kb export --urs --from-match applications/<stem>/posting.ttl --select <ach_ ids you wrote> \
+  --out applications/<stem>/resume.json
 ```
 
-Ids, provenance, periods and each metric's current version come from `career/kb.ttl`, one
-engagement per employer; the claims gate joins on those ids. **A `WARN` from export names a selected
-bullet the gates already refuse** — fix it in the career first. Edit only the words, a `narrative`,
-and the view `view_draft`: rename it, set `format_profile`, `region_profile` and `budget`
-(`ats_maximal_pages` too), keep `provenance_floor`, order `include` (its `achievements` order is the
-render order), and list the view's `skills` ids, the posting's first: that orders the rows, and a row
-past ten drops the rest. No practice a bullet already shows. A view references content only.
+It chooses the projects that carry the posting with confirmed evidence, their bullets by what they
+show, the bullets' order and the skills' order, the posting's first. It only scores confirmed
+bullets, so **name every `ach_` you added or reworded with `--select`** (a named bullet comes
+whatever its provenance), and a `prj_` kept for chronology. Ids, provenance, periods and each
+metric's current version come from `career/kb.ttl`. **A `WARN` names a selected bullet the gates
+already refuse** — fix it in the career first. **Each `GAP` line goes into `gaps.md`'s "Where this
+falls short"**, as printed. Edit only the words, a `narrative`, and the view `view_draft`: rename
+it, set `format_profile`, `region_profile` and `budget` (`ats_maximal_pages` too), keep
+`provenance_floor`. Reorder `include` only with a stated reason. No practice a bullet already shows.
+A view references content only.
 
 ## Retuning the summary
 
@@ -103,21 +107,12 @@ write a new `narrative`, `inferred`: keep the opening claim, swap the evidence c
 posting's top two requirements, and **mirror its own words** (`j:quote`, not the concept). Never
 rewrite the positioning; if it has drifted, say so.
 
-## Allocating the pages
+## What the export allocated
 
-| Rank | Treatment |
-|---|---|
-| 1-2 | Full treatment, 3-5 bullets, lead the section |
-| 3-5 | One or two bullets each |
-| 6-8 | Compressed, shared role headers |
-| 9+ | Cut, or one line if chronology needs it |
-
-**Chronology governs order; score governs allocation.** The roughly 4:1 weighting to recent roles
-yields when the best evidence sits mid-career — **say so, and why.** Do not cut evidence to fit the
-presentation budget; `ats_maximal_pages` is its own.
-
-When your view excludes evidence the assessment marked `satisfied` or `partial`, **add a line to
-`gaps.md`'s "Where this falls short"** naming the requirement and the ids.
+**Chronology governs order; score governs allocation** — the export applied both. When the best
+evidence sits mid-career, **say so, and why.** Do not cut evidence to fit the presentation budget;
+`ats_maximal_pages` is its own. When you drop evidence the assessment marked `satisfied` or
+`partial`, **add a line to `gaps.md`'s "Where this falls short"** naming the requirement and the ids.
 
 ## Before you return
 
