@@ -283,6 +283,8 @@ jsk kb query unconfirmed --json          # open | unconfirmed | holds <concept> 
 jsk kb query experience c:kubernetes     # | experience <concept> | pipeline
 jsk kb query evidence GraphQL "React Native" BFF  # each term: holders, then text naming it
 jsk kb query person                      # location, work mode, rights to work, ongoing roles
+jsk kb query concepts                    # every concept: labels, counts as, projects holding it
+jsk kb show prj_payments --bullets       # a project's name and bullets, without its notes
 jsk kb path                              # the workspace, kb.ttl, log.ttl, applications/
 jsk kb check                             # every rule, the record's state, the layout
 ```

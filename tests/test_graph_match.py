@@ -139,6 +139,26 @@ class Scenarios(unittest.TestCase):
             ("K3s", "unknown-term", []),
         ])
 
+    def test_an_unknown_term_is_offered_the_concepts_nearest_it(self):
+        """An advert's phrase is rarely a label: "event streaming architecture" names no
+        concept, but it shares its rarest word with one. The rare word leads - every
+        -architecture concept shares "architecture", only one shares "event"."""
+        near = Q.nearest(self.s)
+        self.assertEqual(near("event streaming architecture")[0],
+                         O.C + "event-driven-architecture")
+        self.assertEqual(near("K3s"), ())
+        self.assertEqual(near("experience and skills"), ())         # filler names nothing
+
+    def test_the_match_prints_the_nearest_concepts_beside_an_unknown_term(self):
+        from jsk.graph import match as M
+        r = M.result(self.s, post("contoso"), TODAY, 2)
+        q = {"kind": "unknown-term", "requirement": "event streaming",
+             "detail": ["c:event-driven-architecture"]}
+        r["questions"] = [q]
+        self.assertIn("- **unknown-term** event streaming: no concept has this label - nearest "
+                      "c:event-driven-architecture; name the one meant with j:concept, or add it "
+                      "to the vocabulary?", M.markdown(r))
+
 
 class Ranking(unittest.TestCase):
     def test_scores_worked_by_hand(self):

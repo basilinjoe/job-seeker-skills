@@ -156,6 +156,11 @@ def markdown(r):
            "broader-held": "only something broader is held, on {} - is there narrower work?",
            "tag-only": "tagged on {}, but no confirmed bullet shows it"}
     for q in r["questions"]:
+        if q["kind"] == "unknown-term" and q["detail"]:
+            out.append(f"- **unknown-term** {q['requirement']}: no concept has this label - "
+                       f"nearest {', '.join(q['detail'])}; name the one meant with j:concept, "
+                       f"or add it to the vocabulary?")
+            continue
         out.append(f"- **{q['kind']}** {q['requirement']}: "
                    + ask[q["kind"]].format(" or ".join(q["detail"]) if q["kind"] == "ambiguous"
                                            else ", ".join(q["detail"])))

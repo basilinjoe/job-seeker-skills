@@ -6,7 +6,8 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   confirm <id>... --answer "..."       confirm entries with the person's answer, logged
   adopt [--drop-comments]              log a hand edit, listing every provenance it raised
   fmt [<file>...] [--drop-comments]    rewrite in the canonical layout; kb.ttl's is logged
-  show <id>...                         entries as kb.ttl holds them, and the op:base to use
+  show <id>... [--bullets]             entries as kb.ttl holds them, and the op:base to use;
+                                       --bullets, a project's name and bullets only
   view [--section NAME]                the whole career as Markdown, to read
   query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale |
                                        experience <concept> | pipeline |
@@ -503,15 +504,22 @@ def rank(quads, iri):
 
 @verb
 def cmd_show(args, root):
-    """jsk kb show <id>...
+    """jsk kb show <id>... [--bullets]
 
     The entries as their files hold them, in the canonical layout: a project with its
     bullets, a metric with its versions. The first line is the revision to put in a
     changeset's op:base, so a change drafted from what was shown is checked against it.
+
+    --bullets prints a project as its name and its bullets only - what citing it as
+    evidence needs - without the problem, decisions and notes, which run to thousands of
+    characters a project.
     """
+    from . import ontology as O
     from . import record as R
     from . import store as S
+    from .writer import curie
 
+    bullets = bool(take(args, "--bullets"))
     if not args:
         return usage("jsk kb show takes one or more ids")
     store = S.load(root)
@@ -530,7 +538,13 @@ def cmd_show(args, root):
         for f in files:
             quads = store.graph(f)
             print(f"\n# {f}")
-            print("\n\n".join(entry_text(quads, i) for i in with_children(quads, iri)))
+            shown = with_children(quads, iri)
+            if bullets and O.class_of(iri) == "Project":
+                name = next((q.object.value for q in quads if q.subject.value == iri
+                             and q.predicate.value == O.J + "name"), "")
+                print(f"# {curie(iri)} - {name}")
+                shown = shown[1:]
+            print("\n\n".join(entry_text(quads, i) for i in shown))
     return code
 
 

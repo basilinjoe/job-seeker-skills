@@ -256,15 +256,55 @@ def unresolved(matches):
                   if m.requirement.necessity == "required" and m.state in ("ambiguous", "candidate"))
 
 
+FILLER = {"a", "an", "and", "or", "the", "of", "in", "on", "with", "for", "to", "at", "as",
+          "by", "experience", "skills", "strong", "knowledge", "years", "understanding"}
+
+
+def words(text):
+    """A phrase's content words, lowercased, a plural `s` dropped: "integration patterns"
+    and c:integration-pattern share both."""
+    import re
+    out = set()
+    for w in re.split(r"[^a-z0-9+#]+", text.lower()):
+        if w and w not in FILLER:
+            out.add(w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w)
+    return out
+
+
+def nearest(store, limit=3):
+    """A function from an unresolved label to the concepts closest to it, by the content
+    words it shares with each concept's id and labels, a rare word counting for more:
+    "architecture" names forty concepts and says little, "integration" names five. Only a
+    suggestion - the analyst names the one meant with `j:concept`, or none."""
+    bags = {}
+    for c in concepts(store):
+        bags[c] = words(c[len(O.C):].replace("-", " "))
+    for r in store.select(PRE + """SELECT ?c ?l WHERE { ?c j:label ?l }"""):
+        bags.setdefault(r["c"].value, set()).update(words(r["l"].value))
+    df = {}
+    for bag in bags.values():
+        for w in bag:
+            df[w] = df.get(w, 0) + 1
+
+    def near(label):
+        mine = words(label)
+        scored = [(sum(1 / df[w] for w in mine & bag), c) for c, bag in bags.items() if mine & bag]
+        scored.sort(key=lambda s: (-s[0], len(s[1]), s[1]))
+        return tuple(c for _, c in scored[:limit])
+    return near
+
+
 def questions(store, matches):
     """The questions a tailoring round should ask - each one a named gap in the join."""
     out = []
+    near = None
     for m in matches.values():
         asked = m.requirement.asked
         if m.state == "ambiguous":
             out.append(Question("ambiguous", asked, m.resolution.concepts))
         elif m.state == "candidate":
-            out.append(Question("unknown-term", asked, ()))
+            near = near or nearest(store)
+            out.append(Question("unknown-term", asked, near(asked)))
         elif m.state == "near":
             kind = "implied" if any("implied" in why for why in m.near.values()) else "broader-held"
             out.append(Question(kind, asked, tuple(sorted(m.near))))

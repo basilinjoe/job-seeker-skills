@@ -479,6 +479,34 @@ class Query(Workspace):
         self.assertEqual({r["term"] for r in rows}, {"Kafka", "Haskell"})
         self.assertEqual(self.kb("query", "evidence")[0], 2)
 
+    def test_evidence_shows_fewer_text_hits_when_the_term_names_a_concept(self):
+        from jsk.graph import named
+        self.assertLess(named.TEXT_HITS_RESOLVED, named.TEXT_HITS)
+        kb = self.path("career/kb.ttl")
+        kb.write_text(kb.read_text(encoding="utf-8") + "".join(
+            f'\nk:ach_intranet_refresh_kafka_{i} j:project k:prj_intranet_refresh ; j:rank {10 + i} ;\n'
+            f'    j:text "Kafka note {i}." ; j:provenance j:inferred .\n' for i in range(8)),
+            encoding="utf-8")
+        rows = [r for r in self.evidence("Kafka") if r["found"] == "text"]
+        self.assertEqual(len([r for r in rows if r["entry"]]), named.TEXT_HITS_RESOLVED)
+        self.assertIn("more - a narrower term finds them", rows[-1]["via"])
+
+    def test_the_vocabulary_as_one_table(self):
+        rows = {r["concept"]: r for r in json.loads(self.kb("query", "concepts", "--json")[1])}
+        self.assertEqual(rows["c:event-driven-architecture"]["labels"], "EDA, event-driven")
+        self.assertEqual(rows["c:kafka"]["counts as"], "c:event-driven-architecture")
+        self.assertEqual(rows["c:kafka"]["held"], 1)
+        self.assertEqual(rows["c:terraform"]["held"], "")     # shipped, held by no project
+
+    def test_show_bullets_prints_a_project_s_name_and_bullets_only(self):
+        full = self.kb("show", "prj_site_onboarding")[1]
+        code, out = self.kb("show", "prj_site_onboarding", "--bullets")
+        self.assertEqual(code, 0, out)
+        self.assertIn("# k:prj_site_onboarding - Care-site onboarding", out)
+        self.assertIn("k:ach_site_onboarding_sites_one_platform j:project", out)
+        self.assertNotIn("j:uses", out)
+        self.assertLess(len(out), len(full))
+
     def test_the_person_behind_eligibility(self):
         code, out = self.kb("query", "person")
         self.assertEqual(code, 0, out)

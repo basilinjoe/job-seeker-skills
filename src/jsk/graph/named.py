@@ -173,6 +173,7 @@ def pipeline(store, today=None):
 
 
 TEXT_HITS = 12                   # per term; past it, the term is too broad to read row by row
+TEXT_HITS_RESOLVED = 5           # when the term names a concept, its holders already answer it
 
 
 def snippet(text, at, end, width=60):
@@ -213,7 +214,8 @@ def evidence_for(store, *terms):
     the live projects holding it (as `holds` reports them), then every live entry whose
     text names it as a whole word - the grep an agent would otherwise run once per term,
     over a file it would have to find first. A term the record says nothing about gets a
-    row saying so, so an absence is an answer and not a reason to look again."""
+    row saying so, so an absence is an answer and not a reason to look again. A term that
+    names a concept shows fewer text hits: its holders are the answer, the text is colour."""
     from .queries import Requirement, concepts, labels, resolve
 
     index, known, text = labels(store), concepts(store), kb_text(store)
@@ -238,16 +240,41 @@ def evidence_for(store, *terms):
                 name = curie(entry) + (f" ({curie(proj)})" if proj else "")
                 hits.append({"term": term, "found": "text", "entry": name, "via": curie(pred),
                              "evidence": pv, "text": snippet(body, m.start(), m.end())})
-        out += hits[:TEXT_HITS]
-        if len(hits) > TEXT_HITS:
+        cap = TEXT_HITS_RESOLVED if res.concepts else TEXT_HITS
+        out += hits[:cap]
+        if len(hits) > cap:
             out.append({"term": term, "found": "text", "entry": "",
-                        "via": f"{len(hits) - TEXT_HITS} more - a narrower term finds them",
+                        "via": f"{len(hits) - cap} more - a narrower term finds them",
                         "evidence": "", "text": ""})
         if len(out) == start:
             out.append({"term": term, "found": "nothing", "entry": "",
                         "via": "no concept, and no text in the record names it",
                         "evidence": "", "text": ""})
     return (("term", "found", "entry", "via", "evidence", "text"), out)
+
+
+
+@query("concepts", doc="every concept: its labels, what it counts as, how many projects hold it")
+def concept_list(store):
+    """The vocabulary as one table, shipped and the person's own, to map a posting's
+    phrases onto before posting.ttl is written: "cloud-native architecture" is a label no
+    concept has, and `j:concept` names the one it means. Read once, it replaces the grep
+    for concept ids that followed every match full of `candidate`s."""
+    from .queries import concepts
+
+    names, up, held = {}, {}, {}
+    for r in store.select(PRE + "SELECT ?c ?l WHERE { ?c j:label ?l }"):
+        names.setdefault(r["c"].value, set()).add(r["l"].value)
+    for r in store.select(PRE + "SELECT ?c ?b WHERE { ?c j:isA|j:partOf ?b }"):
+        up.setdefault(r["c"].value, set()).add(r["b"].value)
+    for r in store.select(PRE + """SELECT ?c (COUNT(DISTINCT ?p) AS ?n) WHERE {
+            ?p a j:Project ; j:uses|j:domain ?c FILTER NOT EXISTS { ?p j:retired ?x } }
+            GROUP BY ?c"""):
+        held[r["c"].value] = int(r["n"].value)
+    return (("concept", "labels", "counts as", "held"),
+            [{"concept": curie(c), "labels": ", ".join(sorted(names.get(c, ()))),
+              "counts as": ", ".join(curie(b) for b in sorted(up.get(c, ()))),
+              "held": held.get(c, "")} for c in sorted(concepts(store))])
 
 
 @query("person", doc="where they are, how they work, their rights to work, and the roles they hold now")
