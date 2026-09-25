@@ -241,317 +241,6 @@ class ShipUsage(ShipCase):
         self.assertIn("fix:", out)
 
 
-# --- jsk freeze ----------------------------------------------------------------
-
-POSTING = """---
-company: Acme Health
-title: Platform Engineer
-url: https://example.com/job/1
-requirements:
-  - title: not the title
-captured: 2026-09-01
----
-
-The advertisement, verbatim.
-"""
-
-EXPECTED = """---
-company: Acme Health
-title: Platform Engineer
-view: view_default
-submitted: 2026-09-08
-channel: Workday portal
-documents:
-  - Jane_Doe_Resume.pdf
-  - Jane_Doe_Resume_ATS.txt
----
-
-# Timeline
-
-| Date | Event | Channel | Note | Due |
-|---|---|---|---|---|
-| 2026-09-08 | submitted | Workday portal | | |
-"""
-
-
-class FreezeCase(unittest.TestCase):
-    """One application directory as mode-tailor.md leaves it: posting, gaps, record
-    and the files a render wrote - built without a TeX engine."""
-
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.tmp = Path(self._tmp.name)
-        self.addCleanup(self._tmp.cleanup)
-        self.apps = self.tmp / "applications"
-        self.app = self.apps / "2026-09-01-acme-platform"
-        self.app.mkdir(parents=True)
-        (self.tmp / "user-knowledgebase.md").write_text("# KB\n", encoding="utf-8")
-        (self.app / "posting.md").write_text(POSTING, encoding="utf-8")
-        (self.app / "gaps.md").write_text("# Gaps\n", encoding="utf-8")
-        write_urs(self.app, urs_doc())
-        self.render()
-
-    def render(self, lines=None):
-        lines = CLEAN_RESUME if lines is None else lines
-        build_pdf(self.app / "Jane_Doe_Resume.pdf", lines)
-        build_text(self.app / "Jane_Doe_Resume_ATS.txt", lines)
-        (self.app / "Jane_Doe_Resume.tex").write_text(
-            TEX_PREAMBLE + "\n".join("\\item " + l for l in lines) + "\n\\end{document}\n",
-            encoding="utf-8")
-
-    def freeze(self, *args, submitted="2026-09-08", channel="Workday portal"):
-        extra = []
-        extra += ["--submitted", submitted] if submitted is not None else []
-        extra += ["--channel", channel] if channel is not None else []
-        return run(JSK, "freeze", self.app, *extra, *args)
-
-    @property
-    def sent(self):
-        return self.apps / "2026-09-08-acme-platform"
-
-
-class FreezeWrites(FreezeCase):
-    def test_it_writes_mode_ships_shape_exactly(self):
-        code, out = self.freeze()
-        self.assertEqual(code, 0, out)
-        self.assertEqual((self.sent / "application.md").read_text(encoding="utf-8"),
-                         EXPECTED)
-
-    def test_a_channel_yaml_would_misread_is_quoted(self):
-        """`Referral: Jane` bare will not parse, and `#slack` bare is a comment. A
-        frozen application.md is never edited again, so either would stay wrong."""
-        import yaml
-
-        for channel in ("Referral: Jane", "#slack"):
-            with self.subTest(channel=channel):
-                code, out = self.freeze(channel=channel)
-                self.assertEqual(code, 0, out)
-                text = (self.sent / "application.md").read_text(encoding="utf-8")
-                front = yaml.safe_load(text.split("---")[1])
-                self.assertEqual(front["channel"], channel)
-                (self.sent / "application.md").unlink()
-                self.sent.rename(self.app)
-
-    def test_a_named_document_is_the_only_one_gated_and_listed(self):
-        """The render that was not sent is neither checked nor archived as sent."""
-        build_pdf(self.app / "Jane_Doe_Resume_ATS.pdf", CLEAN_RESUME)
-        (self.app / "Jane_Doe_Resume_ATS.tex").write_text(
-            (self.app / "Jane_Doe_Resume.tex").read_text(encoding="utf-8"), encoding="utf-8")
-        code, out = self.freeze("--doc", "Jane_Doe_Resume_ATS.pdf")
-        self.assertEqual(code, 0, out)
-        self.assertNotIn("check_ats.py Jane_Doe_Resume.pdf", out)
-        application = (self.sent / "application.md").read_text(encoding="utf-8")
-        self.assertIn("  - Jane_Doe_Resume_ATS.pdf", application)
-        self.assertNotIn("  - Jane_Doe_Resume.pdf", application)
-
-    def test_the_directory_is_renamed_to_the_day_it_was_sent(self):
-        code, out = self.freeze()
-        self.assertEqual(code, 0, out)
-        self.assertFalse(self.app.exists())
-        self.assertTrue((self.sent / "posting.md").exists())
-        self.assertIn(str(self.sent), out)
-
-    def test_a_directory_already_named_for_the_day_stays_where_it_is(self):
-        code, out = self.freeze(submitted="2026-09-01")
-        self.assertEqual(code, 0, out)
-        self.assertTrue((self.app / "application.md").exists())
-
-    def test_held_back_has_no_submitted_row(self):
-        """`submitted: false` is an accurate blank. A submitted row written to fill
-        it is the false green mode-ship.md forbids."""
-        code, out = self.freeze(submitted="false")
-        self.assertEqual(code, 0, out)
-        self.assertTrue(self.app.exists(), "a held-back application was renamed")
-        text = (self.app / "application.md").read_text(encoding="utf-8")
-        self.assertIn("submitted: false\n", text)
-        self.assertTrue(text.endswith(
-            "| Date | Event | Channel | Note | Due |\n|---|---|---|---|---|\n"), text)
-        self.assertNotIn("| submitted |", text)
-
-    def test_named_documents_are_the_ones_listed(self):
-        code, out = self.freeze("--doc", "Jane_Doe_Resume.pdf")
-        self.assertEqual(code, 0, out)
-        text = (self.sent / "application.md").read_text(encoding="utf-8")
-        self.assertIn("documents:\n  - Jane_Doe_Resume.pdf\n---", text)
-
-    def test_the_only_view_is_used_without_being_named(self):
-        code, out = self.freeze()
-        self.assertEqual(code, 0, out)
-        self.assertIn("view: view_default",
-                      (self.sent / "application.md").read_text(encoding="utf-8"))
-
-    def test_the_gates_output_is_shown(self):
-        code, out = self.freeze()
-        self.assertEqual(code, 0, out)
-        self.assertIn("PASS - safe to render", out)
-        self.assertIn("--- prose gate", out)
-
-    def test_the_knowledge_base_is_never_touched(self):
-        """The log row stays the agent's to write."""
-        kb = self.tmp / "user-knowledgebase.md"
-        log = self.tmp / "log.md"
-        kb.write_text("# KB\n\n## Open questions\n", encoding="utf-8")
-        log.write_text("# Log\n\n| date | what changed |\n|---|---|\n", encoding="utf-8")
-        before = kb.read_bytes(), log.read_bytes()
-        code, out = self.freeze()
-        self.assertEqual(code, 0, out)
-        self.assertEqual((kb.read_bytes(), log.read_bytes()), before)
-        self.assertIn("log.md", out)
-
-
-class FreezeRefuses(FreezeCase):
-    """Every refusal leaves the directory exactly as it was: no application.md, and
-    no rename."""
-
-    def assertUntouched(self):
-        self.assertTrue(self.app.exists())
-        self.assertFalse(self.sent.exists())
-
-    def test_two_pdfs_and_no_doc_is_a_question_not_a_guess(self):
-        """Only the person knows which render was sent; listing both archives one
-        nobody submitted as though it was."""
-        build_pdf(self.app / "Jane_Doe_Resume_ATS.pdf", CLEAN_RESUME)
-        code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("2 PDFs", out)
-        self.assertIn("--doc", out)
-        self.assertUntouched()
-
-    def test_an_applications_folder_away_from_the_knowledge_base_is_refused(self):
-        """A session once wrote its applications relative to its working directory.
-        The been-here-before check looks beside the knowledge base, so a round frozen
-        anywhere else is one no later round can see."""
-        (self.tmp / "user-knowledgebase.md").unlink()
-        code, out = self.freeze()
-        self.assertEqual(code, 2, out)
-        self.assertIn("no career/kb.ttl or user-knowledgebase.md beside", out)
-        self.assertIn("fix:", out)
-        self.assertFalse((self.app / "application.md").exists())
-        self.assertUntouched()
-
-    def test_a_frozen_application_is_never_refrozen(self):
-        (self.app / "application.md").write_text("original\n", encoding="utf-8")
-        code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("never re-frozen", out)
-        self.assertEqual((self.app / "application.md").read_text(encoding="utf-8"),
-                         "original\n")
-        self.assertUntouched()
-
-    def test_a_failing_document_is_never_frozen(self):
-        self.render(CLEAN_RESUME + [BAD])
-        code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("DO NOT SEND", out)
-        self.assertIn("never frozen", out)
-        self.assertFalse((self.app / "application.md").exists())
-        self.assertUntouched()
-
-    def test_a_failing_record_is_never_frozen(self):
-        write_urs(self.app, urs_doc(urs="9.0.0"))
-        code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("DO NOT RENDER", out)
-        self.assertUntouched()
-
-    def test_a_posting_without_a_company_is_named(self):
-        (self.app / "posting.md").write_text(POSTING.replace("company: Acme Health\n", ""),
-                                             encoding="utf-8")
-        code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("`company:`", out)
-        self.assertUntouched()
-
-    def test_an_indented_title_is_not_the_postings_title(self):
-        """`requirements:` items carry a `title:` of their own. Only a top-level line
-        is the posting's."""
-        (self.app / "posting.md").write_text(POSTING.replace("title: Platform Engineer\n", ""),
-                                             encoding="utf-8")
-        code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("`title:`", out)
-
-    def test_several_views_and_none_named_is_a_call_error(self):
-        doc = urs_doc()
-        doc["views"].append(dict(doc["views"][0], id="view_other"))
-        write_urs(self.app, doc)
-        code, out = self.freeze()
-        self.assertEqual(code, 2, out)
-        self.assertIn("view_default, view_other", out)
-        self.assertUntouched()
-        code, out = self.freeze("--view", "view_other")
-        self.assertEqual(code, 0, out)
-
-    def test_a_view_the_record_does_not_hold_is_a_call_error(self):
-        code, out = self.freeze("--view", "view_nope")
-        self.assertEqual(code, 2, out)
-        self.assertUntouched()
-
-    def test_a_directory_with_nothing_sendable_is_refused(self):
-        for name in ("Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt"):
-            (self.app / name).unlink()
-        code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("no .pdf or .txt", out)
-        self.assertUntouched()
-
-    def test_a_rename_target_that_exists_is_refused(self):
-        self.sent.mkdir()
-        code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("already exists", out)
-        self.assertFalse((self.app / "application.md").exists())
-        self.assertFalse((self.sent / "application.md").exists())
-
-    def test_a_named_document_that_is_not_there_is_refused(self):
-        code, out = self.freeze("--doc", "Cover_Letter.pdf")
-        self.assertEqual(code, 1, out)
-        self.assertIn("Cover_Letter.pdf", out)
-        self.assertUntouched()
-
-
-class FreezeMarkdownWorkspace(FreezeCase):
-    """A workspace whose career is still user-knowledgebase.md freezes as it always has."""
-
-    def test_the_claims_gate_says_it_did_not_run_and_the_freeze_goes_ahead(self):
-        code, out = self.freeze()
-        self.assertEqual(code, 0, out)
-        self.assertIn("--- claims gate: not run", out)
-        self.assertTrue((self.sent / "application.md").exists())
-        self.assertFalse((self.sent / "application.ttl").exists())
-
-    def test_an_application_ttl_already_there_is_never_refrozen(self):
-        (self.app / "application.ttl").write_text("original\n", encoding="utf-8")
-        code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("never re-frozen", out)
-        self.assertFalse((self.app / "application.md").exists())
-
-
-class FreezeUsage(FreezeCase):
-    def test_submitted_is_required(self):
-        code, out = self.freeze(submitted=None)
-        self.assertEqual(code, 2, out)
-        self.assertIn("--submitted is required", out)
-
-    def test_submitted_must_be_a_date_or_false(self):
-        for bad in ("yesterday", "2026-9-8", "2026-02-30", "no"):
-            with self.subTest(submitted=bad):
-                code, out = self.freeze(submitted=bad)
-                self.assertEqual(code, 2, out)
-
-    def test_channel_is_required(self):
-        code, out = self.freeze(channel=None)
-        self.assertEqual(code, 2, out)
-        self.assertIn("--channel is required", out)
-
-    def test_a_directory_that_does_not_exist_is_a_call_error(self):
-        code, out = run(JSK, "freeze", self.tmp / "nowhere", "--submitted", "false",
-                        "--channel", "email")
-        self.assertEqual(code, 2, out)
-        self.assertIn("fix:", out)
-
-
 # --- the graph record: career/kb.ttl ---------------------------------------------------
 
 class GraphCase(unittest.TestCase):
@@ -699,6 +388,185 @@ class FreezeGraph(GraphCase):
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
         self.assertIn("never re-frozen", out)
+
+    def test_it_says_what_is_true_afterwards(self):
+        """It used to end, in a Markdown workspace, with "append the row to log.md" -
+        a file nothing writes now. Later events are `jsk event`."""
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertIn("jsk event", out)
+        self.assertNotIn("log.md", out)
+
+
+class FreezeWrites(GraphCase):
+    def test_the_directory_is_renamed_to_the_day_it_was_sent(self):
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.app.exists())
+        self.assertTrue((self.sent / "posting.ttl").exists())
+        self.assertIn(str(self.sent), out)
+
+    def test_a_directory_already_named_for_the_day_stays_where_it_is(self):
+        self.app.rename(self.sent)
+        self.app = self.sent
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertTrue((self.sent / "application.ttl").exists())
+        self.assertNotIn("moved", out)
+
+    def test_a_named_document_is_the_only_one_gated_and_listed(self):
+        """The render that was not sent is neither checked nor archived as sent."""
+        build_pdf(self.app / "Jane_Doe_Resume_ATS.pdf", CLEAN_RESUME)
+        (self.app / "Jane_Doe_Resume_ATS.tex").write_text(
+            (self.app / "Jane_Doe_Resume.tex").read_text(encoding="utf-8"), encoding="utf-8")
+        code, out = self.freeze("--doc", "Jane_Doe_Resume_ATS.pdf")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("check_ats.py Jane_Doe_Resume.pdf", out)
+        app, _ = self.application()
+        self.assertEqual(app["document"], ["Jane_Doe_Resume_ATS.pdf"])
+
+    def test_the_gates_output_is_shown(self):
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertIn("PASS - safe to render", out)
+        self.assertIn("--- prose gate", out)
+
+
+class FreezeRefuses(GraphCase):
+    """Every refusal leaves the directory exactly as it was: no application.ttl, and
+    no rename."""
+
+    def assertUntouched(self):
+        self.assertTrue(self.app.exists())
+        self.assertFalse((self.app / "application.ttl").exists())
+        self.assertFalse(self.sent.exists())
+
+    def test_two_pdfs_and_no_doc_is_a_question_not_a_guess(self):
+        """Only the person knows which render was sent; listing both archives one
+        nobody submitted as though it was."""
+        build_pdf(self.app / "Jane_Doe_Resume_ATS.pdf", CLEAN_RESUME)
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("2 PDFs", out)
+        self.assertIn("--doc", out)
+        self.assertUntouched()
+
+    def test_an_applications_folder_away_from_the_career_is_refused(self):
+        """A session once wrote its applications relative to its working directory.
+        The been-here-before check looks beside the career, so a round frozen anywhere
+        else is one no later round can see."""
+        (self.root / "career" / "kb.ttl").unlink()
+        code, out = self.freeze()
+        self.assertEqual(code, 2, out)
+        self.assertIn("no career/kb.ttl beside", out)
+        self.assertIn("fix:", out)
+        self.assertUntouched()
+
+    def test_an_application_md_is_as_frozen_as_an_application_ttl(self):
+        (self.app / "application.md").write_text("original\n", encoding="utf-8")
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("never re-frozen", out)
+        self.assertEqual((self.app / "application.md").read_text(encoding="utf-8"),
+                         "original\n")
+        self.assertUntouched()
+
+    def test_a_failing_document_is_never_frozen(self):
+        self.render(CLEAN_RESUME + [BAD])
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("DO NOT SEND", out)
+        self.assertIn("never frozen", out)
+        self.assertUntouched()
+
+    def test_a_failing_record_is_never_frozen(self):
+        doc = json.loads((self.app / "resume.json").read_text(encoding="utf-8"))
+        self.record(dict(doc, urs="9.0.0"))
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("DO NOT RENDER", out)
+        self.assertUntouched()
+
+    def test_several_views_and_none_named_is_a_call_error(self):
+        doc = json.loads((self.app / "resume.json").read_text(encoding="utf-8"))
+        doc["views"].append(dict(doc["views"][0], id="view_other"))
+        self.record(doc)
+        code, out = self.freeze()
+        self.assertEqual(code, 2, out)
+        self.assertIn("view_contoso, view_other", out)
+        self.assertUntouched()
+
+    def test_a_view_the_record_does_not_hold_is_a_call_error(self):
+        code, out = self.freeze("--view", "view_nope")
+        self.assertEqual(code, 2, out)
+        self.assertUntouched()
+
+    def test_a_directory_with_nothing_sendable_is_refused(self):
+        for name in ("Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt"):
+            (self.app / name).unlink()
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("no .pdf or .txt", out)
+        self.assertUntouched()
+
+    def test_a_rename_target_that_exists_is_refused(self):
+        self.sent.mkdir()
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("already exists", out)
+        self.assertFalse((self.app / "application.ttl").exists())
+        self.assertFalse((self.sent / "application.ttl").exists())
+
+    def test_a_named_document_that_is_not_there_is_refused(self):
+        code, out = self.freeze("--doc", "Cover_Letter.pdf")
+        self.assertEqual(code, 1, out)
+        self.assertIn("Cover_Letter.pdf", out)
+        self.assertUntouched()
+
+
+class FreezeMarkdownWorkspace(GraphCase):
+    """Only `jsk migrate` reads a user-knowledgebase.md. freeze wrote an application.md
+    for a workspace still on one; it refuses and says to migrate first."""
+
+    def setUp(self):
+        super().setUp()
+        (self.root / "career" / "kb.ttl").unlink()
+        self.markdown = self.root / "user-knowledgebase.md"
+        self.markdown.write_text("# KB\n", encoding="utf-8")
+
+    def test_it_is_refused_and_pointed_at_migrate(self):
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"jsk migrate {self.markdown}", out)
+        self.assertNotIn("log.md", out)
+        self.assertTrue(self.app.exists())
+        self.assertFalse(self.sent.exists())
+        self.assertEqual(sorted(p.name for p in self.app.iterdir()
+                                if p.name.startswith("application")), [])
+
+
+class FreezeUsage(GraphCase):
+    def test_submitted_is_required(self):
+        code, out = self.jsk("freeze", self.app, "--channel", "email")
+        self.assertEqual(code, 2, out)
+        self.assertIn("--submitted is required", out)
+
+    def test_submitted_must_be_a_date_or_false(self):
+        for bad in ("yesterday", "2026-9-8", "2026-02-30", "no"):
+            with self.subTest(submitted=bad):
+                code, out = self.freeze(submitted=bad)
+                self.assertEqual(code, 2, out)
+
+    def test_channel_is_required(self):
+        code, out = self.jsk("freeze", self.app, "--submitted", "false")
+        self.assertEqual(code, 2, out)
+        self.assertIn("--channel is required", out)
+
+    def test_a_directory_that_does_not_exist_is_a_call_error(self):
+        code, out = run(JSK, "freeze", self.root / "nowhere", "--submitted", "false",
+                        "--channel", "email")
+        self.assertEqual(code, 2, out)
+        self.assertIn("fix:", out)
 
 
 class Stale(GraphCase):

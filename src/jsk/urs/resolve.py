@@ -26,7 +26,8 @@ class ViewNotNamed(ValueError):
 
 PROVENANCE_RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
 
-# Architecture-level rows first, then stacks - the ordering in bundle-spec.md.
+# Architecture-level rows first, then stacks: the order a reader scanning for fit
+# wants, the shape of the work before the tools it was done with.
 # .title() would render these as "Ai" / "Api" / "Ml"; a skills row is the most
 # scanned line on a resume and a miscased acronym reads as carelessness.
 CATEGORY_ACRONYMS = {"ai": "AI", "api": "API", "ml": "ML", "ui": "UI",
@@ -63,8 +64,8 @@ def role_title(p):
     parentheses beside the official title rather than in place of it, because
     the official title is the one a reference check confirms.
 
-    Suppressed when the two match case-insensitively: transcribing a bundle
-    fills both often enough, and "Senior Engineer (Senior Engineer)" is worse
+    Suppressed when the two match case-insensitively: a record drafted from the
+    career fills both often enough, and "Senior Engineer (Senior Engineer)" is worse
     than either alone.
     """
     title = (p.get("title") or "").strip()

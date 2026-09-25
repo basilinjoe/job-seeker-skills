@@ -863,7 +863,9 @@ class TheCommand(Tmp):
         self.assertEqual(t[("k:person", "provenance")], {"j:needs-verification"})
 
     def test_the_p0_sample_knowledge_base_migrates(self):
-        sample = REPO_ROOT / "docs/superpowers/experiments/2026-09-24-p0-spike/sample-kb.md"
+        """The P0 spike's sample, copied into tests/ so the suite runs from an unpacked
+        sdist, which ships no docs/superpowers. The copy drops the email contact."""
+        sample = Path(__file__).resolve().parent / "migrate_fixtures" / "sample-kb.md"
         shutil.copy(sample, self.root / "user-knowledgebase.md")
         code, out = migrated(self.root)
         self.assertEqual(code, 0, out)

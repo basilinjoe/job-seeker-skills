@@ -1,22 +1,13 @@
-"""jsk.kbindex: the Markdown knowledge base reader, and the ranking it used to do.
+"""jsk.kbindex: the Markdown knowledge base reader `jsk migrate` runs.
 
-Retired as `jsk index`; the module stays one release because `jsk migrate` reads the
-Markdown with it, and release N+1 deletes it and this file.
-
-The scores below are worked by hand from the table in jsk-tailor-analyst.md, not read
-back from the code - a test that recites the implementation's output proves only that
-it ran.
+Retired as `jsk index`, and its report and ranking with it; the reader stays one release
+because `jsk migrate` reads the Markdown with it, and release N+1 deletes it and this
+file. The ranking is graph.queries.rank now, tested with `jsk match`.
 """
 import datetime
-import tempfile
 import unittest
-from pathlib import Path
-
-from fixtures import PACKAGE, run
 
 from jsk import kbindex
-
-KBINDEX = f"{PACKAGE}.kbindex"
 
 TODAY = datetime.date(2026, 9, 23)
 
@@ -184,52 +175,6 @@ The advertisement.
 """
 
 
-def ranking(kb=KB, posting=POSTING):
-    _, sections, _ = kbindex.read_kb(kb)
-    return {r["id"]: r for r in kbindex.rank(kbindex.projects_of(sections),
-                                             kbindex.read_posting(posting), TODAY)}
-
-
-class TheRankingIsTheAnalystsTable(unittest.TestCase):
-    """Required ×3, preferred ×1, implicit 0, strength ×2, recency +1 within three
-    years and +0.5 at four to six, seniority +1 at or above the posting's."""
-
-    def test_every_axis_scores_as_the_table_says(self):
-        rows = ranking()
-        # dotnet + team-leadership (6) + kubernetes (1) + strength 5 (10)
-        # + one year old (1) + architecture-ownership >= platform-design (1).
-        # mentoring is implicit and scores nothing.
-        self.assertEqual(rows["proj_alpha"]["score"], 19)
-        # dotnet + terraform (6) + strength 3 (6) + five years old (0.5); hands-on is
-        # below platform-design.
-        self.assertEqual(rows["proj_beta"]["score"], 12.5)
-        # nothing matched; strength 4 (8); eight years old (0); platform-design equals
-        # the posting's level, which counts.
-        self.assertEqual(rows["proj_gamma"]["score"], 9)
-
-    def test_a_retired_project_is_not_ranked(self):
-        self.assertNotIn("proj_old", ranking())
-
-    def test_the_order_is_by_score(self):
-        _, sections, _ = kbindex.read_kb(KB)
-        order = [r["id"] for r in kbindex.rank(kbindex.projects_of(sections),
-                                               kbindex.read_posting(POSTING), TODAY)]
-        self.assertEqual(order, ["proj_alpha", "proj_beta", "proj_gamma"])
-
-    def test_the_row_shows_the_terms_behind_the_number(self):
-        """Never a number you cannot show the terms behind."""
-        alpha = ranking()["proj_alpha"]
-        self.assertIn("kubernetes (preferred)", alpha["matched"])
-        self.assertIn("seniority-match", alpha["matched"])
-        self.assertNotIn("mentoring", alpha["matched"])
-        self.assertEqual(alpha["missed"], ["terraform"])
-
-    def test_a_synonym_scores_as_absent(self):
-        """Exact strings: `.net` is not `dotnet`."""
-        posting = POSTING.replace("value: dotnet", "value: .net")
-        self.assertEqual(ranking(posting=posting)["proj_alpha"]["score"], 16)
-
-
 class TheIndexPointsAtTheRightLines(unittest.TestCase):
 
     def test_a_heading_inside_a_fence_is_not_an_entry(self):
@@ -263,25 +208,32 @@ class TheIndexPointsAtTheRightLines(unittest.TestCase):
         self.assertEqual(months, 19)
         self.assertTrue(any("role_three" in n and "not counted" in n for n in notes), notes)
 
-    def test_the_report_carries_what_an_agent_reads_it_for(self):
-        report = kbindex.build(KB, POSTING, TODAY)
-        self.assertIn("Experience: 2y 4m", report)
-        self.assertIn("`proj_alpha` L", report)
-        self.assertIn("capabilities: team-leadership, mentoring", report)
-        self.assertIn("`metric_latency`", report)
-        self.assertIn("`q_open`", report)
-        self.assertNotIn("`q_done`", report)
-        self.assertIn("| quantum-annealing | preferred | none | not in the vocabulary |", report)
-        self.assertIn("| proj_beta | 12.5 |", report)
+    def test_a_date_that_is_not_one_is_refused_with_its_fix(self):
+        """The count moved to graph.scoring, which raises ValueError; the reader still
+        refuses it the way it refuses every other field, naming the entry."""
+        _, sections, _ = kbindex.read_kb(KB.replace("start: 2016-03", "start: spring"))
+        roles = kbindex.entries_with_blocks(sections["Roles"], "role")
+        with self.assertRaises(kbindex.KBError) as caught:
+            kbindex.experience(roles, TODAY)
+        self.assertIn("role_two", str(caught.exception))
+        self.assertIn("YYYY-MM", caught.exception.fix)
+
+
+def read(kb):
+    """Everything `jsk migrate` asks of the reader: the entries, the projects' fields,
+    and the roles' dates."""
+    _, sections, _ = kbindex.read_kb(kb)
+    kbindex.projects_of(sections)
+    kbindex.experience(kbindex.entries_with_blocks(sections["Roles"], "role"), TODAY)
 
 
 class ItRefusesRatherThanGuesses(unittest.TestCase):
-    """A project that quietly fails to parse scores as absent evidence on every
-    posting. Each of these has to stop the run and name the entry."""
+    """A project that quietly fails to parse would migrate as absent evidence. Each of
+    these has to stop the run and name the entry."""
 
     def refuses(self, kb, *words):
         with self.assertRaises(kbindex.KBError) as caught:
-            kbindex.build(kb)
+            read(kb)
         for word in words:
             self.assertIn(word, str(caught.exception))
 
@@ -296,17 +248,6 @@ class ItRefusesRatherThanGuesses(unittest.TestCase):
     def test_a_term_yaml_reads_as_a_boolean(self):
         """`no` unquoted is False to YAML; it would never match a requirement."""
         self.refuses(KB.replace("[python]", "[python, no]"), "proj_gamma", "technologies")
-
-    def test_a_missing_library_is_a_reason_not_a_traceback(self):
-        saved = kbindex.yaml
-        kbindex.yaml = None
-        try:
-            with tempfile.TemporaryDirectory() as root:
-                kb = Path(root) / "user-knowledgebase.md"
-                kb.write_text(KB, encoding="utf-8")
-                self.assertEqual(kbindex.main([str(kb)]), 1)
-        finally:
-            kbindex.yaml = saved
 
     def test_a_strength_outside_the_scale(self):
         self.refuses(KB.replace("strength: 4\n", "strength: 7\n"), "proj_gamma", "strength")
@@ -346,28 +287,6 @@ class ItRefusesRatherThanGuesses(unittest.TestCase):
         reqs = kbindex.read_posting(POSTING)["requirements"]
         self.assertEqual(reqs[0]["label"], ".NET: the whole stack")
         self.assertEqual(reqs[0]["value"], "dotnet")
-
-
-class TheCommand(unittest.TestCase):
-
-    def test_the_module_ranks_and_exits_zero(self):
-        with tempfile.TemporaryDirectory() as root:
-            kb, posting = Path(root) / "user-knowledgebase.md", Path(root) / "posting.md"
-            kb.write_text(KB, encoding="utf-8")
-            posting.write_text(POSTING, encoding="utf-8")
-            code, out = run(KBINDEX, kb, "--rank", posting, "--today", "2026-09-23")
-        self.assertEqual(code, 0, out)
-        self.assertIn("# Ranking", out)
-        self.assertIn("| proj_alpha | 19 |", out)
-
-    def test_a_malformed_file_exits_one_with_a_fix(self):
-        with tempfile.TemporaryDirectory() as root:
-            kb = Path(root) / "user-knowledgebase.md"
-            kb.write_text(KB.replace("strength: 4\n", "strength: many\n"), encoding="utf-8")
-            code, out = run(KBINDEX, kb)
-        self.assertEqual(code, 1, out)
-        self.assertIn("FAIL", out)
-        self.assertIn("fix:", out)
 
 
 if __name__ == "__main__":

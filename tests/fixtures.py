@@ -173,11 +173,9 @@ def scaffold_markdown_kb(directory, name, date="2026-09-01"):
 # of it is the code and the schema. test_plugin_surface.py reads the skill, the tests
 # below read the package.
 PLUGIN = REPO_ROOT / "plugins" / "jsk"
-SKILL_DIR = PLUGIN / "skills" / "jsk"
 SCHEMA_DIR = SRC / PACKAGE / "data" / "schema"
 VALIDATE_URS = f"{PACKAGE}.gates.validate_urs"
 RENDER_RESUME = f"{PACKAGE}.urs.render_resume"
-PREVIEW_TEMPLATES = f"{PACKAGE}.urs.preview_templates"
 CHECK_PROSE = f"{PACKAGE}.gates.check_prose"
 PREFLIGHT = f"{PACKAGE}.preflight"
 EXAMPLE_URS = SCHEMA_DIR / "example.resume.json"

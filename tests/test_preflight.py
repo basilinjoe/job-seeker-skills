@@ -71,9 +71,33 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         self.make_markdown(self.tmp)
         path = self.make_kb(self.tmp)
         self.assertEqual(preflight.resolve_kb(str(self.tmp / "my-career")),
-                         (str(path), None))
+                         (str(path), None, None))
         md = self.tmp / "my-career" / "user-knowledgebase.md"
-        self.assertEqual(preflight.resolve_kb(str(md)), (str(path), None))
+        self.assertEqual(preflight.resolve_kb(str(md)), (str(path), None, None))
+
+    def test_kb_names_only_a_career_record(self):
+        """`--kb pyproject.toml` reported "ok knowledge base", `--kb README.md` called it
+        a Markdown knowledge base not yet migrated, and a path that does not exist said
+        there was nothing to render from yet. Each is refused for what it is."""
+        (self.tmp / "pyproject.toml").write_text("[project]", encoding="utf-8")
+        (self.tmp / "README.md").write_text("# readme", encoding="utf-8")
+        (self.tmp / "empty").mkdir()
+        for name, words in (("pyproject.toml", "is not a career record"),
+                            ("README.md", "is not a career record"),
+                            ("nonexistent", "does not exist"),
+                            ("empty", "not a career workspace")):
+            with self.subTest(name=name):
+                checks, found = preflight.gather(str(self.tmp / name))
+                kb = next(c for c in checks if c.name.startswith("knowledge base"))
+                self.assertFalse(kb.ok)
+                self.assertIsNone(found)
+                self.assertIn(words, kb.disables)
+                self.assertNotIn("nothing to render from", kb.disables)
+
+    def test_the_record_path_is_printed_once(self):
+        path = self.make_kb(self.tmp)
+        code, out = run(PREFLIGHT, "--kb", path)
+        self.assertEqual(out.count(str(path)), 1, out)
 
     def test_a_directory_with_no_knowledge_base_is_not_one(self):
         (self.tmp / "notacareer" / "projects").mkdir(parents=True)
@@ -337,12 +361,13 @@ class TheGraphRecord(unittest.TestCase):
         self.assertTrue(preflight.is_required(graph))
         self.assertTrue(graph.ok, graph.disables)
 
-    def test_the_engine_is_a_capability_not_a_blocker(self):
-        """Nothing on the render path reads the graph yet, so a machine without the
-        engine still renders a resume - it loses the graph record, and says so."""
+    def test_the_engine_is_required(self):
+        """The career is kb.ttl and `jsk ship` runs the claims gate against it before
+        it renders, so a machine without the engine cannot produce a resume from the
+        career. It used to be reported as a gap."""
         checks, _ = preflight.gather()
         engine = next(c for c in checks if c.name == "pyoxigraph")
-        self.assertFalse(preflight.is_required(engine))
+        self.assertTrue(preflight.is_required(engine))
         self.assertIn("kb.ttl", engine.disables)
         line, note = preflight.hint("pyoxigraph")
         self.assertIn("-m pip install pyoxigraph", line)

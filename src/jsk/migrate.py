@@ -933,7 +933,7 @@ class Reader:
                        "work authorization block ")
 
     def sec_vocabulary(self, s):
-        from .kbindex import SENIORITY
+        from .graph.scoring import SENIORITY
 
         self.kb_note("## Vocabulary", own_lines(s, self.lines))
         classes = {"capabilit": "Capability", "domain": "Domain", "technolog": "Technology"}
@@ -944,7 +944,7 @@ class Reader:
                 # The fixed list, as the template wrote it, is the ontology's seniority
                 # enum already; anything else under it is theirs and is kept.
                 text = "\n".join(clean(body))
-                if re.findall(r"`([^`]+)`", text) == SENIORITY and \
+                if tuple(re.findall(r"`([^`]+)`", text)) == SENIORITY and \
                         not re.sub(r"`[^`]+`|[-\s]", "", text):
                     self.structure.update(range(e["start"], e["end"] + 1))
                 else:

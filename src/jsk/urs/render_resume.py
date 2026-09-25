@@ -2,7 +2,8 @@
 """Render a URS record into a .tex (and PDF), or plain text.
 
 Usage:
-  python3 render_resume.py <resume.json> --out DIR [options]
+  jsk render <resume.json> --out DIR [options]
+  python -m jsk.urs.render_resume <resume.json> --out DIR [options]
 
   --view ID          which view to render; required where the record holds more
                      than one, because there is no sensible way to pick for you
@@ -15,8 +16,6 @@ Usage:
   --list-templates   print the themes with what each is for, and exit
   --pdf              compile the .tex with whatever TeX engine is installed
   --name N           basename for the outputs (default: from person.name.full)
-
-On Windows use `python` or `py -3` in place of `python3`.
 
 Exit 0 = rendered. Exit 1 = nothing written, or --pdf produced no PDF.
 Exit 2 = usage error.
@@ -37,14 +36,6 @@ from ..cliutil import docstring_usage, wants_help
 from . import emit_latex, emit_text, plan as planner, themes
 from .resolve import ViewNotNamed
 from .tex import compile_pdf
-
-# One record, one rendered deliverable, plus the paste-in-box text. Which
-# variant the PDF holds is a choice at the call site, not a second file.
-DEFAULT_TARGETS = [
-    ("presentation", "latex", "{name}_Resume"),
-    ("plaintext", "txt", "{name}_Resume_ATS"),
-]
-
 
 # The stem follows the VARIANT. It used to follow the format, so
 # `--format latex --profile ats-maximal` wrote `{name}_Resume.tex` and silently
@@ -188,12 +179,12 @@ def main(argv):
             doc = json.load(fh)
     except FileNotFoundError:
         print(f"FAIL  file not found: {src}")
-        print("fix:  pass the URS record the skill wrote from user-knowledgebase.md")
+        print("fix:  pass the URS record - `jsk kb export --urs` drafts one from the career")
         return 2
     except json.JSONDecodeError as exc:
         print(f"FAIL  {os.path.basename(src)} is not valid JSON: {exc}")
-        print("fix:  a record is written by hand now, so this is the ordinary first")
-        print("      failure - run `jsk validate` on it once it parses")
+        print("fix:  a record is retuned by hand after `jsk kb export --urs`, so this is")
+        print("      the ordinary first failure - run `jsk validate` on it once it parses")
         return 1
 
     base = arg(argv, "--name") or safe_name(

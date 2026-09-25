@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Check a generated resume against the rules in references/writing-rules.md
 
-Usage: python3 check_prose.py resume.tex
-       python3 check_prose.py resume.txt
+Usage: jsk check resume.pdf --only prose     (reads the .tex beside it)
+       python -m jsk.gates.check_prose resume.tex
+       python -m jsk.gates.check_prose resume.txt
 
-On Windows use `python` or `py -3` in place of `python3`.
+Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
+No third-party dependencies.
 
 The sibling gate to check_ats.py. That one verifies a document *parses*; this one
 verifies it *reads* - and reports how much of it is quantified, which nothing
@@ -12,11 +14,10 @@ else measures: validate_urs.py checks that a number in prose traces to a metric,
 never that any number is there at all. A bullet in the third person - "the platform followed him
 through his promotion" - is not a parsing defect, so check_ats.py passes it with
 0 failures and is right to. Nothing else was checking.
-
-Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
-No third-party dependencies.
 """
 import sys, os, re
+
+from ..cliutil import docstring_usage, wants_help
 
 
 try:
@@ -238,8 +239,13 @@ def main(argv=None):
     except Exception:
         pass
 
+    if wants_help(argv):
+        # Before the path is read: `--help` used to be looked up as a file and
+        # reported "file not found: --help" with the usage-error exit.
+        print(docstring_usage(__doc__))
+        return 0
     if not argv:
-        print("usage: check_prose.py resume.tex | resume.txt")
+        print("usage: python -m jsk.gates.check_prose resume.tex | resume.txt")
         return 2
     path = argv[0]
     if not os.path.exists(path):

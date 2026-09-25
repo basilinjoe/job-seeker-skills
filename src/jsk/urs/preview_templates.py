@@ -2,10 +2,9 @@
 """Render one URS record in every template, so the choice can be made by looking.
 
 Usage:
-  python3 preview_templates.py resume.json --out DIR [--view ID] [--region CC]
-                                           [--ats-max] [--only NAME,NAME]
-
-On Windows use `python` or `py -3` in place of `python3`.
+  jsk preview resume.json --out DIR [--view ID] [--region CC]
+                                    [--ats-max] [--only NAME,NAME]
+  python -m jsk.urs.preview_templates resume.json --out DIR [the same flags]
 
 Writes DIR/<template>.tex and DIR/<template>.pdf, plus DIR/<template>.png of the
 first page when `pymupdf` is installed. Prints the page count for each, because

@@ -16,8 +16,8 @@ over several rows (the best path, the evidence level), not a row.
 import itertools
 from dataclasses import dataclass, field
 
-from ..kbindex import SENIORITY, WEIGHTS, recency_points
 from . import ontology as O
+from .scoring import SENIORITY, WEIGHTS, recency_points
 from .shapes import curie
 
 PRE = (f"PREFIX j: <{O.J}>\nPREFIX k: <{O.K}>\nPREFIX c: <{O.C}>\n"
@@ -199,9 +199,10 @@ def posting_seniority(store, post):
 
 
 def rank(store, post, matches, today):
-    """Every live project scored as `jsk index --rank` scores it, over the graph's matches:
-    required x3, preferred x1, strength x2, recency, and a seniority point at or above the
-    posting's. SENIORITY runs from most senior to least, so a lower index is higher."""
+    """Every live project scored over the graph's matches, by the table in
+    jsk-tailor-analyst.md: required x3, preferred x1, strength x2, recency, and a
+    seniority point at or above the posting's. SENIORITY runs from most senior to least,
+    so a lower index is higher."""
     level = posting_seniority(store, post)
     level_at = SENIORITY.index(level) if level in SENIORITY else None
     rows = []
@@ -216,7 +217,7 @@ def rank(store, post, matches, today):
         if level_at is not None and seniority in SENIORITY and SENIORITY.index(seniority) <= level_at:
             score += 1
         rows.append(Row(proj, score, req, pref))
-    # kbindex.rank's tie-break: strength, then recency, then id.
+    # The tie-break: strength, then recency, then id.
     return sorted(rows, key=lambda r: (-r.score, -live[r.project][0], -live[r.project][1],
                                        r.project))
 

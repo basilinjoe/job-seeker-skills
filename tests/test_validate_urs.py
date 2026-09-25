@@ -45,6 +45,14 @@ class ShippedExample(UrsCase):
     def test_baseline_fixture_is_valid(self):
         self.assertPasses(urs_doc())
 
+    def test_help_is_an_answer_not_an_unknown_flag(self):
+        """`python -m jsk.gates.validate_urs --help` read --help as an unknown flag and
+        exited 2."""
+        code, out = run(VALIDATE_URS, "--help")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("unknown flag", out)
+        self.assertIn("--max-findings", out)
+
 
 class NumeralsMustBeBacked(UrsCase):
     """The rule that stops a rewritten bullet from quietly inflating a number."""
@@ -78,10 +86,13 @@ class NumeralsMustBeBacked(UrsCase):
         whose number disagreed with its own metric failed, while one that invented a
         number and attached nothing passed and rendered. The second is what tailoring
         produces - prose written fresh against a posting - so it is the case worth
-        failing, and the message names the row to add."""
+        failing, and the message says where the number is recorded - the career, not
+        the achievements/metrics.md the bundle format kept, which no longer exists."""
         out = self.assertFails(self.bullet("Rolled out to 42 sites."),
                                "carries no metrics at all")
-        self.assertIn("achievements/metrics.md", out)
+        self.assertIn("career/kb.ttl", out)
+        self.assertIn("jsk kb export --urs", out)
+        self.assertNotIn("metrics.md", out)
 
     def test_standard_designators_are_not_quantities(self):
         # ISO 27001 and SOC 2 are names. Counting them would make the gate noise.

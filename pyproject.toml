@@ -22,8 +22,8 @@ keywords = [
 #
 # pyoxigraph is the exception because the graph record (kb.ttl and the applications) is
 # the career itself, not a capability layered on top. It ships abi3 wheels for every
-# platform jsk supports and has no dependencies of its own (the P0 spike,
-# docs/superpowers/experiments/2026-09-24-p0-spike/). The pin is one minor: raising it
+# platform jsk supports and has no dependencies of its own, which the graph rewrite's
+# first spike measured before the dependency was taken. The pin is one minor: raising it
 # means rerunning the Windows and Linux CI jobs - the lesson LadybugDB taught, whose
 # Windows wheels were broken for five releases while Linux passed.
 dependencies = ["pyoxigraph>=0.5.11,<0.6"]
@@ -64,7 +64,13 @@ path = "src/jsk/__init__.py"
 packages = ["src/jsk"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/jsk", "tests", "README.md", "LICENSE"]
+# The tests ship, so everything they read ships with them: an unpacked sdist has to pass
+# its own suite. The plugin surface and the budget tests read plugins/ and the
+# marketplace file; the docs tests read the top-level docs/*.md, never docs/superpowers.
+# Anchored with a leading slash: these are gitignore patterns, and a bare `README.md`
+# also matched every README.md under docs/superpowers.
+include = ["/src/jsk", "/tests", "/plugins", "/docs/*.md", "/.claude-plugin", "/README.md",
+           "/LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
