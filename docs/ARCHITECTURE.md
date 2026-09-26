@@ -51,7 +51,7 @@ jsk match     applications/D/posting.ttl           the posting against the caree
 jsk kb        export --from-match P --out R.json   the short resume.json, chosen from the match
 jsk validate  resume.json                          the record gate - before anything renders
 jsk render    resume.json --out D --pdf            .tex, .pdf, .txt
-jsk gates     D                                    record, parse and prose gates over that render
+jsk gates     D                                    record, parse, prose and layout gates over that render
 jsk ship      resume.json --out D                  the gates above and the render, in order, in one process
 jsk freeze    D --submitted DATE --channel TEXT    application.ttl, once the gates pass
 jsk event     D KIND --date DATE                   what came back, added to application.ttl
@@ -59,7 +59,7 @@ jsk event     D KIND --date DATE                   what came back, added to appl
 
 `jsk ship <resume.json> --out DIR [--ats-max] [--template N] [--pages N] [--json]` is the path a
 finished resume takes. The record gate runs first, and a failure stops it: nothing renders, because
-a render of a resume that failed would be a document nobody should read. Then `render --pdf`, then the parse and prose gates over the output directory,
+a render of a resume that failed would be a document nobody should read. Then `render --pdf`, then the parse, prose and layout gates over the output directory,
 each step's output printed verbatim. It exits 0 only if every step passed. With `--pages` it reports
 the measured page count and never fails on it — `jsk fit` owns that verdict and is the only thing
 that can act on it. It closes by saying the render gate is still open, because a person reading the
@@ -152,12 +152,13 @@ Nothing in `urs/` imports it, and nothing in it imports `urs/`.
 
 ## The agent boundary
 
-Four tasks are delegated to subagents, and the line between them is what each may write.
+Five tasks are delegated to subagents, and the line between them is what each may write.
 
 | Agent | Has | Deliberately lacks |
 |---|---|---|
 | `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in the career or `resume.json` and re-rendered, never patched into the render |
 | `jsk-kb-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit from `jsk kb check` and `jsk kb query`; the career is the person's |
+| `jsk-extractor` | Read, Write, Glob, Grep, Bash | Edit — it writes one changeset from a braindump or an imported document and only dry-runs it; the session shows the diff, applies and confirms |
 | `jsk-tailor-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing, and that is worth reading below |
 | `jsk-resume-author` | Read, Write, Edit, Glob, Grep, Bash | nothing — it is the one that writes prose |
 
@@ -182,8 +183,8 @@ and what holds them is partly what their files say and partly what the write pat
 That asymmetry is the design. Where a rule can be enforced by a gate, it is; where it cannot, it is
 stated as plainly as possible and the test checks that the statement survives.
 
-`jsk-verifier` is the conditional one. `jsk ship` and `jsk gates` run the record, parse and
-prose gates in a single process and print each one's output verbatim, so a clean ship reads that rather
+`jsk-verifier` is the conditional one. `jsk ship` and `jsk gates` run the record, parse,
+prose and layout gates in a single process and print each one's output verbatim, so a clean ship reads that rather
 than spawning an agent to relay three checkers — and a command has no Write tool more thoroughly than
 an agent does.
 What the agent is kept for is the half a command cannot do: reading a `FAIL` line back to the section
@@ -236,6 +237,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record.py                       the record gate - resume.json and the bullets it selects
     numbers.py  report.py           the untraced-number check; one way to print a finding
     check_ats.py                    the parse gate        check_prose.py    the prose gate
+    layout.py                       the layout gate - fonts, tofu, stranded headings, dates, paper
   preflight.py                      `jsk doctor`: what this machine can do
   data/vocabulary.ttl               the shipped technology vocabulary (labels, isA, partOf)
   data/example/                     a small career/kb.ttl and a short resume.json: doctor renders it
@@ -250,6 +252,7 @@ plugins/jsk/                        THE SKILL. markdown only - it ships no code
   agents/                           subagents the modes delegate to
     jsk-verifier.md                 interprets a failed gate against the career and resume.json
     jsk-kb-auditor.md               checks and queries the career, writes a posting-less audit
+    jsk-extractor.md                a braindump or imported document to one dry-run changeset
     jsk-tailor-analyst.md           writes posting.ttl and gaps.md from a posting and `jsk match`
     jsk-resume-author.md            bullets into the career, then exports resume.json and its summary
   skills/jsk/
@@ -288,7 +291,7 @@ with a theme, not a module.
 | Group | Edges crossing the boundary | Edges inside | Verdict |
 |---|---|---|---|
 | `urs/` — rendering, preview, page fitter, over the plan→document pipeline | **2**, lazy: the schema path, and `render_resume` reaching `resume.build` | many | **made** |
-| `gates/` — record, parse, prose | lazy: the record gate reads `graph/` and `resume.short` | 3 | **made** |
+| `gates/` — record, parse, prose, layout | lazy: the record gate reads `graph/` and `resume.short`; the layout gate `resume.build` and `urs.themes` | 3 | **made** |
 | `graph/` — the career record, from format to queries | 3, lazy (see "Inside the graph package") | many | **made** |
 | `resume/` — the short file, the career as read for a resume, the plan builder | about eleven, into `graph/` and `urs/` | 3 | **made as the seam**, not by this test: it is the one place the career meets the renderer, and keeping that join in one package is what keeps `graph/` and `urs/` from importing each other |
 
@@ -305,6 +308,7 @@ directory named after what they have in common.
 |---|---|---|
 | What the parse gate rejects | `src/jsk/gates/check_ats.py` | `references/ats-rules.md`, `tests/test_check_ats.py` |
 | What the prose gate rejects | `src/jsk/gates/check_prose.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
+| What the layout gate rejects | `src/jsk/gates/layout.py` | `docs/SCRIPTS.md`, `tests/test_layout.py` |
 | What makes a `resume.json` fail | `src/jsk/gates/record.py`, `src/jsk/resume/short.py` (shape, ids) | `references/resume-format.md`, `tests/test_record_gate.py`, `tests/test_short.py` |
 | A key in `resume.json` | `short.KEYS` in `src/jsk/resume/short.py` | `references/resume-format.md`, `build.py`, `migrate.shorten`, `export.short_file` |
 | **What content is selected** | `src/jsk/resume/build.py` | never an emitter; `tests/test_build.py` |
@@ -368,8 +372,8 @@ nothing. **It exists for one release.** The next deletes `jsk migrate`, `kbindex
 that). A bundle from a version before 4.0 has one route: read it whole and build the record from it
 with `jsk new` and changesets - and a changeset cannot confirm, so it carries `needs-verification` and
 `disputed` as the bundle held them and everything else arrives `inferred`; `jsk kb confirm <ids>
---answer` then raises what the bundle held confirmed, the answer naming the bundle file, so the log
-says where each confirmation came from. `references/mode-setup.md` states the same route, and it is
+--source <bundle file> --quote "…"` then raises what the bundle held confirmed, checking the quote
+is in the file and holds each number, so the log says where each confirmation came from. `references/mode-setup.md` states the same route, and it is
 a conversation rather than a command because every relation the old format left in prose is a
 judgement a script would only guess at.
 

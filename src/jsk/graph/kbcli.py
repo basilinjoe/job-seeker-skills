@@ -3,7 +3,9 @@
 Usage: jsk kb <verb> [arguments] [--root DIR]
 
   apply <changeset.trig> [--dry-run]   merge a changeset into career/kb.ttl; prints the diff
-  confirm <id>... --answer "..."       confirm entries with the person's answer, logged
+  confirm <id>... --answer "..."       confirm entries with the person's answer, logged;
+          <id>... --source F --quote "..."  or with a document's own words;
+          --summary <resume.json> --answer "..."  or a resume.json's summary
   adopt [--drop-comments]              log a hand edit, listing every provenance it raised
   fmt [<file>...] [--drop-comments]    rewrite in the canonical layout; kb.ttl's is logged
   show <id>... [--bullets]             entries as kb.ttl holds them, and the op:base to use;
@@ -11,10 +13,12 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   view [--section NAME]                the whole career as Markdown, to read
   query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale |
                                        experience <concept> | pipeline |
-                                       evidence <term>... | person
+                                       evidence <term>... | person |
+                                       similar <words>... | duplicates
   export [--select <id>...]            the short resume.json: the bullets to show, as ids;
-         [--from-match <posting.ttl>]  --from-match chooses them for a posting
-         [--cover N] [--out FILE]
+         [--from-match <posting.ttl>]  --from-match chooses them for a posting,
+         [--ranked] [--cover N]        --ranked with none
+         [--today D] [--out FILE]
   check                                validate the workspace; exit 1 on a FAIL
   path                                 the workspace, kb.ttl, log.ttl and applications/,
                                        as absolute paths - read these, never guess them
@@ -32,6 +36,7 @@ import datetime
 import difflib
 import inspect
 import os
+import re
 import sys
 
 from ..cliutil import docstring_usage, wants_help
@@ -265,33 +270,239 @@ def unknown(iri, store):
             f"did you mean {curie(near[0])}?" if near else "check the id: `jsk kb view` lists them")
 
 
+# An answer that is only a document's name: "From prior-resume.pdf" confirmed whatever
+# was extracted from it, with nothing checking the document says so. Whole answer only,
+# a file name of at most three words: an answer that says something and names a file
+# as well is the person's words, and passes.
+DOCUMENT_ONLY = re.compile(
+    r"\s*(?:(?:yes|ok|okay|confirmed|correct)[,.;:!]?\s*)?"
+    r"(?:(?:it'?s\s+)?(?:from|per|see|source:?|according\s+to|as\s+(?:in|per)|in)\s+)?"
+    r"(?:the\s+|my\s+)?[\"'`]?[^\s\"'`]+(?:\s+[^\s\"'`]+){0,2}?"
+    r"\.(?:pdf|docx?|md|txt|tex|rtf|odt|json)[\"'`]?\s*[.!]?\s*", re.I)
+
+
+def bad_answer(answer, denial_fix):
+    """The exit code refusing an answer that says nothing, or None."""
+    from .rules import DENIAL, PLACEHOLDER
+
+    if DENIAL.fullmatch(answer):
+        return refuse([f"{answer!r}: a denial is not a confirmation"], denial_fix)
+    if PLACEHOLDER.fullmatch(answer):
+        return refuse([f"{answer!r} is not an answer"],
+                      "record what the person said, in their words: it is kept as the "
+                      "reason this is confirmed")
+    return None
+
+
+def inside(path, root):
+    here, top = (os.path.normcase(os.path.realpath(p)) for p in (path, root))
+    return os.path.commonpath([here, top]) == top
+
+
+def document_text(path):
+    """(text, None) or (None, (reason, fix)): the words of a document to quote from."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".docx", ".doc", ".odt", ".rtf"):
+        return None, (f"{path}: a {ext} file is not read here", "convert it to .md or .txt first")
+    if ext == ".pdf":
+        from ..gates.check_ats import read_pdf
+        try:
+            return read_pdf(path)[0], None
+        except ImportError:
+            return None, (f"{path}: reading a PDF needs pymupdf, which this Python has not got",
+                          "install pymupdf, or convert it to .md")
+    try:
+        with open(path, "rb") as fh:
+            return fh.read().decode("utf-8-sig"), None
+    except UnicodeDecodeError:
+        return None, (f"{path} is not UTF-8 text", "convert it to .md or .txt first")
+
+
+def scaled(numerals):
+    from ..gates.numbers import SCALE
+    return [value * SCALE.get(suffix, 1) for value, suffix, _ in numerals]
+
+
+def unquoted_numbers(quads, iri, quote):
+    """The numerals in an entry's claims the quote does not state - a number rounded or
+    made up on the way out of the document."""
+    from ..gates.numbers import numerals
+    from . import ontology as O
+
+    said = scaled(numerals(quote))
+    kinds = {p.name for p in O.BY_NAME[O.class_of(iri)].preds.values()
+             if p.claim and p.obj in (O.STR, O.NUM)}
+    out = []
+    for q in quads:
+        if q.subject.value == iri and q.predicate.value[len(O.J):] in kinds:
+            for n in numerals(q.object.value):
+                (value,) = scaled([n])
+                if not any(abs(value - s) <= 1e-9 * max(abs(value), 1) for s in said):
+                    out.append(n[2])
+    return list(dict.fromkeys(out))
+
+
+# The prose claims a document can state in so many words. Names and titles are labels a
+# session often coins ("Care-site onboarding" for "the site programme"), and the quote's
+# presence in the document is the check on them.
+PROSE = {"Achievement": "text", "Person": "headline"}
+WORD = re.compile(r"[a-z0-9]{4,}")
+
+
+def stems(text):
+    """The content words of `text` - four letters and longer - cut to five, so
+    "onboarded" in a quote still meets "onboarding" in the claim."""
+    from .rules import squash
+    return {w[:5] for w in WORD.findall(squash(text).lower())}
+
+
+def unquoted_words(quads, iri, quote):
+    """The content words of an entry's prose claim the quote does not hold, when more
+    than a fifth of them are missing - a clause the session added on the way out of the
+    document ("Brought 42 sites onto one platform, cutting onboarding to two weeks" from
+    a document that says only the first half), or a quote about something else."""
+    from . import ontology as O
+
+    pred = PROSE.get(O.class_of(iri))
+    if not pred:
+        return []
+    said = stems(quote)
+    for q in quads:
+        if q.subject.value == iri and q.predicate.value == O.J + pred:
+            words = [w for w in dict.fromkeys(WORD.findall(q.object.value.lower()))]
+            missing = [w for w in words if w[:5] not in said]
+            if words and len(missing) > len(words) / 5:
+                return missing
+    return []
+
+
+def quoted_answer(source, quote, root):
+    """(answer, None) or (None, exit code): `From <source>: "<quote>"` once the quote is
+    checked against the document, word for word as rules.unquoted checks a posting's."""
+    from .io import normalise
+    from .rules import DENIAL, PLACEHOLDER, squash
+
+    if not os.path.isfile(source) or not inside(source, root):
+        return None, refuse([f"{source}: not a file inside this workspace"],
+                            "copy the document into the workspace and pass its path")
+    if PLACEHOLDER.fullmatch(quote) or DENIAL.fullmatch(quote) or len(squash(quote).split()) < 3:
+        return None, refuse([f"{quote!r} is too short to show the document says it"],
+                            "quote the document's own sentence that says it - three words "
+                            "at least")
+    text, problem = document_text(source)
+    if problem:
+        return None, refuse([problem[0]], problem[1])
+    if squash(quote) not in squash(normalise(text)):
+        return None, refuse([f"{source} does not say {quote!r}"],
+                            "copy the words exactly as the document has them - the quote is "
+                            "checked word for word")
+    rel = os.path.relpath(os.path.abspath(source), root).replace(os.sep, "/")
+    return f'From {rel}: "{squash(quote)}"', None
+
+
+def confirm_summary(path, answer, root):
+    """`jsk kb confirm --summary`: the summary confirmed in resume.json, beside the answer
+    and its text's hash. Not logged in log.ttl: a logged write stamps kb.ttl with a new
+    revision, and the summary is not in kb.ttl. resume.json holds the audit trail, and
+    `jsk freeze` hashes it into application.ttl."""
+    import json
+
+    from ..cli import frozen_refusal
+    from ..resume import short
+    from . import record as R
+
+    code = bad_answer(answer, "write the summary again with what the person said, and ask "
+                              "them about the new words")
+    if code is not None:
+        return code
+    if not inside(path, root):
+        return refuse([f"{path}: not inside this workspace"], "pass the application's resume.json")
+    if frozen_refusal(os.path.dirname(os.path.abspath(path))):
+        return refuse([f"{path}: frozen - application.ttl beside it records it as it was sent"],
+                      "copy the application to a new dated directory to reuse it")
+    try:
+        doc = short.read(path)
+    except short.ShortError as err:
+        return refuse([str(err)], err.fix)
+    summary = doc.get("summary")
+    if not isinstance(summary, dict):
+        return refuse([f"{path} has no summary to confirm"],
+                      'write one first - "summary": {"text": "...", "status": "inferred"} - '
+                      "and read it to the person")
+    # The summary's own shape, less the unearned confirmation this is here to earn.
+    earned = short.unearned(summary)
+    faults = [f for f in short.shape({"resume": short.VERSION, "bullets": ["ach_"],
+                                      "summary": summary}) if f not in earned]
+    if faults:
+        return refuse(faults, "fix the summary in resume.json, then confirm it")
+    if summary.get("status") == "confirmed" and not earned:
+        print("nothing to change: the summary is confirmed already")
+        return 0
+    doc["summary"] = short.confirmed(summary, answer)
+    with open(path, encoding="utf-8") as fh:
+        old = fh.read()
+    text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
+    R.replace(R.staged(path, text), path)
+    print(diff(old, text, os.path.relpath(os.path.abspath(path), root).replace(os.sep, "/")),
+          end="")
+    print(f"confirmed the summary in {path}")
+    return 0
+
+
 @verb
 def cmd_confirm(args, root):
     """jsk kb confirm <id>... --answer "what the person said"
+       jsk kb confirm <id>... --source <file> --quote "the document's words"
+       jsk kb confirm --summary <resume.json> --answer "what the person said"
 
     The only way an entry becomes j:confirmed. Ask the person; record their answer in their
     words. Each entry named is confirmed, every open question about it is answered today,
     and the log keeps the answer beside the ids - the audit trail of why it is confirmed.
-    An answer that says nothing ("yes", "ok", "confirmed") is refused.
+    An answer that says nothing ("yes", "ok", "confirmed") is refused, and so is one that
+    only names a document ("From resume.pdf"): nothing would check the document says it.
+
+    --source/--quote confirm from a document in the workspace instead: the quote must be
+    in it word for word, every number in each entry's claims must be in the quote, and so
+    must four in five of a bullet's words - a clause the document lacks is the session's.
+    The log keeps `From <file>: "<quote>"`. A .docx is refused; a .pdf needs pymupdf.
+
+    --summary confirms a resume.json's summary: resume.json keeps the answer and the
+    text's hash, so an edit to the text afterwards drops it back to inferred.
     """
     import pyoxigraph as ox
 
     from . import ontology as O
     from . import record as R
     from . import store as S
-    from .rules import DENIAL, PLACEHOLDER
 
     answer = take(args, "--answer", value=True)
-    if not args or answer is None:
-        return usage('jsk kb confirm takes ids and --answer "what the person said"')
-    if DENIAL.fullmatch(answer):
-        return refuse([f"{answer!r}: a denial is not a confirmation"],
-                      "record what they said is wrong: op:set the entry's j:provenance "
-                      "j:disputed, or correct it with `jsk kb apply`")
-    if PLACEHOLDER.fullmatch(answer):
-        return refuse([f"{answer!r} is not an answer"],
-                      "record what the person said, in their words: the log keeps it as the "
-                      "reason this is confirmed")
+    summary = take(args, "--summary", value=True)
+    source = take(args, "--source", value=True)
+    quote = take(args, "--quote", value=True)
+    if (source is not None or quote is not None) and answer is not None:
+        return usage("--source/--quote and --answer are two ways to confirm - pass one")
+    if (source is None) != (quote is None):
+        return usage('--source and --quote go together: the file, and the words in it')
+    if summary is not None:
+        if args or answer is None:
+            return usage('jsk kb confirm --summary <resume.json> --answer "what the person '
+                         'said" - the summary alone, no ids, and the person\'s answer')
+        return confirm_summary(summary, answer, root)
+    if not args or (answer is None and source is None):
+        return usage('jsk kb confirm takes ids and --answer "what the person said", or '
+                     '--source <file> --quote "its words"')
+    if answer is not None:
+        code = bad_answer(answer, "record what they said is wrong: op:set the entry's "
+                                  "j:provenance j:disputed, or correct it with `jsk kb apply`")
+        if code is not None:
+            return code
+        if DOCUMENT_ONLY.fullmatch(answer):
+            return refuse([f"{answer!r} names a document and says nothing else"],
+                          'confirm from a document with --source <file> --quote "its words"')
+    else:
+        answer, code = quoted_answer(source, quote, root)
+        if code is not None:
+            return code
     store = S.load(root)
     code = writable(store)
     if code is not None:
@@ -310,6 +521,19 @@ def cmd_confirm(args, root):
                              "confirm the entry that makes the claim"))
         elif any(q.subject.value == iri and q.predicate.value == O.J + "retired" for q in quads):
             problems.append((f"{text} is retired", "a retired entry is not confirmed"))
+        elif source is not None and unquoted_numbers(quads, iri, quote):
+            from ..gates.numbers import quoted
+            missing = unquoted_numbers(quads, iri, quote)
+            problems.append((f"{text} says {quoted(missing)}, which the quote does not",
+                             "quote the document's sentence that states it - or, if the "
+                             "document does not, ask the person and confirm with --answer"))
+        elif source is not None and unquoted_words(quads, iri, quote):
+            missing = unquoted_words(quads, iri, quote)
+            problems.append((f"{text} says {', '.join(repr(w) for w in missing[:6])}, which the "
+                             "quote does not",
+                             "quote the document's sentence that says all of it - words it "
+                             "does not have are the session's, so ask the person and "
+                             "confirm with --answer"))
         else:
             ids.append(iri)
     if problems:
@@ -573,8 +797,8 @@ def cmd_view(args, root):
 
 @verb
 def cmd_export(args, root):
-    """jsk kb export [--select <id>...] [--from-match <posting.ttl> [--cover N]
-                     [--today YYYY-MM-DD]] [--out resume.json]
+    """jsk kb export [--select <id>...] [--from-match <posting.ttl> [--cover N] | --ranked]
+                     [--today YYYY-MM-DD] [--out resume.json]
 
     The short resume.json an application starts from: the bullets it shows, in order,
     and its settings - `"resume": 2`, the region when a profile ships for the person's
@@ -584,13 +808,19 @@ def cmd_export(args, root):
 
     --select names what to show: prj_ brings a project and its bullets, ach_ one bullet
     (and narrows its project to the bullets named), pos_ a role shown with no bullet.
-    Retired entries never come. Without --select or --from-match, the whole career.
+    Retired entries never come. With none of --select, --from-match or --ranked, the
+    whole career.
 
     --from-match chooses the bullets from `jsk match`: the projects that carry the
     posting with confirmed evidence, their bullets by what they show, the skills the
     posting asks for first. What it cannot close prints as GAP lines - tag-only,
     unconfirmed, uncovered, unresolved - for gaps.md. --select adds to it; --cover and
     --today are jsk match's.
+
+    --ranked is the same with no posting, for a general rebuild: the projects by strength
+    and recency, their confirmed bullets by the same bands, a bullet citing a current
+    number first. The scorer chooses rather than the model, as it does for a posting.
+    --select adds to it.
 
     --out writes the file, never over an existing one; without it the file is printed.
 
@@ -621,6 +851,7 @@ def cmd_export(args, root):
                      "URS record is converted once with `jsk migrate`")
     out = take(args, "--out", value=True)
     posting = take(args, "--from-match", value=True)
+    by_rank = take(args, "--ranked")
     cover_text = take(args, "--cover", value=True)
     today_text = take(args, "--today", value=True)
     select = None
@@ -633,10 +864,15 @@ def cmd_export(args, root):
         if not select:
             return usage("--select needs one or more ids")
     if args:
-        return usage("jsk kb export [--select <id>...] [--from-match <posting.ttl>] "
+        return usage("jsk kb export [--select <id>...] [--from-match <posting.ttl> | --ranked] "
                      "[--out resume.json] - the short resume.json is the one format it writes")
-    if (cover_text or today_text) and not posting:
-        return usage("--cover and --today go with --from-match")
+    if posting and by_rank:
+        return usage("--ranked is the selection with no posting, --from-match the one for a "
+                     "posting - give one")
+    if cover_text and not posting:
+        return usage("--cover goes with --from-match")
+    if today_text and not (posting or by_rank):
+        return usage("--today goes with --from-match or --ranked")
     today, budget = datetime.date.today(), COVER
     try:
         if today_text:
@@ -675,15 +911,19 @@ def cmd_export(args, root):
     selection, notes = None, []
     report = sys.stdout if out else sys.stderr
     try:
-        if posting:
+        if posting or by_rank:
             from . import select as SEL
             chosen(Career(store.graph(R.KB)), select)      # a bad --select refuses first
+            extra = [O.K + t.removeprefix("k:") for t in select or []]
+        if by_rank:
+            selection = SEL.ranked(store, today, extra)
+        elif posting:
             posts = [iri for iri in store.homes if O.class_of(iri) == "Posting"
                      and store.file_of(iri) == S.file_name(posting, store.root)]
             if len(posts) != 1:
                 return refuse([f"{posting} holds no posting"], "check it with `jsk kb check`")
-            extra = [O.K + t.removeprefix("k:") for t in select or []]
             selection = SEL.select(store, posts[0], today, budget, extra)
+        if selection is not None:
             # The gaps first: when nothing is selected they are the reason, and a refusal
             # printed without them would leave the author to run jsk match to find out why.
             for p in selection.projects:
@@ -739,6 +979,9 @@ def cmd_query(args, root):
       evidence <term>...  per term: projects holding its concept, then entries whose text
                           names it (whole words; an all-capitals term matches as written)
       person              location, work mode, rights to work, and the roles held now
+      similar <words>...  the live projects closest to the words (a name, technologies,
+                          a sentence), best five, each with the words and concepts shared
+      duplicates          pairs of live projects that look like one project told twice
 
     A table by default; --json for the same rows, structured.
     """

@@ -1159,12 +1159,18 @@ class Shorten(unittest.TestCase):
                       "achievements": ["ach_events_team", "ach_events_latency"]}],
             skills=["skill_kubernetes"],
             budget={"pages": 2, "ats_maximal_pages": 3})
+        from jsk.resume import short
+
         doc, notes = self.shorten(record)
+        text = ("Platform engineer with 5 years of Kubernetes, building event platforms "
+                "that other teams build on.")
         self.assertEqual(doc, {
             "resume": 2, "format": "ats-maximal", "region": "au", "pages": 2, "ats_pages": 3,
             "floor": "confirmed",
-            "summary": {"text": "Platform engineer with 5 years of Kubernetes, building event "
-                                "platforms that other teams build on.", "status": "confirmed"},
+            # Confirmed in the old record, so it carries an answer and the text's hash:
+            # without them validate would fail it as a status flipped by hand.
+            "summary": {"text": text, "status": "confirmed", "answer": short.MIGRATED,
+                        "text_sha256": short.digest(text)},
             # What the old renderer drew, in the order it drew it: project by project as
             # the engagement lists them, each project's bullets in include order (not the
             # career's rank - the author ordered them for the posting). On the ElevenLabs

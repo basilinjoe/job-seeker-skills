@@ -1,7 +1,7 @@
 """An application's record: what `jsk freeze` writes, and `jsk event` adds to.
 
 Usage: jsk event <app-dir> <kind> --date YYYY-MM-DD|unknown [--channel TEXT] [--note TEXT]
-                 [--due YYYY-MM-DD]
+                 [--due YYYY-MM-DD] [--today YYYY-MM-DD]
 
   <kind>   one of the pipeline vocabulary: submitted, acknowledged, screen-scheduled,
            screen-done, interview-scheduled, interview-done, onsite-scheduled, onsite-done,
@@ -17,6 +17,11 @@ in career/log.ttl: the log is the career's, and an application is not the career
 
 A stage is not stored anywhere: `jsk kb query pipeline` derives it from the latest event.
 
+The date is the day it happened - a screen-scheduled event's is the day it was booked,
+the screen itself its --due. Both are printed back with their weekday and distance from
+today (--today, for a test), so "last Tuesday" worked out wrong shows as the wrong
+weekday; a --date after today is a WARN, since nothing has happened yet on it.
+
 Exit 0 added; 1 refused, with why; 2 called wrong.
 """
 import datetime
@@ -30,6 +35,7 @@ from . import ontology as O
 APPLICATION = "application.ttl"
 POSTING = "posting.ttl"
 KINDS = O.ENUMS["eventKind"]
+WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
 
 def node(iri):
@@ -168,7 +174,7 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
 def usage(message):
     print(message)
     print("usage: jsk event <app-dir> <kind> --date YYYY-MM-DD|unknown [--channel TEXT] "
-          "[--note TEXT] [--due YYYY-MM-DD]")
+          "[--note TEXT] [--due YYYY-MM-DD] [--today YYYY-MM-DD]")
     return 2
 
 
@@ -187,6 +193,19 @@ def is_date(text):
         return False
 
 
+def when(text, today):
+    """`2026-09-22 (Tuesday, 4 days ago)`: a date as the person would say it. The model
+    turns "last Tuesday" into a date by arithmetic, which errs silently; the weekday
+    printed back is what it can check against what was said."""
+    if text == "unknown":
+        return text
+    day = datetime.date.fromisoformat(text)
+    n = (day - today).days
+    ago = "today" if n == 0 else "yesterday" if n == -1 else "tomorrow" if n == 1 else \
+        f"{-n} days ago" if n < 0 else f"in {n} days"
+    return f"{text} ({WEEKDAYS[day.weekday()]}, {ago})"   # not %A: that follows the locale
+
+
 def main(argv=None):
     from ..cliutil import wants_help
 
@@ -194,7 +213,7 @@ def main(argv=None):
     if wants_help(args):
         print(__doc__.split("\n\nAdds", 1)[0])
         return 0
-    flags, positional, values = {}, [], ("--date", "--channel", "--note", "--due")
+    flags, positional, values = {}, [], ("--date", "--channel", "--note", "--due", "--today")
     while args:
         token = args.pop(0)
         if token in values:
@@ -220,6 +239,9 @@ def main(argv=None):
     due = flags.get("--due")
     if due is not None and not is_date(due):
         return usage(f"--due needs YYYY-MM-DD, got {due!r}")
+    today = flags.get("--today", datetime.date.today().isoformat())
+    if not is_date(today):
+        return usage(f"--today needs YYYY-MM-DD, got {today!r}")
     if not os.path.isdir(app_dir):
         return usage(f"not a directory: {app_dir}")
     if os.path.basename(os.path.dirname(os.path.abspath(app_dir))) != "applications":
@@ -242,7 +264,8 @@ def main(argv=None):
               "`jsk doctor` says how to install it")
         return 1
     return add(os.path.dirname(os.path.dirname(os.path.abspath(app_dir))), path, kind, date,
-               flags.get("--channel"), flags.get("--note"), due)
+               flags.get("--channel"), flags.get("--note"), due,
+               datetime.date.fromisoformat(today))
 
 
 def free_iri(store, base, quads):
@@ -264,7 +287,7 @@ def free_iri(store, base, quads):
     return iri, None
 
 
-def add(root, path, kind, date, channel, note, due):
+def add(root, path, kind, date, channel, note, due, today=None):
     from . import record as R
     from . import store as S
     from .kbcli import diff, new_failures
@@ -308,6 +331,16 @@ def add(root, path, kind, date, channel, note, due):
     R.replace(R.staged(path, text), path)
     print(diff(parsed.text, text, rel), end="")
     print(f"added    {curie(iri)}")
+    today = today or datetime.date.today()
+    print(f"recorded {kind} on {when(date, today)}")
+    if due:
+        print(f"due {when(due, today)}")
+    if date != "unknown" and datetime.date.fromisoformat(date) > today:
+        # Every kind's date is the day it happened - a booking's too, its day is --due -
+        # so a future one is arithmetic gone wrong, and it would sort as the latest stage.
+        print(f"WARN  {date} is after today, and the date is the day it happened - "
+              "a meeting still to come is the --due of its -scheduled event; an event is "
+              "never edited, so correct this one with a `note` event")
     return 0
 
 

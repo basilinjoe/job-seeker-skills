@@ -167,6 +167,72 @@ def worded_otherwise(rows, store):
     return out
 
 
+# The advert's lines a requirement should quote: list items under a heading that names
+# requirements. Deliberately narrow - a responsibilities or benefits list is not asked of
+# the person, and a warning on every line of one would teach the analyst to ignore this.
+HEADING_ASKS = re.compile(
+    r"\b(requirements?|qualifications?|must|needs?|you have|you('ll| will)? bring|looking for|"
+    r"about you|who you are|skills|experience|nice to have|bonus|preferred|desirable)\b", re.I)
+HEADING_NOT = re.compile(r"\b(benefits?|perks|we offer|responsibilit\w*|what you('ll| will) do|"
+                         r"compensation|salary)\b", re.I)
+# Eligibility is gaps.md's `# Eligibility`, never a requirement, so it can never be quoted:
+# excluded by its words, or it would warn for the life of the application.
+ELIGIBILITY = re.compile(r"authori[sz]\w*|\bvisa|sponsor|clearance|citizen|right to work|"
+                         r"work permit|relocat|on-?site|hybrid|remote|located in|based in|"
+                         r"time ?zone|background check|export control|security check", re.I)
+LIST_ITEM = re.compile(r"\s*(?:[-*•]|\d+[.)])\s+(.*)")
+BOLD_LINE = re.compile(r"(\*\*|__)[^*_]+\1:?")
+
+
+def asked_lines(advert):
+    """The advert's requirement-like list items, squashed, in order."""
+    advert = re.sub(r"\A---\n.*?\n---\n", "", advert, flags=re.S)    # frontmatter
+    out, inside, wrapping = [], False, False
+    for line in advert.split("\n"):
+        text = line.strip()
+        item = LIST_ITEM.fullmatch(line) if not BOLD_LINE.fullmatch(text) else None
+        if wrapping and text and not item and line[:1].isspace():
+            out[-1] = f"{out[-1]} {squash(text)}"      # a wrapped item's continuation
+            continue
+        wrapping = False
+        if not item and (text.startswith("#") or BOLD_LINE.fullmatch(text)
+                         or (text.endswith(":") and len(text.split()) <= 8)):
+            words = squash(text)
+            inside = bool(HEADING_ASKS.search(words)) and not HEADING_NOT.search(words)
+        elif item and inside:
+            out.append(squash(item.group(1)))
+            wrapping = True
+    return [x for x in out if len(x.split()) >= 4 and not ELIGIBILITY.search(x)]
+
+
+def uncovered(rows, store):
+    """An advert line that asks something no requirement of its posting quotes."""
+    import os
+
+    from .io import normalise
+
+    quotes = defaultdict(list)
+    for r in rows:
+        quotes[v(r, "focus")].append(squash(v(r, "q") or "").casefold())
+    out = []
+    for post, said in quotes.items():
+        file = store.file_of(post)
+        if not file:
+            continue
+        try:
+            with open(os.path.join(store.root, os.path.dirname(file), "posting.md"),
+                      encoding="utf-8") as fh:
+                advert = normalise(fh.read())
+        except OSError:
+            continue                        # quote-verbatim says posting.md is missing
+        said = [q for q in said if q]
+        for line in asked_lines(advert):
+            low = line.casefold().rstrip(".;, ")
+            if not any(q in low or low in q for q in said):
+                out.append({"focus": node(post), "line": line})
+    return out
+
+
 def out_of_step(kinds):
     """Rows for the record state kinds a rule reports, at k:kb in kb.ttl."""
     def post(rows, store):
@@ -381,6 +447,15 @@ RULES = [
          """SELECT ?focus ?q ?n WHERE { ?focus a j:Requirement ; j:quote ?q ; j:necessity ?n }""",
          lambda r: f"the advert says {r['said']!r} but it is j:{r['need']}",
          "check the necessity against the advert's wording", worded_otherwise),
+    Rule("advert-uncovered", WARN,
+         """SELECT ?focus ?q WHERE { ?focus a j:Posting
+              OPTIONAL { ?r j:posting ?focus ; j:quote ?q } }""",
+         lambda r: "the advert asks " + repr(r["line"] if len(r["line"]) <= 70
+                                             else r["line"][:67].rstrip() + "…")
+                   + " and no requirement quotes it",
+         "write a requirement quoting it in posting.ttl, or - if it is eligibility (work "
+         "rights, clearance, location) - it belongs in gaps.md's # Eligibility and can stay "
+         "unquoted", uncovered),
     Rule("log-sync", FAIL, None,
          lambda r: r["state"].detail, log_sync_fix, out_of_step(("torn", "out-of-sync"))),
     Rule("hand-edited", WARN, None,

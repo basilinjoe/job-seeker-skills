@@ -176,9 +176,13 @@ class Builder:
     # -- sections ---------------------------------------------------------
 
     def summary(self):
+        from . import short
+
         s = self.doc.get("summary")
         if s:
-            text, status = s["text"], s["status"]
+            # A confirmation whose answer or hash does not hold renders as inferred, so a
+            # render without validate still withholds a status flipped by hand.
+            text, status = s["text"], short.summary_status(s)
         else:
             text, status = self.career.get(self.me, "positioning"), self.career.status(self.me)
         if not text or not self.keep(status, "summary"):

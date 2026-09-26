@@ -8,13 +8,16 @@ selects the same evidence, and the author is left the words.
 A tag is not evidence, and here that decides the cover too: a project carries a requirement
 only when a live, confirmed bullet shows it. `jsk match` still reports tags - they are leads
 for the conversation - so the filtering happens here, on a copy of its matches.
+
+`ranked` is the same with no posting, for a general rebuild: without it the model ranked the
+evidence there, on the one path the scorer did not reach.
 """
 import copy
 from dataclasses import dataclass
 
 from . import ontology as O
 from . import queries as Q
-from .scoring import WEIGHTS
+from .scoring import WEIGHTS, recency_points
 from .shapes import curie
 
 MOST = 8
@@ -203,6 +206,56 @@ def skill_order(store, matches):
     return [iri for *_, iri in sorted(order)]
 
 
+def add(extra, projects, chosen, held, order):
+    """`--select` on top of a selection, in place: a project brings its first confirmed
+    bullet, a bullet itself, placed among its project's by `order`."""
+    for iri in extra:
+        cls = O.class_of(iri)
+        if cls == "Project" and iri not in chosen:
+            first = sorted((rank, b) for b, (p, rank, pv) in held.items()
+                           if p == iri and pv == "confirmed")
+            projects.append(iri)
+            chosen[iri] = [b for _, b in first[:1]]
+        elif cls == "Achievement" and iri in held:
+            proj = held[iri][0]
+            if proj not in chosen:
+                projects.append(proj)
+                chosen[proj] = []
+            if iri not in chosen[proj]:
+                # Placed by what it shows, whatever its provenance: a reworded bullet is
+                # inferred until confirmed, and must not fall to the bottom for it.
+                chosen[proj] = sorted(chosen[proj] + [iri], key=order)
+
+
+def ranked(store, today, extra=()):
+    """The Selection with no posting (`--ranked`): what `select` does with the posting's
+    terms taken out, so a general rebuild is scored too rather than picked by the model.
+
+    Projects by 2 x strength + recency, as `Q.rank` scores them before a posting adds its
+    requirements; bullets by the bands, where a bullet citing a current metric is what
+    scores - the one term of `select`'s worth a posting does not supply. No gaps: there
+    is nothing asked to fall short of.
+
+    No skills either, so the file names none and every skill renders in the builder's
+    category order: `skill_order` with nothing asked sorts categories by name, and a
+    listed order is kept as given - "ai" would have led "architecture"."""
+    live = Q.projects(store)
+    held, citing = bullets(store), cites_current(store)
+    projects = sorted(live, key=lambda p: (-(2 * live[p][0] + recency_points(live[p][1], today)),
+                                           -live[p][0], -live[p][1], p))[:MOST]
+
+    def order(b):
+        return b not in citing, held[b][1], b
+
+    chosen = {}
+    for n, proj in enumerate(projects, 1):
+        rows = sorted((b for b, (p, _, pv) in held.items() if p == proj and pv == "confirmed"),
+                      key=order)
+        chosen[proj] = pick([(b, int(b in citing), set()) for b in rows], set(), *band(n))
+    add(extra, projects, chosen, held, order)
+    return Selection(projects, chosen, [], [])
+
+
 def select(store, post, today, budget, extra=()):
     """The Selection for one posting; `extra` is iris to add, in order (`--select`)."""
     matches = Q.match(store, post)
@@ -250,22 +303,7 @@ def select(store, post, today, budget, extra=()):
         chosen[proj] = pick(candidates(proj), {i for i, p in owner.items() if p == proj},
                             cap, floor)
 
-    for iri in extra:
-        cls = O.class_of(iri)
-        if cls == "Project" and iri not in chosen:
-            first = sorted((rank, b) for b, (p, rank, pv) in held.items()
-                           if p == iri and pv == "confirmed")
-            projects.append(iri)
-            chosen[iri] = [b for _, b in first[:1]]
-        elif cls == "Achievement" and iri in held:
-            proj = held[iri][0]
-            if proj not in chosen:
-                projects.append(proj)
-                chosen[proj] = []
-            if iri not in chosen[proj]:
-                # Placed by what it shows, whatever its provenance: a reworded bullet is
-                # inferred until confirmed, and must not fall to the bottom for it.
-                chosen[proj] = sorted(chosen[proj] + [iri], key=order)
+    add(extra, projects, chosen, held, order)
 
     # What the picked bullets show decides the gaps: a requirement a picked confirmed
     # bullet shows has none; one only a picked unconfirmed bullet shows needs confirming.

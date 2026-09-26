@@ -25,7 +25,7 @@ a confirm or a corrected bullet is on the next render with nothing to update her
 | `region` | no | a two-letter code: `au`, `ae`, `in` pick their profile, any other (`us`, `xx`) the default one; it also sets the paper. Default the person's country |
 | `pages`, `ats_pages` | no | page budgets; `ats_pages` for the ATS-maximal variant |
 | `floor` | no | provenance floor, default `confirmed`: a bullet or summary below it is withheld, with a warning |
-| `summary` | no | `{text, status}`, `status` `inferred` or `confirmed`; absent, the career's positioning |
+| `summary` | no | `{text, status}`, `status` `inferred`; `jsk kb confirm --summary` adds `answer` and `text_sha256`. Absent, the career's positioning |
 | `roles` | no | `pos_` ids to show with no bullet, for chronology |
 | `skills` | no | `skill_` ids in row order; absent, every skill |
 
@@ -33,11 +33,12 @@ a confirm or a corrected bullet is on the next render with nothing to update her
 
 **The summary is the only prose in it.** A reworded bullet goes into the career first
 (`jsk kb apply`) and is named here by its id; an unknown key fails. Once the person confirms the
-summary, set its `"status": "confirmed"` — the one edit a confirm ever needs here.
+summary, `jsk kb confirm --summary <resume.json> --answer "…"` marks it `confirmed` beside their
+answer and the text's hash; a hand-set `confirmed`, or text edited since, fails validate.
 
 ```bash
 jsk kb export --from-match applications/<stem>/posting.ttl --out applications/<stem>/resume.json
-jsk kb export --select <ach_/prj_/pos_ ids> --out resume.json      # a general resume
+jsk kb export --ranked --out resume.json      # a general resume; --select <ids> adds
 jsk validate applications/<stem>/resume.json
 ```
 

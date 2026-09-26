@@ -24,7 +24,9 @@ MERIDIAN = ["ach_events_latency", "ach_events_team", "ach_identity_sso"]
 # The summary is what the strict parse gate finds a summary heading by.
 GOOD = {"resume": 2, "bullets": MERIDIAN,
         "summary": {"text": "Platform engineer with 5 years of Kubernetes, building event "
-                            "platforms that other teams build on.", "status": "confirmed"}}
+                            "platforms that other teams build on.", "status": "confirmed",
+                    "answer": "Yes - that is how I describe what I do.",
+                    "text_sha256": "2218dd810a58"}}
 # A bullet the career does not hold: the record gate fails it, and nothing else does.
 BROKEN = {"resume": 2, "bullets": ["ach_nothing_like_it"]}
 # graphsim S8's d1, as the career's own words: '1 s' is met_latency.v1's number, replaced
@@ -101,7 +103,7 @@ class ShipOrder(ShipCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(self.headings(out),
                          ["record gate", "render", "parse gate", "parse gate",
-                          "prose gate", "prose gate", "render gate"], out)
+                          "prose gate", "prose gate", "layout gate", "render gate"], out)
 
     def test_every_gate_says_its_own_pass(self):
         """There is no claims gate: the record gate reads the career itself, and the
@@ -815,6 +817,35 @@ class Event(GraphCase):
         code, out = self.event("recruiter-contact", "--date", "unknown")
         self.assertEqual(code, 0, out)
         self.assertIn("evt_contoso_platform_unknown_recruiter_contact", out)
+        self.assertIn("recorded recruiter-contact on unknown\n", out)
+        self.assertNotIn("WARN", out)
+
+    def test_the_dates_come_back_with_their_weekday_and_distance(self):
+        """"Last Thursday" worked out wrong shows as the wrong weekday."""
+        code, out = self.event("screen-scheduled", "--date", "2026-09-25", "--due", "2026-09-30",
+                               "--today", "2026-09-29")
+        self.assertEqual(code, 0, out)
+        self.assertIn("recorded screen-scheduled on 2026-09-25 (Friday, 4 days ago)\n", out)
+        self.assertIn("due 2026-09-30 (Wednesday, tomorrow)\n", out)
+        self.assertNotIn("WARN", out)
+        code, out = self.event("note", "--date", "2026-09-26", "--due", "2026-10-02",
+                               "--today", "2026-09-26")
+        self.assertIn("recorded note on 2026-09-26 (Saturday, today)\n", out)
+        self.assertIn("due 2026-10-02 (Friday, in 6 days)\n", out)
+
+    def test_a_date_after_today_is_recorded_with_a_warning(self):
+        """Every kind's date is the day it happened, a booking's too - so a future one is
+        arithmetic gone wrong. A WARN, not a refusal: the person may have said so."""
+        code, out = self.event("interview-done", "--date", "2026-09-30", "--today", "2026-09-26")
+        self.assertEqual(code, 0, out)
+        self.assertIn("added    k:evt_contoso_platform_2026_09_30_interview_done", out)
+        self.assertIn("recorded interview-done on 2026-09-30 (Wednesday, in 4 days)\n", out)
+        self.assertIn("WARN  2026-09-30 is after today", out)
+        self.assertIn("--due of its -scheduled event", out)
+
+    def test_a_bad_today_is_a_call_error(self):
+        code, out = self.event("note", "--date", "2026-09-26", "--today", "Saturday")
+        self.assertEqual(code, 2, out)
 
     def test_an_event_that_would_not_validate_is_never_written(self):
         """The workspace is loaded with the event in it before the file is replaced. The

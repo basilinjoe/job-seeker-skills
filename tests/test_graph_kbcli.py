@@ -260,6 +260,204 @@ class Confirm(Workspace):
         code, out = self.kb("confirm", "prj_clinical_events", "--answer", ANSWER)
         self.assertEqual((code, record.state(self.loaded()).log_revision), (0, 2))
 
+    def test_an_answer_that_only_names_a_document_is_refused(self):
+        # "From prior-resume.pdf" confirmed what was extracted, with nothing checking it.
+        for said in ("From prior-resume.pdf", "per my CV.docx", "see resume.md",
+                     "Source: old resume.txt", "prior-resume.pdf", "Yes, from the resume.pdf"):
+            with self.subTest(said=said):
+                code, out = self.kb("confirm", "prj_site_onboarding", "--answer", said)
+                self.assertEqual(code, 1, out)
+                self.assertIn("--source <file> --quote", out)
+        self.assertEqual(record.state(self.loaded()).log_revision, 2)
+
+    def test_an_answer_naming_a_file_among_its_words_passes(self):
+        said = "Yes - it was 42 sites by hand-over; my old resume.pdf undersold it."
+        code, out = self.kb("confirm", "k:ach_site_onboarding_sites_one_platform",
+                            "--answer", said)
+        self.assertEqual(code, 0, out)
+
+
+QUOTE = ("brought 42 residential care sites onto one platform, cutting onboarding from a "
+         "quarter to two weeks")
+SOURCE = """# Prior resume
+
+Care Group, 2020-2023
+- Led the site programme and brought 42 residential care
+  sites onto one platform, cutting onboarding from a quarter to two weeks.
+"""
+
+
+class ConfirmFromSource(Workspace):
+    """`--source <file> --quote`: a fact extracted from a document is confirmed by the
+    document's own words, checked, not by an --answer naming it."""
+
+    def setUp(self):
+        super().setUp()
+        self.path("imports").mkdir()
+        self.doc = self.path("imports/prior-resume.md")
+        self.doc.write_text(SOURCE, encoding="utf-8")
+
+    def confirm(self, *ids, source=None, quote=QUOTE):
+        return self.kb("confirm", *ids, "--source", str(source or self.doc), "--quote", quote)
+
+    def test_a_quote_the_document_holds_confirms_and_is_logged(self):
+        code, out = self.confirm("k:ach_site_onboarding_sites_one_platform")
+        self.assertEqual(code, 0, out)
+        log = self.path("career/log.ttl").read_text(encoding="utf-8")
+        self.assertIn(f'From imports/prior-resume.md: \\"{QUOTE}\\"', log)
+        self.assertEqual([f.text() for f in self.loaded().findings], [])
+
+    def test_a_quote_the_document_does_not_hold_is_refused(self):
+        code, out = self.confirm("k:ach_site_onboarding_sites_one_platform",
+                                 quote="brought 45 residential care sites onto one platform")
+        self.assertEqual(code, 1, out)
+        self.assertIn("does not say", out)
+        self.assertEqual(record.state(self.loaded()).log_revision, 2)
+
+    def test_a_number_the_quote_does_not_state_is_refused(self):
+        code, out = self.confirm("k:ach_site_onboarding_sites_one_platform",
+                                 quote="residential care sites onto one platform")
+        self.assertEqual(code, 1, out)
+        self.assertIn("'42'", out)
+        self.assertIn("--answer", out)
+
+    def test_a_clause_the_quote_does_not_hold_is_refused(self):
+        # The document says the first half; the session added the second.
+        code, out = self.confirm("k:ach_site_onboarding_sites_one_platform",
+                                 quote="brought 42 residential care sites onto one platform")
+        self.assertEqual(code, 1, out)
+        self.assertIn("'quarter'", out)
+        self.assertIn("ask the person", out)
+
+    def test_a_quote_about_something_else_is_refused(self):
+        code, out = self.confirm("k:ach_site_onboarding_sites_one_platform",
+                                 quote="Led the site programme and brought 42")
+        self.assertEqual(code, 1, out)
+        self.assertIn("the quote does not", out)
+
+    def test_an_entry_with_no_text_needs_only_the_quote(self):
+        code, out = self.confirm("prj_site_onboarding", quote="Led the site programme")
+        self.assertEqual(code, 0, out)
+
+    def test_a_short_quote_is_refused(self):
+        for quote in ("yes", "42 sites", ""):
+            with self.subTest(quote=quote):
+                code, out = self.confirm("prj_site_onboarding", quote=quote)
+                self.assertEqual(code, 1, out)
+                self.assertIn("three words", out)
+
+    def test_source_and_answer_together_are_a_usage_error(self):
+        code, out = self.kb("confirm", "prj_site_onboarding", "--answer", ANSWER,
+                            "--source", str(self.doc), "--quote", QUOTE)
+        self.assertEqual(code, 2, out)
+        code, out = self.kb("confirm", "prj_site_onboarding", "--source", str(self.doc))
+        self.assertEqual(code, 2, out)
+
+    def test_a_file_outside_the_workspace_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            outside = Path(tmp, "cv.md")
+            outside.write_text(SOURCE, encoding="utf-8")
+            code, out = self.confirm("prj_site_onboarding", source=outside)
+        self.assertEqual(code, 1, out)
+        self.assertIn("inside this workspace", out)
+
+    def test_a_docx_is_refused_with_the_fix(self):
+        docx = self.path("imports/cv.docx")
+        docx.write_bytes(b"PK\x03\x04")
+        code, out = self.confirm("prj_site_onboarding", source=docx)
+        self.assertEqual(code, 1, out)
+        self.assertIn("convert it to .md or .txt first", out)
+
+    def test_a_pdf_without_pymupdf_is_refused_with_the_fix(self):
+        import sys
+        from unittest import mock
+
+        pdf = self.path("imports/cv.pdf")
+        pdf.write_bytes(b"%PDF-1.4\n")
+        with mock.patch.dict(sys.modules, {"pymupdf": None}):
+            code, out = self.confirm("prj_site_onboarding", source=pdf)
+        self.assertEqual(code, 1, out)
+        self.assertIn("install pymupdf, or convert it to .md", out)
+
+
+class ConfirmSummary(Workspace):
+    """`--summary <resume.json>`: a summary is confirmed by the person's answer, kept in
+    resume.json with the text's hash - not by flipping its status."""
+
+    TEXT = "Architect who builds clinical event platforms other teams build on."
+
+    def setUp(self):
+        super().setUp()
+        app = self.path("applications/globex-architect")
+        app.mkdir()
+        self.file = app / "resume.json"
+        self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"],
+                    "summary": {"text": self.TEXT, "status": "inferred"}, "pages": 2})
+
+    def write(self, doc, path=None):
+        (path or self.file).write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+
+    def confirm(self, answer="Yes, that is exactly what I do.", path=None):
+        return self.kb("confirm", "--summary", str(path or self.file), "--answer", answer)
+
+    def test_the_answer_and_the_text_s_hash_are_written(self):
+        from jsk.resume import short
+
+        code, out = self.confirm()
+        self.assertEqual(code, 0, out)
+        text = self.file.read_text(encoding="utf-8")
+        self.assertTrue(text.endswith("}\n") and '\n  "summary": {\n    "text"' in text, text)
+        doc = json.loads(text)
+        self.assertEqual(list(doc), ["resume", "bullets", "summary", "pages"])
+        self.assertEqual(doc["summary"], {"text": self.TEXT, "status": "confirmed",
+                                          "answer": "Yes, that is exactly what I do.",
+                                          "text_sha256": short.digest(self.TEXT)})
+        self.assertEqual(short.shape(doc), [])
+        self.assertEqual(record.state(self.loaded()).log_revision, 2)   # not in kb.ttl
+        code, out = self.confirm()
+        self.assertEqual(code, 0, out)
+        self.assertIn("confirmed already", out)
+
+    def test_an_answer_that_says_nothing_is_refused(self):
+        for said in ("yes", "ok", "nope"):
+            with self.subTest(said=said):
+                code, out = self.confirm(said)
+                self.assertEqual(code, 1, out)
+        self.assertEqual(json.loads(self.file.read_text(encoding="utf-8"))["summary"]["status"],
+                         "inferred")
+
+    def test_no_summary_is_refused(self):
+        self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"]})
+        code, out = self.confirm()
+        self.assertEqual(code, 1, out)
+        self.assertIn("no summary to confirm", out)
+
+    def test_a_frozen_application_is_refused(self):
+        frozen = self.path("applications/acme-platform-engineer/resume.json")
+        self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"],
+                    "summary": {"text": self.TEXT, "status": "inferred"}}, frozen)
+        code, out = self.confirm(path=frozen)
+        self.assertEqual(code, 1, out)
+        self.assertIn("frozen", out)
+        self.assertIn("new dated directory", out)
+
+    def test_an_edit_after_confirming_drops_it(self):
+        from jsk.resume import short
+
+        self.assertEqual(self.confirm()[0], 0)
+        doc = json.loads(self.file.read_text(encoding="utf-8"))
+        doc["summary"]["text"] += " And more."
+        self.assertTrue(any("changed since it was confirmed" in f for f in short.shape(doc)))
+        self.write(doc)
+        code, out = self.confirm("Yes, the longer one is right too.")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(short.shape(json.loads(self.file.read_text(encoding="utf-8"))), [])
+
+    def test_ids_with_summary_are_a_usage_error(self):
+        code, out = self.kb("confirm", "prj_site_onboarding", "--summary", str(self.file),
+                            "--answer", ANSWER)
+        self.assertEqual(code, 2, out)
+
 
 class Adopt(Workspace):
     def test_a_hand_edit_is_logged_with_what_it_raised(self):
@@ -520,6 +718,84 @@ class Query(Workspace):
         code, out = self.kb("query", "everything")
         self.assertEqual(code, 2)
         self.assertIn("open, unconfirmed, holds, stale", out)
+
+
+# The clinical event pipeline told again months later, in other words: the same role, the
+# same technologies, not one sentence in common.
+RETOLD = '''k:prj_care_streaming j:name "Real-time care event streaming" ;
+    j:position k:pos_meridian_principal ;
+    j:strength 4 ; j:recency 2025 ;
+    j:domain c:healthcare ;
+    j:uses c:azure-ai-foundry, c:kafka ;
+    j:problem "Care-plan changes took minutes to reach each site because the old scheduler batched them." ;
+    j:outcome "Schedule changes now reach 15 applications in under a second." ;
+    j:provenance j:inferred .
+
+k:ach_care_streaming_one j:project k:prj_care_streaming ; j:rank 1 ;
+    j:text "Streamed care-plan events through Kafka so 15 integrated applications saw schedule changes in under a second." ;
+    j:provenance j:inferred .
+
+'''
+
+
+class Similar(Workspace):
+    def query(self, *args):
+        code, out = self.kb("query", *args, "--json")
+        self.assertEqual(code, 0, out)
+        return json.loads(out)
+
+    def retold(self):
+        self.edit_kb("k:prj_site_onboarding j:name", RETOLD + "k:prj_site_onboarding j:name")
+
+    def test_similar_finds_a_project_by_the_words_that_describe_it(self):
+        rows = self.query("similar", "moving", "every", "residential", "site", "onto", "templates")
+        self.assertEqual(set(rows[0]), {"project", "name", "score", "words", "concepts"})
+        self.assertEqual(rows[0]["project"], "k:prj_site_onboarding")
+        self.assertEqual(rows[0]["words"], "residential, site, templates")   # templated
+
+    def test_similar_finds_a_project_by_a_concept_its_text_never_names(self):
+        """Kafka counts as event-driven architecture; the pipeline's prose says neither."""
+        [row] = self.query("similar", "EDA")
+        self.assertEqual((row["project"], row["words"], row["concepts"]),
+                         ("k:prj_clinical_events", "", "c:event-driven-architecture"))
+
+    def test_similar_ranks_the_retelling_first(self):
+        self.retold()
+        rows = self.query("similar", "streaming care plan changes to every site with Kafka")
+        self.assertEqual([r["project"] for r in rows][:2],
+                         ["k:prj_care_streaming", "k:prj_clinical_events"])
+        self.assertIn("c:kafka", rows[1]["concepts"])
+
+    def test_nothing_similar_is_the_answer(self):
+        code, out = self.kb("query", "similar", "React Native mobile app")
+        self.assertEqual(code, 0, out)
+        self.assertIn("nothing similar", out)
+        self.assertNotIn("k:prj_", out)
+        self.assertEqual(self.kb("query", "similar")[0], 2)
+
+    def test_a_retired_project_is_never_a_candidate(self):
+        rows = self.query("similar", "intranet refresh")
+        self.assertEqual(rows[0]["name"], "nothing similar")
+
+    def test_duplicates_finds_the_retelling(self):
+        self.retold()
+        [row] = self.query("duplicates")
+        self.assertEqual(set(row), {"a", "b", "score", "names", "why"})
+        self.assertEqual((row["a"], row["b"]), ("k:prj_care_streaming", "k:prj_clinical_events"))
+        self.assertIn("concepts c:azure-ai-foundry, c:healthcare, c:kafka", row["why"])
+        self.assertIn("same role, 2025 and 2026", row["why"])
+
+    def test_duplicates_reports_nothing_in_the_clean_careers(self):
+        """The thresholds' calibration: none of the fixture careers holds a project twice."""
+        from jsk.graph import named
+
+        tests = Path(__file__).parent
+        for root in (FIXTURES, tests / "match_fixtures", tests / "claims_fixtures",
+                     tests.parent / "src" / "jsk" / "data" / "example"):
+            with self.subTest(root=Path(root).name):
+                _, rows = named.duplicates(S.load(root))
+                self.assertEqual([r["names"] for r in rows],
+                                 ["nothing looks like one project twice"])
 
 
 class Check(Workspace):

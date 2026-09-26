@@ -84,6 +84,8 @@ class AgentReadBudget(unittest.TestCase):
         # Ceiling kept when it moved to posting.ttl and `jsk match`: 2,188 -> 1,754. The
         # weights table it applied by hand left with the arithmetic; an inline
         # posting.ttl, so it never needs kb-format.md, came in.
+        # Held when `jsk match` began deriving verdicts (2026-09-26): 2,254 -> 2,226. The
+        # verdict table left with the judgement; the --gaps check came in.
         self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 2300)
 
     def test_the_resume_author_reads_the_short_file_format_and_the_rules(self):
@@ -131,6 +133,20 @@ class AgentReadBudget(unittest.TestCase):
         # grew by what the short file needs said once: a confirmed summary's one edit,
         # everything the record gate fails, and `jsk migrate` for a legacy record.
         self.assertLess(author + spec + rules, 4800)
+
+    def test_the_extractor_reads_its_definition_and_the_format(self):
+        """The one writing agent that MANDATES kb-format.md, and so the one left out of
+        TheWritePathStaysCheap.WRITE_AGENTS. The author writes bullets under projects
+        that exist, a shape four lines of inline changeset carry; the extractor writes
+        whatever a braindump or an old resume holds - organisations, roles, metrics and
+        their versions, projects, vocabulary - which is every row of the format's table.
+        An inline example of all of it would be the reference again, copied. The mode
+        files it replaced stay off the format: the read moved into an agent pinned to a
+        model, out of the session's context.
+        """
+        # New agent, new ceiling (2026-09-26): 3,098 measured - the definition 1,254,
+        # kb-format.md 1,844. Headroom covers kb-format.md growing to its own 2000.
+        self.assertLess(tokens(AGENTS / "jsk-extractor.md", REFS / "kb-format.md"), 3400)
 
 
 class TheWritePathStaysCheap(unittest.TestCase):
@@ -207,6 +223,11 @@ class TheWritePathStaysCheap(unittest.TestCase):
         # The last row is the graph record: SKILL.md's hand-edit habits became one
         # rule, and the mode's four-sections-in-order paragraph became a worked
         # changeset with its prefix block - the one thing apply cannot infer.
+        #
+        #   extractor    SKILL 2,222 + braindump   917                     =  3,139
+        #
+        # (2026-09-26) The worked changeset left for jsk-extractor, which writes it pinned
+        # to a model; the mode kept the save-their-words step and the relay.
         self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-braindump.md"), 3300)
 
     def test_the_format_specification_is_loaded_on_demand(self):

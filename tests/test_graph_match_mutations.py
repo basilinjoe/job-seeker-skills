@@ -51,6 +51,14 @@ MUTATIONS = {
         "src/jsk/graph/queries.py",
         'return "confirmed" if "confirmed" in levels else "unconfirmed" if levels else "tag"',
         'return "confirmed" if "confirmed" in levels else "unconfirmed" if levels else "confirmed"'),
+    "a tag-only match is satisfied": (
+        "src/jsk/graph/match.py",
+        'else "unevidenced")',
+        'else "satisfied")'),
+    "gaps.md may raise a verdict": (
+        "src/jsk/graph/match.py",
+        "and RANK[said] > RANK[default])",
+        "and False)"),
     "ambiguity is guessed": (
         "src/jsk/graph/queries.py",
         "    if len(found) == 1:",

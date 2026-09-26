@@ -2,7 +2,8 @@
 
 They talk. You structure. This mode fails if you interrupt.
 
-Everything goes into `career/kb.ttl`, through one `jsk kb apply`. Nothing else is written.
+Everything goes into `career/kb.ttl`, through one `jsk kb apply`. The only other file written is
+their words, kept verbatim under `sources/`.
 
 ## Let them finish
 
@@ -39,8 +40,8 @@ without one; set `j:noneQuantified true` on the project if nothing is measurable
 ## Is it already there?
 
 ```bash
-jsk kb view --section Projects        # every project, to read
-jsk kb query holds c:<concept>        # the projects holding one concept
+jsk kb query similar "<their words>"  # first: the closest projects, and why
+jsk kb query holds c:<concept>        # then: the projects holding one concept
 ```
 
 If it turns up, **extend the project that exists** (`jsk kb show <id>`) rather than adding a rival:
@@ -48,39 +49,21 @@ two entries for one project split its evidence so neither reads as strong.
 
 ## Write it up
 
-One changeset for the session, in this order, because each names what the previous established:
-the organisation (`org_`) if new, the role (`pos_`), the metric and its first version, then the
-project with its prose and bullets. A concept it uses that no vocabulary has goes in too.
+**Save their words first.** Once they have finished and answered, write their messages verbatim —
+their words, not a summary — to `<workspace>/sources/<yyyy-mm-dd>-braindump.md` (Write tool).
 
-```turtle
-@prefix j: <tag:jsk,2026:ns#> .
-@prefix k: <tag:jsk,2026:id/> .
-@prefix c: <tag:jsk,2026:concept/> .
-@prefix op: <tag:jsk,2026:op#> .
-op:changeset op:base 7 ; op:summary "Payments platform, from the braindump." .
-op:add {
-  k:met_settlement j:subject "settlement latency" ; j:unit "ms" ; j:direction j:decrease .
-  k:met_settlement.v1 j:of k:met_settlement ; j:baseline 800 ; j:value 200 ; j:confidence j:reported .
-  k:prj_payments j:name "Payments platform" ; j:position k:pos_acme_lead ; j:strength 4 ;
-      j:recency 2025 ; j:uses c:kafka ; j:headlineMetric k:met_settlement ;
-      j:problem "…" ; j:decision "…" ; j:outcome "…" .
-  [] j:project k:prj_payments ; j:rank 1 ; j:text "Cut settlement latency from 800 ms to 200 ms." ;
-      j:cites k:met_settlement ; j:shows c:kafka .
-}
-```
+**Send `jsk-extractor`** the workspace, that file and the skill directory. It reads what the career
+holds, writes one changeset and dry-runs it; it never applies. Back come the diff, every clause
+that is not their words, quoted with its id, and the questions still open.
 
-`op:base` is the revision `jsk kb show` prints. `references/kb-format.md` lists every field.
+**Show them the diff and the quoted clauses** — names, not Turtle — and ask about each. Then
+`jsk kb apply <its file>`. Everything lands `inferred`: only what they said in so many words gets
+`jsk kb confirm <ids> --answer "…"`, or `--source sources/<that file> --quote "their words"`,
+checked against what you saved. **Tell them which parts were inferred**, every time.
 
-```bash
-jsk kb apply braindump.trig --dry-run      # read the diff
-jsk kb apply braindump.trig
-```
-
-Leave provenance out: everything you write lands `inferred`, each with a question. Only what they
-said in so many words gets `jsk kb confirm <ids> --answer "…"`, afterwards. A refusal names its fix
-— an unknown concept, a dangling id, a missing `j:rank`; fix the changeset and re-run.
-
-**Tell them which parts you inferred**, every time, in plain words.
+No agents available? Run `agents/jsk-extractor.md`'s procedure inline: one changeset — the
+organisation, role, metric and its version, then the project and its bullets —
+`references/kb-format.md` for the shapes, `--dry-run` first.
 
 ## Close out
 

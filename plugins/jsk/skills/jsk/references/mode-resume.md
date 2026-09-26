@@ -31,17 +31,18 @@ reads them; the gates read the variant from the PDF. Beside a `posting.ttl`, `<N
 1. **Read the career whole** — `jsk kb view`, then `jsk kb query open` as much as the projects: know
    what is unresolved before you publish it.
 
-2. **Rank evidence** by `j:strength`, `j:recency` and fit to their stated target.
+2. **Do not rank the evidence yourself** — the export in step 4 scores it.
 
 3. **Write the summary as a claim**, per `writing-rules.md`.
 
-4. **Export `resume.json` from the career's bullets.** A new or reworded bullet goes into the
-   career first — a changeset through `jsk kb apply`, which mints its id and marks it inferred;
-   `resume.json` never holds a bullet's words. Then `jsk kb export --select <ids> --out resume.json`
-   (without `--select`, the whole career) writes the short file: the bullets by id, and settings.
-   Edit only `bullets` order, `summary`, `region`, `pages`, `ats_pages` and `format`;
-   `resume-format.md` has every key. Absent a `summary`, the career's positioning renders. Leave
-   `floor` at `confirmed`, or unconfirmed prose ships.
+4. **Export `resume.json`** — `jsk kb export --ranked --out resume.json` chooses the bullets: the
+   strongest, most recent projects, their confirmed bullets by the bands a posting gets. A new or
+   reworded bullet goes into the career first — a changeset through `jsk kb apply`, which mints its
+   id and marks it inferred; `resume.json` never holds a bullet's words. `--select <ids>` adds: that
+   bullet, a `prj_` kept for chronology. Any other change to `bullets` needs a reason, told to the
+   person. Edit `summary`, `region`, `pages`, `ats_pages` and `format`; `resume-format.md` has every
+   key. Absent a `summary`, the career's positioning renders. Leave `floor` at `confirmed`, or
+   unconfirmed prose ships.
 
    **If they need a selection** — a chosen subset for a kind of role — that is a target, even an informal
    one, and belongs in `mode-tailor.md` with a posting written first.

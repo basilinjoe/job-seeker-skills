@@ -38,9 +38,10 @@ Run `jsk`; not found, fall back to `python -m jsk`, then `py -3 -m jsk`. Report 
 | **Record** | `jsk validate resume.json` | Is `resume.json` shaped right, is every id it names live in the career, and does every number in a selected bullet trace to a current metric? |
 | **Parse** | `jsk check <Name>_Resume.pdf --only parse` **and** `jsk check <Name>_Resume_ATS.txt --only parse --strict` | Will an ATS read this without mangling it? |
 | **Prose** | `jsk check <Name>_Resume.tex --only prose` **and** `jsk check <Name>_Resume_ATS.txt --only prose` | Does it obey the writing rules? |
-| **Render** | open the PDF with Read and look at every page | Does it look right, and is it true? |
+| **Layout** | `jsk check <Name>_Resume.pdf --only layout --record resume.json` | Tofu, a face the template did not declare, a stranded heading, a date out of column, the wrong paper? |
+| **Render** | open the PDF with Read and look at every page | Does it look right as a whole, and is it true? |
 
-Prefer running the first three together:
+Prefer running the first four together:
 
 ```bash
 jsk gates <out-dir> --pages N
@@ -59,20 +60,17 @@ jsk fit <Name>_Resume.tex --target-pages 2
 Exit codes: `0` passed, `1` failed, `2` called wrong. A `2` is your mistake — fix the invocation and
 re-run before reporting a failure.
 
-**Fitting changes layout, so re-run the parse gate on the fitted file.**
+**Fitting changes layout, so re-run the parse and layout gates on the fitted file.**
 
 ## The render gate
 
-Read the PDF and check every page:
+The layout gate measured fonts, glyphs, headings, dates, paper and page count. Read the PDF for
+what it cannot:
 
-- [ ] Page count matches what `resume.json` asked for
-- [ ] Bullets are real glyphs, not tofu boxes, and not a typed `•`
-- [ ] One font family throughout — compare headings against body, not body against itself
-- [ ] No heading stranded at the foot of a page with its content overleaf
-- [ ] Dates aligned and consistently formatted
-- [ ] The region profile did what was intended: its paper size, the work-rights line where it asks
-  for one, the declaration on an Indian resume
-- [ ] The prose reads as true — a verb that overstates ownership is no checker's to catch
+- [ ] It looks right as a whole — spacing, emphasis, balance
+- [ ] The work-rights line where the region asks for one; the declaration on an Indian resume
+- [ ] **FLAG** every verb that overstates ownership (led, owned, architected where they helped).
+  Truth is **UNVERIFIED** until the person has read it — never PASS it
 
 **No PDF available?** Report the render gate as **UNVERIFIED**, in that word — never as passed, and
 never with a passing parse gate in its place. A geometric estimate of page fill is a fair fallback

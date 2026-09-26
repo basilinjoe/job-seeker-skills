@@ -77,6 +77,11 @@ MUTATIONS = {
     "necessity-wording": (POSTING, 'j:asked "event-driven" ; j:necessity j:preferred ;',
                           'j:asked "event-driven" ; j:necessity j:required ;',
                           "k:req_acme_platform_engineer_eda", "check the necessity"),
+    # The eda requirement re-pointed at the K8s line: the advert's "a plus" line is left
+    # with no requirement quoting it.
+    "advert-uncovered": (POSTING, 'j:quote "Event-driven systems a plus"',
+                         'j:quote "Deep, hands-on K8s"', "k:post_acme_platform_engineer",
+                         "write a requirement quoting it"),
     "log-sync": (KB, "j:revision 2 .", "j:revision 5 .", "k:kb", "restore the file"),
     "hand-edited": (KB, 'j:size "1001-5000"', 'j:size "1001-10000"', "k:kb", "jsk kb adopt"),
     "answer-placeholder": (LOG, 'j:answer "Six throughout; two joined in the second month '
@@ -87,7 +92,7 @@ MUTATIONS = {
 
 WARNS = {"version-gap", "headline-cited", "label-clash", "inferred-unasked",
          "retired-referenced", "event-before-submit", "necessity-wording", "hand-edited",
-         "answer-placeholder"}
+         "answer-placeholder", "advert-uncovered"}
 
 
 class EveryRuleFires(unittest.TestCase):
@@ -222,6 +227,62 @@ class Findings(unittest.TestCase):
         s, _ = mutated(("career/log.ttl", "j:touched k:met_team.v1,", "j:touched k:met_gone.v1,",
                         "", ""))
         self.assertEqual([f.text() for f in s.findings if f.rule == "dangling"], [])
+
+
+ADVERT = "applications/acme-platform-engineer/posting.md"
+
+
+class AdvertCoverage(unittest.TestCase):
+    """advert-uncovered: a requirement the analyst left out is invisible to everything
+    downstream, so the advert's requirement-like lines are read back against the quotes."""
+
+    def uncovered(self, old, new):
+        s, _ = mutated((ADVERT, old, new))
+        return [f.detail for f in s.findings if f.rule == "advert-uncovered"]
+
+    BRING = "## What you'll bring\n"
+
+    def test_an_unquoted_must_under_a_requirements_heading(self):
+        self.assertEqual(self.uncovered(self.BRING, self.BRING + "\n- Must have Terraform in "
+                                                                  "production.\n"),
+                         ["the advert asks 'Must have Terraform in production.' and no "
+                          "requirement quotes it"])
+
+    def test_a_bold_or_colon_heading_opens_a_section_too(self):
+        for heading in ("**Requirements**", "You have:"):
+            with self.subTest(heading=heading):
+                self.assertEqual(len(self.uncovered(
+                    "## Benefits\n", f"{heading}\n\n* Must have Terraform in production\n\n"
+                                     "## Benefits\n")), 1)
+
+    def test_not_under_benefits_or_responsibilities(self):
+        for heading in ("## Benefits\n", "## What you'll do\n"):
+            with self.subTest(heading=heading):
+                self.assertEqual(self.uncovered(heading, heading + "- Must have a good time at "
+                                                               "the offsite.\n"), [])
+
+    def test_not_an_eligibility_line(self):
+        self.assertEqual(self.uncovered(self.BRING, self.BRING + "- Must hold Australian work "
+                                                                  "authorisation.\n"), [])
+
+    def test_not_a_short_line(self):
+        self.assertEqual(self.uncovered(self.BRING, self.BRING + "- Terraform.\n"), [])
+
+    def test_a_quoted_line_is_covered_whatever_its_typography(self):
+        self.assertEqual(self.uncovered("- Deep, hands-on K8s experience in production.",
+                                        "- Deep, hands‑on K8s experience in production — "
+                                        "at scale."), [])
+        self.assertEqual(self.uncovered("- Event-driven systems a plus.",
+                                        "- **Event‑driven** systems a plus."), [])
+
+    def test_a_wrapped_item_is_one_line(self):
+        self.assertEqual(self.uncovered("- Event-driven systems a plus.",
+                                        "- Event-driven systems a\n  plus."), [])
+
+    def test_a_long_line_is_cut_where_it_is_named(self):
+        [said] = self.uncovered(self.BRING, self.BRING + "- Must have " + "very " * 30 + "much.\n")
+        self.assertLess(len(said), 120)
+        self.assertIn("…", said)
 
 
 if __name__ == "__main__":

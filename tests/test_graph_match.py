@@ -352,5 +352,104 @@ class Narrowing(unittest.TestCase):
         self.assertEqual((FIXTURES / "vocabulary.ttl").read_bytes(), before)
 
 
+class Verdicts(unittest.TestCase):
+    """The Verdict the match derives: the most the record supports, which gaps.md may lower
+    and never raise."""
+
+    @classmethod
+    def setUpClass(cls):
+        from jsk.graph import match as M
+        s = load()
+        cls.r = {p: M.result(s, post(p), TODAY, 3) for p in ("contoso", "northwind", "fabrikam")}
+        cls.v = {(p, q["asked"]): q["verdict"] for p, r in cls.r.items()
+                 for q in r["requirements"]}
+
+    def test_each_bucket_and_evidence_level(self):
+        self.assertEqual({k: self.v[k] for k in [
+            ("contoso", "Azure AD"),              # matched, confirmed
+            ("contoso", ".NET"),                  # matched, tags only
+            ("northwind", "Python"),              # matched, an unconfirmed bullet
+            ("contoso", "EKS"),                   # near
+            ("fabrikam", "Angular"),              # missing
+            ("contoso", "Go"),                    # ambiguous
+            ("contoso", "K3s"),                   # candidate
+            ("contoso", "Mentoring")]},           # implicit: not assessed
+            {("contoso", "Azure AD"): "satisfied", ("contoso", ".NET"): "unevidenced",
+             ("northwind", "Python"): "unevidenced", ("contoso", "EKS"): "partial",
+             ("fabrikam", "Angular"): "unsatisfied", ("contoso", "Go"): "indeterminate",
+             ("contoso", "K3s"): "indeterminate", ("contoso", "Mentoring"): None})
+
+    def test_one_confirmed_carrier_among_tags_satisfies(self):
+        self.assertEqual(self.v[("contoso", "K8s")], "satisfied")
+
+    def test_the_table_prints_it(self):
+        from jsk.graph import match as M
+        out = M.markdown(self.r["contoso"])
+        self.assertIn("| Requirement | Need | State | Verdict | Carried by | Evidence |", out)
+        self.assertIn("| Mentoring | implicit | implicit | - |", out)
+        self.assertIn("| EKS | preferred | near | partial |", out)
+
+
+class GapsCheck(unittest.TestCase):
+    """`jsk match --gaps`: the analyst's Verdict column against the match's."""
+
+    HEAD = ("# Eligibility\n\nPass.\n\n# Requirements\n\n"
+            "| Requirement | Need | Verdict | Evidence | Shortfall |\n|---|---|---|---|---|\n")
+
+    @classmethod
+    def setUpClass(cls):
+        from jsk.graph import match as M
+        cls.M = M
+        s = load()
+        cls.reqs = {p: M.result(s, post(p), TODAY, 3)["requirements"]
+                    for p in ("contoso", "fabrikam")}
+
+    def check(self, posting, *rows):
+        table = self.M.gaps_table(self.HEAD + "".join(f"| {' | '.join(r)} |\n" for r in rows)
+                                  + "\n# Ranking\n\n| Project | Score |\n|---|---|\n| x | 1 |\n")
+        return [(s, t) for s, t, _ in self.M.check_gaps(self.reqs[posting], table)
+                if s == "FAIL" or "has no row" not in t]
+
+    def test_a_missing_requirement_called_satisfied_fails(self):
+        self.assertEqual(self.check("fabrikam", ("Angular", "preferred", "satisfied", "prj_portal", "")),
+                         [("FAIL", "Angular: satisfied, above the match's unsatisfied")])
+
+    def test_tag_only_evidence_called_satisfied_fails(self):
+        self.assertEqual(self.check("contoso", (".NET", "required", "satisfied", "`prj_events`", "")),
+                         [("FAIL", ".NET: satisfied, above the match's unevidenced")])
+
+    def test_indeterminate_may_not_become_partial(self):
+        self.assertEqual(self.check("contoso", ("Go", "preferred", "partial", "prj_events", "no Go")),
+                         [("FAIL", "Go: partial, above the match's indeterminate")])
+
+    def test_a_partial_needs_its_shortfall_and_an_id(self):
+        self.assertEqual(self.check("contoso", ("EKS", "preferred", "partial", "the data platform", "")),
+                         [("FAIL", "EKS: partial with no id in Evidence"),
+                          ("FAIL", "EKS: partial with no Shortfall")])
+
+    def test_a_lowered_verdict_passes(self):
+        self.assertEqual(self.check("contoso",
+                                    ("K8s", "required", "partial", "k:prj_data", "no on-call"),
+                                    ("Azure AD", "preferred", "unsatisfied", "", "left in 2019"),
+                                    ("K3s", "preferred", "unsatisfied", "", "")), [])
+
+    def test_rows_pair_by_normalised_label(self):
+        self.assertEqual(self.check("contoso", ("team  LEADERSHIP", "required", "satisfied",
+                                                "prj_events", "")), [])
+
+    def test_a_requirement_with_no_row_and_a_row_with_no_requirement_warn(self):
+        table = self.M.gaps_table(self.HEAD + "| Kotlin | required | unsatisfied | | |\n")
+        found = self.M.check_gaps(self.reqs["fabrikam"], table)
+        self.assertEqual([(s, t) for s, t, _ in found], [
+            ("WARN", "row 'Kotlin' matches no requirement of the posting"),
+            ("WARN", "Angular (k:req_fabrikam_angular) has no row"),
+            ("WARN", ".NET Framework (k:req_fabrikam_dotnet_framework) has no row"),
+            ("WARN", "SQL Server (k:req_fabrikam_sql_server) has no row"),
+            ("WARN", "Terraform (k:req_fabrikam_terraform) has no row")])
+
+    def test_no_requirements_table_is_none(self):
+        self.assertIsNone(self.M.gaps_table("# Eligibility\n\nPass.\n"))
+
+
 if __name__ == "__main__":
     unittest.main()

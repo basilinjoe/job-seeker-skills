@@ -7,6 +7,7 @@ and settings can go stale in one way only, an id the career no longer holds, and
 is what `ids` checks.
 """
 import difflib
+import hashlib
 import json
 import os
 import re
@@ -18,6 +19,48 @@ FLOORS = ("confirmed", "inferred", "needs-verification", "disputed")
 LISTS = {"bullets": "ach_", "roles": "pos_", "skills": "skill_"}
 KEYS = {"resume": int, "bullets": list, "roles": list, "skills": list, "format": str,
         "region": str, "pages": int, "ats_pages": int, "floor": str, "summary": dict}
+SUMMARY_KEYS = ("text", "status", "answer", "text_sha256")
+CONFIRM = 'confirm it with `jsk kb confirm --summary <resume.json> --answer "their words"`'
+MIGRATED = "carried over from the confirmed URS summary by jsk migrate"
+
+
+def digest(text):
+    """The summary text's hash as confirm records it: the first 12 hex digits of sha256."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
+def confirmed(summary, answer):
+    """The summary confirmed with `answer`, its keys in the order they already had."""
+    out = dict(summary)
+    out.update(status="confirmed", answer=answer, text_sha256=digest(summary["text"]))
+    return out
+
+
+def unearned(summary):
+    """Why a `"status": "confirmed"` summary has not earned it - [] when it has.
+
+    Flipping the status by hand confirmed a summary with no answer and no audit, and a
+    later edit to the text kept it confirmed: the answer and the text's hash are what
+    only `jsk kb confirm --summary` writes, and a changed text drops out of confirmed
+    as a changed claim does in the career."""
+    from ..graph.rules import DENIAL, PLACEHOLDER
+
+    if summary.get("status") != "confirmed" or not isinstance(summary.get("text"), str):
+        return []
+    answer = summary.get("answer")
+    if not isinstance(answer, str) or PLACEHOLDER.fullmatch(answer) or DENIAL.fullmatch(answer):
+        return [f"summary is confirmed but records no answer from the person - {CONFIRM}"]
+    if summary.get("text_sha256") != digest(summary["text"]):
+        if "text_sha256" not in summary:
+            return [f"summary is confirmed but holds no text_sha256 - {CONFIRM}"]
+        return [f"the summary changed since it was confirmed - read it to the person and "
+                f"{CONFIRM}"]
+    return []
+
+
+def summary_status(summary):
+    """The status a summary renders at: inferred when its confirmation does not hold."""
+    return "inferred" if unearned(summary) else summary.get("status")
 
 
 class ShortError(Exception):
@@ -105,8 +148,9 @@ def shape(doc):
             out.append("summary needs its text")
         if summary.get("status") not in STATUSES:
             out.append(f"summary status must be one of {', '.join(STATUSES)}")
-        for key in sorted(set(summary) - {"text", "status"}):
+        for key in sorted(set(summary) - set(SUMMARY_KEYS)):
             out.append(f"summary: unknown key {key!r}")
+        out += unearned(summary)
     return out
 
 

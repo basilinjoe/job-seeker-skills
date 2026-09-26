@@ -22,7 +22,9 @@ has to remember every name to get started.
     jsk preview RESUME --out D  the same resume in every template, to pick a look
     jsk check PDF [--strict]    the parse gate and the prose gate, both
       ... --only parse|prose    one of them, for re-checking one repaired file
-    jsk gates DIR [--record R]  the record, parse and prose gates over one render
+      ... --only layout         fonts, tofu, stranded headings, date column, paper
+      ... LETTER --only letter --record R   a cover letter's length, prose and numbers
+    jsk gates DIR [--record R]  the record, parse, prose and layout gates over one render
     jsk fit TEX [...]           fit a render to a page budget
     jsk ship RESUME --out D     validate, render and gate, in one pass
     jsk freeze APP --submitted DATE|false --channel TEXT   archive a sent application
@@ -84,7 +86,14 @@ CHECK_GATES = [
     ("prose", "check_prose.py", "prose gate", False, (".tex", ".txt")),
 ]
 
-CHECK_USAGE = "usage: jsk check <resume.pdf> [--strict] [--only parse|prose]"
+# Gates `--only` reaches that the default pass never runs: they check another document,
+# not the render. Arguments pass through unchanged.
+CHECK_ALONE = {"letter": "letter.py"}   # a cover letter: --only letter --record resume.json
+# The layout gate reads the render, but only the PDF - a default pass over a .txt would
+# report it SKIPPED. `jsk gates` and `jsk ship` run it; here it is asked for by name.
+CHECK_ALONE["layout"] = "layout.py"
+
+CHECK_USAGE = "usage: jsk check <resume.pdf> [--strict] [--only parse|prose|layout]"
 
 
 def gate_target(path, accepts):
@@ -116,6 +125,8 @@ SUBPACKAGE = {
     "check_ats.py": "gates",
     "check_prose.py": "gates",
     "record.py": "gates",
+    "letter.py": "gates",
+    "layout.py": "gates",
     "match.py": "graph",
     "kbcli.py": "graph",
     "timeline.py": "graph",
@@ -256,12 +267,14 @@ def cmd_check(args):
             print("fix:  --only parse   or   --only prose")
             return 2
         only = args[at + 1]
-        keys = [gate[0] for gate in CHECK_GATES]
+        keys = [gate[0] for gate in CHECK_GATES] + list(CHECK_ALONE)
         if only not in keys:
             print(f"unknown gate: {only}")
             print(f"fix:  one of {', '.join(keys)} - or leave --only off to run both")
             return 2
         del args[at:at + 2]
+    if only in CHECK_ALONE:
+        return run_in_process(CHECK_ALONE[only], args)
     if not args or args[0].startswith("-"):
         print(CHECK_USAGE)
         return 0 if wants_help(args) else 2
@@ -302,7 +315,7 @@ def cmd_check(args):
 
 # --- jsk gates ------------------------------------------------------------------
 #
-# The same gates jsk-verifier.md runs, in its order - record, parse, prose - but in
+# The same gates jsk-verifier.md runs, in its order - record, parse, prose, layout - but in
 # this interpreter rather than five child ones.
 #
 # It is deliberately file-driven rather than a fixed list of five commands, because
@@ -437,6 +450,9 @@ def skipped_gate(gate, command, why):
 
 def gate_result(gate, command, code, output):
     status = {0: "PASS", 1: "FAIL"}.get(code, "ERROR")
+    if code == 1 and output.startswith("SKIPPED"):
+        # The layout gate without pymupdf: it says so itself, and a failure either way.
+        status = "SKIPPED"
     return {"gate": gate, "command": command, "status": status, "exit": code,
             "output": output}
 
@@ -504,17 +520,17 @@ def render_section(out_dir, pages, only=None):
         lines.append(f"UNVERIFIED - open {os.path.basename(pdfs[0])} and read every page.")
     else:
         lines.append(f"UNVERIFIED - there is no PDF in {out_dir} for anyone to read.")
-    lines.append("  Does it look right, and is it true? Nothing above can see a stranded")
-    lines.append("  heading, a tofu box, or a verb that overstates ownership. The gates")
-    lines.append("  that passed say nothing about this one.")
+    lines.append("  Does it look right as a whole, and is it true? The layout gate measures")
+    lines.append("  fonts, tofu, headings, dates and paper; nothing above can see a verb that")
+    lines.append("  overstates ownership. The gates that passed say nothing about this one.")
     return {"gate": "render gate", "command": None, "status": "UNVERIFIED",
             "exit": None, "output": "\n".join(lines) + "\n"}
 
 
 def cmd_gates(args):
-    """The record, parse and prose gates over one rendered resume, in one process.
+    """The record, parse, prose and layout gates over one rendered resume, in one process.
 
-    `jsk check` covers two of them; this covers three, and every render the directory
+    `jsk check` covers two of them; this covers four, and every render the directory
     holds. What it does not cover is the render gate - see
     render_section() for why that is stated rather than silently omitted.
     """
@@ -619,6 +635,18 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only
             code, output = call_gate(script, [path] + (["--strict"] if strict else []))
             results.append(gate_result(gate, command, code, output))
 
+    # The PDF alone: it reads the region and budget from the record the render used.
+    pdfs = rendered_documents(out_dir, (".pdf",), only)
+    if not pdfs:
+        results.append(skipped_gate("layout gate", "layout.py",
+                                    f"no .pdf render in {out_dir}."))
+    for path in pdfs:
+        layout_args = ([path] + (["--record", record] if record else [])
+                       + (["--pages", str(pages)] if pages else []))
+        code, output = call_gate("layout.py", layout_args)
+        results.append(gate_result("layout gate", f"layout.py {os.path.basename(path)}",
+                                   code, output))
+
     results.append(render_section(out_dir, pages, only))
     return results
 
@@ -675,7 +703,7 @@ def summary_lines(results):
             fails, warns = counts[-1]
             parts.append((f"FAIL {fails}   " if fails else "") + f"WARN {warns}")
         command = result["command"] or ""
-        if result["gate"] in ("parse gate", "prose gate") and command:
+        if result["gate"] in ("parse gate", "prose gate", "layout gate") and command:
             parts.append(command.split()[1] if len(command.split()) > 1 else command)
         # The render's measurement, or - under `jsk gates`, which renders nothing -
         # the render gate's under --pages. Never both: ship's --pages is a second

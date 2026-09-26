@@ -82,8 +82,8 @@ it closes, in this order (the order `mode-gaps.md` works through):
 5. **Unexplored territory** — mentoring, interview panels, internal tools other teams adopted,
    talks, writing, patents, awards, process changes, and work that *prevented* a problem
 
-Also look for: **duplicates** (two projects describing the same work under different names — the
-ranking sees two weak projects where there is one strong one; only a whole read finds this);
+Also look for: **duplicates** (one piece of work under two names — the ranking sees two weak
+projects where there is one strong one; start from `jsk kb query duplicates`, then read each pair);
 **under-tagged projects** (a technology in the prose that neither `j:uses` nor any bullet's `j:shows`
 names, so it never matches); and **questions open for months** — say the choice is now resolve or
 drop the claim. Unmet requirement is the tailoring run's priority and has no meaning here.

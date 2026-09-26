@@ -288,7 +288,7 @@ class CliBehaviour(unittest.TestCase):
         self.assertIn(paths.EXAMPLE_SHORT, check)
         self.assertFalse(any("validate_urs" in a for c in calls for a in c))
         self.assertEqual(steps[0][0], "validate the example resume")
-        self.assertEqual(len(steps), 5)
+        self.assertEqual(len(steps), 6)
 
     def test_json_output_is_machine_readable(self):
         code, out = run(PREFLIGHT, "--json")
@@ -304,7 +304,7 @@ class CliBehaviour(unittest.TestCase):
         self.assertEqual(code, 0, out)
         payload = json.loads(out)
         self.assertTrue(payload["ok"])
-        self.assertEqual(len(payload["verify"]), 5)
+        self.assertEqual(len(payload["verify"]), 6)
 
     def test_kb_override_is_honoured(self):
         path = self.tmp / "mine" / "career" / "kb.ttl"

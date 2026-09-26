@@ -92,7 +92,7 @@ has the format, for a changeset you are unsure of.
 | `jsk render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
 | `jsk preview <resume.json> --out DIR` | every template, with page counts |
 | `jsk check <file> [--strict] [--only parse\|prose]` | the parse and prose gates on one file |
-| `jsk gates <out-dir> [--record R] [--pages N]` | record, parse and prose gates |
+| `jsk gates <out-dir> [--record R] [--pages N]` | record, parse, prose, layout gates |
 | `jsk ship <resume.json> --out DIR [--pages N]` | validate, render, gates; stops at a failure |
 | `jsk fit <resume.tex> --target-pages 2` | fits the render to a page budget |
 | `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | writes `application.ttl`, if the gates pass |
@@ -108,6 +108,7 @@ PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
 | `jsk-tailor-analyst` | app directory, workspace | `posting.ttl`, the match, `gaps.md` and questions |
 | `jsk-resume-author` | posting, gaps, workspace | `resume.json`, every authored clause quoted |
 | `jsk-kb-auditor` | workspace | what is missing, as a prioritised question queue |
+| `jsk-extractor` | workspace, a braindump or document in `sources/` | a dry-run changeset, its inferred clauses quoted |
 | `jsk-verifier` | a **failed** gate, or the render gate to read | each verdict verbatim, and the id to repair |
 
 **They never interview**: confirming claims, choosing between close projects and telling someone
@@ -123,6 +124,7 @@ where they fall short stay with you and the person. Their output does not reach 
 | **Record** | shaped right, every id live, every number traced to a metric? | `jsk validate` |
 | **Parse** | will an ATS read it? | `jsk check` on the PDF; `--strict` on the `.txt` |
 | **Prose** | does it obey the writing rules? | `jsk check --only prose` on the `.tex` |
+| **Layout** | tofu, fonts, stranded headings, dates, paper? | `jsk check --only layout` on the PDF |
 | **Render** | does it look right, and is it true? | open every page of the PDF |
 
 `jsk gates` (or `jsk ship`) runs all but the last. **Show the output**; fix and re-run, never explain

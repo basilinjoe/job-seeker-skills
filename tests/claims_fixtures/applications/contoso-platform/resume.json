@@ -6,7 +6,9 @@
   "floor": "confirmed",
   "summary": {
     "text": "Platform engineer with 5 years of Kubernetes, building event platforms that other teams build on.",
-    "status": "confirmed"
+    "status": "confirmed",
+    "answer": "Yes - that is how I describe what I do.",
+    "text_sha256": "2218dd810a58"
   },
   "bullets": [
     "ach_events_latency",

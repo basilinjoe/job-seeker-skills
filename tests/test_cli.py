@@ -452,14 +452,15 @@ class GatesMissingInput(GatesCase):
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)
 
-    def test_an_empty_directory_skips_both_document_gates_and_fails(self):
+    def test_an_empty_directory_skips_every_document_gate_and_fails(self):
         code, out = self.gates("--record", self.record)
         self.assertEqual(code, 1, out)
         sections, summary = out.split("=== summary")
-        self.assertEqual(sections.count("SKIPPED"), 2, out)
-        self.assertEqual(summary.count("SKIPPED"), 2, out)
+        self.assertEqual(sections.count("SKIPPED"), 3, out)
+        self.assertEqual(summary.count("SKIPPED"), 3, out)
         self.assertIn("--- parse gate", out)
         self.assertIn("--- prose gate", out)
+        self.assertIn("--- layout gate", out)
 
     def test_a_record_path_that_is_wrong_is_a_call_error(self):
         """Given-and-wrong is a different mistake from not-given, and reporting the
@@ -788,8 +789,8 @@ class Match(unittest.TestCase):
         for heading in ("# Match - Platform Engineer at Contoso (k:post_contoso)",
                         "## Requirements", "## Ranking", "## Cover", "## Questions"):
             self.assertIn(heading, out)
-        self.assertIn("| K8s | required | matched | k:prj_data; k:prj_events (via c:aks, 1 hop) |",
-                      out)
+        self.assertIn("| K8s | required | matched | satisfied | k:prj_data; k:prj_events "
+                      "(via c:aks, 1 hop) |", out)
 
     def test_json_is_the_same_result_structured(self):
         code, out = run(JSK, "match", self.CONTOSO, "--json", "--today", "2026-09-24")
@@ -844,6 +845,23 @@ class Match(unittest.TestCase):
                              str(self.FIX))
         finally:
             os.chdir(here)
+
+    def test_gaps_md_that_raises_a_verdict_fails(self):
+        """--gaps checks the analyst's table against the match: .NET is carried only by
+        tags, so `satisfied` is a raise; `unevidenced` is the match's own verdict."""
+        with tempfile.TemporaryDirectory() as tmp:
+            gaps = Path(tmp) / "gaps.md"
+            table = ("# Requirements\n\n| Requirement | Need | Verdict | Evidence | Shortfall |\n"
+                     "|---|---|---|---|---|\n| .NET | required | {} | prj_events | |\n")
+            gaps.write_text(table.format("satisfied"), encoding="utf-8")
+            code, out = run(JSK, "match", self.CONTOSO, "--gaps", gaps, "--today", "2026-09-24")
+            self.assertEqual(code, 1, out)
+            self.assertIn("FAIL  .NET: satisfied, above the match's unevidenced", out)
+            self.assertIn("the career needs the tag or the confirmation", out)
+            gaps.write_text(table.format("unevidenced"), encoding="utf-8")
+            code, out = run(JSK, "match", self.CONTOSO, "--gaps", gaps, "--today", "2026-09-24")
+            self.assertEqual(code, 0, out)
+            self.assertIn("WARN  K8s (k:req_contoso_k8s) has no row", out)
 
     def test_outside_the_layout_is_a_usage_error(self):
         code, out = run(JSK, "match", self.FIX / "career" / "kb.ttl")

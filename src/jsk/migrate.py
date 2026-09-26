@@ -2275,8 +2275,11 @@ def shorten(record, store, view_id=None):
                 notes.append(f"the view's narrative {nid} is {status} - left out, so the "
                              "career's positioning renders; write the summary again")
             else:
-                doc["summary"] = {"text": nar["text"],
-                                  "status": "confirmed" if status == "confirmed" else "inferred"}
+                # A confirmed one carries its answer and hash, or validate would fail it
+                # as a status flipped by hand.
+                doc["summary"] = {"text": nar["text"], "status": "inferred"}
+                if status == "confirmed":
+                    doc["summary"] = short.confirmed(doc["summary"], short.MIGRATED)
         else:
             notes.append(f"the view's narrative {nid} is not in the record - the career's "
                          "positioning renders instead")

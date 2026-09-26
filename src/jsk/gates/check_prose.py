@@ -167,6 +167,21 @@ def opens_on_a_verb(text):
     return False
 
 
+def placeholders(text):
+    """FAIL lines for a bracket left in the text. Its own function because the letter
+    check (letter.py) asks it of a cover letter too."""
+    fails = []
+    brackets = re.findall(r"\[[^\[\]]{0,60}\]", text)
+    if brackets:
+        shown = ", ".join(repr(b) for b in brackets[:4])
+        more = f" (+{len(brackets) - 4} more)" if len(brackets) > 4 else ""
+        fails.append(f"unresolved placeholder(s): {shown}{more} - worse than omitting "
+                     f"the number")
+    if re.search(r"\[(?![^\[\]]{0,60}\])", text):
+        fails.append("unmatched open bracket '[' - almost always a leftover placeholder")
+    return fails
+
+
 def overlap(a, b):
     x, y = set(WORD.findall(a.lower())), set(WORD.findall(b.lower()))
     return len(x & y) / len(x | y) if x | y else 0.0
@@ -199,14 +214,7 @@ def check(paragraphs):
         warns.append(f"{word!r} appears - fine about a client or a team, wrong about "
                      f"the subject; check which this is")
 
-    brackets = re.findall(r"\[[^\[\]]{0,60}\]", text)
-    if brackets:
-        shown = ", ".join(repr(b) for b in brackets[:4])
-        more = f" (+{len(brackets) - 4} more)" if len(brackets) > 4 else ""
-        fails.append(f"unresolved placeholder(s): {shown}{more} - worse than omitting "
-                     f"the number")
-    if re.search(r"\[(?![^\[\]]{0,60}\])", text):
-        fails.append("unmatched open bracket '[' - almost always a leftover placeholder")
+    fails += placeholders(text)
 
     for _, line in lines:
         tail = dangling_tail(line)

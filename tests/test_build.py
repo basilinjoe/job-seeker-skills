@@ -265,8 +265,26 @@ class Summary(BuildCase):
         return section["paragraphs"] if section else None
 
     def test_the_file_s_summary(self):
-        plan = self.plan(short(summary={"text": "Builds event platforms.", "status": "confirmed"}))
+        from jsk.resume.short import confirmed
+
+        summary = confirmed({"text": "Builds event platforms.", "status": "inferred"},
+                            "Yes, that is how I describe my work.")
+        plan = self.plan(short(summary=summary))
         self.assertEqual(self.paragraphs(plan), ["Builds event platforms."])
+
+    def test_a_confirmation_that_does_not_hold_is_withheld(self):
+        """A status flipped by hand, or text edited after confirm, renders as inferred -
+        so a render with no validate before it still withholds it."""
+        from jsk.resume.short import confirmed
+
+        held = confirmed({"text": "Builds event platforms.", "status": "inferred"},
+                         "Yes, that is how I describe my work.")
+        for summary in ({"text": "Builds event platforms.", "status": "confirmed"},
+                        {**held, "text": "Builds the best event platforms."}):
+            with self.subTest(summary=summary):
+                plan = self.plan(short(summary=summary))
+                self.assertIsNone(self.paragraphs(plan))
+                self.assertTrue(any("withheld summary" in w for w in plan["warnings"]))
 
     def test_absent_it_is_the_career_s_positioning(self):
         self.assertEqual(self.paragraphs(self.plan()), ["Engineer who owns platforms end to end."])

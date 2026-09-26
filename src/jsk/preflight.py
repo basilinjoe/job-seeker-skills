@@ -380,6 +380,8 @@ def verify(tmp):
     run("parse gate, plain text (strict)",
         [f"{__package__}.gates.check_ats", txt, "--strict"])
     run("prose gate", [f"{__package__}.gates.check_prose", tex])
+    # The record names the region, so the paper is checked against it, not warned about.
+    run("layout gate", [f"{__package__}.gates.layout", pdf, "--record", EXAMPLE_SHORT])
     return steps
 
 

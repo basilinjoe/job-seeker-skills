@@ -30,7 +30,8 @@ jsk validate resume.json         # the record gate
 jsk kb export --from-match applications/<dir>/posting.ttl --out applications/<dir>/resume.json
 jsk render resume.json --out . --pdf
 jsk check resume.pdf             # both document gates, one pass
-jsk gates .                      # record, parse and prose gates
+jsk check cover-letter.txt --only letter --record resume.json   # a cover letter's words and numbers
+jsk gates .                      # record, parse, prose and layout gates
 jsk fit resume.tex --target-pages 2
 jsk preview resume.json --out ./looks
 jsk ship resume.json --out .      # validate, render, gate
@@ -174,6 +175,7 @@ The `jsk.graph.match` module, over the queries in `jsk.graph.queries`.
 jsk match applications/<dir>/posting.ttl                 # the four sections, as Markdown
 jsk match applications/<dir>/posting.ttl --cover 2       # a cover of at most two projects
 jsk match applications/<dir>/posting.ttl --json --today 2026-09-24
+jsk match applications/<dir>/posting.ttl --gaps applications/<dir>/gaps.md   # check the verdicts
 ```
 
 A posting's requirements joined with the career through the vocabulary - the shipped `jsk/data/vocabulary.ttl` and the knowledge base's own additions. Reads the
@@ -185,6 +187,9 @@ one within two hops - `via c:aks, 1 hop`), `near` (only an `implies` path, for a
 only something broader), `missing`, `ambiguous` (the label names several concepts; the analyst
 answers with `j:concept`), `candidate` (it names none), `implicit`. Evidence per project is
 `confirmed` (a confirmed bullet shows it), `unconfirmed` or `tag` (only the project's tags say so).
+Each requirement's **Verdict** follows from both: matched with a confirmed carrier `satisfied`,
+matched on tags or unconfirmed bullets only `unevidenced`, `near` `partial`, `missing`
+`unsatisfied`, `ambiguous` or `candidate` `indeterminate`, `implicit` `-` (not assessed).
 **Ranking** scores by the table in `jsk-tailor-analyst.md` - required ×3, preferred ×1, strength
 ×2, recency +1 within three years and +0.5 at four to six, seniority +1 at or above the posting's -
 the same arithmetic the retired `jsk index --rank` did, now over concepts rather than exact
@@ -194,6 +199,20 @@ required requirement anything carries. **Questions** are derived from the gaps, 
 Exit 0 with the result - missing requirements included, since this is an assessment, not a gate;
 1 when the workspace has a FAIL; 2 called wrong, or a path that is not
 `applications/<dir>/posting.ttl`.
+
+**`--gaps <gaps.md>`** prints no match: it reads gaps.md's `# Requirements` table (Requirement |
+Need | Verdict | Evidence | Shortfall), pairs rows to requirements by their normalised `j:asked`,
+and FAILs a verdict above the match's (satisfied > partial > unevidenced > unsatisfied; an
+`indeterminate` may become anything but satisfied or partial), a `satisfied` or `partial` citing no
+id, and a `partial` with no Shortfall. A requirement with no row, or a row naming none, WARNs.
+Lowering is always allowed; raising never is - when the match under-reads, the career needs the tag
+or the confirmed bullet, made in the conversation. Exit 1 on any FAIL, 0 otherwise.
+
+Validation also WARNs `advert-uncovered`: a list item of four words or more, under a heading that
+names requirements (requirements, qualifications, skills, experience, you'll bring, nice to have,
+…), that no requirement of the posting quotes. Benefits and responsibilities lists are skipped, and
+so are eligibility lines (work rights, visa, clearance, location, work mode), which belong in
+gaps.md's `# Eligibility`.
 
 ### `jsk kb`
 
@@ -310,6 +329,8 @@ jsk kb query experience c:kubernetes     # | experience <concept> | pipeline
 jsk kb query evidence GraphQL "React Native" BFF  # each term: holders, then text naming it
 jsk kb query person                      # location, work mode, rights to work, ongoing roles
 jsk kb query concepts                    # every concept: labels, counts as, projects holding it
+jsk kb query similar "event pipeline Kafka"  # the closest live projects, words and concepts shared
+jsk kb query duplicates                  # pairs of projects that look like one told twice
 jsk kb show prj_payments --bullets       # a project's name and bullets, without its notes
 jsk kb path                              # the workspace, kb.ttl, log.ttl, applications/
 jsk kb check                             # every rule, the record's state, the layout
@@ -333,6 +354,7 @@ refuse in any `resume.json` that selected it, so it is fixed once rather than by
 
 ```bash
 jsk kb export --from-match applications/2026-09-08-ashby/posting.ttl --out applications/2026-09-08-ashby/resume.json
+jsk kb export --ranked --out resume.json
 jsk kb export --select prj_payments ach_ledger_cut_close pos_lead --out resume.json
 ```
 
@@ -357,9 +379,17 @@ confirm), `uncovered` and `unresolved`; a chosen project with no confirmed bulle
 `jsk match`'s, and a failure in the posting's own directory refuses the export as it refuses the
 match.
 
+**`--ranked`** is the same selection with no posting, for a general rebuild, so the scorer rather
+than the model chooses there too. Projects score 2 × `j:strength` plus the recency points, ties by
+strength, recency and id, up to eight; each gets the same bands, a bullet citing a metric with a
+current version scoring and the rest filling only to the band's floor, confirmed bullets only.
+There are no `GAP` lines and no `skills`, so every skill renders in the builder's order. `--select`
+adds to it and `--today` sets the date recency counts from; it and `--from-match` exclude each
+other, and `--cover` is `--from-match`'s alone.
+
 **`--select`** alone names what to show: `prj_` a project and every live bullet of it by `j:rank`,
 `ach_` one bullet (narrowing its project to the bullets named), `pos_` a role with no bullet.
-Projects follow by recency. With neither flag, the whole career. Retired entries never come;
+Projects follow by recency. With none of these flags, the whole career. Retired entries never come;
 selecting one, an id the career lacks, or a metric is refused with the nearest id.
 
 A bullet whose project names no role is left out with a `NOTE`: it would render under no employer.
@@ -595,6 +625,66 @@ placeholders, sentences that stop before their object, phrases that read as juni
 across projects, bullets that clear their throat before the verb. It reads the `.tex` rather than the
 PDF, because a bullet is an unambiguous `\item` there and needs no library to find. No dependencies.
 
+### `jsk check --only layout`
+
+The `jsk.gates.layout` module.
+
+```bash
+jsk check resume.pdf --only layout --record resume.json
+jsk check resume.pdf --only layout --region US --pages 2
+```
+
+The **layout gate** — what the render gate's checklist asked a model reading page images to see,
+measured from the PDF instead. Each failure names its fix:
+
+- **Tofu.** U+FFFD or a private-use codepoint in the text layer, or a Type3 font (the bitmap faces
+  TeX falls back to without `lmodern`).
+- **Type families.** One, or the body-and-heading pair a shipped template declares: `circuit` sets
+  TeX Gyre Heros body with Adventor heads, `atrium` Pagella body with Heros heads. The checklist said
+  "one family"; two templates were designed with two, so the check follows the templates. A third
+  face, or a pair no template declares, is a substitution — a font package that is not installed.
+- **A stranded heading.** A section title `build.py` writes that is the last text on its page.
+- **The date column.** Every date range must end on the same right edge, within 1.5pt; every template
+  right-aligns them with one `\hfill`, so the measured spread on our own renders is zero.
+- **Paper.** Neither A4 nor Letter fails; so does the wrong one for the region (Letter for US and
+  CA, A4 elsewhere).
+
+The region and page budget come from the plan the record builds — `--record`, else a `resume.json`
+beside the PDF; `--region` and `--pages` override. The page count is printed, never failed: `jsk
+fit` owns that verdict. Without `pymupdf` it is `SKIPPED`, and a failure. The default `jsk check`
+never runs it (it reads only the PDF); `jsk gates` and `jsk ship` do.
+
+Not measured: a typed `•` — the template's bullet is the same codepoint in the same face, so nothing
+in the text layer tells them apart — and whether it looks right as a whole, the work-rights line and
+declaration, and whether it is true. Those stay a person's.
+
+### `jsk check --only letter`
+
+The `jsk.gates.letter` module.
+
+```bash
+jsk check applications/<dir>/cover-letter.txt --only letter --record applications/<dir>/resume.json
+```
+
+The **letter check** — a cover letter (`.txt` or `.md`) against the resume it goes out beside. The
+default `jsk check` never runs it: it checks another document, not the render.
+
+- **Length.** Over 250 words fails. The body is counted: not the salutation line or anything above
+  it, not the closing (`Sincerely,`, `Best regards,` ...) or anything under it.
+- **Numbers.** Every numeral `numbers.numerals()` finds — so not a year, `p95` or `ISO 27001` — must
+  be held by a current version of a metric cited by a bullet the resume renders (selected, and at or
+  above its floor). Else it fails as `number-unconfirmed` when only a withheld or unconfirmed bullet
+  states it, `number-superseded` when only a replaced version of a cited metric holds it, and
+  `number-untraced` otherwise. "N years of X" is asked of the roles behind X, as the record gate
+  does. A numeral inside quotation marks that `posting.md` beside `resume.json` holds verbatim is
+  the posting's words and is skipped. Without `--record` the number check is SKIPPED, and fails.
+- **Prose.** From the prose gate: placeholders, a sentence that stops before its object, the
+  cut-on-sight phrases (a warning). Its own: enthusiasm padding — "passionate", "excited",
+  "thrilled" — fails. The prose gate's resume-only rules do not apply: a letter is written in the
+  first person, to someone, in sentences, not bullets.
+
+Whether each sentence is true of the career is not checked; that would need a reader.
+
 ### `jsk check`
 
 Both document gates in one pass, on one file. Pass either sibling and the other is found beside it:
@@ -617,10 +707,10 @@ jsk gates <out-dir> --json
 jsk gates <out-dir> --max-findings 0
 ```
 
-The record, parse and prose gates over one rendered output directory, in **one process**. It is the
+The record, parse, prose and layout gates over one rendered output directory, in **one process**. It is the
 five invocations a hand-run verification used to make — the record gate on `resume.json`, the parse
 gate on the PDF and again on the `.txt` with `--strict`, the prose gate on the `.tex` and again on
-the `.txt`. It imports the checkers rather than shelling out to them, and gives them the same
+the `.txt` — then the layout gate on each PDF, handed the record. It imports the checkers rather than shelling out to them, and gives them the same
 arguments, so the findings and the exit code are the ones the five commands produce. That
 equivalence is what it is tested on.
 
@@ -797,7 +887,10 @@ Adds one event to a frozen application's `application.ttl`: `k:evt_<stem>_<date>
 `interview-done`, `onsite-scheduled`, `onsite-done`, `offer`, `offer-accepted`, `rejected`,
 `withdrawn`, `no-response`, `offer-declined`, `follow-up-sent`, `note`, `referral`,
 `recruiter-contact` - and a kind outside it is exit 2 with the nearest one suggested. The date is
-`YYYY-MM-DD` or `unknown`.
+`YYYY-MM-DD` or `unknown`: the day it happened (a `-scheduled` event's is the day it was booked; the
+meeting is its `--due`). Both are printed back with weekday and distance - `recorded
+screen-scheduled on 2026-09-22 (Tuesday, 4 days ago)` - so date arithmetic gone wrong shows as the
+wrong weekday; a `--date` after today is a WARN. `--today` fixes the day, for tests.
 
 Add-only: it never edits or removes an event. A second event of the same kind on the same day -
 another note, a round-2 `interview-done`, a second `unknown`-dated contact - is minted

@@ -165,6 +165,52 @@ class AgentFrontmatter(unittest.TestCase):
         self.assertIn("Leave `floor` at its default, `confirmed`", " ".join(body.split()))
         self.assertNotIn("provenance_floor", body)
 
+    def test_the_extractor_stops_at_the_dry_run(self):
+        """The extractor turns a person's own account into a changeset - the riskiest
+        writing in the skill, so it runs pinned to a model rather than on whatever the
+        session has. It may dry-run and nothing more: the person must see what lands
+        before it lands, and the agent never talks to them. It holds Write for its one
+        changeset file and no Edit, like the auditor; the stop is a sentence, asserted."""
+        fm = frontmatter(PLUGIN / "agents" / "jsk-extractor.md")
+        self.assertEqual(fm["model"], "sonnet")
+        self.assertIn("Write", fm["tools"])
+        self.assertNotIn("Edit", fm["tools"])
+        body = " ".join((PLUGIN / "agents" / "jsk-extractor.md").read_text(
+            encoding="utf-8").split())
+        self.assertIn("You run `jsk kb apply <file> --dry-run` and nothing else that writes.",
+                      body)
+        self.assertIn("Leave provenance out.", body)
+        self.assertIn("Never invent a number.", body)
+
+    def test_the_modes_that_extract_send_the_extractor(self):
+        """The braindump keeps the person's words as a file - the agent needs a source,
+        and `jsk kb confirm --source --quote` can then check a confirmation against what
+        they actually said. Both extracting modes apply only after showing the diff."""
+        refs = SKILL / "references"
+        braindump = " ".join((refs / "mode-braindump.md").read_text(encoding="utf-8").split())
+        setup = " ".join((refs / "mode-setup.md").read_text(encoding="utf-8").split())
+        self.assertIn("`<workspace>/sources/<yyyy-mm-dd>-braindump.md`", braindump)
+        self.assertIn("--source sources/<that file> --quote", braindump)
+        for name, text in (("braindump", braindump), ("setup", setup)):
+            with self.subTest(mode=name):
+                self.assertIn("jsk-extractor", text)
+                self.assertIn("No agents", text)
+
+    def test_every_agent_is_in_the_skill_table_and_pinned(self):
+        """SKILL.md's Agents table is how a session learns an agent exists; one missing
+        from it is never sent, and a row naming no file sends the session at nothing.
+        Every agent runs pinned, with a colour of its own to tell them apart."""
+        skill = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+        table = skill.split("## Agents")[1].split("\n## ")[0]
+        named = set(re.findall(r"^\| `(jsk-[a-z-]+)` \|", table, re.M))
+        files = {p.stem for p in self.agents()}
+        self.assertEqual(named, files)
+        colours = [frontmatter(p).get("color") for p in self.agents()]
+        self.assertEqual(len(colours), len(set(colours)), colours)
+        for path in self.agents():
+            with self.subTest(agent=path.name):
+                self.assertEqual(frontmatter(path).get("model"), "sonnet")
+
     def test_both_authoring_agents_keep_bash(self):
         """Bash is how the record gate is run at all, and both are told to run it."""
         for name in ("jsk-tailor-analyst", "jsk-resume-author"):
@@ -365,13 +411,16 @@ class TheProseSaysWhatTheGatesDo(unittest.TestCase):
         """A changeset cannot write `confirmed`, so a bundle written as changesets alone
         loses every status. The plugin ships no shape for the old Markdown file, so
         mode-setup.md builds the record with changesets and then raises what the bundle
-        held confirmed through `jsk kb confirm`, naming the bundle as the source."""
+        held confirmed through `jsk kb confirm`, quoting the bundle file - an --answer that
+        only named it was checked by nothing."""
         setup = self.ref("mode-setup.md")
         arch = self.doc("docs/ARCHITECTURE.md")
         self.assertNotIn("carrying every status across unchanged", setup)
         self.assertNotIn("write a `user-knowledgebase.md`", setup)
         self.assertIn("A changeset cannot confirm", setup)
-        self.assertIn("`jsk kb confirm <every id the bundle held confirmed> --answer`", setup)
+        self.assertIn("`jsk kb confirm <every id the bundle held confirmed> --source <bundle "
+                      "file> --quote", " ".join(setup.split()))
+        self.assertNotIn("--answer` naming", setup)
         self.assertIn("a changeset cannot confirm", arch)
 
 

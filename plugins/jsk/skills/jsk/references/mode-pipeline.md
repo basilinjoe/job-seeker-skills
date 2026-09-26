@@ -40,7 +40,7 @@ jsk event applications/<dir> screen-scheduled --date 2026-09-11 --channel email 
 **Add-only**: an event is never edited or removed — a correction is a new `note` event.
 
 - **Use the date it happened**, not the date you were told. "They called last Tuesday" is last
-  Tuesday.
+  Tuesday: read the weekday jsk echoes back against what they said.
 - **Use the vocabulary below exactly.** A kind outside it is refused, with the nearest suggested.
 - **Pass `--due` when someone commits to something.** "They'll come back by the 22nd" is a due date.
 - **`follow-up-sent` when they chase.** It does not move the stage but restarts the clock, so the

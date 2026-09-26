@@ -119,7 +119,8 @@ An answer changes **`career/kb.ttl`** — never `gaps.md` or `resume.json`, both
 Revise `gaps.md` **only when an answer changed what the career holds**. Re-run `jsk match`.
 
 **Patch it yourself when every change is a row** — a verdict with its evidence, a ranking row from the
-new match, an answered question struck. **Send it back only when the fit could change or an answer
+new match, an answered question struck — then `jsk match <posting.ttl> --gaps <gaps.md>`, which
+fails a verdict above the match's. **Send it back only when the fit could change or an answer
 needs a row the assessment lacks**: `SendMessage` to the same agent with what changed.
 
 The loop ends when they skip, when nothing is left worth asking, when a round produces no new
@@ -141,8 +142,8 @@ Bullets it adds or rewords arrive `inferred`; the render drops them below the fl
 **Read those quotes to the person and get confirm-correct-or-cut on each**, then `jsk kb confirm
 <ids> --answer "…"` and one changeset for the corrections. Confirm confirms the career's current
 text, never on the strength of the old text. Nothing in `resume.json` needs updating — the next ship
-builds from the career — except a confirmed summary: set its `"status": "confirmed"`. This step is
-yours and is not delegable.
+builds from the career; the summary is confirmed with `jsk kb confirm --summary <resume.json>
+--answer "…"`. This step is yours and is not delegable.
 
 **`resume.json` references content; it cannot contain it.** If the posting wants something the career does
 not have, say so out loud.
@@ -164,8 +165,8 @@ If the fit is genuinely poor, say so.
 
 ## Cover letter, if asked
 
-Under 250 words. Strongest match first. One concrete piece of evidence with its metric. The obvious
-gap in one honest line. No enthusiasm padding.
+Under 250 words: best match first, one metric, the gap in a line. Write `applications/<stem>/cover-letter.txt`; show
+`jsk check <it> --only letter --record <resume.json>` passing.
 
 ## Running it inline
 

@@ -72,9 +72,12 @@ then read it critically and note:
   headers. Each becomes a `q_` question; a background check surfaces a three-month discrepancy.
 - Detail worth keeping that will not fit the current resume
 
-Extract roles, employers, dates, projects and metrics into one changeset and `jsk kb apply` it
-(`references/kb-format.md` has the shapes). It lands `inferred`; then `jsk kb confirm` what the
-document states, with `--answer` naming the document ("From prior-resume.pdf, their own resume").
+Send `jsk-extractor` the workspace, the document (`sources/prior-resume.md`) and the skill
+directory: it extracts roles, employers, dates, projects and metrics into one changeset and dry-runs
+it. Show them the diff, then `jsk kb apply` it. It lands `inferred`; then run the confirm lines the
+agent proposed for what the document states — `jsk kb confirm <ids> --source <file> --quote "its
+exact words"`, each number in the quote — and ask about every clause it quoted as its own. No
+agents? Do the same inline (`references/kb-format.md` has the shapes).
 
 ### If they have a `user-knowledgebase.md`
 
@@ -96,11 +99,11 @@ A graph workspace whose unfrozen `applications/*/resume.json` still hold a full 
 `resume.urs.json`. A frozen application's record is the archive of what was sent and stays as it is.
 
 An older **bundle** (`projects/` and `resume-generation/`) has no migration command: read it whole
-and build the record from it like a resume — `jsk new`, then changesets through `jsk kb apply`
-(`--dry-run` first; each refusal names its fix). A changeset cannot confirm, so it carries
+and build the record from it like a resume — `jsk new`, then `jsk-extractor` per bundle file, each
+changeset shown and applied through `jsk kb apply`. A changeset cannot confirm, so it carries
 `j:needs-verification` and `j:disputed` as the bundle held them and everything else lands `inferred`;
-then `jsk kb confirm <every id the bundle held confirmed> --answer` naming the bundle file it came
-from. Keep the bundle until they confirm the record is complete.
+then `jsk kb confirm <every id the bundle held confirmed> --source <bundle file> --quote "…"`.
+Keep the bundle until they confirm the record is complete.
 
 ### Then go deeper
 

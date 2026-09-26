@@ -24,7 +24,9 @@ TODAY = datetime.date(2026, 9, 24)
 K = O.K
 MERIDIAN = ["ach_events_latency", "ach_events_team", "ach_identity_sso"]
 CLEAN_SUMMARY = {"text": "Platform engineer with 5 years of Kubernetes, building event "
-                         "platforms that other teams build on.", "status": "confirmed"}
+                         "platforms that other teams build on.", "status": "confirmed",
+                 "answer": "Yes - that is how I describe what I do.",
+                 "text_sha256": "2218dd810a58"}
 
 LATENCY = "Cut p95 event latency from 5 s to 400 ms on AKS with Kafka."
 TEAM = "Led a team of 6 engineers."

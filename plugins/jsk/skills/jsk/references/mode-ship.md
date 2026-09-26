@@ -37,7 +37,7 @@ jsk ship applications/<stem>/resume.json --out applications/<stem> [--ats-max] [
 ```
 
 One process: the record gate (a failure stops it; nothing renders), then `render --pdf`, then the
-parse and prose gates, each step's output verbatim. Exit 0 only if every step passed. Show that
+parse, prose and layout gates, each step's output verbatim. Exit 0 only if every step passed. Show that
 output. Read the `=== summary` it ends with; the sections above are its evidence. It refuses in a
 frozen application.
 
@@ -50,7 +50,7 @@ only warn.
 content is dropped from the render; the only sign is a `withheld …` line. Every one is confirmed or
 cut before the resume is handed over: confirm it in the career — `jsk kb confirm <ids> --answer
 "…"`, reworded wording first through `jsk kb apply`, never on the strength of the old text — and
-re-ship. A confirmed summary: set its `"status": "confirmed"` in `resume.json`.
+re-ship. The summary: `jsk kb confirm --summary <resume.json> --answer "…"`.
 
 ## 3. Fit, if it overran
 
@@ -65,24 +65,18 @@ re-run `jsk ship`.
 
 ## 4. The render gate
 
-`jsk ship` closes by saying the render gate was not run. It is yours: open the PDF and look at every
-page. The checkers pass tofu-box bullets, a heading in the wrong font and an orphaned heading, so
-check:
+`jsk ship` closes by saying the render gate was not run. The layout gate has measured tofu, the
+fonts, stranded headings, the date column, the paper and the page count; open the PDF for the rest:
 
-- [ ] Page count is what `resume.json` asked for
-- [ ] Bullets are real glyphs, not boxes, and not a typed `•`
-- [ ] One font family throughout — headings against body, not just body against itself
-- [ ] No heading stranded at the foot of a page with its content overleaf
-- [ ] Dates aligned and consistently formatted
-- [ ] The region profile did what you intended: its paper size, the work-rights line where it
-      asks for one, the declaration on an Indian resume
-- [ ] The prose, end to end: whether a bullet is true is theirs to confirm — call the resume
-      **unverified** until they have read it
+- [ ] It looks right as a whole
+- [ ] The work-rights line where the region asks for one; the declaration on an Indian resume
+- [ ] The prose, end to end: flag any verb that overstates ownership. Whether a bullet is true is
+      theirs to confirm — call the resume **unverified** until they have read it
 
 **`jsk-verifier`** is for a failed gate whose source you cannot see, or a second reading of the
 render gate. Hand it the output directory, the page budget, the `resume.json` path and the workspace; it
 returns each verdict quoted and each defect traced to the id where it is fixed. To re-check one gate
-after one repair, `jsk gates <dir>` or `jsk check <file> --only parse|prose`.
+after one repair, `jsk gates <dir>` or `jsk check <file> --only parse|prose|layout`.
 
 ## 5. Freeze the application
 

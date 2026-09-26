@@ -1,6 +1,6 @@
-"""The three mechanical gates, and the one that is not mechanical.
+"""The four mechanical gates, and the one that is not mechanical.
 
-A resume passes four gates before anybody sends it. Three of them are here and run as
+A resume passes five gates before anybody sends it. Four of them are here and run as
 `jsk gates <out-dir>`, each one's output printed verbatim:
 
     record gate   record.py          is the short resume.json sound, and does every
@@ -12,16 +12,20 @@ A resume passes four gates before anybody sends it. Three of them are here and r
     prose gate    check_prose.py     does the writing obey the rules a parser cannot
                                      see - third person, unresolved placeholders, a
                                      sentence that stops before its object?
+    layout gate   layout.py          tofu, a face the template did not declare, a
+                                     heading stranded at a page foot, a date out of
+                                     its column, the wrong paper - what a model
+                                     reading page images was asked to see.
 
-**The fourth gate is a person opening the PDF and reading every page, and nothing in
+**The fifth gate is a person opening the PDF and reading every page, and nothing in
 this package can run it.** `jsk gates` closes by saying so rather than exiting 0 and
 letting a caller infer that a resume has been checked. That is the whole reason the
-other three are worth having: a gate that overstates what it covers teaches people to
+other four are worth having: a gate that overstates what it covers teaches people to
 stop reading the ones that do not.
 
 Every module here exposes `main(argv)` and runs as `python -m jsk.gates.<name>`,
-because `jsk gates` calls all three in one interpreter rather than spawning four - and
-a gate that raised where it should have returned a verdict would take the other two
+because `jsk gates` calls all four in one interpreter rather than spawning five - and
+a gate that raised where it should have returned a verdict would take the others
 down with it. `cli.call_gate` is where that is contained.
 
 `report.py` (Report, show) and `numbers.py` (the numeral detector and the number check
@@ -31,4 +35,4 @@ designator like `p95` and a standard's number are not claims, and a detector wit
 those exclusions reports a resume as unquantified because it mentions 2019.
 """
 
-__all__ = ["check_ats", "check_prose", "numbers", "record", "report"]
+__all__ = ["check_ats", "check_prose", "layout", "letter", "numbers", "record", "report"]

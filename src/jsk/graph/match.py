@@ -1,22 +1,25 @@
 """jsk match - a posting's requirements joined with the career, through the vocabulary.
 
 Usage: jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] [--today YYYY-MM-DD]
+                 [--gaps <gaps.md>]
 
   --cover N   the most projects the cover may use (default 3)
   --json      the same result, structured
   --today     the date recency is measured from (default: today)
+  --gaps F    check gaps.md's Requirements table against the match instead of printing it
 
 Reads the whole graph workspace the posting belongs to - career/kb.ttl, the applications,
 the shipped vocabulary - and validates it first: a record with a FAIL is not matched,
 because a match over a broken record would be a guess.
 
 Exit 0 matched (missing requirements included: this is an assessment, not a gate),
-1 the workspace has FAIL findings, 2 called wrong.
+1 the workspace has FAIL findings, or --gaps found a FAIL, 2 called wrong.
 
 Each requirement lands in one bucket. `matched`: a project holds the concept, or one that
 counts as it. `near`: only through an implies edge, for a required requirement, or the
 project holds something broader. `missing`, `ambiguous` (the label names more than one
 concept - the analyst answers with j:concept), `candidate` (it names none), `implicit`.
+Each gets a default Verdict from its bucket and evidence; gaps.md may lower it, never raise it.
 """
 import datetime
 import json
@@ -122,6 +125,17 @@ def fault_question(q):
             + f" ({SOURCES})? Or should the words change?")
 
 
+def verdict(state, carriers):
+    """The Verdict the record supports, from the bucket and the evidence: the most gaps.md
+    may say. A tag or an unconfirmed bullet is a claim, so matching on one is `unevidenced`.
+    None for `implicit`: the match does not assess it."""
+    if state == "matched":
+        return ("satisfied" if any(c["evidence"] == "confirmed" for c in carriers)
+                else "unevidenced")
+    return {"near": "partial", "missing": "unsatisfied", "ambiguous": "indeterminate",
+            "candidate": "indeterminate"}.get(state)
+
+
 def result(store, post, today, budget, elsewhere=0):
     """Everything `jsk match` reports, as plain data."""
     from . import queries as Q
@@ -134,13 +148,15 @@ def result(store, post, today, budget, elsewhere=0):
         <{post}> j:company ?company ; j:title ?title }}""")[0]
     reqs = []
     for m in matches.values():
+        carriers = [{"project": curie(p), "held": curie(h), "hops": hops, "implied": imp,
+                     "evidence": Q.evidence(store, p, m.concept)}
+                    for p, (h, hops, imp) in sorted(m.carriers.items())]
         reqs.append({
             "id": curie(m.requirement.iri), "asked": m.requirement.asked,
             "necessity": m.requirement.necessity, "state": m.state,
+            "verdict": verdict(m.state, carriers),
             "concepts": [curie(c) for c in m.resolution.concepts],
-            "carriers": [{"project": curie(p), "held": curie(h), "hops": hops, "implied": imp,
-                          "evidence": Q.evidence(store, p, m.concept)}
-                         for p, (h, hops, imp) in sorted(m.carriers.items())],
+            "carriers": carriers,
             "near": [{"project": curie(p), "why": why} for p, why in sorted(m.near.items())],
         })
     return {
@@ -200,8 +216,10 @@ def markdown(r):
         m = r["failures_elsewhere"]
         out.append(f"{m} failure{'s' if m > 1 else ''} elsewhere in the workspace: matching those "
                    f"postings refuses until they are fixed.")
-    out += ["", "## Requirements", "", "| Requirement | Need | State | Carried by | Evidence |",
-            "|---|---|---|---|---|"]
+    out += ["", "## Requirements", "",
+            "Verdict is the most the record supports: gaps.md starts from it and may lower it.", "",
+            "| Requirement | Need | State | Verdict | Carried by | Evidence |",
+            "|---|---|---|---|---|---|"]
     for q in reqs:
         if q["carriers"]:
             carried = "; ".join(c["project"] + ("" if c["hops"] == 0 else
@@ -216,7 +234,8 @@ def markdown(r):
             carried, ev = " or ".join(q["concepts"]) + "?", ""
         else:
             carried, ev = "", ""
-        out.append(f"| {q['asked']} | {q['necessity']} | {q['state']} | {carried} | {ev} |")
+        out.append(f"| {q['asked']} | {q['necessity']} | {q['state']} | {q['verdict'] or '-'} | "
+                   f"{carried} | {ev} |")
     out += ["", "## Ranking", "",
             "Required ×3 · preferred ×1 · strength ×2 · recency +1 within 3 years, +0.5 at 4-6 · "
             "seniority +1 at or above the posting's.", "",
@@ -262,13 +281,94 @@ def markdown(r):
     return "\n".join(out) + "\n"
 
 
+# Raising a verdict is never the analyst's call. When the match under-reads the record, the
+# fix is in the career - the tag, or the confirmed bullet - made in the conversation with the
+# person present; then the match reads it. A verdict typed higher is a claim nobody made.
+RANK = {"satisfied": 3, "partial": 2, "unevidenced": 1, "unsatisfied": 0}
+VERDICTS = (*RANK, "indeterminate")
+RAISE_FIX = ("lower it, or - if the record really shows it - the career needs the tag or the "
+             "confirmation, which the conversation makes; then re-run jsk match")
+
+
+def gaps_table(text):
+    """gaps.md's `# Requirements` table as {column: cell} rows; None when it has none."""
+    import re
+
+    def squash(cell):                       # not rules.squash: `_` is part of an id
+        return re.sub(r"\s+", " ", re.sub(r"[*`]+", "", cell))
+
+    rows, head, inside = [], None, False
+    for line in text.replace("\r\n", "\n").split("\n"):
+        s = line.strip()
+        if s.startswith("#"):
+            inside = s.lstrip("#").strip().lower() == "requirements"
+            continue
+        if not inside or not s.startswith("|"):
+            continue
+        cells = [squash(c).strip() for c in s.strip("|").split("|")]
+        if head is None:
+            head = [c.lower() for c in cells]
+        elif not all(set(c) <= set("-: ") for c in cells):
+            rows.append(dict(zip(head, cells)))
+    return None if head is None else rows
+
+
+def cites_id(cell):
+    """Does the Evidence cell name a record id (`prj_x`, `k:ach_y`), not a paraphrase?"""
+    import re
+
+    from . import ontology as O
+
+    return any((m := O.ID.fullmatch(t.rstrip("."))) and m["prefix"] in O.BY_PREFIX
+               for t in re.findall(r"[a-z0-9_.]+", cell))
+
+
+def check_gaps(reqs, rows):
+    """(severity, text, fix) for each way gaps.md's table leaves the match's Verdicts."""
+    from . import ontology as O
+
+    out, by = [], {O.norm(q["asked"]): q for q in reqs}
+    seen = set()
+    for row in rows:
+        asked, said = row.get("requirement", ""), row.get("verdict", "").lower()
+        q = by.get(O.norm(asked))
+        if q is None:
+            out.append(("WARN", f"row {asked!r} matches no requirement of the posting",
+                        "name it as posting.ttl's j:asked does, or add the requirement"))
+            continue
+        seen.add(q["id"])
+        default = q["verdict"]
+        if said not in VERDICTS:
+            out.append(("FAIL", f"{asked}: {said!r} is not a verdict",
+                        "one of " + ", ".join(VERDICTS)))
+            continue
+        if default == "indeterminate":
+            raised = said in ("satisfied", "partial")
+        else:
+            raised = (default is not None and said != "indeterminate"
+                      and RANK[said] > RANK[default])
+        if raised:
+            out.append(("FAIL", f"{asked}: {said}, above the match's {default}", RAISE_FIX))
+        if said in ("satisfied", "partial") and not cites_id(row.get("evidence", "")):
+            out.append(("FAIL", f"{asked}: {said} with no id in Evidence",
+                        "cite the project or bullet id that shows it, or lower the verdict"))
+        if said == "partial" and not row.get("shortfall"):
+            out.append(("FAIL", f"{asked}: partial with no Shortfall",
+                        "name the axis it falls short on"))
+    for q in reqs:
+        if q["id"] not in seen:
+            out.append(("WARN", f"{q['asked']} ({q['id']}) has no row",
+                        f"add it, starting from the match's verdict ({q['verdict'] or '-'})"))
+    return out
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if wants_help(argv) or not argv:
         print(docstring_usage(__doc__))
         return 0 if wants_help(argv) else 2
     options = {}
-    for flag in ("--cover", "--today"):
+    for flag in ("--cover", "--today", "--gaps"):
         if flag in argv:
             at = argv.index(flag)
             if at + 1 >= len(argv):
@@ -280,7 +380,7 @@ def main(argv=None):
     argv = [a for a in argv if a != "--json"]
     if len(argv) != 1:
         print("usage: jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] "
-              "[--today YYYY-MM-DD]")
+              "[--today YYYY-MM-DD] [--gaps <gaps.md>]")
         return 2
     try:
         budget = int(options.get("--cover", COVER))
@@ -322,8 +422,30 @@ def main(argv=None):
         print(f"{posting}: holds no posting")          # the cardinality rule makes this rare
         return 1
     r = result(store, posts[0], today, budget, len(store.fails()) - len(blocking))
+    if "--gaps" in options:
+        return report_gaps(r, options["--gaps"])
     print(json.dumps(r, indent=2, ensure_ascii=False) if as_json else markdown(r), end="")
     return 0
+
+
+def report_gaps(r, path):
+    """Print check_gaps' findings; 1 on any FAIL."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            rows = gaps_table(fh.read())
+    except OSError as e:
+        print(f"FAIL  {path}: {e.strerror}")
+        return 1
+    if rows is None:
+        print(f"FAIL  {path}: no `# Requirements` table\n      fix: write it - Requirement | "
+              f"Need | Verdict | Evidence | Shortfall - one row per requirement")
+        return 1
+    found = check_gaps(r["requirements"], rows)
+    for severity, text, fix in found:
+        print(f"{severity}  {text}\n      fix: {fix}")
+    fails = sum(s == "FAIL" for s, _, _ in found)
+    print(f"{path}: {len(rows)} rows, {fails} FAIL, {len(found) - fails} WARN")
+    return 1 if fails else 0
 
 
 if __name__ == "__main__":

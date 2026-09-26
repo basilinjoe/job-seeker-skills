@@ -70,7 +70,8 @@ k:req_acme_platform_integration j:posting k:post_acme_platform ;
 - **`necessity`**: "expert in Terraform" is `j:required`, "Terraform a plus" is `j:preferred`. When
   the advert does not say, `j:implicit` — never promote a guess to `required`.
 - **Eligibility is not a requirement.** Work authorization, clearance and location go in the
-  assessment's `# Eligibility` section.
+  assessment's `# Eligibility` section. Every other line the advert asks gets one: an
+  `advert-uncovered` warning (`jsk kb check` names the line) means one was skipped.
 
 Then `jsk kb fmt applications/<stem>/posting.ttl` for the canonical layout.
 
@@ -82,7 +83,8 @@ jsk match applications/<stem>/posting.ttl
 
 It validates the workspace (a FAIL is printed and nothing is matched — **report it and stop**), then
 prints four sections: **Requirements**, each bucketed `matched` / `near` / `missing` / `ambiguous` /
-`candidate` / `implicit` (not matched) with the projects carrying it and the evidence (`confirmed`, `unconfirmed`, `tag`);
+`candidate` / `implicit` (not matched) with its default Verdict, the projects carrying it and the
+evidence (`confirmed`, `unconfirmed`, `tag`);
 **Ranking**, the scores; **Cover**, the smallest set of projects carrying every required one; and
 **Questions**, derived from the gaps.
 
@@ -157,18 +159,13 @@ Pass. The posting offers no sponsorship; the career holds Australian permanent r
    first sites too, or longer?
 ```
 
-| Verdict | Means | Needs |
-|---|---|---|
-| `satisfied` | evidence meets it | at least one project id |
-| `partial` | meets part of it, on a named axis | evidence **and** a named shortfall |
-| `unsatisfied` | the record shows they do not have it | — |
-| `unevidenced` | the record *claims* it with nothing behind it | a question |
-| `indeterminate` | the comparison could not be made | — |
+**Each Verdict starts from the match's.** Lower one with the reason in Shortfall; **never raise
+it** — a match that under-reads is fixed in the career, by the conversation. `satisfied` and
+`partial` cite an id, never a paraphrase; `partial` names its shortfall; `unevidenced` gets a
+question. Never soften `indeterminate` into `unsatisfied`: only one is about the candidate.
 
-- **`unevidenced`** looks like `satisfied` to a keyword matcher and collapses at the first interview
-  question. Evidence `tag` or `unconfirmed` in the match is at best this.
-- **Never soften `indeterminate` into `unsatisfied`** — only one of them is about the candidate.
-- **Evidence is an id** (`prj_clinical_events`, `pos_meridian_principal`), never a paraphrase.
+Then run `jsk match applications/<stem>/posting.ttl --gaps applications/<stem>/gaps.md` and fix
+every FAIL before returning.
 
 ## 4. The questions
 

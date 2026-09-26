@@ -242,6 +242,100 @@ class Exported(unittest.TestCase):
         self.assertEqual(json.dumps(again), json.dumps(self.doc))
 
 
+def many(root, name, n, cites=False):
+    """`n` more confirmed bullets on `name`, ranked after the fixture's."""
+    career_plus(root, "".join(
+        f'\nk:ach_{name}_more{i} j:project k:prj_{name} ; j:rank {10 + i} ; '
+        f'j:text "More {i}." ;{" j:cites k:met_apps ;" if cites else ""} '
+        f'j:provenance j:confirmed .\n' for i in range(n)))
+
+
+class Ranked(unittest.TestCase):
+    """--ranked: the selection with no posting. At 2026-09-25 the fixture scores events
+    11 (5x2 + 1), identity 8.5, portal 6.5, data 4.5, game 4."""
+
+    def setUp(self):
+        self.root = workspace(self)
+
+    def sel(self, extra=()):
+        return SEL.ranked(S.load(self.root), TODAY, extra)
+
+    def test_projects_by_strength_and_recency(self):
+        sel = self.sel()
+        self.assertEqual(ids(sel.projects),
+                         ["prj_events", "prj_identity", "prj_portal", "prj_data", "prj_game"])
+        self.assertEqual((sel.skills, sel.gaps), ([], []))
+
+    def test_bullets_citing_a_number_first_then_the_floor(self):
+        sel = self.sel()
+        self.assertEqual(ids(sel.bullets[O.K + "prj_events"]),
+                         ["ach_events_latency", "ach_events_team", "ach_events_terraform"])
+        self.assertEqual(ids(sel.bullets[O.K + "prj_portal"]), ["ach_portal_frontend"])
+
+    def test_the_band_caps_each_position(self):
+        many(self.root, "events", 4, cites=True)     # 1st: cap 5
+        many(self.root, "portal", 3, cites=True)     # 3rd: cap 2
+        sel = self.sel()
+        self.assertEqual(ids(sel.bullets[O.K + "prj_events"]),
+                         ["ach_events_latency", "ach_events_team", "ach_events_more0",
+                          "ach_events_more1", "ach_events_more2"])
+        self.assertEqual(ids(sel.bullets[O.K + "prj_portal"]),
+                         ["ach_portal_more0", "ach_portal_more1"])
+
+    def test_bullets_with_no_number_fill_only_to_the_floor(self):
+        many(self.root, "events", 4)
+        self.assertEqual(len(self.sel().bullets[O.K + "prj_events"]), 3)
+
+    def test_unconfirmed_and_retired_bullets_never_come(self):
+        career_plus(self.root, '\nk:ach_events_latency j:retired "2026-09-01"^^xsd:date ; '
+                               'j:reason "gone" .\n')
+        sel = self.sel()
+        self.assertEqual(sel.bullets[O.K + "prj_data"], [])        # inferred only
+        self.assertNotIn(O.K + "ach_events_latency", sel.bullets[O.K + "prj_events"])
+
+    def test_more_than_most_projects_is_cut_to_most(self):
+        career_plus(self.root, "".join(
+            f'\nk:prj_z{i} j:name "Z{i}" ; j:position k:pos_pixel_developer ; j:strength 1 ; '
+            f'j:recency 2010 ; j:noneQuantified true ; j:provenance j:confirmed .\n'
+            f'k:ach_z{i} j:project k:prj_z{i} ; j:rank 1 ; j:text "Z{i}." ; '
+            f'j:provenance j:confirmed .\n' for i in range(4)))
+        sel = self.sel()
+        self.assertEqual(len(sel.projects), SEL.MOST)
+        self.assertEqual(ids(sel.projects)[-3:], ["prj_z0", "prj_z1", "prj_z2"])
+
+    def test_select_adds_to_it(self):
+        many(self.root, "portal", 1)
+        sel = self.sel([O.K + "ach_portal_more0"])
+        self.assertEqual(ids(sel.bullets[O.K + "prj_portal"]),
+                         ["ach_portal_frontend", "ach_portal_more0"])
+
+    def test_deterministic(self):
+        store = S.load(self.root)
+        first = export.short_file(store, selection=SEL.ranked(store, TODAY))
+        store = S.load(self.root)
+        self.assertEqual(json.dumps(export.short_file(store, selection=SEL.ranked(store, TODAY))),
+                         json.dumps(first))
+
+    def test_score_allocates_and_chronology_orders(self):
+        """The oldest project scoring highest leads the file, and still renders last."""
+        from jsk.resume import build
+
+        kb = Path(self.root, "career", "kb.ttl")
+        text = kb.read_text(encoding="utf-8")
+        kb.write_bytes(text.replace("j:strength 2 ; j:recency 2016", "j:strength 5 ; j:recency 2016")
+                       .replace("j:strength 5 ; j:recency 2026", "j:strength 1 ; j:recency 2026")
+                       .encode())
+        store = S.load(self.root)
+        doc = export.short_file(store, selection=SEL.ranked(store, TODAY))
+        self.assertEqual(doc["bullets"][0], "ach_game_players")
+        self.assertEqual(doc["bullets"][-2:], ["ach_events_latency", "ach_events_team"])  # 5th
+        self.assertEqual(short.shape(doc), [])
+        plan = build.build(store, doc, today=TODAY)
+        experience = next(s for s in plan["sections"] if s.get("heading") == "Professional Experience")
+        self.assertEqual([e["org_line"] for e in experience["entries"]],
+                         ["Meridian Health", "Harbour Systems", "Pixel Games"])
+
+
 class SkillAliases(unittest.TestCase):
     """An alias naming a concept no project holds does not rank its skill: an ATS reads it
     as a claim of that experience, and the claims gate warned of it (ElevenLabs,
@@ -318,6 +412,23 @@ class Command(unittest.TestCase):
     def test_cover_and_today_need_from_match(self):
         self.assertEqual(self.kb("export", "--cover", "2")[0], 2)
         self.assertEqual(self.kb("export", "--today", "2026-09-25")[0], 2)
+
+    def test_ranked_with_no_posting(self):
+        code, out, err = self.kb("export", "--ranked", "--today", "2026-09-25",
+                                 "--select", "pos_lakeside_contractor")
+        self.assertEqual(code, 0, err)
+        doc = json.loads(out)
+        self.assertNotIn("ach_data_ingestion", doc["bullets"])
+        self.assertNotIn("skills", doc)
+        self.assertEqual(doc["roles"], ["pos_lakeside_contractor"])
+        self.assertIn("NOTE  k:prj_data has no confirmed bullet", err)
+        self.assertNotIn("GAP", err)
+
+    def test_ranked_and_from_match_is_a_usage_error(self):
+        self.assertEqual(self.kb("export", "--ranked", "--from-match", self.posting)[0], 2)
+
+    def test_cover_needs_from_match_even_with_ranked(self):
+        self.assertEqual(self.kb("export", "--ranked", "--cover", "2")[0], 2)
 
     def test_bad_cover_and_today(self):
         for flag, value in (("--cover", "0"), ("--cover", "x"), ("--today", "soon")):

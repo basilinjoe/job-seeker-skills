@@ -87,6 +87,29 @@ class Shape(unittest.TestCase):
         self.assertTrue(self.check(summary={"status": "inferred"}))
         self.assertTrue(self.check(floor="sure"))
 
+    def test_a_confirmed_summary_carries_its_answer_and_hash(self):
+        """Flipping "status" to confirmed by hand confirmed a summary with no answer and
+        no audit, and an edit afterwards kept it confirmed."""
+        summary = short.confirmed({"text": "Platform engineer.", "status": "inferred"},
+                                  "Yes, that is me in one line.")
+        self.assertEqual(list(summary), ["text", "status", "answer", "text_sha256"])
+        self.assertEqual(summary["text_sha256"], short.digest("Platform engineer."))
+        self.assertEqual(len(summary["text_sha256"]), 12)
+        self.assertEqual(self.check(summary=summary), [])
+        flipped = self.check(summary={"text": "Platform engineer.", "status": "confirmed"})
+        self.assertTrue(any("records no answer" in f and "jsk kb confirm --summary" in f
+                            for f in flipped), flipped)
+        for said in ("yes", "ok", "No."):
+            with self.subTest(said=said):
+                self.assertTrue(self.check(summary={**summary, "answer": said}))
+        edited = self.check(summary={**summary, "text": "Platform engineer and leader."})
+        self.assertTrue(any("changed since it was confirmed" in f
+                            and "jsk kb confirm --summary" in f for f in edited), edited)
+        self.assertTrue(any("text_sha256" in f for f in self.check(
+            summary={k: v for k, v in summary.items() if k != "text_sha256"})))
+        # An inferred summary needs neither.
+        self.assertEqual(self.check(summary={"text": "Platform engineer.", "status": "inferred"}), [])
+
     def test_a_region_is_a_two_letter_code(self):
         """Final review: "aus" validated and rendered the default profile - two pages and
         no work-rights line - over the person's AU country that would have been right."""
