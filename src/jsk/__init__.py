@@ -44,6 +44,6 @@ bare Python runs the record gate, the prose gate and the `.txt` parse gate, and
 installed on it.
 """
 
-__version__ = "4.3.0"
+__version__ = "4.4.0"
 
 __all__ = ["__version__"]

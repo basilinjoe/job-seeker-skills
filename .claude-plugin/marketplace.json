@@ -10,7 +10,7 @@
       "name": "jsk",
       "source": "./plugins/jsk",
       "description": "A career knowledge base as a validated graph record, with verified ATS-safe resumes and job-description tailoring.",
-      "version": "4.3.0",
+      "version": "4.4.0",
       "author": {
         "name": "Basilin Joe"
       }
