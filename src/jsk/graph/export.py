@@ -57,6 +57,19 @@ def chosen(career, select):
             raise ExportError(f"{text} was retired on {career.get(iri, 'retired')} "
                               f"({career.get(iri, 'reason', 'no reason given')})",
                               "leave it out: a retired entry does not belong on a resume")
+        # Its project and role, which it renders under: only live ones are walked, so a
+        # bullet of a retired project had no home and left the file with nothing said.
+        home = iri
+        for key in {"Achievement": ("project", "position"), "Project": ("position",)}.get(cls, ()):
+            home = career.get(home, key)
+            if home and career.get(home, "retired"):
+                raise ExportError(f"{text} is under {local(home)}, retired on "
+                                  f"{career.get(home, 'retired')} "
+                                  f"({career.get(home, 'reason', 'no reason given')})",
+                                  "leave it out, or move it to a live "
+                                  f"{'project' if key == 'project' else 'role'} with `jsk kb apply`")
+            if not home:
+                break
         {"Project": projects, "Achievement": bullets, "Position": roles}[cls].add(iri)
     return projects, bullets, roles
 

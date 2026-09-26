@@ -13,8 +13,9 @@ same resume is one page in a dense template and two in an airy one, and a
 two-page resume where a one-page resume was possible is a decision, not a
 side effect.
 
-Exit 0 = every template rendered.  Exit 1 = at least one did not.
-Exit 2 = usage error, or no TeX engine.
+Exit 0 = every template rendered.  Exit 1 = at least one did not, or the
+application is frozen.  Exit 2 = usage error, a resume.json that does not load,
+or no TeX engine.
 
 This exists because `--list-templates` can only describe a template, and nobody
 picks a resume design from a sentence. The templates differ in what they
@@ -101,6 +102,24 @@ def main(argv):
         print("usage: --out DIR is required - previews are scratch, not deliverables")
         return 2
     os.makedirs(out_dir, exist_ok=True)
+
+    # The file is loaded once, here, before any template: a legacy record, a file outside
+    # a workspace or a frozen application fails every template the same way, and five
+    # FAILED blocks under "a template that does not build" blamed the templates for it.
+    from ..cli import frozen_refusal
+    from ..resume import build as B
+    from ..resume.short import ShortError
+
+    refusal = frozen_refusal(out_dir, os.path.dirname(os.path.abspath(src)))
+    if refusal:
+        print("\n".join(refusal))
+        return 1
+    try:
+        B.load(src)
+    except ShortError as err:
+        print(f"FAIL  {err}")
+        print(f"fix:  {err.fix}")
+        return 2
 
     if not available_engine():
         print("NO RENDERER - previews are pages, and there is nothing to make one with.")

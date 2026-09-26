@@ -74,6 +74,30 @@ class Retired(unittest.TestCase):
             export.short_file(self.store, select=["ach_events_terraform"])
         self.assertIn("retired", str(caught.exception))
 
+    def retire(self, iri):
+        path = os.path.join(self.root, "career", "kb.ttl")
+        with open(path, "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(f'\n{iri} j:retired "2026-09-01"^^xsd:date ; j:reason "gone" .\n')
+        self.store = S.load(self.root)
+
+    def test_a_bullet_whose_project_is_retired_is_refused_not_dropped(self):
+        """Only live projects are walked, so the bullet had no home and left the file
+        with no word said - and a sole pick fell to "the selection holds no bullet"."""
+        self.retire("k:prj_identity")
+        with self.assertRaises(export.ExportError) as caught:
+            export.short_file(self.store, select=["ach_events_team", "ach_identity_sso"])
+        self.assertIn("ach_identity_sso", str(caught.exception))
+        self.assertIn("prj_identity", str(caught.exception))
+        self.assertIn("retired", str(caught.exception))
+
+    def test_a_pick_whose_role_is_retired_is_refused(self):
+        # The record gate fails a bullet under a retired role; export should not write one.
+        self.retire("k:pos_meridian_engineer")
+        for pick in ("ach_identity_sso", "prj_identity"):
+            with self.subTest(pick), self.assertRaises(export.ExportError) as caught:
+                export.short_file(self.store, select=[pick])
+            self.assertIn("pos_meridian_engineer", str(caught.exception))
+
 
 class Workspace(unittest.TestCase):
     """A copy of the fixture career to run `jsk kb` in."""

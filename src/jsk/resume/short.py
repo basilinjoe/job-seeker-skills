@@ -40,9 +40,11 @@ def read(path):
         raise ShortError(f"{path}: not a resume.json", "write one with `jsk kb export`")
     if "urs" in doc:
         # A full record from before the career built the resume: the choices in it are
-        # still good, and migrate carries them over.
+        # still good, and migrate carries them over. The file is named because a bare
+        # `jsk migrate` sweeps only applications/*/resume.json.
         raise ShortError(f"{path} is a full URS record, which jsk no longer reads",
-                         "convert it with `jsk migrate` - it keeps the view's choices")
+                         f"convert it with `jsk migrate {path}` - it keeps the view's "
+                         "choices")
     if doc.get("resume") != VERSION:
         raise ShortError(f"{path}: \"resume\" is {doc.get('resume')!r}, not {VERSION}",
                          "write it again with `jsk kb export`")

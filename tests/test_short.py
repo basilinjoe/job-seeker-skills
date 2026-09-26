@@ -26,7 +26,9 @@ class Read(unittest.TestCase):
             p.write_text(json.dumps({"urs": "1.0.0"}), encoding="utf-8")
             with self.assertRaises(short.ShortError) as err:
                 short.read(p)
-            self.assertIn("jsk migrate", err.exception.fix)
+            # The file named, not a bare `jsk migrate`: the workspace sweep reads only
+            # applications/*/resume.json, and this one could be anywhere.
+            self.assertIn(f"jsk migrate {p}", err.exception.fix)
 
     def test_not_json_and_missing_are_refused(self):
         with tempfile.TemporaryDirectory() as tmp:

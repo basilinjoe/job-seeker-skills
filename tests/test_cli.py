@@ -760,6 +760,21 @@ class PreviewInProcess(unittest.TestCase):
         self.assertIn(f"FAILED: {broken}", out)
         self.assertIn("! Missing $", out)
 
+    def test_a_file_that_does_not_load_is_said_once_not_blamed_on_the_templates(self):
+        """A legacy record fails the same way in every template; five FAILED blocks and
+        "a template that does not build" sent the reader after the templates."""
+        Path(self.record).write_text(json.dumps({"urs": "1.0"}), encoding="utf-8")
+
+        def never(tex_path, out_dir):
+            raise AssertionError("compiled a file that does not load")
+
+        code, out = self.preview(never)
+        self.assertEqual(code, 2, out)
+        self.assertEqual(out.count("full URS record"), 1, out)
+        self.assertIn("jsk migrate", out)
+        self.assertNotIn("FAILED", out)
+        self.assertNotIn("template that does not build", out)
+
 
 class Match(unittest.TestCase):
     """`jsk match`: an assessment, so it exits 0 with gaps; 1 only for a broken record."""
