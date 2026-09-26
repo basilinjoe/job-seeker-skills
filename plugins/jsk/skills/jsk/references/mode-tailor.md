@@ -110,6 +110,9 @@ An answer changes **`career/kb.ttl`** — never `gaps.md` or `resume.json`, both
   op:add { k:prj_unitng j:uses c:azure-logic-apps .  c:azure-logic-apps a j:Technology . }
   op:set { k:ach_unitng_x j:text "The corrected words." . }
   ```
+- **A term they name** (`ambiguous`, `unknown-term`): if `asked` is a term, not a clause, the
+  changeset labels the concept with it — `op:add { c:ai-agents j:label "autonomous agents" . }`
+  — so no later posting asks again. A clause stays a `j:concept` in `posting.ttl`.
 - **What they confirmed**: `jsk kb confirm <ids> --answer "their words"`, which also answers the
   open questions about them.
 - **Unanswerable**: soften or cut the claim in the changeset; never leave it pending forever.

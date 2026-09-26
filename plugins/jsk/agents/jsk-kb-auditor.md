@@ -99,7 +99,8 @@ The caller works through this one question at a time, so keep it short enough to
 3. **Claims to soften or cut** — no evidence and no plausible source. The most valuable list you
    produce.
 4. **Mechanical fixes** — each as the changeset line it needs (a missing tag, a vocabulary term, a
-   duplicate to retire). No interview needed; the caller applies them.
+   duplicate to retire). No interview needed; the caller applies them. Concepts that are one
+   thing: the `jsk kb merge` to run. The top of `jsk kb query bare`: the label each needs.
 5. **What you did not read**, and why.
 
 Quote rather than paraphrase — the caller shows the person their own words.

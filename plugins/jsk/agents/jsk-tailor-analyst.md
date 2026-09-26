@@ -61,7 +61,8 @@ k:req_acme_platform_integration j:posting k:post_acme_platform ;
 
 - **`j:concept`** names the concept an advert's phrase means, when the list has it exactly:
   "mentoring senior engineers" is `c:mentoring`; "cloud-native architecture" is not
-  `c:cloud-migration`. No exact fit: leave it off, and the match reports a new term.
+  `c:cloud-migration`. No exact fit: leave it off, and the match reports a new term. Alternatives
+  ("AWS/GCP/Azure", "Pinecone, Weaviate or Milvus") get one `j:concept` each; any one satisfies.
 
 - **`j:asked`** is the term as the advert writes it; **`j:quote`** the advert's own words, **copied
   verbatim** (checked against `posting.md`). `j:seniority` is one of architecture-ownership ·

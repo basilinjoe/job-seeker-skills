@@ -29,8 +29,8 @@ k:lang_en j:language "en" ; j:native true ; j:provenance j:confirmed .
 
 # == Vocabulary
 
-c:ai-platform-architecture a j:Capability .
-c:data-sovereignty a j:Capability .
+c:ai-platform-architecture a j:Capability ; j:label "AI platform architecture" .
+c:data-sovereignty a j:Capability ; j:label "data residency" .
 c:event-driven-architecture a j:Capability ; j:label "EDA", "event-driven" .
 c:team-leadership a j:Capability ; j:label "people leadership" .
 c:aged-care a j:Domain ; j:partOf c:healthcare .

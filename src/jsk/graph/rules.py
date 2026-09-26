@@ -109,6 +109,33 @@ def reclassed(rows, store):
             and e["kb"] != e["vocabulary"]]
 
 
+def bare_capabilities(store):
+    """{concept iri: kb file} for each live capability kb.ttl defines that nothing labels
+    or places: no j:label, no isA or partOf, in any file. Such a concept matches a posting
+    only by its exact id, so "system design" never reaches c:systems-design. A kb that adds
+    only an edge to one has placed it. The `bare` query lists the same set."""
+    kinds = {graph_iri(f): (f, p.kind) for f, p in store.parsed.items()}
+    rows = store.select(PREFIX + """SELECT DISTINCT ?g ?c WHERE { GRAPH ?g { ?c a j:Capability }
+        FILTER(?g != j:derived)
+        FILTER NOT EXISTS { ?c j:label ?l } FILTER NOT EXISTS { ?c j:isA|j:partOf ?b }
+        FILTER NOT EXISTS { ?c j:retired ?r } }""")
+    out = {}
+    for r in rows:
+        file, kind = kinds.get(v(r, "g"), (None, None))
+        if kind == "kb":
+            out[v(r, "c")] = file
+    return out
+
+
+def bare(rows, store):
+    """One row for the lot, at k:kb: a finding per concept would bury the rest, and the
+    `bare` query already lists them, most-held first."""
+    found = bare_capabilities(store)
+    if not found:
+        return []
+    return [{"focus": node(O.K + "kb"), "file": next(iter(found.values())), "n": len(found)}]
+
+
 # Typography an advert carries and a quote typed from it does not: curly quotes, the
 # dashes, the non-breaking hyphen. Folded on both sides, so neither form is wrong.
 TYPOGRAPHY = str.maketrans({"‘": "'", "’": "'", "‛": "'", "“": '"',
@@ -438,6 +465,13 @@ RULES = [
                     f"vocabulary has it as {', '.join(curie(t) for t in r['shipped'])}"),
          "a shipped concept keeps its class: add a capability of your own and relate them",
          reclassed),
+    Rule("concepts-bare", WARN, None,
+         lambda r: (f"1 capability in kb.ttl has no label and no isA/partOf - it matches "
+                    f"only its exact id" if r["n"] == 1 else
+                    f"{r['n']} capabilities in kb.ttl have no label and no isA/partOf - "
+                    f"they match only their exact id"),
+         "see `jsk kb query bare`; label the most-held first, or adopt "
+         "`jsk kb pack capabilities`", bare),
     Rule("quote-verbatim", FAIL,
          """SELECT ?focus ?q WHERE { ?focus a j:Requirement ; j:quote ?q }""",
          lambda r: f"its quote {v(r, 'q')[:50]!r} - {r['why']}",

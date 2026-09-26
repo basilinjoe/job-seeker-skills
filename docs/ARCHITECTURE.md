@@ -240,6 +240,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     layout.py                       the layout gate - fonts, tofu, stranded headings, dates, paper
   preflight.py                      `jsk doctor`: what this machine can do
   data/vocabulary.ttl               the shipped technology vocabulary (labels, isA, partOf)
+  data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded
   data/example/                     a small career/kb.ttl and a short resume.json: doctor renders it
   data/schema/                      package data, reached through paths.py
     profiles/*.json                 region profiles: default, au, in, ae
@@ -318,6 +319,7 @@ directory named after what they have in common.
 | **The career record's format** | `src/jsk/graph/ontology.py` | `references/kb-format.md` — the ontology is the format and the reference is its prose; a class, predicate or section in one and not the other is a defect. The writer and the tier-1 rules follow the ontology by themselves |
 | A rule across entries | `src/jsk/graph/rules.py` | a mutation in `tests/test_graph_rules.py` — a rule with no mutation fails the suite |
 | The shipped vocabulary | `src/jsk/data/vocabulary.ttl` | technologies only, no `implies`; `tests/test_graph_vocabulary.py` |
+| The capability starter pack | `src/jsk/data/capabilities.ttl`, `src/jsk/graph/pack.py` | adopted into `kb.ttl` as a changeset, never loaded as vocabulary; `tests/test_graph_pack.py` |
 | What `jsk new` scaffolds | `src/jsk/kb.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
 | A posting's or assessment's shape | `Posting` and `Requirement` in `ontology.py`, `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` |
 | How postings are ranked | `src/jsk/graph/queries.py` | the weighting table in `agents/jsk-tailor-analyst.md`; the weights live in `src/jsk/graph/scoring.py` |

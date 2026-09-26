@@ -30,7 +30,7 @@ class Requirement:
     asked: str
     quote: str
     necessity: str
-    concept: str = None          # the analyst's answer to an ambiguity
+    concepts: tuple = ()         # the analyst's answer: the concepts meant, any one satisfies
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,13 @@ class Match:
 
     @property
     def concept(self):
+        """The first concept meant, for display; `concepts` is what matching reads."""
         return self.resolution.concepts[0] if self.resolution.state == "resolved" else None
+
+    @property
+    def concepts(self):
+        """Every concept meant - any one satisfies - when resolved; () otherwise."""
+        return self.resolution.concepts if self.resolution.state == "resolved" else ()
 
 
 @dataclass(frozen=True)
@@ -77,8 +83,16 @@ def requirements(store, post):
         SELECT ?r ?asked ?quote ?need ?concept WHERE {{
           ?r j:posting <{post}> ; j:asked ?asked ; j:quote ?quote ; j:necessity ?need .
           OPTIONAL {{ ?r j:concept ?concept }} }} ORDER BY ?r""")
-    return [Requirement(r["r"].value, r["asked"].value, r["quote"].value, local(r["need"].value),
-                        r["concept"].value if "concept" in r else None) for r in rows]
+    # One row per j:concept: an advert listing alternatives names several.
+    found = {}
+    for r in rows:
+        key = r["r"].value
+        if key not in found:
+            found[key] = (r["asked"].value, r["quote"].value, local(r["need"].value), set())
+        if "concept" in r:
+            found[key][3].add(r["concept"].value)
+    return [Requirement(iri, asked, quote, need, tuple(sorted(cs)))
+            for iri, (asked, quote, need, cs) in found.items()]
 
 
 def labels(store):
@@ -97,9 +111,9 @@ def concepts(store):
 
 
 def resolve(req, index, known):
-    """The concept a requirement asks for: the analyst's choice, then an id, then labels."""
-    if req.concept:
-        return Resolution("resolved", (req.concept,), "concept")
+    """The concepts a requirement asks for: the analyst's choice, then an id, then labels."""
+    if req.concepts:
+        return Resolution("resolved", tuple(sorted(req.concepts)), "concept")
     key = O.norm(req.asked)
     named = set(index.get(key, ()))
     # An id wins only when no other concept goes by the same word. A person's own slug
@@ -152,31 +166,38 @@ def match(store, post):
         if m.resolution.state != "resolved":
             m.state = m.resolution.state
             continue
-        for proj, held, hops, implied in paths_to(store, m.concept):
-            if implied and req.necessity == "required":
-                m.near.setdefault(proj, f"implied by {curie(held)}; confirm")
-                continue
-            best = m.carriers.get(proj)
-            if best is None or (hops, implied, held) < (best[1], best[2], best[0]):
-                m.carriers[proj] = (held, hops, implied)
-        for proj, held in broader_held(store, m.concept):
-            if proj not in m.carriers:
-                m.near.setdefault(proj, f"holds broader {curie(held)}")
+        # Any concept meant satisfies: a project carries the requirement through whichever
+        # it holds by the shortest path.
+        for want in m.concepts:
+            for proj, held, hops, implied in paths_to(store, want):
+                if implied and req.necessity == "required":
+                    m.near.setdefault(proj, f"implied by {curie(held)}; confirm")
+                    continue
+                best = m.carriers.get(proj)
+                if best is None or (hops, implied, held) < (best[1], best[2], best[0]):
+                    m.carriers[proj] = (held, hops, implied)
+        for want in m.concepts:
+            for proj, held in broader_held(store, want):
+                if proj not in m.carriers:
+                    m.near.setdefault(proj, f"holds broader {curie(held)}")
         for proj in m.carriers:
             m.near.pop(proj, None)
         m.state = "matched" if m.carriers else "near" if m.near else "missing"
     return out
 
 
-def evidence(store, project, concept):
-    """confirmed: a live, confirmed bullet shows the concept or something that counts as it
-    without an implies edge. unconfirmed: only an inferred or unverified bullet does.
-    tag: only the project's `uses` does - which is a claim, not evidence. A disputed
-    bullet is evidence of nothing."""
+def evidence(store, project, concepts):
+    """confirmed: a live, confirmed bullet shows one of the concepts, or something that
+    counts as one without an implies edge. unconfirmed: only an inferred or unverified
+    bullet does. tag: only the project's `uses` does - which is a claim, not evidence. A
+    disputed bullet is evidence of nothing. `concepts` is one iri or several, any of which
+    will do."""
+    wanted = " ".join(f"<{c}>" for c in ((concepts,) if isinstance(concepts, str) else concepts))
     rows = store.select(PRE + f"""
         SELECT DISTINCT ?pv WHERE {{
+          VALUES ?want {{ {wanted} }}
           ?b j:project <{project}> ; j:shows ?m ; j:provenance ?pv .
-          GRAPH j:derived {{ ?p j:from ?m ; j:to <{concept}> ; j:implied false }}
+          GRAPH j:derived {{ ?p j:from ?m ; j:to ?want ; j:implied false }}
           FILTER(?pv != j:disputed)
           FILTER NOT EXISTS {{ ?b j:retired ?x }} }}""")
     levels = {local(r["pv"].value) for r in rows}
@@ -271,26 +292,81 @@ def words(text):
     return out
 
 
-def nearest(store, limit=3):
-    """A function from an unresolved label to the concepts closest to it, by the content
-    words it shares with each concept's id and labels, a rare word counting for more:
-    "architecture" names forty concepts and says little, "integration" names five. Only a
-    suggestion - the analyst names the one meant with `j:concept`, or none."""
-    bags = {}
+COVER = 0.5   # the share of a label's weight a concept's words must carry to be offered
+
+
+def posting(store, req):
+    """The posting a requirement belongs to."""
+    rows = store.select(PRE + f"SELECT ?p WHERE {{ <{req}> j:posting ?p }}")
+    return rows[0]["p"].value if rows else None
+
+
+def answered(store, post=None):
+    """{(asked, concept): postings}: what the analyst named for each label on the other
+    postings - the best guess at what this one means, since it was a person's answer."""
+    out = {}
+    for r in store.select(PRE + """SELECT DISTINCT ?p ?a ?c WHERE {
+            ?r j:posting ?p ; j:asked ?a ; j:concept ?c }"""):
+        if r["p"].value != post:
+            out.setdefault((r["a"].value, r["c"].value), set()).add(r["p"].value)
+    return out
+
+
+def nearest(store, limit=3, post=None):
+    """A function from an unresolved label to the concepts closest to it. First what other
+    postings' analysts named for the same label, or for one sharing most of its words;
+    then the concepts whose whole id or label the phrase contains; then the concepts whose
+    id and labels share its words, a rare word counting for more:
+    "architecture" names forty concepts and says little, "integration" names five. A
+    concept is offered only if the words it shares carry half the label's weight, so one
+    shared word in three is not a suggestion: "clear technical documentation" is not
+    c:clinical-documentation. `post` is the posting asking, whose own answers are not
+    offered back to it. Only a suggestion - the analyst names the one meant with
+    `j:concept`, or none."""
+    past = answered(store, post)
+    bags, names = {}, {}
     for c in concepts(store):
         bags[c] = words(c[len(O.C):].replace("-", " "))
-    for r in store.select(PRE + """SELECT ?c ?l WHERE { ?c j:label ?l }"""):
+        names[c] = [set(bags[c])]        # a copy: the bag grows by the labels below
+    for r in store.select(PRE + """SELECT ?c ?l WHERE { ?c j:label|j:former ?l }"""):
         bags.setdefault(r["c"].value, set()).update(words(r["l"].value))
+        names.setdefault(r["c"].value, []).append(words(r["l"].value))
     df = {}
     for bag in bags.values():
         for w in bag:
             df[w] = df.get(w, 0) + 1
+    unseen = max((1 / n for n in df.values()), default=1)   # a word no concept has: the rarest
 
     def near(label):
         mine = words(label)
-        scored = [(sum(1 / df[w] for w in mine & bag), c) for c, bag in bags.items() if mine & bag]
+        ranked = []
+        for (asked, c), posts in past.items():
+            if O.norm(asked) == O.norm(label):
+                ranked.append((0, 0, -len(posts), c))
+            elif mine and len(mine & words(asked)) * 2 > len(mine):
+                ranked.append((1, -len(mine & words(asked)), -len(posts), c))
+        # A concept whose whole name the phrase contains: "clear technical documentation"
+        # holds c:technical-documentation, whatever "clear" weighs. The longest name first;
+        # a one-word name of two letters ("go" in "go-to-market") is too short to count.
+        for c, ns in names.items():
+            held = [n for n in ns if n and n <= mine and (len(n) > 1 or len(next(iter(n))) > 2)]
+            if held:
+                n = max(held, key=len)
+                ranked.append((2, -len(n), -sum(1 / df[w] for w in n), c))
+        out = []
+        for *_, c in sorted(ranked):
+            if c not in out:
+                out.append(c)
+        weight = {w: 1 / df[w] if w in df else unseen for w in mine}
+        total = sum(weight.values())
+        scored = [(sum(weight[w] for w in mine & bag), c) for c, bag in bags.items()
+                  if mine & bag]
+        scored = [(s, c) for s, c in scored if s >= COVER * total]
         scored.sort(key=lambda s: (-s[0], len(s[1]), s[1]))
-        return tuple(c for _, c in scored[:limit])
+        for _, c in scored:
+            if c not in out:
+                out.append(c)
+        return tuple(out[:limit])
     return near
 
 
@@ -303,13 +379,13 @@ def questions(store, matches):
         if m.state == "ambiguous":
             out.append(Question("ambiguous", asked, m.resolution.concepts))
         elif m.state == "candidate":
-            near = near or nearest(store)
+            near = near or nearest(store, post=posting(store, m.requirement.iri))
             out.append(Question("unknown-term", asked, near(asked)))
         elif m.state == "near":
             kind = "implied" if any("implied" in why for why in m.near.values()) else "broader-held"
             out.append(Question(kind, asked, tuple(sorted(m.near))))
         elif m.state == "matched":
-            levels = {p: evidence(store, p, m.concept) for p in m.carriers}
+            levels = {p: evidence(store, p, m.concepts) for p in m.carriers}
             if "confirmed" not in levels.values():
                 out.append(Question("tag-only", asked, tuple(sorted(levels))))
     return sorted(out, key=lambda q: (q.requirement, q.kind))

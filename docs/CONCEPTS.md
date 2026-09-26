@@ -45,7 +45,10 @@ never reach a resume before you agree with it.
 **Vocabulary** — the concepts the career and postings are matched on: capabilities, domains,
 technologies. `jsk` ships the technologies; your `kb.ttl` adds your own terms and how they relate -
 `c:kafka` *is a* `c:event-driven-architecture`, `c:aged-care` is *part of* `c:healthcare`.
-Matching follows those edges one way, at most two hops.
+Matching follows those edges one way, at most two hops. Capability edges are judgement, so none
+ship in the vocabulary: `jsk kb pack capabilities` drafts a starter set as a changeset you read and
+adopt, and then it is yours. A tailoring answer that names a concept becomes one of its labels, so
+the next posting is not asked again.
 *Why it matters:* Kubernetes experience counts toward "container orchestration"; a mention of
 container orchestration is not Kubernetes experience. A model fitting a posting blurs that; the
 edges do not.

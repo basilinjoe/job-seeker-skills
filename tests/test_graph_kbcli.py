@@ -696,6 +696,15 @@ class Query(Workspace):
         self.assertEqual(rows["c:kafka"]["held"], 1)
         self.assertEqual(rows["c:terraform"]["held"], "")     # shipped, held by no project
 
+    def test_bare_lists_the_unlabelled_capabilities_most_held_first(self):
+        self.edit_kb('c:data-sovereignty a j:Capability ; j:label "data residency" .',
+                     "c:api-design a j:Capability .\nc:data-sovereignty a j:Capability .")
+        code, out = self.kb("query", "bare", "--json")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(json.loads(out), [
+            {"concept": "c:data-sovereignty", "held": 1, "shown by": 0},
+            {"concept": "c:api-design", "held": 0, "shown by": 0}])    # labelled ones absent
+
     def test_show_bullets_prints_a_project_s_name_and_bullets_only(self):
         full = self.kb("show", "prj_site_onboarding")[1]
         code, out = self.kb("show", "prj_site_onboarding", "--bullets")

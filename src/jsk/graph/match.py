@@ -149,7 +149,7 @@ def result(store, post, today, budget, elsewhere=0):
     reqs = []
     for m in matches.values():
         carriers = [{"project": curie(p), "held": curie(h), "hops": hops, "implied": imp,
-                     "evidence": Q.evidence(store, p, m.concept)}
+                     "evidence": Q.evidence(store, p, m.concepts)}
                     for p, (h, hops, imp) in sorted(m.carriers.items())]
         reqs.append({
             "id": curie(m.requirement.iri), "asked": m.requirement.asked,

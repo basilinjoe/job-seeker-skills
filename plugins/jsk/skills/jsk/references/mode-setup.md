@@ -93,6 +93,8 @@ each application directory, and refuses unless the graph reads back as exactly w
 held. **It never deletes anything** and never raises a provenance. Show them its output — what it
 kept as notes, and any record-gate failures in the `resume.json` files it shortened. Then `jsk kb
 view` is their career, read end to end; keep the Markdown until they confirm it is complete.
+A migrated career's capabilities carry no labels (`concepts-bare`): offer `jsk kb pack capabilities
+--out pack.trig`, shown with `jsk kb apply --dry-run` and applied only if they agree with it.
 
 A graph workspace whose unfrozen `applications/*/resume.json` still hold a full URS record (an
 `"urs"` key): `jsk migrate <workspace>` shortens each in place, once, keeping the old one as

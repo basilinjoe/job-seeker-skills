@@ -278,6 +278,28 @@ def concept_list(store):
               "held": held.get(c, "")} for c in sorted(concepts(store))])
 
 
+@query("bare", doc="kb.ttl's capabilities with no label and no isA/partOf, most-held first")
+def bare_list(store):
+    """What `concepts-bare` counts, one row each: a capability nothing labels or places
+    matches only its exact id, so a posting's "system design" misses c:systems-design.
+    Most-held first - those are the ones a missed match costs most."""
+    from .rules import bare_capabilities
+
+    found = bare_capabilities(store)
+    held, shown = {}, {}
+    for r in store.select(PRE + """SELECT ?c (COUNT(DISTINCT ?p) AS ?n) WHERE {
+            ?p a j:Project ; j:uses|j:domain ?c FILTER NOT EXISTS { ?p j:retired ?x } }
+            GROUP BY ?c"""):
+        held[r["c"].value] = int(r["n"].value)
+    for r in store.select(PRE + """SELECT ?c (COUNT(DISTINCT ?b) AS ?n) WHERE {
+            ?b j:shows ?c FILTER NOT EXISTS { ?b j:retired ?x } } GROUP BY ?c"""):
+        shown[r["c"].value] = int(r["n"].value)
+    order = sorted(found, key=lambda c: (-held.get(c, 0), -shown.get(c, 0), c))
+    return (("concept", "held", "shown by"),
+            [{"concept": curie(c), "held": held.get(c, 0), "shown by": shown.get(c, 0)}
+             for c in order])
+
+
 @query("person", doc="where they are, how they work, their rights to work, and the roles they hold now")
 def person(store):
     """What eligibility and logistics are judged against: location and work mode, each

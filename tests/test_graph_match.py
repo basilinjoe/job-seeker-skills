@@ -141,13 +141,59 @@ class Scenarios(unittest.TestCase):
 
     def test_an_unknown_term_is_offered_the_concepts_nearest_it(self):
         """An advert's phrase is rarely a label: "event streaming architecture" names no
-        concept, but it shares its rarest word with one. The rare word leads - every
-        -architecture concept shares "architecture", only one shares "event"."""
+        concept, but it shares two of its three words with one, the rare ones. The rare word
+        leads - every -architecture concept shares "architecture", only one shares "event"."""
         near = Q.nearest(self.s)
         self.assertEqual(near("event streaming architecture")[0],
                          O.C + "event-driven-architecture")
         self.assertEqual(near("K3s"), ())
         self.assertEqual(near("experience and skills"), ())         # filler names nothing
+        self.assertEqual(near("AD"), (O.C + "entra-id",))           # a former label counts
+
+    def test_one_shared_word_is_not_a_suggestion(self):
+        # "documentation" is rare - one concept has it - but it is one word in three.
+        s = edited("c:mentoring a j:Capability",
+                   'c:clinical-documentation a j:Capability ; j:label "Clinical documentation" .\n'
+                   "c:mentoring a j:Capability")
+        near = Q.nearest(s)
+        self.assertEqual(near("clinical documentation"), (O.C + "clinical-documentation",))
+        self.assertEqual(near("clear technical documentation"), ())
+
+    def test_a_concept_whose_whole_name_the_phrase_holds_is_offered(self):
+        # An advert wraps the term in its own words: "clear" weighs nothing, so the phrase
+        # holding all of c:technical-documentation's id is the signal - its labels present,
+        # which is what a name held only through its bag of every label's words would miss.
+        s = edited("c:mentoring a j:Capability",
+                   'c:clinical-documentation a j:Capability ; j:label "Clinical documentation" .\n'
+                   'c:technical-documentation a j:Capability ; j:label "technical writing" .\n'
+                   "c:mentoring a j:Capability")
+        near = Q.nearest(s)
+        # Words no concept has outweigh the shared ones, so only the whole name finds it.
+        wrapped = "clear, concise, well-organised technical documentation"
+        self.assertEqual(near(wrapped), (O.C + "technical-documentation",))
+        self.assertEqual(near("clear, concise, careful technical writing")[0],
+                         O.C + "technical-documentation")
+        self.assertNotIn(O.C + "golang", near("go-to-market planning"))     # "go" is too short
+
+    def test_another_postings_answer_is_offered_first(self):
+        # northwind's analyst said "stream plumbing" meant Kafka; no concept's words say so.
+        s = edited('j:asked "Computing" ; j:necessity j:preferred ;',
+                   'j:asked "Stream plumbing" ; j:necessity j:preferred ; j:concept c:kafka ;',
+                   "applications/northwind/posting.ttl")
+        near = Q.nearest(s, post=post("contoso"))
+        self.assertEqual(near("stream plumbing"), (O.C + "kafka",))
+        self.assertEqual(near("plumbing of event streams")[0], O.C + "kafka")     # 2 of 3 words
+        self.assertEqual(near("event streaming architecture")[0],
+                         O.C + "event-driven-architecture")                  # 1 of 3: no
+        self.assertEqual(Q.nearest(s, post=post("northwind"))("stream plumbing"), ())
+
+    def test_the_questions_offer_an_answer_given_elsewhere(self):
+        # contoso asks about K3s; had northwind's analyst named it, contoso is told.
+        s = edited('j:asked "Computing" ; j:necessity j:preferred ;',
+                   'j:asked "K3s" ; j:necessity j:preferred ; j:concept c:kubernetes ;',
+                   "applications/northwind/posting.ttl")
+        qs = {q.requirement: q for q in Q.questions(s, Q.match(s, post("contoso")))}
+        self.assertEqual([short(d) for d in qs["K3s"].detail], ["kubernetes"])
 
     def test_the_match_prints_the_nearest_concepts_beside_an_unknown_term(self):
         from jsk.graph import match as M
@@ -194,6 +240,21 @@ class Resolution(unittest.TestCase):
                    "applications/contoso/posting.ttl")
         go = by_label(Q.match(s, post("contoso")))["Go"]
         self.assertEqual((go.resolution.via, go.state), ("concept", "missing"))
+
+    def test_an_advert_listing_alternatives_is_met_by_any_one(self):
+        # "EKS or AKS": events holds only AKS, data only the broader Kubernetes. Alone, EKS
+        # is near; with AKS named as an alternative, events carries it and its confirmed
+        # bullet showing AKS is the evidence - read through the concept it holds.
+        s = edited('j:asked "EKS" ; j:necessity j:preferred ;',
+                   'j:asked "EKS" ; j:necessity j:preferred ; j:concept c:eks, c:aks ;',
+                   "applications/contoso/posting.ttl")
+        eks = by_label(Q.match(s, post("contoso")))["EKS"]
+        self.assertEqual([f.text() for f in s.fails()], [])
+        self.assertEqual((eks.state, [short(c) for c in eks.concepts], carriers(eks)),
+                         ("matched", ["aks", "eks"], {"events": ("aks", 0, False)}))
+        self.assertEqual(Q.evidence(s, O.K + "prj_events", eks.concepts), "confirmed")
+        self.assertEqual({short(p): w for p, w in eks.near.items()},
+                         {"data": "holds broader c:kubernetes"})
 
     def test_an_id_beats_a_label_clash(self):
         # "Go-game" normalises to the id c:go-game, which "Go" never would.

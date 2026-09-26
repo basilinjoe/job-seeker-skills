@@ -71,6 +71,9 @@ MUTATIONS = {
     "concept-reclassed": (KB, "c:kafka j:isA c:event-driven-architecture .",
                           "c:kafka a j:Capability ; j:isA c:event-driven-architecture .",
                           "c:kafka", "keeps its class"),
+    "concepts-bare": (KB, 'c:ai-platform-architecture a j:Capability ; '
+                          'j:label "AI platform architecture" .',
+                      "c:ai-platform-architecture a j:Capability .", "k:kb", "jsk kb query bare"),
     "quote-verbatim": (POSTING, 'j:quote "Deep, hands-on K8s experience in production"',
                        'j:quote "Ten years of K8s experience in production"',
                        "k:req_acme_platform_engineer_kubernetes", "the advert's own words"),
@@ -92,7 +95,7 @@ MUTATIONS = {
 
 WARNS = {"version-gap", "headline-cited", "label-clash", "inferred-unasked",
          "retired-referenced", "event-before-submit", "necessity-wording", "hand-edited",
-         "answer-placeholder", "advert-uncovered"}
+         "answer-placeholder", "advert-uncovered", "concepts-bare"}
 
 
 class EveryRuleFires(unittest.TestCase):
@@ -227,6 +230,42 @@ class Findings(unittest.TestCase):
         s, _ = mutated(("career/log.ttl", "j:touched k:met_team.v1,", "j:touched k:met_gone.v1,",
                         "", ""))
         self.assertEqual([f.text() for f in s.findings if f.rule == "dangling"], [])
+
+
+class BareCapabilities(unittest.TestCase):
+    """concepts-bare: a capability of kb.ttl's with no label and no place matches only its
+    own id. One finding for the lot; `jsk kb query bare` lists them."""
+
+    BARE = ('c:ai-platform-architecture a j:Capability ; j:label "AI platform architecture" .\n'
+            'c:data-sovereignty a j:Capability ; j:label "data residency" .')
+
+    def bare(self, new):
+        s, _ = mutated((KB, self.BARE, new))
+        return [f for f in s.findings if f.rule == "concepts-bare"]
+
+    def test_several_are_one_finding_that_counts_them(self):
+        [f] = self.bare("c:ai-platform-architecture a j:Capability .\n"
+                        "c:data-sovereignty a j:Capability .")
+        self.assertEqual((f.file, f.focus), (KB, "k:kb"))
+        self.assertTrue(f.detail.startswith("2 capabilities in kb.ttl have no label"), f.detail)
+
+    def test_an_edge_alone_places_it(self):
+        self.assertEqual(self.bare("c:ai-platform-architecture a j:Capability ; "
+                                   "j:isA c:event-driven-architecture .\n"
+                                   "c:data-sovereignty a j:Capability ; "
+                                   "j:partOf c:team-leadership ."), [])
+
+    def test_a_label_in_another_statement_counts(self):
+        self.assertEqual(self.bare("c:ai-platform-architecture a j:Capability .\n"
+                                   'c:ai-platform-architecture j:label "AI platform" .\n'
+                                   'c:data-sovereignty a j:Capability ; j:label "residency" .'),
+                         [])
+
+    def test_a_retired_one_is_not_counted(self):
+        self.assertEqual(self.bare('c:ai-platform-architecture a j:Capability ; '
+                                   'j:label "AI platform architecture" .\n'
+                                   'c:data-sovereignty a j:Capability ; '
+                                   'j:retired "2026-01-01"^^xsd:date .'), [])
 
 
 ADVERT = "applications/acme-platform-engineer/posting.md"

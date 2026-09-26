@@ -185,7 +185,8 @@ any FAIL is printed and nothing is matched. Needs pyoxigraph, a dependency of th
 **Requirements** puts each one in a bucket: `matched` (a project holds the concept, or a narrower
 one within two hops - `via c:aks, 1 hop`), `near` (only an `implies` path, for a required one, or
 only something broader), `missing`, `ambiguous` (the label names several concepts; the analyst
-answers with `j:concept`), `candidate` (it names none), `implicit`. Evidence per project is
+answers with `j:concept`), `candidate` (it names none), `implicit`. A requirement naming several
+`j:concept`s - the advert's alternatives - is met by any one of them. Evidence per project is
 `confirmed` (a confirmed bullet shows it), `unconfirmed` or `tag` (only the project's tags say so).
 Each requirement's **Verdict** follows from both: matched with a confirmed carrier `satisfied`,
 matched on tags or unconfirmed bullets only `unevidenced`, `near` `partial`, `missing`
@@ -329,12 +330,27 @@ jsk kb query experience c:kubernetes     # | experience <concept> | pipeline
 jsk kb query evidence GraphQL "React Native" BFF  # each term: holders, then text naming it
 jsk kb query person                      # location, work mode, rights to work, ongoing roles
 jsk kb query concepts                    # every concept: labels, counts as, projects holding it
+jsk kb query bare                        # kb.ttl's capabilities with no label and no isA/partOf
+jsk kb pack capabilities --out pack.trig # the capability starter pack, drafted as a changeset
+jsk kb merge c:a --into c:b --out m.trig # two concepts that are one, drafted as a changeset
 jsk kb query similar "event pipeline Kafka"  # the closest live projects, words and concepts shared
 jsk kb query duplicates                  # pairs of projects that look like one told twice
 jsk kb show prj_payments --bullets       # a project's name and bullets, without its notes
 jsk kb path                              # the workspace, kb.ttl, log.ttl, applications/
 jsk kb check                             # every rule, the record's state, the layout
 ```
+
+**`pack`** and **`merge`** draft a changeset and never apply it: it is read with `apply --dry-run`
+and applied like any other. `pack capabilities` offers `src/jsk/data/capabilities.ttl` - about 120
+capabilities and domains, their labels and `isA` edges, never loaded as vocabulary, because an edge
+between capabilities is a judgement the person answers for. It adds only what the record lacks and
+reports what it skipped: a concept the record classes differently, a label that already names
+another concept, an edge that would cross a `distinct` wall or loop. Run again after applying, it
+has nothing to add. `merge c:a --into c:b` points every reference to `c:a` at `c:b`, moves its
+labels and edges, and deletes `c:a` - retires it, when a posting's `j:concept` still names it. It
+refuses a shipped concept, different classes and a `distinct` pair, and lists the bullets whose
+`j:shows` it rewrites: they come back `inferred`, to be confirmed again. The `concepts-bare` WARN,
+once per record, counts the capabilities `query bare` lists: they match only their exact id.
 
 **`show`** prints entries exactly as their files hold them - a project with its bullets, a
 metric with its versions, a concept from the vocabulary and from `kb.ttl` - under a first line

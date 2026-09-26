@@ -139,6 +139,7 @@ k:req_acme_platform_k8s j:posting k:post_acme_platform ;
 ```
 
 A posting holds `company` `title` `url`? `seniority`? `domain`* `captured` `advert`; a requirement
-`posting` `asked` `necessity` `concept`? `quote`. `asked` is the advert's term; `quote` its words,
-verbatim from `posting.md`; `necessity` is `required`, `preferred` or `implicit`; `concept` only
-when `jsk match` calls the term ambiguous.
+`posting` `asked` `necessity` `concept`* `quote`. `asked` is the advert's term; `quote` its words,
+verbatim from `posting.md`; `necessity` is `required`, `preferred` or `implicit`; `concept` when
+`jsk match` calls the term ambiguous or unknown, one per alternative ("AWS/GCP/Azure") - any one
+satisfies.

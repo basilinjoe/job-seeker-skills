@@ -1,0 +1,296 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Vocabulary
+
+c:access-control a j:Capability ; j:label "RBAC", "role-based access control" ; j:isA c:security .
+
+c:agent-orchestration a j:Capability ;
+    j:label "agent-based orchestration", "multi-agent orchestration", "multi-agent systems" ;
+    j:isA c:ai-agents .
+
+c:agentops a j:Capability ; j:label "agent operations" ; j:isA c:ai-engineering .
+
+c:agile-practice a j:Capability ;
+    j:label "agile", "agile delivery", "agile development", "agile methodologies" ;
+    j:isA c:delivery .
+
+c:ai-agents a j:Capability ;
+    j:label "LLM agents", "agentic AI", "agentic systems", "autonomous agents" ;
+    j:isA c:generative-ai .
+
+c:ai-engineering a j:Capability ; j:label "AI/ML engineering", "applied AI" .
+
+c:ai-governance a j:Capability ;
+    j:label "AI risk frameworks", "AI risk management" ;
+    j:isA c:governance .
+
+c:ai-guardrails a j:Capability ; j:label "LLM guardrails" ; j:isA c:generative-ai .
+
+c:ai-platform-architecture a j:Capability ;
+    j:label "AI architecture", "AI solution architecture", "AI systems architecture" ;
+    j:isA c:ai-engineering, c:architecture .
+
+c:api-design a j:Capability ;
+    j:label "API-first design", "RESTful API design", "designing APIs" ;
+    j:isA c:backend-engineering .
+
+c:application-security a j:Capability ; j:label "AppSec", "secure coding" ; j:isA c:security .
+c:architecture a j:Capability ; j:label "software architecture" .
+
+c:architecture-governance a j:Capability ;
+    j:label "architecture review", "design authority" ;
+    j:isA c:architecture .
+
+c:async-messaging a j:Capability ;
+    j:label "asynchronous messaging", "message brokers", "message queues" ;
+    j:isA c:backend-engineering .
+
+c:authentication a j:Capability ; j:label "OAuth", "OAuth 2.0", "OAuth2" ; j:isA c:security .
+
+c:backend-engineering a j:Capability ;
+    j:label "back-end development", "backend development", "server-side development" .
+
+c:chaos-engineering a j:Capability ; j:isA c:operations .
+
+c:ci-cd-automation a j:Capability ;
+    j:label "CI/CD", "CI/CD pipelines", "continuous delivery", "continuous deployment", "continuous integration" ;
+    j:isA c:devops .
+
+c:client-facing a j:Capability ; j:label "client engagement", "customer-facing" .
+
+c:cloud-architecture a j:Capability ;
+    j:label "cloud solution architecture", "cloud-native architecture" ;
+    j:isA c:architecture .
+
+c:cloud-migration a j:Capability ; j:label "migration to the cloud" .
+c:cloud-native a j:Capability ; j:label "cloud-native applications", "cloud-native development" .
+
+c:coding-agent-workflows a j:Capability ;
+    j:label "AI coding assistants", "AI-assisted development", "agentic coding", "coding agents" .
+
+c:communication a j:Capability ;
+    j:label "communication skills", "verbal communication", "written and verbal communication", "written communication" .
+
+c:compliance a j:Capability ; j:label "regulatory compliance" .
+
+c:conversational-ai a j:Capability ;
+    j:label "chatbots", "conversational interfaces" ;
+    j:isA c:ai-engineering .
+
+c:cross-location-collaboration a j:Capability ;
+    j:label "distributed teams", "global teams", "remote collaboration" .
+
+c:cross-team-influence a j:Capability ;
+    j:label "cross-functional influence", "influence without authority", "influencing across teams" ;
+    j:isA c:leadership .
+
+c:data-engineering a j:Capability ; j:label "big data engineering", "data infrastructure" .
+c:data-governance a j:Capability ; j:label "data quality" ; j:isA c:governance .
+c:data-modeling a j:Capability ; j:label "data modelling", "database design" .
+c:data-pipelines a j:Capability ; j:label "ELT", "ETL" ; j:isA c:data-engineering .
+c:data-sovereignty a j:Capability ; j:label "data residency" .
+c:delivery a j:Capability ; j:label "software delivery" .
+c:design-patterns a j:Capability ; j:label "software design patterns" .
+c:devops a j:Capability ; j:label "DevOps practices" ; j:isA c:operations .
+
+c:distributed-systems a j:Capability ;
+    j:label "distributed computing" ;
+    j:isA c:backend-engineering .
+
+c:distributed-tracing a j:Capability ; j:isA c:observability .
+c:domain-driven-design a j:Capability ; j:label "DDD" ; j:isA c:architecture .
+
+c:engineering-standards a j:Capability ;
+    j:label "coding standards", "engineering best practices", "software engineering best practices" .
+
+c:enterprise-architecture a j:Capability ; j:isA c:architecture .
+
+c:enterprise-integration a j:Capability ;
+    j:label "integration architecture", "integration patterns" ;
+    j:isA c:backend-engineering .
+
+c:estimation-and-scheduling a j:Capability ;
+    j:label "effort estimation", "estimation" ;
+    j:isA c:delivery .
+
+c:event-driven-architecture a j:Capability ;
+    j:label "event streaming", "event-driven systems" ;
+    j:isA c:architecture, c:distributed-systems .
+
+c:fine-tuning a j:Capability ;
+    j:label "LLM fine-tuning", "model fine-tuning" ;
+    j:isA c:machine-learning .
+
+c:finops a j:Capability ;
+    j:label "cloud cost optimisation", "cloud cost optimization" ;
+    j:isA c:operations .
+
+c:frontend-engineering a j:Capability ;
+    j:label "UI engineering", "front-end development", "frontend development" .
+
+c:full-stack-development a j:Capability ;
+    j:label "full-stack engineering" ;
+    j:isA c:backend-engineering, c:frontend-engineering .
+
+c:generative-ai a j:Capability ; j:label "Gen AI", "GenAI" ; j:isA c:ai-engineering .
+c:governance a j:Capability ; j:label "IT governance", "technology governance" .
+c:high-availability a j:Capability ; j:label "fault tolerance", "resilience engineering" .
+c:hiring a j:Capability ; j:label "technical interviewing" .
+c:hybrid-cloud a j:Capability ; j:label "hybrid cloud architecture" ; j:isA c:cloud-architecture .
+c:identity-management a j:Capability ; j:label "identity and access management" ; j:isA c:security .
+c:incident-management a j:Capability ; j:label "incident response", "on-call" ; j:isA c:operations .
+
+c:infra-as-code a j:Capability ;
+    j:label "IaC", "infrastructure as code", "infrastructure-as-code" ;
+    j:isA c:devops .
+
+c:knowledge-graphs a j:Capability ; j:label "knowledge graph", "semantic layer" .
+c:leadership a j:Capability ; j:label "engineering leadership" .
+
+c:legacy-remediation a j:Capability ;
+    j:label "application modernization", "legacy modernisation", "legacy modernization" .
+
+c:llm a j:Capability ; j:label "LLMs", "large language models" ; j:isA c:generative-ai .
+c:llm-as-judge a j:Capability ; j:label "LLM-as-a-judge" ; j:isA c:llm-evaluation .
+
+c:llm-evaluation a j:Capability ;
+    j:label "AI evaluation", "evals", "model evaluation" ;
+    j:isA c:generative-ai .
+
+c:llm-product-engineering a j:Capability ;
+    j:label "LLM applications", "LLM-powered applications" ;
+    j:isA c:generative-ai .
+
+c:llmops a j:Capability ; j:label "GenAIOps" ; j:isA c:ai-engineering .
+c:machine-learning a j:Capability ; j:label "ML engineering" ; j:isA c:ai-engineering .
+c:mentoring a j:Capability ; j:label "coaching engineers", "mentorship" .
+
+c:microservice-architecture a j:Capability ;
+    j:label "microservices", "microservices architecture" ;
+    j:isA c:architecture, c:distributed-systems .
+
+c:mlops a j:Capability ;
+    j:label "ML operations", "machine learning operations" ;
+    j:isA c:ai-engineering .
+
+c:multi-cloud a j:Capability ;
+    j:label "multi-cloud architecture", "multicloud" ;
+    j:isA c:cloud-architecture .
+
+c:nfr-engineering a j:Capability ;
+    j:label "NFRs", "non-functional requirements", "quality attributes" ;
+    j:isA c:architecture .
+
+c:nlp a j:Capability ; j:label "natural language processing" ; j:isA c:machine-learning .
+c:object-oriented-design a j:Capability ; j:label "OOD", "OOP", "object-oriented programming" .
+
+c:observability a j:Capability ;
+    j:label "monitoring", "monitoring and alerting", "telemetry" ;
+    j:isA c:operations .
+
+c:operations a j:Capability ; j:label "production operations" .
+
+c:people-management a j:Capability ;
+    j:label "engineering management", "line management" ;
+    j:isA c:leadership .
+
+c:performance-optimisation a j:Capability ;
+    j:label "performance engineering", "performance optimization", "performance tuning" .
+
+c:platform-engineering a j:Capability ;
+    j:label "developer platforms", "internal developer platforms" .
+
+c:pre-sales a j:Capability ;
+    j:label "presales", "sales engineering", "solution consulting", "technical pre-sales" ;
+    j:isA c:client-facing .
+
+c:product-partnership a j:Capability ;
+    j:label "partnering with product managers", "working with product teams" .
+
+c:production-support a j:Capability ; j:label "application support" ; j:isA c:operations .
+c:prompt-engineering a j:Capability ; j:label "prompt design" ; j:isA c:generative-ai .
+
+c:rag a j:Capability ;
+    j:label "retrieval augmented generation", "retrieval-augmented generation" ;
+    j:isA c:generative-ai .
+
+c:release-engineering a j:Capability ; j:label "release management" ; j:isA c:delivery .
+c:requirement-analysis a j:Capability ; j:label "requirements analysis", "requirements gathering" .
+c:responsible-ai a j:Capability ; j:label "AI ethics", "trustworthy AI" .
+c:responsive-design a j:Capability ; j:label "responsive UI" ; j:isA c:frontend-engineering .
+
+c:rest-api-development a j:Capability ;
+    j:label "REST APIs", "RESTful APIs" ;
+    j:isA c:backend-engineering .
+
+c:scalability a j:Capability ; j:label "scalable systems" .
+c:scrum a j:Capability ; j:isA c:agile-practice .
+c:sdk-api-design a j:Capability ; j:label "SDK design", "SDK development" ; j:isA c:api-design .
+c:secure-sdlc a j:Capability ; j:label "DevSecOps", "security by design" ; j:isA c:security .
+c:security a j:Capability ; j:label "cybersecurity", "software security" .
+c:site-reliability-engineering a j:Capability ; j:label "SRE" ; j:isA c:operations .
+c:software-testing a j:Capability ; j:label "automated testing", "test automation" .
+
+c:solution-architecture a j:Capability ;
+    j:label "solution design", "solutions architecture" ;
+    j:isA c:architecture .
+
+c:sso-integration a j:Capability ; j:label "SSO", "single sign-on" ; j:isA c:authentication .
+
+c:stakeholder-communication a j:Capability ;
+    j:label "executive communication", "stakeholder engagement", "stakeholder management" ;
+    j:isA c:communication .
+
+c:stream-processing a j:Capability ;
+    j:label "real-time data processing", "streaming data" ;
+    j:isA c:data-engineering .
+
+c:system-design a j:Capability ;
+    j:label "scalable system design", "software design", "systems design" ;
+    j:isA c:architecture .
+
+c:team-leadership a j:Capability ; j:label "leading teams", "team lead" ; j:isA c:leadership .
+c:technical-debt-management a j:Capability ; j:label "technical debt", "technical debt reduction" .
+
+c:technical-documentation a j:Capability ;
+    j:label "architecture documentation", "design documentation", "technical writing" ;
+    j:isA c:communication .
+
+c:technical-leadership a j:Capability ;
+    j:label "tech lead", "tech leadership" ;
+    j:isA c:leadership .
+
+c:technical-presentations a j:Capability ;
+    j:label "public speaking", "technical workshops" ;
+    j:isA c:communication .
+
+c:technical-strategy a j:Capability ;
+    j:label "technical vision", "technology roadmap", "technology strategy" ;
+    j:isA c:technical-leadership .
+
+c:test-driven-development a j:Capability ; j:label "TDD" ; j:isA c:software-testing .
+c:threat-modeling a j:Capability ; j:label "threat modelling" ; j:isA c:security .
+
+c:tool-and-function-calling a j:Capability ;
+    j:label "LLM tool use", "function calling", "tool calling" ;
+    j:isA c:generative-ai .
+
+c:unit-testing a j:Capability ; j:label "unit tests" ; j:isA c:software-testing .
+c:vector-search a j:Capability ; j:label "semantic search", "vector databases" .
+
+c:web-accessibility a j:Capability ;
+    j:label "WCAG", "accessibility" ;
+    j:isA c:frontend-engineering .
+
+c:ecommerce a j:Domain ; j:label "e-commerce", "online retail" ; j:isA c:retail .
+c:financial-services a j:Domain ; j:label "BFSI" .
+c:healthcare a j:Domain ; j:label "health care", "healthtech" .
+c:insurance a j:Domain ; j:label "insurtech" ; j:isA c:financial-services .
+c:logistics a j:Domain ; j:label "transportation and logistics" .
+c:manufacturing a j:Domain .
+c:public-sector a j:Domain ; j:label "government", "govtech" .
+c:retail a j:Domain .
+c:saas a j:Domain ; j:label "B2B SaaS", "software as a service" .

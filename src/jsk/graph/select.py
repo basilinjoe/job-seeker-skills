@@ -132,13 +132,13 @@ def evidenced(store, matches, held, shown):
         n = copy.copy(m)
         n.carriers, tags, loose = {}, [], []
         for proj, (h, hops, imp) in sorted(m.carriers.items()):
-            level = Q.evidence(store, proj, m.concept)
+            level = Q.evidence(store, proj, m.concepts)
             if level == "confirmed":
                 n.carriers[proj] = (h, hops, imp)
             elif level == "unconfirmed":
                 loose += sorted(b for b, (p, _, pv) in held.items() if p == proj
                                 and pv not in ("confirmed", "disputed")
-                                and m.concept in shown.get(b, ()))
+                                and set(m.concepts) & shown.get(b, set()))
             else:
                 # A bullet showing the held concept, when it only implies the one asked
                 # for, is not evidence - but "no bullet shows it" would send the person
@@ -146,7 +146,8 @@ def evidenced(store, matches, held, shown):
                 near = sorted(b for b, (p, _, pv) in held.items()
                               if p == proj and h in shown.get(b, ()))
                 tags.append(f"{curie(near[0])} shows {curie(h)}, which only implies "
-                            f"{curie(m.concept)}" if near and h != m.concept
+                            f"{' or '.join(curie(c) for c in m.concepts)}"
+                            if near and h not in m.concepts
                             else f"{curie(proj)} tags {curie(h)}, and no bullet shows it")
         if not n.carriers:
             n.state = "missing"
@@ -192,8 +193,8 @@ def skill_order(store, matches):
         if need not in NEEDS:
             continue
         labels = {O.norm(m.requirement.asked)}
-        if m.concept:
-            labels |= names.get(m.concept, set())
+        for c in m.concepts:
+            labels |= names.get(c, set())
         wanted.append((NEEDS.index(need), i, labels))
     order = []
     for s in career.live("Skill"):
@@ -275,10 +276,11 @@ def select(store, post, today, budget, extra=()):
     projects.sort(key=position.get)
 
     # What a bullet is worth: the requirements it shows, then a number it can stand on.
-    reqs = [(iri, m) for iri, m in kept.items() if m.requirement.necessity in NEEDS and m.concept]
+    reqs = [(iri, set(m.concepts)) for iri, m in kept.items()
+            if m.requirement.necessity in NEEDS and m.concepts]
 
     def worth(b):
-        mine = {iri for iri, m in reqs if m.concept in shown.get(b, ())}
+        mine = {iri for iri, cs in reqs if cs & shown.get(b, set())}
         return mine, sum(WEIGHTS[kept[i].requirement.necessity] for i in mine) + (b in citing)
 
     def order(b):
@@ -314,21 +316,26 @@ def select(store, post, today, budget, extra=()):
         if held[b][2] != "confirmed":
             for c in shown.get(b, ()):
                 soft.setdefault(c, []).append(b)
-    concept = {iri: m.concept for iri, m in kept.items()}
+    concepts = {iri: set(m.concepts) for iri, m in kept.items()}
+
+    def unconfirmed(cs):
+        """The picked unconfirmed bullets showing any of `cs`, named for the gap."""
+        return ", ".join(f"{curie(b)} ({held[b][2]})"
+                         for b in sorted({b for c in cs & soft.keys() for b in soft[c]}))
     gaps = [g for g in gaps if g.kind == "unresolved" or not (
-        concept[g.iri] in firm or (g.kind == "tag-only" and concept[g.iri] in soft))]
+        concepts[g.iri] & firm or (g.kind == "tag-only" and concepts[g.iri] & soft.keys()))]
     for at, g in enumerate(gaps):
-        if g.kind == "unconfirmed" and concept[g.iri] in soft:
-            named = ", ".join(f"{curie(b)} ({held[b][2]})" for b in sorted(soft[concept[g.iri]]))
+        if g.kind == "unconfirmed" and concepts[g.iri] & soft.keys():
+            named = unconfirmed(concepts[g.iri])
             gaps[at] = Gap(g.kind, g.requirement, g.necessity,
                            f"{named} is selected - confirm it before it renders", g.iri)
     said = {g.iri for g in gaps}
     for iri, m in kept.items():
         req = m.requirement
-        if req.necessity not in NEEDS or iri in said or not m.concept or m.concept in firm:
+        if req.necessity not in NEEDS or iri in said or not m.concepts or concepts[iri] & firm:
             continue
-        if m.concept in soft:
-            named = ", ".join(f"{curie(b)} ({held[b][2]})" for b in sorted(soft[m.concept]))
+        if concepts[iri] & soft.keys():
+            named = unconfirmed(concepts[iri])
             gaps.append(Gap("unconfirmed", req.asked, req.necessity,
                             f"{named} is selected - confirm it before it renders", iri))
             continue

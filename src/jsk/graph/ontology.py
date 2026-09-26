@@ -298,7 +298,9 @@ CLASSES = (
         (Pred("posting", Ref(("Posting",)), "1", "the posting asking"),),
         (Pred("asked", STR, "1", "the term as the advert wrote it"),
          Pred("necessity", Enum("necessity"), "1", "required, preferred or implicit"),
-         Pred("concept", Concept(), "?", "the concept meant, when the label is ambiguous")),
+         Pred("concept", Concept(), "*", "the concepts meant, any one satisfying: one when "
+                                          "the label is ambiguous, several when the advert "
+                                          "lists alternatives")),
         (Pred("quote", TEXT, "1", "the advert's own words"),),
     ), "one thing a posting asks for"),
     # --- application.ttl ---------------------------------------------------------------
