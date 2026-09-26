@@ -303,10 +303,12 @@ def posting(store, req):
 
 def answered(store, post=None):
     """{(asked, concept): postings}: what the analyst named for each label on the other
-    postings - the best guess at what this one means, since it was a person's answer."""
+    postings - the best guess at what this one means, since it was a person's answer. A
+    retired concept is left out: a merge retires one an older posting still names."""
     out = {}
     for r in store.select(PRE + """SELECT DISTINCT ?p ?a ?c WHERE {
-            ?r j:posting ?p ; j:asked ?a ; j:concept ?c }"""):
+            ?r j:posting ?p ; j:asked ?a ; j:concept ?c
+            FILTER NOT EXISTS { ?c j:retired ?x } }"""):
         if r["p"].value != post:
             out.setdefault((r["a"].value, r["c"].value), set()).add(r["p"].value)
     return out
@@ -331,6 +333,10 @@ def nearest(store, limit=3, post=None):
     for r in store.select(PRE + """SELECT ?c ?l WHERE { ?c j:label|j:former ?l }"""):
         bags.setdefault(r["c"].value, set()).update(words(r["l"].value))
         names.setdefault(r["c"].value, []).append(words(r["l"].value))
+    for r in store.select(PRE + """SELECT ?c WHERE { ?c j:retired ?x
+                                    FILTER(STRSTARTS(STR(?c), STR(c:))) }"""):
+        bags.pop(r["c"].value, None)         # no longer meant: never a suggestion
+        names.pop(r["c"].value, None)
     df = {}
     for bag in bags.values():
         for w in bag:

@@ -55,7 +55,7 @@ One changeset for the session, `jsk kb show <ids>` first for the `op:base`:
 | work being dropped | `op:retire` it with a `j:reason` — **never delete it** |
 | a new capability term | `op:add` it under the vocabulary, in the same changeset that first uses it |
 | `concepts-bare` in `jsk kb check` | `jsk kb pack capabilities --out pack.trig`, dry-run, apply; then label the top of `jsk kb query bare` |
-| two concepts that are one | `jsk kb merge c:a --into c:b --out merge.trig`, dry-run, apply; confirm the bullets it lists |
+| two concepts that are one | re-point any `posting.ttl` `j:concept c:a` to `c:b` first, or `c:a` is only retired; `jsk kb merge c:a --into c:b --out merge.trig`, dry-run, apply; confirm the bullets it lists |
 
 A changed claim comes back `inferred` with a question, by itself — a number updated from memory is
 not re-confirmed. **Ask, then `jsk kb confirm <ids> --answer "…"`.** An answered question closes

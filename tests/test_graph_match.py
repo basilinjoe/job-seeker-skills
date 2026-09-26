@@ -175,6 +175,19 @@ class Scenarios(unittest.TestCase):
                          O.C + "technical-documentation")
         self.assertNotIn(O.C + "golang", near("go-to-market planning"))     # "go" is too short
 
+    def test_a_retired_concept_is_never_offered(self):
+        # A merge retires the concept an older posting still names. It is that posting's
+        # answer and the phrase holds its whole id, and neither makes it a suggestion.
+        s = edited("c:mentoring a j:Capability",
+                   'c:stream-plumbing a j:Capability ; j:retired "2026-09-26"^^xsd:date ;\n'
+                   '    j:reason "Merged into c:kafka." .\n'
+                   "c:mentoring a j:Capability",
+                   also=[('j:asked "Computing" ; j:necessity j:preferred ;',
+                          'j:asked "Stream plumbing" ; j:necessity j:preferred ; '
+                          'j:concept c:stream-plumbing ;', "applications/northwind/posting.ttl")])
+        self.assertEqual([f.text() for f in s.fails()], [])
+        self.assertNotIn(O.C + "stream-plumbing", Q.nearest(s, post=post("contoso"))("stream plumbing"))
+
     def test_another_postings_answer_is_offered_first(self):
         # northwind's analyst said "stream plumbing" meant Kafka; no concept's words say so.
         s = edited('j:asked "Computing" ; j:necessity j:preferred ;',
@@ -219,14 +232,15 @@ class Ranking(unittest.TestCase):
                           ("game", 5)])
 
 
-def edited(old, new, file="career/kb.ttl"):
-    """The fixture with one edit, loaded."""
+def edited(old, new, file="career/kb.ttl", also=()):
+    """The fixture with one edit - and `also`, more (old, new, file) edits - loaded."""
     tmp = tempfile.mkdtemp()
     shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
-    path = Path(tmp) / file
-    text = path.read_text(encoding="utf-8")
-    assert old in text, old
-    path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
+    for old, new, file in ((old, new, file), *also):
+        path = Path(tmp) / file
+        text = path.read_text(encoding="utf-8")
+        assert old in text, old
+        path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
     try:
         return load(tmp)
     finally:
