@@ -314,6 +314,28 @@ class AdvertCoverage(unittest.TestCase):
         self.assertEqual(self.uncovered("- Event-driven systems a plus.",
                                         "- **Event‑driven** systems a plus."), [])
 
+    def test_a_quote_ending_in_a_full_stop_covers_a_labelled_line(self):
+        # JumpCloud, 2026-09-26: "Experience: 12+ years of ... environments." quoted from
+        # "12+" to the full stop warned, because only the line lost its stop.
+        import shutil
+        import tempfile
+        from pathlib import Path
+
+        from test_graph_shapes import FIXTURES, load
+
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
+        for file, old, new in ((ADVERT, "- Deep, hands-on K8s", "- Kubernetes: Deep, hands-on K8s"),
+                               (POSTING, 'K8s experience in production" .',
+                                'K8s experience in production." .')):
+            path = Path(tmp) / file
+            text = path.read_text(encoding="utf-8")
+            self.assertIn(old, text)
+            path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
+        found = [f.detail for f in load(tmp).findings if f.rule == "advert-uncovered"]
+        self.assertEqual(found, [])
+
     def test_a_wrapped_item_is_one_line(self):
         self.assertEqual(self.uncovered("- Event-driven systems a plus.",
                                         "- Event-driven systems a\n  plus."), [])

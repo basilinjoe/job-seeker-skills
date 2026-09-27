@@ -240,7 +240,9 @@ def uncovered(rows, store):
 
     quotes = defaultdict(list)
     for r in rows:
-        quotes[v(r, "focus")].append(squash(v(r, "q") or "").casefold())
+        # Stripped as the line is below: a quote ending in its line's full stop is not
+        # in the line once the line has lost it.
+        quotes[v(r, "focus")].append(squash(v(r, "q") or "").casefold().rstrip(".;, "))
     out = []
     for post, said in quotes.items():
         file = store.file_of(post)
