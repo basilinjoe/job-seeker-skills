@@ -81,6 +81,9 @@ def parse(text):
             continue
         cells = [c.strip() for c in line.split("|")]
         n = int(cells[0])
+        if len(cells) > 3 and cells[1] == "-":
+            raise DecisionsError(f"line {i}: a drop is `n | - | reason`, and this reason "
+                                 f"holds a `|` - write it without one")
         if len(cells) == 3 and cells[1] == "-":
             if not cells[2]:
                 raise DecisionsError(f"line {i}: a drop needs its reason")

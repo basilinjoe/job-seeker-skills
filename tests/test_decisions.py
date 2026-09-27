@@ -40,6 +40,7 @@ class Parse(unittest.TestCase):
                 ("17 | csharp | C# | - | must", "need 'must'"),
                 ("17 | csharp | C# | csharp |", "write it c:<slug>"),
                 ("12 | - |", "a drop needs its reason"),
+                ("12 | - | internal | tooling", "holds a `|`"),
                 ("teh company: x", "neither"),
                 ("17 | csharp | C# | - |\ncompany: x", "after the rows"),
                 ("company: a\ncompany: b", "twice")):

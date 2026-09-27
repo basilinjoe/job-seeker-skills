@@ -287,6 +287,22 @@ def asked_lines(advert):
             if x.section == "qualification" and len(x.text.split()) >= 4 and not x.elig]
 
 
+def dropped_lines(folder, advert):
+    """The advert lines decisions.txt beside posting.md drops with a reason: answered, not
+    skipped, so not uncovered. A decisions.txt that does not parse drops nothing - `jsk
+    posting build` refuses it long before this reads it."""
+    import os
+
+    from .decisions import DecisionsError, read
+
+    try:
+        drops = read(os.path.join(folder, "decisions.txt")).drops
+    except (OSError, DecisionsError):
+        return set()
+    lines = {x.n: x.text for x in advert_lines(advert)}
+    return {lines[d.n] for d in drops if d.n in lines}
+
+
 def uncovered(rows, store):
     """An advert line that asks something no requirement of its posting quotes."""
     import os
@@ -303,14 +319,17 @@ def uncovered(rows, store):
         file = store.file_of(post)
         if not file:
             continue
+        folder = os.path.join(store.root, os.path.dirname(file))
         try:
-            with open(os.path.join(store.root, os.path.dirname(file), "posting.md"),
-                      encoding="utf-8") as fh:
+            with open(os.path.join(folder, "posting.md"), encoding="utf-8") as fh:
                 advert = normalise(fh.read())
         except OSError:
             continue                        # quote-verbatim says posting.md is missing
         said = [q for q in said if q]
+        dropped = dropped_lines(folder, advert)
         for line in asked_lines(advert):
+            if line in dropped:
+                continue                    # dropped with a reason, which gaps.md shows
             low = line.casefold().rstrip(".;, ")
             if not any(q in low or low in q for q in said):
                 out.append({"focus": node(post), "line": line})

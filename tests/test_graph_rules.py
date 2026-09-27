@@ -314,9 +314,9 @@ class AdvertCoverage(unittest.TestCase):
         self.assertEqual(self.uncovered("- Event-driven systems a plus.",
                                         "- **Event‑driven** systems a plus."), [])
 
-    def test_a_quote_ending_in_a_full_stop_covers_a_labelled_line(self):
-        # JumpCloud, 2026-09-26: "Experience: 12+ years of ... environments." quoted from
-        # "12+" to the full stop warned, because only the line lost its stop.
+    def edited(self, *edits):
+        """advert-uncovered's details after several (file, old, new) edits; old=None
+        writes the file whole."""
         import shutil
         import tempfile
         from pathlib import Path
@@ -326,15 +326,34 @@ class AdvertCoverage(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, True)
         shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
-        for file, old, new in ((ADVERT, "- Deep, hands-on K8s", "- Kubernetes: Deep, hands-on K8s"),
-                               (POSTING, 'K8s experience in production" .',
-                                'K8s experience in production." .')):
+        for file, old, new in edits:
             path = Path(tmp) / file
-            text = path.read_text(encoding="utf-8")
-            self.assertIn(old, text)
-            path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
-        found = [f.detail for f in load(tmp).findings if f.rule == "advert-uncovered"]
-        self.assertEqual(found, [])
+            if old is None:
+                text = new
+            else:
+                text = path.read_text(encoding="utf-8")
+                self.assertIn(old, text)
+                text = text.replace(old, new)
+            path.write_text(text, encoding="utf-8", newline="\n")
+        return [f.detail for f in load(tmp).findings if f.rule == "advert-uncovered"]
+
+    def test_a_quote_ending_in_a_full_stop_covers_a_labelled_line(self):
+        # JumpCloud, 2026-09-26: "Experience: 12+ years of ... environments." quoted from
+        # "12+" to the full stop warned, because only the line lost its stop.
+        self.assertEqual(self.edited(
+            (ADVERT, "- Deep, hands-on K8s", "- Kubernetes: Deep, hands-on K8s"),
+            (POSTING, 'K8s experience in production" .', 'K8s experience in production." .')),
+            [])
+
+    def test_a_line_decisions_txt_drops_is_answered(self):
+        added = (ADVERT, self.BRING, self.BRING + "- Must have run Origin CI in anger.\n")
+        self.assertEqual(len(self.edited(added)), 1)
+        # The line's number as `jsk posting extract` prints it: the first under the heading.
+        drops = "applications/acme-platform-engineer/decisions.txt"
+        self.assertEqual(self.edited(added, (drops, None, "company: Acme Health\ntitle: x\n"
+                                                          "3 | - | internal tooling\n")), [])
+        self.assertEqual(len(self.edited(added, (drops, None, "company: Acme Health\n"
+                                                                "4 | - | the wrong line\n"))), 1)
 
     def test_a_wrapped_item_is_one_line(self):
         self.assertEqual(self.uncovered("- Event-driven systems a plus.",

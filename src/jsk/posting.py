@@ -1,6 +1,9 @@
-"""A posting on a public job board, written as an application's posting.md.
+"""A posting on a public job board, written as an application's posting.md - and then
+its requirements, written as posting.ttl.
 
 Usage: jsk posting fetch <url> <application-dir>
+       jsk posting extract <application-dir>
+       jsk posting build <application-dir> [<decisions-file>] [--replace]
 
   <url>              the posting as a person would open it:
                        https://jobs.ashbyhq.com/<org>/<job-uuid>
@@ -14,13 +17,24 @@ facts the board states, then the description verbatim. A board that serves HTML 
 turned into text - paragraphs, `- ` list items, entities - and nothing else rewritten.
 posting.md is never overwritten.
 
-Exit 0 written; 1 refused - a board this does not know, a posting not on its board, a
-network failure, a posting.md already there - each with its fix; 2 called wrong.
+extract prints the header decisions.txt starts with, then every line of posting.md a
+requirement could quote: numbered, with its section (qual, resp, other), a flag (opt:
+optional-worded; elig: eligibility, never a requirement) and the concepts its labels name.
+
+build reads decisions.txt (default <application-dir>/decisions.txt) - `n | slug | asked |
+concepts | need` rows and `n | - | reason` drops - and writes posting.ttl, each quote the
+extracted line itself. Every qual and resp line must be used or dropped. An existing
+posting.ttl is replaced only with --replace. WARNs past 20 requirements, and on a
+responsibility made required that its line does not call required.
+
+Exit 0 written or printed; 1 refused - a board this does not know, a posting not on its
+board, a network failure, a posting.md already there, a decisions file that does not
+hold - each with its fix, nothing written; 2 called wrong.
 
 Written after the ElevenLabs run (2026-09-25), where the posting came off Ashby's API
 through hand-written curl and inline Python and posting.md was assembled by hand: the
 one input every requirement quotes, made by the least repeatable step of the run.
-Only urllib: pyoxigraph is the package's one hard dependency.
+Only urllib at import: extract and build load graph.postingbuild when they run.
 """
 import datetime
 import html
@@ -34,7 +48,9 @@ import urllib.request
 from html.parser import HTMLParser
 
 POSTING = "posting.md"
-USAGE = "usage: jsk posting fetch <url> <application-dir>"
+USAGE = ("usage: jsk posting fetch <url> <application-dir>\n"
+         "       jsk posting extract <application-dir>\n"
+         "       jsk posting build <application-dir> [<decisions-file>] [--replace]")
 TIMEOUT = 30
 BROWSER_FIX = ("fix:  fetch it with a browser tool and write posting.md with the Write "
                "tool - the advertisement verbatim, the URL on its first line")
@@ -356,17 +372,33 @@ def main(argv=None):
     if wants_help(args):
         print(__doc__.split("\n\nWritten after", 1)[0])
         return 0
-    if len(args) != 3 or args[0] != "fetch":
+    verb = args[0] if args else None
+    replace = verb == "build" and "--replace" in args
+    if replace:
+        args.remove("--replace")
+    if not ((verb == "fetch" and len(args) == 3) or (verb == "extract" and len(args) == 2)
+            or (verb == "build" and len(args) in (2, 3))) \
+            or any(a.startswith("--") for a in args):
         print(USAGE)
         return 2
-    _, url, app_dir = args
     try:
-        target, title, count = fetch(url, app_dir)
+        if verb == "fetch":
+            target, title, count = fetch(args[1], args[2])
+            print(f"wrote  {target}   {title}   {count} chars")
+        elif verb == "extract":
+            from .graph import postingbuild
+            print(postingbuild.extract(args[1]), end="")
+        else:
+            from .graph import postingbuild
+            target, count, warnings = postingbuild.build(
+                args[1], args[2] if len(args) == 3 else None, replace=replace)
+            print(f"wrote {target}  {count} requirements")
+            for w in warnings:
+                print(f"WARN - {w}")
     except Refused as exc:
         print(f"REFUSED - {exc}")
         print(exc.fix)
         return 1
-    print(f"wrote  {target}   {title}   {count} chars")
     return 0
 
 
