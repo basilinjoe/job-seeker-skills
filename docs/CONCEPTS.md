@@ -94,7 +94,8 @@ the other, a bare degree passes. Both are wrong, so the boolean structure is mod
 **Assessment** — the join between a posting and your record, written to be read aloud: one verdict per
 requirement, the evidence behind it, and how far short it falls on a *named* axis. `jsk match`
 computes the join - which project holds each requirement, through which vocabulary edge - and the
-assessment in `gaps.md` is written from it.
+assessment is derived from it: `gaps.ttl` and `gaps.md`, written by code, with the analyst's
+`gaps.txt` holding only what the join cannot know - a verdict lowered, and why.
 *Why it matters:* it distinguishes "you don't have it" from "you have it and never wrote it down"
 from "you claimed it with nothing behind it". Those need opposite responses, and only the last one
 ends an interview badly.

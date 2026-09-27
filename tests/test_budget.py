@@ -89,6 +89,8 @@ class AgentReadBudget(unittest.TestCase):
         # 2300 -> 1900 for fast tailor (2026-09-27): 2,226 -> 1,810. The inline posting.ttl
         # and the gaps.md template left - `jsk posting build` writes the one and `jsk
         # tailor prepare --draft-gaps` the other - and the splitting rules came in.
+        # Held for gaps.ttl (2026-09-27): 1,810 -> 1,890. §3 became reviewing a derived
+        # assessment and writing gaps.txt; the slot-by-slot gaps.md instructions left.
         self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 1900)
 
     def test_the_resume_author_reads_the_short_file_format_and_the_rules(self):
@@ -420,6 +422,8 @@ class TheMainThreadBudget(unittest.TestCase):
         # (SKILL 2,262, tailor 2,441, ship 1,295). mode-tailor.md's step 1b costs 124: two
         # queries before dispatch, because the JumpCloud run spent 11 minutes of analysis
         # to reach "you have nothing on PAM" and a query answers it in two seconds.
+        # Held at 6100 for gaps.ttl (2026-09-27). Measured: 5,998 -> 6,056. The directory
+        # holds three gaps files where it held one, and a patch goes to gaps.txt.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",

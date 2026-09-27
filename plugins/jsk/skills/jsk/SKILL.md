@@ -30,7 +30,7 @@ two hand-built documents stop agreeing the moment one is edited.
 |---|---|---|
 | `career/kb.ttl` · `career/log.ttl` | the career · every change to it | `jsk kb` |
 | `applications/<stem>/posting.md` · `posting.ttl` | the advert verbatim · its requirements | you · `jsk-tailor-analyst` |
-| `applications/<stem>/gaps.md` | verdicts, shortfalls and the question queue | `jsk-tailor-analyst` |
+| `applications/<stem>/gaps.md` · `gaps.txt` | the assessment · the analyst's changes to it | `jsk` · `jsk-tailor-analyst` |
 | `applications/<stem>/resume.json` | the bullets chosen for this posting, by id | `jsk-resume-author` |
 | `applications/<stem>/application.ttl` | what was sent, and its timeline | `jsk freeze`, `jsk event` |
 

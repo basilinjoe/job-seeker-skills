@@ -11,7 +11,8 @@ change the career with `jsk kb apply`, and read it with `jsk kb show`, `view` an
   applications/<yyyy-mm-dd>-<company>-<role>/
     posting.md               the advertisement, verbatim - nothing else
     posting.ttl              what it asks for (the analyst writes it)
-    gaps.md                  the assessment and the question queue
+    gaps.txt                 what the analyst changes in the assessment
+    gaps.ttl · gaps.md       the assessment, derived from the match - jsk writes both
     resume.json              the bullets and settings this submission rendered from
     application.ttl          what was sent, and its timeline - jsk freeze, jsk event
 ```

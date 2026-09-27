@@ -23,7 +23,7 @@ The user chose **Option C**: the record becomes graph-native **text** — Turtle
 
 **Workspace layout**
 - `career/kb.ttl` — whole career + the person's vocabulary additions. `career/log.ttl` — append-only audit log, written by apply.
-- `applications/<dir>/posting.ttl` (structured requirements), `posting.md` (advert verbatim, no frontmatter), `gaps.md` (prose, unchanged), `resume.json`, renders, `application.ttl` (metadata, carried links, timeline events).
+- `applications/<dir>/posting.ttl` (structured requirements), `posting.md` (advert verbatim, no frontmatter), `gaps.md` (prose, unchanged - superseded 2026-09-27: `gaps.ttl` + `gaps.md` derived by code, the analyst's `gaps.txt` folded in; see `2026-09-27-gaps-ttl.md`), `resume.json`, renders, `application.ttl` (metadata, carried links, timeline events).
 - Shipped vocabulary `src/jsk/data/vocabulary.ttl` (technologies only, no `implies`).
 - `jsk new` writes `.gitattributes` with `*.ttl text eol=lf`.
 - In memory: one named graph per file (errors name the file); derived triples in `j:derived`, never written; queries over the union graph.

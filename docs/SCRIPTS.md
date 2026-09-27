@@ -206,7 +206,7 @@ The `jsk.graph.match` module, over the queries in `jsk.graph.queries`.
 jsk match applications/<dir>/posting.ttl                 # the four sections, as Markdown
 jsk match applications/<dir>/posting.ttl --cover 2       # a cover of at most two projects
 jsk match applications/<dir>/posting.ttl --json --today 2026-09-24
-jsk match applications/<dir>/posting.ttl --gaps applications/<dir>/gaps.md   # check the verdicts
+jsk match applications/<dir>/posting.ttl --gaps applications/<dir>/gaps.txt  # check, then write gaps.ttl + gaps.md
 ```
 
 A posting's requirements joined with the career through the vocabulary - the shipped `jsk/data/vocabulary.ttl` and the knowledge base's own additions. Reads the
@@ -232,26 +232,38 @@ Exit 0 with the result - missing requirements included, since this is an assessm
 1 when the workspace has a FAIL; 2 called wrong, or a path that is not
 `applications/<dir>/posting.ttl`.
 
-**`--gaps <gaps.md>`** prints no match: it reads gaps.md's `# Requirements` table (Requirement |
-Need | Verdict | Evidence | Shortfall), pairs rows to requirements by their normalised `j:asked`,
-and FAILs a verdict above the match's (satisfied > partial > unevidenced > unsatisfied; an
-`indeterminate` may become anything but satisfied or partial), a `satisfied` or `partial` citing no
-id, and a `partial` with no Shortfall. A requirement with no row, or a row naming none, WARNs.
-Lowering is always allowed; raising never is - when the match under-reads, the career needs the tag
-or the confirmed bullet, made in the conversation. Every `<!-- jsk: -->` slot still in the file
-is a FAIL too. Exit 1 on any FAIL, 0 otherwise.
+**The assessment** is three files beside `posting.ttl`, each with one owner. `gaps.ttl` (loaded
+with the workspace, so SPARQL reaches it) and `gaps.md` (what the person reads) are written by
+code: derived from the match - per requirement the match's verdict, the projects behind it and a
+one-line basis - with the analyst's `gaps.txt` folded in. `gaps.txt` holds only what the match
+cannot know, one line each: `fit:`, `eligibility:`, `short:`, `surplus:` and `ask:` lines, and
+rows `slug | verdict | reason`, paired to requirements by slug. Nothing reads `gaps.md` back. A
+satisfied requirement whose `asked` lists items (`Vector databases (Pinecone, Weaviate)`) that no
+confirmed evidence bullet names is **flagged**, and its row must be answered `keep` or lowered.
+Both are rebuilt on every run from the career as it stands; once `application.ttl` records a
+submission date, they are frozen.
 
-**`--draft-gaps <gaps.md>`** writes gaps.md instead of printing, never over one already there:
-the requirements table from the requirement ids with the match's verdicts and evidence, the
-Ranking and Cover as printed, new terms and `decisions.txt`'s drops, and the questions in asking
-order - with a `<!-- jsk: -->` slot wherever judgement is needed (the fit, eligibility, each
-shortfall, where it falls short). `--gaps` then fails until every slot is filled.
+**`--gaps <gaps.txt>`** prints no match: it checks the posting's own `gaps.txt`, then writes
+`gaps.ttl` and `gaps.md`. It FAILs, and writes nothing, on a verdict above the match's (satisfied
+> partial > unevidenced > unsatisfied; an `indeterminate` may become anything but satisfied or
+partial), a lowering with no reason, `keep` on a row no flag asked about, a flagged row with no
+row, a slug that is not the posting's, and any `<!-- jsk: -->` slot still in the file. A row the
+match has since moved WARNs. Lowering is always allowed; raising never is - when the match
+under-reads, the career needs the tag or the confirmed bullet, made in the conversation. A
+`gaps.md` is refused: it is written by jsk. Exit 1 on any FAIL, 0 otherwise.
+
+**`--draft-gaps <gaps.txt>`** writes `gaps.ttl` and `gaps.md` from the match alone, then drafts
+`gaps.txt`, never over one already there: `fit:` at its default (poor when a required requirement
+is unsatisfied, strong when every one is satisfied, else partial), the person's eligibility facts
+as comments, a row slot for each flagged requirement, `decisions.txt`'s drops as comments, and the
+match's questions as `ask:` lines - with a `<!-- jsk: -->` slot wherever judgement is needed.
+`--gaps` then fails until every slot is filled.
 
 Validation also WARNs `advert-uncovered`: a list item of four words or more, under a heading that
 names requirements (requirements, qualifications, skills, experience, you'll bring, nice to have,
 …), that no requirement of the posting quotes. Benefits and responsibilities lists are skipped, and
 so are eligibility lines (work rights, visa, clearance, location, work mode), which belong in
-gaps.md's `# Eligibility`.
+gaps.txt's `eligibility:`.
 
 ### `jsk tailor prepare`
 
@@ -259,7 +271,7 @@ The `jsk.graph.prepare` module.
 
 ```bash
 jsk tailor prepare applications/<dir>                  # the digest
-jsk tailor prepare applications/<dir> --draft-gaps     # and write gaps.md with slots to fill
+jsk tailor prepare applications/<dir> --draft-gaps     # and draft gaps.txt with slots to fill
 ```
 
 Everything an assessment reads, in one process and one digest, where the analyst used to make
@@ -268,10 +280,13 @@ about ten calls, each one a model turn. In order: `posting.ttl` put in the canon
 plus every FAIL anywhere (as `jsk kb check --only`); the match as `jsk match` prints it; `jsk kb
 query evidence` for every `missing` and `candidate` term; `jsk kb query person`; the cover's
 projects (at most three, or the top-ranked that carry a requirement), bullets only; and what those
-projects hold unconfirmed. Every section has a size cap and prints `… N more cut` when it cuts.
+projects hold unconfirmed; and the assessment - `gaps.ttl` and `gaps.md` written on every run,
+with the flagged rows and the counts by verdict. Every section has a size cap and prints
+`… N more cut` when it cuts. A `gaps.txt` the check refuses is reported there, not an exit 1:
+the analyst may be halfway through it.
 
-`--draft-gaps` also writes `applications/<dir>/gaps.md` as `jsk match --draft-gaps` does, never
-over one already there. `--cover N` and `--today` are `jsk match`'s.
+`--draft-gaps` also drafts `applications/<dir>/gaps.txt` as `jsk match --draft-gaps` does, never
+over one already there, and not for an application already sent. `--cover N` and `--today` are `jsk match`'s.
 
 Exit 0 digest printed; 1 a FAIL that stops the match (the career, the vocabulary or this
 application's own directory - one in another application does not), printed before it stops;
@@ -453,7 +468,7 @@ ranking that carries anything, up to eight projects. It scores each confirmed bu
 shows (required ×3, preferred ×1, +1 for a metric with a current version) and gives positions 1-2
 up to five bullets, 3-5 up to two, and the rest one. The cover's requirements always get a bullet,
 even past that cap. Skills the posting names come first in `skills`. What the selection cannot
-close prints as `GAP` lines for `gaps.md`: `tag-only`, `unconfirmed` (naming the bullet to
+close prints as `GAP` lines for `gaps.txt`: `tag-only`, `unconfirmed` (naming the bullet to
 confirm), `uncovered` and `unresolved`; a chosen project with no confirmed bullet is a `NOTE`.
 `--select` adds bullets (placed by what they show) and roles, `--cover N` and `--today` are
 `jsk match`'s, and a failure in the posting's own directory refuses the export as it refuses the

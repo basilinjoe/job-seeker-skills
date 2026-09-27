@@ -13,8 +13,8 @@ this person falls short of them.
 role is worth applying to, and which of two close projects leads are settled in the main
 conversation with the person present.
 
-**You write in the application directory only: `decisions.txt`, and through `jsk`, `posting.ttl`
-and `gaps.md`.** **Never
+**You write in the application directory only: `decisions.txt` and `gaps.txt`, and through `jsk`,
+`posting.ttl`, `gaps.ttl` and `gaps.md`.** **Never
 touch `career/kb.ttl`** — no changeset, no confirm, not a vocabulary term, even one you are certain
 of. Report what should change; the conversation makes the change.
 
@@ -83,36 +83,42 @@ jsk tailor prepare applications/<stem> --draft-gaps
 
 One digest: the check (a FAIL that stops the match is printed — **report it and stop**), the match,
 evidence for every missing and candidate term, the person, the cover's bullets, what they hold
-unconfirmed — and `gaps.md`, drafted. The match buckets each requirement `matched` / `near` /
-`missing` / `ambiguous` / `candidate` / `implicit`, with a default Verdict.
+unconfirmed — then `gaps.md` and `gaps.ttl`, derived from the match, and `gaps.txt` drafted for
+you. The match buckets each requirement `matched` / `near` / `missing` / `ambiguous` / `candidate`
+/ `implicit`, with a default Verdict and the evidence behind it.
 
 - **`ambiguous`** or **`candidate`** with a nearest concept exactly meant: put it in decisions.txt,
-  `jsk posting build … --replace`, delete `gaps.md`, run prepare again, once. Otherwise it is a new
-  term — do not bend it onto a near-match.
+  `jsk posting build … --replace`, run prepare again, once. Otherwise it is a new term — do not bend
+  it onto a near-match.
 
 **Read a project before citing it as evidence**: the digest holds the cover's bullets; `jsk kb show
 <ids> --bullets` for any other you cite. A `tag` is not evidence. Do not read the whole career, and
 never grep `kb.ttl`: `jsk kb query evidence <terms>` for one the digest lacks — the posting's own
 terms, never generic words. A `nothing` row is the answer.
 
-## 3. The assessment: fill the slots
+## 3. Review the derived assessment
 
-`gaps.md` is drafted: the requirements table with the match's verdicts and evidence, the Ranking
-and Cover, new terms, dropped lines, and the questions. Fill every `<!-- jsk: … -->` slot with
-`Edit`, to be read aloud: the fit; `# Eligibility` judged against the facts listed; each Shortfall;
-`# Where this falls short`, most load-bearing first; surplus, or delete it.
+`gaps.md` holds every requirement with the match's verdict, evidence and why. **Code wrote it;
+never edit it.** Read the evidence of each `satisfied` row — the match cannot tell whom a person
+mentored, or one cloud from several — and write only what you change in `gaps.txt`, with `Edit`:
 
-**Each Verdict starts from the match's.** Lower one with the reason in Shortfall; **never raise
-it** — a match that under-reads is fixed in the career, by the conversation. `satisfied` and
-`partial` cite an id; `partial` names its shortfall; `unevidenced` gets a question. Never soften
-`indeterminate` into `unsatisfied`: only one is about the candidate.
+- `eligibility:` against the facts listed; `fit:` if the default is wrong.
+- **Each flagged row**: `keep`, or lower it. **Any other row you lower**: `<slug> | <verdict> |
+  <reason>`; an unlisted requirement keeps the match's verdict.
+- `short:` lines, most load-bearing first; `surplus:`, or delete the slot.
 
-Then run `jsk match applications/<stem>/posting.ttl --gaps applications/<stem>/gaps.md`: an unfilled
-slot is a FAIL. Fix every FAIL before returning.
+**Each Verdict starts from the match's. Never raise it** — a match that under-reads is fixed in the
+career, by the conversation. `partial` names its shortfall; `unevidenced` gets a question. Never
+soften `indeterminate` into `unsatisfied`: only one is about the candidate.
+
+Then run `jsk match applications/<stem>/posting.ttl --gaps applications/<stem>/gaps.txt`: it
+rewrites `gaps.ttl` and `gaps.md`, or on a FAIL (an unfilled slot is one) writes nothing. Fix
+every FAIL before returning.
 
 ## 4. The questions
 
-The draft holds the match's Questions in this order; add from the digest's unconfirmed entries. Order: **blocking, unmet
+The `ask:` lines hold the match's Questions in this order; add from the digest's unconfirmed
+entries. Order: **blocking, unmet
 requirement, unconfirmed claim, missing metric, unexplored.** Write each ready to say aloud, naming
 the id it closes. For an inferred claim, quote it exactly and offer confirm, correct or cut. For a
 missing number, say where it might live — dashboards, billing, retros, release notes, incident

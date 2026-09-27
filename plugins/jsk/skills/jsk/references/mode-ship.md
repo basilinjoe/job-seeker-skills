@@ -92,8 +92,8 @@ that rendered and the metric versions they cite — so `jsk kb query stale` can 
 that sent a number since revised — and a `submitted` event. It renames the directory to the
 submitted date and prints the new path — **use that path from here on**, for `jsk event` too. Then:
 
-- **Stop editing that directory.** `posting.md`, `posting.ttl`, `gaps.md` and `resume.json` are the
-  archive — it must still say what the application was answering.
+- **Stop editing that directory.** `posting.md`, `posting.ttl`, the `gaps.*` files and `resume.json`
+  are the archive — it must still say what the application was answering.
 - **Later events are `jsk event <app-dir> <kind> --date …`** (`mode-pipeline.md`), add-only.
 - `--submitted false` is for an application deliberately held back: no `submitted` event, and that
   is correct. **Never add a `submitted` event to clear a gap.**

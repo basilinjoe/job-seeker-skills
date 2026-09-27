@@ -90,8 +90,8 @@ jsk kb export --from-match applications/<stem>/posting.ttl [--select <ach_ ids y
 for the person, never a number for you to change.** Never change a confirmed bullet's number or
 words to pass a gate, and never cite another metric to cover it: on the ElevenLabs run "300-400
 candidates" became "300-800" to match an unrelated metric, and the person had to undo it. Take that
-bullet out of `bullets` and return the line as a question. **Each `GAP` line goes into `gaps.md`'s
-"Where this falls short"**, except `unconfirmed … is selected`: your own bullet, to confirm.
+bullet out of `bullets` and return the line as a question. **Each `GAP` line goes into `gaps.txt`
+as a `short:` line**, except `unconfirmed … is selected`: your own bullet, to confirm.
 
 **Then edit only** `bullets` — reorder only with a stated reason — `summary`, and `pages`,
 `ats_pages` or `format` when this posting wants them.
@@ -108,7 +108,8 @@ concept). Never rewrite the positioning; if it has drifted, say so.
 **Chronology governs order; score governs allocation** — the export applied both. When the best
 evidence sits mid-career, **say so, and why.** Do not cut evidence to fit the presentation budget;
 `ats_pages` is its own. When you drop evidence the assessment marked `satisfied` or `partial`,
-**add a line to `gaps.md`'s "Where this falls short"** naming the requirement and the ids.
+**add a `short:` line to `gaps.txt`** naming the requirement and the ids. After either, run `jsk
+match <posting.ttl> --gaps <gaps.txt>`, which rewrites `gaps.md`; never edit `gaps.md`.
 
 ## Before you return
 

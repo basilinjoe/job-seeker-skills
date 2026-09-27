@@ -23,7 +23,7 @@ One directory per application:
 
 ```
 applications/<yyyy-mm-dd>-<company>-<role>/
-  posting.md  posting.ttl  gaps.md  resume.json  application.ttl  <Name>_<Company>_Resume.{tex,pdf,txt}
+  posting.md  posting.ttl  gaps.txt  gaps.ttl  gaps.md  resume.json  application.ttl  <Name>_<Company>_Resume.{tex,pdf,txt}
 ```
 
 Name it for the day it is being worked on; `jsk freeze` renames it if it is sent later.
@@ -72,7 +72,7 @@ Send `jsk-tailor-analyst` the application directory and the workspace, both abso
 workspace named `career` is the wrong folder. Add the
 posting facts worth flagging, then stop: **its definition holds the procedure and the return, so
 do not send the skill directory or ask for a report.** It decides the requirements, `jsk posting
-build` writes `posting.ttl`, and `jsk tailor prepare` matches and drafts the `gaps.md` it fills in.
+build` writes `posting.ttl`, and `jsk tailor prepare` derives `gaps.md` and drafts the `gaps.txt` it fills in.
 It never touches `career/kb.ttl`.
 
 It returns three lines: the fit, what is blocking, and the path to `gaps.md`. **Read `gaps.md` and
@@ -128,11 +128,11 @@ An answer changes **`career/kb.ttl`** — never `gaps.md` or `resume.json`, both
 
 ## 4. Another round only if a verdict moved
 
-Revise `gaps.md` **only when an answer changed what the career holds**. Re-run `jsk match`.
+Revise the assessment **only when an answer changed what the career holds**. Re-run `jsk match`.
 
-**Patch it yourself when every change is a row** — a verdict with its evidence, a ranking row from the
-new match, an answered question struck — then `jsk match <posting.ttl> --gaps <gaps.md>`, which
-fails a verdict above the match's. **Send it back only when the fit could change or an answer
+**Patch it yourself when every change is a row** — a lowered verdict, an answered `ask:` struck —
+in `gaps.txt`; then `jsk match <posting.ttl> --gaps <gaps.txt>` rewrites `gaps.md` from the new
+match, and fails a verdict above it. **Send it back only when the fit could change or an answer
 needs a row the assessment lacks**: `SendMessage` to the same agent with what changed.
 
 The loop ends when they skip, when nothing is left worth asking, when a round produces no new

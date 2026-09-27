@@ -254,7 +254,7 @@ plugins/jsk/                        THE SKILL. markdown only - it ships no code
     jsk-verifier.md                 interprets a failed gate against the career and resume.json
     jsk-kb-auditor.md               checks and queries the career, writes a posting-less audit
     jsk-extractor.md                a braindump or imported document to one dry-run changeset
-    jsk-tailor-analyst.md           writes posting.ttl and gaps.md from a posting and `jsk match`
+    jsk-tailor-analyst.md           writes posting.ttl's decisions and gaps.txt; jsk writes the rest
     jsk-resume-author.md            bullets into the career, then exports resume.json and its summary
   skills/jsk/
     SKILL.md                        the agent's entry point: routing + hard rules
