@@ -86,7 +86,10 @@ class AgentReadBudget(unittest.TestCase):
         # posting.ttl, so it never needs kb-format.md, came in.
         # Held when `jsk match` began deriving verdicts (2026-09-26): 2,254 -> 2,226. The
         # verdict table left with the judgement; the --gaps check came in.
-        self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 2300)
+        # 2300 -> 1900 for fast tailor (2026-09-27): 2,226 -> 1,810. The inline posting.ttl
+        # and the gaps.md template left - `jsk posting build` writes the one and `jsk
+        # tailor prepare --draft-gaps` the other - and the splitting rules came in.
+        self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 1900)
 
     def test_the_resume_author_reads_the_short_file_format_and_the_rules(self):
         """It wrote the record by hand, so `urs-spec.md` went from the half it did not

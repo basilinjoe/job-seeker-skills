@@ -71,8 +71,9 @@ Send `jsk-tailor-analyst` the application directory and the workspace, both abso
 `kb` path `jsk kb path` printed — the file, never "the folder holding career/kb.ttl", which in a
 workspace named `career` is the wrong folder. Add the
 posting facts worth flagging, then stop: **its definition holds the procedure and the return, so
-do not send the skill directory or ask for a report.** It writes `posting.ttl`, runs `jsk match`,
-and writes `gaps.md` from the match. It never touches `career/kb.ttl`.
+do not send the skill directory or ask for a report.** It decides the requirements, `jsk posting
+build` writes `posting.ttl`, and `jsk tailor prepare` matches and drafts the `gaps.md` it fills in.
+It never touches `career/kb.ttl`.
 
 It returns three lines: the fit, what is blocking, and the path to `gaps.md`. **Read `gaps.md` and
 show them the assessment whole**, not a summary of it and not a rewrite, leading with the blocking

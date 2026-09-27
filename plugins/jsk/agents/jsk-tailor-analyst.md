@@ -13,7 +13,8 @@ this person falls short of them.
 role is worth applying to, and which of two close projects leads are settled in the main
 conversation with the person present.
 
-**You write two files, both in the application directory: `posting.ttl` and `gaps.md`.** **Never
+**You write in the application directory only: `decisions.txt`, and through `jsk`, `posting.ttl`
+and `gaps.md`.** **Never
 touch `career/kb.ttl`** — no changeset, no confirm, not a vocabulary term, even one you are certain
 of. Report what should change; the conversation makes the change.
 
@@ -30,147 +31,88 @@ example: the shapes you write are below.
 **Your first command is `jsk kb path`**, from the application directory: it prints `kb.ttl`'s
 absolute path. Never build it yourself (a workspace named `career` holds `career/career/kb.ttl`).
 
-## 1. Requirements, as posting.ttl
-
-Read `posting.md` whole, then run `jsk kb query concepts` once: every concept, its labels, what it
-counts as, and how many projects hold it. Write `posting.ttl` beside it:
-
-```turtle
-@prefix j: <tag:jsk,2026:ns#> .
-@prefix k: <tag:jsk,2026:id/> .
-@prefix c: <tag:jsk,2026:concept/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-# == Posting
-
-k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;
-    j:url "https://…" ;
-    j:seniority j:platform-design ;
-    j:captured "2026-09-08"^^xsd:date ; j:advert "posting.md" .
-
-# == Requirements
-
-k:req_acme_platform_k8s j:posting k:post_acme_platform ;
-    j:asked "K8s" ; j:necessity j:required ;
-    j:quote "Deep, hands-on K8s experience in production" .
-
-k:req_acme_platform_integration j:posting k:post_acme_platform ;
-    j:asked "integration patterns" ; j:concept c:system-integration ; j:necessity j:required ;
-    j:quote "Strong grasp of integration patterns" .
-```
-
-- **`j:concept`** names the concept an advert's phrase means, when the list has it exactly:
-  "mentoring senior engineers" is `c:mentoring`; "cloud-native architecture" is not
-  `c:cloud-migration`. No exact fit: leave it off, and the match reports a new term. Alternatives
-  ("AWS/GCP/Azure", "Pinecone, Weaviate or Milvus") get one `j:concept` each; any one satisfies.
-
-- **`j:asked`** is the term as the advert writes it; **`j:quote`** the advert's own words, **copied
-  verbatim** (checked against `posting.md`). `j:seniority` is one of architecture-ownership ·
-  product-ownership · platform-design · team-leadership · technical-ownership · hands-on-senior ·
-  hands-on · junior.
-- **`necessity`**: "expert in Terraform" is `j:required`, "Terraform a plus" is `j:preferred`. When
-  the advert does not say, `j:implicit` — never promote a guess to `required`.
-- **Eligibility is not a requirement.** Work authorization, clearance and location go in the
-  assessment's `# Eligibility` section. Every other line the advert asks gets one: an
-  `advert-uncovered` warning (`jsk kb check` names the line) means one was skipped.
-
-Then `jsk kb fmt applications/<stem>/posting.ttl` for the canonical layout.
-
-## 2. Match: run it, never compute it
+## 1. Requirements: you decide, code writes
 
 ```bash
-jsk match applications/<stem>/posting.ttl
+jsk posting extract applications/<stem>
 ```
 
-It validates the workspace (a FAIL is printed and nothing is matched — **report it and stop**), then
-prints four sections: **Requirements**, each bucketed `matched` / `near` / `missing` / `ambiguous` /
-`candidate` / `implicit` (not matched) with its default Verdict, the projects carrying it and the
-evidence (`confirmed`, `unconfirmed`, `tag`);
-**Ranking**, the scores; **Cover**, the smallest set of projects carrying every required one; and
-**Questions**, derived from the gaps.
+It prints a header and every line of the advert, numbered, with its section (`qual`, `resp`,
+`other`), a flag (`opt` optional, `elig` eligibility) and the concepts each line names. Write
+`applications/<stem>/decisions.txt`: the header as printed, corrected where it is wrong, then one
+row per requirement, `|` between fields:
 
-- **`ambiguous`**: the term names several concepts. Add `j:concept c:…` for the one the advert means
-  and re-run.
-- **`candidate`**: no concept has the label; the match names the nearest. If one is exactly meant,
-  add `j:concept` and re-run, once. Otherwise report it as a new term — do not bend it onto a
-  near-match.
+```
+company: Acme Health
+title: Platform Engineer
+seniority: platform-design
+captured: 2026-09-08
 
-Copy the Ranking into `gaps.md` as printed. **Read a project before citing it as evidence** —
-`jsk kb show <ids> --bullets`, for the top-ranked ones you cite. A `tag` is not evidence.
-Do not read the whole career.
+# n | slug | asked | concepts | need
+5 | k8s | K8s | c:kubernetes |
+6 | aws_gcp | AWS/GCP | c:aws, c:gcp |
+7 | integration | integration patterns | c:system-integration | required
+12 | - | internal tooling - Origin CI, Kargo
+```
 
-**Ask the record; never grep `kb.ttl`.** Two queries answer what the match does not:
+- **One requirement per term the match can score**: a technology, a practice, a capability. A
+  line may give several. Alternatives stay one requirement with a concept each; any one satisfies.
+  The same ask in two lines is one requirement, on the qualification line.
+- **`asked`** is the term as the line writes it. **`concepts`**: accept, strike or add to what
+  extract proposed; `-` when nothing fits exactly ("cloud-native architecture" is not
+  `c:cloud-migration`), and the match reports a new term. For a term extract proposed nothing for,
+  `jsk kb query concepts --near "<term>"`.
+- **`need`**: leave it blank. A qualification is `required`, `preferred` when worded as optional;
+  a responsibility is `implicit` — never promote a guess to `required`.
+- **Every `qual` and `resp` line is used or dropped** (`n | - | reason`). Drop company-internal
+  names nobody outside could have used; the reason reaches the person. `elig` lines are never
+  requirements: they go in `# Eligibility`. About 20 requirements at most; build warns past it.
 
 ```bash
-jsk kb query evidence GraphQL "React Native" BFF caching   # every term, one call
-jsk kb query person          # location, work mode, rights to work, ongoing roles
+jsk posting build applications/<stem>        # --replace to rebuild after changing decisions.txt
 ```
 
-`evidence` gives each term its concept's holders, then every entry whose text names it (an
-all-capitals term matches as written). Query the posting's own terms, never generic words like
-"AI" or "architecture", which match everything. A `nothing` row is the answer: do not search again.
-`person` is what `# Eligibility` is judged against — an ongoing role is a constraint too.
+It writes `posting.ttl`, every quote the advert's own line, and refuses what does not hold
+together; fix decisions.txt and run it again.
 
-## 3. The assessment
+## 2. Match and evidence: one call
 
-Write `gaps.md` beside the posting, to be read aloud:
-
-```markdown
----
-type: Gap Assessment
-posting: posting.ttl
-assessed: 2026-09-08
-fit: partial            # strong | partial | poor
----
-
-# Eligibility
-
-Pass. The posting offers no sponsorship; the career holds Australian permanent residence
-(`auth_au`). *Evaluated first and on its own — no requirement below offsets a failing gate.*
-
-# Requirements
-
-| Requirement | Need | Verdict | Evidence | Shortfall |
-|---|---|---|---|---|
-| event-driven | required | satisfied | prj_clinical_events | |
-| Terraform | required | unsatisfied | | IaC evidence is all Bicep |
-| observability | preferred | partial | prj_chs | no on-call or SLO ownership |
-| TypeScript | required | unevidenced | | tagged on prj_portal, no bullet shows it |
-
-# Ranking
-
-<the Ranking and the Cover from jsk match, as printed>
-
-# Where this falls short
-
-- **Terraform.** Named throughout; the record's IaC is Bicep. The concepts transfer, but the resume
-  cannot claim Terraform depth.
-
-# Surplus worth knowing about
-
-- **Data sovereignty.** The posting never asks. It is the strongest thing in the record.
-
-# New terms
-
-- **TanStack Query** — `candidate`: no concept holds it. The conversation adds it, not you.
-
-# Questions
-
-1. The onboarding bullet says onboarding fell from a quarter to two weeks. Was it a quarter at the
-   first sites too, or longer?
+```bash
+jsk tailor prepare applications/<stem> --draft-gaps
 ```
+
+One digest: the check (a FAIL that stops the match is printed — **report it and stop**), the match,
+evidence for every missing and candidate term, the person, the cover's bullets, what they hold
+unconfirmed — and `gaps.md`, drafted. The match buckets each requirement `matched` / `near` /
+`missing` / `ambiguous` / `candidate` / `implicit`, with a default Verdict.
+
+- **`ambiguous`** or **`candidate`** with a nearest concept exactly meant: put it in decisions.txt,
+  `jsk posting build … --replace`, delete `gaps.md`, run prepare again, once. Otherwise it is a new
+  term — do not bend it onto a near-match.
+
+**Read a project before citing it as evidence**: the digest holds the cover's bullets; `jsk kb show
+<ids> --bullets` for any other you cite. A `tag` is not evidence. Do not read the whole career, and
+never grep `kb.ttl`: `jsk kb query evidence <terms>` for one the digest lacks — the posting's own
+terms, never generic words. A `nothing` row is the answer.
+
+## 3. The assessment: fill the slots
+
+`gaps.md` is drafted: the requirements table with the match's verdicts and evidence, the Ranking
+and Cover, new terms, dropped lines, and the questions. Fill every `<!-- jsk: … -->` slot with
+`Edit`, to be read aloud: the fit; `# Eligibility` judged against the facts listed; each Shortfall;
+`# Where this falls short`, most load-bearing first; surplus, or delete it.
 
 **Each Verdict starts from the match's.** Lower one with the reason in Shortfall; **never raise
 it** — a match that under-reads is fixed in the career, by the conversation. `satisfied` and
-`partial` cite an id, never a paraphrase; `partial` names its shortfall; `unevidenced` gets a
-question. Never soften `indeterminate` into `unsatisfied`: only one is about the candidate.
+`partial` cite an id; `partial` names its shortfall; `unevidenced` gets a question. Never soften
+`indeterminate` into `unsatisfied`: only one is about the candidate.
 
-Then run `jsk match applications/<stem>/posting.ttl --gaps applications/<stem>/gaps.md` and fix
-every FAIL before returning.
+Then run `jsk match applications/<stem>/posting.ttl --gaps applications/<stem>/gaps.md`: an unfilled
+slot is a FAIL. Fix every FAIL before returning.
 
 ## 4. The questions
 
-Start from the match's Questions and `jsk kb query unconfirmed`. Order: **blocking, unmet
+The draft holds the match's Questions in this order; add from the digest's unconfirmed entries. Order: **blocking, unmet
 requirement, unconfirmed claim, missing metric, unexplored.** Write each ready to say aloud, naming
 the id it closes. For an inferred claim, quote it exactly and offer confirm, correct or cut. For a
 missing number, say where it might live — dashboards, billing, retros, release notes, incident

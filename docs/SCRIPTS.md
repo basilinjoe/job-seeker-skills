@@ -168,6 +168,36 @@ a URL on none of the three boards (fetch it with a browser tool instead), a job 
 list (it may be closed), a network failure, or a `posting.md` already there - it never overwrites
 one, and it refuses that before touching the network; 2 called wrong.
 
+### `jsk posting extract` and `jsk posting build`
+
+The `jsk.graph.postingbuild` module, over `jsk.graph.decisions`.
+
+```bash
+jsk posting extract applications/<dir>             # the advert's lines, numbered
+jsk posting build applications/<dir>               # decisions.txt -> posting.ttl
+jsk posting build applications/<dir> my.txt --replace
+```
+
+The model decides; code writes the Turtle. `extract` prints a `decisions.txt` header (company,
+title, URL, a seniority hint from the title, today's date) and every line of `posting.md` a
+requirement could quote, numbered, with its section - `qual` under a heading that names
+requirements, `resp` under responsibilities, `other` for prose and anything else; benefits are
+left out - a flag (`opt` optional, `elig` eligibility) and the concepts whose whole label the line
+holds.
+
+`decisions.txt` is the header, then one `|`-separated row per requirement - `n | slug | asked |
+concepts | need`, `need` blank for the default - or a drop, `n | - | reason`. `build` writes
+`posting.ttl` in the canonical layout with every `j:quote` the extracted line itself, so
+`quote-verbatim` and `advert-uncovered` cannot fail by construction (a dropped line is answered,
+not uncovered). Necessity defaults from the section: a qualification `required`, or `preferred`
+when optional; a responsibility or prose line `implicit`, unless its words say required. It
+refuses - writing nothing - an `asked` not in its line, an unknown or retired concept, a duplicate
+slug or asked term, a `qual` or `resp` line neither used nor dropped, and an existing `posting.ttl`
+without `--replace` (which keeps its posting id). It WARNs past 20 requirements and on a
+responsibility set to `required` without required wording.
+
+Exit 0 written or printed; 1 refused, with a `fix:` line; 2 called wrong.
+
 ### `jsk match`
 
 The `jsk.graph.match` module, over the queries in `jsk.graph.queries`.
@@ -208,7 +238,14 @@ and FAILs a verdict above the match's (satisfied > partial > unevidenced > unsat
 `indeterminate` may become anything but satisfied or partial), a `satisfied` or `partial` citing no
 id, and a `partial` with no Shortfall. A requirement with no row, or a row naming none, WARNs.
 Lowering is always allowed; raising never is - when the match under-reads, the career needs the tag
-or the confirmed bullet, made in the conversation. Exit 1 on any FAIL, 0 otherwise.
+or the confirmed bullet, made in the conversation. Every `<!-- jsk: -->` slot still in the file
+is a FAIL too. Exit 1 on any FAIL, 0 otherwise.
+
+**`--draft-gaps <gaps.md>`** writes gaps.md instead of printing, never over one already there:
+the requirements table from the requirement ids with the match's verdicts and evidence, the
+Ranking and Cover as printed, new terms and `decisions.txt`'s drops, and the questions in asking
+order - with a `<!-- jsk: -->` slot wherever judgement is needed (the fit, eligibility, each
+shortfall, where it falls short). `--gaps` then fails until every slot is filled.
 
 Validation also WARNs `advert-uncovered`: a list item of four words or more, under a heading that
 names requirements (requirements, qualifications, skills, experience, you'll bring, nice to have,
@@ -363,6 +400,8 @@ jsk kb query duplicates                  # pairs of projects that look like one 
 jsk kb show prj_payments --bullets       # a project's name and bullets, without its notes
 jsk kb path                              # the workspace, kb.ttl, log.ttl, applications/
 jsk kb check                             # every rule, the record's state, the layout
+jsk kb check --only applications/<dir>   # that application's findings, and every FAIL anywhere
+jsk kb query concepts --near "event mesh"  # what a term names, then the closest few concepts
 ```
 
 **`pack`** and **`merge`** draft a changeset and never apply it: it is read with `apply --dry-run`
