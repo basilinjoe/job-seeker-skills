@@ -122,6 +122,18 @@ class Derive(unittest.TestCase):
         self.assertLess(time.perf_counter() - start, 1.0)
 
 
+class SlugOf(unittest.TestCase):
+    def test_a_built_posting_and_a_migrated_one(self):
+        """A migrated posting's requirement ids need not carry its stem: on the real corpus
+        post_elevenlabs_creative_studio asks req_elevenlabs_api_design, and the stem-stripped
+        slug came out `k:req_…`, which the writer refused."""
+        self.assertEqual(G.slug_of("k:req_contoso_k8s", "contoso"), "k8s")
+        self.assertEqual(G.slug_of("k:req_elevenlabs_api_design", "elevenlabs_creative_studio"),
+                         "elevenlabs_api_design")
+        self.assertRegex(G.slug_of("k:req_elevenlabs_api_design", "elevenlabs_creative_studio"),
+                         rf"\A{O.SLUG}\Z")
+
+
 class Fit(unittest.TestCase):
     def fit(self, *reqs):
         return G.fit_default({"requirements": list(reqs)})

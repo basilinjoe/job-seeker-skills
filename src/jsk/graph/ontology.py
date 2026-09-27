@@ -347,7 +347,7 @@ CLASSES = (
          Pred("requirement", Ref(("Requirement",)), "1", "the requirement judged")),
         (Pred("matched", Enum("verdict"), "?", "the match's verdict; absent when implicit"),
          Pred("verdict", Enum("verdict"), "1", "the verdict that stands"),
-         Pred("flag", Enum("flag"), "*", "a review the analyst answered")),
+         Pred("flag", Enum("flag"), "*", "a review the derived verdict asks of the analyst")),
         (Pred("evidence", Ref(("Project",)), "*", "the projects behind the verdict"),),
         (Pred("basis", STR, "1", "why the match says what it says"),),
         (Pred("shortfall", STR, "?", "the analyst's reason for lowering it"),),

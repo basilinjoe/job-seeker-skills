@@ -18,6 +18,7 @@ from .assessment import MARK
 
 HEADER = "<!-- written by jsk from gaps.ttl - edit gaps.txt, not this -->"
 KEPT = "kept after review"
+UNREVIEWED = "flagged, not yet reviewed"
 
 
 @dataclass(frozen=True)
@@ -64,10 +65,12 @@ def slots(text):
             if MARK in line]
 
 
-def check(derived, overlay, text="", previous=None):
+def check(derived, overlay, text="", previous=None, reviewed=True):
     """(severity, text, fix) for each way gaps.txt leaves the match. `previous` is
     {slug: the match's verdict when gaps.ttl was last written}: a row that lowered a verdict
-    the match has since moved is named, not failed, because the career moved, not the row."""
+    the match has since moved is named, not failed, because the career moved, not the row.
+    `reviewed` is False when there is no gaps.txt at all: a flagged row waits for the analyst
+    then, and the derived assessment is still written - that is the path with no agent."""
     from .match import RAISE_FIX
 
     previous = previous or {}
@@ -109,7 +112,7 @@ def check(derived, overlay, text="", previous=None):
             out.append(("WARN", f"{where}: the match now says {row.matched}; you lowered it to "
                         f"{o.verdict} because {o.reason} - still true?",
                         "keep the row if it is, or delete it"))
-    for row in derived.rows:
+    for row in derived.rows if reviewed else ():
         if row.flags and row.slug not in said:
             out.append(("FAIL", f"{row.slug} is flagged ({row.flag_text}) and gaps.txt has no "
                         f"row for it", f"add `{row.slug} | keep` or lower it with a reason"))
@@ -216,6 +219,8 @@ def requirement_rows(a):
             short = v.shortfall
         elif v.kept:
             short = f"{KEPT}: {row.flag_text}"
+        elif row.flags:
+            short = f"{UNREVIEWED}: {row.flag_text}"
         else:
             short = "" if v.verdict == "satisfied" else row.basis
         verdict = v.verdict if v.verdict == standing(row) else f"{v.verdict} (match: {standing(row)})"
@@ -289,7 +294,7 @@ def build(app_dir, store, r, today, derived=None):
     from . import store as S
     from .gapsderive import derive
     from .gapsdraft import advert, drops
-    from .writer import write
+    from .writer import WriteError, write
 
     app_rel = S.file_name(os.path.abspath(app_dir), store.root)
     day = sent(store, app_rel)
@@ -299,7 +304,8 @@ def build(app_dir, store, r, today, derived=None):
     derived = derived or derive(r, store)
     txt = os.path.join(app_dir, "gaps.txt")
     text = ""
-    if os.path.isfile(txt):
+    reviewed = os.path.isfile(txt)
+    if reviewed:
         with open(txt, encoding="utf-8") as fh:
             text = fh.read()
         try:
@@ -309,17 +315,22 @@ def build(app_dir, store, r, today, derived=None):
     else:
         overlay = A.parse("")
     previous = previous_verdicts(store, app_rel, derived.stem)
-    found = check(derived, overlay, text, previous)
+    found = check(derived, overlay, text, previous, reviewed)
     if any(s == "FAIL" for s, _, _ in found):
         return [], found
     a = fold(derived, overlay, previous)
     ttl = os.path.join(app_dir, "gaps.ttl")
     # An assessment that has not changed keeps the day it was made: re-running prepare
     # tomorrow must not rewrite the file for its date alone.
-    before = assessed(store, app_rel)
-    if before and write(triples(a, before), "gaps") == store.parsed[f"{app_rel}/gaps.ttl"].text:
-        today = before
-    ttl_text = write(triples(a, today), "gaps")
+    try:
+        before = assessed(store, app_rel)
+        if before and write(triples(a, before), "gaps") == \
+                store.parsed[f"{app_rel}/gaps.ttl"].text:
+            today = before
+        ttl_text = write(triples(a, today), "gaps")
+    except WriteError as e:          # an id jsk would not write: a bug here, never a crash
+        return [], found + [("FAIL", f"gaps.ttl: {e}", "report it - the assessment is derived, "
+                             "so nothing in gaps.txt can cause it")]
     try:
         dropped = drops(app_dir)
     except D.DecisionsError as e:

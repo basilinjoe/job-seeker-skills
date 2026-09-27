@@ -247,7 +247,7 @@ submission date, they are frozen.
 `gaps.ttl` and `gaps.md`. It FAILs, and writes nothing, on a verdict above the match's (satisfied
 > partial > unevidenced > unsatisfied; an `indeterminate` may become anything but satisfied or
 partial), a lowering with no reason, `keep` on a row no flag asked about, a flagged row with no
-row, a slug that is not the posting's, and any `<!-- jsk: -->` slot still in the file. A row the
+row (once there is a gaps.txt - with none, gaps.md marks it not yet reviewed), a slug that is not the posting's, and any `<!-- jsk: -->` slot still in the file. A row the
 match has since moved WARNs. Lowering is always allowed; raising never is - when the match
 under-reads, the career needs the tag or the confirmed bullet, made in the conversation. A
 `gaps.md` is refused: it is written by jsk. Exit 1 on any FAIL, 0 otherwise.

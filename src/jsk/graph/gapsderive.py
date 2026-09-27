@@ -48,12 +48,21 @@ def derive(r, store):
     rows = []
     for q in r["requirements"]:
         flag_text = listed_names(q, _texts(store, q)) if q["verdict"] == "satisfied" else None
-        rows.append(Row(id=q["id"], slug=q["id"].removeprefix(f"k:req_{stem}_"),
+        rows.append(Row(id=q["id"], slug=slug_of(q["id"], stem),
                         asked=q["asked"], necessity=q["necessity"], state=q["state"],
                         matched=q["verdict"], evidence=_evidence(q), basis=_basis(q),
                         flags=(FLAG,) if flag_text else (), flag_text=flag_text))
     return Derived(posting=r["posting"], stem=stem, rows=tuple(rows), fit=fit_default(r),
                    questions=tuple(_questions(r)))
+
+
+def slug_of(req, stem):
+    """The row's name in gaps.txt: `k:req_<stem>_<slug>` -> `<slug>`, as `jsk posting build`
+    mints them. A migrated posting's requirements need not carry its stem
+    (`post_elevenlabs_creative_studio` asks `req_elevenlabs_api_design`); theirs is the whole
+    id after `req_`, which is as unique as the id."""
+    local = req.removeprefix("k:req_")
+    return local.removeprefix(f"{stem}_") if local.startswith(f"{stem}_") else local
 
 
 def fit_default(r):

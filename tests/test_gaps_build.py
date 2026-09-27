@@ -106,6 +106,15 @@ class Build(unittest.TestCase):
         self.assertIn("- no on-call ownership", md)
         self.assertEqual(md.split("# Questions\n\n", 1)[1], "- Who ran it?\n")
 
+    def test_with_no_gaps_txt_a_flagged_row_waits_and_the_assessment_is_written(self):
+        """Found on the real corpus: four of 24 postings had a flagged row, and the path with
+        no agent wrote nothing for them. A flag asks the analyst; until there is one, the
+        derived assessment stands and says the row is waiting."""
+        written, found = self.build(flag_k8s=True)
+        self.assertEqual((len(written), found), (2, []))
+        self.assertIn("| satisfied | prj_events | flagged, not yet reviewed: names Nomad; the "
+                      "evidence never does |", self.read("gaps.md"))
+
     def test_a_flagged_row_must_be_answered_and_keep_is_marked(self):
         _, found = self.build("", flag_k8s=True)
         self.assertEqual(self.fails(found), [
