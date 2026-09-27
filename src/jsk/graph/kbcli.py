@@ -1213,7 +1213,7 @@ def cmd_check(args, root):
     rep = S.Store(store.root, findings=[f for f in store.findings
                                         if f.severity == "FAIL" or within(f.file)]).report()
     for name, parsed in sorted(store.parsed.items()):
-        if parsed.kind in ("kb", "log", "posting", "application") and within(name):
+        if parsed.kind in ("kb", "log", "posting", "application", "gaps") and within(name):
             try:
                 if write(parsed.quads, parsed.kind) != parsed.text:
                     rep.warn(f"{name} - not in the canonical layout\n        fix: `jsk kb fmt {name}`")

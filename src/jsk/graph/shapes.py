@@ -154,6 +154,7 @@ HEAD_FIX = {
     "KB": 'start the file with k:kb j:format 3 ; j:name "…" ; j:updated "YYYY-MM-DD"^^xsd:date .',
     "Posting": "one k:post_<stem> per posting.ttl; another posting gets its own directory",
     "Application": "one k:app_<stem> per application.ttl; another gets its own directory",
+    "Assessment": "one k:gap_<stem> per gaps.ttl; `jsk tailor prepare` writes it",
 }
 
 

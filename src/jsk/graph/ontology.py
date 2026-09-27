@@ -133,6 +133,11 @@ ENUMS = {
     "credentialState": ("active", "expired", "lapsed"),
     "openSourceRole": ("maintainer", "contributor", "author"),
     "necessity": ("required", "preferred", "implicit"),
+    # gaps.ttl. A verdict's order is not its rank: match.RANK ranks the first four, and
+    # `indeterminate` is about the record, not the candidate, so it ranks nowhere.
+    "verdict": ("satisfied", "partial", "unevidenced", "unsatisfied", "indeterminate"),
+    "fit": ("strong", "partial", "poor"),
+    "flag": ("listed-names",),
     "eventKind": ("submitted", "acknowledged", "screen-scheduled", "screen-done",
                   "interview-scheduled", "interview-done", "onsite-scheduled", "onsite-done",
                   "offer", "offer-accepted", "rejected", "withdrawn", "no-response",
@@ -325,6 +330,28 @@ CLASSES = (
          Pred("channel", STR, "?", "how"),
          Pred("due", DATE, "?", "a date somebody committed to")),
     ), "something that happened to an application"),
+    # --- gaps.ttl ----------------------------------------------------------------------
+    # Written by code: the match, derived, with the analyst's gaps.txt folded in.
+    Class("Assessment", "gap", ("gaps",), "Assessment", (
+        (Pred("posting", Ref(("Posting",)), "1", "the posting assessed"),
+         Pred("assessed", DATE, "1", "the day it was derived"),
+         Pred("fit", Enum("fit"), "1", "strong, partial or poor")),
+        (Pred("eligibility", STR, "?", "the analyst's eligibility judgement"),),
+        (Pred("fallsShort", TEXT, "?", "where it falls short, most load-bearing first; one "
+                                       "item a line"),),
+        (Pred("surplus", TEXT, "?", "surplus worth knowing about; one item a line"),),
+        (Pred("questions", TEXT, "?", "the questions to ask, in order; one a line"),),
+    ), "a posting's gap assessment"),
+    Class("Verdict", "vrd", ("gaps",), "Verdicts", (
+        (Pred("assessment", Ref(("Assessment",)), "1", "the assessment"),
+         Pred("requirement", Ref(("Requirement",)), "1", "the requirement judged")),
+        (Pred("matched", Enum("verdict"), "?", "the match's verdict; absent when implicit"),
+         Pred("verdict", Enum("verdict"), "1", "the verdict that stands"),
+         Pred("flag", Enum("flag"), "*", "a review the analyst answered")),
+        (Pred("evidence", Ref(("Project",)), "*", "the projects behind the verdict"),),
+        (Pred("basis", STR, "1", "why the match says what it says"),),
+        (Pred("shortfall", STR, "?", "the analyst's reason for lowering it"),),
+    ), "one requirement's verdict"),
     # --- log.ttl -----------------------------------------------------------------------
     Class("LogEntry", "rev", ("log",), "Log", (
         (Pred("revision", Lit(("integer",), lo=1), "1", "counts up from 1"),
@@ -349,16 +376,18 @@ SECTIONS = {
     "vocabulary": ("Vocabulary",),
     "posting": ("Posting", "Requirements"),
     "application": ("Application", "Timeline"),
+    "gaps": ("Assessment", "Verdicts"),
     "log": ("Log",),
 }
 # kb.ttl prints every banner, empty or not: the structure is the contract.
 ALL_BANNERS = {"kb"}
 
 # The class each file kind holds exactly one of: what makes the file that kind of file.
-HEADS = {"kb": "KB", "posting": "Posting", "application": "Application"}
+HEADS = {"kb": "KB", "posting": "Posting", "application": "Application", "gaps": "Assessment"}
 
 FILE_KINDS = {"kb.ttl": "kb", "log.ttl": "log", "posting.ttl": "posting",
-              "application.ttl": "application", "vocabulary.ttl": "vocabulary"}
+              "application.ttl": "application", "gaps.ttl": "gaps",
+              "vocabulary.ttl": "vocabulary"}
 
 SLUG = r"[a-z0-9]+(?:_[a-z0-9]+)*"
 ID = re.compile(rf"(?P<prefix>[a-z]+)_(?P<slug>{SLUG})(?:\.v(?P<version>[1-9][0-9]*))?")

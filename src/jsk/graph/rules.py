@@ -510,7 +510,8 @@ RULES = [
     Rule("retired-referenced", WARN,
          """SELECT ?focus ?p ?o WHERE { GRAPH ?g { ?focus ?p ?o } FILTER(?g != j:derived)
               ?o j:retired ?d
-              FILTER(?p NOT IN (j:touched, j:minted, j:carried, j:carriedVersion, j:about))
+              FILTER(?p NOT IN (j:touched, j:minted, j:carried, j:carriedVersion, j:about,
+                                j:evidence))
               FILTER NOT EXISTS { ?focus j:retired ?e } }""",
          lambda r: f"{curie(v(r, 'p'))} {curie(v(r, 'o'))}, which is retired",
          "point at a live entry, or retire this one too"),

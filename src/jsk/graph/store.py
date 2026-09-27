@@ -19,7 +19,7 @@ SHIPPED_VOCABULARY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspat
 def workspace_files(root, vocabulary=SHIPPED_VOCABULARY):
     """The record files under a workspace root, in a fixed order. Missing ones are absent."""
     found = [os.path.join(root, "career", "kb.ttl"), os.path.join(root, "career", "log.ttl")]
-    for pattern in ("posting.ttl", "application.ttl"):
+    for pattern in ("posting.ttl", "application.ttl", "gaps.ttl"):
         # Escaped: a root named "jobs [2026]" is a glob character class, and would
         # silently match no application at all.
         found += sorted(glob.glob(os.path.join(glob.escape(str(root)), "applications", "*",

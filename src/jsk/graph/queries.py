@@ -204,6 +204,19 @@ def evidence(store, project, concepts):
     return "confirmed" if "confirmed" in levels else "unconfirmed" if levels else "tag"
 
 
+def confirmed_texts(store, project, concepts):
+    """The words of the bullets that make `evidence` say confirmed: live, confirmed, and
+    showing one of the concepts without an implies edge. Sorted, so a caller is stable."""
+    wanted = " ".join(f"<{c}>" for c in ((concepts,) if isinstance(concepts, str) else concepts))
+    rows = store.select(PRE + f"""
+        SELECT DISTINCT ?t WHERE {{
+          VALUES ?want {{ {wanted} }}
+          ?b j:project <{project}> ; j:shows ?m ; j:provenance j:confirmed ; j:text ?t .
+          GRAPH j:derived {{ ?p j:from ?m ; j:to ?want ; j:implied false }}
+          FILTER NOT EXISTS {{ ?b j:retired ?x }} }}""")
+    return sorted(r["t"].value for r in rows)
+
+
 def projects(store):
     """{project: (strength, recency, seniority)} for every live project."""
     rows = store.select(PRE + """
