@@ -1,12 +1,15 @@
 """jsk match - a posting's requirements joined with the career, through the vocabulary.
 
 Usage: jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] [--today YYYY-MM-DD]
-                 [--gaps <gaps.md>]
+                 [--gaps <gaps.md> | --draft-gaps <gaps.md>]
 
-  --cover N   the most projects the cover may use (default 3)
-  --json      the same result, structured
-  --today     the date recency is measured from (default: today)
-  --gaps F    check gaps.md's Requirements table against the match instead of printing it
+  --cover N         the most projects the cover may use (default 3)
+  --json            the same result, structured
+  --today           the date recency is measured from (default: today)
+  --gaps F          check gaps.md's Requirements table against the match instead of printing
+                    it; a `<!-- jsk: ... -->` slot still in it is a FAIL
+  --draft-gaps F    write gaps.md with everything the match knows filled in, and a slot
+                    wherever judgement is needed; refuses an F that exists
 
 Reads the whole graph workspace the posting belongs to - career/kb.ttl, the applications,
 the shipped vocabulary - and validates it first: a record with a FAIL is not matched,
@@ -236,15 +239,27 @@ def markdown(r):
             carried, ev = "", ""
         out.append(f"| {q['asked']} | {q['necessity']} | {q['state']} | {q['verdict'] or '-'} | "
                    f"{carried} | {ev} |")
-    out += ["", "## Ranking", "",
-            "Required ×3 · preferred ×1 · strength ×2 · recency +1 within 3 years, +0.5 at 4-6 · "
-            "seniority +1 at or above the posting's.", "",
-            "| Project | Score | Required | Preferred |", "|---|---|---|---|"]
+    out += ["", "## Ranking", "", *ranking_lines(r), "", "## Cover", "", *cover_lines(r),
+            "", "## Questions", ""]
+    out += [question_line(q) for q in r["questions"]]
+    if not r["questions"]:
+        out.append("None: every requirement is matched with confirmed evidence, or missing.")
+    return "\n".join(out) + "\n"
+
+
+def ranking_lines(r):
+    """The Ranking as markdown prints it - shared with the gaps draft, so the two never differ."""
+    out = ["Required ×3 · preferred ×1 · strength ×2 · recency +1 within 3 years, +0.5 at 4-6 · "
+           "seniority +1 at or above the posting's.", "",
+           "| Project | Score | Required | Preferred |", "|---|---|---|---|"]
     for row in r["ranking"]:
         out.append(f"| {row['project']} | {number(row['score'])} | {', '.join(row['required'])} | "
                    f"{', '.join(row['preferred'])} |")
-    cov = r["cover"]
-    out += ["", "## Cover", ""]
+    return out
+
+
+def cover_lines(r):
+    cov, out = r["cover"], []
     if cov["projects"] is None:
         out.append(f"No {cov['budget']} projects carry every required requirement that can be "
                    f"carried; raise --cover or read the Ranking.")
@@ -258,27 +273,27 @@ def markdown(r):
         out.append(f"Unresolved, so not yet placed: {', '.join(cov['unresolved'])} - see Questions.")
     if not cov["projects"] and not cov["uncovered"] and not cov["unresolved"]:
         out.append("The posting has no required requirements.")
-    out += ["", "## Questions", ""]
-    ask = {"ambiguous": "which concept does it mean: {}?",
-           "unknown-term": "no concept has this label - add it to the vocabulary?",
-           "implied": "only implied, on {} - does the work really count?",
-           "broader-held": "only something broader is held, on {} - is there narrower work?",
-           "tag-only": "tagged on {}, but no confirmed bullet shows it"}
-    for q in r["questions"]:
-        if q["kind"] == "missing-metric":
-            out.append(f"- **missing-metric** {q['bullet']}: {q['ask']}")
-            continue
-        if q["kind"] == "unknown-term" and q["detail"]:
-            out.append(f"- **unknown-term** {q['requirement']}: no concept has this label - "
-                       f"nearest {', '.join(q['detail'])}; name the one meant with j:concept, "
-                       f"or add it to the vocabulary?")
-            continue
-        out.append(f"- **{q['kind']}** {q['requirement']}: "
-                   + ask[q["kind"]].format(" or ".join(q["detail"]) if q["kind"] == "ambiguous"
-                                           else ", ".join(q["detail"])))
-    if not r["questions"]:
-        out.append("None: every requirement is matched with confirmed evidence, or missing.")
-    return "\n".join(out) + "\n"
+    return out
+
+
+ASK = {"ambiguous": "which concept does it mean: {}?",
+       "unknown-term": "no concept has this label - add it to the vocabulary?",
+       "implied": "only implied, on {} - does the work really count?",
+       "broader-held": "only something broader is held, on {} - is there narrower work?",
+       "tag-only": "tagged on {}, but no confirmed bullet shows it"}
+
+
+def question_line(q):
+    """One of the match's questions as a list item - shared with the gaps draft."""
+    if q["kind"] == "missing-metric":
+        return f"- **missing-metric** {q['bullet']}: {q['ask']}"
+    if q["kind"] == "unknown-term" and q["detail"]:
+        return (f"- **unknown-term** {q['requirement']}: no concept has this label - "
+                f"nearest {', '.join(q['detail'])}; name the one meant with j:concept, "
+                f"or add it to the vocabulary?")
+    return (f"- **{q['kind']}** {q['requirement']}: "
+            + ASK[q["kind"]].format(" or ".join(q["detail"]) if q["kind"] == "ambiguous"
+                                    else ", ".join(q["detail"])))
 
 
 # Raising a verdict is never the analyst's call. When the match under-reads the record, the
@@ -368,7 +383,7 @@ def main(argv=None):
         print(docstring_usage(__doc__))
         return 0 if wants_help(argv) else 2
     options = {}
-    for flag in ("--cover", "--today", "--gaps"):
+    for flag in ("--cover", "--today", "--gaps", "--draft-gaps"):
         if flag in argv:
             at = argv.index(flag)
             if at + 1 >= len(argv):
@@ -378,9 +393,9 @@ def main(argv=None):
             del argv[at:at + 2]
     as_json = "--json" in argv
     argv = [a for a in argv if a != "--json"]
-    if len(argv) != 1:
+    if len(argv) != 1 or {"--gaps", "--draft-gaps"} <= options.keys():
         print("usage: jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] "
-              "[--today YYYY-MM-DD] [--gaps <gaps.md>]")
+              "[--today YYYY-MM-DD] [--gaps <gaps.md> | --draft-gaps <gaps.md>]")
         return 2
     try:
         budget = int(options.get("--cover", COVER))
@@ -397,6 +412,11 @@ def main(argv=None):
     if root is None or not os.path.isfile(posting):
         print(f"{posting}: not a posting.ttl inside an applications/<dir>/ folder of a workspace")
         return 2
+    if os.path.exists(options.get("--draft-gaps", "")):
+        # The analyst's filled slots are its judgement; a re-run must not wipe them.
+        print(f"FAIL  {options['--draft-gaps']} exists - the draft would overwrite it\n"
+              f"      fix: check it with --gaps, or delete it to draft again")
+        return 1
 
     try:
         import pyoxigraph  # noqa: F401
@@ -424,7 +444,28 @@ def main(argv=None):
     r = result(store, posts[0], today, budget, len(store.fails()) - len(blocking))
     if "--gaps" in options:
         return report_gaps(r, options["--gaps"])
+    if "--draft-gaps" in options:
+        return write_draft(r, store, posts[0], today, posting, options["--draft-gaps"])
     print(json.dumps(r, indent=2, ensure_ascii=False) if as_json else markdown(r), end="")
+    return 0
+
+
+def write_draft(r, store, post, today, posting, path):
+    """Write gaps_draft's gaps.md to `path`; 1 when decisions.txt cannot be read."""
+    from . import decisions as D
+    from .gapsdraft import MARK, draft_gaps
+
+    advert = os.path.join(os.path.dirname(os.path.abspath(posting)), "posting.md")
+    try:
+        text = draft_gaps(r, store, post, today, advert)
+    except D.DecisionsError as e:
+        print(f"FAIL  decisions.txt: {e}\n      fix: correct that line; `jsk posting build` "
+              f"reads the same file")
+        return 1
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+    slots = sum(MARK in line for line in text.split("\n"))
+    print(f"wrote {path}: {len(r['requirements'])} requirements, {slots} slots to fill")
     return 0
 
 
@@ -432,15 +473,23 @@ def report_gaps(r, path):
     """Print check_gaps' findings; 1 on any FAIL."""
     try:
         with open(path, encoding="utf-8") as fh:
-            rows = gaps_table(fh.read())
+            text = fh.read()
     except OSError as e:
         print(f"FAIL  {path}: {e.strerror}")
         return 1
+    rows = gaps_table(text)
+    # A slot --draft-gaps left is a FAIL, not something the reader finds - and a Shortfall
+    # still holding `<!-- jsk: shortfall -->` would otherwise pass as written.
+    found = [("FAIL", f"line {n}: unfilled slot", "fill it, or delete the slot")
+             for n, line in enumerate(text.replace("\r\n", "\n").split("\n"), 1)
+             if "<!-- jsk:" in line]
     if rows is None:
+        for severity, said, fix in found:
+            print(f"{severity}  {said}\n      fix: {fix}")
         print(f"FAIL  {path}: no `# Requirements` table\n      fix: write it - Requirement | "
               f"Need | Verdict | Evidence | Shortfall - one row per requirement")
         return 1
-    found = check_gaps(r["requirements"], rows)
+    found += check_gaps(r["requirements"], rows)
     for severity, text, fix in found:
         print(f"{severity}  {text}\n      fix: {fix}")
     fails = sum(s == "FAIL" for s, _, _ in found)

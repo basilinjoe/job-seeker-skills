@@ -525,6 +525,74 @@ class GapsCheck(unittest.TestCase):
     def test_no_requirements_table_is_none(self):
         self.assertIsNone(self.M.gaps_table("# Eligibility\n\nPass.\n"))
 
+    def report(self, text):
+        import contextlib
+        import io
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "gaps.md"
+            path.write_text(text, encoding="utf-8")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = self.M.report_gaps({"requirements": self.reqs["contoso"]}, str(path))
+        return code, [x for x in out.getvalue().splitlines() if x.startswith(("FAIL", "WARN"))]
+
+    def test_an_unfilled_slot_fails_even_where_a_shortfall_is_due(self):
+        """`<!-- jsk: shortfall -->` is not empty, so the partial-needs-a-Shortfall check alone
+        would pass it: the slot check is what catches it."""
+        code, found = self.report(self.HEAD + "| EKS | preferred | partial | prj_data | "
+                                  "<!-- jsk: shortfall --> |\n")
+        self.assertEqual(code, 1)
+        self.assertEqual([x for x in found if "has no row" not in x],
+                         ["FAIL  line 9: unfilled slot"])
+
+    def test_slots_are_reported_even_without_a_table(self):
+        code, found = self.report("---\nfit: <!-- jsk: strong | partial | poor -->\n---\n")
+        self.assertEqual(code, 1)
+        self.assertEqual(found[0], "FAIL  line 2: unfilled slot")
+        self.assertIn("no `# Requirements` table", found[1])
+
+
+class DraftGapsFlag(unittest.TestCase):
+    """`jsk match --draft-gaps F`: writes the draft, and never over an F that exists."""
+
+    CONTOSO = FIXTURES / "applications" / "contoso" / "posting.ttl"
+
+    def main(self, *argv):
+        import contextlib
+        import io
+
+        from jsk.graph import match as M
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = M.main([str(self.CONTOSO), "--today", "2026-09-24", *map(str, argv)])
+        return code, out.getvalue()
+
+    def test_it_writes_the_draft_and_counts_the_slots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gaps = Path(tmp) / "gaps.md"
+            code, out = self.main("--draft-gaps", gaps)
+            self.assertEqual((code, out), (0, f"wrote {gaps}: 10 requirements, 11 slots to fill\n"))
+            self.assertTrue(gaps.read_text(encoding="utf-8").startswith("---\ntype: Gap Assessment"))
+            code, out = self.main("--gaps", gaps)
+            self.assertEqual(code, 1)
+            self.assertIn("11 FAIL, 0 WARN", out)
+
+    def test_it_refuses_a_file_that_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gaps = Path(tmp) / "gaps.md"
+            gaps.write_text("the analyst's work\n", encoding="utf-8")
+            code, out = self.main("--draft-gaps", gaps)
+            self.assertEqual(code, 1)
+            self.assertIn("exists", out)
+            self.assertIn("fix:", out)
+            self.assertEqual(gaps.read_text(encoding="utf-8"), "the analyst's work\n")
+
+    def test_gaps_and_draft_gaps_together_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, out = self.main("--gaps", Path(tmp) / "a.md", "--draft-gaps", Path(tmp) / "b.md")
+        self.assertEqual(code, 2)
+        self.assertIn("usage:", out)
+
 
 if __name__ == "__main__":
     unittest.main()
