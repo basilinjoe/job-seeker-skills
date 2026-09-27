@@ -55,10 +55,10 @@ MUTATIONS = {
         "src/jsk/graph/match.py",
         'else "unevidenced")',
         'else "satisfied")'),
-    "gaps.md may raise a verdict": (
-        "src/jsk/graph/match.py",
-        "and RANK[said] > RANK[default])",
-        "and False)"),
+    "gaps.txt may raise a verdict": (
+        "src/jsk/graph/gapsbuild.py",
+        "return RANK[said] > RANK[matched]",
+        "return False"),
     "ambiguity is guessed": (
         "src/jsk/graph/queries.py",
         "    if len(found) == 1:",

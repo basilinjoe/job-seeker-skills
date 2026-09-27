@@ -11,7 +11,7 @@ This is pure: a function of the match result and the store, with no file I/O.
 import re
 from dataclasses import dataclass
 
-IMPLICIT = "implicit — the match does not assess it"      # gapsdraft.IMPLICIT's words
+IMPLICIT = "implicit — the match does not assess it"
 FLAG = "listed-names"
 # The analyst's order: blocking, unmet, unconfirmed, missing metric, unexplored.
 ORDER = {"implied": 1, "broader-held": 1, "tag-only": 2, "missing-metric": 3,
@@ -96,7 +96,7 @@ def _present(term, texts):
 
 
 def _bare(curie):
-    """`prj_x` for `k:prj_x`: the basis is read by people, as gapsdraft.bare cites."""
+    """`prj_x` for `k:prj_x`: the basis is read by people, and cites ids bare."""
     return curie.removeprefix("k:")
 
 
@@ -122,7 +122,7 @@ def _texts(store, q):
 
 
 def _evidence(q):
-    """The same choice gapsdraft.evidence makes, as curies: what stands behind the verdict."""
+    """The projects the old gaps.md draft cited, as curies: what stands behind the verdict."""
     if q["verdict"] == "satisfied":
         found = [c["project"] for c in _confirmed(q)]
     elif q["verdict"] == "unevidenced":
@@ -158,7 +158,7 @@ def _basis(q):
 
 def _questions(r):
     """The match's questions in the analyst's order, the unmet required ones first - the
-    order gapsdraft.questions gave the gaps.md draft, without its list markers or slots."""
+    order the old gaps.md draft gave them, without its list markers or slots."""
     from .match import question_line
 
     unmet = [(1, f"**unsatisfied** {q['asked']}: required, and nothing in the record "

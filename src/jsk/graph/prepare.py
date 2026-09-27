@@ -2,19 +2,21 @@
 
 Usage: jsk tailor prepare <applications/<dir>> [--draft-gaps] [--cover N] [--today YYYY-MM-DD]
 
-  --draft-gaps  also write <dir>/gaps.md with every mechanical part filled and a
-                `<!-- jsk: -->` slot wherever judgement is needed (never over one there)
+  --draft-gaps  also draft <dir>/gaps.txt, the analyst's overlay: a `<!-- jsk: -->` slot
+                wherever judgement is needed (never over one there)
   --cover N     the most projects the cover may use (default 3)
   --today       the date recency is measured from (default: today)
 
 One process, one digest, in this order: posting.ttl in the canonical layout; the check,
 scoped to this application plus any FAIL anywhere; the match as `jsk match` prints it; what
 the record holds for every missing and candidate term; the person, for eligibility; the
-cover's projects with their bullets; what those projects hold unconfirmed. Every section
-has a size cap and says when it was cut.
+cover's projects with their bullets; what those projects hold unconfirmed; and the
+assessment - gaps.ttl and gaps.md, derived from the match with gaps.txt folded in when
+there is one, written on every run. Every section has a size cap and says when it was cut.
 
 Exit 0 digest printed; 1 a FAIL blocks the match, or the draft could not be written; 2
-called wrong.
+called wrong. A gaps.txt the check refuses is reported in the digest, not an exit 1: the
+analyst may be halfway through filling it.
 
 Written after the JumpCloud run (2026-09-26), where the analyst made about ten calls
 between posting.ttl and gaps.md - fmt, check, match, evidence, person, show, show,
@@ -196,21 +198,41 @@ def prepare(root, app, posting, budget, today, draft):
     section("unconfirmed - in those projects", lines[:2] + capped(lines[2:], "unconfirmed")
             if rows else lines)
 
-    # 8. The draft of gaps.md.
-    if draft:
-        from .gapsdraft import draft_gaps
+    # 8. The assessment, derived - with gaps.txt folded in when there is one - and the draft
+    # of gaps.txt when asked for.
+    from .gapsbuild import build
+    from .gapsderive import derive
 
-        target = os.path.join(app, "gaps.md")
-        if os.path.exists(target):
-            section("gaps.md", [f"{target} already exists - left as it is; `jsk match "
-                                f"{name} --gaps {target}` checks it"])
-            return 0
-        text = draft_gaps(r, store, post, today, os.path.join(app, "posting.md"))
-        with open(target, "x", encoding="utf-8", newline="\n") as fh:
-            fh.write(text)
-        slots = sum("<!-- jsk:" in line for line in text.split("\n"))
-        section("gaps.md", [f"wrote {target}: {len(r['requirements'])} requirements, "
-                            f"{slots} slots to fill"])
+    derived = derive(r, store)
+    target = os.path.join(app, "gaps.txt")
+    written, found = build(app, store, r, today, derived)
+    lines = [f"{s}  {t}\n      fix: {f}" for s, t, f in found]
+    if written:
+        counts = {}
+        for row in derived.rows:
+            counts[row.matched or "implicit"] = counts.get(row.matched or "implicit", 0) + 1
+        lines.append("wrote " + " and ".join(os.path.basename(w) for w in written)
+                     + f" - fit {derived.fit} by default; "
+                     + ", ".join(f"{n} {v}" for v, n in counts.items()))
+    lines += [f"flagged {row.slug}: {row.flag_text}" for row in derived.rows if row.flags]
+    if draft:
+        from . import store as S
+        from .gapsbuild import sent
+        from .gapsdraft import MARK, draft_gaps
+
+        if sent(store, S.file_name(os.path.abspath(app), store.root)):
+            lines.append("no gaps.txt drafted: the application is sent, and its assessment "
+                         "with it")
+        elif os.path.exists(target):
+            lines.append(f"{target} already exists - left as it is; `jsk match {name} "
+                         f"--gaps {target}` checks it and rewrites gaps.ttl and gaps.md")
+        else:
+            text = draft_gaps(derived, store, os.path.join(app, "posting.md"))
+            with open(target, "x", encoding="utf-8", newline="\n") as fh:
+                fh.write(text)
+            slots = sum(MARK in line for line in text.split("\n"))
+            lines.append(f"wrote {target}: {slots} slots to fill")
+    section("gaps", lines)
     return 0
 
 

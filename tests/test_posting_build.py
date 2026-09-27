@@ -245,6 +245,19 @@ class Build(Workspace):
         self.build(replace=True)
         self.assertEqual(self.target.read_bytes(), first)
 
+    def test_a_rebuild_removes_the_derived_assessment_and_keeps_gaps_txt(self):
+        """A rebuild can drop a requirement gaps.ttl names, and that dangling ref would block
+        prepare in this directory; gaps.txt is the analyst's, keyed by slug."""
+        self.build()
+        for name in ("gaps.ttl", "gaps.md", "gaps.txt"):
+            (self.app / name).write_text(name + "\n", encoding="utf-8")
+        _, _, warnings = self.build(replace=True)
+        self.assertEqual([n for n in ("gaps.ttl", "gaps.md", "gaps.txt")
+                          if (self.app / n).exists()], ["gaps.txt"])
+        self.assertEqual(warnings, ["removed gaps.ttl and gaps.md, derived from the posting.ttl "
+                                    "this replaces; `jsk tailor prepare` writes them again, with "
+                                    "gaps.txt folded in"])
+
     def test_an_existing_posting_ttl_needs_replace(self):
         self.target.write_text("hand reviewed\n", encoding="utf-8")
         with self.assertRaises(posting.Refused) as caught:

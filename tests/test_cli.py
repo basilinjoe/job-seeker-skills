@@ -846,22 +846,26 @@ class Match(unittest.TestCase):
         finally:
             os.chdir(here)
 
-    def test_gaps_md_that_raises_a_verdict_fails(self):
-        """--gaps checks the analyst's table against the match: .NET is carried only by
-        tags, so `satisfied` is a raise; `unevidenced` is the match's own verdict."""
+    def test_gaps_txt_that_raises_a_verdict_fails(self):
+        """--gaps checks the analyst's gaps.txt against the match: .NET is carried only by
+        tags, so `satisfied` is a raise; `unsatisfied`, with its reason, is a lowering."""
         with tempfile.TemporaryDirectory() as tmp:
-            gaps = Path(tmp) / "gaps.md"
-            table = ("# Requirements\n\n| Requirement | Need | Verdict | Evidence | Shortfall |\n"
-                     "|---|---|---|---|---|\n| .NET | required | {} | prj_events | |\n")
-            gaps.write_text(table.format("satisfied"), encoding="utf-8")
-            code, out = run(JSK, "match", self.CONTOSO, "--gaps", gaps, "--today", "2026-09-24")
+            import shutil
+            shutil.copytree(self.FIX, tmp, dirs_exist_ok=True)
+            app = Path(tmp) / "applications" / "contoso"
+            gaps = app / "gaps.txt"
+            gaps.write_text("dotnet | satisfied | it is on the projects\n", encoding="utf-8")
+            args = (JSK, "match", app / "posting.ttl", "--gaps", gaps, "--today", "2026-09-24")
+            code, out = run(*args)
             self.assertEqual(code, 1, out)
-            self.assertIn("FAIL  .NET: satisfied, above the match's unevidenced", out)
+            self.assertIn("FAIL  gaps.txt line 1: dotnet: satisfied, above the match's "
+                          "unevidenced", out)
             self.assertIn("the career needs the tag or the confirmation", out)
-            gaps.write_text(table.format("unevidenced"), encoding="utf-8")
-            code, out = run(JSK, "match", self.CONTOSO, "--gaps", gaps, "--today", "2026-09-24")
+            gaps.write_text("dotnet | unsatisfied | the tags are all there is\n",
+                            encoding="utf-8")
+            code, out = run(*args)
             self.assertEqual(code, 0, out)
-            self.assertIn("WARN  K8s (k:req_contoso_k8s) has no row", out)
+            self.assertIn("0 FAIL, 0 WARN - wrote gaps.ttl and gaps.md", out)
 
     def test_outside_the_layout_is_a_usage_error(self):
         code, out = run(JSK, "match", self.FIX / "career" / "kb.ttl")

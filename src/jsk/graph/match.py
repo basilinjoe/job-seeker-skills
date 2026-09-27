@@ -1,15 +1,16 @@
 """jsk match - a posting's requirements joined with the career, through the vocabulary.
 
 Usage: jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] [--today YYYY-MM-DD]
-                 [--gaps <gaps.md> | --draft-gaps <gaps.md>]
+                 [--gaps <gaps.txt> | --draft-gaps <gaps.txt>]
 
   --cover N         the most projects the cover may use (default 3)
   --json            the same result, structured
   --today           the date recency is measured from (default: today)
-  --gaps F          check gaps.md's Requirements table against the match instead of printing
-                    it; a `<!-- jsk: ... -->` slot still in it is a FAIL
-  --draft-gaps F    write gaps.md with everything the match knows filled in, and a slot
-                    wherever judgement is needed; refuses an F that exists
+  --gaps F          check the posting's gaps.txt against the match, then write gaps.ttl and
+                    gaps.md beside it; a `<!-- jsk: ... -->` slot still in it is a FAIL, and
+                    on a FAIL nothing is written
+  --draft-gaps F    write gaps.ttl and gaps.md from the match alone, then draft gaps.txt with
+                    a slot wherever judgement is needed; refuses an F that exists
 
 Reads the whole graph workspace the posting belongs to - career/kb.ttl, the applications,
 the shipped vocabulary - and validates it first: a record with a FAIL is not matched,
@@ -22,7 +23,7 @@ Each requirement lands in one bucket. `matched`: a project holds the concept, or
 counts as it. `near`: only through an implies edge, for a required requirement, or the
 project holds something broader. `missing`, `ambiguous` (the label names more than one
 concept - the analyst answers with j:concept), `candidate` (it names none), `implicit`.
-Each gets a default Verdict from its bucket and evidence; gaps.md may lower it, never raise it.
+Each gets a default Verdict from its bucket and evidence; gaps.txt may lower it, never raise it.
 """
 import datetime
 import json
@@ -221,7 +222,7 @@ def markdown(r):
         out.append(f"{m} failure{'s' if m > 1 else ''} elsewhere in the workspace: matching those "
                    f"postings refuses until they are fixed.")
     out += ["", "## Requirements", "",
-            "Verdict is the most the record supports: gaps.md starts from it and may lower it.", "",
+            "Verdict is the most the record supports: gaps.txt may lower it, never raise it.", "",
             "| Requirement | Need | State | Verdict | Carried by | Evidence |",
             "|---|---|---|---|---|---|"]
     for q in reqs:
@@ -307,78 +308,6 @@ RAISE_FIX = ("lower it, or - if the record really shows it - the career needs th
              "confirmation, which the conversation makes; then re-run jsk match")
 
 
-def gaps_table(text):
-    """gaps.md's `# Requirements` table as {column: cell} rows; None when it has none."""
-    import re
-
-    def squash(cell):                       # not rules.squash: `_` is part of an id
-        return re.sub(r"\s+", " ", re.sub(r"[*`]+", "", cell))
-
-    rows, head, inside = [], None, False
-    for line in text.replace("\r\n", "\n").split("\n"):
-        s = line.strip()
-        if s.startswith("#"):
-            inside = s.lstrip("#").strip().lower() == "requirements"
-            continue
-        if not inside or not s.startswith("|"):
-            continue
-        cells = [squash(c).strip() for c in s.strip("|").split("|")]
-        if head is None:
-            head = [c.lower() for c in cells]
-        elif not all(set(c) <= set("-: ") for c in cells):
-            rows.append(dict(zip(head, cells)))
-    return None if head is None else rows
-
-
-def cites_id(cell):
-    """Does the Evidence cell name a record id (`prj_x`, `k:ach_y`), not a paraphrase?"""
-    import re
-
-    from . import ontology as O
-
-    return any((m := O.ID.fullmatch(t.rstrip("."))) and m["prefix"] in O.BY_PREFIX
-               for t in re.findall(r"[a-z0-9_.]+", cell))
-
-
-def check_gaps(reqs, rows):
-    """(severity, text, fix) for each way gaps.md's table leaves the match's Verdicts."""
-    from . import ontology as O
-
-    out, by = [], {O.norm(q["asked"]): q for q in reqs}
-    seen = set()
-    for row in rows:
-        asked, said = row.get("requirement", ""), row.get("verdict", "").lower()
-        q = by.get(O.norm(asked))
-        if q is None:
-            out.append(("WARN", f"row {asked!r} matches no requirement of the posting",
-                        "name it as posting.ttl's j:asked does, or add the requirement"))
-            continue
-        seen.add(q["id"])
-        default = q["verdict"]
-        if said not in VERDICTS:
-            out.append(("FAIL", f"{asked}: {said!r} is not a verdict",
-                        "one of " + ", ".join(VERDICTS)))
-            continue
-        if default == "indeterminate":
-            raised = said in ("satisfied", "partial")
-        else:
-            raised = (default is not None and said != "indeterminate"
-                      and RANK[said] > RANK[default])
-        if raised:
-            out.append(("FAIL", f"{asked}: {said}, above the match's {default}", RAISE_FIX))
-        if said in ("satisfied", "partial") and not cites_id(row.get("evidence", "")):
-            out.append(("FAIL", f"{asked}: {said} with no id in Evidence",
-                        "cite the project or bullet id that shows it, or lower the verdict"))
-        if said == "partial" and not row.get("shortfall"):
-            out.append(("FAIL", f"{asked}: partial with no Shortfall",
-                        "name the axis it falls short on"))
-    for q in reqs:
-        if q["id"] not in seen:
-            out.append(("WARN", f"{q['asked']} ({q['id']}) has no row",
-                        f"add it, starting from the match's verdict ({q['verdict'] or '-'})"))
-    return out
-
-
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if wants_help(argv) or not argv:
@@ -397,7 +326,7 @@ def main(argv=None):
     argv = [a for a in argv if a != "--json"]
     if len(argv) != 1 or {"--gaps", "--draft-gaps"} <= options.keys():
         print("usage: jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] "
-              "[--today YYYY-MM-DD] [--gaps <gaps.md> | --draft-gaps <gaps.md>]")
+              "[--today YYYY-MM-DD] [--gaps <gaps.txt> | --draft-gaps <gaps.txt>]")
         return 2
     try:
         budget = int(options.get("--cover", COVER))
@@ -414,11 +343,11 @@ def main(argv=None):
     if root is None or not os.path.isfile(posting):
         print(f"{posting}: not a posting.ttl inside an applications/<dir>/ folder of a workspace")
         return 2
-    if os.path.exists(options.get("--draft-gaps", "")):
-        # The analyst's filled slots are its judgement; a re-run must not wipe them.
-        print(f"FAIL  {options['--draft-gaps']} exists - the draft would overwrite it\n"
-              f"      fix: check it with --gaps, or delete it to draft again")
-        return 1
+    for flag in ("--gaps", "--draft-gaps"):
+        refused = flag in options and gaps_refusal(posting, options[flag], flag == "--draft-gaps")
+        if refused:
+            print(refused)
+            return 1
 
     try:
         import pyoxigraph  # noqa: F401
@@ -445,58 +374,74 @@ def main(argv=None):
         return 1
     r = result(store, posts[0], today, budget, len(store.fails()) - len(blocking))
     if "--gaps" in options:
-        return report_gaps(r, options["--gaps"])
+        return report_gaps(r, store, posting, today)
     if "--draft-gaps" in options:
-        return write_draft(r, store, posts[0], today, posting, options["--draft-gaps"])
+        return write_draft(r, store, posting, today, options["--draft-gaps"])
     print(json.dumps(r, indent=2, ensure_ascii=False) if as_json else markdown(r), end="")
     return 0
 
 
-def write_draft(r, store, post, today, posting, path):
-    """Write gaps_draft's gaps.md to `path`; 1 when decisions.txt cannot be read."""
-    from . import decisions as D
+def gaps_refusal(posting, path, drafting):
+    """Why `path` is not this posting's gaps.txt, or None. gaps.md is written by jsk now,
+    and read by nothing: a gaps.md with no gaps.ttl beside it is an older assessment."""
+    if path.endswith(".md"):
+        return (f"FAIL  {path}: gaps.md is written by jsk now; a gaps.md with no gaps.ttl "
+                f"beside it is an older assessment, read by people only\n"
+                f"      fix: pass the posting's gaps.txt - --draft-gaps drafts one")
+    want = os.path.join(os.path.dirname(os.path.abspath(posting)), "gaps.txt")
+    if os.path.normcase(os.path.abspath(path)) != os.path.normcase(want):
+        return (f"FAIL  {path}: not this posting's gaps.txt\n"
+                f"      fix: pass {want} - gaps.ttl and gaps.md are written beside it")
+    if drafting and os.path.exists(path):
+        # The analyst's filled slots are its judgement; a re-run must not wipe them.
+        return (f"FAIL  {path} exists - the draft would overwrite it\n"
+                f"      fix: check it with --gaps, or delete it to draft again")
+    if not drafting and not os.path.isfile(path):
+        return (f"FAIL  {path}: no such file\n"
+                f"      fix: draft it with --draft-gaps, or let `jsk tailor prepare` write "
+                f"the assessment alone")
+    return None
+
+
+def show_build(written, found, label):
+    """Print gapsbuild.build's findings and what it wrote; 1 on any FAIL."""
+    for severity, text, fix in found:
+        print(f"{severity}  {text}\n      fix: {fix}")
+    fails = sum(s == "FAIL" for s, _, _ in found)
+    if written:
+        wrote = " - wrote " + " and ".join(os.path.basename(w) for w in written)
+    else:
+        wrote = " - nothing written" if fails else ""
+    print(f"{label}: {fails} FAIL, {len(found) - fails} WARN{wrote}")
+    return 1 if fails else 0
+
+
+def report_gaps(r, store, posting, today):
+    """--gaps: check gaps.txt, then write gaps.ttl and gaps.md; 1 on any FAIL."""
+    from .gapsbuild import build
+
+    app = os.path.dirname(os.path.abspath(posting))
+    written, found = build(app, store, r, today)
+    return show_build(written, found, os.path.join(app, "gaps.txt"))
+
+
+def write_draft(r, store, posting, today, path):
+    """--draft-gaps: the assessment from the match alone, then gaps.txt drafted over it."""
+    from .gapsbuild import build
+    from .gapsderive import derive
     from .gapsdraft import MARK, draft_gaps
 
-    advert = os.path.join(os.path.dirname(os.path.abspath(posting)), "posting.md")
-    try:
-        text = draft_gaps(r, store, post, today, advert)
-    except D.DecisionsError as e:
-        print(f"FAIL  decisions.txt: {e}\n      fix: correct that line; `jsk posting build` "
-              f"reads the same file")
+    app = os.path.dirname(os.path.abspath(posting))
+    derived = derive(r, store)
+    written, found = build(app, store, r, today, derived)
+    if show_build(written, found, os.path.join(app, "gaps.ttl")):
         return 1
-    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+    text = draft_gaps(derived, store, os.path.join(app, "posting.md"))
+    with open(path, "x", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
     slots = sum(MARK in line for line in text.split("\n"))
     print(f"wrote {path}: {len(r['requirements'])} requirements, {slots} slots to fill")
     return 0
-
-
-def report_gaps(r, path):
-    """Print check_gaps' findings; 1 on any FAIL."""
-    try:
-        with open(path, encoding="utf-8") as fh:
-            text = fh.read()
-    except OSError as e:
-        print(f"FAIL  {path}: {e.strerror}")
-        return 1
-    rows = gaps_table(text)
-    # A slot --draft-gaps left is a FAIL, not something the reader finds - and a Shortfall
-    # still holding `<!-- jsk: shortfall -->` would otherwise pass as written.
-    found = [("FAIL", f"line {n}: unfilled slot", "fill it, or delete the slot")
-             for n, line in enumerate(text.replace("\r\n", "\n").split("\n"), 1)
-             if "<!-- jsk:" in line]
-    if rows is None:
-        for severity, said, fix in found:
-            print(f"{severity}  {said}\n      fix: {fix}")
-        print(f"FAIL  {path}: no `# Requirements` table\n      fix: write it - Requirement | "
-              f"Need | Verdict | Evidence | Shortfall - one row per requirement")
-        return 1
-    found += check_gaps(r["requirements"], rows)
-    for severity, text, fix in found:
-        print(f"{severity}  {text}\n      fix: {fix}")
-    fails = sum(s == "FAIL" for s, _, _ in found)
-    print(f"{path}: {len(rows)} rows, {fails} FAIL, {len(found) - fails} WARN")
-    return 1 if fails else 0
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ from jsk.graph import prepare
 APP = "applications/acme-platform-engineer"
 TODAY = "2026-09-27"
 SECTIONS = ["== posting.ttl", "== check - ", "== match", "== evidence - ", "== person",
-            "== bullets - ", "== unconfirmed - "]
+            "== bullets - ", "== unconfirmed - ", "== gaps"]
 
 
 class Prepare(unittest.TestCase):
@@ -75,16 +75,41 @@ class Prepare(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertRegex(out, r"… \d+ more cut")
 
-    def test_the_draft_is_written_once(self):
+    def unsend(self):
+        """The fixture's application was sent on 2026-09-10, which freezes its assessment:
+        take application.ttl away to tailor it afresh."""
+        (self.root / APP / "application.ttl").unlink()
+
+    def test_a_sent_application_keeps_its_assessment_and_drafts_nothing(self):
         code, out = self.run_it("--draft-gaps")
         self.assertEqual(code, 0, out)
-        gaps = self.root / APP / "gaps.md"
+        self.assertIn("sent on 2026-09-10 - gaps.ttl and gaps.md are frozen", out)
+        self.assertIn("no gaps.txt drafted: the application is sent", out)
+        self.assertFalse((self.root / APP / "gaps.txt").exists())
+
+    def test_every_run_writes_the_assessment_with_no_agent(self):
+        self.unsend()
+        code, out = self.run_it()
+        self.assertEqual(code, 0, out)
+        app = self.root / APP
+        self.assertTrue((app / "gaps.ttl").exists() and (app / "gaps.md").exists())
+        self.assertFalse((app / "gaps.txt").exists())
+        self.assertRegex(out, r"wrote gaps\.ttl and gaps\.md - fit (strong|partial|poor) by "
+                              r"default; ")
+
+    def test_the_draft_is_written_once(self):
+        self.unsend()
+        code, out = self.run_it("--draft-gaps")
+        self.assertEqual(code, 0, out)
+        gaps = self.root / APP / "gaps.txt"
         self.assertTrue(gaps.exists())
         self.assertIn("slots to fill", out)
         before = gaps.read_bytes()
         code, out = self.run_it("--draft-gaps")
         self.assertEqual(code, 0, out)
         self.assertIn("already exists - left as it is", out)
+        # Half filled, its slots FAIL in the digest - which is not prepare failing.
+        self.assertIn("unfilled slot", out)
         self.assertEqual(gaps.read_bytes(), before)
 
     def test_called_wrong(self):

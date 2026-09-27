@@ -1,29 +1,22 @@
-"""The gaps.md draft `jsk match --draft-gaps` writes: code fills every part the match already
-knows, and leaves a `<!-- jsk: ... -->` slot wherever the analyst's judgement is needed.
+"""The gaps.txt draft `jsk match --draft-gaps` writes: only what needs the analyst's judgement,
+each as a `<!-- jsk: ... -->` slot, with everything else left to the derived assessment.
 
-On the JumpCloud run the analyst spent 11.8k output tokens rewriting what `jsk match` had
-printed - the requirements with their verdicts and ids, the Ranking, the questions - and then
-fixed the rows `--gaps` could not tie back to a requirement. Here the rows come from the
-requirement ids, so they cannot drift, and `--gaps` FAILs on any slot left unfilled.
+On the three fast-tailor runs the analyst kept the match's verdict on all but seven rows, so
+the draft lists only the rows the review flag fired on; gaps.md shows the rest with their
+evidence, and the analyst lowers one by adding a row. `--gaps` FAILs on any slot left
+unfilled.
+
+gapsbuild renders gaps.md; gapsderive derives the verdicts, the evidence and the questions.
 """
 import os
 
-MARK = "<!-- jsk:"
-IMPLICIT = "implicit — the match does not assess it"
+from .assessment import MARK
+
 CUT = 80
 
 
 def slot(text):
     return f"{MARK} {text} -->"
-
-
-def bare(curie):
-    """`prj_x` for `k:prj_x`: what the analyst's template cites, and what cites_id reads."""
-    return curie[2:] if curie.startswith("k:") else curie
-
-
-def cell(text):
-    return text.replace("|", "/")          # a pipe would split the table's cell
 
 
 def advert(path):
@@ -54,82 +47,58 @@ def cut(text):
 
 
 def eligibility(store, lines):
+    """The person's facts and the advert's eligibility lines, as `#` comments over the slot:
+    what the analyst judges against, kept out of the value it writes."""
     from .named import person
 
     _, rows = person(store)
-    facts = [f"  {r['fact']}: {r['value']}" + (f" ({r['provenance']})" if r["provenance"] else "")
-             for r in rows]
-    elig = [f'  advert: "{x.text}"' for x in lines if x.elig] or \
-        ["  advert: nothing it says is about eligibility"]
-    return [f"{MARK} judge eligibility against these facts, then write the verdict in place of "
-            f"this comment", *facts, *elig, "-->"]
+    facts = [f"#   {r['fact']}: {r['value']}" + (f" ({r['provenance']})" if r["provenance"]
+                                                 else "") for r in rows]
+    elig = [f'#   advert: "{x.text}"' for x in lines if x.elig] or \
+        ["#   advert: nothing it says is about eligibility"]
+    return ["# eligibility is judged against:", *facts, *elig,
+            f"eligibility: {slot('judge eligibility against the facts above')}"]
 
 
-def evidence(q):
-    if q["verdict"] == "satisfied":
-        return ", ".join(bare(c["project"]) for c in q["carriers"] if c["evidence"] == "confirmed")
-    if q["verdict"] == "unevidenced":
-        return ", ".join(f"{bare(c['project'])} ({c['evidence']})" for c in q["carriers"])
-    if q["verdict"] == "partial":
-        return ", ".join(bare(n["project"]) for n in q["near"])
-    return ""
+HEAD = [
+    "# gaps.txt - your overlay on the assessment jsk derived from the match.",
+    "# `jsk match <posting.ttl> --gaps <this file>` checks it and writes gaps.ttl and gaps.md.",
+    "# A requirement not listed keeps the match's verdict (gaps.md shows each, with its evidence).",
+    "# A row is `slug | verdict | reason`: it lowers a verdict, never raises one.",
+]
 
 
-def requirement_rows(reqs):
-    out = ["| Requirement | Need | Verdict | Evidence | Shortfall |", "|---|---|---|---|---|"]
-    for q in reqs:
-        verdict = q["verdict"] or "indeterminate"            # Ruling 9: implicit rows
-        short = ("" if q["verdict"] == "satisfied" else IMPLICIT if q["verdict"] is None
-                 else slot("shortfall"))
-        out.append(f"| {cell(q['asked'])} | {q['necessity']} | {verdict} | {evidence(q)} | "
-                   f"{short} |".replace("|  |", "| |"))
-    return out
-
-
-def new_terms(reqs, dropped, lines):
+def dropped(post_dir, lines):
+    """decisions.txt's drops as comments, so the analyst sees what the posting left out."""
     by_n = {x.n: x.text for x in lines}
-    out = [f"- **{q['asked']}** — candidate: no concept holds it."
-           for q in reqs if q["state"] == "candidate"]
-    # An eligibility drop is judged under # Eligibility, not offered as a term (Ruling 8).
-    out += [f"- **{cut(by_n.get(d.n, f'advert line {d.n}'))}** — dropped: {d.reason}"
-            for d in dropped if not d.reason.lower().startswith("elig")]
-    return out or ["None."]
+    return [f"# dropped advert line {d.n}: {cut(by_n.get(d.n, '(not in posting.md)'))} - "
+            f"{d.reason}" for d in drops(post_dir)]
 
 
-# The analyst's order: blocking, unmet, unconfirmed, missing metric, unexplored.
-ORDER = {"implied": 1, "broader-held": 1, "tag-only": 2, "missing-metric": 3,
-         "ambiguous": 4, "unknown-term": 4}
-
-
-def questions(r):
-    from .match import question_line
-
-    unmet = [(1, f"- **unsatisfied** {q['asked']}: required, and nothing in the record "
-                 f"carries it - is there work that shows it?")
-             for q in r["requirements"]
-             if q["necessity"] == "required" and q["verdict"] == "unsatisfied"]
-    asked = [(ORDER[q["kind"]], question_line(q)) for q in r["questions"]]
-    ordered = [line for _, line in sorted(unmet + asked, key=lambda x: x[0])]
-    return [f"- {slot('blocking: an eligibility question, or delete this line')}", *ordered,
-            "", slot("reword each to be said aloud; add from jsk kb query unconfirmed")]
-
-
-def draft_gaps(r, store, post, today, advert_path):
-    """gaps.md for the match `r` of `post`, with a slot wherever judgement is needed."""
-    from .match import cover_lines, ranking_lines
-
+def draft_gaps(derived, store, advert_path):
+    """gaps.txt for the Derived assessment `derived`, with a slot wherever judgement is
+    needed: eligibility, each flagged row, the shortfall, the surplus, a blocking question."""
     lines = advert(advert_path)
-    reqs = r["requirements"]
-    out = ["---", "type: Gap Assessment", "posting: posting.ttl", f"assessed: {today.isoformat()}",
-           f"fit: {slot('strong | partial | poor')}", "---", "",
-           "# Eligibility", "", *eligibility(store, lines), "",
-           "# Requirements", "", *requirement_rows(reqs), "",
-           "# Ranking", "", *ranking_lines(r), "", *cover_lines(r), "",
-           "# Where this falls short", "",
-           slot("the unmet and partial requirements that matter, most load-bearing first"), "",
-           "# Surplus worth knowing about", "",
-           slot("optional - delete this line if there is none"), "",
-           "# New terms", "", *new_terms(reqs, drops(os.path.dirname(os.path.abspath(advert_path))),
-                                         lines), "",
-           "# Questions", "", *questions(r)]
+    # `/`, not `|`, inside the verdict slot: the row itself splits on `|`.
+    review = slot("keep, or lower: partial / unevidenced / unsatisfied")
+    rows = []
+    for row in derived.rows:
+        if row.flags:
+            rows += [f"# {one_line(row.asked)}: {one_line(row.flag_text or ', '.join(row.flags))}",
+                     f"{row.slug} | {review} |", ""]
+    out = [*HEAD, *dropped(os.path.dirname(os.path.abspath(advert_path)), lines), "",
+           f"fit: {derived.fit}", "",
+           *eligibility(store, lines), "",
+           *rows,
+           "short: " + slot("the unmet and partial requirements that matter, most load-bearing "
+                            "first"),
+           f"surplus: {slot('optional - delete this line if there is none')}", "",
+           f"ask: {slot('blocking: an eligibility question, or delete this line')}",
+           *(f"ask: {one_line(q)}" for q in derived.questions),
+           "# reword each ask to be said aloud; add from jsk kb query unconfirmed"]
     return "\n".join(out) + "\n"
+
+
+def one_line(text):
+    """gaps.txt is read a line at a time: a newline inside a value would start a new one."""
+    return " ".join(text.split())

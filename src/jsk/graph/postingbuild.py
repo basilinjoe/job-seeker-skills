@@ -270,6 +270,17 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
                         f"jsk kb check will not read it")
     with open(target, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
+    # gaps.ttl and gaps.md are derived from the posting just replaced: a requirement it
+    # dropped would leave gaps.ttl dangling, and that FAIL would block prepare here. gaps.txt
+    # is the analyst's, keyed by slug, and survives any rebuild that keeps the slugs.
+    removed = [n for n in ("gaps.ttl", "gaps.md") if os.path.isfile(os.path.join(app_dir, n))]
+    for n in removed:
+        os.remove(os.path.join(app_dir, n))
+    if removed:
+        warnings.append(f"removed {' and '.join(removed)}, derived from the posting.ttl this "
+                        f"replaces; `jsk tailor prepare` writes them again"
+                        + (", with gaps.txt folded in" if os.path.isfile(
+                            os.path.join(app_dir, "gaps.txt")) else ""))
     return target, len(reqs), warnings
 
 
