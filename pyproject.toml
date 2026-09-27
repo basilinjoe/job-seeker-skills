@@ -121,3 +121,15 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # The tests assert on exact output text, so their long string literals are the point.
 "tests/*" = ["E501", "PLR2004"]
+
+[tool.pyright]
+# For the language server Claude Code runs through the pyright-lsp plugin, not a gate:
+# nothing in CI runs pyright. It resolves imports against the .venv that `uv sync
+# --extra dev` builds, so `jsk`, pyoxigraph and pytest are found rather than reported.
+# The worktrees are agents' copies of this same source; indexing them doubles every
+# symbol and sends go-to-definition into a copy.
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.10"
+include = ["src", "tests"]
+exclude = [".claude/worktrees", "jsk-eval-workspace", "**/__pycache__", ".venv"]
