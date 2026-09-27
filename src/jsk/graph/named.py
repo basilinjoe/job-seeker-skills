@@ -256,12 +256,15 @@ def evidence_for(store, *terms):
 
 
 @query("concepts", doc="every concept: its labels, what it counts as, how many projects hold it")
-def concept_list(store):
+def concept_list(store, near=None):
     """The vocabulary as one table, shipped and the person's own, to map a posting's
     phrases onto before posting.ttl is written: "cloud-native architecture" is a label no
     concept has, and `j:concept` names the one it means. Read once, it replaces the grep
-    for concept ids that followed every match full of `candidate`s."""
-    from .queries import concepts
+    for concept ids that followed every match full of `candidate`s.
+
+    `near` (`--near <term>`): only the concepts the term names, then the few closest to
+    it, closest first - a lookup for one term instead of reading 18 KB for it."""
+    from .queries import Requirement, concepts, labels, nearest, resolve
 
     names, up, held = {}, {}, {}
     for r in store.select(PRE + "SELECT ?c ?l WHERE { ?c j:label ?l }"):
@@ -272,10 +275,16 @@ def concept_list(store):
             ?p a j:Project ; j:uses|j:domain ?c FILTER NOT EXISTS { ?p j:retired ?x } }
             GROUP BY ?c"""):
         held[r["c"].value] = int(r["n"].value)
+    known = concepts(store)
+    if near is None:
+        shown = sorted(known)
+    else:
+        exact = resolve(Requirement("", near, "", ""), labels(store), known).concepts
+        shown = list(dict.fromkeys((*exact, *nearest(store, limit=5)(near))))
     return (("concept", "labels", "counts as", "held"),
             [{"concept": curie(c), "labels": ", ".join(sorted(names.get(c, ()))),
               "counts as": ", ".join(curie(b) for b in sorted(up.get(c, ()))),
-              "held": held.get(c, "")} for c in sorted(concepts(store))])
+              "held": held.get(c, "")} for c in shown])
 
 
 @query("bare", doc="kb.ttl's capabilities with no label and no isA/partOf, most-held first")

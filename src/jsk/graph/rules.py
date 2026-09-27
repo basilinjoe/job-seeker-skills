@@ -209,27 +209,82 @@ ELIGIBILITY = re.compile(r"authori[sz]\w*|\bvisa|sponsor|clearance|citizen|right
                          r"time ?zone|background check|export control|security check", re.I)
 LIST_ITEM = re.compile(r"\s*(?:[-*•]|\d+[.)])\s+(.*)")
 BOLD_LINE = re.compile(r"(\*\*|__)[^*_]+\1:?")
+# What `jsk posting extract` sorts the rest of an advert by. A responsibility is listed, not
+# asked of the person: its requirement defaults to implicit. A benefits list asks nothing.
+HEADING_DOES = re.compile(r"\b(responsibilit\w*|what you('ll| will) (do|work on)|in this role|"
+                          r"day[- ]to[- ]day)\b|\byou('ll| will):?\Z", re.I)
+HEADING_OFFERS = re.compile(r"\b(benefits?|perks|we offer|compensation|salary)\b", re.I)
+HEADING_OPTIONAL = re.compile(r"\b(nice to have|bonus|preferred|desirable|a plus)\b", re.I)
 
 
-def asked_lines(advert):
-    """The advert's requirement-like list items, squashed, in order."""
+@dataclass(frozen=True)
+class AdvertLine:
+    n: int              # from 1, in the advert's order
+    section: str        # qualification | responsibility | other
+    text: str           # squashed: what a requirement built from it quotes
+    optional: bool      # under an optional heading, or worded optionally itself
+    elig: bool          # eligibility's words: gaps.md's `# Eligibility`, never a requirement
+
+
+def _heading(line, text, item):
+    return not item and (text.startswith("#") or BOLD_LINE.fullmatch(text)
+                         or (text.endswith(":") and len(text.split()) <= 8))
+
+
+def advert_lines(advert):
+    """Every line of the advert a requirement could quote, numbered, with its section: list
+    items under a qualifications or a responsibilities heading, and every other list item
+    and prose paragraph as `other`. A benefits list is left out; so are posting.md's URL
+    line and headings, which name sections and ask nothing."""
     advert = re.sub(r"\A---\n.*?\n---\n", "", advert, flags=re.S)    # frontmatter
-    out, inside, wrapping = [], False, False
+    found = []          # [section, text, optional heading, is an item]
+    section, opt_heading, wrapping, prose = "other", False, None, False
     for line in advert.split("\n"):
         text = line.strip()
         item = LIST_ITEM.fullmatch(line) if not BOLD_LINE.fullmatch(text) else None
-        if wrapping and text and not item and line[:1].isspace():
-            out[-1] = f"{out[-1]} {squash(text)}"      # a wrapped item's continuation
+        # A wrapped item's continuation - unless an item outside the qualifications is
+        # followed by what reads as a heading: asked_lines never joined those, so it is one.
+        if wrapping and text and not item and line[:1].isspace() and not (
+                section != "qualification" and _heading(line, text, item)):
+            if wrapping == "join":
+                found[-1][1] = f"{found[-1][1]} {squash(text)}"
             continue
-        wrapping = False
-        if not item and (text.startswith("#") or BOLD_LINE.fullmatch(text)
-                         or (text.endswith(":") and len(text.split()) <= 8)):
+        wrapping = None
+        if not text:
+            prose = False
+        elif _heading(line, text, item):
             words = squash(text)
-            inside = bool(HEADING_ASKS.search(words)) and not HEADING_NOT.search(words)
-        elif item and inside:
-            out.append(squash(item.group(1)))
-            wrapping = True
-    return [x for x in out if len(x.split()) >= 4 and not ELIGIBILITY.search(x)]
+            prose = False
+            if HEADING_ASKS.search(words) and not HEADING_NOT.search(words):
+                section, opt_heading = "qualification", bool(HEADING_OPTIONAL.search(words))
+            elif HEADING_DOES.search(words):
+                section, opt_heading = "responsibility", False
+            elif HEADING_OFFERS.search(words) or HEADING_NOT.search(words):
+                section, opt_heading = "offered", False
+            else:
+                section, opt_heading = "other", False
+        elif item:
+            prose, wrapping = False, "skip"
+            if section != "offered":
+                found.append([section, squash(item.group(1)), opt_heading, True])
+                wrapping = "join"
+        elif not found and not prose and re.match(r"https?://\S+\Z", text):
+            continue                                # posting.md's first line: the URL
+        elif prose:
+            found[-1][1] = f"{found[-1][1]} {squash(text)}"
+        else:
+            found.append(["other", squash(text), False, False])
+            prose = True
+    return [AdvertLine(n, sec, text, opt or bool(OPTIONAL_WORDS.search(text)),
+                       bool(ELIGIBILITY.search(text)))
+            for n, (sec, text, opt, _) in enumerate(found, 1)]
+
+
+def asked_lines(advert):
+    """The advert's requirement-like list items, squashed, in order: what advert-uncovered
+    reads back against the quotes."""
+    return [x.text for x in advert_lines(advert)
+            if x.section == "qualification" and len(x.text.split()) >= 4 and not x.elig]
 
 
 def uncovered(rows, store):

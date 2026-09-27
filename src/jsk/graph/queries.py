@@ -376,6 +376,49 @@ def nearest(store, limit=3, post=None):
     return near
 
 
+def labels_in(store):
+    """A function from an advert line to the concepts whose whole label it holds, in the
+    order the line names them - what `jsk posting extract` proposes beside each line, so
+    the analyst accepts or strikes instead of reading the whole vocabulary.
+
+    A label matches as contiguous words, a space or a hyphen between them either way. The
+    longest label at a place wins, so "Azure AI Foundry" is not also c:azure. A label of two
+    characters or fewer matches only as written: "Go" is the language, "go" in "go live"
+    is not. A retired concept is never proposed."""
+    import re
+
+    def key(text):
+        return re.sub(r"[\s-]+", "-", text.strip().lower())
+
+    retired = {r["c"].value for r in store.select(PRE + """SELECT ?c WHERE { ?c j:retired ?x
+                                                 FILTER(STRSTARTS(STR(?c), STR(c:))) }""")}
+    meant = {}
+    for r in store.select(PRE + """SELECT ?c ?l WHERE { ?c j:label|j:former ?l }"""):
+        label = r["l"].value.strip()
+        if label and r["c"].value not in retired:
+            meant.setdefault((label if len(label) <= 2 else key(label)), set()).add(r["c"].value)
+    if not meant:
+        return lambda line: ()
+
+    def alternative(label):
+        body = r"[\s-]+".join(re.escape(w) for w in re.split(r"[\s-]+", label))
+        return body if len(label) <= 2 else f"(?i:{body})"
+
+    found = re.compile(r"(?<![A-Za-z0-9+#])(?:"
+                       + "|".join(alternative(k) for k in sorted(meant, key=lambda k: (-len(k), k)))
+                       + r")(?![A-Za-z0-9+#])")
+
+    def named(line):
+        out = []
+        for m in found.finditer(line):
+            said = m.group(0)
+            for c in sorted(meant.get(said if len(said) <= 2 else key(said), ())):
+                if c not in out:
+                    out.append(c)
+        return tuple(out)
+    return named
+
+
 def questions(store, matches):
     """The questions a tailoring round should ask - each one a named gap in the join."""
     out = []

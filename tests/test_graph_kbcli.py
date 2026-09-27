@@ -696,6 +696,18 @@ class Query(Workspace):
         self.assertEqual(rows["c:kafka"]["held"], 1)
         self.assertEqual(rows["c:terraform"]["held"], "")     # shipped, held by no project
 
+    def test_concepts_near_a_term_is_what_it_names_then_the_closest(self):
+        code, out = self.kb("query", "concepts", "--near", "Apache Kafka", "--json")
+        self.assertEqual(code, 0, out)
+        rows = [r["concept"] for r in json.loads(out)]
+        self.assertEqual(rows[0], "c:kafka")
+        self.assertLessEqual(len(rows), 6)
+
+    def test_near_is_only_for_concepts(self):
+        code, out = self.kb("query", "person", "--near", "Kafka")
+        self.assertEqual(code, 2)
+        self.assertIn("--near is for", out)
+
     def test_bare_lists_the_unlabelled_capabilities_most_held_first(self):
         self.edit_kb('c:data-sovereignty a j:Capability ; j:label "data residency" .',
                      "c:api-design a j:Capability .\nc:data-sovereignty a j:Capability .")

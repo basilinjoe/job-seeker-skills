@@ -1120,6 +1120,8 @@ def cmd_query(args, root):
       similar <words>...  the live projects closest to the words (a name, technologies,
                           a sentence), best five, each with the words and concepts shared
       duplicates          pairs of live projects that look like one project told twice
+      concepts [--near <term>]  the vocabulary; with --near, only what the term names and
+                          the few concepts closest to it
 
     A table by default; --json for the same rows, structured.
     """
@@ -1129,13 +1131,16 @@ def cmd_query(args, root):
     from .named import QUERIES, table
 
     as_json = bool(take(args, "--json"))
+    near = take(args, "--near", value=True)
     if not args or args[0] not in QUERIES:
         return usage(f"jsk kb query takes one of: {', '.join(QUERIES)}")
     name, rest = args[0], args[1:]
     want, _, fn = QUERIES[name]
     if want.endswith("...") and not rest or not want.endswith("...") and len(rest) != len(want.split()):
         return usage(f"jsk kb query {name} {want}".rstrip())
-    columns, rows = fn(S.load(root), *rest)
+    if near is not None and name != "concepts":
+        return usage("--near is for `jsk kb query concepts --near <term>` only")
+    columns, rows = fn(S.load(root), *rest, **({"near": near} if near is not None else {}))
     print(json.dumps(rows, indent=2, ensure_ascii=False) if as_json else table(columns, rows))
     return 0
 
