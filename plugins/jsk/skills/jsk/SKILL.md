@@ -88,6 +88,7 @@ has the format, for a changeset you are unsure of.
 | `jsk kb apply\|confirm\|show\|view\|query\|check\|adopt\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
 | `jsk posting fetch <url> <app-dir>` | a job board's posting as `posting.md` |
 | `jsk match <posting.ttl>` | requirements matched through the vocabulary, ranked, questions |
+| `jsk tailor prepare <app-dir> [--draft-gaps]` | the match and all an assessment reads, one digest |
 | `jsk validate <resume.json>` | the record gate |
 | `jsk render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
 | `jsk preview <resume.json> --out DIR` | every template, with page counts |

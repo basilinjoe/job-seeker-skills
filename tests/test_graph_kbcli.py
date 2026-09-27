@@ -861,6 +861,35 @@ class Check(Workspace):
         self.assertEqual(code, 0)
         self.assertIn("career/kb.ttl - not in the canonical layout", out)
 
+    APP = "applications/acme-platform-engineer"
+
+    def uncover(self):
+        advert = self.path(f"{self.APP}/posting.md")
+        advert.write_text(advert.read_text(encoding="utf-8").replace(
+            "## Benefits", "- Must have Terraform in production.\n\n## Benefits"), encoding="utf-8")
+
+    def test_only_one_application_s_findings(self):
+        self.uncover()
+        code, out = self.kb("check", "--only", self.APP)
+        self.assertEqual(code, 0, out)
+        self.assertIn("0 FAIL, 1 WARN", out)
+        self.assertIn("Must have Terraform in production", out)
+        self.assertNotIn("appears in the text but in no metric", out)     # kb.ttl's, not its
+        code, out = self.kb("check", "--only", str(self.path(self.APP)))    # a path works too
+        self.assertIn("0 FAIL, 1 WARN", out)
+
+    def test_only_still_shows_a_fail_anywhere(self):
+        self.edit_kb("j:cites k:met_team ;", "j:cites k:met_teem ;")
+        code, out = self.kb("check", "--only", self.APP)
+        self.assertEqual(code, 1)
+        self.assertIn("did you mean k:met_team?", out)
+
+    def test_only_somewhere_clean(self):
+        self.uncover()
+        code, out = self.kb("check", "--only", "career/log.ttl")
+        self.assertEqual(code, 0, out)
+        self.assertIn("0 FAIL, 0 WARN", out)
+
 
 class Dispatch(Workspace):
     def test_help_lists_the_verbs_and_exits_0(self):

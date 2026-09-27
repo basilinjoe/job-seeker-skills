@@ -23,7 +23,7 @@ GOOD = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team", "ach_i
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
 SUBCOMMANDS = ["doctor", "new", "match", "kb", "migrate", "validate", "render", "preview",
-               "check", "gates", "fit", "ship", "freeze", "event", "posting"]
+               "check", "gates", "fit", "ship", "freeze", "event", "posting", "tailor"]
 
 
 class Usage(unittest.TestCase):

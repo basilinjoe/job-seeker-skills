@@ -25,6 +25,7 @@ jsk new ./my-career --name "Your Name"     # career/kb.ttl and its log, at r1
 jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
 jsk posting fetch <url> applications/<dir>   # an Ashby, Greenhouse or Lever posting, as posting.md
 jsk match applications/<dir>/posting.ttl   # a posting against the career, through the vocabulary
+jsk tailor prepare applications/<dir> --draft-gaps   # the match and everything an assessment reads
 jsk migrate user-knowledgebase.md   # the Markdown knowledge base to career/kb.ttl, once
 jsk validate resume.json         # the record gate
 jsk kb export --from-match applications/<dir>/posting.ttl --out applications/<dir>/resume.json
@@ -214,6 +215,30 @@ names requirements (requirements, qualifications, skills, experience, you'll bri
 …), that no requirement of the posting quotes. Benefits and responsibilities lists are skipped, and
 so are eligibility lines (work rights, visa, clearance, location, work mode), which belong in
 gaps.md's `# Eligibility`.
+
+### `jsk tailor prepare`
+
+The `jsk.graph.prepare` module.
+
+```bash
+jsk tailor prepare applications/<dir>                  # the digest
+jsk tailor prepare applications/<dir> --draft-gaps     # and write gaps.md with slots to fill
+```
+
+Everything an assessment reads, in one process and one digest, where the analyst used to make
+about ten calls, each one a model turn. In order: `posting.ttl` put in the canonical layout (as
+`jsk kb fmt` would; left alone if it holds hand comments); the check, scoped to this application
+plus every FAIL anywhere (as `jsk kb check --only`); the match as `jsk match` prints it; `jsk kb
+query evidence` for every `missing` and `candidate` term; `jsk kb query person`; the cover's
+projects (at most three, or the top-ranked that carry a requirement), bullets only; and what those
+projects hold unconfirmed. Every section has a size cap and prints `… N more cut` when it cuts.
+
+`--draft-gaps` also writes `applications/<dir>/gaps.md` as `jsk match --draft-gaps` does, never
+over one already there. `--cover N` and `--today` are `jsk match`'s.
+
+Exit 0 digest printed; 1 a FAIL that stops the match (the career, the vocabulary or this
+application's own directory - one in another application does not), printed before it stops;
+2 called wrong, or no `posting.ttl` in the directory.
 
 ### `jsk kb`
 

@@ -14,7 +14,10 @@ has to remember every name to get started.
     jsk doctor                  what works on this machine
     jsk new PATH --name NAME    scaffold career/kb.ttl, its log at r1, and applications/
     jsk posting fetch URL APP   an Ashby, Greenhouse or Lever posting, as APP/posting.md
+      ... extract APP           its lines, numbered, with the concepts each names
+      ... build APP             decisions.txt to APP/posting.ttl, every quote the advert's own
     jsk match POSTING.ttl       a posting against the graph record, through the vocabulary
+    jsk tailor prepare APP      the match and everything an assessment reads, in one digest
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
     jsk migrate KB.md           user-knowledgebase.md to career/kb.ttl, once, round-trip checked
     jsk validate RESUME.json    the record gate, before anything renders
@@ -65,6 +68,7 @@ SIMPLE = {
     "new": "kb.py",
     "posting": "posting.py",
     "match": "match.py",
+    "tailor": "prepare.py",
     "kb": "kbcli.py",
     "migrate": "migrate.py",
     "event": "timeline.py",
@@ -128,6 +132,7 @@ SUBPACKAGE = {
     "letter.py": "gates",
     "layout.py": "gates",
     "match.py": "graph",
+    "prepare.py": "graph",
     "kbcli.py": "graph",
     "timeline.py": "graph",
 }

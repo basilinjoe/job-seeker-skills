@@ -1178,7 +1178,7 @@ def untraced_lines(store, today, bullets=None):
 
 @verb
 def cmd_check(args, root):
-    """jsk kb check
+    """jsk kb check [--only <path>]
 
     Validates the whole workspace - every rule, every file - and says where kb.ttl and
     log.ttl stand, and which record files are not in the canonical layout. Exit 1 on any
@@ -1187,24 +1187,39 @@ def cmd_check(args, root):
     It also asks the record gate's number check of every live bullet: a bullet it
     refuses fails every resume that selects it, so it is warned of here, once, rather
     than found by each resume run.
+
+    --only <path>   the findings in that file or under that folder (an application's
+                    directory, say), plus every FAIL anywhere, since a FAIL still stops
+                    `jsk match`. The JumpCloud run's full check printed 40 KB of other
+                    applications' warnings to find its own five.
     """
     from ..gates.report import show
     from . import record as R
     from . import store as S
     from .writer import WriteError, write
 
+    only = take(args, "--only", value=True)
     if args:
-        return usage("jsk kb check takes no arguments")
+        return usage("jsk kb check takes no arguments but --only <path>")
     store = S.load(root)
-    rep = store.report()
+    if only is not None:
+        here = os.path.abspath(only)
+        only = (S.file_name(here, store.root) if os.path.exists(here)
+                else only.replace("\\", "/")).rstrip("/")
+
+    def within(name):
+        return only is None or name == only or name.startswith(only + "/")
+
+    rep = S.Store(store.root, findings=[f for f in store.findings
+                                        if f.severity == "FAIL" or within(f.file)]).report()
     for name, parsed in sorted(store.parsed.items()):
-        if parsed.kind in ("kb", "log", "posting", "application"):
+        if parsed.kind in ("kb", "log", "posting", "application") and within(name):
             try:
                 if write(parsed.quads, parsed.kind) != parsed.text:
                     rep.warn(f"{name} - not in the canonical layout\n        fix: `jsk kb fmt {name}`")
             except WriteError:
                 pass                     # a file the writer cannot lay out has a FAIL already
-    if not rep.fails and R.KB in store.parsed:
+    if not rep.fails and R.KB in store.parsed and within(R.KB):
         for line in untraced_lines(store, datetime.date.today()):
             rep.warn(f"a record selecting it fails a gate: {line}\n        fix: record the "
                      "number as a metric version and cite it (j:cites), or correct the words, "
