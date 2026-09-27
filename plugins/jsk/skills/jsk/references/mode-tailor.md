@@ -57,6 +57,14 @@ Create `<workspace>/applications/<stem>/` and write `posting.md` **with the Writ
 shell heredoc** (an advert's quotes and apostrophes break the shell): **the advertisement verbatim and
 nothing else**, the URL on its first line. **Never paraphrase it**: every requirement quotes it.
 
+## 1b. Triage
+
+A bad fit shows in two seconds; the assessment takes minutes. In one message with the fetch and
+step 0's calls, run `jsk kb query person` and `jsk kb query evidence <terms>`: the 2–5 load-bearing
+terms of the title and first qualifications, the title's domain first. **A title term `nothing`,
+or eligibility plainly failing: ask whether to go on, before dispatching.** A doubt short of that:
+dispatch the analyst in the background and ask at once; on "stop", stop the agent.
+
 ## 2. Assess
 
 Send `jsk-tailor-analyst` the application directory and the workspace, both absolute, and the

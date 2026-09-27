@@ -412,11 +412,16 @@ class TheMainThreadBudget(unittest.TestCase):
         # confirmed in the career and re-shipped rather than refreshed into the record.
         # mode-tailor.md lost the `--refresh` sentence: after a confirm nothing in
         # resume.json changes except a confirmed summary's status.
+        #
+        # 5900 -> 6100 for triage (fast tailor, 2026-09-27). Measured: 5,874 -> 5,998
+        # (SKILL 2,262, tailor 2,441, ship 1,295). mode-tailor.md's step 1b costs 124: two
+        # queries before dispatch, because the JumpCloud run spent 11 minutes of analysis
+        # to reach "you have nothing on PAM" and a query answers it in two seconds.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
                    REFS / "mode-ship.md"),
-            5900)
+            6100)
 
 
 if __name__ == "__main__":
