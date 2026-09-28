@@ -212,12 +212,12 @@ def trig(base, summary, graphs, entries=(), comments=()):
     iris op:delete removes whole."""
     import pyoxigraph as ox
 
-    from .writer import INDENT, Subjects, block, short_string
+    from .writer import INDENT, Subjects, block, literal
 
     out = [f"@prefix {name}: <{ns}> ." for name, ns in O.PREFIXES]
     out += [f"@prefix op: <{O.OP}> .", ""]
     out += [f"# {line}" for line in comments] + ([""] if comments else [])
-    out += [f"op:changeset op:base {base} ; op:summary {short_string(summary)} .", ""]
+    out += [f"op:changeset op:base {base} ; op:summary {literal(ox.Literal(summary))} .", ""]
     for name in ("delete", "set", "add", "retire"):
         triples = graphs.get(name, [])
         gone = sorted(entries) if name == "delete" else []

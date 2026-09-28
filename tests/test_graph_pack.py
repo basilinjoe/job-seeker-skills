@@ -106,6 +106,15 @@ class ThePack(unittest.TestCase):
         self.assertNotIn(O.C + "system-design", s.homes)
         self.assertEqual(O.kind_of(PACK), None)
 
+    def test_a_two_line_summary_round_trips(self):
+        from jsk.graph.pack import trig
+
+        summary = 'Merged c:a into c:b.\nThe "old" wording stays as a label.'
+        text = trig(2, summary, {})
+        said = [q.object.value for q in gio.parse_text(text, "x.trig", kind="changeset").quads
+                if q.predicate.value == O.OP + "summary"]
+        self.assertEqual(said, [summary])
+
     def test_the_shipped_vocabulary_is_still_technologies_only(self):
         kinds = {x.object.value for x in gio.parse(SHIPPED).quads
                  if x.predicate.value == O.RDF_TYPE}
