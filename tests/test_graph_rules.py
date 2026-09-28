@@ -3,9 +3,12 @@
 Same machinery as tests/test_graph_shapes.py: copy the valid fixture workspace, make one
 edit, load, assert the rule names the id at its line with the expected fix.
 """
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
-from test_graph_shapes import APPLICATION, KB, POSTING, assert_fires, mutated
+from test_graph_shapes import APPLICATION, FIXTURES, KB, POSTING, assert_fires, load, mutated
 
 from jsk.graph import rules
 
@@ -189,6 +192,20 @@ class Findings(unittest.TestCase):
                         "Deep, hands-on K8s experience in production.",
                         "Deep, hands‑on **K8s** experience in _production_.", "", ""))
         self.assertEqual([f.text() for f in s.findings if f.rule == "quote-verbatim"], [])
+
+    def test_an_advert_that_is_not_utf8_is_named_not_a_traceback(self):
+        """A Windows editor's cp1252 save (`\\x93` is its curly quote) raised
+        UnicodeDecodeError out of the load, past the `except OSError` for a missing one."""
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
+        advert = tmp / "applications/acme-platform-engineer/posting.md"
+        advert.write_bytes(advert.read_bytes() + b"\n\x93Nice to have\x94\n")
+        s = load(tmp)
+        quotes = [f.text() for f in s.findings if f.rule == "quote-verbatim"]
+        self.assertTrue(quotes)
+        self.assertTrue(all("posting.md beside it is not UTF-8" in t for t in quotes), quotes)
+        self.assertEqual([f for f in s.findings if f.rule == "advert-uncovered"], [])
 
     def test_typography_is_not_wording(self):
         self.assertEqual(rules.squash("You’ll own “the” platform — `Kafka`"),

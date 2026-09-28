@@ -155,7 +155,7 @@ def unquoted(rows, store):
     """A requirement whose quote is not in the advert beside it, word for word."""
     import os
 
-    from .io import normalise
+    from .io import Missing, NotUtf8, Unreadable, read_text
 
     out, adverts = [], {}
     for r in rows:
@@ -164,16 +164,20 @@ def unquoted(rows, store):
             continue
         advert = os.path.join(store.root, os.path.dirname(file), "posting.md")
         if advert not in adverts:
+            # (text, None), or (None, why it could not be read) - the finding says which.
             try:
-                with open(advert, encoding="utf-8") as fh:
-                    adverts[advert] = squash(normalise(fh.read()))
-            except OSError:
-                adverts[advert] = None
-        text = adverts[advert]
+                adverts[advert] = (squash(read_text(advert)), None)
+            except Missing:
+                adverts[advert] = (None, "posting.md is missing beside it")
+            except NotUtf8:
+                adverts[advert] = (None, "posting.md beside it is not UTF-8 - save it as UTF-8")
+            except Unreadable as e:
+                adverts[advert] = (None, f"posting.md beside it could not be read: {e}")
+        text, unread = adverts[advert]
         if not squash(v(r, "q")):
             out.append({**r, "why": "the quote is empty"})     # "" is in every advert
-        elif text is None:
-            out.append({**r, "why": "posting.md is missing beside it"})
+        elif unread:
+            out.append({**r, "why": unread})
         elif squash(v(r, "q")) not in text:
             out.append({**r, "why": "posting.md does not say it"})
     return out
@@ -308,7 +312,7 @@ def uncovered(rows, store):
     """An advert line that asks something no requirement of its posting quotes."""
     import os
 
-    from .io import normalise
+    from .io import Unreadable, read_text
 
     quotes = defaultdict(list)
     for r in rows:
@@ -322,10 +326,9 @@ def uncovered(rows, store):
             continue
         folder = os.path.join(store.root, os.path.dirname(file))
         try:
-            with open(os.path.join(folder, "posting.md"), encoding="utf-8") as fh:
-                advert = normalise(fh.read())
-        except OSError:
-            continue                        # quote-verbatim says posting.md is missing
+            advert = read_text(os.path.join(folder, "posting.md"))
+        except Unreadable:
+            continue                        # quote-verbatim says why it could not be read
         said = [q for q in said if q]
         dropped = dropped_lines(folder, advert)
         for line in asked_lines(advert):
