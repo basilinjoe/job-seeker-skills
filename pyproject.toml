@@ -48,7 +48,7 @@ pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
 migrate = ["markdown-it-py", "pyyaml"]  # jsk migrate: the Markdown knowledge base, read once
 index = ["markdown-it-py", "pyyaml"]    # alias of migrate; removed in release N+1
 all = ["pymupdf", "markdown-it-py", "pyyaml"]
-dev = ["pymupdf", "markdown-it-py", "pyyaml", "pytest", "pytest-xdist", "ruff"]
+dev = ["pymupdf", "markdown-it-py", "pyyaml", "pytest", "pytest-xdist", "ruff", "pyright"]
 
 [project.scripts]
 jsk = "jsk.cli:main_console"
@@ -125,13 +125,17 @@ ignore = [
 "tests/*" = ["E501", "PLR2004"]
 
 [tool.pyright]
-# For the language server Claude Code runs through the pyright-lsp plugin, not a gate:
-# nothing in CI runs pyright. It resolves imports against the .venv that `uv sync
-# --extra dev` builds, so `jsk`, pyoxigraph and pytest are found rather than reported.
+# For the language server Claude Code runs through the pyright-lsp plugin, and a gate on
+# src/jsk/graph: CI runs `python -m pyright src/jsk/graph` after the lint, at `basic`,
+# which it passes clean. The rest of src and the tests are not held to it yet. It
+# resolves imports against the .venv that `uv sync --extra dev` builds, so `jsk`,
+# pyoxigraph and pytest are found rather than reported; CI has no .venv, says so, and
+# falls back to the python on PATH, where pip installed them.
 # The worktrees are agents' copies of this same source; indexing them doubles every
 # symbol and sends go-to-definition into a copy.
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.10"
+typeCheckingMode = "basic"
 include = ["src", "tests"]
 exclude = [".claude/worktrees", "jsk-eval-workspace", "**/__pycache__", ".venv"]

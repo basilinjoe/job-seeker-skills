@@ -96,6 +96,13 @@ jobs:
       - name: Lint
         run: python -m ruff check src tests
 
+      # The graph package - the record's reader, checks and writer - in pyright's `basic`
+      # mode, which it passes clean. A false positive is ignored on its own line with the
+      # guarantee stated beside it, so a finding here is a new problem, as with the lint.
+      # The rest of src is not held to it yet.
+      - name: Type check
+        run: python -m pyright src/jsk/graph
+
       # `jsk doctor` is what tells a person what this machine can do. If it disagrees
       # with the machine, every gap it reports afterwards is untrustworthy - so it runs
       # before the tests and its output is the log's header. `--quick` because the
