@@ -51,20 +51,21 @@ def draft(store, a, b):
         if c not in store.homes:
             problems.append((f"{cur(c)} is not in the record",
                              "check the id: `jsk kb query concepts` lists them"))
-    if not problems:
-        if [f for f in store.definitions[a] if f != KB]:
-            problems.append((f"{cur(a)} is defined by the shipped vocabulary, so it outlives "
-                             "any merge", "merge a concept of your own into it instead, or "
-                             "narrow it with j:unlabel / j:unlink"))
-        if kinds.get(a) != kinds.get(b):
-            problems.append((f"{cur(a)} is {' or '.join(sorted(kinds.get(a, ()))) or 'untyped'}, "
-                             f"{cur(b)} is {' or '.join(sorted(kinds.get(b, ()))) or 'untyped'}",
-                             "a merge keeps one class: op:set the class of one first, if they "
-                             "really are one thing"))
-        known = edges(store)
-        if (a, "distinct", b) in known or (b, "distinct", a) in known:
-            problems.append((f"{cur(a)} and {cur(b)} are declared distinct",
-                             "drop the j:distinct first, if they really are one thing"))
+    if problems:
+        raise Refused(problems)
+    if [f for f in store.definitions[a] if f != KB]:
+        problems.append((f"{cur(a)} is defined by the shipped vocabulary, so it outlives "
+                         "any merge", "merge a concept of your own into it instead, or "
+                         "narrow it with j:unlabel / j:unlink"))
+    if kinds.get(a) != kinds.get(b):
+        problems.append((f"{cur(a)} is {' or '.join(sorted(kinds.get(a, ()))) or 'untyped'}, "
+                         f"{cur(b)} is {' or '.join(sorted(kinds.get(b, ()))) or 'untyped'}",
+                         "a merge keeps one class: op:set the class of one first, if they "
+                         "really are one thing"))
+    known = edges(store)
+    if (a, "distinct", b) in known or (b, "distinct", a) in known:
+        problems.append((f"{cur(a)} and {cur(b)} are declared distinct",
+                         "drop the j:distinct first, if they really are one thing"))
     if problems:
         raise Refused(problems)
 

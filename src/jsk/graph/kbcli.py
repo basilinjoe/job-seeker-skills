@@ -45,6 +45,11 @@ import sys
 
 from ..cliutil import docstring_usage, wants_help
 
+# For the checker alone, as in store.py: `typing` costs a command ~3 ms it never uses.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from typing import Literal, overload
+
 VERBS = {}
 
 
@@ -63,6 +68,13 @@ def find_root(start):
         if up == here:
             return None
         here = up
+
+
+if TYPE_CHECKING:
+    @overload
+    def take(args, flag, value: "Literal[True]") -> "str | None": ...
+    @overload
+    def take(args, flag, value: "Literal[False]" = False) -> "bool | None": ...
 
 
 def take(args, flag, value=False):
@@ -463,7 +475,8 @@ def unquoted_numbers(quads, iri, quote):
     from . import ontology as O
 
     said = scaled(numerals(quote))
-    kinds = {p.name for p in O.BY_NAME[O.class_of(iri)].preds.values()
+    # iri is in a kb.ttl writable() passed, where every subject is a jsk id.
+    kinds = {p.name for p in O.BY_NAME[O.class_of(iri)].preds.values()  # pyright: ignore[reportArgumentType]
              if p.claim and p.obj in (O.STR, O.NUM)}
     out = []
     for q in quads:
@@ -496,7 +509,8 @@ def unquoted_words(quads, iri, quote):
     a document that says only the first half), or a quote about something else."""
     from . import ontology as O
 
-    pred = PROSE.get(O.class_of(iri))
+    cls = O.class_of(iri)
+    pred = PROSE.get(cls) if cls else None
     if not pred:
         return []
     said = stems(quote)
@@ -649,7 +663,8 @@ def cmd_confirm(args, root):
         cls = O.class_of(iri)
         if iri not in in_kb:
             problems.append(unknown(iri, store))
-        elif not O.BY_NAME[cls].claims:
+        # In a kb.ttl writable() passed, so a jsk id with a class.
+        elif not O.BY_NAME[cls].claims:  # pyright: ignore[reportArgumentType]
             problems.append((f"{text} has no provenance to confirm: a {cls} is not a claim",
                              "confirm the entry that makes the claim"))
         elif any(q.subject.value == iri and q.predicate.value == O.J + "retired" for q in quads):
@@ -702,7 +717,8 @@ def provenances(quads):
 
 def claims(quads, s):
     from . import ontology as O
-    names = O.resets(O.BY_NAME[O.class_of(s)])
+    # s has a provenance in the kb.ttl adopt's writable() passed, so it is a jsk id.
+    names = O.resets(O.BY_NAME[O.class_of(s)])  # pyright: ignore[reportArgumentType]
     return {(q.predicate.value, q.object.value) for q in quads
             if q.subject.value == s and q.predicate.value[len(O.J):] in names}
 
@@ -851,7 +867,8 @@ def with_children(quads, iri):
                        and q.object.value == iri})
     kids = {"Project": sorted(of("project"), key=lambda a: rank(quads, a)),
             "Metric": sorted(of("of"), key=lambda v: int(v.rsplit(".v", 1)[1]))}
-    return [iri] + kids.get(O.class_of(iri), [])
+    cls = O.class_of(iri)
+    return [iri] + (kids.get(cls, []) if cls else [])
 
 
 def rank(quads, iri):
@@ -1048,14 +1065,15 @@ def cmd_export(args, root):
             from . import select as SEL
             chosen(Career(store.graph(R.KB)), select)      # a bad --select refuses first
             extra = [O.K + t.removeprefix("k:") for t in select or []]
-        if by_rank:
-            selection = SEL.ranked(store, today, extra)
-        elif posting:
-            posts = [iri for iri in store.homes if O.class_of(iri) == "Posting"
-                     and store.file_of(iri) == S.file_name(posting, store.root)]
-            if len(posts) != 1:
-                return refuse([f"{posting} holds no posting"], "check it with `jsk kb check`")
-            selection = SEL.select(store, posts[0], today, budget, extra)
+            if by_rank:
+                selection = SEL.ranked(store, today, extra)
+            else:
+                posts = [iri for iri in store.homes if O.class_of(iri) == "Posting"
+                         and store.file_of(iri) == S.file_name(posting, store.root)]
+                if len(posts) != 1:
+                    return refuse([f"{posting} holds no posting"],
+                                  "check it with `jsk kb check`")
+                selection = SEL.select(store, posts[0], today, budget, extra)
         if selection is not None:
             # The gaps first: when nothing is selected they are the reason, and a refusal
             # printed without them would leave the author to run jsk match to find out why.
