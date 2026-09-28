@@ -991,7 +991,8 @@ class UnknownFlags(Workspace):
     when the count came out wrong - and then as "takes one changeset", not as the typo."""
 
     CALLS = [("apply", "changes.trig"), ("adopt",), ("fmt",), ("path",),
-             ("confirm", "k:prj_identity", "--answer", "It shipped in March.")]
+             ("confirm", "k:prj_identity", "--answer", "It shipped in March."),
+             ("pack", "capabilities"), ("merge", "c:kafka", "--into", "c:python")]
 
     def test_a_quote_may_start_with_a_dash(self):
         # A value is whatever follows its flag, as it was when each verb lifted its own.

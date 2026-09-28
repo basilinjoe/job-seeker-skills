@@ -289,9 +289,9 @@ def drafted(text, out, what):
     return 0
 
 
-def draft_out(args):
+def draft_out(flags):
     """--out FILE for a drafted changeset: (path or None, exit code or None)."""
-    out = take(args, "--out", value=True)
+    out = flags.get("--out")
     if out is not None and not out.endswith(".trig"):
         return None, usage(f"{out}: a changeset is a .trig file")
     return out, None
@@ -308,8 +308,8 @@ def logged_base(store):
     return st.log_revision, None
 
 
-@verb
-def cmd_pack(args, root):
+@verb(values=("--out",))
+def cmd_pack(args, flags, root):
     """jsk kb pack capabilities [--out FILE.trig]
 
     Drafts a changeset adopting the capability starter pack (data/capabilities.ttl):
@@ -327,7 +327,7 @@ def cmd_pack(args, root):
     from . import pack as P
     from . import store as S
 
-    out, code = draft_out(args)
+    out, code = draft_out(flags)
     if code is not None:
         return code
     if len(args) != 1 or args[0] not in P.PACKS:
@@ -351,8 +351,8 @@ def cmd_pack(args, root):
     return drafted(text, out, what)
 
 
-@verb
-def cmd_merge(args, root):
+@verb(values=("--out", "--into"))
+def cmd_merge(args, flags, root):
     """jsk kb merge c:a --into c:b [--out FILE.trig]
 
     Drafts a changeset making two concepts one. Every kb.ttl triple pointing at c:a -
@@ -375,10 +375,10 @@ def cmd_merge(args, root):
     from . import pack as P
     from . import store as S
 
-    out, code = draft_out(args)
+    out, code = draft_out(flags)
     if code is not None:
         return code
-    into = take(args, "--into", value=True)
+    into = flags.get("--into")
     if len(args) != 1 or into is None:
         return usage("jsk kb merge c:a --into c:b - the concept to merge away, and the one "
                      "it becomes")
