@@ -1029,11 +1029,45 @@ def cmd_freeze(args):
     # Last, and in process: the most expensive check and the one the rest were
     # getting the arguments for. A failing document is never frozen.
     results = gate_results(app_dir, record, only=sent)
+    # The gates above read `*_Resume*` renders and nothing else, while `documents` is
+    # whatever was sent. A cover letter beside the resume was archived as sent with no
+    # gate having opened it (Ruling 5, 2026-09-28). What they read is asked of
+    # rendered_documents(), the function that chose it, so the two lists cannot drift.
+    extensions = sorted({ext for _, _, exts in DOC_GATES for ext in exts} | {".pdf"})
+    read = {os.path.normcase(os.path.abspath(p))
+            for p in rendered_documents(app_dir, extensions, sent)}
+    letters, lettered = [], set()
+    for name in documents:
+        path = os.path.join(app_dir, name)
+        if (name.lower().endswith((".txt", ".md"))
+                and os.path.normcase(os.path.abspath(path)) not in read):
+            # Against the application's own resume.json: the letter's numbers are the
+            # resume's claims in a looser paragraph, and are traced the same way.
+            code, output = call_gate("letter.py", [path, "--record", record])
+            letters.append(gate_result("letter gate",
+                                       f"letter.py {name} --record {DEFAULT_RECORD}",
+                                       code, output))
+            read.add(os.path.normcase(os.path.abspath(path)))
+            lettered.add(os.path.normcase(os.path.splitext(name)[0]))
+    results[-1:-1] = letters                        # the render gate stays last
     print_results(f"gates: {app_dir}", results)
     if worst_exit(results):
         return freeze_refusal(
             "a gate above did not pass. A failing document is never frozen -",
             "an archive of something that was not sendable reads, later, as though it was.")
+    # Anything still unread - a PDF cover letter, say - is refused. A PDF letter is read
+    # through its .txt: the letter gate reads text only, and a .txt of the same name
+    # beside it is the one extra file Ruling 5 accepts as the price of checking it.
+    unread = [name for name in documents
+              if os.path.normcase(os.path.abspath(os.path.join(app_dir, name))) not in read
+              and not (name.lower().endswith(".pdf")
+                       and os.path.normcase(os.path.splitext(name)[0]) in lettered)]
+    if unread:
+        return freeze_refusal(
+            f"no gate read {', '.join(unread)}. A document freeze lists is one a gate has "
+            f"checked -",
+            "fix: send the letter's .txt beside it, or leave it out with --doc.",
+            "nothing was renamed or written.")
 
     from .graph import timeline                       # noqa: PLC0415 - only when asked
     text, problems = timeline.freeze(workspace, app_dir, plan, record_bytes, submitted,

@@ -621,6 +621,64 @@ class FreezeRefuses(GraphCase):
         self.assertUntouched()
 
 
+LETTER = ("Dear Hiring Manager,\n\n"
+          "I build event platforms that other teams build on, and the platform role asks "
+          "for that work. At my last role I cut event latency on Kafka and led the team "
+          "that ran it.\n\n"
+          "I would welcome a conversation about the role.\n\n"
+          "Best regards,\nJane Doe\n")
+
+
+class FreezeLetters(GraphCase):
+    """Ruling 5 (2026-09-28): every document freeze lists has passed a gate that read it.
+    The gates read `*_Resume*` renders and freeze listed every .pdf and .txt, so a cover
+    letter went into application.ttl as sent with no gate having opened it."""
+
+    def assertUntouched(self):
+        self.assertTrue(self.app.exists())
+        self.assertFalse((self.app / "application.ttl").exists())
+        self.assertFalse(self.sent.exists())
+
+    def test_a_letter_holding_a_placeholder_is_never_frozen(self):
+        (self.app / "cover-letter.txt").write_text(
+            LETTER.replace("the platform role", "the role at [COMPANY]"), encoding="utf-8")
+        code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("--- letter gate: letter.py cover-letter.txt --record resume.json", out)
+        self.assertIn("[COMPANY]", out)
+        self.assertIn("never frozen", out)
+        self.assertUntouched()
+
+    def test_a_clean_letter_is_gated_and_listed(self):
+        (self.app / "cover-letter.txt").write_text(LETTER, encoding="utf-8")
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertIn("PASS - fit to send", out)
+        app, _ = self.application()
+        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt",
+                                           "cover-letter.txt"])
+
+    def test_a_pdf_letter_no_gate_reads_is_refused(self):
+        """Named with --doc: two PDFs in the directory are otherwise a question first."""
+        build_pdf(self.app / "Cover_Letter.pdf", LETTER.splitlines())
+        code, out = self.freeze("--doc", "Jane_Doe_Resume.pdf",
+                                "--doc", "Jane_Doe_Resume_ATS.txt", "--doc", "Cover_Letter.pdf")
+        self.assertEqual(code, 1, out)
+        self.assertIn("Cover_Letter.pdf", out)
+        self.assertIn("send the letter's .txt beside it, or leave it out with --doc", out)
+        self.assertUntouched()
+
+    def test_a_pdf_letter_with_its_txt_beside_it_is_frozen(self):
+        """The cost Ruling 5 names: one extra file, and it is what the letter gate reads."""
+        build_pdf(self.app / "Cover_Letter.pdf", LETTER.splitlines())
+        (self.app / "Cover_Letter.txt").write_text(LETTER, encoding="utf-8")
+        code, out = self.freeze("--doc", "Jane_Doe_Resume.pdf", "--doc", "Jane_Doe_Resume_ATS.txt",
+                                "--doc", "Cover_Letter.pdf", "--doc", "Cover_Letter.txt")
+        self.assertEqual(code, 0, out)
+        app, _ = self.application()
+        self.assertIn("Cover_Letter.pdf", app["document"])
+
+
 class FreezeMarkdownWorkspace(GraphCase):
     """Only `jsk migrate` reads a user-knowledgebase.md. freeze wrote an application.md
     for a workspace still on one; it refuses and says to migrate first."""
