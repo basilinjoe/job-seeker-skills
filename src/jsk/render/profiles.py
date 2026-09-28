@@ -42,5 +42,5 @@ def load(ref, base=None):
         path = os.path.join(base, "profiles", f"{token}.json")
         if not os.path.exists(path):
             path = os.path.join(base, "profiles", "default.json")
-    with open(path, encoding="utf8") as fh:
-        return json.load(fh)
+    from ..graph.io import read_text    # noqa: PLC0415 - as SCHEMA_DIR above
+    return json.loads(read_text(path, "region profile"))
