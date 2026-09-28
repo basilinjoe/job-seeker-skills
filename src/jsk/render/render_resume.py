@@ -55,13 +55,17 @@ def company_of(record_path):
 
     mode-tailor.md has always laid an application out as
     `<Name>_<Company>_Resume.{tex,pdf,txt}`, and the renderer wrote `<Name>_Resume`:
-    a recruiter holding five candidates' files could not tell whose was for them."""
+    a recruiter holding five candidates' files could not tell whose was for them.
+
+    A naming nicety, so a posting that cannot be read - missing, or not UTF-8 - names
+    the file with no company rather than stopping the render."""
     import re
+
+    from ..graph.io import Unreadable, read_text
     posting = os.path.join(os.path.dirname(os.path.abspath(record_path)), "posting.ttl")
     try:
-        with open(posting, encoding="utf8") as fh:
-            found = re.search(r'j:company\s+"([^"]+)"', fh.read())
-    except OSError:
+        found = re.search(r'j:company\s+"([^"]+)"', read_text(posting, "posting.ttl"))
+    except Unreadable:
         return None
     return found.group(1) if found else None
 
@@ -299,8 +303,9 @@ def main(argv):
 
     print(f"view: {first['view']}   profile: {first['profile']}   "
           f"page budget: {first['pages']}   template: {template or themes.DEFAULT}")
+    from ..graph.store import rel
     for path in written:
-        print(f"  wrote  {os.path.relpath(path, out_dir)}")
+        print(f"  wrote  {rel(path, out_dir)}")
     for line in pages:
         print(line)
     for note in notes:

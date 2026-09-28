@@ -149,6 +149,18 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.assertIn("jsk migrate", out)
         self.assertNotIn("Traceback", out)
 
+    def test_a_posting_that_is_not_utf8_names_the_file_with_no_company(self):
+        """The company is a naming nicety (Ruling 8): a cp1252 posting.ttl - a Windows
+        editor's curly quote - loses the suffix, where it crashed the render."""
+        root, path = careerkit.workspace(self.tmp / "ws", short=short())
+        Path(path).with_name("posting.ttl").write_bytes(
+            b'@prefix j: <https://jsk.dev/o#> .\nk:p j:company "Contoso \x93Labs\x94" .\n')
+        code, out = run(RENDER_RESUME, path, "--out", self.tmp / "out", "--format", "latex")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Traceback", out)
+        self.assertEqual([p.name for p in (self.tmp / "out").glob("*.tex")],
+                         ["Test_Person_Resume.tex"])
+
     def test_absent_tex_engine_is_reported_not_assumed(self):
         if tex.available_engine():
             self.skipTest("a TeX engine is installed, so there is nothing to report")
