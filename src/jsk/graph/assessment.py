@@ -95,5 +95,8 @@ def parse(text):
 
 
 def read(path):
-    with open(path, encoding="utf-8") as fh:
-        return parse(fh.read())
+    """The Overlay in the gaps.txt at `path`. Raises io.Missing, io.Unreadable, or
+    AssessmentError on the first bad line."""
+    from .io import read_text
+
+    return parse(read_text(path, "gaps.txt"))

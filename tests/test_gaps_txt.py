@@ -116,6 +116,16 @@ class Parse(unittest.TestCase):
             path.write_text("fit: poor\n", encoding="utf-8")
             self.assertEqual(A.read(path).fit, "poor")
 
+    def test_read_refuses_a_file_that_is_not_utf8(self):
+        from jsk.graph import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "gaps.txt"
+            path.write_bytes(b"fit: poor\n# \x93curly\x94\n")
+            with self.assertRaises(io.NotUtf8) as cm:
+                A.read(path)
+            self.assertIn("gaps.txt: not UTF-8", str(cm.exception))
+
 
 # --- one outcome per row (Ruling 7 of the 2026-09-28 review) -------------------------------
 
