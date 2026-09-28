@@ -473,16 +473,17 @@ def strict_for(path):
     name = os.path.basename(path)
     if path.lower().endswith(".pdf"):
         from .gates.check_ats import VARIANT_KEYWORD, variant_of   # noqa: PLC0415
+        from .graph.io import Unreadable, read_text                # noqa: PLC0415
         try:
             variant = variant_of(path)
         except ImportError:
             variant = None
         if variant is None:
+            # No .tex, or one that is not UTF-8, is no keyword: the name decides.
             try:
-                with open(os.path.splitext(path)[0] + ".tex", encoding="utf8") as fh:
-                    found = VARIANT_KEYWORD.search(fh.read())
+                found = VARIANT_KEYWORD.search(read_text(os.path.splitext(path)[0] + ".tex"))
                 variant = found.group(1) if found else None
-            except OSError:
+            except Unreadable:
                 variant = None
         if variant is not None:
             return variant == "ats-maximal"
