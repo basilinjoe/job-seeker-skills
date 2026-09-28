@@ -20,14 +20,14 @@ def slot(text):
 
 
 def advert(path):
-    """posting.md's lines, as advert_lines numbers them; none when there is no posting.md."""
-    from .io import normalise
+    """posting.md's lines, as advert_lines numbers them; none when there is no posting.md.
+    io.Unreadable propagates for one that is there and cannot be read."""
+    from .io import Missing, read_text
     from .rules import advert_lines
 
     try:
-        with open(path, encoding="utf-8") as fh:
-            return advert_lines(normalise(fh.read()))
-    except OSError:
+        return advert_lines(read_text(path, "posting.md"))
+    except Missing:
         return []
 
 

@@ -338,12 +338,13 @@ def build(app_dir, store, r, today, derived=None):
                              "so nothing in gaps.txt can cause it")]
     try:
         dropped = drops(app_dir)
+        lines = advert(os.path.join(app_dir, "posting.md"))
     except D.DecisionsError as e:
         return [], found + [("FAIL", f"decisions.txt: {e}",
                              "correct that line; `jsk posting build` reads the same file")]
     except Unreadable as e:
         return [], found + [("FAIL", str(e), e.fix)]
-    md_text = render(r, a, today, advert(os.path.join(app_dir, "posting.md")), dropped)
+    md_text = render(r, a, today, lines, dropped)
     written = []
     for name, body in (("gaps.ttl", ttl_text), ("gaps.md", md_text)):
         try:

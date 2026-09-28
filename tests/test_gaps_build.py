@@ -243,6 +243,14 @@ class Build(unittest.TestCase):
         (self.app() / "decisions.txt").write_bytes(b"company: Contoso\n" + self.CP1252)
         self.assert_fails_naming("decisions.txt")
 
+    def test_a_posting_md_that_is_not_utf8_fails_naming_it(self):
+        advert = self.app() / "posting.md"
+        advert.write_bytes(advert.read_bytes() + self.CP1252)
+        written, found = self.build()
+        self.assertEqual(written, [])
+        self.assertEqual([t[:len("posting.md: not UTF-8")] for t in self.fails(found)],
+                         ["posting.md: not UTF-8"])
+
     # --- frozen at submission ----------------------------------------------------------
 
     def test_a_sent_application_is_frozen(self):
