@@ -37,14 +37,14 @@ class Requirement:
 class Resolution:
     state: str                   # resolved | ambiguous | candidate
     concepts: tuple              # iris, sorted
-    via: str = None              # concept | id | label
+    via: str | None = None       # concept | id | label
 
 
 @dataclass
 class Match:
     requirement: Requirement
     resolution: Resolution
-    state: str = None            # matched | near | missing | ambiguous | candidate | implicit
+    state: str | None = None     # matched | near | missing | ambiguous | candidate | implicit
     carriers: dict = field(default_factory=dict)   # project -> (held, hops, implied)
     near: dict = field(default_factory=dict)       # project -> why
 

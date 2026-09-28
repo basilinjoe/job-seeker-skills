@@ -51,8 +51,8 @@ class Changeset:
     set: list = field(default_factory=list)
     retire: list = field(default_factory=list)
     delete: list = field(default_factory=list)
-    base: int = None
-    summary: str = None
+    base: int | None = None
+    summary: str | None = None
 
 
 def curie(iri):

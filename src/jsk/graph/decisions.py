@@ -42,7 +42,7 @@ class Row:
     slug: str               # req_<posting stem>_<slug>
     asked: str
     concepts: tuple         # curies as written: ("c:csharp",), or ()
-    need: str = None        # required | preferred | implicit, or None for the default
+    need: str | None = None  # required | preferred | implicit, or None for the default
 
 
 @dataclass(frozen=True)

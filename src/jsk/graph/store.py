@@ -12,6 +12,11 @@ from urllib.parse import quote
 from . import ontology as O
 from .io import GraphError, Unreadable, parse, parse_text
 
+# For the checker alone: importing `typing` costs every command ~3 ms it never uses.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from typing import Any
+
 SHIPPED_VOCABULARY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                   "data", "vocabulary.ttl")
 
@@ -38,7 +43,9 @@ class Store:
     homes: dict = field(default_factory=dict)       # subject iri -> first file defining it
     definitions: dict = field(default_factory=dict)  # subject iri -> every file, load order
     unmatched: list = field(default_factory=list)   # kb.ttl narrowing quads that removed nothing
-    ox: object = None
+    # The pyoxigraph.Store load() fills; None in a Store built only to report findings.
+    # Any, because pyoxigraph is imported inside the functions that need it, never here.
+    ox: "Any" = None
 
     def select(self, sparql):
         """Rows of a SELECT over the union graph, as {variable: term}."""

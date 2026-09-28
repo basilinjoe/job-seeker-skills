@@ -28,7 +28,7 @@ class GraphError(Exception):
 @dataclass
 class Parsed:
     file: str          # as reported: relative to the workspace root, forward slashes
-    kind: str
+    kind: str | None   # None: a file no record kind is named like, as kind_of reads it
     quads: list        # pyoxigraph Quads, all in the default graph
     lines: dict        # subject iri -> the first line it starts, 1-based
     comments: list     # (line, text): hand comments a rewrite would drop

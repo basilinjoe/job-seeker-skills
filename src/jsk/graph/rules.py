@@ -14,6 +14,12 @@ from . import ontology as O
 from .shapes import FAIL, WARN, Finding, curie
 from .store import graph_iri
 
+# For the checker alone, as in store.py: `typing` costs a command ~3 ms it never uses.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
+
 PREFIX = (f"PREFIX j: <{O.J}>\nPREFIX k: <{O.K}>\nPREFIX c: <{O.C}>\n"
           f"PREFIX xsd: <{O.XSD}>\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n")
 COUNTS_AS = "j:isA|j:partOf|j:implies"
@@ -23,13 +29,17 @@ COUNTS_AS = "j:isA|j:partOf|j:implies"
 class Rule:
     id: str
     severity: str
-    sparql: str        # SELECT ?focus plus whatever `detail` reads; None: `post` alone
-    detail: object     # row dict -> str
-    fix: object        # str, or (row, store) -> str
-    post: object = None   # optional (rows, store) -> rows, for what SPARQL says badly
+    sparql: str | None      # SELECT ?focus plus whatever `detail` reads; None: `post` alone
+    detail: "Callable[[dict], str]"
+    fix: "str | Callable[[dict, Any], str]"          # or (row, store) -> str
+    # (rows, store) -> rows, for what SPARQL says badly
+    post: "Callable[[list, Any], list] | None" = None
 
 
-def v(row, name):
+def v(row, name) -> "Any":
+    """The lexical value of `name` in a SELECT row, or None when the row leaves it unbound.
+    Any, not `str | None`: which variables a SELECT always binds is in its text, where the
+    checker cannot read it."""
     t = row.get(name)
     return None if t is None else t.value
 
@@ -191,10 +201,10 @@ def worded_otherwise(rows, store):
     out = []
     for r in rows:
         quote, need = v(r, "q"), v(r, "n")[len(O.J):]
-        if need == "required" and OPTIONAL_WORDS.search(quote):
-            out.append({**r, "said": OPTIONAL_WORDS.search(quote).group(0), "need": need})
-        elif need in ("preferred", "implicit") and REQUIRED_WORDS.search(quote):
-            out.append({**r, "said": REQUIRED_WORDS.search(quote).group(0), "need": need})
+        if need == "required" and (said := OPTIONAL_WORDS.search(quote)):
+            out.append({**r, "said": said.group(0), "need": need})
+        elif need in ("preferred", "implicit") and (said := REQUIRED_WORDS.search(quote)):
+            out.append({**r, "said": said.group(0), "need": need})
     return out
 
 

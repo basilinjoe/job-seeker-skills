@@ -36,9 +36,9 @@ class Lit:
     """A literal. `types` are the xsd datatypes allowed; `pattern` must match the
     lexical form in full whatever the type; `lo`/`hi` bound a number."""
     types: tuple = ("string",)
-    pattern: str = None
-    lo: float = None
-    hi: float = None
+    pattern: str | None = None
+    lo: float | None = None
+    hi: float | None = None
 
 
 @dataclass(frozen=True)
@@ -69,16 +69,17 @@ class Pred:
     card: str          # "1" required, "?" optional, "*" zero or more, "+" one or more
     doc: str
     claim: bool = False
-    section: str = None   # only when the predicate is written in another section than its class
+    # Only when the predicate is written in another section than its class.
+    section: str | None = None
 
 
 @dataclass(frozen=True)
 class Class:
     name: str
-    prefix: str        # "prj" for k:prj_x; "=kb" for the singleton k:kb; None for concepts
-    kinds: tuple       # the file kinds it may be defined in
-    section: str       # None: the file's header subject, written before the first banner
-    lines: tuple       # tuples of Pred: each inner tuple is one line of the written subject
+    prefix: str | None   # "prj" for k:prj_x; "=kb" for the singleton k:kb; None for concepts
+    kinds: tuple         # the file kinds it may be defined in
+    section: str | None  # None: the file's header subject, written before the first banner
+    lines: tuple         # tuples of Pred: each inner tuple is one line of the written subject
     doc: str
     claims: bool = False   # carries j:provenance
     preds: dict = field(init=False, compare=False)
@@ -447,4 +448,5 @@ def stated(value, upper=None, qualifier=None):
     text = f"{value}-{upper}" if upper is not None else str(value)
     if qualifier == "at-least":
         return text + "+"
-    return {"about": "~", "under": "<", "over": ">"}.get(qualifier, "") + text
+    marks = {"about": "~", "under": "<", "over": ">"}
+    return (marks.get(qualifier, "") if qualifier else "") + text

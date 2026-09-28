@@ -38,9 +38,9 @@ class RecordError(Exception):
 @dataclass(frozen=True)
 class State:
     kind: str              # clean | unlogged | hand-edited | torn | out-of-sync | unreadable | missing
-    kb_revision: int = None
-    log_revision: int = None
-    logged_sha: str = None
+    kb_revision: int | None = None
+    log_revision: int | None = None
+    logged_sha: str | None = None
     detail: str = ""
 
 
@@ -67,8 +67,8 @@ def last_entry(quads):
     for q in quads:
         if O.class_of(q.subject.value) == "LogEntry":
             entries.setdefault(q.subject.value, {})[q.predicate.value[len(O.J):]] = q.object.value
-    best = max(((integer(e["revision"]), e) for e in entries.values()
-                if integer(e.get("revision", "")) is not None),
+    best = max(((r, e) for e in entries.values()
+                if (r := integer(e.get("revision", ""))) is not None),
                key=lambda pair: pair[0], default=None)
     return (best[0], best[1].get("kbSha256")) if best else (None, None)
 
