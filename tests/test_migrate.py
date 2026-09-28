@@ -997,6 +997,64 @@ class ADraftBesideTheMarkdownIsShortened(Tmp):
         self.assertRegex(out, r"record +applications/globex-staff-engineer/resume\.json: 0 FAIL")
 
 
+class AWindowsEditorsSaveIsReadOrRefused(Tmp):
+    """What Notepad writes: a BOM ahead of the frontmatter, or cp1252 bytes. The first is
+    the same file; the second is refused with the fix, never a traceback."""
+
+    SENT = "applications/2026-09-10-acme-platform-engineer"
+
+    def test_a_bom_ahead_of_application_md_s_frontmatter_still_freezes_it(self):
+        # Read without the BOM stripped, "---" is not the first line: the frontmatter is
+        # not seen, the application reads as never sent, and its record is shortened.
+        workspace(self.root)
+        sent = self.root / self.SENT
+        text = APPLICATION_MD.replace("submitted: 2026-09-10", "submitted: 2026-05-01")
+        (sent / "application.md").write_bytes(b"\xef\xbb\xbf" + text.encode("utf-8"))
+        record = (sent / "resume.json").read_bytes()
+        code, out = migrated(self.root)
+        self.assertEqual(code, 0, out)
+        self.assertTrue((sent / "application.ttl").is_file(), out)
+        app = triples(self.root, f"{self.SENT}/application.ttl")
+        self.assertEqual(app[("k:app_acme_platform_engineer", "submitted")], {"2026-05-01"})
+        self.assertEqual((sent / "resume.json").read_bytes(), record)
+        self.assertFalse((sent / "resume.urs.json").exists())
+
+    def test_a_cp1252_application_md_is_refused_and_nothing_written(self):
+        workspace(self.root)
+        sent = self.root / self.SENT
+        (sent / "application.md").write_bytes(
+            APPLICATION_MD.replace("company site\n", "caf\xe9 site\n", 1).encode("cp1252"))
+        before = snapshot(self.root)
+        code, out = migrated(self.root)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"REFUSED  {self.SENT}/application.md: not UTF-8", out)
+        self.assertIn("save the file as UTF-8", out)
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_a_cp1252_posting_md_is_refused_and_nothing_written(self):
+        workspace(self.root)
+        posting = self.root / self.SENT / "posting.md"
+        posting.write_bytes(POSTING_MD.replace("at scale", "at sc\xe0le").encode("cp1252"))
+        before = snapshot(self.root)
+        code, out = migrated(self.root)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"REFUSED  {self.SENT}/posting.md: not UTF-8", out)
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_a_cp1252_knowledge_base_or_log_is_refused(self):
+        for name, text in (("user-knowledgebase.md", EVERY_SECTION), ("log.md", LOG_MD)):
+            with self.subTest(file=name):
+                root = Path(tempfile.mkdtemp())
+                self.addCleanup(shutil.rmtree, root, True)
+                workspace(root, apps=False)
+                (root / name).write_bytes(text.encode("utf-8") + "caf\xe9\n".encode("cp1252"))
+                code, out = migrated(root)
+                self.assertEqual(code, 1, out)
+                self.assertIn(f"REFUSED  {name}: not UTF-8", out)
+                self.assertIn("nothing was written", out)
+                self.assertFalse((root / R.KB).exists())
+
+
 # The Contoso application's full URS record, from before the career built the resume:
 # only migrate reads one now, so it lives with migrate's fixtures, and the claims_fixtures
 # application holds the short file it converts to.
@@ -1313,6 +1371,18 @@ class ConvertAGraphWorkspace(Tmp):
         self.assertEqual(code, 0, out)
         doc = json.loads((self.draft / "resume.json").read_text(encoding="utf-8"))
         self.assertNotIn("region", doc)                     # view_other named no region
+
+    def test_a_cp1252_record_is_refused_not_crashed(self):
+        record = json.loads(LEGACY.read_text(encoding="utf-8"))
+        record["note"] = "caf\xe9"
+        (self.draft / "resume.json").write_bytes(
+            json.dumps(record, ensure_ascii=False).encode("cp1252"))
+        before = snapshot(self.draft)
+        code, out = self.migrate(self.draft / "resume.json")
+        self.assertEqual(code, 1, out)
+        self.assertIn("REFUSED  applications/contoso-platform/resume.json", out)
+        self.assertIn("not UTF-8", out)
+        self.assertEqual(snapshot(self.draft), before)
 
     def test_the_markdown_path_still_refuses_and_points_here(self):
         (self.root / "user-knowledgebase.md").write_text(EVERY_SECTION, encoding="utf-8")

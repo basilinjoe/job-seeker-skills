@@ -1356,10 +1356,11 @@ def records_of(root):
 
 def achievements(path):
     """(id, text) of every achievement a URS record holds, wherever it sits."""
+    from .graph.io import Unreadable, read_text
+
     try:
-        with open(path, encoding="utf-8") as fh:
-            data = json.load(fh)
-    except (OSError, ValueError):
+        data = json.loads(read_text(path))
+    except (Unreadable, ValueError):
         return []
     out = []
 
@@ -1694,7 +1695,7 @@ def advert_of(text):
 
 
 def migrate_applications(plan, vocab, today):
-    from .graph.io import normalise
+    from .graph.io import Unreadable, read_text
     from .kbindex import KBError, frontmatter, read_posting
 
     onto = ontology()
@@ -1710,8 +1711,13 @@ def migrate_applications(plan, vocab, today):
             if os.path.isfile(os.path.join(d, "application.md")):
                 plan.notices.append(f"{rel}: no posting.md, so application.md was not migrated")
             continue
-        with open(src, encoding="utf-8") as fh:
-            text = normalise(fh.read())
+        # Refused, not skipped: a posting left out takes its application.md with it, and
+        # an application that reads as never sent has its record shortened.
+        try:
+            text = read_text(src, f"{rel}/{os.path.basename(src)}")
+        except Unreadable as e:
+            plan.refuse(str(e), e.fix)
+            continue
         try:
             front = read_posting(text)
         except KBError as e:
@@ -1814,14 +1820,21 @@ def migrate_applications(plan, vocab, today):
 def application(plan, d, rel, stem, post):
     """application.ttl's entries from application.md, with the links its resume.json
     carried; None when the application was never frozen."""
+    from .graph.io import Unreadable, read_text
     from .kbindex import KBError, frontmatter
 
     onto = ontology()
     path = os.path.join(d, "application.md")
     if not os.path.isfile(path):
         return None
-    with open(path, encoding="utf-8") as fh:
-        text = fh.read().replace("\r\n", "\n")
+    # Through read_text, so a BOM cannot hide the frontmatter: an application read as
+    # never sent would have the record of what was sent shortened as a draft. For the
+    # same reason a file it cannot read refuses the migration rather than skipping it.
+    try:
+        text = read_text(path, f"{rel}/application.md")
+    except Unreadable as e:
+        plan.refuse(str(e), e.fix)
+        return None
     try:
         front, body = frontmatter(text, f"{rel}/application.md")
     except KBError as e:
@@ -1907,7 +1920,7 @@ def plan_migration(kb_path, today=None):
     """The whole migration, checked and written to memory; nothing touches disk."""
     from .graph import record as R
     from .graph import store as S
-    from .graph.io import normalise, parse_text, sha256
+    from .graph.io import Unreadable, parse_text, read_text, sha256
     from .graph.rules import squash
     from .graph.writer import write
     from .kbindex import KBError
@@ -1921,8 +1934,10 @@ def plan_migration(kb_path, today=None):
                         "`jsk kb check` reads it; `jsk migrate <workspace>` shortens its "
                         "applications' resume.json; to migrate again, move career/kb.ttl and "
                         "career/log.ttl aside first")])
-    with open(kb_path, encoding="utf-8") as fh:
-        text = normalise(fh.read())
+    try:
+        text = read_text(kb_path, os.path.basename(kb_path))
+    except Unreadable as e:
+        raise Refused([(str(e), e.fix)]) from None
     vocab = Vocabulary()
     try:
         reader = Reader(plan, text, vocab, today)
@@ -1970,8 +1985,11 @@ def plan_migration(kb_path, today=None):
     log_path = os.path.join(root, "log.md")
     history = []
     if os.path.isfile(log_path):
-        with open(log_path, encoding="utf-8") as fh:
-            history.append(normalise(fh.read()).strip())
+        # Refused rather than left out: log.md's history is kept only in this entry.
+        try:
+            history.append(read_text(log_path, "log.md").strip())
+        except Unreadable as e:
+            raise Refused([(str(e), e.fix)]) from None
     if reader.log_text:
         history.append("## Log (from user-knowledgebase.md)\n" + "\n".join(reader.log_text))
     minted = sorted(i for i in plan.nodes if i.startswith(onto.K) or
@@ -2298,15 +2316,16 @@ def shorten(record, store, view_id=None):
 def unshortened(root):
     """(to convert, frozen): the applications' resume.json holding a full record, split
     by whether an application.ttl beside it says it was sent."""
+    from .graph.io import Unreadable, read_text
+
     todo, frozen = [], []
     for path in records_of(root):
         if os.path.isfile(os.path.join(os.path.dirname(path), "application.ttl")):
             frozen.append(path)
             continue
         try:
-            with open(path, encoding="utf-8") as fh:
-                data = json.load(fh)
-        except (OSError, ValueError):
+            data = json.loads(read_text(path))
+        except (Unreadable, ValueError):
             continue                          # not ours to judge; jsk validate names it
         if isinstance(data, dict) and "urs" in data:
             todo.append(path)
@@ -2314,12 +2333,15 @@ def unshortened(root):
 
 
 def rel(root, path):
-    return os.path.relpath(path, root).replace("\\", "/")
+    from .graph import store
+
+    return store.rel(path, root)
 
 
 def shorten_files(root, store, paths, view_id=None, dry=False):
     """Shorten each resume.json in `paths` in place, the full record kept beside it as
     resume.urs.json. Prints a line for each and its notes; returns (written, refused)."""
+    from .graph.io import Unreadable, read_text
     from .resume.short import ShortError
 
     written, refused = [], 0
@@ -2327,14 +2349,13 @@ def shorten_files(root, store, paths, view_id=None, dry=False):
         name = rel(root, path)
         kept = os.path.join(os.path.dirname(path), KEPT)
         try:
-            with open(path, encoding="utf-8") as fh:
-                raw = fh.read()
+            raw = read_text(path, "the record")
             if os.path.exists(kept):
                 raise ShortError(f"{rel(root, kept)} already exists",
                                  "move it aside - it may be the only copy of an earlier "
                                  "record - then run jsk migrate again")
             doc, notes = shorten(json.loads(raw), store, view_id)
-        except (OSError, ValueError, ShortError) as e:
+        except (Unreadable, OSError, ValueError, ShortError) as e:
             print(f"REFUSED  {name}: {e}")
             if getattr(e, "fix", None):
                 print(f"        fix: {e.fix}")
