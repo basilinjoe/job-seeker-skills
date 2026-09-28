@@ -543,6 +543,7 @@ def confirm_summary(path, answer, root):
     from ..cli import frozen_refusal
     from ..resume import short
     from . import record as R
+    from .io import read_text
     from .store import inside, rel
 
     code = bad_answer(answer, "write the summary again with what the person said, and ask "
@@ -573,8 +574,7 @@ def confirm_summary(path, answer, root):
         print("nothing to change: the summary is confirmed already")
         return 0
     doc["summary"] = short.confirmed(summary, answer)
-    with open(path, encoding="utf-8") as fh:
-        old = fh.read()
+    old = read_text(path, "resume.json")
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
     R.replace(R.staged(path, text), path)
     print(diff(old, text, rel(path, root)), end="")
