@@ -874,5 +874,30 @@ class Match(unittest.TestCase):
         self.assertEqual(code, 2, out)
 
 
+class ParseFlags(unittest.TestCase):
+    """The one argument parser every hand-written entry point shares."""
+
+    def parse(self, *args, **kinds):
+        from jsk.cliutil import parse_flags
+        return parse_flags(list(args), kinds.pop("values", ()), **kinds)
+
+    def test_an_unknown_flag_is_refused_by_name(self):
+        self.assertEqual(self.parse("x", "--nope"), (None, "unknown flag: --nope"))
+
+    def test_a_value_may_start_with_a_dash(self):
+        self.assertEqual(self.parse("--quote", "-40% cost", values=("--quote",)),
+                         (([], {"--quote": "-40% cost"}), None))
+
+    def test_a_lone_dash_is_positional(self):
+        self.assertEqual(self.parse("-"), ((["-"], {}), None))
+
+    def test_a_list_runs_to_the_next_flag(self):
+        self.assertEqual(self.parse("--select", "a", "b,c", "--out", "f", "d",
+                                    values=("--out",), lists=("--select",)),
+                         ((["d"], {"--select": ["a", "b,c"], "--out": "f"}), None))
+        self.assertEqual(self.parse("--select", lists=("--select",)),
+                         (([], {"--select": []}), None))
+
+
 if __name__ == "__main__":
     unittest.main()

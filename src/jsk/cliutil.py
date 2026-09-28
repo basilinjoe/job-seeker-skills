@@ -33,14 +33,20 @@ def wants_help(argv) -> bool:
     return any(a in HELP_FLAGS for a in argv)
 
 
-def parse_flags(args, values, switches=("--json",), repeats=()):
+def parse_flags(args, values, switches=("--json",), repeats=(), lists=()):
     """((positional, flags), None) or (None, what was wrong with the call).
 
     `values` take one argument, `switches` none, and `repeats` one argument each time
-    they appear, collected into a list.
+    they appear, collected into a list. `lists` take every argument up to the next one
+    starting with "-", as a list that may be empty. A value may start with "-" - it is
+    whatever follows its flag - and a lone "-" is a positional argument, not a flag.
     """
-    positional, flags, pending = [], {}, None
+    positional, flags, pending, listing = [], {}, None, None
     for token in args:
+        if listing and not token.startswith("-"):
+            flags[listing].append(token)
+            continue
+        listing = None
         if pending:
             if pending in repeats:
                 flags.setdefault(pending, []).append(token)
@@ -49,9 +55,12 @@ def parse_flags(args, values, switches=("--json",), repeats=()):
             pending = None
         elif token in values or token in repeats:
             pending = token
+        elif token in lists:
+            listing = token
+            flags.setdefault(token, [])
         elif token in switches:
             flags[token] = True
-        elif token.startswith("-"):
+        elif token.startswith("-") and token != "-":
             return None, f"unknown flag: {token}"
         else:
             positional.append(token)
