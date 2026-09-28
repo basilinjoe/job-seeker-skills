@@ -179,6 +179,62 @@ class BannedPhrases(ProseCase):
         self.assertEqual(code, 0)
 
 
+class StockVocabulary(ProseCase):
+    def test_every_stock_word_warns(self):
+        for word in ("Spearheaded", "Leveraged", "Orchestrated", "Fostered"):
+            with self.subTest(word=word):
+                code, out = self.check(with_lines(
+                    (True, f"{word} the billing rebuild across 4 teams.")))
+                self.assertWarnsOnly(code, out, f"'{word.lower()}' - stock resume vocabulary")
+
+    def test_phrases_and_adjectives_warn(self):
+        code, out = self.check(with_lines(
+            (False, "Results-driven engineer with a proven track record in fast-paced teams.")))
+        for needle in ("results-driven", "proven track record", "fast-paced"):
+            self.assertIn(f"'{needle}' - stock", out.lower())
+
+    def test_each_word_is_reported_once(self):
+        _, out = self.check(with_lines(
+            (True, "Leveraged Kafka to cut ingest lag by 40 percent."),
+            (True, "Leveraged Redis to cut p95 latency by 30 percent.")))
+        self.assertEqual(out.lower().count("'leveraged' - stock"), 1, out)
+
+    def test_orchestration_the_skill_is_not_a_tell(self):
+        _, out = self.check(with_lines(
+            (False, "Kubernetes, container orchestration, Terraform")))
+        self.assertNotIn("stock resume vocabulary", out)
+
+    def test_a_name_that_starts_with_a_tell_is_not_matched(self):
+        # Employers and places are the real risk: a client called Fosterton is not
+        # the verb "foster".
+        _, out = self.check(with_lines((False, "Fosterton Council, Delveworth Ltd")))
+        self.assertNotIn("stock resume vocabulary", out)
+
+
+class Formula(ProseCase):
+    FRAMED = [
+        (True, "Rebuilt the billing service, resulting in 40 percent fewer incidents."),
+        (True, "Moved search to OpenSearch, leading to a 3x faster p95."),
+        (True, "Automated the release train, enabling 12 deploys a week."),
+    ]
+
+    def test_a_third_of_bullets_on_one_frame_warns(self):
+        code, out = self.check(with_lines(*self.FRAMED))
+        self.assertWarnsOnly(code, out, "3 of 5 bullets close on the same")
+
+    def test_two_are_a_coincidence(self):
+        _, out = self.check(with_lines(*self.FRAMED[:2]))
+        self.assertNotIn("close on the same", out)
+
+    def test_three_among_many_is_not_a_template(self):
+        # Distinct enough not to trip the duplicate rule's 75% overlap.
+        cities = ("Sydney", "Perth", "Auckland", "Tokyo", "Seoul", "Mumbai", "Dublin")
+        many = [(True, f"Cut the nightly batch for {city} from 9 hours to {n} hours.")
+                for n, city in enumerate(cities, 1)]
+        _, out = self.check(with_lines(*self.FRAMED, *many))
+        self.assertNotIn("close on the same", out)
+
+
 class Duplicates(ProseCase):
     def test_repeated_bullet_warns(self):
         line = "Conducted thorough code reviews across three delivery teams."

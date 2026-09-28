@@ -51,6 +51,8 @@ Record it as `j:functionalTitle` on the position (`kb-format.md`), not by editin
 - Bullets repeated across projects
 - Unfinished sentences — real resumes contain these; read carefully
 - Filler: "stayed current with industry trends", "passionate about technology"
+- Stock vocabulary: spearheaded, leveraged, seamless, robust, "proven track record"
+- One frame on every bullet: "…, resulting in Y%" — vary it; some bullets stop at what shipped
 - References, full home address, photo, date of birth, marital status
 
 ## Prefer

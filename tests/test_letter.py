@@ -161,6 +161,11 @@ class Prose(LetterCase):
         self.assertEqual(code, 0, out)
         self.assertIn("warn  cut-on-sight letter - 'responsible for'", out)
 
+    def test_stock_vocabulary_warns(self):
+        code, out = self.check(self.swap("I build event", "I spearheaded event"))
+        self.assertEqual(code, 0, out)
+        self.assertIn("warn  stock-vocabulary letter - 'spearheaded'", out)
+
 
 class Files(LetterCase):
     def test_md_and_txt_both_read(self):

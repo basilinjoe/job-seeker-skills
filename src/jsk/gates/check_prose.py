@@ -53,6 +53,28 @@ BANNED = ("responsible for", "worked on", "involved in", "gained experience in",
           "acquired knowledge of", "assisted with", "helped with", "participated in",
           "duties included", "tasked with", "exposure to", "familiar with")
 
+# --- warn: the vocabulary a generated resume reaches for and a person rarely does ---
+# Not a detector - nothing here can tell who wrote a line. These are the words a
+# recruiter has read ten thousand times since 2023 and now skims past, whoever
+# typed them. Kept short on purpose: `cross-functional`, `streamlined` and
+# `utilized` are generated often too, but people write them just as often, and a
+# gate that cries wolf gets switched off. Only the past tense of `orchestrated`,
+# because container orchestration is a skill, not a tell.
+AI_TELLS = re.compile(
+    r"\b(spearhead(?:ed|ing|s)?|leverag(?:e|ed|es|ing)|orchestrated|seamless(?:ly)?|"
+    r"synerg(?:y|ies|istic)|foster(?:ed|ing|s)?|robust|cutting-edge|world-class|"
+    r"best-in-class|game-chang\w*|proven track record|fast-paced|results-driven|"
+    r"detail-oriented|delv(?:e|ed|es|ing)|pivotal role|instrumental in)\b", re.I)
+
+# --- warn: every bullet built on the same frame ---
+# "Did X, resulting in Y% Z" once is a sentence; on a third of the bullets it is
+# a template, and it is the shape generated resumes repeat. Counted, never
+# matched on one bullet: the clause itself is ordinary English.
+FORMULA = re.compile(r",\s+(?:resulting in|which resulted in|leading to|contributing to|"
+                     r"driving|enabling|ensuring)\b", re.I)
+FORMULA_MIN = 3                # bullets on the frame before it reads as one
+FORMULA_SHARE = 1 / 3          # ...and the share of all bullets they must be
+
 # --- warn: the no-throat-clearing rule. A bullet opens on what they did. ---
 # Suffix rules catch most of it ("Architected", "Owned"); the list carries the
 # irregulars and the few present-tense forms that are legitimate on a resume.
@@ -182,6 +204,17 @@ def placeholders(text):
     return fails
 
 
+def ai_tells(text):
+    """Each distinct stock word in `text`, lowercased, in the order it first appears.
+    Its own function because the letter check (letter.py) asks it of a cover letter too."""
+    seen = []
+    for m in AI_TELLS.finditer(text):
+        word = m.group(0).lower()
+        if word not in seen:
+            seen.append(word)
+    return seen
+
+
 def overlap(a, b):
     x, y = set(WORD.findall(a.lower())), set(WORD.findall(b.lower()))
     return len(x & y) / len(x | y) if x | y else 0.0
@@ -229,6 +262,17 @@ def check(paragraphs):
         if phrase in lowered:
             warns.append(f"{phrase!r} - activity, not achievement; "
                          f"writing-rules.md says cut on sight")
+
+    warns += [f"{word!r} - stock resume vocabulary a recruiter skims past; say what "
+              f"you did in the words you would use out loud"
+              for word in ai_tells(text)]
+
+    framed = [b for b in bullets if FORMULA.search(b)]
+    if len(framed) >= FORMULA_MIN and len(framed) >= FORMULA_SHARE * len(bullets):
+        warns.append(f"{len(framed)} of {len(bullets)} bullets close on the same "
+                     f"', resulting in ...' frame - vary it: lead some with the result, "
+                     f"name the constraint in others, let some stop at what shipped: "
+                     f"{framed[0][:50]!r}")
 
     for i, a in enumerate(bullets):
         for b in bullets[i + 1:]:
