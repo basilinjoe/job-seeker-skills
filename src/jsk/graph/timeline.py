@@ -324,24 +324,17 @@ def when(text, today):
 
 
 def main(argv=None):
-    from ..cliutil import wants_help
+    from ..cliutil import parse_flags, wants_help
 
     args = list(sys.argv[1:] if argv is None else argv)
     if wants_help(args):
         # __doc__ is None only under -OO, which nothing runs jsk with.
         print(__doc__.split("\n\nAdds", 1)[0])  # pyright: ignore[reportOptionalMemberAccess]
         return 0
-    flags, positional, values = {}, [], ("--date", "--channel", "--note", "--due", "--today")
-    while args:
-        token = args.pop(0)
-        if token in values:
-            if not args:
-                return usage(f"{token} needs a value")
-            flags[token] = args.pop(0)
-        elif token.startswith("-"):
-            return usage(f"unknown flag: {token}")
-        else:
-            positional.append(token)
+    parsed, problem = parse_flags(args, ("--date", "--channel", "--note", "--due", "--today"), ())
+    if parsed is None:
+        return usage(problem)
+    positional, flags = parsed
     if len(positional) != 2:
         return usage("jsk event takes an application directory and a kind")
     app_dir, kind = positional[0].rstrip("/\\") or positional[0], positional[1]
