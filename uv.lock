@@ -85,7 +85,7 @@ requires-dist = [
     { name = "pymupdf", marker = "extra == 'dev'" },
     { name = "pymupdf", marker = "extra == 'pdf'" },
     { name = "pyoxigraph", specifier = ">=0.5.11,<0.6" },
-    { name = "pyright", marker = "extra == 'dev'" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = "==1.1.414" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-xdist", marker = "extra == 'dev'" },
     { name = "pyyaml", marker = "extra == 'all'" },
