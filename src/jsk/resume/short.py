@@ -71,12 +71,16 @@ class ShortError(Exception):
 
 def read(path):
     """The file as a dict, or ShortError naming what to do."""
+    from ..graph.io import Missing, Unreadable, read_text
+
     try:
-        with open(path, encoding="utf-8") as fh:
-            doc = json.load(fh)
-    except FileNotFoundError:
+        doc = json.loads(read_text(path))
+    except Missing:
         raise ShortError(f"{path}: no such file", "pass the application's resume.json") from None
-    except (OSError, ValueError) as err:
+    except Unreadable as err:
+        # An editor's cp1252 save: the bytes are the fault, not the JSON.
+        raise ShortError(str(err), err.fix) from None
+    except ValueError as err:
         raise ShortError(f"{path}: not readable JSON ({err})",
                          "fix the file, or write it again with `jsk kb export`") from None
     if not isinstance(doc, dict):

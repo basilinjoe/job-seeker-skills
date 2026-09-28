@@ -39,6 +39,23 @@ class Read(unittest.TestCase):
             with self.assertRaises(short.ShortError):
                 short.read(Path(tmp, "absent.json"))
 
+    def test_a_cp1252_file_is_refused_as_not_utf8(self):
+        """A person edits resume.json - a summary with a Windows editor's curly quote.
+        The fix is to save it as UTF-8, not to fix JSON that is fine."""
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp, "resume.json")
+            p.write_bytes(b'{"resume": 2, "summary": {"text": "\x93Led\x94 it"}}')
+            with self.assertRaises(short.ShortError) as err:
+                short.read(p)
+            self.assertIn("not UTF-8", str(err.exception))
+            self.assertIn("UTF-8", err.exception.fix)
+
+    def test_a_bom_and_crlf_still_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp, "resume.json")
+            p.write_bytes(b'\xef\xbb\xbf' + json.dumps(OK, indent=2).encode().replace(b"\n", b"\r\n"))
+            self.assertEqual(short.read(p)["bullets"], OK["bullets"])
+
     def test_another_version_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp, "resume.json")
