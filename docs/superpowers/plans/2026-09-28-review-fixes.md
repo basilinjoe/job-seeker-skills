@@ -342,6 +342,23 @@ These two parts share `gapsbuild.py`, so they go to one agent.
 - Commits: `refactor: <group> parses arguments with argparse`, one per group, and
   `fix: pack's summary cannot write invalid Turtle`.
 
+## Status (2026-09-28)
+
+Done except Task 11, which waits on Ruling 11. Every phase was reviewed before the next
+started (Verification 6), and each review found real faults, fixed in its own commit:
+
+- freeze gated the tailoring files as letters;
+- `gaps.txt` advice contradicted itself on flagged rows;
+- the frozen rule missed a legacy `application.md`;
+- `parse_flags` kept the last of a repeated flag;
+- `short_string` could not write a newline.
+
+Lines of `src/jsk` (Verification 7): 18,126 before Phase 1, 18,498 after Phase 4. The fixes,
+the helpers and their docstrings added more than the reductions removed: the utf8_stdout
+merge, the `take` removal and the argument parsers came to about 40 lines net. The line
+count only falls by the Size table's measure once `migrate.py` (2,518 lines) leaves in
+Task 11.
+
 ## Verification
 
 1. Every new test fails before its fix and passes after it. Record the failing run's output in
