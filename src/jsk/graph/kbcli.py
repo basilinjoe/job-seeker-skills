@@ -476,7 +476,7 @@ def unquoted_numbers(quads, iri, quote):
 
     said = scaled(numerals(quote))
     # iri is in a kb.ttl writable() passed, where every subject is a jsk id.
-    kinds = {p.name for p in O.BY_NAME[O.class_of(iri)].preds.values()  # pyright: ignore[reportArgumentType]
+    kinds = {p.name for p in O.class_named(iri).preds.values()
              if p.claim and p.obj in (O.STR, O.NUM)}
     out = []
     for q in quads:
@@ -664,19 +664,17 @@ def cmd_confirm(args, root):
         if iri not in in_kb:
             problems.append(unknown(iri, store))
         # In a kb.ttl writable() passed, so a jsk id with a class.
-        elif not O.BY_NAME[cls].claims:  # pyright: ignore[reportArgumentType]
+        elif not O.class_named(iri).claims:
             problems.append((f"{text} has no provenance to confirm: a {cls} is not a claim",
                              "confirm the entry that makes the claim"))
         elif any(q.subject.value == iri and q.predicate.value == O.J + "retired" for q in quads):
             problems.append((f"{text} is retired", "a retired entry is not confirmed"))
-        elif source is not None and unquoted_numbers(quads, iri, quote):
+        elif source is not None and (missing := unquoted_numbers(quads, iri, quote)):
             from ..gates.numbers import quoted
-            missing = unquoted_numbers(quads, iri, quote)
             problems.append((f"{text} says {quoted(missing)}, which the quote does not",
                              "quote the document's sentence that states it - or, if the "
                              "document does not, ask the person and confirm with --answer"))
-        elif source is not None and unquoted_words(quads, iri, quote):
-            missing = unquoted_words(quads, iri, quote)
+        elif source is not None and (missing := unquoted_words(quads, iri, quote)):
             problems.append((f"{text} says {', '.join(repr(w) for w in missing[:6])}, which the "
                              "quote does not",
                              "quote the document's sentence that says all of it - words it "
@@ -718,7 +716,7 @@ def provenances(quads):
 def claims(quads, s):
     from . import ontology as O
     # s has a provenance in the kb.ttl adopt's writable() passed, so it is a jsk id.
-    names = O.resets(O.BY_NAME[O.class_of(s)])  # pyright: ignore[reportArgumentType]
+    names = O.resets(O.class_named(s))
     return {(q.predicate.value, q.object.value) for q in quads
             if q.subject.value == s and q.predicate.value[len(O.J):] in names}
 

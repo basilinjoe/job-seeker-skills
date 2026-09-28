@@ -25,8 +25,8 @@ def utf8_stdout() -> None:
         return
     try:
         reconfigure(encoding="utf-8", errors="replace")
-    except (ValueError, OSError):
-        pass
+    except (ValueError, OSError, TypeError, AttributeError):
+        pass                    # a wrapper stream's reconfigure may take other arguments
 
 def wants_help(argv) -> bool:
     """Did the caller actually ask for help, rather than call the thing wrongly?"""

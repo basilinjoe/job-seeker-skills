@@ -48,17 +48,20 @@ LEGACY_ADVERT = POSTING_MD.replace("at scale", "at scàle")
 TITLE = ('j:title "Platform Engineer"', 'j:title "Platform Engineer – Core"')
 
 
-def snapshot(root, skip):
+def snapshot(root, skip=None):
     """{relative path: bytes} of every file under root, less any holding `skip` - the
     authored file as written, and a verbatim copy of it, which differ between the forms
-    by design."""
+    by design. A refusal is compared with nothing skipped: a verbatim copy it left
+    behind is a write."""
     return {p.relative_to(root).as_posix(): p.read_bytes()
             for p in sorted(root.rglob("*")) if p.is_file() and p.read_bytes() != skip}
 
 
 def scrubbed(out, root):
     """The output with the temp directory taken out, however it was spelled."""
-    for spelling in {str(root.resolve()), str(root), root.as_posix(), root.resolve().as_posix()}:
+    # Longest first: /private/var/... holds /var/... on macOS, and a set's order is not fixed.
+    spellings = {str(root.resolve()), str(root), root.as_posix(), root.resolve().as_posix()}
+    for spelling in sorted(spellings, key=len, reverse=True):
         out = out.replace(spelling, "<root>")
     return out
 
@@ -67,7 +70,8 @@ class Forms(unittest.TestCase):
     """One command, run once over a fresh workspace for each form of one authored file."""
 
     def forms(self, text, build, target, command):
-        """{form: (exit code, output, files after, files before)}. `build(root)` makes the
+        """{form: (exit code, output, files after less the authored file, every file
+        before, every file after)}. `build(root)` makes the
         workspace, `target(root)` is the authored file, `command(root)` the arguments."""
         found = {}
         for form in AWKWARD:
@@ -75,13 +79,14 @@ class Forms(unittest.TestCase):
             self.addCleanup(shutil.rmtree, root, True)
             build(root)
             written = write_awkward(target(root), text, form)
-            before = snapshot(root, written)
+            before = snapshot(root)
             code, out = run(CLI, *command(root))
-            found[form] = (code, scrubbed(out, root), snapshot(root, written), before)
+            found[form] = (code, scrubbed(out, root), snapshot(root, written), before,
+                           snapshot(root))
         return found
 
     def assert_the_same(self, found):
-        code, out, after, _ = found[PLAIN]
+        code, out, after, _, _ = found[PLAIN]
         self.assertEqual(code, 0, out)
         self.assertNotIn("Traceback", out)
         for form in SAME:
@@ -92,7 +97,7 @@ class Forms(unittest.TestCase):
                     self.assertEqual(found[form][2][name], data, name)
 
     def assert_refused(self, found, names):
-        code, out, after, before = found[REFUSED]
+        code, out, _, before, after = found[REFUSED]
         with self.subTest(form=REFUSED):
             self.assertNotEqual(code, 0, out)
             self.assertIn(names, out)
@@ -216,7 +221,7 @@ class Render(Forms):
         tex = {form: sorted(n for n in found[form][2] if n.startswith("out/"))
                for form in AWKWARD}
         self.assertEqual(tex[PLAIN], ["out/Test_Person_Contoso_Resume.tex"])
-        code, out, after, _ = found[REFUSED]
+        code, out, after, _, _ = found[REFUSED]
         with self.subTest(form=REFUSED):
             self.assertEqual(code, 0, out)
             self.assertNotIn("Traceback", out)

@@ -96,8 +96,8 @@ src = ["src", "tests"]
 # import, a redefinition. Those are worth failing a build over from now on. `B`
 # (bugbear) joined after the 2026-09-28 review: a loop variable a closure captures, a
 # zip that silently truncates, an exception re-raised without its cause. `BLE` (blind
-# except) joined with it: each of the four left says, on its line, why nothing
-# narrower will do.
+# except) joined with it: each `noqa: BLE001` (eleven, on 2026-09-28) says on its line
+# why nothing narrower will do.
 select = ["E", "F", "W", "B", "BLE"]
 ignore = [
     "E501",     # line-length is set above; what is left over is prose inside strings

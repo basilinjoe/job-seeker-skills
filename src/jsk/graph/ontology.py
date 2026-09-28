@@ -436,6 +436,16 @@ def class_of(iri):
     return cls.name if cls and cls.prefix != "met.v" else None
 
 
+def class_named(iri):
+    """The Class an iri's shape names - for an iri a check has already passed as a jsk
+    id. Raises ValueError naming the iri when it is not one: a KeyError(None) said nothing
+    of which subject broke the assumption."""
+    name = class_of(iri)
+    if name is None:
+        raise ValueError(f"{iri} is not a jsk id, so it has no class")
+    return BY_NAME[name]
+
+
 def norm(label):
     """A label as it is matched: lowercased, whitespace runs turned into `-`."""
     return re.sub(r"\s+", "-", label.strip().lower())

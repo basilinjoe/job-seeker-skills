@@ -57,6 +57,11 @@ def values(triples, s, p):
     return {o for t_s, t_p, o in triples if t_s == s and t_p == p}
 
 
+def claimed(triples, s, names):
+    """(predicate, object) of what `s` claims through the predicates `names`."""
+    return {(p, o) for t, p, o in triples if t == s and local(p) in names}
+
+
 def carried_versions(store):
     """{metric version iri: [application iris]} - versions an application sent."""
     out = defaultdict(list)
@@ -218,7 +223,7 @@ def apply(store, cs, today):
             sent(s, f"op:add {curie(p.value)}")
             return
         # changeset.check refused every subject that is not a jsk id, so it names a class.
-        pred = (O.BY_NAME[O.class_of(s.value)].preds.get(name)  # pyright: ignore[reportArgumentType]
+        pred = (O.class_named(s.value).preds.get(name)
                 if (name := local(p)) else None)
         others = values(after, s, p) - {o}
         if pred and pred.card in "1?" and others and (s, p) not in grouped:
@@ -400,7 +405,7 @@ def provenance(after, before, cs, minted_bullets, edit):
     for s in sorted({s for s, _, _ in after}, key=lambda s: s.value):
         # apply refuses a kb.ttl that FAILs, and check() a changeset subject that is not a
         # jsk id, so every subject names a class.
-        cls = O.BY_NAME[O.class_of(s.value)]  # pyright: ignore[reportArgumentType]
+        cls = O.class_named(s.value)
         if not cls.claims or s in stated:
             continue
         if s not in old:
@@ -408,17 +413,15 @@ def provenance(after, before, cs, minted_bullets, edit):
                 after.add((s, node(PROVENANCE), inferred))
             continue
         names = O.resets(cls)
-
-        def claimed(triples):         # called at once, inside this iteration
-            return {(p, o) for t, p, o in triples if t == s and local(p) in names}  # noqa: B023
-        if claimed(before) != claimed(after):
+        if claimed(before, s, names) != claimed(after, s, names):
             was = values(after, s, node(PROVENANCE))
             # Down to inferred, never up: a disputed or unverified entry reworded is
             # still disputed or unverified.
             if not was or node(O.J + "confirmed") in was:
                 after.difference_update({(s, node(PROVENANCE), o) for o in was})
                 after.add((s, node(PROVENANCE), inferred))
-                changed = sorted({curie(p.value) for p, _ in claimed(before) ^ claimed(after)})
+                changed = sorted({curie(p.value) for p, _ in
+                                  claimed(before, s, names) ^ claimed(after, s, names)})
                 edit.notes.append(f"{curie(s.value)} is now inferred: {', '.join(changed)} changed")
 
 

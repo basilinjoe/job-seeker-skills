@@ -130,6 +130,14 @@ class Length(LetterCase):
         self.assertEqual(letter.length_lines(text)[1], 3)
         self.assertEqual(letter.length_lines("One two three.\n")[1], 3)
 
+    def test_a_bom_does_not_hide_the_salutation(self):
+        """Notepad's UTF-8 starts the file with U+FEFF, which strip() keeps: the salutation
+        then failed to match, and was counted as the letter's first words."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, "cover-letter.txt")
+            path.write_bytes(b"\xef\xbb\xbfDear Hiring Manager,\r\n\r\nOne two three.\r\n")
+            self.assertEqual(letter.length_lines(letter.read(path))[1], 3)
+
     def test_a_reader_counts_hyphenated_and_suffixed_words_once(self):
         self.assertEqual(letter.length_lines("Event-driven, 40K users, 62% faster.")[1], 5)
 

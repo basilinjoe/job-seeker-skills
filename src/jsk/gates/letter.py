@@ -59,9 +59,12 @@ def line(check, focus, detail, fix):
 
 
 def read(path):
-    """The letter's text; .md is read as written - its markup is not words."""
+    """The letter's text; .md is read as written - its markup is not words. Lenient on a
+    stray byte, as the gates are, but a BOM is stripped: kept, it hid the salutation."""
+    from ..graph.io import normalise
+
     with open(path, encoding="utf-8", errors="replace") as fh:
-        return fh.read()
+        return normalise(fh.read())
 
 
 def body(text):
