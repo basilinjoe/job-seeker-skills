@@ -93,32 +93,58 @@ def posting_of(store, rel_dir):
 # so the documents and resume.json beside application.ttl are what went out - a render
 # or a confirm must not touch them. `sent_day`: application.ttl records the day it was
 # sent, so the posting it answered and the assessment of it are what they said then. A
-# held-back application (submitted false) is frozen but not sent.
+# held-back application (submitted false) is frozen but not sent. An application.md is
+# one frozen before the career moved to kb.ttl, and is as frozen as an application.ttl.
 
-class Frozen(Exception):
-    """A write refused because the application is sent. Carries the fix."""
+LEGACY = "application.md"
+
+
+class Unwritable(Exception):
+    """A write to an application directory that did not happen. Carries the fix."""
 
     def __init__(self, message, fix):
         super().__init__(message)
         self.fix = fix
 
 
+class Frozen(Unwritable):
+    """Refused because the application is sent."""
+
+
 def frozen(app_dir):
-    """The application.ttl path when `jsk freeze` has run on `app_dir`, else None."""
-    path = os.path.join(app_dir, APPLICATION)
-    return path if os.path.isfile(path) else None
+    """The application.ttl (or legacy application.md) path when `app_dir` was frozen,
+    else None."""
+    for name in (APPLICATION, LEGACY):
+        path = os.path.join(app_dir, name)
+        if os.path.isfile(path):
+            return path
+    return None
 
 
 def sent_day(app_dir):
-    """The day application.ttl in `app_dir` says it was sent, or None. Raises GraphError
-    when there is an application.ttl that does not parse: whether it was sent is then
-    unknown, and the writers below refuse rather than guess."""
-    from .io import parse
+    """The day `app_dir` says it was sent - application.ttl's j:submitted, or a legacy
+    application.md's `submitted:` - or None. Raises GraphError when that file cannot be
+    read: whether it was sent is then unknown, and the writers below refuse rather than
+    guess."""
+    from .io import GraphError, Unreadable, parse, read_text
 
     path = frozen(app_dir)
     if path is None:
         return None
-    for q in parse(path).quads:
+    try:
+        if path.endswith(LEGACY):
+            from ..kbindex import KBError, frontmatter
+
+            try:
+                front, _ = frontmatter(read_text(path, LEGACY), LEGACY)
+            except KBError as e:
+                raise GraphError(str(e), e.fix, LEGACY) from None
+            day = str(front.get("submitted", ""))
+            return day if is_date(day) else None
+        quads = parse(path).quads
+    except Unreadable as e:
+        raise GraphError(str(e), e.fix, os.path.basename(path)) from None
+    for q in quads:
         if q.predicate.value == O.J + "submitted" and \
                 getattr(q.object, "datatype", None) is not None and \
                 q.object.datatype.value == O.XSD + "date":
@@ -127,13 +153,16 @@ def sent_day(app_dir):
 
 
 def refuse_if_sent(app_dir, name):
+    """Raise Frozen when `name` in `app_dir` must not change: the application was sent,
+    or whether it was cannot be read."""
     from .io import GraphError
 
     try:
         day = sent_day(app_dir)
     except GraphError as e:
-        raise Frozen(f"{name}: {APPLICATION} beside it does not parse, so whether it was sent "
-                     f"is unknown ({e})", "`jsk kb check` shows what is wrong with it") from None
+        raise Frozen(f"{name}: {os.path.basename(frozen(app_dir) or APPLICATION)} beside it "
+                     f"cannot be read, so whether it was sent is unknown ({e})",
+                     "`jsk kb check` shows what is wrong with it") from None
     if day:
         raise Frozen(f"{os.path.join(app_dir, name)}: the application was sent on {day}, and "
                      f"this is what it answered", "copy the application to a new dated "
@@ -141,25 +170,37 @@ def refuse_if_sent(app_dir, name):
 
 
 def write_app_file(app_dir, name, text):
-    """Write `name` in `app_dir`, staged and replaced - or raise Frozen, writing nothing,
-    when the application is sent. application.ttl itself is `jsk freeze`'s and `jsk
-    event`'s, and does not come through here."""
+    """Write `name` in `app_dir`, staged and replaced - or raise Unwritable, writing
+    nothing: Frozen when the application is sent, else the file is locked or the disk
+    refused. application.ttl itself is `jsk freeze`'s and `jsk event`'s, and does not
+    come through here."""
     from . import record as R
 
     refuse_if_sent(app_dir, name)
     path = os.path.join(app_dir, name)
-    R.replace(R.staged(path, text), path)
+    tmp = path + ".tmp"
+    try:
+        R.replace(R.staged(path, text), path)
+    except (R.RecordError, OSError) as e:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise Unwritable(f"{path}: not written - {e}",
+                         getattr(e, "fix", "check the folder and its permissions")) from None
     return path
 
 
 def remove_app_file(app_dir, name):
-    """Remove `name` from `app_dir` if it is there - or raise Frozen when the application
-    is sent. True when a file was removed."""
+    """Remove `name` from `app_dir` if it is there - or raise Unwritable (Frozen when the
+    application is sent). True when a file was removed."""
     refuse_if_sent(app_dir, name)
     path = os.path.join(app_dir, name)
     if not os.path.isfile(path):
         return False
-    os.remove(path)
+    try:
+        os.remove(path)
+    except OSError as e:
+        raise Unwritable(f"{path}: not removed - {e.strerror or e}",
+                         "close whatever holds it and run the command again") from None
     return True
 
 

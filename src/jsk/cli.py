@@ -876,6 +876,7 @@ FREEZE_USAGE = ("usage: jsk freeze <app-dir> --submitted YYYY-MM-DD|false "
 
 APPLICATION = "application.md"
 APPLICATION_TTL = "application.ttl"
+WORKING_FILES = ("gaps.txt", "decisions.txt")
 POSTING_TTL = "posting.ttl"
 KNOWLEDGE_BASE = "user-knowledgebase.md"
 GRAPH_KB = os.path.join("career", "kb.ttl")
@@ -997,8 +998,11 @@ def cmd_freeze(args):
                                       "a frozen application lists what is in it.")
             documents.append(name)
     else:
+        # gaps.txt and decisions.txt are the tailoring run's working files, not documents
+        # anyone was sent: listed, the letter gate read them as letters and failed them.
         documents = sorted(name for name in os.listdir(app_dir)
                            if name.lower().endswith((".pdf", ".txt"))
+                           and name.lower() not in WORKING_FILES
                            and os.path.isfile(os.path.join(app_dir, name)))
         pdfs = [d for d in documents if d.lower().endswith(".pdf")]
         if len(pdfs) > 1:

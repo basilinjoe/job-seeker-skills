@@ -91,12 +91,16 @@ def outcome(o, row, was, rows):
         return ("WARN", f"{where}: `keep` on {o.slug}, which no flag asks about now",
                 "delete the row - an unlisted requirement keeps the match's verdict")
     if o.verdict == standing(row):
+        if row.flags:
+            return None                                 # an answer to the flag, as `keep` is
         return ("WARN", f"{where}: {o.slug} says {o.verdict}, which is the match's verdict "
                 "already", "delete the row")
     if raises(o.verdict, row.matched):
         if was is not None and not raises(o.verdict, was):
+            # A flagged row cannot just go: with no row the flag FAILs, so it is asked again.
             return ("WARN", f"{where}: the match now says {row.matched}; the row lowers "
-                    "nothing - delete it", "the match's verdict stands")
+                    "nothing - delete it", f"answer the flag again: `{o.slug} | keep`, or "
+                    "lower it with a reason" if row.flags else "the match's verdict stands")
         return ("FAIL", f"{where}: {o.slug}: {o.verdict}, above the match's {row.matched}",
                 RAISE_FIX)
     if not o.reason:
@@ -106,7 +110,8 @@ def outcome(o, row, was, rows):
     if row.matched is not None and was is not None and raises(row.matched, was):
         return ("WARN", f"{where}: the match now says {row.matched}; you lowered it to "
                 f"{o.verdict} because {o.reason} - still true?",
-                "keep the row if it is, or delete it")
+                f"keep the row if it is, or make it `{o.slug} | keep`" if row.flags
+                else "keep the row if it is, or delete it")
     return None
 
 
@@ -142,11 +147,15 @@ def fold(derived, overlay, previous=None):
     verdicts = []
     for row in derived.rows:
         o = said.get(row.slug)
+        # Kept after review: a flag answered with `keep`, or with the match's own verdict
+        # and no reason. Only a flag is kept - an unflagged `keep` changes nothing.
+        answered = o is not None and bool(row.flags) and (
+            o.verdict == "keep" or (o.verdict == standing(row) and not o.reason))
         if o is None or o.verdict == "keep" or MARK in o.verdict or raises(o.verdict, row.matched):
             # A row the match has moved below is the match's now (check WARNed).
-            verdicts.append(Verdict(row, standing(row), None, o is not None and o.verdict == "keep"))
+            verdicts.append(Verdict(row, standing(row), None, answered))
         else:
-            verdicts.append(Verdict(row, o.verdict, o.reason or None, False))
+            verdicts.append(Verdict(row, o.verdict, o.reason or None, answered))
     return Assessment(derived, overlay.fit or derived.fit, overlay.eligibility, tuple(verdicts),
                       tuple(overlay.short), tuple(overlay.surplus),
                       tuple(overlay.ask) or derived.questions)
@@ -298,7 +307,7 @@ def build(app_dir, store, r, today, derived=None):
     from .gapsderive import derive
     from .gapsdraft import advert, drops
     from .io import GraphError, Missing, Unreadable, read_text
-    from .timeline import Frozen, sent_day, write_app_file
+    from .timeline import Unwritable, sent_day, write_app_file
     from .writer import WriteError, write
 
     app_rel = S.file_name(os.path.abspath(app_dir), store.root)
@@ -349,6 +358,6 @@ def build(app_dir, store, r, today, derived=None):
     for name, body in (("gaps.ttl", ttl_text), ("gaps.md", md_text)):
         try:
             written.append(write_app_file(app_dir, name, body))
-        except Frozen as e:         # sent between the check above and this write
+        except Unwritable as e:     # locked, or sent between the check above and now
             return written, found + [("FAIL", str(e), e.fix)]
     return written, found

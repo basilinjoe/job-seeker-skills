@@ -1350,6 +1350,10 @@ class ConvertAGraphWorkspace(Tmp):
         todo, frozen = migrate.unshortened(str(self.root))
         self.assertIn(str(md / "resume.json"), frozen)
         self.assertNotIn(str(md / "resume.json"), todo)
+        before = (md / "resume.json").read_bytes()
+        code, out = self.migrate(md / "resume.json")       # one record, named
+        self.assertEqual(code, 1, out)
+        self.assertEqual((md / "resume.json").read_bytes(), before)
 
     def test_a_second_run_changes_nothing(self):
         self.migrate(self.root)

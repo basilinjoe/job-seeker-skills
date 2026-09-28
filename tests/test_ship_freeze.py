@@ -678,6 +678,20 @@ class FreezeLetters(GraphCase):
         app, _ = self.application()
         self.assertIn("Cover_Letter.pdf", app["document"])
 
+    def test_the_tailoring_files_are_not_documents(self):
+        """Every tailoring run leaves gaps.txt and decisions.txt beside the resume. Listed,
+        the letter gate read them as letters - hundreds of words, advert line numbers
+        traced as claims - and a clean application could not be frozen."""
+        (self.app / "gaps.txt").write_text("fit: partial\n" + "word " * 400 + "\n",
+                                           encoding="utf-8")
+        (self.app / "decisions.txt").write_text("12 | need | 5 years of Kafka\n",
+                                                encoding="utf-8")
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("letter gate", out)
+        app, _ = self.application()
+        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt"])
+
 
 class FreezeMarkdownWorkspace(GraphCase):
     """Only `jsk migrate` reads a user-knowledgebase.md. freeze wrote an application.md

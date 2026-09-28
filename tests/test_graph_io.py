@@ -86,7 +86,7 @@ class ReadText(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(io.Missing) as cm:
                 io.read_text(Path(tmp) / "gaps.txt", "gaps.txt")
-        self.assertIn("no gaps.txt at", str(cm.exception))
+        self.assertIn("gaps.txt: no such file at", str(cm.exception))
         self.assertIsInstance(cm.exception, io.Unreadable)
 
 

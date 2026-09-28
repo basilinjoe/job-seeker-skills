@@ -2319,12 +2319,11 @@ def unshortened(root):
     by whether it was frozen. An application.md is as frozen as an application.ttl: one
     the migration skipped - a posting.md with no company - still archives what was sent."""
     from .graph.io import Unreadable, read_text
+    from .graph.timeline import frozen as is_frozen
 
     todo, frozen = [], []
     for path in records_of(root):
-        folder = os.path.dirname(path)
-        if any(os.path.isfile(os.path.join(folder, n))
-               for n in ("application.ttl", "application.md")):
+        if is_frozen(os.path.dirname(path)):
             frozen.append(path)
             continue
         try:
@@ -2426,6 +2425,7 @@ def main_workspace(target, view_id, dry):
     """`jsk migrate [<workspace> | <resume.json> [--view ID]]`, where career/kb.ttl exists."""
     from .graph import store as S
     from .graph.kbcli import find_root
+    from .graph.timeline import frozen as is_frozen
 
     one = target if target and os.path.isfile(target) else None
     start = os.path.dirname(os.path.abspath(one)) if one else (target or os.getcwd())
@@ -2441,7 +2441,7 @@ def main_workspace(target, view_id, dry):
     store = S.load(root)
     if not one:
         code = shorten_workspace(root, store, dry)
-    elif os.path.isfile(os.path.join(os.path.dirname(one), "application.ttl")):
+    elif is_frozen(os.path.dirname(one)):
         say_frozen(root, [one])
         return 1
     else:

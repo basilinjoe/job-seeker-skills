@@ -149,7 +149,7 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
     from .queries import PRE, concepts
     from .shapes import tier1
     from .store import file_name
-    from .timeline import Frozen, refuse_if_sent, remove_app_file, write_app_file
+    from .timeline import Frozen, Unwritable, refuse_if_sent, remove_app_file, write_app_file
     from .writer import write
 
     # Ruling 6 of the 2026-09-28 review: a sent posting is what the application answered,
@@ -287,7 +287,7 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
         # gaps.txt is the analyst's, keyed by slug, and survives any rebuild that keeps the
         # slugs.
         removed = [n for n in ("gaps.ttl", "gaps.md") if remove_app_file(app_dir, n)]
-    except Frozen as e:
+    except Unwritable as e:
         raise Refused(str(e), f"fix:  {e.fix}") from None
     if removed:
         warnings.append(f"removed {' and '.join(removed)}, derived from the posting.ttl this "

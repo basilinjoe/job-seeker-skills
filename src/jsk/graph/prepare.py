@@ -217,25 +217,28 @@ def prepare(root, app, posting, budget, today, draft):
     lines += [f"flagged {row.slug}: {row.flag_text}" for row in derived.rows if row.flags]
     if draft:
         from .gapsdraft import MARK, draft_gaps
-        from .timeline import Frozen, refuse_if_sent
+        from .io import GraphError, Unreadable
+        from .timeline import sent_day
 
         try:
-            refuse_if_sent(app, "gaps.txt")
-            sent = False
-        except Frozen:
-            sent = True
-        if sent:
-            lines.append("no gaps.txt drafted: the application is sent, and its assessment "
-                         "with it")
+            held = sent_day(app) and "the application is sent, and its assessment with it"
+        except GraphError as e:         # an application.ttl that says neither way
+            held = f"{e}\n      fix: {e.fix}"
+        if held:
+            lines.append(f"no gaps.txt drafted: {held}")
         elif os.path.exists(target):
             lines.append(f"{target} already exists - left as it is; `jsk match {name} "
                          f"--gaps {target}` checks it and rewrites gaps.ttl and gaps.md")
         else:
-            text = draft_gaps(derived, store, os.path.join(app, "posting.md"))
-            with open(target, "x", encoding="utf-8", newline="\n") as fh:
-                fh.write(text)
-            slots = sum(MARK in line for line in text.split("\n"))
-            lines.append(f"wrote {target}: {slots} slots to fill")
+            try:
+                text = draft_gaps(derived, store, os.path.join(app, "posting.md"))
+            except Unreadable as e:       # build() FAILed on the same file above
+                lines.append(f"no gaps.txt drafted: {e}\n      fix: {e.fix}")
+            else:
+                with open(target, "x", encoding="utf-8", newline="\n") as fh:
+                    fh.write(text)
+                slots = sum(MARK in line for line in text.split("\n"))
+                lines.append(f"wrote {target}: {slots} slots to fill")
     section("gaps", lines)
     return 0
 

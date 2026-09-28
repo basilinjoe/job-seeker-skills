@@ -69,7 +69,8 @@ def read_text(path, what=None):
         with open(path, encoding="utf-8") as fh:
             return normalise(fh.read())
     except FileNotFoundError:
-        raise Missing(f"no {name} at {path}", f"write {name} first") from None
+        raise Missing(f"{name}: no such file" + (f" at {path}" if what else ""),
+                      "check the path") from None
     except UnicodeDecodeError as e:
         raise NotUtf8(f"{name}: not UTF-8 ({e.reason} at byte {e.start})",
                       "save the file as UTF-8") from None

@@ -53,6 +53,21 @@ class Frozen(unittest.TestCase):
         self.assertTrue(timeline.frozen(self.app))
         timeline.write_app_file(self.app, "gaps.ttl", "rebuilt\n")
 
+    def test_an_application_md_is_frozen_and_says_when_it_was_sent(self):
+        """Frozen before the career moved to kb.ttl: as frozen as an application.ttl."""
+        (self.app / "application.md").write_text("---\nsubmitted: 2026-04-02\n---\n",
+                                                 encoding="utf-8")
+        self.assertTrue(timeline.frozen(self.app))
+        self.assertEqual(timeline.sent_day(self.app), "2026-04-02")
+        with self.assertRaises(timeline.Frozen):
+            timeline.write_app_file(self.app, "gaps.ttl", "rebuilt\n")
+
+    def test_a_held_back_application_md_is_frozen_but_not_sent(self):
+        (self.app / "application.md").write_text("---\nsubmitted: false\n---\n",
+                                                 encoding="utf-8")
+        self.assertTrue(timeline.frozen(self.app))
+        self.assertIsNone(timeline.sent_day(self.app))
+
     def test_an_application_ttl_that_does_not_parse_refuses(self):
         (self.app / "application.ttl").write_text("not turtle", encoding="utf-8")
         with self.assertRaises(timeline.Frozen) as cm:

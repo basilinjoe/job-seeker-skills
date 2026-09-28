@@ -158,7 +158,7 @@ def expected(said, matched, flagged, reason, was):
     if said == "keep":
         return None if flagged else KEEP_UNASKED
     if said == (matched or "indeterminate"):
-        return RESTATED
+        return None if flagged else RESTATED           # on a flag it answers, as keep does
     if above(said, matched):
         return MOVED_BELOW if was is not None and not above(said, was) else RAISED
     if not reason:
@@ -217,6 +217,36 @@ class Outcome(unittest.TestCase):
             with self.subTest(case=case):
                 honoured = want in (None, MOVED_ABOVE) and said != "keep"
                 self.assertEqual(v.verdict, said if honoured else (matched or "indeterminate"))
+
+    def test_only_an_answered_flag_is_kept_after_review(self):
+        """A kept verdict renders "kept after review: <the flag>". On an unflagged row that
+        read "kept after review: None"; on a flagged row restating the match it was left
+        "flagged, not yet reviewed", and deleting the row as told then FAILed."""
+        for case in self.CASES:
+            want = expected(*case)
+            if want is not None and want[0] == "FAIL":
+                continue
+            said, matched, flagged, reason = case[:4]
+            d, o, _ = self.outcome(*case)
+            v = B.fold(d, o, {} if case[4] is None else {"r": case[4]}).verdicts[0]
+            with self.subTest(case=case):
+                self.assertEqual(v.kept, flagged and (
+                    said == "keep" or (said == (matched or "indeterminate") and not reason)))
+                shortfall = B.requirement_rows(B.Assessment(d, "partial", None, (v,), (), (), ()))
+                self.assertNotIn("None", shortfall[2])
+                if want != MOVED_BELOW:     # a raise the career undid asks the flag again
+                    self.assertNotIn(B.UNREVIEWED, shortfall[2])
+
+    def test_no_advice_on_a_flagged_row_is_to_delete_it(self):
+        """Deleting a flagged row FAILs "flagged and gaps.txt has no row for it"."""
+        for case in self.CASES:
+            if not case[2]:
+                continue
+            d = derived(case[1], True)
+            o = A.parse(f"r | {case[0]} | because\n" if case[3] else f"r | {case[0]}\n")
+            found = B.check(d, o, "", {} if case[4] is None else {"r": case[4]})
+            with self.subTest(case=case):
+                self.assertFalse([f for f in found if "delete" in f[2]], found)
 
     def test_finding_4_keep_on_a_row_whose_flag_has_cleared_warns(self):
         _, _, found = self.outcome("keep", "satisfied", False, False, None)
