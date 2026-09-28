@@ -61,6 +61,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 import unicodedata
 from collections import defaultdict
@@ -2315,12 +2316,15 @@ def shorten(record, store, view_id=None):
 
 def unshortened(root):
     """(to convert, frozen): the applications' resume.json holding a full record, split
-    by whether an application.ttl beside it says it was sent."""
+    by whether it was frozen. An application.md is as frozen as an application.ttl: one
+    the migration skipped - a posting.md with no company - still archives what was sent."""
     from .graph.io import Unreadable, read_text
 
     todo, frozen = [], []
     for path in records_of(root):
-        if os.path.isfile(os.path.join(os.path.dirname(path), "application.ttl")):
+        folder = os.path.dirname(path)
+        if any(os.path.isfile(os.path.join(folder, n))
+               for n in ("application.ttl", "application.md")):
             frozen.append(path)
             continue
         try:
@@ -2371,8 +2375,8 @@ def shorten_files(root, store, paths, view_id=None, dry=False):
         if dry:
             print(text, end="")
             continue
-        with open(kept, "w", encoding="utf-8", newline="") as fh:
-            fh.write(raw)
+        # The bytes as they were, BOM and line endings too: `raw` is the text as read.
+        shutil.copyfile(path, kept)
         with open(path, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(text)
         written.append(path)

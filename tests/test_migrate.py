@@ -1326,11 +1326,30 @@ class ConvertAGraphWorkspace(Tmp):
         self.assertRegex(out, r"shortened +applications/contoso-platform/resume\.json")
         self.assertRegex(out, r"record +applications/contoso-platform/resume\.json: 0 FAIL")
 
+    def test_the_kept_record_is_the_bytes_it_was_bom_and_crlf_too(self):
+        original = b"\xef\xbb\xbf" + LEGACY.read_bytes().replace(b"\r\n", b"\n") \
+            .replace(b"\n", b"\r\n")
+        (self.draft / "resume.json").write_bytes(original)
+        code, out = self.migrate(self.root)
+        self.assertEqual(code, 0, out)
+        self.assertEqual((self.draft / "resume.urs.json").read_bytes(), original)
+
     def test_a_frozen_application_is_named_and_left_alone(self):
         code, out = self.migrate(self.root)
         self.assertEqual(code, 0, out)
         self.assertEqual(snapshot(self.sent), self.sent_before)
         self.assertRegex(out, r"frozen +applications/2026-09-01-contoso-sent")
+
+    def test_an_application_md_is_frozen_even_when_it_was_not_migrated(self):
+        """A posting.md with no company skips the application.ttl, with a note - and the
+        record beside it is still what was sent, so it is not shortened."""
+        md = self.root / "applications" / "2026-08-01-contoso-md"
+        md.mkdir()
+        shutil.copy(LEGACY, md / "resume.json")
+        (md / "application.md").write_text("---\nsubmitted: 2026-08-01\n---\n", encoding="utf-8")
+        todo, frozen = migrate.unshortened(str(self.root))
+        self.assertIn(str(md / "resume.json"), frozen)
+        self.assertNotIn(str(md / "resume.json"), todo)
 
     def test_a_second_run_changes_nothing(self):
         self.migrate(self.root)
