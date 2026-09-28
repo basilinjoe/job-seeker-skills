@@ -255,22 +255,21 @@ def findings(doc, store, today=None):
 
 def parse(argv):
     """(path or None, strict, limit, problem)."""
-    args, strict, limit, positional = list(argv), False, MAX_FINDINGS, []
-    while args:
-        token = args.pop(0)
-        if token == "--strict":
-            strict = True
-        elif token == "--max-findings":
-            raw = args.pop(0) if args else None
-            if raw is None or not raw.isdigit():
-                return None, strict, limit, (f"--max-findings needs a whole number, got {raw!r}\n"
-                                             "fix:  --max-findings 50   - or 0 to print every "
-                                             "finding")
-            limit = int(raw) or None
-        elif token.startswith("-"):
-            return None, strict, limit, f"unknown flag: {token}\n{__doc__.split(chr(10) * 2)[1]}"
-        else:
-            positional.append(token)
+    from ..cliutil import parse_flags
+
+    strict, limit = False, MAX_FINDINGS
+    parsed, problem = parse_flags(argv, ("--max-findings",), ("--strict",))
+    if parsed is None and not problem.endswith("needs a value"):
+        return None, strict, limit, f"{problem}\n{__doc__.split(chr(10) * 2)[1]}"
+    positional, flags = parsed or ([], {"--max-findings": None})
+    if "--max-findings" in flags:
+        raw = flags["--max-findings"]
+        if raw is None or not raw.isdigit():
+            return None, strict, limit, (f"--max-findings needs a whole number, got {raw!r}\n"
+                                         "fix:  --max-findings 50   - or 0 to print every "
+                                         "finding")
+        limit = int(raw) or None
+    strict = "--strict" in flags
     if len(positional) != 1:
         return None, strict, limit, __doc__.split("\n\n")[1]
     return positional[0], strict, limit, None
