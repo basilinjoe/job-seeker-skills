@@ -243,7 +243,7 @@ def apply(store, cs, today):
                    "(a metric's next free version number)")
 
     minted_bullets = []
-    for b, props in blanks.items():
+    for props in blanks.values():
         project = next(o for p, o in props if local(p) == "project")
         text = next((o.value for p, o in props if local(p) == "text"), "")
         if O.class_of(project.value) != "Project":
@@ -405,8 +405,8 @@ def provenance(after, before, cs, minted_bullets, edit):
             continue
         names = O.resets(cls)
 
-        def claimed(triples):
-            return {(p, o) for t, p, o in triples if t == s and local(p) in names}
+        def claimed(triples):         # called at once, inside this iteration
+            return {(p, o) for t, p, o in triples if t == s and local(p) in names}  # noqa: B023
         if claimed(before) != claimed(after):
             was = values(after, s, node(PROVENANCE))
             # Down to inferred, never up: a disputed or unverified entry reworded is

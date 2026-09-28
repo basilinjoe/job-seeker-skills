@@ -254,7 +254,7 @@ class ShipSummary(ShipCase):
         self.assertEqual(code, 0, out)
         lines = self.summary(out)
         sections = out.split("=== summary")[0].split("\n--- ")[1:]
-        for section, line in zip(sections, lines):
+        for section, line in zip(sections, lines, strict=False):
             counts = re.findall(r"^FAIL (\d+)\s+WARN (\d+)\s*$", section, re.M)
             with self.subTest(step=line):
                 if counts:

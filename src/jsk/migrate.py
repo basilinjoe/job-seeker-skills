@@ -605,7 +605,7 @@ def table(lines):
         elif all(set(c) <= set("-: ") for c in cells):
             continue
         else:
-            rows.append(dict(zip(header, cells + [""] * (len(header) - len(cells)))))
+            rows.append(dict(zip(header, cells + [""] * (len(header) - len(cells)), strict=False)))
             if len(cells) > len(header):
                 rows[-1]["_extra"] = cells[len(header):]
     return header, rows, leftover
@@ -1462,7 +1462,7 @@ def follow_renames(plan):
 def default_provenance(plan):
     """An entry the Markdown gave no status is j:inferred: a migration never raises one."""
     onto = ontology()
-    for iri, n in plan.nodes.items():
+    for n in plan.nodes.values():
         if onto.BY_NAME[n.cls].claims and not n.props["provenance"]:
             n.props["provenance"].add("inferred")
             plan.defaulted += 1
@@ -1582,7 +1582,7 @@ def index_view(text, vocab, today):
                  for r in roles}
     months, _ = experience(roles, today)
     ids = set()
-    for title, prefix in (("Metrics", "met_"), ("Open questions", "q_")):
+    for title in ("Metrics", "Open questions"):
         if title in by:
             _, rows, _ = table(text.split("\n")[by[title]["start"]:by[title]["end"]])
             ids |= {kid(r["id"]) for r in rows if not empty(r.get("id"))}
@@ -1805,7 +1805,7 @@ def migrate_applications(plan, vocab, today):
         app = application(plan, d, rel, stem, post)
         if app is not None:
             files[f"{rel}/application.ttl"] = ("application", app)
-        for file, (kind, ns) in files.items():
+        for file, (_, ns) in files.items():
             required(plan, ns, file)
         if plan.refusals:
             continue

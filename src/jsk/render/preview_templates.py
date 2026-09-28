@@ -167,7 +167,7 @@ def main(argv):
         workers = max(1, min(len(stages), os.cpu_count() or 1))
         with ThreadPoolExecutor(max_workers=workers) as pool:
             compiled = dict(zip(stages, pool.map(
-                lambda tex: compile_pdf(tex, os.path.dirname(tex)), stages.values())))
+                lambda tex: compile_pdf(tex, os.path.dirname(tex)), stages.values()), strict=True))
 
         for name in wanted:
             pdf, note = compiled.get(name, (None, problems.get(name, "")))

@@ -353,7 +353,7 @@ def fetch(url, app_dir, get=None):
         title, facts, description = READERS[provider](data, org, job)
     except NotOnBoard:
         raise Refused(f"job {job} is not on the {provider} board for {org!r}",
-                      "fix:  the posting may be closed - check the URL in a browser")
+                      "fix:  the posting may be closed - check the URL in a browser") from None
     if not description.strip():
         raise Refused(f"the {provider} posting {job} came back with no description",
                       BROWSER_FIX)

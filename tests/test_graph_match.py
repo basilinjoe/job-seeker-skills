@@ -236,11 +236,11 @@ def edited(old, new, file="career/kb.ttl", also=()):
     """The fixture with one edit - and `also`, more (old, new, file) edits - loaded."""
     tmp = tempfile.mkdtemp()
     shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
-    for old, new, file in ((old, new, file), *also):
-        path = Path(tmp) / file
+    for was, now, name in ((old, new, file), *also):
+        path = Path(tmp) / name
         text = path.read_text(encoding="utf-8")
-        assert old in text, old
-        path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
+        assert was in text, was
+        path.write_text(text.replace(was, now), encoding="utf-8", newline="\n")
     try:
         return load(tmp)
     finally:

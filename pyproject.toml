@@ -93,8 +93,10 @@ src = ["src", "tests"]
 # switched off within a week.
 #
 # `E,F,W` catch the things that are actually wrong - an undefined name, an unused
-# import, a redefinition. Those are worth failing a build over from now on.
-select = ["E", "F", "W"]
+# import, a redefinition. Those are worth failing a build over from now on. `B`
+# (bugbear) joined after the 2026-09-28 review: a loop variable a closure captures, a
+# zip that silently truncates, an exception re-raised without its cause.
+select = ["E", "F", "W", "B"]
 ignore = [
     "E501",     # line-length is set above; what is left over is prose inside strings
     "E741",

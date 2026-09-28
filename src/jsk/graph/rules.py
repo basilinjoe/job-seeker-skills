@@ -57,7 +57,7 @@ def label_clashes(rows, store):
     for label, owners in sorted(by.items()):
         if len(owners) > 1:
             ordered = sorted(owners)
-            for iri, node in ordered[1:]:
+            for _, node in ordered[1:]:
                 out.append({"focus": node, "label": label, "other": ordered[0][0]})
     return out
 
