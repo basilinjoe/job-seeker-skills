@@ -45,22 +45,13 @@ import sys
 
 from ..cliutil import docstring_usage, parse_flags, wants_help
 
-# For the checker alone, as in store.py: `typing` costs a command ~3 ms it never uses.
-TYPE_CHECKING = False
-if TYPE_CHECKING:
-    from typing import Literal, overload
-
 VERBS = {}
 # verb -> (flags taking a value, switches, flags taking a list), beside --root, which
 # every verb takes. main parses them, so an unknown flag is refused by name.
 FLAGS = {}
 
 
-def verb(fn=None, *, values=(), switches=(), lists=()):
-    if fn is not None:
-        VERBS[fn.__name__.removeprefix("cmd_")] = fn
-        return fn
-
+def verb(values=(), switches=(), lists=()):
     def register(fn):
         name = fn.__name__.removeprefix("cmd_")
         VERBS[name], FLAGS[name] = fn, (values, switches, lists)
@@ -78,28 +69,6 @@ def find_root(start):
         if up == here:
             return None
         here = up
-
-
-if TYPE_CHECKING:
-    @overload
-    def take(args, flag, value: "Literal[True]") -> "str | None": ...
-    @overload
-    def take(args, flag, value: "Literal[False]" = False) -> "bool | None": ...
-
-
-def take(args, flag, value=False):
-    """Remove `flag` (and its value) from args; the value, True, or None."""
-    if flag not in args:
-        return None
-    at = args.index(flag)
-    if not value:
-        del args[at]
-        return True
-    if at + 1 >= len(args):
-        raise SystemExit(usage(f"{flag} needs a value"))
-    found = args[at + 1]
-    del args[at:at + 2]
-    return found
 
 
 def usage(message):
@@ -1283,19 +1252,12 @@ def main(argv=None):
     if wants_help(rest):
         print(inspect.cleandoc(VERBS[name].__doc__))
         return 0
-    spec, flags = FLAGS.get(name), {}
-    if spec is None:
-        try:
-            root = take(rest, "--root", value=True) or find_root(os.getcwd())
-        except SystemExit as e:
-            return e.code
-    else:
-        values, switches, lists = spec
-        parsed, problem = parse_flags(rest, (*values, "--root"), switches, lists=lists)
-        if parsed is None:
-            return usage(problem)
-        rest, flags = parsed
-        root = flags.pop("--root", None) or find_root(os.getcwd())
+    values, switches, lists = FLAGS[name]
+    parsed, problem = parse_flags(rest, (*values, "--root"), switches, lists=lists)
+    if parsed is None:
+        return usage(problem)
+    rest, flags = parsed
+    root = flags.pop("--root", None) or find_root(os.getcwd())
     if root is None or not os.path.isdir(root):
         return usage("no workspace here: run it inside one, or pass --root DIR "
                      "(the folder holding career/)")
@@ -1307,12 +1269,7 @@ def main(argv=None):
         print("FAIL  jsk kb needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
-    try:
-        if spec is None:
-            return VERBS[name](rest, os.path.abspath(root))
-        return VERBS[name](rest, flags, os.path.abspath(root))
-    except SystemExit as e:
-        return e.code
+    return VERBS[name](rest, flags, os.path.abspath(root))
 
 
 if __name__ == "__main__":
