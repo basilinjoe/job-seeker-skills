@@ -18,7 +18,7 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import CHECK_ATS, CHECK_PROSE, RENDER_RESUME, child_env, run, urs_module
+from fixtures import CHECK_ATS, CHECK_PROSE, RENDER_RESUME, child_env, run, render_module
 from jsk import paths
 from jsk.resume import build
 from test_build import BuildCase, LEAD_TITLE, short
@@ -29,9 +29,9 @@ EXAMPLE = paths.EXAMPLE_SHORT
 LONG_TITLE = (LEAD_TITLE, '    j:title "Member of Technical Staff, Distinguished Grade IV" ;\n'
                           '    j:functionalTitle "Principal Full-Stack Platform Engineer" ;\n')
 
-emit_latex = urs_module("urs.emit_latex")
-themes = urs_module("urs.themes")
-tex = urs_module("urs.tex")
+emit_latex = render_module("render.emit_latex")
+themes = render_module("render.themes")
+tex = render_module("render.tex")
 
 ENGINE = tex.available_engine()
 

@@ -22,13 +22,13 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import CHECK_ATS, RENDER_RESUME, load_script, run, urs_module
+from fixtures import CHECK_ATS, RENDER_RESUME, load_script, run, render_module
 from jsk import paths
 from jsk.resume import build
 from test_build import LEAD_TITLE, BuildCase, short
 
-emit_latex = urs_module("urs.emit_latex")
-tex = urs_module("urs.tex")
+emit_latex = render_module("render.emit_latex")
+tex = render_module("render.tex")
 
 EXAMPLE = paths.EXAMPLE_SHORT
 TEAM = '"Led a team of 6 engineers."'
@@ -281,7 +281,7 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
         them or it is sampling again - which is exactly what moving the check
         here was meant to stop.
         """
-        themes_mod = urs_module("urs.themes")
+        themes_mod = render_module("render.themes")
         plans = {fmt: self.plan(fmt=fmt) for fmt in ("presentation", "ats-maximal")}
         return [(f"{fmt}/{name}", emit_latex.emit(plan, template=name))
                 for fmt, plan in plans.items()
@@ -394,7 +394,7 @@ class TheDateColumnHolds(PlanCase):
         \\rightskip globally; the \\hfill that pushes the date right is `fill`,
         an infinity order above `fil`, so it still wins and the guard is
         unaffected either way."""
-        themes_mod = urs_module("urs.themes")
+        themes_mod = render_module("render.themes")
         plan = self.plan(edits=[self.EDIT])
         for name in themes_mod.names():
             rendered = emit_latex.emit(plan, template=name)
@@ -440,7 +440,7 @@ class NoTemplateHyphenates(PlanCase):
     compiled proof is check_ats.py's split-word rule, tested in test_check_ats."""
 
     def test_every_theme_and_variant_turns_hyphenation_off_and_sets_ragged_right(self):
-        themes_mod = urs_module("urs.themes")
+        themes_mod = render_module("render.themes")
         for fmt in ("presentation", "ats-maximal"):
             plan = self.plan(fmt=fmt)
             for name in themes_mod.names():

@@ -118,14 +118,14 @@ def gate_target(path, accepts):
 # Both groupings were measured before they were made, because a package whose members
 # do not import each other is a folder, not a module:
 #
-#   urs/    rendering, the preview and the page fitter, over the record->document
+#   render/ rendering, the preview and the page fitter, over the record->document
 #           pipeline they drive. One edge leaves it, and it is lazy.
 #   gates/  the record, parse and prose gates. The record gate (record.py) reads the
 #           graph, lazily; inside, check_prose borrows numbers.py's numeral detector.
 SUBPACKAGE = {
-    "render_resume.py": "urs",
-    "preview_templates.py": "urs",
-    "fit_pages.py": "urs",
+    "render_resume.py": "render",
+    "preview_templates.py": "render",
+    "fit_pages.py": "render",
     "check_ats.py": "gates",
     "check_prose.py": "gates",
     "record.py": "gates",
@@ -511,7 +511,7 @@ def render_section(out_dir, pages, only=None):
             # verdict and is the only thing that can act on it; two places printing
             # one measurement in different words is how they start disagreeing.
             try:
-                from .urs import render_resume           # noqa: PLC0415 - only when asked
+                from .render import render_resume        # noqa: PLC0415 - only when asked
             except ImportError as exc:
                 lines.append(f"  pages  budget {pages}, not measured - "
                              f"render_resume.py would not load: {exc}")
@@ -814,7 +814,7 @@ def cmd_ship(args):
     if template is not None:
         # Checked before anything runs: an unknown template is a call error, and
         # finding it after the record gate would report it as a failed render.
-        from .urs import themes                        # noqa: PLC0415 - only when asked
+        from .render import themes                     # noqa: PLC0415 - only when asked
         try:
             themes.get(template)
         except KeyError as exc:

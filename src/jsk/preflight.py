@@ -55,15 +55,15 @@ GRAPH_MODULES = ["graph", "graph.ontology", "graph.io", "graph.writer", "graph.s
 GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.report",
                 "gates.numbers", "gates.record"]
 # Rendering, the preview and the page fitter moved in here: they drive the
-# record->document pipeline and import nothing else, so a broken urs package takes all
+# record->document pipeline and import nothing else, so a broken render package takes all
 # three with it and reporting them separately would name three symptoms of one cause.
 #
 # The builder (resume/) is counted with them: it turns the career and a resume.json into
 # the plan they render, and a render with no builder is as broken as one with no emitter.
-URS_MODULES = ["resume", "resume.short", "resume.build", "resume.career",
-               "urs", "urs.profiles", "urs.tex", "urs.themes",
-               "urs.formatting", "urs.emit_latex", "urs.emit_text",
-               "urs.render_resume", "urs.preview_templates", "urs.fit_pages"]
+RENDER_MODULES = ["resume", "resume.short", "resume.build", "resume.career",
+                  "render", "render.profiles", "render.tex", "render.themes",
+                  "render.formatting", "render.emit_latex", "render.emit_text",
+                  "render.render_resume", "render.preview_templates", "render.fit_pages"]
 
 SCHEMA_FILES = ["profile.schema.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
@@ -202,11 +202,11 @@ def gather(kb_arg=None):
         disables=f"missing: {', '.join(missing)}" if missing else "",
         detail=HERE))
 
-    missing_mod = present(URS_MODULES)
+    missing_mod = present(RENDER_MODULES)
     checks.append(Check(
-        "urs renderer package", not missing_mod,
+        "renderer package", not missing_mod,
         disables=f"missing: {', '.join(missing_mod)}" if missing_mod
-                 else "", detail=os.path.join(HERE, "urs")))
+                 else "", detail=os.path.join(HERE, "render")))
 
     missing_graph = present(GRAPH_MODULES)
     checks.append(Check(
@@ -337,7 +337,7 @@ def resolve_kb(kb_arg=None):
 #
 # pyoxigraph is required for the same reason: the career is kb.ttl, and every render and
 # the record gate `jsk ship` runs read it.
-REQUIRED = {"Python", "modules", "urs renderer package", "gates package", "graph record package",
+REQUIRED = {"Python", "modules", "renderer package", "gates package", "graph record package",
             "profile schema", "TeX engine", "pymupdf", "pyoxigraph"}
 
 
@@ -369,7 +369,7 @@ def verify(tmp):
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the builder works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",
-             [f"{__package__}.urs.render_resume", EXAMPLE_SHORT, "--out", tmp, "--pdf"])
+             [f"{__package__}.render.render_resume", EXAMPLE_SHORT, "--out", tmp, "--pdf"])
     if not ok:
         return steps
 

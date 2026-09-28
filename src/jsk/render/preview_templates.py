@@ -4,7 +4,7 @@
 Usage:
   jsk preview resume.json --out DIR [--region CC]
                                     [--ats-max] [--only NAME,NAME]
-  python -m jsk.urs.preview_templates resume.json --out DIR [the same flags]
+  python -m jsk.render.preview_templates resume.json --out DIR [the same flags]
 
 Writes DIR/<template>.tex and DIR/<template>.pdf, plus DIR/<template>.png of the
 first page when `pymupdf` is installed. Prints the page count for each, because

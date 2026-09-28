@@ -12,7 +12,7 @@ import unittest
 
 import careerkit
 from jsk.resume import build
-from jsk.urs import emit_latex, emit_text
+from jsk.render import emit_latex, emit_text
 
 PERSON = 'k:person j:fullName "Test Person" ; j:headline "Platform Engineer" ; j:provenance j:confirmed .'
 FULL_PERSON = ('k:person j:fullName "Test Person" ; j:headline "Platform Engineer" ;\n'
@@ -376,7 +376,7 @@ class RenderCommand(unittest.TestCase):
         import contextlib
         import io
 
-        from jsk.urs import render_resume
+        from jsk.render import render_resume
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             code = render_resume.main(["render_resume.py", *args])

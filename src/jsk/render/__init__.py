@@ -10,9 +10,8 @@ here translate that plan into markup and decide nothing. That split is the
 whole point: the PDF and the plain text built from the same resume cannot say
 different things, because neither one chose what to say.
 
-The package keeps the name `urs` from the Universal Resume Schema record it
-once rendered; the record went on 2026-09-25, and renaming the package would
-move every import for no change in behaviour.
+The package was `urs`, after the Universal Resume Schema record it once
+rendered; the record went on 2026-09-25 and the name followed it.
 
 `themes.py` sits below `emit_latex`: it owns palette, typeface and rhythm and
 nothing else, so a theme can change how the PDF looks and cannot change what it

@@ -1,6 +1,6 @@
 """Where the packaged data lives - stated once.
 
-`preflight.py`, the URS record gate and `urs/profiles.py` each computed this with their
+`preflight.py`, the URS record gate and `render/profiles.py` each computed this with their
 own `..` arithmetic against `__file__`, from three different depths in the tree. So
 the schema directory's location was asserted in three places and correct in whichever
 of them had last been updated - and moving the directory needed all three found. They,

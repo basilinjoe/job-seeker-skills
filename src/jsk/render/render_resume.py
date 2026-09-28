@@ -3,7 +3,7 @@
 
 Usage:
   jsk render <resume.json> --out DIR [options]
-  python -m jsk.urs.render_resume <resume.json> --out DIR [options]
+  python -m jsk.render.render_resume <resume.json> --out DIR [options]
 
   --format F         latex | txt | all             (default: all)
   --region CC        override the file's region profile, e.g. AU, IN, AE

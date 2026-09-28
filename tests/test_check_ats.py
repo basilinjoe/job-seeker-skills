@@ -10,9 +10,9 @@ from pathlib import Path
 
 from fixtures import (CHECK_ATS, CLEAN_RESUME, EXAMPLE_SHORT, RENDER_RESUME,
                       build_pdf, build_text, load_script, resume_with, run,
-                      urs_module)
+                      render_module)
 
-tex = urs_module("urs.tex")
+tex = render_module("render.tex")
 
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
@@ -332,7 +332,7 @@ class SplitWords(CheckATSCase):
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
     def test_no_template_splits_a_word(self):
         """Every theme, in both variants, with a record long enough to wrap."""
-        themes = urs_module("urs.themes")
+        themes = render_module("render.themes")
         for name in themes.names():
             for flags in ((), ("--ats-max",)):
                 with self.subTest(template=name, flags=flags):

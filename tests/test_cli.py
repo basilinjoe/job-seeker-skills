@@ -697,7 +697,7 @@ class InProcessDispatch(unittest.TestCase):
             code, out = in_process("render", "x.json")
         self.assertEqual(code, 2, out)
         self.assertIn("render_resume.py raised RuntimeError: boom", out)
-        # `python render_resume.py` stops at its first relative import; the module runs.        self.assertIn("python -m jsk.urs.render_resume x.json", out)
+        # `python render_resume.py` stops at its first relative import; the module runs.        self.assertIn("python -m jsk.render.render_resume x.json", out)
 
 
 class PreviewInProcess(unittest.TestCase):
@@ -714,7 +714,7 @@ class PreviewInProcess(unittest.TestCase):
         self.out = self.tmp / "looks"
 
     def preview(self, compile_pdf):
-        from jsk.urs import preview_templates
+        from jsk.render import preview_templates
         with mock.patch.object(preview_templates, "available_engine",
                                return_value="fake"), \
                 mock.patch.object(preview_templates, "compile_pdf", compile_pdf), \
@@ -726,7 +726,7 @@ class PreviewInProcess(unittest.TestCase):
         completion order would list it last."""
         import threading
         import time
-        from jsk.urs import tex, themes
+        from jsk.render import tex, themes
         names = themes.names()
         stages, lock = set(), threading.Lock()
 
@@ -748,7 +748,7 @@ class PreviewInProcess(unittest.TestCase):
             self.assertTrue((self.out / f"{name}.tex").exists(), name)
 
     def test_a_template_that_does_not_compile_fails_the_preview(self):
-        from jsk.urs import tex, themes
+        from jsk.render import tex, themes
         broken = themes.names()[1]
 
         def one_broken(tex_path, out_dir):

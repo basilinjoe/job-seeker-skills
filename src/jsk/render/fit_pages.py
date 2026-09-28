@@ -2,7 +2,7 @@
 """Fit a rendered resume to a page budget by applying density levers in a fixed order.
 
 Usage: jsk fit resume.tex [--target-pages 2] [--dry-run] [-o out.tex] [--in-place]
-       python -m jsk.urs.fit_pages resume.tex [the same flags]
+       python -m jsk.render.fit_pages resume.tex [the same flags]
 
 Measures geometry FIRST, then applies levers, cheapest-looking first, stopping at the
 floors `references/ats-rules.md` sets rather than crossing them:

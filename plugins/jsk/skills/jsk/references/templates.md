@@ -77,6 +77,6 @@ four density levers exist in every template as multiples of its rhythm unit.
 
 ## Adding one
 
-`urs/themes.py`, one entry in `THEMES`. State only the template's idea; `_theme()` fills in the rest.
+`render/themes.py`, one entry in `THEMES`. State only the template's idea; `_theme()` fills in the rest.
 The tests check contrast floors, the accent budget, guarded font loads, the text layer and the right
 margin for every template in the dictionary.

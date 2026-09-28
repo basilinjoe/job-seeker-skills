@@ -33,7 +33,7 @@ and the render withholds a claim below the file's provenance floor.
 
 The modules are the documented API and are importable individually; each one that has
 a CLI also runs as `python -m jsk.<module>` - `python -m jsk.gates.check_ats`,
-`python -m jsk.urs.render_resume`. `cli.py` is a convenience layer over them and never
+`python -m jsk.render.render_resume`. `cli.py` is a convenience layer over them and never
 the only way in.
 
 One dependency is required: `pyoxigraph`, the engine that reads, validates and queries

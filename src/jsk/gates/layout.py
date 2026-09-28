@@ -77,7 +77,7 @@ def family(font):
 
 def declared_pairs():
     """The two-family sets a shipped template asks for: its body face and its head face."""
-    from ..urs import themes                   # noqa: PLC0415 - only when two faces show
+    from ..render import themes                   # noqa: PLC0415 - only when two faces show
     return {name: frozenset((PDF_FAMILY[t["body"]], PDF_FAMILY[t["head"]]))
             for name, t in themes.THEMES.items() if t["body"] != t["head"]}
 
@@ -91,7 +91,7 @@ def paper_name(rect):
 
 
 def expected_paper(region):
-    from ..urs.formatting import LETTER_REGIONS     # noqa: PLC0415
+    from ..render.formatting import LETTER_REGIONS     # noqa: PLC0415
     return "Letter" if region.upper() in LETTER_REGIONS else "A4"
 
 

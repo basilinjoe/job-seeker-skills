@@ -14,11 +14,11 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from fixtures import CLI, CLEAN_RESUME, EXAMPLE_SHORT, RENDER_RESUME, run, urs_module
+from fixtures import CLI, CLEAN_RESUME, EXAMPLE_SHORT, RENDER_RESUME, run, render_module
 from jsk.gates import layout
 
-tex = urs_module("urs.tex")
-themes = urs_module("urs.themes")
+tex = render_module("render.tex")
+themes = render_module("render.themes")
 LAYOUT = "jsk.gates.layout"
 
 

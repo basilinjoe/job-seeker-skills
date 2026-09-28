@@ -608,7 +608,7 @@ or a path, `store` `jsk.graph.store.load(root)`.
 
 ### `jsk render`
 
-The `jsk.urs.render_resume` module.
+The `jsk.render.render_resume` module.
 
 ```bash
 jsk render resume.json --out DIR
@@ -659,7 +659,7 @@ looked at — and it would look perfectly fine. See `references/templates.md`.
 
 ### `jsk preview`
 
-The `jsk.urs.preview_templates` module.
+The `jsk.render.preview_templates` module.
 
 ```bash
 jsk preview resume.json --out DIR
@@ -850,7 +850,7 @@ The exit code is the worst gate's: `0` all passed, `1` any failed, `2` called wr
 
 ### `jsk fit`
 
-The `jsk.urs.fit_pages` module.
+The `jsk.render.fit_pages` module.
 
 ```bash
 jsk fit resume.tex --target-pages 2

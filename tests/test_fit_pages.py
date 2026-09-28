@@ -15,12 +15,12 @@ import unittest
 from pathlib import Path
 
 from fixtures import (EXAMPLE_SHORT, FIT_PAGES, RENDER_RESUME, load_script, run,
-                      urs_module)
+                      render_module)
 
 fp = load_script(FIT_PAGES)
-emit_latex = urs_module("urs.emit_latex")
-themes = urs_module("urs.themes")
-tex = urs_module("urs.tex")
+emit_latex = render_module("render.emit_latex")
+themes = render_module("render.themes")
+tex = render_module("render.tex")
 
 
 def preamble(margin="0.8in", section="7pt", entry="4pt",

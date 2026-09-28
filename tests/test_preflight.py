@@ -11,10 +11,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import PLUGIN, PREFLIGHT, load_script, run, urs_module
+from fixtures import PLUGIN, PREFLIGHT, load_script, run, render_module
 
 preflight = load_script(PREFLIGHT)
-tex = urs_module("urs.tex")
+tex = render_module("render.tex")
 
 # Without a TeX engine preflight is BLOCKED by design - the PDF is the deliverable - so a
 # test that expects a passing verdict needs one. These ran nowhere without an engine
@@ -187,7 +187,7 @@ class RequiredVersusOptional(unittest.TestCase):
         # "modules (4/4)" since these became a package: preflight asks whether each
         # one can be imported, not whether a file of that name is on disk.
         self.assertTrue(any(n.startswith("modules") for n in required))
-        self.assertTrue(any(n.startswith("urs renderer") for n in required))
+        self.assertTrue(any(n.startswith("renderer") for n in required))
         self.assertTrue(any(n.startswith("profile schema") for n in required))
 
     def test_the_pdf_toolchain_is_required(self):

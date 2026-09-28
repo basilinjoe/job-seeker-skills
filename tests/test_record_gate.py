@@ -18,7 +18,7 @@ from unittest import mock
 import careerkit
 from jsk.gates import numbers, record
 from jsk.graph import ontology as O
-from jsk.urs import tex
+from jsk.render import tex
 
 TODAY = datetime.date(2026, 9, 24)
 K = O.K
@@ -375,7 +375,7 @@ class Ship(GateCase):
     def ship(self, path, *extra, fake=True):
         from test_ship_freeze import fake_compile
 
-        from jsk.urs import render_resume
+        from jsk.render import render_resume
         out = Path(path).parent / "out"
         patch = (mock.patch.object(render_resume, "compile_pdf", fake_compile()) if fake
                  else contextlib.nullcontext())

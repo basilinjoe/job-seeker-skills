@@ -28,7 +28,7 @@ SCRIPTS = REPO_ROOT / "src" / PACKAGE      # for tests that read a module's sour
 CLI = f"{PACKAGE}.cli"
 KB = f"{PACKAGE}.kb"
 CHECK_ATS = f"{PACKAGE}.gates.check_ats"
-FIT_PAGES = f"{PACKAGE}.urs.fit_pages"
+FIT_PAGES = f"{PACKAGE}.render.fit_pages"
 
 
 def load_script(name):
@@ -174,7 +174,7 @@ def scaffold_markdown_kb(directory, name, date="2026-09-01"):
 # below read the package.
 PLUGIN = REPO_ROOT / "plugins" / "jsk"
 SCHEMA_DIR = SRC / PACKAGE / "data" / "schema"
-RENDER_RESUME = f"{PACKAGE}.urs.render_resume"
+RENDER_RESUME = f"{PACKAGE}.render.render_resume"
 CHECK_PROSE = f"{PACKAGE}.gates.check_prose"
 PREFLIGHT = f"{PACKAGE}.preflight"
 # The shipped example workspace's short resume.json: what `jsk doctor` renders, and what
@@ -183,10 +183,10 @@ PREFLIGHT = f"{PACKAGE}.preflight"
 EXAMPLE_SHORT = SRC / PACKAGE / "data" / "example" / "resume.json"
 
 
-def urs_module(name):
-    """Import a module from the urs package the renderer itself uses.
+def render_module(name):
+    """Import a module from the render package the renderer itself uses.
 
-    `urs.emit_latex` and `jsk.urs.emit_latex` name the same module now, so the bare
+    `render.emit_latex` and `jsk.render.emit_latex` name the same module now, so the bare
     spelling callers already use is qualified here rather than at every call site.
     """
     if not name.startswith(PACKAGE + "."):

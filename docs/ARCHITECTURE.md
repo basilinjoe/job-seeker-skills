@@ -107,7 +107,7 @@ Every string in it is final: folded to ASCII for `ats-maximal`, dates formatted,
 already dropped. A new section kind is a builder method and a branch in each emitter; a key the
 emitters do not read is dead.
 
-### Inside the `urs` package
+### Inside the `render` package
 
 The renderer: everything after the plan, and the three CLIs.
 
@@ -148,7 +148,7 @@ Outward it has three edges, all lazy: `gates.report` for `Report` and `show` (on
 finding), `gates.numbers` for the untraced-number check `jsk kb check` and `jsk match` run over the
 career's bullets, and `resume.career` for `Career` (export, select, match). Inward, `resume/` builds
 from the store, `gates/record.py` reads it and `cli.py` finds the workspace with `kbcli.find_root`.
-Nothing in `urs/` imports it, and nothing in it imports `urs/`.
+Nothing in `render/` imports it, and nothing in it imports `render/`.
 
 ## The agent boundary
 
@@ -226,7 +226,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     short.py                        the short file: read, shape, ids, its workspace
     career.py                       the career graph as the builder, export and match read it
     build.py                        every content decision, made exactly once
-  urs/                              plan -> document, and the three CLIs that drive it
+  render/                           plan -> document, and the three CLIs that drive it
     formatting.py                   *how* one value reads      profiles.py   region profiles
     themes.py                       appearance only            tex.py        the engine
     emit_latex.py  emit_text.py     markup only
@@ -291,10 +291,10 @@ with a theme, not a module.
 
 | Group | Edges crossing the boundary | Edges inside | Verdict |
 |---|---|---|---|
-| `urs/` — rendering, preview, page fitter, over the plan→document pipeline | **2**, lazy: the schema path, and `render_resume` reaching `resume.build` | many | **made** |
-| `gates/` — record, parse, prose, layout | lazy: the record gate reads `graph/` and `resume.short`; the layout gate `resume.build` and `urs.themes` | 3 | **made** |
+| `render/` — rendering, preview, page fitter, over the plan→document pipeline | **2**, lazy: the schema path, and `render_resume` reaching `resume.build` | many | **made** |
+| `gates/` — record, parse, prose, layout | lazy: the record gate reads `graph/` and `resume.short`; the layout gate `resume.build` and `render.themes` | 3 | **made** |
 | `graph/` — the career record, from format to queries | 3, lazy (see "Inside the graph package") | many | **made** |
-| `resume/` — the short file, the career as read for a resume, the plan builder | about eleven, into `graph/` and `urs/` | 3 | **made as the seam**, not by this test: it is the one place the career meets the renderer, and keeping that join in one package is what keeps `graph/` and `urs/` from importing each other |
+| `resume/` — the short file, the career as read for a resume, the plan builder | about eleven, into `graph/` and `render/` | 3 | **made as the seam**, not by this test: it is the one place the career meets the renderer, and keeping that join in one package is what keeps `graph/` and `render/` from importing each other |
 
 The reason for measuring applies to anything proposed here: four modules that all operate on the same
 noun and never import each other would gain a boundary crossing per edge and buy nothing but a
@@ -313,8 +313,8 @@ directory named after what they have in common.
 | What makes a `resume.json` fail | `src/jsk/gates/record.py`, `src/jsk/resume/short.py` (shape, ids) | `references/resume-format.md`, `tests/test_record_gate.py`, `tests/test_short.py` |
 | A key in `resume.json` | `short.KEYS` in `src/jsk/resume/short.py` | `references/resume-format.md`, `build.py`, `migrate.shorten`, `export.short_file` |
 | **What content is selected** | `src/jsk/resume/build.py` | never an emitter; `tests/test_build.py` |
-| **How a document looks** | `src/jsk/urs/emit_*.py` | never `build.py` |
-| **A palette, typeface or rule** | `src/jsk/urs/themes.py` | `references/templates.md`, `tests/test_themes.py` |
+| **How a document looks** | `src/jsk/render/emit_*.py` | never `build.py` |
+| **A palette, typeface or rule** | `src/jsk/render/themes.py` | `references/templates.md`, `tests/test_themes.py` |
 | Support for a new market | `data/schema/profiles/<code>.json` | `profile.schema.json`, `region` in `references/resume-format.md` |
 | **The career record's format** | `src/jsk/graph/ontology.py` | `references/kb-format.md` — the ontology is the format and the reference is its prose; a class, predicate or section in one and not the other is a defect. The writer and the tier-1 rules follow the ontology by themselves |
 | A rule across entries | `src/jsk/graph/rules.py` | a mutation in `tests/test_graph_rules.py` — a rule with no mutation fails the suite |
@@ -365,7 +365,7 @@ story:
 
 **The graph package and its boundaries** are what hold the third one: every write to `kb.ttl`
 goes through `record.prepare`/`record.commit` after the would-be workspace validates, and the
-package never imports `urs/` nor is imported by it. See "Inside the graph package" above.
+package never imports `render/` nor is imported by it. See "Inside the graph package" above.
 
 A Markdown knowledge base moves across with `jsk migrate`, once, round-trip checked, deleting
 nothing. **It exists for one release.** The next deletes `jsk migrate`, `kbindex.py`,

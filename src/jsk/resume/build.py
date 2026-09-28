@@ -5,7 +5,7 @@ order, whether a line clears the provenance floor, how a date reads, and whether
 text is folded to ASCII. The emitters receive finished strings and decide nothing, so
 the PDF and the plain text built from one resume cannot disagree.
 
-This was `urs/resolve.py`, which read a URS record copied out of career/kb.ttl. It reads
+This was `render/resolve.py`, which read a URS record copied out of career/kb.ttl. It reads
 the career itself now. What the resolver rendered from data kb.ttl cannot hold - date of
 birth, a photo, referees, compensation, an engagement's location - is gone with the
 copy: a feature comes back by giving its data a home in the ontology first.
@@ -14,8 +14,8 @@ import datetime
 
 from ..graph import ontology as O
 from ..graph import record as R
-from ..urs import profiles
-from ..urs.formatting import fmt_grade, fmt_instant, fmt_period, fold_ascii, period_key
+from ..render import profiles
+from ..render.formatting import fmt_grade, fmt_instant, fmt_period, fold_ascii, period_key
 from .career import CONTACTS, Career, employers, enum, local, number, period
 
 PROVENANCE_RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}

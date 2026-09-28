@@ -6,7 +6,7 @@ The count was right and the page was wasted; only the fill says so.
 """
 import unittest
 
-from jsk.urs import render_resume
+from jsk.render import render_resume
 
 
 class TheLastPageIsMeasured(unittest.TestCase):
