@@ -55,7 +55,7 @@ import re
 import sys
 
 from . import __version__
-from .cliutil import utf8_stdout, wants_help
+from .cliutil import parse_flags, utf8_stdout, wants_help
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
 # this file. Named once, here, and a test holds the docstring to it, so rewording that
@@ -344,33 +344,6 @@ GATES_VALUE_FLAGS = ("--record", "--pages", "--max-findings")
 # the documents came from, and guessing would put a passing record gate against a
 # resume it never described.
 DEFAULT_RECORD = "resume.json"
-
-
-def parse_flags(args, values, switches=("--json",), repeats=()):
-    """((positional, flags), None) or (None, what was wrong with the call).
-
-    `values` take one argument, `switches` none, and `repeats` one argument each time
-    they appear, collected into a list.
-    """
-    positional, flags, pending = [], {}, None
-    for token in args:
-        if pending:
-            if pending in repeats:
-                flags.setdefault(pending, []).append(token)
-            else:
-                flags[pending] = token
-            pending = None
-        elif token in values or token in repeats:
-            pending = token
-        elif token in switches:
-            flags[token] = True
-        elif token.startswith("-"):
-            return None, f"unknown flag: {token}"
-        else:
-            positional.append(token)
-    if pending:
-        return None, f"{pending} needs a value"
-    return (positional, flags), None
 
 
 def parse_gates(args):

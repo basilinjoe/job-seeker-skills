@@ -1,4 +1,4 @@
-"""Shared help-text handling for the hand-rolled entry points.
+"""Shared help-text and flag handling for the hand-rolled entry points.
 
 These entry points hand-write their usage, and they used to print one paragraph
 of the module docstring and return 2 - so `jsk render --help` named none of the
@@ -31,6 +31,33 @@ def utf8_stdout() -> None:
 def wants_help(argv) -> bool:
     """Did the caller actually ask for help, rather than call the thing wrongly?"""
     return any(a in HELP_FLAGS for a in argv)
+
+
+def parse_flags(args, values, switches=("--json",), repeats=()):
+    """((positional, flags), None) or (None, what was wrong with the call).
+
+    `values` take one argument, `switches` none, and `repeats` one argument each time
+    they appear, collected into a list.
+    """
+    positional, flags, pending = [], {}, None
+    for token in args:
+        if pending:
+            if pending in repeats:
+                flags.setdefault(pending, []).append(token)
+            else:
+                flags[pending] = token
+            pending = None
+        elif token in values or token in repeats:
+            pending = token
+        elif token in switches:
+            flags[token] = True
+        elif token.startswith("-"):
+            return None, f"unknown flag: {token}"
+        else:
+            positional.append(token)
+    if pending:
+        return None, f"{pending} needs a value"
+    return (positional, flags), None
 
 
 def docstring_usage(doc: str | None) -> str:
