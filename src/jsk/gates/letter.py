@@ -32,7 +32,7 @@ import os
 import re
 import sys
 
-from ..cliutil import docstring_usage, utf8_stdout, wants_help
+from ..cliutil import docstring_usage, parse_flags, utf8_stdout, wants_help
 from .report import show
 
 LIMIT = 250
@@ -229,17 +229,15 @@ def number_lines(text, doc, store, posting=None, today=None):
 
 def parse(argv):
     """(letter, record, problem)."""
-    args, record, positional = list(argv), None, []
-    while args:
-        token = args.pop(0)
-        if token == "--record":
-            record = args.pop(0) if args else None
-            if not record:
-                return None, None, "--record needs a value\nfix:  --record applications/<dir>/resume.json"
-        elif token.startswith("-"):
-            return None, None, f"unknown flag: {token}\n{docstring_usage(__doc__)}"
-        else:
-            positional.append(token)
+    no_value = "--record needs a value\nfix:  --record applications/<dir>/resume.json"
+    parsed, problem = parse_flags(argv, ("--record",), ())
+    if parsed is None:
+        return None, None, no_value if problem.endswith("needs a value") else \
+            f"{problem}\n{docstring_usage(__doc__)}"
+    positional, flags = parsed
+    record = flags.get("--record")
+    if record == "":
+        return None, None, no_value
     if len(positional) != 1:
         return None, None, docstring_usage(__doc__)
     return positional[0], record, None
