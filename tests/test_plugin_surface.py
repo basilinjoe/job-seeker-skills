@@ -614,15 +614,6 @@ class TextIsReadInOnePlace(unittest.TestCase):
         "gates/check_ats.py": "reads a rendered .txt with errors=replace",
         "gates/check_prose.py": "reads a rendered .tex with errors=replace",
         "gates/letter.py": "reads a cover letter with errors=replace",
-        # Not moved yet - Phase 2 of docs/superpowers/plans/2026-09-28-review-fixes.md
-        # takes each off as it moves.
-        "cli.py": "phase 2", "graph/assessment.py": "phase 2", "graph/decisions.py": "phase 2",
-        "graph/gapsbuild.py": "phase 2", "graph/gapsdraft.py": "phase 2",
-        "graph/kbcli.py": "phase 2", "graph/pack.py": "phase 2", "graph/postingbuild.py":
-        "phase 2", "graph/record.py": "phase 2", "graph/rules.py": "phase 2",
-        "kb.py": "phase 2", "migrate.py": "phase 2", "render/fit_pages.py": "phase 2",
-        "render/profiles.py": "phase 2", "render/render_resume.py": "phase 2",
-        "resume/short.py": "phase 2",
     }
 
     @staticmethod
