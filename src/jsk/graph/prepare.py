@@ -216,11 +216,15 @@ def prepare(root, app, posting, budget, today, draft):
                      + ", ".join(f"{n} {v}" for v, n in counts.items()))
     lines += [f"flagged {row.slug}: {row.flag_text}" for row in derived.rows if row.flags]
     if draft:
-        from . import store as S
-        from .gapsbuild import sent
         from .gapsdraft import MARK, draft_gaps
+        from .timeline import Frozen, refuse_if_sent
 
-        if sent(store, S.file_name(os.path.abspath(app), store.root)):
+        try:
+            refuse_if_sent(app, "gaps.txt")
+            sent = False
+        except Frozen:
+            sent = True
+        if sent:
             lines.append("no gaps.txt drafted: the application is sent, and its assessment "
                          "with it")
         elif os.path.exists(target):

@@ -759,9 +759,11 @@ def not_rendered(why):
 
 def frozen_refusal(*dirs):
     """Lines refusing a render into, or from, a frozen application - or None."""
+    from .graph.timeline import frozen
+
     for d in dirs:
-        path = os.path.join(d, APPLICATION_TTL)
-        if os.path.isfile(path):
+        path = frozen(d)
+        if path:
             return [f"frozen: {path} - re-rendering would overwrite what was sent",
                     "fix:  copy the application to a new dated directory to reuse it"]
     return None

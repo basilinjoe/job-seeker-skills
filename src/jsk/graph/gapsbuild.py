@@ -249,19 +249,6 @@ def render(r, a, today, lines=(), dropped=()):
 
 # --- the build -------------------------------------------------------------------------
 
-def sent(store, app_rel):
-    """The day application.ttl beside it says it was sent, or None."""
-    from . import ontology as O
-
-    parsed = store.parsed.get(f"{app_rel}/application.ttl")
-    for q in parsed.quads if parsed else ():
-        if q.predicate.value == O.J + "submitted" and \
-                getattr(q.object, "datatype", None) is not None and \
-                q.object.datatype.value == O.XSD + "date":
-            return q.object.value
-    return None
-
-
 def previous_verdicts(store, app_rel, stem):
     """{slug: j:matched} from the gaps.ttl being replaced - the verdict id's local part
     after `vrd_<stem>_`, which is the requirement's slug."""
@@ -294,10 +281,15 @@ def build(app_dir, store, r, today, derived=None):
     from . import store as S
     from .gapsderive import derive
     from .gapsdraft import advert, drops
+    from .io import GraphError
+    from .timeline import sent_day
     from .writer import WriteError, write
 
     app_rel = S.file_name(os.path.abspath(app_dir), store.root)
-    day = sent(store, app_rel)
+    try:
+        day = sent_day(app_dir)
+    except GraphError as e:
+        return [], [("FAIL", f"{app_rel}/application.ttl: {e}", e.fix)]
     if day:
         return [], [("FAIL", f"{app_rel}: sent on {day} - gaps.ttl and gaps.md are frozen",
                      "a sent assessment is what it said at the time; nothing to rebuild")]
