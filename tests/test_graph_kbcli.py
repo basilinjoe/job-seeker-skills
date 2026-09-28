@@ -384,6 +384,12 @@ class ConfirmFromSource(Workspace):
         self.assertEqual(code, 1, out)
         self.assertIn("convert it to .md or .txt first", out)
 
+    def test_a_document_in_another_encoding_is_refused_not_crashed(self):
+        self.doc.write_bytes(SOURCE.replace("Care Group", "Café Group").encode("cp1252"))
+        code, out = self.confirm("prj_site_onboarding", quote="Led the site programme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("prior-resume.md is not UTF-8 text", out)
+
     def test_a_pdf_without_pymupdf_is_refused_with_the_fix(self):
         import sys
         from unittest import mock

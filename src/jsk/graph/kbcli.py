@@ -434,11 +434,14 @@ def document_text(path):
         except ImportError:
             return None, (f"{path}: reading a PDF needs pymupdf, which this Python has not got",
                           "install pymupdf, or convert it to .md")
+    from .io import NotUtf8, Unreadable, read_text
+
     try:
-        with open(path, "rb") as fh:
-            return fh.read().decode("utf-8-sig"), None
-    except UnicodeDecodeError:
+        return read_text(path), None
+    except NotUtf8:
         return None, (f"{path} is not UTF-8 text", "convert it to .md or .txt first")
+    except Unreadable as e:
+        return None, (str(e), e.fix)
 
 
 def scaled(numerals):
