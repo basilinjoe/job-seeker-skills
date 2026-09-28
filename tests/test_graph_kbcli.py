@@ -990,7 +990,15 @@ class UnknownFlags(Workspace):
     flags out by name and leave the rest as arguments, so a mistyped one was caught only
     when the count came out wrong - and then as "takes one changeset", not as the typo."""
 
-    CALLS = [("apply", "changes.trig"), ("adopt",), ("fmt",), ("path",)]
+    CALLS = [("apply", "changes.trig"), ("adopt",), ("fmt",), ("path",),
+             ("confirm", "k:prj_identity", "--answer", "It shipped in March.")]
+
+    def test_a_quote_may_start_with_a_dash(self):
+        # A value is whatever follows its flag, as it was when each verb lifted its own.
+        code, out = self.kb("confirm", "k:prj_identity", "--source", "notes.md",
+                            "--quote", "-40% in a quarter")
+        self.assertEqual(code, 1, out)          # it got as far as looking for the file
+        self.assertIn("REFUSED  notes.md", out)
 
     def test_each_verb_names_the_flag(self):
         for call in self.CALLS:

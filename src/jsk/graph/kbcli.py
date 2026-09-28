@@ -605,8 +605,8 @@ def confirm_summary(path, answer, root):
     return 0
 
 
-@verb
-def cmd_confirm(args, root):
+@verb(values=("--answer", "--summary", "--source", "--quote"))
+def cmd_confirm(args, flags, root):
     """jsk kb confirm <id>... --answer "what the person said"
        jsk kb confirm <id>... --source <file> --quote "the document's words"
        jsk kb confirm --summary <resume.json> --answer "what the person said"
@@ -631,10 +631,8 @@ def cmd_confirm(args, root):
     from . import record as R
     from . import store as S
 
-    answer = take(args, "--answer", value=True)
-    summary = take(args, "--summary", value=True)
-    source = take(args, "--source", value=True)
-    quote = take(args, "--quote", value=True)
+    answer, summary, source, quote = (flags.get(f) for f in
+                                      ("--answer", "--summary", "--source", "--quote"))
     if (source is not None or quote is not None) and answer is not None:
         return usage("--source/--quote and --answer are two ways to confirm - pass one")
     if (source is None) != (quote is None):
