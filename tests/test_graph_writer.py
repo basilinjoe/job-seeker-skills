@@ -181,6 +181,14 @@ class NeverUnparseable(unittest.TestCase):
         _, back = self.round_trip([t])
         self.assertEqual(back, {(str(t.subject), str(t.predicate), str(t.object))})
 
+    def test_a_typed_value_with_a_newline(self):
+        """A typed literal goes through short_string, which wrote the newline raw - a
+        line jump inside a single-quoted string, which no parser reads back."""
+        t = ox.Triple(ox.NamedNode(O.K + "met_x"), ox.NamedNode(O.J + "note"),
+                      ox.Literal("a\nb", datatype=ox.NamedNode(O.XSD + "token")))
+        _, back = self.round_trip([t])
+        self.assertEqual(back, {(str(t.subject), str(t.predicate), str(t.object))})
+
     def test_an_iri_from_a_namespace_the_file_does_not_declare(self):
         t = ox.Triple(ox.NamedNode(O.K + "met_x"), ox.NamedNode(O.J + "note"),
                       ox.NamedNode(O.OP + "set"))

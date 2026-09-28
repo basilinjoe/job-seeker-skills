@@ -424,18 +424,18 @@ def bad_answer(answer, denial_fix):
 
 def document_text(path):
     """(text, None) or (None, (reason, fix)): the words of a document to quote from."""
+    from .io import NotUtf8, Unreadable, normalise, read_text
+
     ext = os.path.splitext(path)[1].lower()
     if ext in (".docx", ".doc", ".odt", ".rtf"):
         return None, (f"{path}: a {ext} file is not read here", "convert it to .md or .txt first")
     if ext == ".pdf":
         from ..gates.check_ats import read_pdf
         try:
-            return read_pdf(path)[0], None
+            return normalise(read_pdf(path)[0]), None
         except ImportError:
             return None, (f"{path}: reading a PDF needs pymupdf, which this Python has not got",
                           "install pymupdf, or convert it to .md")
-    from .io import NotUtf8, Unreadable, read_text
-
     try:
         return read_text(path), None
     except NotUtf8:
@@ -507,7 +507,6 @@ def unquoted_words(quads, iri, quote):
 def quoted_answer(source, quote, root):
     """(answer, None) or (None, exit code): `From <source>: "<quote>"` once the quote is
     checked against the document, word for word as rules.unquoted checks a posting's."""
-    from .io import normalise
     from .rules import DENIAL, PLACEHOLDER, squash
     from .store import inside, rel
 
@@ -521,7 +520,7 @@ def quoted_answer(source, quote, root):
     text, problem = document_text(source)
     if problem:
         return None, refuse([problem[0]], problem[1])
-    if squash(quote) not in squash(normalise(text)):
+    if squash(quote) not in squash(text):
         return None, refuse([f"{source} does not say {quote!r}"],
                             "copy the words exactly as the document has them - the quote is "
                             "checked word for word")
@@ -1256,7 +1255,9 @@ def main(argv=None):
         print(inspect.cleandoc(VERBS[name].__doc__))
         return 0
     values, switches, lists = FLAGS[name]
-    parsed, problem = parse_flags(rest, (*values, "--root"), switches, lists=lists)
+    # A lone `-` is apply's to refuse (stdin is refused there), not an unknown flag.
+    parsed, problem = parse_flags(rest, (*values, "--root"), switches, lists=lists,
+                                  dash=True)
     if parsed is None:
         return usage(problem)
     rest, flags = parsed

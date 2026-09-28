@@ -44,7 +44,7 @@ def curie(iri):
 
 def short_string(value):
     return '"' + (value.replace("\\", "\\\\").replace('"', '\\"')
-                  .replace("\t", "\\t").replace("\r", "\\r")) + '"'
+                  .replace("\t", "\\t").replace("\r", "\\r").replace("\n", "\\n")) + '"'
 
 
 def long_string(value):

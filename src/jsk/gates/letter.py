@@ -232,7 +232,7 @@ def parse(argv):
     no_value = "--record needs a value\nfix:  --record applications/<dir>/resume.json"
     parsed, problem = parse_flags(argv, ("--record",), ())
     if parsed is None:
-        return None, None, no_value if problem.endswith("needs a value") else \
+        return None, None, no_value if problem.kind == "missing" else \
             f"{problem}\n{docstring_usage(__doc__)}"
     positional, flags = parsed
     record = flags.get("--record")

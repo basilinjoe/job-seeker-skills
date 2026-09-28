@@ -258,16 +258,18 @@ def parse(argv):
     from ..cliutil import parse_flags
 
     strict, limit = False, MAX_FINDINGS
+    not_a_number = ("--max-findings needs a whole number, got {!r}\n"
+                    "fix:  --max-findings 50   - or 0 to print every finding")
     parsed, problem = parse_flags(argv, ("--max-findings",), ("--strict",))
-    if parsed is None and not problem.endswith("needs a value"):
+    if parsed is None:
+        if problem.kind == "missing":
+            return None, strict, limit, not_a_number.format(None)
         return None, strict, limit, f"{problem}\n{__doc__.split(chr(10) * 2)[1]}"
-    positional, flags = parsed or ([], {"--max-findings": None})
+    positional, flags = parsed
     if "--max-findings" in flags:
         raw = flags["--max-findings"]
-        if raw is None or not raw.isdigit():
-            return None, strict, limit, (f"--max-findings needs a whole number, got {raw!r}\n"
-                                         "fix:  --max-findings 50   - or 0 to print every "
-                                         "finding")
+        if not raw.isdigit():
+            return None, strict, limit, not_a_number.format(raw)
         limit = int(raw) or None
     strict = "--strict" in flags
     if len(positional) != 1:

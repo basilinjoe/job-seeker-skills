@@ -888,8 +888,28 @@ class ParseFlags(unittest.TestCase):
         self.assertEqual(self.parse("--quote", "-40% cost", values=("--quote",)),
                          (([], {"--quote": "-40% cost"}), None))
 
-    def test_a_lone_dash_is_positional(self):
-        self.assertEqual(self.parse("-"), ((["-"], {}), None))
+    def test_a_lone_dash_is_positional_only_where_asked(self):
+        """kb apply answers `-` (stdin is refused); jsk gates or ship reading `-` as a
+        path would fail further in, on a file that is not there."""
+        self.assertEqual(self.parse("-", dash=True), ((["-"], {}), None))
+        self.assertEqual(self.parse("-"), (None, "unknown flag: -"))
+
+    def test_a_value_flag_given_twice_is_refused(self):
+        """Keeping the last dropped the first without a word: `--answer A --answer B`
+        logged B as what the person said."""
+        parsed, problem = self.parse("--answer", "A", "--answer", "B", values=("--answer",))
+        self.assertIsNone(parsed)
+        self.assertEqual((problem, problem.kind, problem.flag),
+                         ("--answer given twice - pass it once", "repeated", "--answer"))
+
+    def test_after_a_double_dash_everything_is_positional(self):
+        """So `jsk kb query similar -- -40% cost cut` can say what it means."""
+        self.assertEqual(self.parse("similar", "--", "-40%", "--json"),
+                         ((["similar", "-40%", "--json"], {}), None))
+
+    def test_a_problem_names_its_kind_and_flag(self):
+        _, problem = self.parse("--out", values=("--out",))
+        self.assertEqual((problem.kind, problem.flag), ("missing", "--out"))
 
     def test_a_list_runs_to_the_next_flag(self):
         self.assertEqual(self.parse("--select", "a", "b,c", "--out", "f", "d",

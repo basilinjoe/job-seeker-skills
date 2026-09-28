@@ -28,21 +28,38 @@ def utf8_stdout() -> None:
     except (ValueError, OSError, TypeError, AttributeError):
         pass                    # a wrapper stream's reconfigure may take other arguments
 
+
 def wants_help(argv) -> bool:
     """Did the caller actually ask for help, rather than call the thing wrongly?"""
     return any(a in HELP_FLAGS for a in argv)
 
 
-def parse_flags(args, values, switches=("--json",), repeats=(), lists=()):
-    """((positional, flags), None) or (None, what was wrong with the call).
+class Problem(str):
+    """What was wrong with a call, as the message printed - and, for a caller that adds
+    its own fix, `kind` ("unknown", "missing" or "repeated") and the `flag`."""
+
+    def __new__(cls, text, kind, flag):
+        self = super().__new__(cls, text)
+        self.kind, self.flag = kind, flag
+        return self
+
+
+def parse_flags(args, values, switches=("--json",), repeats=(), lists=(), dash=False):
+    """((positional, flags), None) or (None, a Problem).
 
     `values` take one argument, `switches` none, and `repeats` one argument each time
     they appear, collected into a list. `lists` take every argument up to the next one
     starting with "-", as a list that may be empty. A value may start with "-" - it is
-    whatever follows its flag - and a lone "-" is a positional argument, not a flag.
+    whatever follows its flag. A value flag given twice is refused: which one was meant
+    is the caller's to say, and keeping the last dropped the first without a word.
+    After `--` every argument is positional, so a query can say "-40%". With `dash`, a
+    lone "-" is positional too - for a command that answers it - else an unknown flag.
     """
-    positional, flags, pending, listing = [], {}, None, None
+    positional, flags, pending, listing, rest = [], {}, None, None, False
     for token in args:
+        if rest:
+            positional.append(token)
+            continue
         if listing and not token.startswith("-"):
             flags[listing].append(token)
             continue
@@ -50,9 +67,14 @@ def parse_flags(args, values, switches=("--json",), repeats=(), lists=()):
         if pending:
             if pending in repeats:
                 flags.setdefault(pending, []).append(token)
+            elif pending in flags:
+                return None, Problem(f"{pending} given twice - pass it once", "repeated",
+                                     pending)
             else:
                 flags[pending] = token
             pending = None
+        elif token == "--":
+            rest = True
         elif token in values or token in repeats:
             pending = token
         elif token in lists:
@@ -60,12 +82,12 @@ def parse_flags(args, values, switches=("--json",), repeats=(), lists=()):
             flags.setdefault(token, [])
         elif token in switches:
             flags[token] = True
-        elif token.startswith("-") and token != "-":
-            return None, f"unknown flag: {token}"
+        elif token.startswith("-") and not (dash and token == "-"):
+            return None, Problem(f"unknown flag: {token}", "unknown", token)
         else:
             positional.append(token)
     if pending:
-        return None, f"{pending} needs a value"
+        return None, Problem(f"{pending} needs a value", "missing", pending)
     return (positional, flags), None
 
 
