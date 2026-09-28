@@ -108,6 +108,19 @@ class FromNothing(Scaffold):
         again = self.path(".gitattributes").read_text(encoding="utf-8").splitlines()
         self.assertEqual(again, lines)
 
+    def test_a_cp1252_gitattributes_is_left_alone_with_the_rules_to_add(self):
+        """The person's own file: bytes that are not UTF-8 are not appended to, and the
+        record is still written."""
+        raw = b"# \x93mine\x94\n*.pdf binary\n"
+        self.path(".gitattributes").write_bytes(raw)
+        code, out = self.new()
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Traceback", out)
+        self.assertIn("not UTF-8", out)
+        self.assertIn("*.ttl text eol=lf", out)
+        self.assertEqual(self.path(".gitattributes").read_bytes(), raw)
+        self.assertTrue(self.path(kb.KB).is_file())
+
     def test_doctor_finds_the_new_record(self):
         from jsk import preflight
 

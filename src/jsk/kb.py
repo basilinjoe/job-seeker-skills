@@ -189,11 +189,18 @@ def restart(root, name, today):
 
 def gitattributes(root):
     """Add whichever of GITATTRIBUTES the workspace's .gitattributes lacks. Never removes."""
+    from .graph.io import Missing, Unreadable, read_text
+
     path = os.path.join(root, ".gitattributes")
-    have = ""
-    if os.path.exists(path):
-        with open(path, encoding="utf-8") as fh:
-            have = fh.read()
+    try:
+        have = read_text(path, ".gitattributes")
+    except Missing:
+        have = ""
+    except Unreadable as e:
+        # The person's own file, and the record is already written: say what to add
+        # rather than append to bytes that could not be read.
+        return (f"left   {path}: {e}\n        fix: {e.fix}, then add "
+                + "; ".join(f"`{rule}`" for rule in GITATTRIBUTES))
     lines = {line.strip() for line in have.splitlines()}
     missing = [rule for rule in GITATTRIBUTES if rule not in lines]
     if not missing:
