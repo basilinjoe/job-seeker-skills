@@ -95,8 +95,10 @@ src = ["src", "tests"]
 # `E,F,W` catch the things that are actually wrong - an undefined name, an unused
 # import, a redefinition. Those are worth failing a build over from now on. `B`
 # (bugbear) joined after the 2026-09-28 review: a loop variable a closure captures, a
-# zip that silently truncates, an exception re-raised without its cause.
-select = ["E", "F", "W", "B"]
+# zip that silently truncates, an exception re-raised without its cause. `BLE` (blind
+# except) joined with it: each of the four left says, on its line, why nothing
+# narrower will do.
+select = ["E", "F", "W", "B", "BLE"]
 ignore = [
     "E501",     # line-length is set above; what is left over is prose inside strings
     "E741",
@@ -115,8 +117,6 @@ ignore = [
 #                 must not pay for a module it never reaches, which is what keeps a
 #                 write at about the interpreter floor. If PL is ever selected, this
 #                 one stays ignored permanently.
-#   BLE001         blind excepts - also deliberate, and also documented: they are what
-#                 turn a would-be traceback into a verdict a person can act on.
 #   PLW1510   9x  subprocess.run without check= - every call site reads returncode.
 #   PLR09xx        argument and branch counts. These are CLIs; that is the job.
 

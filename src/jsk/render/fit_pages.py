@@ -33,6 +33,7 @@ import tempfile
 
 
 from .tex import available_engine, compile_pdf
+from ..cliutil import utf8_stdout
 
 MARGIN_FLOOR_IN = 0.5
 FONT_FLOOR_PT = 10.0
@@ -198,10 +199,7 @@ def main(argv=None):
     ap.add_argument("--in-place", action="store_true", help="overwrite the input file")
     a = ap.parse_args(argv)
 
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+    utf8_stdout()
 
     if a.target_pages < 1:
         print("usage: --target-pages must be at least 1")

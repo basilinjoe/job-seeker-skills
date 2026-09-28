@@ -10,7 +10,23 @@ and an exit code of 0.
 """
 from __future__ import annotations
 
+import sys
+
 HELP_FLAGS = frozenset({"-h", "--help", "help"})
+
+
+def utf8_stdout() -> None:
+    """Print UTF-8, replacing what cannot be encoded. A cp1252 Windows console raises
+    UnicodeEncodeError from inside a print of a finding's non-ASCII text, and the whole
+    verdict is lost with it. A stream that cannot be reconfigured - a test's StringIO,
+    an already-detached one - is left as it is."""
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is None:
+        return
+    try:
+        reconfigure(encoding="utf-8", errors="replace")
+    except (ValueError, OSError):
+        pass
 
 def wants_help(argv) -> bool:
     """Did the caller actually ask for help, rather than call the thing wrongly?"""

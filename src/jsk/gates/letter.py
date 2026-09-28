@@ -32,7 +32,7 @@ import os
 import re
 import sys
 
-from ..cliutil import docstring_usage, wants_help
+from ..cliutil import docstring_usage, utf8_stdout, wants_help
 from .report import show
 
 LIMIT = 250
@@ -244,10 +244,7 @@ def parse(argv):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:                                        # pragma: no cover
-        pass
+    utf8_stdout()
     if wants_help(argv):
         print(docstring_usage(__doc__))
         return 0

@@ -35,7 +35,7 @@ import re
 import sys
 import unicodedata
 
-from ..cliutil import docstring_usage, wants_help
+from ..cliutil import docstring_usage, utf8_stdout, wants_help
 
 # The section titles build.py writes. A heading is found by its words rather than its
 # size: circuit sets its heads at the body's own 11pt, in another family.
@@ -210,10 +210,7 @@ def from_record(record, pdf):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else list(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+    utf8_stdout()
     if wants_help(argv):
         print(docstring_usage(__doc__))
         return 0

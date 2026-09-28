@@ -22,7 +22,7 @@ the extracted text says, and whether a parser can extract it at all.
 """
 import sys, os, re, html, unicodedata
 
-from ..cliutil import docstring_usage, wants_help
+from ..cliutil import docstring_usage, utf8_stdout, wants_help
 
 # A heading is short and unpunctuated. Longer than this is prose, whatever it says.
 HEADING_MAX = 40
@@ -75,7 +75,7 @@ def variant_of(pdf_path):
     try:
         with pymupdf.open(pdf_path) as doc:
             keywords = (doc.metadata or {}).get("keywords") or ""
-    except Exception:
+    except Exception:  # noqa: BLE001 - pymupdf raises its own types on a damaged PDF; no keyword then
         return None
     m = VARIANT_KEYWORD.search(keywords)
     return m.group(1) if m else None
@@ -138,10 +138,7 @@ def main(argv=None):
     """
     argv = sys.argv[1:] if argv is None else list(argv)
     # The non-ASCII findings would otherwise be unprintable on a cp1252 console.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+    utf8_stdout()
 
     if wants_help(argv):
         # Before the path is read: `--help` used to be looked up as a file and
@@ -175,7 +172,7 @@ def main(argv=None):
             print("      pip install pymupdf")
             print("  Without it the parse gate is unverifiable; treat the resume as unchecked.")
             return 2
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - any pymupdf failure is the verdict "unreadable"
             return unreadable(f"{type(e).__name__}: {e}")
     elif ext == ".txt":
         try:

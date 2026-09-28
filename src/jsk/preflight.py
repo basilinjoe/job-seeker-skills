@@ -95,7 +95,7 @@ def module_available(name):
     try:
         __import__(name)
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 - a broken install raises anything; doctor reports it missing
         return False
 
 
@@ -112,7 +112,7 @@ def present(names):
         try:
             if importlib.util.find_spec(full) is None:
                 missing.append(name)
-        except Exception:
+        except Exception:  # noqa: BLE001 - a broken subpackage raises; the same finding (see above)
             missing.append(name)
     return missing
 

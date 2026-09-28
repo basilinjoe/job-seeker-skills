@@ -17,7 +17,7 @@ through his promotion" - is not a parsing defect, so check_ats.py passes it with
 """
 import sys, os, re
 
-from ..cliutil import docstring_usage, wants_help
+from ..cliutil import docstring_usage, utf8_stdout, wants_help
 
 
 try:
@@ -318,10 +318,7 @@ def check(paragraphs):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+    utf8_stdout()
 
     if wants_help(argv):
         # Before the path is read: `--help` used to be looked up as a file and

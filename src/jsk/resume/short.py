@@ -12,6 +12,8 @@ import json
 import os
 import re
 
+from ..cliutil import utf8_stdout
+
 VERSION = 2
 FORMATS = ("presentation", "ats-maximal")
 STATUSES = ("confirmed", "inferred")
@@ -212,17 +214,12 @@ def main(argv):
 
     doctor spawns it over the example workspace: the record gate (jsk.gates.record)
     replaces it there once it lands, and this stays the check with no gate behind it."""
-    import sys
-
     args = argv[1:]
     if len(args) != 1 or args[0].startswith("-"):
         print("usage: python -m jsk.resume.short <resume.json>")
         return 2
     path = args[0]
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:                                        # pragma: no cover
-        pass
+    utf8_stdout()
     print(f"checking: {path}")
     try:
         doc = read(path)

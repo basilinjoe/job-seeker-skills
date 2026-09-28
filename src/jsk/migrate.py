@@ -68,7 +68,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from .cliutil import docstring_usage, wants_help
+from .cliutil import docstring_usage, utf8_stdout, wants_help
 
 ORIG = "posting.orig.md"
 
@@ -2495,10 +2495,7 @@ def main(argv=None):
         print(f"FAIL  jsk migrate needs markdown-it-py, pyyaml and pyoxigraph: {e}")
         print('fix:  python -m pip install "jsk-resume[migrate]"')
         return 1
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:                                        # pragma: no cover
-        pass
+    utf8_stdout()
     try:
         plan = plan_migration(path)
     except Refused as e:

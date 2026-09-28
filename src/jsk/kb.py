@@ -32,7 +32,7 @@ import datetime
 import os
 import sys
 
-from .cliutil import docstring_usage, wants_help
+from .cliutil import docstring_usage, utf8_stdout, wants_help
 
 KB = "career/kb.ttl"
 LOG = "career/log.ttl"
@@ -313,10 +313,7 @@ def main(argv=None):
         return 2
 
     code, lines = scaffold(argv[0], name.strip(), force=force)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:                                        # pragma: no cover
-        pass
+    utf8_stdout()
     for line in lines:
         print(line)
     return code

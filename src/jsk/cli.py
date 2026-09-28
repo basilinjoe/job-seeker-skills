@@ -55,7 +55,7 @@ import re
 import sys
 
 from . import __version__
-from .cliutil import wants_help
+from .cliutil import utf8_stdout, wants_help
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
 # this file. Named once, here, and a test holds the docstring to it, so rewording that
@@ -169,10 +169,7 @@ def run_in_process(script, args):
     """
     # A path or a title under a non-ASCII name reaches a cp1252 console as a
     # UnicodeEncodeError from inside the print, which loses the whole verdict.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:                                        # pragma: no cover
-        pass
+    utf8_stdout()
     code, output = call_gate(script, args, capture=False)
     if output:
         print(output, end="" if output.endswith("\n") else "\n")
@@ -663,10 +660,7 @@ def worst_exit(results):
 
 def print_results(title, results):
     """Each result under its `--- ` heading, its output verbatim."""
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+    utf8_stdout()
     print(title)
     print()
     for result in results:
