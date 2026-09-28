@@ -224,11 +224,10 @@ def write_shadow(root, text):
 def shadow(root, sha):
     """The text the last logged write wrote, or None when the copy is missing or is not
     the revision the log says it is."""
-    from .io import normalise, sha256
+    from .io import Unreadable, read_text, sha256
 
     try:
-        with open(os.path.join(root, SHADOW), encoding="utf-8") as fh:
-            text = normalise(fh.read())
-    except (OSError, UnicodeDecodeError):
+        text = read_text(os.path.join(root, SHADOW), "the shadow copy")
+    except Unreadable:
         return None
     return text if sha and sha256(text) == sha else None
