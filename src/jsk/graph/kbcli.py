@@ -432,11 +432,6 @@ def bad_answer(answer, denial_fix):
     return None
 
 
-def inside(path, root):
-    here, top = (os.path.normcase(os.path.realpath(p)) for p in (path, root))
-    return os.path.commonpath([here, top]) == top
-
-
 def document_text(path):
     """(text, None) or (None, (reason, fix)): the words of a document to quote from."""
     ext = os.path.splitext(path)[1].lower()
@@ -519,6 +514,7 @@ def quoted_answer(source, quote, root):
     checked against the document, word for word as rules.unquoted checks a posting's."""
     from .io import normalise
     from .rules import DENIAL, PLACEHOLDER, squash
+    from .store import inside, rel
 
     if not os.path.isfile(source) or not inside(source, root):
         return None, refuse([f"{source}: not a file inside this workspace"],
@@ -534,8 +530,7 @@ def quoted_answer(source, quote, root):
         return None, refuse([f"{source} does not say {quote!r}"],
                             "copy the words exactly as the document has them - the quote is "
                             "checked word for word")
-    rel = os.path.relpath(os.path.abspath(source), root).replace(os.sep, "/")
-    return f'From {rel}: "{squash(quote)}"', None
+    return f'From {rel(source, root)}: "{squash(quote)}"', None
 
 
 def confirm_summary(path, answer, root):
@@ -548,6 +543,7 @@ def confirm_summary(path, answer, root):
     from ..cli import frozen_refusal
     from ..resume import short
     from . import record as R
+    from .store import inside, rel
 
     code = bad_answer(answer, "write the summary again with what the person said, and ask "
                               "them about the new words")
@@ -581,8 +577,7 @@ def confirm_summary(path, answer, root):
         old = fh.read()
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
     R.replace(R.staged(path, text), path)
-    print(diff(old, text, os.path.relpath(os.path.abspath(path), root).replace(os.sep, "/")),
-          end="")
+    print(diff(old, text, rel(path, root)), end="")
     print(f"confirmed the summary in {path}")
     return 0
 

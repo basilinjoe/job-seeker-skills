@@ -44,22 +44,33 @@ class State:
     detail: str = ""
 
 
+def integer(value):
+    """A revision's lexical value as an int, or None when it is not one (`3.0`): tier 1
+    FAILs the datatype, so the record reads as though the revision were missing."""
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
 def header_revision(quads):
     for q in quads:
         if q.subject.value == O.K + "kb" and q.predicate.value == O.J + "revision":
-            return int(q.object.value)
+            return integer(q.object.value)
     return None
 
 
 def last_entry(quads):
-    """(revision, kbSha256) of the log's newest entry, or (None, None)."""
+    """(revision, kbSha256) of the log's newest entry, or (None, None). An entry whose
+    revision is not an integer is never the newest."""
     entries = {}
     for q in quads:
         if O.class_of(q.subject.value) == "LogEntry":
             entries.setdefault(q.subject.value, {})[q.predicate.value[len(O.J):]] = q.object.value
-    best = max((e for e in entries.values() if "revision" in e),
-               key=lambda e: int(e["revision"]), default=None)
-    return (int(best["revision"]), best.get("kbSha256")) if best else (None, None)
+    best = max(((integer(e["revision"]), e) for e in entries.values()
+                if integer(e.get("revision", "")) is not None),
+               key=lambda pair: pair[0], default=None)
+    return (best[0], best[1].get("kbSha256")) if best else (None, None)
 
 
 def state(store):

@@ -53,6 +53,36 @@ class State(unittest.TestCase):
             self.assertEqual(record.state(load(tmp)).kind, "missing")
 
 
+class NotAnInteger(unittest.TestCase):
+    """A revision that is not an integer reads as absent: tier 1 FAILs its datatype, so the
+    person sees the real cause, and the load does not raise."""
+
+    def setUp(self):
+        self.root = workspace()
+        self.addCleanup(shutil.rmtree, self.root)
+
+    def edit(self, file, old, new):
+        path = Path(self.root) / file
+        text = path.read_text(encoding="utf-8")
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new), encoding="utf-8")
+
+    def test_a_decimal_kb_revision_loads_and_fails_its_datatype(self):
+        self.edit(record.KB, "j:revision 2 .", "j:revision 3.0 .")
+        s = load(self.root)
+        self.assertIsNone(record.header_revision(s.parsed[record.KB].quads))
+        self.assertIn((record.KB, "j:revision is xsd:decimal; expected integer"),
+                      {(f.file, f.detail) for f in s.fails() if f.rule == "object"})
+        self.assertIsNone(record.state(s).kb_revision)
+
+    def test_a_decimal_log_revision_is_skipped_for_the_newest(self):
+        self.edit(record.LOG, "k:rev_2 j:revision 2 ;", "k:rev_2 j:revision 2.5 ;")
+        s = load(self.root)
+        self.assertEqual(record.last_entry(s.parsed[record.LOG].quads)[0], 1)
+        self.assertIn((record.LOG, "j:revision is xsd:decimal; expected integer"),
+                      {(f.file, f.detail) for f in s.fails() if f.rule == "object"})
+
+
 class Commit(unittest.TestCase):
     def setUp(self):
         self.root = workspace()

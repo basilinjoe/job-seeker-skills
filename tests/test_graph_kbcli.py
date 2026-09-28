@@ -38,6 +38,11 @@ op:add {
 """
 
 
+def other_drive(root):
+    """A drive letter that is not `root`'s: across drives, relpath and commonpath raise."""
+    return "Q:" if os.path.splitdrive(os.path.abspath(root))[0].upper() != "Q:" else "R:"
+
+
 class Workspace(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -361,6 +366,17 @@ class ConfirmFromSource(Workspace):
         self.assertEqual(code, 1, out)
         self.assertIn("inside this workspace", out)
 
+    @unittest.skipUnless(os.name == "nt", "drives are a Windows thing")
+    def test_a_file_on_another_drive_is_refused(self):
+        from unittest import mock
+
+        elsewhere = other_drive(self.root) + "\\cv.md"
+        real = os.path.isfile
+        with mock.patch("os.path.isfile", lambda p: p == elsewhere or real(p)):
+            code, out = self.confirm("prj_site_onboarding", source=elsewhere)
+        self.assertEqual(code, 1, out)
+        self.assertIn("inside this workspace", out)
+
     def test_a_docx_is_refused_with_the_fix(self):
         docx = self.path("imports/cv.docx")
         docx.write_bytes(b"PK\x03\x04")
@@ -440,6 +456,12 @@ class ConfirmSummary(Workspace):
         self.assertEqual(code, 1, out)
         self.assertIn("frozen", out)
         self.assertIn("new dated directory", out)
+
+    @unittest.skipUnless(os.name == "nt", "drives are a Windows thing")
+    def test_a_resume_on_another_drive_is_refused(self):
+        code, out = self.confirm(path=other_drive(self.root) + "\\resume.json")
+        self.assertEqual(code, 1, out)
+        self.assertIn("not inside this workspace", out)
 
     def test_an_edit_after_confirming_drops_it(self):
         from jsk.resume import short
