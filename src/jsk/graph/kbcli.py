@@ -43,7 +43,7 @@ import os
 import re
 import sys
 
-from ..cliutil import docstring_usage, wants_help
+from ..cliutil import docstring_usage, parse_flags, wants_help
 
 # For the checker alone, as in store.py: `typing` costs a command ~3 ms it never uses.
 TYPE_CHECKING = False
@@ -51,11 +51,21 @@ if TYPE_CHECKING:
     from typing import Literal, overload
 
 VERBS = {}
+# verb -> (flags taking a value, switches, flags taking a list), beside --root, which
+# every verb takes. main parses them, so an unknown flag is refused by name.
+FLAGS = {}
 
 
-def verb(fn):
-    VERBS[fn.__name__.removeprefix("cmd_")] = fn
-    return fn
+def verb(fn=None, *, values=(), switches=(), lists=()):
+    if fn is not None:
+        VERBS[fn.__name__.removeprefix("cmd_")] = fn
+        return fn
+
+    def register(fn):
+        name = fn.__name__.removeprefix("cmd_")
+        VERBS[name], FLAGS[name] = fn, (values, switches, lists)
+        return fn
+    return register
 
 
 def find_root(start):
@@ -220,8 +230,8 @@ def changeset_text(path):
     return raw.decode("utf-8-sig")
 
 
-@verb
-def cmd_apply(args, root):
+@verb(switches=("--dry-run",))
+def cmd_apply(args, flags, root):
     """jsk kb apply <changeset.trig> [--dry-run]
 
     Merges a changeset (op:add, op:set, op:retire, op:delete; see docs/SCRIPTS.md) into
@@ -233,7 +243,6 @@ def cmd_apply(args, root):
     from . import store as S
     from .io import GraphError
 
-    dry = bool(take(args, "--dry-run"))
     if len(args) != 1:
         return usage("jsk kb apply takes one changeset")
     path = args[0]
@@ -264,7 +273,7 @@ def cmd_apply(args, root):
     summary = cs.summary or (f"Applied {os.path.basename(path)}: {len(e.minted)} added, "
                              f"{len(e.touched)} changed.")
     return write_logged(store, root, e.quads, "apply", summary, e.touched, e.minted,
-                        dry_run=dry, notes=e.notes)
+                        dry_run="--dry-run" in flags, notes=e.notes)
 
 
 def drafted(text, out, what):
@@ -749,8 +758,8 @@ def comments_refused(parsed):
                   "move each into a j:note on the entry it is about, or pass --drop-comments")
 
 
-@verb
-def cmd_adopt(args, root):
+@verb(switches=("--drop-comments",))
+def cmd_adopt(args, flags, root):
     """jsk kb adopt [--drop-comments]
 
     Logs career/kb.ttl as it now is: after a hand edit, a torn write, a restored file, or
@@ -763,7 +772,6 @@ def cmd_adopt(args, root):
     from . import store as S
     from .io import parse_text
 
-    drop = bool(take(args, "--drop-comments"))
     if args:
         return usage("jsk kb adopt takes no arguments")
     store = S.load(root)
@@ -774,7 +782,7 @@ def cmd_adopt(args, root):
     code = writable(store, allow=("unlogged", "hand-edited", "torn", "out-of-sync"))
     if code is not None:
         return code
-    if store.parsed[R.KB].comments and not drop:
+    if store.parsed[R.KB].comments and "--drop-comments" not in flags:
         return comments_refused(store.parsed[R.KB])
     old = R.shadow(root, st.logged_sha)
     before = parse_text(old, R.KB).quads if old is not None else None
@@ -797,8 +805,8 @@ def cmd_adopt(args, root):
     return write_logged(store, root, after, "adopt", summary, touched, old=old)
 
 
-@verb
-def cmd_fmt(args, root):
+@verb(switches=("--drop-comments",))
+def cmd_fmt(args, flags, root):
     """jsk kb fmt [<file>...] [--drop-comments]
 
     Rewrites record files in the canonical layout - career/kb.ttl when none is named. A
@@ -812,7 +820,7 @@ def cmd_fmt(args, root):
     from . import store as S
     from .writer import WriteError, write
 
-    drop = bool(take(args, "--drop-comments"))
+    drop = "--drop-comments" in flags
     store = S.load(root)
     names = [S.file_name(os.path.abspath(a), root) for a in args] or [R.KB]
     for name in names:
@@ -1244,8 +1252,8 @@ def cmd_check(args, root):
     return 1 if rep.fails else 0
 
 
-@verb
-def cmd_path(args, root):
+@verb()
+def cmd_path(args, flags, root):
     """jsk kb path [--root DIR]
 
     Prints where the record is, as absolute paths: the workspace, career/kb.ttl,
@@ -1283,15 +1291,24 @@ def main(argv=None):
     if wants_help(rest):
         print(inspect.cleandoc(VERBS[name].__doc__))
         return 0
-    try:
-        root = take(rest, "--root", value=True) or find_root(os.getcwd())
-    except SystemExit as e:
-        return e.code
+    spec, flags = FLAGS.get(name), {}
+    if spec is None:
+        try:
+            root = take(rest, "--root", value=True) or find_root(os.getcwd())
+        except SystemExit as e:
+            return e.code
+    else:
+        values, switches, lists = spec
+        parsed, problem = parse_flags(rest, (*values, "--root"), switches, lists=lists)
+        if parsed is None:
+            return usage(problem)
+        rest, flags = parsed
+        root = flags.pop("--root", None) or find_root(os.getcwd())
     if root is None or not os.path.isdir(root):
         return usage("no workspace here: run it inside one, or pass --root DIR "
                      "(the folder holding career/)")
     if name == "path":
-        return cmd_path(rest, os.path.abspath(root))
+        return cmd_path(rest, flags, os.path.abspath(root))
     try:
         import pyoxigraph  # noqa: F401
     except ImportError:
@@ -1299,7 +1316,9 @@ def main(argv=None):
               "`jsk doctor` says how to install it")
         return 1
     try:
-        return VERBS[name](rest, os.path.abspath(root))
+        if spec is None:
+            return VERBS[name](rest, os.path.abspath(root))
+        return VERBS[name](rest, flags, os.path.abspath(root))
     except SystemExit as e:
         return e.code
 

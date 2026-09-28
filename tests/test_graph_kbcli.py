@@ -985,5 +985,20 @@ class KbPath(unittest.TestCase):
         self.assertIn("takes no arguments", out)
 
 
+class UnknownFlags(Workspace):
+    """A flag a verb does not take is refused by name. Every verb used to lift its own
+    flags out by name and leave the rest as arguments, so a mistyped one was caught only
+    when the count came out wrong - and then as "takes one changeset", not as the typo."""
+
+    CALLS = [("apply", "changes.trig"), ("adopt",), ("fmt",), ("path",)]
+
+    def test_each_verb_names_the_flag(self):
+        for call in self.CALLS:
+            with self.subTest(verb=call[0]):
+                code, out = self.kb(*call, "--no-such-flag")
+                self.assertEqual(code, 2, out)
+                self.assertIn("unknown flag: --no-such-flag", out)
+
+
 if __name__ == "__main__":
     unittest.main()
