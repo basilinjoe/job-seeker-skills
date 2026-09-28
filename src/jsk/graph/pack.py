@@ -128,10 +128,10 @@ class Walls:
 
 def read_pack(path):
     """{concept iri: {"class": name, "label": [...], "edges": [(name, iri)]}}."""
-    from .io import parse_text
+    from .io import parse_text, read_text
 
-    with open(path, encoding="utf-8") as fh:
-        quads = parse_text(fh.read(), os.path.basename(path), kind="vocabulary").quads
+    name = os.path.basename(path)
+    quads = parse_text(read_text(path, name), name, kind="vocabulary").quads
     out = defaultdict(lambda: {"class": None, "label": [], "edges": []})
     for q in quads:
         s, p, o = q.subject.value, q.predicate.value, q.object
