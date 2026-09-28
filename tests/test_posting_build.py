@@ -258,6 +258,34 @@ class Build(Workspace):
                                     "this replaces; `jsk tailor prepare` writes them again, with "
                                     "gaps.txt folded in"])
 
+    def send(self, submitted='"2026-09-20"^^xsd:date'):
+        (self.app / "application.ttl").write_text(
+            "@prefix j: <tag:jsk,2026:ns#> .\n@prefix k: <tag:jsk,2026:id/> .\n"
+            "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n"
+            f"k:app_acme_staff_platform j:submitted {submitted} .\n",
+            encoding="utf-8", newline="\n")
+
+    def test_a_sent_posting_is_not_rebuilt_and_its_assessment_is_left_alone(self):
+        """Ruling 6: a sent posting is what the application answered - posting.ttl, and the
+        gaps files derived from it, keep their bytes, and the refusal writes nothing."""
+        self.build()
+        for name in ("gaps.ttl", "gaps.md"):
+            (self.app / name).write_text(name + "\n", encoding="utf-8")
+        before = {n: (self.app / n).read_bytes() for n in ("posting.ttl", "gaps.ttl", "gaps.md")}
+        self.send()
+        with self.assertRaises(posting.Refused) as caught:
+            self.build(ROWS.replace("c:docker |", "c:docker | preferred"), replace=True)
+        self.assertIn("sent on 2026-09-20", str(caught.exception))
+        self.assertTrue(caught.exception.fix.startswith("fix:  "), caught.exception.fix)
+        self.assertEqual({n: (self.app / n).read_bytes() for n in before}, before)
+
+    def test_an_application_held_back_is_rebuilt(self):
+        """`submitted false`: frozen for the documents, but not sent - the posting may move."""
+        self.build()
+        self.send("false")
+        self.build(replace=True)
+        self.assertIn("k:post_acme_staff_platform", self.text())
+
     def test_an_existing_posting_ttl_needs_replace(self):
         self.target.write_text("hand reviewed\n", encoding="utf-8")
         with self.assertRaises(posting.Refused) as caught:

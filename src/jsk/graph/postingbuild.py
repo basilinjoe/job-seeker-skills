@@ -147,8 +147,16 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
     from .queries import PRE, concepts
     from .shapes import tier1
     from .store import file_name
+    from .timeline import Frozen, refuse_if_sent, remove_app_file, write_app_file
     from .writer import write
 
+    # Ruling 6 of the 2026-09-28 review: a sent posting is what the application answered,
+    # so it is not rebuilt - and the gaps files derived from it are not removed. Asked
+    # first, so the refusal writes nothing; the writes below ask again.
+    try:
+        refuse_if_sent(app_dir, POSTING_TTL)
+    except Frozen as e:
+        raise Refused(str(e), f"fix:  {e.fix}") from None
     target = os.path.join(app_dir, POSTING_TTL)
     if os.path.exists(target) and not replace:
         raise Refused(f"{target} already exists",
@@ -268,14 +276,15 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
     if os.path.dirname(os.path.abspath(app_dir)) != os.path.join(root, "applications"):
         warnings.append(f"{app_dir} is not in {os.path.join(root, 'applications')}: "
                         f"jsk kb check will not read it")
-    with open(target, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
-    # gaps.ttl and gaps.md are derived from the posting just replaced: a requirement it
-    # dropped would leave gaps.ttl dangling, and that FAIL would block prepare here. gaps.txt
-    # is the analyst's, keyed by slug, and survives any rebuild that keeps the slugs.
-    removed = [n for n in ("gaps.ttl", "gaps.md") if os.path.isfile(os.path.join(app_dir, n))]
-    for n in removed:
-        os.remove(os.path.join(app_dir, n))
+    try:
+        write_app_file(app_dir, POSTING_TTL, text)
+        # gaps.ttl and gaps.md are derived from the posting just replaced: a requirement it
+        # dropped would leave gaps.ttl dangling, and that FAIL would block prepare here.
+        # gaps.txt is the analyst's, keyed by slug, and survives any rebuild that keeps the
+        # slugs.
+        removed = [n for n in ("gaps.ttl", "gaps.md") if remove_app_file(app_dir, n)]
+    except Frozen as e:
+        raise Refused(str(e), f"fix:  {e.fix}") from None
     if removed:
         warnings.append(f"removed {' and '.join(removed)}, derived from the posting.ttl this "
                         f"replaces; `jsk tailor prepare` writes them again"

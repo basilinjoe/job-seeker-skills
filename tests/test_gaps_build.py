@@ -156,9 +156,15 @@ class Build(unittest.TestCase):
         self.assert_fails("k8s | partial\n",
                           "gaps.txt line 1: k8s is lowered to partial with no reason")
 
-    def test_keep_on_a_row_no_flag_asked_about_fails(self):
-        self.assert_fails("k8s | keep\n",
-                          "gaps.txt line 1: `keep` on k8s, which no flag asked about")
+    def test_keep_on_a_row_no_flag_asks_about_warns_and_the_match_stands(self):
+        """Finding 4 of the 2026-09-28 review: this FAILed, so a flag the career had since
+        cleared blocked the build. `keep` is the match's verdict, which is what is written."""
+        written, found = self.build("k8s | keep\n")
+        self.assertEqual(len(written), 2)
+        self.assertEqual([(s, t) for s, t, _ in found],
+                         [("WARN", "gaps.txt line 1: `keep` on k8s, which no flag asks about "
+                                   "now")])
+        self.assertIn("j:matched j:satisfied ; j:verdict j:satisfied", self.read("gaps.ttl"))
 
     def test_an_unfilled_slot_fails(self):
         self.assert_fails("fit: partial\neligibility: <!-- jsk: judge it -->\n",
@@ -174,6 +180,14 @@ class Build(unittest.TestCase):
 
     def test_a_row_that_repeats_the_match_warns(self):
         _, found = self.build("dotnet | unevidenced | tagged only\n")
+        self.assertEqual([(s, t) for s, t, _ in found],
+                         [("WARN", "gaps.txt line 1: dotnet says unevidenced, which is the "
+                                   "match's verdict already")])
+
+    def test_a_row_that_repeats_the_match_with_no_reason_only_warns(self):
+        """Finding 5: this FAILed "no reason" beside the WARN telling it to delete the row."""
+        written, found = self.build("dotnet | unevidenced\n")
+        self.assertEqual(len(written), 2)
         self.assertEqual([(s, t) for s, t, _ in found],
                          [("WARN", "gaps.txt line 1: dotnet says unevidenced, which is the "
                                    "match's verdict already")])

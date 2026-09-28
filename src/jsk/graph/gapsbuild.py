@@ -65,53 +65,69 @@ def slots(text):
             if MARK in line]
 
 
+def outcome(o, row, was, rows):
+    """The one (severity, text, fix) gaps.txt row `o` gets against the match's `row`, or
+    None. `was` is the match's verdict when gaps.ttl was last written; `rows` names the
+    requirements when `row` is None.
+
+    One case per return, in the order of the 2026-09-28 review's Ruling 7. A chain of
+    `if`s that each appended let two findings fire for one row, and let the order decide
+    which: `keep` on a row whose flag the career had since cleared FAILed, and a row
+    restating the match FAILed "no reason" beside its "delete the row". Neither changes
+    what `fold` writes - both are the match's verdict there - so each warns.
+    """
+    from .match import RAISE_FIX
+
+    where = f"gaps.txt line {o.line}"
+    if row is None:
+        return ("FAIL", f"{where}: {o.slug!r} is not a requirement of this posting",
+                "name it as posting.ttl's req_<stem>_<slug> does - "
+                + ", ".join(sorted(rows))[:200])
+    if MARK in o.verdict:
+        return None                                     # the slot FAIL names it
+    if o.verdict == "keep":
+        if row.flags:
+            return None
+        return ("WARN", f"{where}: `keep` on {o.slug}, which no flag asks about now",
+                "delete the row - an unlisted requirement keeps the match's verdict")
+    if o.verdict == standing(row):
+        return ("WARN", f"{where}: {o.slug} says {o.verdict}, which is the match's verdict "
+                "already", "delete the row")
+    if raises(o.verdict, row.matched):
+        if was is not None and not raises(o.verdict, was):
+            return ("WARN", f"{where}: the match now says {row.matched}; the row lowers "
+                    "nothing - delete it", "the match's verdict stands")
+        return ("FAIL", f"{where}: {o.slug}: {o.verdict}, above the match's {row.matched}",
+                RAISE_FIX)
+    if not o.reason:
+        return ("FAIL", f"{where}: {o.slug} is lowered to {o.verdict} with no reason",
+                "say why, after a second `|` - it becomes the Shortfall")
+    # An implicit row has no j:matched, so gaps.ttl never recorded a `was` for it.
+    if row.matched is not None and was is not None and raises(row.matched, was):
+        return ("WARN", f"{where}: the match now says {row.matched}; you lowered it to "
+                f"{o.verdict} because {o.reason} - still true?",
+                "keep the row if it is, or delete it")
+    return None
+
+
 def check(derived, overlay, text="", previous=None, reviewed=True):
     """(severity, text, fix) for each way gaps.txt leaves the match. `previous` is
     {slug: the match's verdict when gaps.ttl was last written}: a row that lowered a verdict
     the match has since moved is named, not failed, because the career moved, not the row.
     `reviewed` is False when there is no gaps.txt at all: a flagged row waits for the analyst
-    then, and the derived assessment is still written - that is the path with no agent."""
-    from .match import RAISE_FIX
-
+    then, and the derived assessment is still written - that is the path with no agent.
+    Each row gets at most one finding, from `outcome`."""
     previous = previous or {}
     out = [("FAIL", f"gaps.txt line {n}: unfilled slot", "fill it, or delete the line")
            for n, _ in slots(text)]
     rows = {r.slug: r for r in derived.rows}
     said = {}
     for o in overlay.rows:
-        row = rows.get(o.slug)
-        where = f"gaps.txt line {o.line}"
-        if row is None:
-            out.append(("FAIL", f"{where}: {o.slug!r} is not a requirement of this posting",
-                        "name it as posting.ttl's req_<stem>_<slug> does - "
-                        + ", ".join(sorted(rows))[:200]))
-            continue
-        said[o.slug] = o
-        if MARK in o.verdict:
-            continue                                    # the slot FAIL above names it
-        if o.verdict == "keep":
-            if not row.flags:
-                out.append(("FAIL", f"{where}: `keep` on {o.slug}, which no flag asked about",
-                            "delete the row - an unlisted requirement keeps the match's verdict"))
-            continue
-        if not o.reason:
-            out.append(("FAIL", f"{where}: {o.slug} is lowered to {o.verdict} with no reason",
-                        "say why, after a second `|` - it becomes the Shortfall"))
-        was = previous.get(o.slug)
-        if raises(o.verdict, row.matched):
-            if was is not None and not raises(o.verdict, was):
-                out.append(("WARN", f"{where}: the match now says {row.matched}; the row lowers "
-                            f"nothing - delete it", "the match's verdict stands"))
-            else:
-                out.append(("FAIL", f"{where}: {o.slug}: {o.verdict}, above the match's "
-                            f"{row.matched}", RAISE_FIX))
-        elif o.verdict == standing(row):
-            out.append(("WARN", f"{where}: {o.slug} says {o.verdict}, which is the match's "
-                        f"verdict already", "delete the row"))
-        elif was is not None and was != row.matched and raises(row.matched, was):
-            out.append(("WARN", f"{where}: the match now says {row.matched}; you lowered it to "
-                        f"{o.verdict} because {o.reason} - still true?",
-                        "keep the row if it is, or delete it"))
+        if o.slug in rows:
+            said[o.slug] = o
+        found = outcome(o, rows.get(o.slug), previous.get(o.slug), rows)
+        if found:
+            out.append(found)
     for row in derived.rows if reviewed else ():
         if row.flags and row.slug not in said:
             out.append(("FAIL", f"{row.slug} is flagged ({row.flag_text}) and gaps.txt has no "
@@ -282,7 +298,7 @@ def build(app_dir, store, r, today, derived=None):
     from .gapsderive import derive
     from .gapsdraft import advert, drops
     from .io import GraphError
-    from .timeline import sent_day
+    from .timeline import Frozen, sent_day, write_app_file
     from .writer import WriteError, write
 
     app_rel = S.file_name(os.path.abspath(app_dir), store.root)
@@ -311,7 +327,6 @@ def build(app_dir, store, r, today, derived=None):
     if any(s == "FAIL" for s, _, _ in found):
         return [], found
     a = fold(derived, overlay, previous)
-    ttl = os.path.join(app_dir, "gaps.ttl")
     # An assessment that has not changed keeps the day it was made: re-running prepare
     # tomorrow must not rewrite the file for its date alone.
     try:
@@ -330,8 +345,9 @@ def build(app_dir, store, r, today, derived=None):
                              "correct that line; `jsk posting build` reads the same file")]
     md_text = render(r, a, today, advert(os.path.join(app_dir, "posting.md")), dropped)
     written = []
-    for path, body in ((ttl, ttl_text), (os.path.join(app_dir, "gaps.md"), md_text)):
-        with open(path, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(body)
-        written.append(path)
+    for name, body in (("gaps.ttl", ttl_text), ("gaps.md", md_text)):
+        try:
+            written.append(write_app_file(app_dir, name, body))
+        except Frozen as e:         # sent between the check above and this write
+            return written, found + [("FAIL", str(e), e.fix)]
     return written, found
