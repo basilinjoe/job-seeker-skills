@@ -571,5 +571,33 @@ class DocumentedSurface(unittest.TestCase):
         self.assertEqual(missing, [], f"SKILL.md does not name: {missing}")
 
 
+class ArchitectureNamesTheCode(unittest.TestCase):
+    """docs/ARCHITECTURE.md is where a contributor learns what each module is for.
+
+    The review of 2026-09-28 found ten modules it never mentioned - the whole path from a
+    posting to its assessment among them - and a subcommand count two behind. Neither was
+    wrong when written; nothing looked when the code moved on. A module the page does not
+    name is one a contributor has to find by reading the package."""
+
+    TEXT = (REPO / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    WORDS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+             "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()
+
+    def test_every_module_is_named(self):
+        for path in sorted(SCRIPTS.rglob("*.py")):
+            if path.name == "__init__.py" and path.parent != SCRIPTS:
+                continue                        # a subpackage's __init__ has nothing to say
+            with self.subTest(module=path.relative_to(SCRIPTS).as_posix()):
+                named = re.search(rf"(?<![\w.]){re.escape(path.name)}\b", self.TEXT)
+                self.assertTrue(named, f"docs/ARCHITECTURE.md does not name {path.name}")
+
+    def test_the_subcommand_count_is_the_dispatchers(self):
+        count = len(DocumentedSurface.subcommands(self))
+        said = re.search(r"cli\.py\s+the dispatcher: (\w+) subcommands", self.TEXT)
+        self.assertIsNotNone(said, "docs/ARCHITECTURE.md no longer counts the subcommands")
+        self.assertEqual(said.group(1), self.WORDS[count],
+                         f"cli.py dispatches {count} subcommands")
+
+
 if __name__ == "__main__":
     unittest.main()

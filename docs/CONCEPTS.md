@@ -155,4 +155,4 @@ Eight things the skill can do. You do not have to pick — describe what you wan
 
 ---
 
-Next: [Quickstart](QUICKSTART.md) · [Why it works this way](WHY.md) · [Commands](SCRIPTS.md)
+Next: [Quickstart](QUICKSTART.md) · [Why it works this way](WHY.md) · [Commands](SCRIPTS.md) · [The ontology in full](ONTOLOGY.md)

@@ -134,6 +134,7 @@ it in a repo you control so it outlives any single tool, including this one.
 | [Why it works this way](docs/WHY.md) | The reasoning behind every design decision |
 | [Commands](docs/SCRIPTS.md) | The `jsk` command: every subcommand, flags, dependencies, exit codes |
 | [The knowledge base format](plugins/jsk/skills/jsk/references/kb-format.md) | Every section, class and predicate of `career/kb.ttl`, and what goes in each |
+| [The ontology](docs/ONTOLOGY.md) | The full model: every file kind, class, predicate and enum, the vocabulary's semantics, provenance, matching and every validation rule |
 | [Architecture](docs/ARCHITECTURE.md) | For anyone editing this repo |
 | [The resume file](plugins/jsk/skills/jsk/references/resume-format.md) | `resume.json`: every key, and the rule that its only prose is the summary |
 

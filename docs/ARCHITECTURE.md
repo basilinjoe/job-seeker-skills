@@ -42,11 +42,48 @@ PDF once reported two pages for a resume that shipped as three.
 If you find yourself making a content decision inside an emitter, it belongs in the builder. If you
 find yourself making a formatting decision inside the builder, it belongs in an emitter.
 
+### The tailoring pipeline
+
+The second pipeline runs before the first: a posting turned into requirements, joined with the
+career, and assessed. It follows the same rule as the render plan. **A model writes only
+decisions, as short text files. Code writes every Turtle file and every rendered page from them.**
+
+```
+jsk posting fetch URL D     posting.md        the advert, verbatim - public board JSON, no browser
+        |
+jsk posting extract D       (printed)         every advert line numbered, sectioned, with its concepts
+        |
+        |   the analyst writes decisions.txt: one row per requirement, or a drop with a reason
+        v
+jsk posting build D         posting.ttl       each quote IS the extracted line, so it cannot drift;
+        |                                     every qualification line is used or dropped
+        v
+jsk tailor prepare D        gaps.ttl          the match, evidence, the person, the cover - one digest;
+        --draft-gaps        gaps.md           the assessment derived from the match (gapsderive);
+        |                   gaps.txt          a draft overlay, a <!-- jsk: --> slot per judgement
+        |
+        |   the analyst edits gaps.txt: lowers a verdict with a reason, fit, eligibility, the asks
+        v
+jsk match D/posting.ttl     gaps.ttl          the overlay checked against the match and folded in;
+        --gaps D/gaps.txt   gaps.md           an unfilled slot, or a raised verdict, is a FAIL
+```
+
+`decisions.txt` ([`graph/decisions.py`](../src/jsk/graph/decisions.py)) and `gaps.txt`
+([`graph/assessment.py`](../src/jsk/graph/assessment.py)) are the only two files the analyst
+writes. Each holds only what code cannot know: which concept an advert means, and a verdict that
+the triples read too generously. The rest is derived. The cost argument is measured: writing
+`posting.ttl` by hand cost one run 26.5k output tokens, most of them ids and quotes copied
+character by character, which are exactly what the checks then police. Both overlays are
+re-derived on every run from the career as it stands, until `application.ttl` records that the
+application was sent. After that they are left as they were.
+
 ### The commands over it
 
 ```
 jsk new       PATH --name NAME                     career/kb.ttl and log.ttl at r1, applications/
 jsk kb        apply changes.trig                   the career changed: validated, written, logged
+jsk posting   fetch URL D | extract D | build D    the advert, its lines, then posting.ttl
+jsk tailor    prepare D [--draft-gaps]             everything an assessment reads, in one digest
 jsk match     applications/D/posting.ttl           the posting against the career, with the paths
 jsk kb        export --from-match P --out R.json   the short resume.json, chosen from the match
 jsk validate  resume.json                          the record gate - before anything renders
@@ -119,7 +156,8 @@ The renderer: everything after the plan, and the three CLIs.
 | `themes.py` | *appearance* only: palette, typeface, rhythm. Below `emit_latex.py`, and it cannot reach the text |
 | `render_resume.py` · `preview_templates.py` · `fit_pages.py` | the CLIs — `jsk render`, `jsk preview`, `jsk fit`. They orchestrate the modules above and decide nothing themselves |
 
-`render_resume.py` reaches the career only through `resume.build`, lazily. `formatting.py` holds
+`render_resume.py` reaches the career only through `resume.build` (and `resume.short` for the
+short file's errors), lazily. `formatting.py` holds
 pure functions over single values — no profile, no career — which is what makes them testable in
 isolation.
 
@@ -138,17 +176,41 @@ costs nothing on a machine without the engine and `jsk doctor` can report on it.
 | `store.py` | a workspace in memory: one named graph per file, derived triples in `j:derived`, every rule run on every load |
 | `record.py` | kb.ttl and log.ttl kept in step: revision, hash, `state` (clean, hand-edited, torn, ...), `prepare` and `commit` |
 | `changeset.py` · `edit.py` · `kbcli.py` | `jsk kb`: a changeset read and refused or merged, and every verb over the record |
+| `pack.py` · `merge.py` | `jsk kb pack` (the capability starter pack) and `jsk kb merge` (two concepts that are one), each drafted as a changeset and never applied |
 | `queries.py` · `named.py` · `match.py` | the vocabulary and the named questions; `jsk match` |
+| `scoring.py` | the numbers the match ranks by: seniority order, the requirement weights, recency points, months of experience. Standard library only |
+| `select.py` · `export.py` | what a resume for one posting selects (projects, bullets, skill order) and `jsk kb export`, which writes it as the short file |
+| `decisions.py` · `postingbuild.py` | `decisions.txt` read; `jsk posting extract` and `build`, which write `posting.ttl` from it |
+| `prepare.py` | `jsk tailor prepare`: the check, the match, the evidence, the person and the cover, in one digest |
+| `gapsderive.py` · `gapsdraft.py` · `assessment.py` · `gapsbuild.py` | the assessment: derived from the match with no model; the draft `gaps.txt`; `gaps.txt` read; the overlay checked, folded in, and written as `gaps.ttl` and `gaps.md` |
 | `view.py` · `timeline.py` | `jsk kb view`; `jsk freeze`'s application.ttl and `jsk event` |
 
 **Its boundaries.** A write to `career/kb.ttl` goes only through `record.prepare` and
-`record.commit`, after the would-be workspace validates - `kbcli.write_logged`, `jsk new` and
-`jsk migrate` are the three callers, and all three write r1 or the next revision with a log entry.
-Outward it has three edges, all lazy: `gates.report` for `Report` and `show` (one way to print a
-finding), `gates.numbers` for the untraced-number check `jsk kb check` and `jsk match` run over the
-career's bullets, and `resume.career` for `Career` (export, select, match). Inward, `resume/` builds
-from the store, `gates/record.py` reads it and `cli.py` finds the workspace with `kbcli.find_root`.
-Nothing in `render/` imports it, and nothing in it imports `render/`.
+`record.commit`, after the would-be workspace validates. There are three callers:
+`kbcli.write_logged`, `jsk new` and `jsk migrate`. All three write r1 or the next revision, with
+a log entry.
+
+Outward, the package reaches seven places beyond the shared helpers `cliutil` and `paths`:
+
+| Target | For | From |
+|---|---|---|
+| `gates.report` | `Report` and `show`, the one way to print a finding | `store`, `kbcli`, `match` |
+| `gates.numbers` | the untraced-number check `jsk kb check` and `jsk match` run over the career's bullets | `kbcli`, `match` |
+| `gates.check_ats` | `read_pdf`, for `jsk kb confirm --source` given a PDF | `kbcli` |
+| `resume.career` | `Career` | `export`, `select`, `match`, `kbcli` |
+| `resume.short` | reading a `resume.json` | `kbcli` |
+| `posting` | the advert's file name (`posting.md`) and `Refused` | `postingbuild` |
+| `cli` | `frozen_refusal`: one wording for "this application is frozen" | `kbcli` |
+
+All of them are lazy, inside the function that needs them, except three imports at the top of a
+module: `export.py` (`paths`, `resume.career`) and `postingbuild.py` (`posting`). The `cli`
+edge is the one upward edge: a library module importing the dispatcher. It stays lazy so it
+cannot become an import cycle, and moving `frozen_refusal` down into a shared module would
+remove it. `pyoxigraph` is imported only inside functions in every module.
+
+Inward, `resume/` builds from the store, `gates/` reads it, and `cli.py` finds the workspace
+with `kbcli.find_root`. Nothing in `render/` imports the graph package, and nothing in it imports
+`render/`.
 
 ## The agent boundary
 
@@ -165,11 +227,19 @@ Five tasks are delegated to subagents, and the line between them is what each ma
 **For the two authoring agents the anti-invention guarantee is not a tool grant.** Both hold Edit,
 and what holds them is partly what their files say and partly what the write path refuses:
 
-- `jsk-tailor-analyst` writes `posting.ttl` and the assessment, and **never touches
-  `career/kb.ttl`**. That boundary is prose, and `tests/test_plugin_surface.py` asserts the
-  sentence is still in the file, which is the most a test can do about a rule of that kind - but a
-  hand edit to kb.ttl is also detected on the next load and must be adopted, with every provenance
-  it raised listed, before anything can write the record again.
+- `jsk-tailor-analyst` writes two text files, `decisions.txt` and `gaps.txt`. `jsk` turns them
+  into `posting.ttl`, `gaps.ttl` and `gaps.md`, so most of what it could get wrong is refused by
+  the write path, not by what its file says:
+  - every requirement's quote *is* an extracted advert line;
+  - every qualification line must be used or dropped with a reason;
+  - a verdict can only be lowered from the match's, never raised, and a lowered one needs a
+    reason.
+
+  It **never touches `career/kb.ttl`**. That boundary is prose, and
+  `tests/test_plugin_surface.py` asserts the sentence is still in the file, which is the most a
+  test can do about a rule of that kind. A hand edit to kb.ttl is also detected on the next load
+  and must be adopted, with every provenance it raised listed, before anything can write the
+  record again.
 - `jsk-resume-author` reads `jsk match` and `jsk kb show <ids>`, and bullets it writes for the
   career go in through a changeset — they belong in the project they are about, so the next
   application can reuse them. What holds it is not a tool grant: `jsk kb apply` makes every new or
@@ -185,7 +255,7 @@ stated as plainly as possible and the test checks that the statement survives.
 
 `jsk-verifier` is the conditional one. `jsk ship` and `jsk gates` run the record, parse,
 prose and layout gates in a single process and print each one's output verbatim, so a clean ship reads that rather
-than spawning an agent to relay three checkers — and a command has no Write tool more thoroughly than
+than spawning an agent to relay four checkers — and a command has no Write tool more thoroughly than
 an agent does.
 What the agent is kept for is the half a command cannot do: reading a `FAIL` line back to the section
 it came from, and reading the PDF for the render gate.
@@ -208,19 +278,26 @@ docs/                               this directory - human-facing documentation
 src/jsk/                            THE CLI. one installed package, `jsk` on the command line
   __init__.py                       __version__
   __main__.py                       `python -m jsk`, the same entry point as `jsk`
-  cli.py                            the dispatcher: fourteen subcommands, each run in process
+  cli.py                            the dispatcher: sixteen subcommands, each run in process
   cliutil.py                        one contract for --help across the hand-rolled entry points
   paths.py                          where the packaged schema lives - stated once
   kb.py                             `jsk new` - scaffolds career/kb.ttl, log.ttl at r1, applications/
-  migrate.py                        `jsk migrate` - user-knowledgebase.md to the graph, once (until 5.0)
-  kbindex.py                        the Markdown reader migrate uses; deleted in release 5.0
+  posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
+  migrate.py                        `jsk migrate` - user-knowledgebase.md to the graph, once (until N+1)
+  kbindex.py                        the Markdown reader migrate uses; deleted in release N+1
   graph/                            the career record: see "Inside the graph package"
     ontology.py                     the format, as data     writer.py     the canonical layout
     io.py  store.py  record.py      parse, load and validate, kb.ttl and log.ttl in step
     shapes.py  rules.py             tier 1 and tier 2 rules
     changeset.py  edit.py  kbcli.py `jsk kb`
+    pack.py  merge.py               `jsk kb pack` and `jsk kb merge`, drafted as changesets
     queries.py  named.py  match.py  the vocabulary, named queries, `jsk match`
+    scoring.py                      the ranking's numbers; standard library only
     select.py  export.py            what a match selects; `jsk kb export` writes the short file
+    decisions.py  postingbuild.py   decisions.txt; `jsk posting extract` and `build` -> posting.ttl
+    prepare.py                      `jsk tailor prepare` - one digest for the assessment
+    gapsderive.py  gapsdraft.py     the assessment derived from the match; the gaps.txt draft
+    assessment.py  gapsbuild.py     gaps.txt read; checked, folded in, gaps.ttl and gaps.md written
     view.py  timeline.py            `jsk kb view`; application.ttl and `jsk event`
   resume/                           career + resume.json -> the render plan
     short.py                        the short file: read, shape, ids, its workspace
@@ -233,13 +310,15 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     render_resume.py                `jsk render` - one resume to .tex/PDF plus .txt
     preview_templates.py            `jsk preview` - every template, so the look is chosen by looking
     fit_pages.py                    `jsk fit` - fits a render to a page budget
-  gates/                            the mechanical gates `jsk gates` runs
+  gates/                            the mechanical gates `jsk gates` and `jsk check` run
     record.py                       the record gate - resume.json and the bullets it selects
     numbers.py  report.py           the untraced-number check; one way to print a finding
     check_ats.py                    the parse gate        check_prose.py    the prose gate
     layout.py                       the layout gate - fonts, tofu, stranded headings, dates, paper
+    letter.py                       the letter check - a cover letter's length, prose and numbers
   preflight.py                      `jsk doctor`: what this machine can do
-  data/vocabulary.ttl               the shipped technology vocabulary (labels, isA, partOf)
+  data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
+                                    isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded
   data/example/                     a small career/kb.ttl and a short resume.json: doctor renders it
   data/schema/                      package data, reached through paths.py
@@ -248,13 +327,13 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
 plugins/jsk/                        THE SKILL. markdown only - it ships no code
   .claude-plugin/plugin.json        plugin manifest (carries a version)
   commands/                         slash commands
-    setup.md                        the four-phase setup procedure
-    braindump|resume|tailor|...     thin delegations into the skill's modes
+    setup|braindump|resume|...      thin delegations into the skill's modes; each procedure
+                                    lives in references/mode-<name>.md
   agents/                           subagents the modes delegate to
     jsk-verifier.md                 interprets a failed gate against the career and resume.json
     jsk-kb-auditor.md               checks and queries the career, writes a posting-less audit
     jsk-extractor.md                a braindump or imported document to one dry-run changeset
-    jsk-tailor-analyst.md           writes posting.ttl's decisions and gaps.txt; jsk writes the rest
+    jsk-tailor-analyst.md           writes decisions.txt and gaps.txt; jsk writes the rest
     jsk-resume-author.md            bullets into the career, then exports resume.json and its summary
   skills/jsk/
     SKILL.md                        the agent's entry point: routing + hard rules
@@ -285,16 +364,27 @@ point at which a mistake is still cheap.
 
 ## What is a package here, and what is not
 
-Three subpackages, and each was measured before it was made. The test is whether the members
-import *each other* more than they import outward — a group whose members share no edges is a folder
-with a theme, not a module.
+There are four subpackages, and each was measured before it was made. The test is whether the
+members import *each other* more than they import outward. A group whose members share no edges
+is a folder with a theme, not a module.
 
-| Group | Edges crossing the boundary | Edges inside | Verdict |
+The counts below were measured on 2026-09-28. "Targets" are the distinct modules outside the
+package that it imports. "Inside" is the number of import statements between its own members.
+Both leave out the shared helpers `cliutil` and `paths`, which every CLI module imports.
+
+| Group | Targets outside | Imports inside | Verdict |
 |---|---|---|---|
-| `render/` — rendering, preview, page fitter, over the plan→document pipeline | **2**, lazy: the schema path, and `render_resume` reaching `resume.build` | many | **made** |
-| `gates/` — record, parse, prose, layout | lazy: the record gate reads `graph/` and `resume.short`; the layout gate `resume.build` and `render.themes` | 3 | **made** |
-| `graph/` — the career record, from format to queries | 3, lazy (see "Inside the graph package") | many | **made** |
-| `resume/` — the short file, the career as read for a resume, the plan builder | about eleven, into `graph/` and `render/` | 3 | **made as the seam**, not by this test: it is the one place the career meets the renderer, and keeping that join in one package is what keeps `graph/` and `render/` from importing each other |
+| `render/`: rendering, preview and the page fitter, over the plan→document pipeline | **3**, all lazy and all from the two CLIs: `resume.build`, `resume.short`, `cli` (`frozen_refusal`) | 11 | **made** |
+| `gates/`: record, parse, prose, layout, letter | **11**: six `graph/` modules, three `resume/`, two `render/`. All lazy except `record.py`'s import of `graph.ontology`, which is standard library only | 10 | **fails the test today** (below) |
+| `graph/`: the career record, from format to assessment | **7** (see "Inside the graph package") | 202 | **made** |
+| `resume/`: the short file, the career as read for a resume, the plan builder | **8**, into `graph/` and `render/` | 4 | **made as the seam**, not by this test: it is the one place the career meets the renderer, and keeping that join in one package is what keeps `graph/` and `render/` from importing each other |
+
+`gates/` passed the test when it held three gates. The record gate and the letter check have
+since grown into readers of the career, and between them they import from eleven modules
+outside the package, against ten imports among the gates themselves. The package is still the set `jsk gates` and
+`jsk check` run, but by the rule above that is a theme, not a reason. The honest options are to
+accept `gates/` as a named exception, like `resume/`, or to move the two career-reading gates
+beside what they read. Neither has been decided.
 
 The reason for measuring applies to anything proposed here: four modules that all operate on the same
 noun and never import each other would gain a boundary crossing per edge and buy nothing but a
@@ -316,13 +406,14 @@ directory named after what they have in common.
 | **How a document looks** | `src/jsk/render/emit_*.py` | never `build.py` |
 | **A palette, typeface or rule** | `src/jsk/render/themes.py` | `references/templates.md`, `tests/test_themes.py` |
 | Support for a new market | `data/schema/profiles/<code>.json` | `profile.schema.json`, `region` in `references/resume-format.md` |
-| **The career record's format** | `src/jsk/graph/ontology.py` | `references/kb-format.md` — the ontology is the format and the reference is its prose; a class, predicate or section in one and not the other is a defect. The writer and the tier-1 rules follow the ontology by themselves |
+| **The career record's format** | `src/jsk/graph/ontology.py` | `references/kb-format.md` and `docs/ONTOLOGY.md` — the ontology is the format and the reference is its prose; a class, predicate or section in one and not the other is a defect. The writer and the tier-1 rules follow the ontology by themselves |
 | A rule across entries | `src/jsk/graph/rules.py` | a mutation in `tests/test_graph_rules.py` — a rule with no mutation fails the suite |
 | The shipped vocabulary | `src/jsk/data/vocabulary.ttl` | technologies only, no `implies`; `tests/test_graph_vocabulary.py` |
 | The capability starter pack | `src/jsk/data/capabilities.ttl`, `src/jsk/graph/pack.py` | adopted into `kb.ttl` as a changeset, never loaded as vocabulary; `tests/test_graph_pack.py` |
 | What `jsk new` scaffolds | `src/jsk/kb.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
-| A posting's or assessment's shape | `Posting` and `Requirement` in `ontology.py`, `agents/jsk-tailor-analyst.md` | `references/mode-tailor.md` |
-| How postings are ranked | `src/jsk/graph/queries.py` | the weighting table in `agents/jsk-tailor-analyst.md`; the weights live in `src/jsk/graph/scoring.py` |
+| A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `postingbuild.py` and `gapsbuild.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
+| What the analyst may write | `graph/decisions.py` (`decisions.txt`), `graph/assessment.py` (`gaps.txt`) | the checks in `postingbuild.py` and `gapsbuild.py`; `agents/jsk-tailor-analyst.md` |
+| How the career's projects are ranked for a posting | `rank` in `src/jsk/graph/queries.py`; the weights in `src/jsk/graph/scoring.py` | `cover` in the same file, and `select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
 | What the record gate checks | `src/jsk/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
@@ -379,7 +470,7 @@ is in the file and holds each number, so the log says where each confirmation ca
 a conversation rather than a command because every relation the old format left in prose is a
 judgement a script would only guess at.
 
-One more, discovered the hard way: **the tests assert on output text.** Some 200 `assertIn` calls
+One more, discovered the hard way: **the tests assert on output text.** Hundreds of `assertIn` calls
 check strings like `PASS - safe to send` and `DO NOT SEND`. You may *add* lines to a command's
 output. Rewording an existing verdict line breaks tests, and those tests are the gate on the gate.
 
@@ -415,8 +506,10 @@ gate, so it does not go unchecked.
 
 `tests/test_budget.py` and `tests/test_plugin_surface.py` are the two that read the markdown rather
 than the code, and they are what stops the skill and the CLI drifting apart. The first caps what a
-mode costs to read; the second asserts that every subcommand `jsk` dispatches is named in `SKILL.md`
-and `docs/SCRIPTS.md`, and that the agent boundary above is still written in the agent files.
+mode costs to read. The second asserts that every subcommand `jsk` dispatches is named in
+`SKILL.md` and `docs/SCRIPTS.md`, that the agent boundary above is still written in the agent
+files, and that this page names every module under `src/jsk/` and counts the subcommands
+correctly. A new module with no line here fails the suite.
 
 A failing test after a refactor means the refactor was wrong. Do not edit a test to accommodate a
 change in behaviour unless the behaviour change is the point and it is written down.
@@ -438,7 +531,7 @@ pip install -e '.[dev]'             # the above plus pytest, pytest-xdist, ruff
 ```
 
 The `migrate` extra (markdown-it-py, pyyaml; `index` is its alias) reads a `user-knowledgebase.md`
-for `jsk migrate`, and goes with it in release 5.0.
+for `jsk migrate`, and goes with it in release N+1.
 
 Two things are optional to install and required to ship:
 

@@ -2,7 +2,7 @@
 > kept for one purpose: fixing a Markdown file that `jsk migrate` refuses, so it can be
 > migrated. New records are `career/kb.ttl`; their format is
 > `plugins/jsk/skills/jsk/references/kb-format.md`. This page goes with `jsk migrate` in release
-> 5.0.
+> N+1.
 
 # The knowledge base: one file
 

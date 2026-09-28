@@ -233,8 +233,8 @@ def posting_seniority(store, post):
 
 
 def rank(store, post, matches, today):
-    """Every live project scored over the graph's matches, by the table in
-    jsk-tailor-analyst.md: required x3, preferred x1, strength x2, recency, and a
+    """Every live project scored over the graph's matches: scoring.WEIGHTS per
+    requirement carried (required x3, preferred x1), strength x2, recency, and a
     seniority point at or above the posting's. SENIORITY runs from most senior to least,
     so a lower index is higher."""
     level = posting_seniority(store, post)
