@@ -273,7 +273,8 @@ def select(store, post, today, budget, extra=()):
             break
         if row.project in carrying and row.project not in projects:
             projects.append(row.project)
-    projects.sort(key=position.get)
+    # Every project here carries a match, so it is live, and `position` holds every live one.
+    projects.sort(key=position.get)  # pyright: ignore[reportArgumentType, reportCallIssue]
 
     # What a bullet is worth: the requirements it shows, then a number it can stand on.
     reqs = [(iri, set(m.concepts)) for iri, m in kept.items()
@@ -298,7 +299,8 @@ def select(store, post, today, budget, extra=()):
     for iri, m in kept.items():
         mine = [p for p in anchors if p in m.carriers]
         if m.requirement.necessity == "required" and mine:
-            owner[iri] = min(mine, key=position.get)
+            # A carrier, so live, as above.
+            owner[iri] = min(mine, key=position.get)  # pyright: ignore[reportArgumentType, reportCallIssue]
     chosen = {}
     for n, proj in enumerate(projects, 1):
         cap, floor = band(n)

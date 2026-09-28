@@ -71,7 +71,7 @@ def log_entries(store):
 
     if LOG not in store.parsed:
         return []
-    by = defaultdict(lambda: {"ids": set()})
+    by: defaultdict = defaultdict(lambda: {"ids": set()})     # and "revision": int
     for q in store.graph(LOG):
         e = by[q.subject.value]
         if local(q.predicate) == "revision":
@@ -217,7 +217,9 @@ def apply(store, cs, today):
         if s.value in carried:
             sent(s, f"op:add {curie(p.value)}")
             return
-        pred = O.BY_NAME[O.class_of(s.value)].preds.get(local(p)) if local(p) else None
+        # changeset.check refused every subject that is not a jsk id, so it names a class.
+        pred = (O.BY_NAME[O.class_of(s.value)].preds.get(name)  # pyright: ignore[reportArgumentType]
+                if (name := local(p)) else None)
         others = values(after, s, p) - {o}
         if pred and pred.card in "1?" and others and (s, p) not in grouped:
             refuse(s, f"already has {curie(p.value)} {name_of(sorted(others, key=str)[0])}",
@@ -351,7 +353,7 @@ def versions_of(triples, metric):
                   key=lambda s: version_number(s.value))
 
 
-def new_version(after, v, changes, today, carried, edit, taken=frozenset()):
+def new_version(after, v, changes, today, carried, edit, taken: "set | frozenset" = frozenset()):
     """A sent version's new number, as the next version of its metric - the next number
     no file has used, so a version an application still names after git restored an older
     kb.ttl is never minted again with another value."""
@@ -396,7 +398,9 @@ def provenance(after, before, cs, minted_bullets, edit):
     inferred = node(O.J + "inferred")
     old = {s for s, _, _ in before}
     for s in sorted({s for s, _, _ in after}, key=lambda s: s.value):
-        cls = O.BY_NAME[O.class_of(s.value)]
+        # apply refuses a kb.ttl that FAILs, and check() a changeset subject that is not a
+        # jsk id, so every subject names a class.
+        cls = O.BY_NAME[O.class_of(s.value)]  # pyright: ignore[reportArgumentType]
         if not cls.claims or s in stated:
             continue
         if s not in old:

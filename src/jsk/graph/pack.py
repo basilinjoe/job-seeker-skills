@@ -173,7 +173,7 @@ def draft(store, pack):
         said[slug(x)].add(x)
     for x in sorted(taken):
         new = x not in store.homes
-        adds = [(node(x), node(O.RDF_TYPE), node(O.J + pack[x]["class"]))] if new else []
+        adds: list = [(node(x), node(O.RDF_TYPE), node(O.J + pack[x]["class"]))] if new else []
         for pred, text in pack[x]["label"]:
             owners = said[O.norm(text)]
             if x in owners:

@@ -328,7 +328,8 @@ def main(argv=None):
 
     args = list(sys.argv[1:] if argv is None else argv)
     if wants_help(args):
-        print(__doc__.split("\n\nAdds", 1)[0])
+        # __doc__ is None only under -OO, which nothing runs jsk with.
+        print(__doc__.split("\n\nAdds", 1)[0])  # pyright: ignore[reportOptionalMemberAccess]
         return 0
     flags, positional, values = {}, [], ("--date", "--channel", "--note", "--due", "--today")
     while args:

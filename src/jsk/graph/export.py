@@ -137,7 +137,7 @@ def short_file(store, selection=None, select=None, notes=None):
     if not bullets:
         raise ExportError("the selection holds no bullet, and a resume.json is its bullets",
                           "confirm a bullet the GAP lines name, or add one with --select")
-    doc = {"resume": 2}
+    doc: dict = {"resume": 2}
     region = region_code(career.get(O.K + "person", "country"))
     if region:
         doc["region"] = region

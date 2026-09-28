@@ -13,6 +13,12 @@ from collections import defaultdict
 
 from . import ontology as O
 
+# For the checker alone, as in store.py: `typing` costs a command ~3 ms it never uses.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from typing import TypeVar, overload
+    T = TypeVar("T")
+
 WIDTH = 100
 INDENT = "    "
 PN_LOCAL = re.compile(r"[A-Za-z0-9_](?:[A-Za-z0-9_.\-]*[A-Za-z0-9_\-])?")
@@ -114,6 +120,13 @@ class Subjects:
 
     def of(self, name):
         return sorted(s for s, c in self.cls.items() if c.name == name)
+
+    # The first value's lexical form; `default` when there is none.
+    if TYPE_CHECKING:
+        @overload
+        def get(self, s, pred) -> "str | None": ...
+        @overload
+        def get(self, s, pred, default: "T") -> "str | T": ...
 
     def get(self, s, pred, default=None):
         values = self.props.get(s, {}).get(pred)
@@ -262,7 +275,7 @@ def write(triples, kind):
     for cls in O.CLASSES:
         if cls.section is None and kind in cls.kinds:
             for s in sub.of(cls.name):
-                out += [block(sub, s, "main")[0], ""] if block(sub, s, "main") else []
+                out += [b[0], ""] if (b := block(sub, s, "main")) else []
     for section in O.SECTIONS[kind]:
         blocks = [b for b in (block(sub, s, part) for s, part in order(sub, section)) if b]
         if not blocks and kind not in O.ALL_BANNERS:

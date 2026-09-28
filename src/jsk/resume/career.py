@@ -10,6 +10,12 @@ from dataclasses import dataclass, field
 from ..graph import ontology as O
 from ..graph.writer import Subjects
 
+# For the checker alone, as in graph/writer.py: `typing` costs a command ~3 ms.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from typing import TypeVar, overload
+    T = TypeVar("T")
+
 CONTACTS = ("email", "phone", "linkedin", "github", "website")
 
 
@@ -54,6 +60,12 @@ class Career:
     def live(self, name):
         """Subjects of a class, retired ones left out."""
         return [s for s in self.sub.of(name) if not self.sub.get(s, "retired")]
+
+    if TYPE_CHECKING:
+        @overload
+        def get(self, s, pred) -> "str | None": ...
+        @overload
+        def get(self, s, pred, default: "T") -> "str | T": ...
 
     def get(self, s, pred, default=None):
         return self.sub.get(s, pred, default)
