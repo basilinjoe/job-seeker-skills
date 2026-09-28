@@ -227,6 +227,13 @@ class CliContract(unittest.TestCase):
         self.assertIn("NO LEVERS", out)
         self.assertNotIn("PASS", out)
 
+    def test_a_hand_edited_cp1252_tex_is_refused_not_a_traceback(self):
+        self.tex.write_bytes(preamble().encode("utf-8") + b"\n% \x93edited\x94\n")
+        code, out = run(FIT_PAGES, self.tex)
+        self.assertEqual(code, 2, out)
+        self.assertIn("not UTF-8", out)
+        self.assertNotIn("Traceback", out)
+
     def test_zero_target_pages_is_a_usage_error(self):
         code, out = run(FIT_PAGES, self.tex, "--target-pages", "0")
         self.assertEqual(code, 2)

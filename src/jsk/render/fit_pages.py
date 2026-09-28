@@ -218,11 +218,12 @@ def main(argv=None):
         print("  Pass <Name>_Resume.tex, not the PDF it produces.")
         return 2
 
+    from ..graph.io import Unreadable, read_text
     try:
-        with open(a.tex, encoding="utf-8") as fh:
-            original = fh.read()
-    except OSError as e:
+        original = read_text(a.tex)
+    except Unreadable as e:
         print(f"not a readable .tex: {e}")
+        print(f"  fix: {e.fix}")
         return 2
 
     if not BODY_FONT.search(original) or not MARGIN.search(original):
