@@ -149,6 +149,43 @@ def run(module, *args):
     return proc.returncode, proc.stdout + proc.stderr
 
 
+# The four ways an authored file reaches jsk: as jsk writes it, then as a Windows editor
+# might save it. The first three are the same text; the last is not UTF-8 at all.
+AWKWARD = ("utf-8", "bom", "crlf", "cp1252")
+
+
+def awkward_bytes(text, form):
+    """`text` (LF line endings) saved one of the AWKWARD ways, as bytes.
+
+    The cp1252 form must hold a byte that is not UTF-8, or it tests nothing: an ASCII text
+    encodes the same both ways. So `text` has to carry a character cp1252 writes above
+    0x7f - a curly quote, a dash, an accented letter - and this refuses one that does not.
+    """
+    if form == "utf-8":
+        return text.encode("utf-8")
+    if form == "bom":
+        return b"\xef\xbb\xbf" + text.encode("utf-8")
+    if form == "crlf":
+        return text.replace("\n", "\r\n").encode("utf-8")
+    if form == "cp1252":
+        data = text.encode("cp1252")
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError:
+            return data
+        raise ValueError("this text is the same in cp1252 and UTF-8 - give it a curly "
+                         "quote or a dash, so the cp1252 form is one UTF-8 cannot read")
+    raise ValueError(f"unknown form {form!r}: one of {', '.join(AWKWARD)}")
+
+
+def write_awkward(path, text, form):
+    """Write `text` to `path` in one of the AWKWARD forms; the bytes written."""
+    data = awkward_bytes(text, form)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_bytes(data)
+    return data
+
+
 def kb_text(directory):
     """Read the Markdown knowledge base in `directory`."""
     return (Path(directory) / "user-knowledgebase.md").read_text(encoding="utf-8")
