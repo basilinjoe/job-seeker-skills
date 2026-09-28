@@ -321,6 +321,21 @@ These two parts share `gapsbuild.py`, so they go to one agent.
   Choose one style from the survey (`argparse`, which 4 files already use, is the likely one), and
   move one command group per commit, keeping `--help` output and exit codes the same. The
   existing `tests/test_cli.py` and `tests/test_graph_kbcli.py` are the check.
+- **Survey (2026-09-28, done).** Four styles, not the two the Size table assumed:
+
+  | Style | Where | Uses | Unknown flag |
+  |---|---|---|---|
+  | `cli.parse_flags(args, values, switches, repeats)` | `cli.py` | 4 | refused, named |
+  | `kbcli.take(args, flag, value)`, popping by name | `kbcli.py` | 20 | not seen: caught only if the positional count is then wrong |
+  | a hand `while args: args.pop(0)` loop | `timeline.main`, `letter.parse`, `record.parse` | 3 | refused, named, each in its own words |
+  | `argparse` | `render/fit_pages.py` (an internal script) | 1 | argparse's own message and exit |
+
+  **Choice: `parse_flags`, moved to `cliutil`, not argparse.** argparse would change every
+  usage message and `--help` text the tests pin, and it exits by raising `SystemExit` with
+  its own wording. `parse_flags` already refuses an unknown flag by name, which `take` does
+  not. Move it to `cliutil`, then convert the three hand loops and then `kbcli`'s `take`
+  calls, one command group per commit. That is probably 60–100 lines, not the Size table's
+  guess. `fit_pages` stays on argparse: nobody types it.
 - **Modify** `src/jsk/graph/pack.py:220`: `short_string(summary)` becomes `writer.literal`'s
   newline-aware form. Test in `tests/test_graph_pack.py`: a two-line summary round-trips through
   `trig()` and parses.
