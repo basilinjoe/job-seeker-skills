@@ -992,7 +992,8 @@ class UnknownFlags(Workspace):
 
     CALLS = [("apply", "changes.trig"), ("adopt",), ("fmt",), ("path",),
              ("confirm", "k:prj_identity", "--answer", "It shipped in March."),
-             ("pack", "capabilities"), ("merge", "c:kafka", "--into", "c:python")]
+             ("pack", "capabilities"), ("merge", "c:kafka", "--into", "c:python"),
+             ("show", "k:prj_identity"), ("view",), ("export", "--select", "prj_identity")]
 
     def test_a_quote_may_start_with_a_dash(self):
         # A value is whatever follows its flag, as it was when each verb lifted its own.

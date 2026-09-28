@@ -881,8 +881,8 @@ def rank(quads, iri):
                  and q.predicate.value == O.J + "rank"), 1 << 30)
 
 
-@verb
-def cmd_show(args, root):
+@verb(switches=("--bullets",))
+def cmd_show(args, flags, root):
     """jsk kb show <id>... [--bullets]
 
     The entries as their files hold them, in the canonical layout: a project with its
@@ -898,7 +898,7 @@ def cmd_show(args, root):
     from . import store as S
     from .writer import curie
 
-    bullets = bool(take(args, "--bullets"))
+    bullets = "--bullets" in flags
     if not args:
         return usage("jsk kb show takes one or more ids")
     store = S.load(root)
@@ -927,8 +927,8 @@ def cmd_show(args, root):
     return code
 
 
-@verb
-def cmd_view(args, root):
+@verb(values=("--section",))
+def cmd_view(args, flags, root):
     """jsk kb view [--section NAME]
 
     The whole career as Markdown, in kb.ttl's section order, to read end to end and
@@ -939,7 +939,7 @@ def cmd_view(args, root):
     from . import store as S
     from .view import render
 
-    only = take(args, "--section", value=True)
+    only = flags.get("--section")
     if args:
         return usage("jsk kb view takes only --section NAME")
     store = S.load(root)
@@ -949,8 +949,9 @@ def cmd_view(args, root):
     return 0
 
 
-@verb
-def cmd_export(args, root):
+@verb(values=("--out", "--from-match", "--cover", "--today"),
+      switches=("--ranked", "--urs", "--refresh"), lists=("--select",))
+def cmd_export(args, flags, root):
     """jsk kb export [--select <id>...] [--from-match <posting.ttl> [--cover N] | --ranked]
                      [--today YYYY-MM-DD] [--out resume.json]
 
@@ -994,27 +995,21 @@ def cmd_export(args, root):
     from .match import COVER, blocks, workspace_of
     from .writer import curie
 
-    # Said by name rather than as an unknown flag: an agent file or a shell history
-    # written before the short file still has them.
-    if "--urs" in args:
+    # Said by name rather than as an unknown flag - so they are switches it takes: an
+    # agent file or a shell history written before the short file still has them.
+    if "--urs" in flags:
         return usage("--urs is gone: export writes the short resume.json, the one format "
                      "there is - drop --urs")
-    if "--refresh" in args:
+    if "--refresh" in flags:
         return usage("--refresh is gone: a short resume.json holds ids, and every render "
                      "builds from kb.ttl as it stands, so there is nothing to refresh. A full "
                      "URS record is converted once with `jsk migrate`")
-    out = take(args, "--out", value=True)
-    posting = take(args, "--from-match", value=True)
-    by_rank = take(args, "--ranked")
-    cover_text = take(args, "--cover", value=True)
-    today_text = take(args, "--today", value=True)
+    out, posting, cover_text, today_text = (flags.get(f) for f in
+                                            ("--out", "--from-match", "--cover", "--today"))
+    by_rank = "--ranked" in flags
     select = None
-    if "--select" in args:
-        at = args.index("--select")
-        select = []
-        while at + 1 < len(args) and not args[at + 1].startswith("--"):
-            select += [i for i in args.pop(at + 1).split(",") if i]
-        args.pop(at)
+    if "--select" in flags:
+        select = [i for token in flags["--select"] for i in token.split(",") if i]
         if not select:
             return usage("--select needs one or more ids")
     if args:
