@@ -1116,8 +1116,8 @@ def wrote(store, path, text, doc):
     print(f"wrote {path}: {len(doc['bullets'])} bullets chosen from career/kb.ttl{at}")
 
 
-@verb
-def cmd_query(args, root):
+@verb(values=("--near",), switches=("--json",))
+def cmd_query(args, flags, root):
     """jsk kb query <name> [arguments] [--json]
 
       open                questions not yet answered, oldest first
@@ -1142,8 +1142,7 @@ def cmd_query(args, root):
     from . import store as S
     from .named import QUERIES, table
 
-    as_json = bool(take(args, "--json"))
-    near = take(args, "--near", value=True)
+    as_json, near = "--json" in flags, flags.get("--near")
     if not args or args[0] not in QUERIES:
         return usage(f"jsk kb query takes one of: {', '.join(QUERIES)}")
     name, rest = args[0], args[1:]
@@ -1188,8 +1187,8 @@ def untraced_lines(store, today, bullets=None):
     return out
 
 
-@verb
-def cmd_check(args, root):
+@verb(values=("--only",))
+def cmd_check(args, flags, root):
     """jsk kb check [--only <path>]
 
     Validates the whole workspace - every rule, every file - and says where kb.ttl and
@@ -1210,7 +1209,7 @@ def cmd_check(args, root):
     from . import store as S
     from .writer import WriteError, write
 
-    only = take(args, "--only", value=True)
+    only = flags.get("--only")
     if args:
         return usage("jsk kb check takes no arguments but --only <path>")
     store = S.load(root)
