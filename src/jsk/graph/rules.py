@@ -294,10 +294,11 @@ def dropped_lines(folder, advert):
     import os
 
     from .decisions import DecisionsError, read
+    from .io import Unreadable
 
     try:
         drops = read(os.path.join(folder, "decisions.txt")).drops
-    except (OSError, DecisionsError):
+    except (Unreadable, DecisionsError):
         return set()
     lines = {x.n: x.text for x in advert_lines(advert)}
     return {lines[d.n] for d in drops if d.n in lines}

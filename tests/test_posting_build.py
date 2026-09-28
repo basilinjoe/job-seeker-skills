@@ -443,6 +443,31 @@ class Command(Workspace):
         (self.app / "posting.md").unlink()
         self.assertEqual(self.main("extract", str(self.app))[0], 1)
 
+    # A Windows editor's cp1252 save: `\x93` is its opening curly quote, and not UTF-8.
+    CP1252 = b"\x93quoted\x94 in a Windows editor\n"
+
+    def assert_refused_naming(self, args, name):
+        code, out = self.main(*args)
+        self.assertEqual(code, 1, out)
+        self.assertTrue(out.startswith("REFUSED - "), out)
+        self.assertIn(name, out.splitlines()[0])
+        self.assertIn("UTF-8", out)
+        self.assertIn("\nfix:  ", out)
+        self.assertNotIn("Traceback", out)
+
+    def test_a_posting_md_that_is_not_utf8_is_refused(self):
+        (self.app / "posting.md").write_bytes(ADVERT.encode("utf-8") + self.CP1252)
+        self.decide(self.MAIN_ROWS)
+        self.assert_refused_naming(["extract", str(self.app)], "posting.md")
+        self.assert_refused_naming(["build", str(self.app)], "posting.md")
+        self.assertFalse(self.target.exists())
+
+    def test_a_decisions_file_that_is_not_utf8_is_refused(self):
+        path = self.decide(self.MAIN_ROWS)
+        path.write_bytes(path.read_bytes() + b"# " + self.CP1252)
+        self.assert_refused_naming(["build", str(self.app)], "decisions.txt")
+        self.assertFalse(self.target.exists())
+
     def test_called_wrong_exits_2(self):
         for args in (["extract"], ["extract", "a", "b"], ["build"], ["build", "a", "b", "c"],
                      ["extract", str(self.app), "--replace"], ["build", "a", "--force"], []):

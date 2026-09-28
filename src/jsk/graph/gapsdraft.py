@@ -33,11 +33,15 @@ def advert(path):
 
 def drops(post_dir):
     """decisions.txt's drops, or none for a posting written before decisions.txt existed.
-    DecisionsError propagates: a file `jsk posting build` would refuse is not guessed at."""
+    DecisionsError and io.Unreadable propagate: a file `jsk posting build` would refuse is
+    not guessed at."""
     from . import decisions as D
+    from .io import Missing
 
-    path = os.path.join(post_dir, "decisions.txt")
-    return D.read(path).drops if os.path.isfile(path) else []
+    try:
+        return D.read(os.path.join(post_dir, "decisions.txt"), "decisions.txt").drops
+    except Missing:
+        return []
 
 
 def cut(text):

@@ -211,6 +211,38 @@ class Build(unittest.TestCase):
                          [("WARN", "gaps.txt line 1: the match now says satisfied; you lowered "
                                    "it to partial because one cluster - still true?")])
 
+    # --- files that are not UTF-8 -------------------------------------------------------
+
+    # A Windows editor's cp1252 save: `\x93` is its opening curly quote, and not UTF-8.
+    CP1252 = b"# the \x93overlay\x94, saved in a Windows editor\n"
+
+    def match_gaps(self):
+        import contextlib
+        import io
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = M.main([str(self.app() / "posting.ttl"), "--today", "2026-09-24",
+                           "--gaps", str(self.app() / "gaps.txt")])
+        return code, out.getvalue()
+
+    def assert_fails_naming(self, name):
+        code, out = self.match_gaps()
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"FAIL  {name}", out)
+        self.assertIn("UTF-8", out)
+        self.assertNotIn("Traceback", out)
+        self.assertFalse((self.app() / "gaps.ttl").exists())
+
+    def test_a_gaps_txt_that_is_not_utf8_fails_naming_it(self):
+        (self.app() / "gaps.txt").write_bytes(b"fit: partial\n" + self.CP1252)
+        self.assert_fails_naming("gaps.txt")
+
+    def test_a_decisions_txt_that_is_not_utf8_fails_naming_it(self):
+        (self.app() / "gaps.txt").write_bytes(b"fit: partial\n")
+        (self.app() / "decisions.txt").write_bytes(b"company: Contoso\n" + self.CP1252)
+        self.assert_fails_naming("decisions.txt")
+
     # --- frozen at submission ----------------------------------------------------------
 
     def test_a_sent_application_is_frozen(self):

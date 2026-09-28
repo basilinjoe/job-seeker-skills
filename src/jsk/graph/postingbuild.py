@@ -45,16 +45,18 @@ def dir_stem(app_dir):
 
 
 def read_advert(app_dir):
-    from .io import normalise
+    """posting.md's text. Raises Refused when there is none, or it is not UTF-8."""
+    from .io import Missing, Unreadable, read_text
 
     path = os.path.join(app_dir, POSTING)
     try:
-        with open(path, encoding="utf-8") as fh:
-            return normalise(fh.read())
-    except OSError:
+        return read_text(path)
+    except Missing:
         raise Refused(f"no {POSTING} in {app_dir}",
                       f"fix:  jsk posting fetch <url> {app_dir}, or write the advert verbatim "
                       f"to {path}") from None
+    except Unreadable as e:
+        raise Refused(str(e), f"fix:  {e.fix}") from None
 
 
 def advert_header(advert):
@@ -143,7 +145,7 @@ def default_need(line):
 def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=None):
     """(path written, requirements, warnings). Raises Refused, and then writes nothing."""
     from . import decisions as D
-    from .io import GraphError, parse_text
+    from .io import GraphError, Missing, Unreadable, parse_text
     from .queries import PRE, concepts
     from .shapes import tier1
     from .store import file_name
@@ -166,10 +168,12 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
     decisions_path = decisions_path or os.path.join(app_dir, DECISIONS)
     try:
         dec = D.read(decisions_path)
-    except OSError:
+    except Missing:
         raise Refused(f"no decisions file at {decisions_path}",
                       f"fix:  `jsk posting extract {app_dir}` lists the lines; write your "
                       f"choices to {decisions_path}") from None
+    except Unreadable as e:
+        raise Refused(str(e), f"fix:  {e.fix}") from None
     except D.DecisionsError as e:
         raise Refused(f"{decisions_path}: {e}", "fix:  correct that line") from None
     root, store = workspace(app_dir, vocabulary)

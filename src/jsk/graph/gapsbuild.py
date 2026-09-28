@@ -297,7 +297,7 @@ def build(app_dir, store, r, today, derived=None):
     from . import store as S
     from .gapsderive import derive
     from .gapsdraft import advert, drops
-    from .io import GraphError
+    from .io import GraphError, Missing, Unreadable, read_text
     from .timeline import Frozen, sent_day, write_app_file
     from .writer import WriteError, write
 
@@ -310,18 +310,16 @@ def build(app_dir, store, r, today, derived=None):
         return [], [("FAIL", f"{app_rel}: sent on {day} - gaps.ttl and gaps.md are frozen",
                      "a sent assessment is what it said at the time; nothing to rebuild")]
     derived = derived or derive(r, store)
-    txt = os.path.join(app_dir, "gaps.txt")
-    text = ""
-    reviewed = os.path.isfile(txt)
-    if reviewed:
-        with open(txt, encoding="utf-8") as fh:
-            text = fh.read()
-        try:
-            overlay = A.parse(text)
-        except A.AssessmentError as e:
-            return [], [("FAIL", f"gaps.txt: {e}", "correct that line")]
-    else:
-        overlay = A.parse("")
+    try:
+        text, reviewed = read_text(os.path.join(app_dir, "gaps.txt"), "gaps.txt"), True
+    except Missing:
+        text, reviewed = "", False
+    except Unreadable as e:
+        return [], [("FAIL", str(e), e.fix)]
+    try:
+        overlay = A.parse(text)
+    except A.AssessmentError as e:
+        return [], [("FAIL", f"gaps.txt: {e}", "correct that line")]
     previous = previous_verdicts(store, app_rel, derived.stem)
     found = check(derived, overlay, text, previous, reviewed)
     if any(s == "FAIL" for s, _, _ in found):
@@ -343,6 +341,8 @@ def build(app_dir, store, r, today, derived=None):
     except D.DecisionsError as e:
         return [], found + [("FAIL", f"decisions.txt: {e}",
                              "correct that line; `jsk posting build` reads the same file")]
+    except Unreadable as e:
+        return [], found + [("FAIL", str(e), e.fix)]
     md_text = render(r, a, today, advert(os.path.join(app_dir, "posting.md")), dropped)
     written = []
     for name, body in (("gaps.ttl", ttl_text), ("gaps.md", md_text)):
