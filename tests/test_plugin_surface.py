@@ -599,5 +599,65 @@ class ArchitectureNamesTheCode(unittest.TestCase):
                          f"cli.py dispatches {count} subcommands")
 
 
+class TextIsReadInOnePlace(unittest.TestCase):
+    """Every text file jsk reads goes through graph.io.read_text.
+
+    The review of 2026-09-28 found five defects that were one defect: about fifty readers,
+    each choosing its own encoding and its own except clause, so a BOM, a CRLF or a cp1252
+    save broke whichever reader had forgotten it. A byte read, a write and pymupdf are not
+    text reads. A module here reads text itself, for the reason given."""
+
+    ALLOWED = {
+        "graph/io.py": "read_text itself",
+        # Deliberately lenient: a gate reads a rendered document to judge it, and a stray
+        # byte in what was rendered is a finding in its own right, not a reason to stop.
+        "gates/check_ats.py": "reads a rendered .txt with errors=replace",
+        "gates/check_prose.py": "reads a rendered .tex with errors=replace",
+        "gates/letter.py": "reads a cover letter with errors=replace",
+        # Not moved yet - Phase 2 of docs/superpowers/plans/2026-09-28-review-fixes.md
+        # takes each off as it moves.
+        "cli.py": "phase 2", "graph/assessment.py": "phase 2", "graph/decisions.py": "phase 2",
+        "graph/gapsbuild.py": "phase 2", "graph/gapsdraft.py": "phase 2",
+        "graph/kbcli.py": "phase 2", "graph/pack.py": "phase 2", "graph/postingbuild.py":
+        "phase 2", "graph/record.py": "phase 2", "graph/rules.py": "phase 2",
+        "kb.py": "phase 2", "migrate.py": "phase 2", "render/fit_pages.py": "phase 2",
+        "render/profiles.py": "phase 2", "render/render_resume.py": "phase 2",
+        "resume/short.py": "phase 2",
+    }
+
+    @staticmethod
+    def text_reads(path):
+        """Line numbers of each builtin open() in text read mode."""
+        import ast
+
+        found = []
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id == "open"):
+                continue
+            mode = node.args[1] if len(node.args) > 1 else next(
+                (k.value for k in node.keywords if k.arg == "mode"), None)
+            text = mode.value if isinstance(mode, ast.Constant) else "r"
+            if not set(text) & set("wxab"):
+                found.append(node.lineno)
+        return found
+
+    def test_no_module_reads_text_itself(self):
+        for path in sorted(SCRIPTS.rglob("*.py")):
+            name = path.relative_to(SCRIPTS).as_posix()
+            with self.subTest(module=name):
+                if name not in self.ALLOWED:
+                    self.assertEqual(self.text_reads(path), [],
+                                     f"{name} opens a text file itself - use "
+                                     "graph.io.read_text, which handles a BOM, CRLF and "
+                                     "cp1252 once")
+
+    def test_every_allowed_module_still_reads_text(self):
+        for name in self.ALLOWED:
+            with self.subTest(module=name):
+                self.assertTrue(self.text_reads(SCRIPTS / name),
+                                f"{name} no longer reads text itself - take it off ALLOWED")
+
+
 if __name__ == "__main__":
     unittest.main()

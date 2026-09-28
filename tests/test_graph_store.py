@@ -4,6 +4,7 @@ The closure numbers are worked by hand from the fixture's edges, not read back f
 code: 16 concepts give 16 zero-hop paths, and the 4 isA/partOf edges give 4 one-hop
 paths; nothing chains, so there are no two-hop paths.
 """
+import os
 import shutil
 import tempfile
 import unittest
@@ -138,6 +139,22 @@ class Discovery(unittest.TestCase):
             shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
             (Path(tmp) / "career" / "notes.ttl").write_text("not turtle at all", encoding="utf-8")
             self.assertEqual(load(tmp).findings, [])
+
+
+class Paths(unittest.TestCase):
+    """rel and inside never raise across Windows drives, where relpath and commonpath do."""
+
+    def test_rel_and_inside_on_one_drive(self):
+        root = os.path.abspath("ws")
+        self.assertEqual(store.rel(os.path.join(root, "career", "kb.ttl"), root), "career/kb.ttl")
+        self.assertTrue(store.inside(os.path.join(root, "career"), root))
+        self.assertFalse(store.inside(os.path.dirname(root), root))
+
+    @unittest.skipUnless(os.name == "nt", "only Windows has drives")
+    def test_another_drive_answers_rather_than_raising(self):
+        self.assertFalse(store.inside("D:\\x", "C:\\y"))
+        self.assertEqual(store.rel("D:\\x\\a.ttl", "C:\\y"), "D:/x/a.ttl")
+        self.assertEqual(store.file_name("D:\\x\\a.ttl", "C:\\y"), "a.ttl")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from urllib.parse import quote
 
 from . import ontology as O
-from .io import GraphError, parse, parse_text
+from .io import GraphError, Unreadable, parse, parse_text
 
 SHIPPED_VOCABULARY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                   "data", "vocabulary.ttl")
@@ -78,15 +78,31 @@ class Store:
         return rep
 
 
+def rel(path, root):
+    """`path` relative to `root`, forward slashes - or, on another Windows drive, where
+    relpath raises rather than answering, the absolute path with forward slashes."""
+    try:
+        return os.path.relpath(path, root).replace("\\", "/")
+    except ValueError:
+        return os.path.abspath(path).replace("\\", "/")
+
+
+def inside(path, root):
+    """Is `path` (followed through links) under `root`? False across drives, where
+    commonpath raises."""
+    here, top = (os.path.normcase(os.path.realpath(p)) for p in (path, root))
+    try:
+        return os.path.commonpath([here, top]) == top
+    except ValueError:
+        return False
+
+
 def file_name(path, root):
     """How findings name a file: relative to the workspace, forward slashes. A file outside
     it - the shipped vocabulary - is named by its basename, including when it is on another
-    Windows drive, where relpath raises rather than answering."""
-    try:
-        name = os.path.relpath(path, root).replace("\\", "/")
-    except ValueError:
-        return os.path.basename(path)
-    return os.path.basename(path) if name.startswith("../") else name
+    Windows drive."""
+    name = rel(path, root)
+    return os.path.basename(path) if name.startswith("../") or os.path.isabs(name) else name
 
 
 def graph_iri(name):
@@ -118,8 +134,8 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None):
             store.findings.append(Finding("syntax", "FAIL", name, e.line or 0, "",
                                           str(e).split(": ", 1)[-1], e.fix))
             continue
-        except OSError as e:
-            raise GraphError(f"{name}: {e.strerror}", "check the path", name) from None
+        except Unreadable as e:
+            raise GraphError(str(e), e.fix, name) from None
         parsed.file = name
         store.parsed[name] = parsed
         graph = ox.NamedNode(graph_iri(name))

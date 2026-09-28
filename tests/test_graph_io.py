@@ -61,5 +61,34 @@ class Reading(unittest.TestCase):
             self.assertIn("not UTF-8", str(cm.exception))
 
 
+class ReadText(unittest.TestCase):
+    """Every authored file comes through read_text, so these are every reader's cases."""
+
+    def read(self, data):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "posting.md"
+            path.write_bytes(data)
+            return io.read_text(path, "posting.md")
+
+    def test_a_bom_and_crlf_read_as_the_plain_text(self):
+        plain = "# Role\n\nBuild things.\n"
+        self.assertEqual(self.read(plain.encode("utf-8")), plain)
+        self.assertEqual(self.read(b"\xef\xbb\xbf" + plain.encode("utf-8")), plain)
+        self.assertEqual(self.read(plain.replace("\n", "\r\n").encode("utf-8")), plain)
+
+    def test_cp1252_is_refused_naming_the_file(self):
+        with self.assertRaises(io.NotUtf8) as cm:
+            self.read(b"\x93quoted\x94\n")
+        self.assertIn("posting.md: not UTF-8", str(cm.exception))
+        self.assertEqual(cm.exception.fix, "save the file as UTF-8")
+
+    def test_a_missing_file_is_its_own_refusal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(io.Missing) as cm:
+                io.read_text(Path(tmp) / "gaps.txt", "gaps.txt")
+        self.assertIn("no gaps.txt at", str(cm.exception))
+        self.assertIsInstance(cm.exception, io.Unreadable)
+
+
 if __name__ == "__main__":
     unittest.main()
