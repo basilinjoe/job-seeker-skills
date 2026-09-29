@@ -5,8 +5,9 @@ career/store/.
 Hand-writing posting.ttl cost the JumpCloud run 26.5k output tokens, most of them ids,
 predicates and quotes copied character for character - exactly what the checks then
 police. Here the quote is the extracted line itself, so quote-verbatim cannot fail, and
-every qualification or responsibility line must be used or dropped with a reason, so no
-ask is lost silently.
+every qualification line must be used or dropped with a reason, so no ask is lost
+silently. A responsibility may go unmentioned: its requirement would be implicit, which
+the match does not assess, so a drop row for one bought nothing (tailor-cost Ruling 3).
 """
 import datetime
 import os
@@ -18,7 +19,6 @@ from .rules import REQUIRED_WORDS, advert_lines, squash
 
 DECISIONS = "decisions.txt"
 SOFT_CAP = 20
-ASKED_SECTIONS = ("qualification", "responsibility")
 DATED = re.compile(r"\A\d{4}-\d{2}-\d{2}-")
 # Ruling 11: a title word, as a hint only - the analyst decides.
 SENIORITY_HINTS = (
@@ -61,7 +61,9 @@ def read_advert(app_dir):
 
 def advert_header(advert):
     """(title, company, url) as posting.md states them: the `# ` heading, the first fact
-    of the `a · b · c` line under it, and a URL on line 1. Blank when absent."""
+    of the `a · b · c` line under it, and a URL on line 1. With no `# ` heading the title
+    is the first line that is not the URL, and the company is blank - a guess extract
+    prints for the analyst to correct, where a blank title only made them type it."""
     lines = advert.split("\n")
     first = next((x.strip() for x in lines if x.strip()), "")
     url = first if re.fullmatch(r"https?://\S+", first) else ""
@@ -73,7 +75,10 @@ def advert_header(advert):
             facts = next((x.strip() for x in lines[i + 1:] if x.strip()), "")
             if " · " in facts:
                 company = facts.split(" · ", 1)[0].strip()
-            break
+            return title, company, url
+    body = re.sub(r"\A---\n.*?\n---\n", "", advert, flags=re.S).split("\n")    # frontmatter
+    title = next((squash(x.strip().lstrip("#")) for x in body
+                  if x.strip().lstrip("#").strip() and x.strip() != url), "")
     return title, company, url
 
 
@@ -123,6 +128,7 @@ def extract(app_dir, vocabulary=None, today=None):
             f"captured: {(today or datetime.date.today()).isoformat()}"]
     lines = advert_lines(advert)
     width = len(str(len(lines)))
+    out.append("# every qual line is used or dropped; other and responsibility lines need no row")
     out.append(f"# {'n':<{width}} section flag line")
     for x in lines:
         flag = "elig" if x.elig else "opt" if x.optional else ""
@@ -269,7 +275,7 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
                           f"(1-{len(lines)})", f"fix:  re-run `jsk posting extract {app_dir}`")
         used.add(drop.n)
     missing = [x.n for x in lines.values()
-               if x.section in ASKED_SECTIONS and not x.elig and x.n not in used]
+               if x.section == "qualification" and not x.elig and x.n not in used]
     if missing:
         raise Refused(f"{decisions_path}: advert line{'s' if len(missing) > 1 else ''} "
                       f"{', '.join(map(str, missing))} neither used nor dropped",

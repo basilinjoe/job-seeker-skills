@@ -1,6 +1,6 @@
 """advert_lines: every line of an advert a requirement could quote, by section - what
 `jsk posting extract` numbers and `jsk posting build` quotes. asked_lines, which
-advert-uncovered reads, is now a filter over it and must not have moved."""
+advert-uncovered reads, is a filter over it and may only have gained lines."""
 import re
 import unittest
 from pathlib import Path
@@ -87,7 +87,8 @@ class Sections(unittest.TestCase):
             ("qualification", "Must hold Indian work authorisation."),
             ("qualification", "Terraform."),
             ("qualification", "Exposure to CyberArk or BeyondTrust."),
-            ("other", "To be considered you must be located in India."),
+            # The last paragraph sits under Benefits, and a paragraph under an offered
+            # heading is skipped now (2026-09-29-tailor-time Ruling 1).
         ])
 
     def test_the_url_line_and_the_benefits_are_left_out(self):
@@ -103,7 +104,8 @@ class Sections(unittest.TestCase):
         self.assertTrue(line.optional)
 
     def test_eligibility_is_flagged(self):
-        self.assertEqual([x.n for x in self.lines if x.elig], [1, 7, 10])
+        # 10, "located in India", was under Benefits: skipped (2026-09-29-tailor-time Ruling 1).
+        self.assertEqual([x.n for x in self.lines if x.elig], [1, 7])
 
     def test_in_this_role_opens_responsibilities(self):
         [line] = rules.advert_lines("In this role you will:\n\n- Run the platform on call.\n")
@@ -114,6 +116,72 @@ class Sections(unittest.TestCase):
             "Experience: 12+ years of software development.",
             "Core Tech Stack: Advanced C#, .NET and Go.",
             "Exposure to CyberArk or BeyondTrust."])
+
+
+class BareHeadings(unittest.TestCase):
+    """2026-09-29-tailor-time Ruling 1: a heading with no markup. Both of that day's runs had
+    well-formed posting.md files, and extract still classed every line `other`."""
+
+    def test_headings(self):
+        for text in ("HOW WE WORK", "Key Responsibilities", "What's in it for me?",
+                     "Experiences & Exposure : Nice to have", "Job description"):
+            with self.subTest(text=text):
+                self.assertTrue(rules.bare_heading(text))
+                self.assertTrue(rules._heading(text, text, None))
+
+    def test_not_headings(self):
+        for text in ("AWS", "Position Overview", "Technical Expertise", "Big picture thinking."):
+            with self.subTest(text=text):
+                self.assertFalse(rules.bare_heading(text))
+                self.assertFalse(rules._heading(text, text, None))
+
+    def test_what_s_in_it_for_you_is_offered(self):
+        self.assertEqual(rules.advert_lines("What's in it for you?\n\nA gym on site.\n"), [])
+
+
+class OneItemPerLine(unittest.TestCase):
+    """Under a qualification or responsibility heading each line is its own item: joining
+    them made one 600-character `asked` of Schneider's whole section."""
+
+    ADVERT = """Key Responsibilities
+Design the platform's architecture.
+Review designs across four teams.
+
+Requirements
+Ten years of software engineering.
+Deep experience with Kafka.
+Hands-on Kubernetes.
+
+What's in it for me?
+Paid leave, a laptop and
+a pension plan.
+
+We are an equal opportunity employer
+and welcome everyone.
+"""
+
+    def setUp(self):
+        self.lines = rules.advert_lines(self.ADVERT)
+
+    def test_each_line_under_a_heading_is_its_own_item(self):
+        self.assertEqual([(x.section, x.text) for x in self.lines if x.section != "other"], [
+            ("responsibility", "Design the platform's architecture."),
+            ("responsibility", "Review designs across four teams."),
+            ("qualification", "Ten years of software engineering."),
+            ("qualification", "Deep experience with Kafka."),
+            ("qualification", "Hands-on Kubernetes."),
+        ])
+
+    def test_a_benefits_paragraph_is_skipped(self):
+        texts = " ".join(x.text for x in self.lines)
+        self.assertNotIn("laptop", texts)
+        self.assertNotIn("pension", texts)
+
+    def test_elsewhere_a_paragraph_is_still_one_line(self):
+        # Under no heading of its own it stays with the benefits: skipped too.
+        self.assertEqual([x for x in self.lines if x.section == "other"], [])
+        [line] = rules.advert_lines("Acme builds software\nfor hospitals.\n")
+        self.assertEqual((line.section, line.text), ("other", "Acme builds software for hospitals."))
 
 
 class LabelsIn(unittest.TestCase):
@@ -150,7 +218,10 @@ class LabelsIn(unittest.TestCase):
         self.assertEqual(self.ids("a strong sense of ownership"), [])
 
 
-class AskedLinesUnchanged(unittest.TestCase):
+class AskedLinesLoseNothing(unittest.TestCase):
+    """asked_lines moved on purpose with bare headings and one item per line
+    (2026-09-29-tailor-time Ruling 1, tailor-cost Ruling 4): more lines read as asked. What
+    must not move is a line asked before going unasked now."""
     TRICKY = [
         ADVERT,
         "---\ntitle: x\n---\n## Requirements\n- Five years of Go in production\n",
@@ -168,7 +239,8 @@ class AskedLinesUnchanged(unittest.TestCase):
         self.assertTrue(adverts)
         for advert in adverts + self.TRICKY:
             with self.subTest(advert=advert[:60]):
-                self.assertEqual(rules.asked_lines(advert), asked_lines_before(advert))
+                now = rules.asked_lines(advert)
+                self.assertEqual([x for x in asked_lines_before(advert) if x not in now], [])
 
 
 if __name__ == "__main__":

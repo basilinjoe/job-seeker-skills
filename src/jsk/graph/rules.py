@@ -229,6 +229,26 @@ HEADING_DOES = re.compile(r"\b(responsibilit\w*|what you('ll| will) (do|work on)
                           r"day[- ]to[- ]day)\b|\byou('ll| will):?\Z", re.I)
 HEADING_OFFERS = re.compile(r"\b(benefits?|perks|we offer|compensation|salary)\b", re.I)
 HEADING_OPTIONAL = re.compile(r"\b(nice to have|bonus|preferred|desirable|a plus)\b", re.I)
+# Headings that offer, beyond HEADING_OFFERS: "What's in it for you?" is a benefits list.
+OFFERS_MORE = re.compile(r"(?i)what'?s in it for|\brewards?\b|why join|\bour (values|culture)\b|"
+                         r"\babout us\b|\bperks\b")
+# A sentence's end. A closing `?` is allowed: "What's in it for me?" is a heading.
+TERMINAL = re.compile(r"[.!;,]\Z")
+
+
+def bare_heading(text):
+    """A heading without markup: short, no sentence end, and either in capitals (`HOW WE
+    WORK`, not `AWS`) or worded as a heading. Words are letter-initial, so `&` is not one."""
+    words = re.findall(r"[A-Za-z][\w'/-]*", text)
+    if not words or len(words) > 6 or TERMINAL.search(text):
+        return False
+    letters = re.sub(r"[^A-Za-z]", "", text)
+    if len(words) >= 2 and len(letters) >= 3 and letters.isupper():
+        return True
+    return bool(HEADING_ASKS.search(text) or HEADING_DOES.search(text)
+                or HEADING_OFFERS.search(text) or HEADING_NOT.search(text) or OFFERS_MORE.search(text)
+                or re.match(r"(?i)about\b", text)
+                or re.fullmatch(r"(?i)(job description|(role |job )?overview|the role)\s*:?", text))
 
 
 @dataclass(frozen=True)
@@ -242,14 +262,17 @@ class AdvertLine:
 
 def _heading(line, text, item):
     return not item and (text.startswith("#") or BOLD_LINE.fullmatch(text)
-                         or (text.endswith(":") and len(text.split()) <= 8))
+                         or (text.endswith(":") and len(text.split()) <= 8)
+                         or bare_heading(text))
 
 
 def advert_lines(advert):
-    """Every line of the advert a requirement could quote, numbered, with its section: list
-    items under a qualifications or a responsibilities heading, and every other list item
-    and prose paragraph as `other`. A benefits list is left out; so are posting.md's URL
-    line and headings, which name sections and ask nothing."""
+    """Every line of the advert a requirement could quote, numbered, with its section. Under
+    a qualifications or a responsibilities heading each line is its own item, listed or not:
+    a posting.md is written one item per line, and joining them made one quote of a section.
+    Elsewhere a list item is `other`, and so is a prose paragraph, its lines joined. What an
+    offered (benefits) heading lists is left out; so are posting.md's URL line and headings,
+    which name sections and ask nothing."""
     advert = re.sub(r"\A---\n.*?\n---\n", "", advert, flags=re.S)    # frontmatter
     found = []          # [section, text, optional heading, is an item]
     section, opt_heading, wrapping, prose = "other", False, None, False
@@ -273,7 +296,8 @@ def advert_lines(advert):
                 section, opt_heading = "qualification", bool(HEADING_OPTIONAL.search(words))
             elif HEADING_DOES.search(words):
                 section, opt_heading = "responsibility", False
-            elif HEADING_OFFERS.search(words) or HEADING_NOT.search(words):
+            elif (HEADING_OFFERS.search(words) or HEADING_NOT.search(words)
+                  or OFFERS_MORE.search(words)):
                 section, opt_heading = "offered", False
             else:
                 section, opt_heading = "other", False
@@ -284,6 +308,11 @@ def advert_lines(advert):
                 wrapping = "join"
         elif not found and not prose and re.match(r"https?://\S+\Z", text):
             continue                                # posting.md's first line: the URL
+        elif section == "offered":
+            continue                                # a benefits paragraph asks nothing
+        elif section in ("qualification", "responsibility"):
+            found.append([section, squash(text), opt_heading, False])   # never joined
+            prose = True
         elif prose:
             found[-1][1] = f"{found[-1][1]} {squash(text)}"
         else:

@@ -3,7 +3,7 @@ writes the posting - the application's posting graph in career/store/.
 
 The JumpCloud run spent 26.5k output tokens hand-writing posting.ttl, most of it ids and
 quotes copied character for character. These tests pin that the build's quotes cannot
-drift from the advert, that no qualification or responsibility line goes unanswered,
+drift from the advert, that no qualification line goes unanswered,
 that every bad decision is refused before anything is written, and that a rebuild writes
 the same graph.
 """
@@ -120,11 +120,13 @@ class Workspace(unittest.TestCase):
 class Lines(unittest.TestCase):
     def test_the_numbering_this_file_relies_on(self):
         lines = rules.advert_lines(ADVERT)
+        # The eligibility paragraph was line 9; it sits under Benefits, and a paragraph
+        # under an offered heading is skipped now (2026-09-29-tailor-time Ruling 1).
         self.assertEqual([(x.n, x.section) for x in lines], [
             (1, "other"), (2, "other"), (3, "responsibility"), (4, "responsibility"),
             (5, "qualification"), (6, "qualification"), (7, "qualification"),
-            (8, "qualification"), (9, "other")])
-        self.assertTrue(lines[0].elig and lines[8].elig)
+            (8, "qualification")])
+        self.assertTrue(lines[0].elig)
         self.assertTrue(lines[7].optional)
 
 
@@ -162,6 +164,20 @@ class Extract(Workspace):
         self.assertNotIn("Four weeks", "\n".join(out), "a benefits list asks nothing")
         self.assertFalse(any(x.startswith("  concepts:") for x in out[out.index(
             "4 resp       Mentor engineers across three squads."):][1:2]))
+
+    def test_the_header_says_only_qualifications_need_a_row(self):
+        # Tailor-cost Ruling 3, carried by 2026-09-29-tailor-time.
+        self.assertIn("other and responsibility lines need no row", self.extract())
+
+    def test_with_no_title_line_the_first_line_after_the_url_is_the_title(self):
+        (self.app / "posting.md").write_text(
+            "https://jobs.example.com/x\n\nLead Architect\n\nRequirements\nKafka.\n",
+            encoding="utf-8", newline="\n")
+        out = self.extract()
+        self.assertIn("title: Lead Architect\n", out)
+        self.assertIn("company: \n", out)
+        self.assertEqual(postingbuild.advert_header("Principal Engineer\nAcme\n"),
+                         ("Principal Engineer", "", ""))
 
     def test_the_directory_date_is_not_part_of_the_id(self):
         dated = self.app.parent / f"2026-09-27-{STEM}"
@@ -475,12 +491,14 @@ class Refusals(Workspace):
         self.refused(ROWS.replace("7 | docker | Docker | c:docker |\n", ""),
                      says="advert line 7 neither used nor dropped")
 
-    def test_a_responsibility_line_neither_used_nor_dropped(self):
-        self.refused(ROWS.replace("4 | - | mentoring, asked again in the qualifications\n", ""),
-                     says="advert line 4 neither used nor dropped")
+    def test_a_responsibility_line_may_go_unmentioned(self):
+        """Tailor-cost Ruling 3, carried by 2026-09-29-tailor-time: its requirement would be
+        implicit, which the match does not assess - it was refused here before."""
+        self.assertEqual(self.build(ROWS.replace(
+            "4 | - | mentoring, asked again in the qualifications\n", ""))[1], 7)
 
     def test_other_and_eligibility_lines_may_go_unmentioned(self):
-        self.assertEqual(self.build()[1], 7)     # lines 1, 2 and 9 are in no row
+        self.assertEqual(self.build()[1], 7)     # lines 1 and 2 are in no row
 
     def test_a_dropped_line_counts_as_answered(self):
         self.build(ROWS.replace("7 | docker | Docker | c:docker |\n",
