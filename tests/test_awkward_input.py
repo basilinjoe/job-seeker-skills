@@ -63,7 +63,7 @@ def snapshot(root, skip=None):
     store = root / db.STORE_DIR
     out = {p.relative_to(root).as_posix(): p.read_bytes()
            for p in sorted(root.rglob("*")) if p.is_file() and store not in p.parents
-           and p != root / db.LOCK_FILE and p.read_bytes() != skip}
+           and p not in (root / db.LOCK_FILE, root / db.ACCESS_FILE) and p.read_bytes() != skip}
     if db.exists(root):
         out[DUMP] = db.dump_text(db.read(root)).encode("utf-8")
     return out

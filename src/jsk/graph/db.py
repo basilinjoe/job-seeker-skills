@@ -4,11 +4,16 @@ This is the only module that knows the record is RocksDB. Every record is a name
 `kb`, `log`, `applications/<stem>/posting`, `.../application`, `.../gaps` - and nothing
 else opens the store on disk or updates it (tests/test_db.py fails if anything does).
 
-Readers open the store read-only and never wait. A writer takes its turn first: a blocking
-OS lock on career/store.lock, so writers queue in the order they arrive instead of being
-turned away; inside its turn it opens the store, writes one SPARQL update - every graph it
-changes, or none - and closes it before giving the turn up. A process that dies holding its
-turn releases it with its file handle.
+Two OS locks, both blocking, both released with the file handle when a process dies:
+
+- the turn (career/store.lock): writers queue for it in the order they arrive, instead of
+  being turned away. A writing command holds it from before it reads the record until it
+  has written, so what it validates is what it writes over.
+- access (career/store.access): a reader holds it shared while it opens, reads and closes
+  the store; a writer holds it exclusively while it opens, updates and closes it. pyoxigraph
+  says a read-only open while another process writes is undefined behaviour - and it is: a
+  read racing a writer's compaction sees RocksDB delete a table under it. So a reader waits
+  for at most one write's open-update-close, never for a writing command's whole run.
 
 pyoxigraph is imported inside the functions that need it, never at module top.
 """
@@ -19,7 +24,8 @@ from contextlib import contextmanager
 
 GRAPH = "tag:jsk,2026:graph/"
 STORE_DIR = os.path.join("career", "store")
-LOCK_FILE = os.path.join("career", "store.lock")
+LOCK_FILE = os.path.join("career", "store.lock")        # the writers' turn
+ACCESS_FILE = os.path.join("career", "store.access")    # readers shared, a writer alone
 # RocksDB's own LOCK, held by something outside jsk's turn (a stray pyoxigraph session):
 # retried this long before it is reported. Inside a turn no jsk process holds it.
 LOCK_WAIT = 5.0
@@ -72,7 +78,8 @@ def name_of(iri):
 
 
 def open_reader(root):
-    """The store, read-only. Raises NoStore when there is none."""
+    """The store, read-only. Raises NoStore when there is none. Callers hold shared access
+    (read() does); a bare open while another process writes is undefined behaviour."""
     import pyoxigraph as ox
 
     if not exists(root):
@@ -95,7 +102,8 @@ def is_lock_error(e):
 
 
 def open_writer(root, wait=LOCK_WAIT, create=False):
-    """The store, for writing. Callers hold their turn (write_turn) first."""
+    """The store, for writing. Callers hold their turn and exclusive access (writing()
+    does)."""
     import pyoxigraph as ox
 
     if not create and not exists(root):
@@ -129,8 +137,8 @@ _LOCKER = []
 
 
 def _locker():
-    """(lock(fh, wait) -> bool, unlock(fh)) for this OS - built on first use, so a command
-    that never writes never imports ctypes."""
+    """(lock(fh, wait, shared=False) -> bool, unlock(fh)) for this OS - built on first use,
+    so a command that never touches the store never imports ctypes."""
     if _LOCKER:
         return _LOCKER[0]
     if os.name == "nt":
@@ -150,8 +158,8 @@ def _locker():
                                      wintypes.DWORD, ctypes.POINTER(OVERLAPPED)]
         exclusive, nowait = 0x2, 0x1
 
-        def lock(fh, wait):
-            flags = exclusive | (0 if wait else nowait)
+        def lock(fh, wait, shared=False):
+            flags = (0 if shared else exclusive) | (0 if wait else nowait)
             if k32.LockFileEx(msvcrt.get_osfhandle(fh.fileno()), flags, 0, 1, 0,
                               ctypes.byref(OVERLAPPED())):
                 return True
@@ -165,9 +173,10 @@ def _locker():
     else:
         import fcntl
 
-        def lock(fh, wait):
+        def lock(fh, wait, shared=False):
             try:
-                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
+                fcntl.flock(fh.fileno(), (fcntl.LOCK_SH if shared else fcntl.LOCK_EX)
+                            | (0 if wait else fcntl.LOCK_NB))
                 return True
             except BlockingIOError:
                 return False
@@ -239,14 +248,41 @@ class Writer:
             self._db = None
 
 
+# Roots whose store this process has open for writing: a read there would wait on its own
+# exclusive access for ever, so it is refused as the bug it would be.
+_WRITING = set()
+
+
+@contextmanager
+def access(root, shared):
+    """Hold access to the store: shared to read it, exclusive to write it."""
+    key = os.path.normcase(os.path.abspath(root))
+    if key in _WRITING:
+        raise RuntimeError("the store was read while this process had it open for writing "
+                           "- a jsk bug; read through the Writer")
+    lock_, unlock = _locker()
+    lock = os.path.join(root, ACCESS_FILE)
+    os.makedirs(os.path.dirname(lock), exist_ok=True)
+    with open(lock, "a+b") as fh:
+        lock_(fh, wait=True, shared=shared)
+        try:
+            yield
+        finally:
+            unlock(fh)
+
+
 @contextmanager
 def writing(root, create=False):
-    """The turn, then the store open for writing; closed before the turn is given up."""
-    with write_turn(root):
+    """The turn, then exclusive access and the store open for writing; the store is closed,
+    and access given up, before the turn is."""
+    key = os.path.normcase(os.path.abspath(root))
+    with write_turn(root), access(root, shared=False):
         w = Writer(open_writer(root, create=create))
+        _WRITING.add(key)
         try:
             yield w
         finally:
+            _WRITING.discard(key)
             w.close()
 
 
@@ -265,12 +301,15 @@ def graphs(db):
 
 
 def read(root):
-    """{name: [Triple]} of the workspace's store, read-only."""
-    db = open_reader(root)
-    try:
-        return graphs(db)
-    finally:
-        del db
+    """{name: [Triple]} of the workspace's store, read-only, under shared access."""
+    if not exists(root):
+        open_reader(root)                     # raises NoStore, and takes no lock for it
+    with access(root, shared=True):
+        db = open_reader(root)
+        try:
+            return graphs(db)
+        finally:
+            del db
 
 
 def update_text(new):

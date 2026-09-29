@@ -179,6 +179,49 @@ class Turn(unittest.TestCase):
         self.assertLess(time.monotonic() - start, 1.5)
         holder.communicate(timeout=30)
 
+    def test_a_reader_waits_only_while_a_write_has_the_store_open(self):
+        # Exclusive access is held for the write itself; a read in that window waits for it
+        # (a read-only open while another process writes is undefined behaviour).
+        holder = child("""
+            from jsk.graph import db
+            with db.writing(root):
+                print('open', flush=True)
+                time.sleep(1.5)
+        """, self.root)
+        self.assertEqual(holder.stdout.readline().strip(), "open")
+        start = time.monotonic()
+        self.assertEqual(db.read(self.root)["kb"][0].object.value, "0")
+        self.assertGreater(time.monotonic() - start, 0.8)
+        holder.communicate(timeout=30)
+
+    def test_reads_racing_many_writes_never_fail(self):
+        # The race pyoxigraph calls undefined: a writer compacting while a reader opens.
+        # Hundreds of writes against a reader in a loop; every read must succeed, and see
+        # a whole write - never half of one.
+        writer = child("""
+            import pyoxigraph as ox
+            from jsk.graph import record as R
+            for n in range(150):
+                big = [ox.Triple(ox.NamedNode(f"tag:s{i}"), ox.NamedNode("tag:p"),
+                                 ox.Literal(str(n))) for i in range(300)]
+                R.write_graphs(root, {"kb": big})
+            print('done', flush=True)
+        """, self.root)
+        reads = 0
+        while writer.poll() is None:
+            got = db.read(self.root)["kb"]
+            self.assertEqual(len({t.object.value for t in got}), 1, "a read saw half a write")
+            reads += 1
+        out, err = writer.communicate(timeout=120)
+        self.assertEqual(writer.returncode, 0, err)
+        self.assertIn("done", out)
+        self.assertGreater(reads, 5)
+
+    def test_a_read_inside_this_process_s_own_write_is_refused(self):
+        with db.writing(self.root):
+            with self.assertRaises(RuntimeError):
+                db.read(self.root)
+
     def test_a_writer_that_dies_holding_its_turn_releases_it(self):
         dead = child("""
             import os
