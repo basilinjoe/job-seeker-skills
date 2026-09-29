@@ -52,6 +52,21 @@ class Store(unittest.TestCase):
         self.assertEqual(sorted(got), ["applications/x y/posting", "kb"])
         self.assertEqual(got["kb"][0].object.value, NASTY)
 
+    def test_round_trips_every_kind_of_literal(self):
+        # Through the update's N-Triples and back, and through a dump: a language tag, a
+        # datatype, a quote, and control characters N-Triples must escape (not only tab
+        # and newline).
+        import pyoxigraph as ox
+        terms = [ox.Literal(NASTY, language="en-GB"), lit("2026-09-29", "date"),
+                 lit('say "no" \\" twice'), lit("bell\x07 vt\x0b ff\x0c nul-ish\x01 del\x7f"),
+                 lit(NASTY, "string"), ox.Literal("x", datatype=ox.NamedNode("tag:jsk,2026:t"))]
+        self.write({"kb": [triple(f"t{i}", t) for i, t in enumerate(terms)]})
+        got = {t.subject.value: t.object for t in db.read(self.root)["kb"]}
+        self.assertEqual([got[f"tag:k#t{i}"] for i in range(len(terms))], terms)
+        back = db.parse_dump(db.dump_text(db.read(self.root)))
+        self.assertEqual(sorted(map(str, back["kb"])),
+                         sorted(map(str, db.read(self.root)["kb"])))
+
     def test_numbers_come_back_by_value(self):
         # Ruling 4: why a changeset's `8.40` is refused rather than stored.
         self.write({"kb": [triple("a", lit("8.40", "decimal")), triple("b", lit("007", "integer"))]})
@@ -407,16 +422,50 @@ class OnlyDbKnowsTheStore(unittest.TestCase):
         for path in SCRIPTS.rglob("*.py"):
             yield path.relative_to(SCRIPTS).as_posix(), path.read_text(encoding="utf-8")
 
-    def test_only_db_opens_a_store_on_disk(self):
-        # ox.Store() with no argument is in memory; with a path, or read_only, it is the disk.
-        opens = re.compile(r"\bStore\.read_only\(|\b(?:ox|pyoxigraph)\.Store\(\s*[^)\s]")
-        found = [name for name, text in self.sources() if opens.search(text) and name != "graph/db.py"]
-        self.assertEqual(found, [])
+    # ox.Store() with no argument is in memory; with a path, or read_only, it is the disk.
+    OPENS = re.compile(r"\bStore\.read_only\(|\b(?:ox|pyoxigraph)\.Store\(\s*[^)\s]")
+    # The same through `from pyoxigraph import Store`: a bare Store( with an argument.
+    IMPORTS_STORE = re.compile(r"^\s*from\s+pyoxigraph\s+import\s+[^\n]*\bStore\b", re.M)
+    BARE_OPEN = re.compile(r"(?<![\w.])Store\(\s*[^)\s]")
+    # db.py's openers and the Writer's context: only record.py's write gate calls them.
+    GATE = re.compile(r"\bopen_reader\(|\bopen_writer\(|\.writing\(")
+    HANDLE = re.compile(r"\._db\b")
 
-    def test_only_record_writes_the_store(self):
-        found = [name for name, text in self.sources() if "replace_graphs" in text
-                 and name not in ("graph/db.py", "graph/record.py")]
-        self.assertEqual(found, [])
+    def violations(self, sources):
+        """(module, what it does that only db.py or record.py may) for each source."""
+        out = []
+        for name, text in sources:
+            if name == "graph/db.py":
+                continue
+            if self.OPENS.search(text) or (self.IMPORTS_STORE.search(text)
+                                           and self.BARE_OPEN.search(text)):
+                out.append((name, "opens a store on disk"))
+            if self.HANDLE.search(text):
+                out.append((name, "reaches the Writer's store"))
+            if name == "graph/record.py":
+                continue
+            if self.GATE.search(text):
+                out.append((name, "opens the store for itself"))
+            if "replace_graphs" in text:
+                out.append((name, "writes the store"))
+        return out
+
+    def test_only_db_and_record_touch_the_store(self):
+        self.assertEqual(self.violations(self.sources()), [])
+
+    def test_the_guard_sees_each_way_round_it(self):
+        planted = [("a.py", "db = ox.Store(path)"), ("b.py", "pyoxigraph.Store.read_only(p)"),
+                   ("c.py", "from pyoxigraph import Literal, Store\ns = Store(p)"),
+                   ("d.py", "s = db.open_reader(root)"), ("e.py", "db.open_writer(root)"),
+                   ("f.py", "with db.writing(root) as w:"), ("g.py", "w._db.update(u)"),
+                   ("h.py", "db.replace_graphs(s, g)"), ("graph/record.py", "w._db")]
+        self.assertEqual([n for n, _ in self.violations(planted)],
+                         ["a.py", "b.py", "c.py", "d.py", "e.py", "f.py", "g.py", "h.py",
+                          "graph/record.py"])
+        fine = [("a.py", "s = ox.Store()"), ("b.py", "S.Store(root, findings=f)"),
+                ("c.py", "from pyoxigraph import Store\ns = Store()"),
+                ("graph/record.py", "with db.writing(root) as w:\n db.replace_graphs")]
+        self.assertEqual(self.violations(fine), [])
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ from test_graph_shapes import load
 from jsk.graph import db, legacy, store
 from jsk.graph import ontology as O
 from jsk.graph import record as R
-from jsk.graph.io import GraphError
+from jsk.graph.io import GraphError, parse_text
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"
 PRE = f"PREFIX j: <{O.J}>\nPREFIX k: <{O.K}>\nPREFIX c: <{O.C}>\n"
@@ -107,7 +107,7 @@ class Closure(unittest.TestCase):
     def load(self, edges):
         text = "".join(f"@prefix {n}: <{ns}> .\n" for n, ns in O.PREFIXES) + edges
         with tempfile.TemporaryDirectory() as tmp:
-            return store.load(tmp, vocabulary=None, texts={R.KB: text})
+            return store.load(tmp, vocabulary=None, graphs={R.KB: parse_text(text, R.KB).quads})
 
     def test_hop_limit_and_direction(self):
         s = self.load("c:a a j:Technology ; j:isA c:b .\nc:b a j:Capability ; j:partOf c:c .\n"
@@ -124,8 +124,8 @@ class Closure(unittest.TestCase):
 
 
 class StandIns(unittest.TestCase):
-    """What a write validates before it writes: `graphs` in place of the store's, `texts`
-    in place of a graph - so the record a command is about to write is checked whole."""
+    """What a write validates before it writes: `graphs` in place of the store's - so the
+    record a command is about to write is checked whole."""
 
     def setUp(self):
         self.root = stored_copy(self)
@@ -139,21 +139,12 @@ class StandIns(unittest.TestCase):
         self.assertEqual(len(s.graph(f"{APP}/posting")), len(posting) - 1)
         self.assertTrue(s.stored)
 
-    def test_a_text_wins_over_the_store_and_over_a_graph(self):
-        text = (FIXTURES / "career" / "kb.ttl").read_text(encoding="utf-8").replace(
-            'j:size "1001-5000"', 'j:sise "1001-5000"')
-        s = store.load(self.root, vocabulary=self.root / "vocabulary.ttl",
-                       texts={R.KB: text}, graphs={R.KB: []})
-        [f] = [f for f in s.findings if f.rule == "closed"]
-        # A text has lines, so its finding names one: the write is refused where it was made.
-        self.assertRegex(f.text(), r"^kb:\d+ k:org_meridian ")
-
     def test_a_file_name_is_taken_for_its_graph(self):
         # `career/kb.ttl` and `kb` name one graph: a caller that still says the file does not
         # load a second career beside the first.
-        text = (FIXTURES / "career" / "kb.ttl").read_text(encoding="utf-8")
+        kb = list(load(self.root).graph(R.KB))
         s = store.load(self.root, vocabulary=self.root / "vocabulary.ttl",
-                       texts={"career/kb.ttl": text})
+                       graphs={"career/kb.ttl": kb})
         self.assertIn(R.KB, s.parsed)
         self.assertNotIn("career/kb.ttl", s.parsed)
         self.assertEqual([f.text() for f in s.findings], [])

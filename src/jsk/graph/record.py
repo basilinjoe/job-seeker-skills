@@ -176,11 +176,9 @@ def entry(revision, today, by, summary, sha, touched=(), minted=(), answer=None)
 @dataclass(frozen=True)
 class Prepared:
     """A logged write, ready: the revision, both graphs as quads, and the text the writer
-    lays the career out in - what the diff shows and the entry's kbSha256 hashes (the
-    log's shape still carries one; nothing re-checks it for a stored record)."""
+    lays the career out in - what the diff shows and the entry's kbSha256 hashes."""
     revision: int
     kb_text: str
-    log_text: str
     kb_quads: list
     log_quads: list
 
@@ -199,7 +197,7 @@ def prepared(store, kb_quads, today, by, summary, touched=(), minted=(), answer=
     kb_text = write(kb, "kb")
     log_quads = list(store.graph(LOG)) if LOG in store.parsed else []
     log_quads += entry(rev, today, by, summary, sha256(kb_text), touched, minted, answer)
-    return Prepared(rev, kb_text, write(log_quads, "log"), kb, log_quads)
+    return Prepared(rev, kb_text, kb, log_quads)
 
 
 # --- the store: the one gate every write goes through ---------------------------------------

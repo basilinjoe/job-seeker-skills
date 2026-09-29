@@ -15,7 +15,7 @@ import os
 from dataclasses import dataclass, field
 
 from . import ontology as O
-from .io import GraphError, Unreadable, parse, parse_text
+from .io import GraphError, Unreadable, parse
 
 # For the checker alone: importing `typing` costs every command ~3 ms it never uses.
 TYPE_CHECKING = False
@@ -64,9 +64,9 @@ class Store:
 
     def graph(self, name):
         """One graph's triples, as loaded: a stored graph's as career/store/ keeps them
-        (numbers by value - `8.4`, never `8.40`), a text's or a file's as parsed. Never
-        read back out of the in-memory store, which keeps numbers by value too and would
-        turn a text's `8.40` into `8.4` unreported."""
+        (numbers by value - `8.4`, never `8.40`), a file's as parsed. Never read back out
+        of the in-memory store, which keeps numbers by value too and would turn a file's
+        `8.40` into `8.4` unreported."""
         return self.parsed[name].quads
 
     def file_of(self, iri):
@@ -74,7 +74,7 @@ class Store:
         return self.homes.get(iri)
 
     def line_of(self, iri, file=None):
-        """The line `iri` starts on in a text or a file; 0 in a stored graph, which has
+        """The line `iri` starts on in a file the import reads; 0 in a stored graph, which has
         no lines, and a finding at line 0 prints none."""
         file = file or self.homes.get(iri)
         return self.parsed[file].lines.get(iri, 0) if file in self.parsed else 0
@@ -202,13 +202,12 @@ def parsed_graph(name, triples):
     return Parsed(name, kind_of(name), quads, {}, [])
 
 
-def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=None):
+def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, graphs=None):
     """Load, derive, validate and close over a workspace.
 
     The record comes from career/store/ (record_graphs). `graphs` ({name: triples, or None
-    to drop}) stands in for the store's graphs, and `texts` ({name: text}) for one graph as
-    text: how a write validates the record it is about to write before writing it. A text
-    wins over a graph of the same name, and both over the store. `files` reads those files
+    to drop}) stands in for the store's graphs: how a write validates the record it is
+    about to write before writing it. `files` reads those files
     instead and never opens the store - the import's front end (legacy.read_workspace), and
     `jsk kb load` validating what it imports with the vocabulary alone."""
     import pyoxigraph as ox
@@ -218,7 +217,6 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=Non
 
     store = Store(os.path.abspath(root), ox=ox.Store())
     # Keyed by graph name, whichever a caller passed: `career/kb.ttl` is `kb`.
-    texts = {short_name(n): t for n, t in (texts or {}).items()}
     graphs = {short_name(n): t for n, t in (graphs or {}).items()}
     record = None if files is not None else record_graphs(store.root)
     # A career handed over as graphs is the record as the store will hold it (`jsk kb
@@ -226,32 +224,27 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=Non
     stored = record is not None or "kb" in graphs
     if record is not None:
         record.update(graphs)
-        names = {n for n in record if record[n] is not None} | set(texts)
+        names = {n for n in record if record[n] is not None}
         items: list = [(n, None) for n in sorted(names, key=load_order)]
         if vocabulary and os.path.isfile(vocabulary):
             items.append((graph_name(vocabulary, store.root), vocabulary))
     else:
-        paths = files
-        names = {graph_name(p, store.root) for p in paths}
-        items = [(graph_name(p, store.root), p) for p in paths]
-        items += [(n, None) for n in sorted(texts, key=load_order) if n not in names]
+        items = [(graph_name(p, store.root), p) for p in files]
         if graphs:
             record = dict(graphs)
-            items = [(n, p) for n, p in items if n not in record or n in texts]
+            items = [(n, p) for n, p in items if n not in record]
             items += [(n, None) for n in sorted(record, key=load_order)
-                      if record[n] is not None and n not in texts]
+                      if record[n] is not None]
     derived = ox.NamedNode(O.DERIVED)
     for name, path in items:
         try:
-            if name in texts:
-                parsed = parse_text(texts[name], name)
-            elif record is not None and name in record:
+            if record is not None and name in record:
                 parsed = parsed_graph(name, record[name])
             else:
                 parsed = parse(path)
         except GraphError as e:
             detail = str(e).split(": ", 1)[-1]
-            if path and name not in texts:
+            if path:
                 # A file the import reads: the person fixes the file, so it is named.
                 detail = f"{file_name(path, store.root)}: {detail}"
             store.findings.append(Finding("syntax", "FAIL", name, e.line or 0, "", detail,
