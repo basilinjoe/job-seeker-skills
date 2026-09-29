@@ -111,12 +111,16 @@ LEGACY = "application.md"
 
 def workspace_of_app(app_dir):
     """(workspace root, `applications/<dir>`) for a directory at
-    <root>/applications/<dir>, else (None, None)."""
+    <root>/applications/<dir>, else (None, None). Both named as they are on disk
+    (store.spelled): the graph name is the folder's, however the path was typed."""
+    from .store import spelled
+
     here = os.path.abspath(app_dir)
     apps = os.path.dirname(here)
-    if os.path.basename(apps) != "applications":
+    root = os.path.dirname(apps)
+    if spelled(root, os.path.basename(apps)) != "applications":
         return None, None
-    return os.path.dirname(apps), "applications/" + os.path.basename(here)
+    return root, "applications/" + spelled(apps, os.path.basename(here))
 
 
 def app_graphs(app_dir, store=None):
@@ -482,7 +486,7 @@ def main(argv=None):
         return usage(f"--today needs YYYY-MM-DD, got {today!r}")
     if not os.path.isdir(app_dir):
         return usage(f"not a directory: {app_dir}")
-    if os.path.basename(os.path.dirname(os.path.abspath(app_dir))) != "applications":
+    if workspace_of_app(app_dir)[0] is None:
         # An application's graph is named applications/<dir>/application, so an event
         # written anywhere else would be one no query ever reads.
         return usage(f"{app_dir} is not in an applications/ folder - pass "

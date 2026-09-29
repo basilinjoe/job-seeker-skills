@@ -322,6 +322,31 @@ class Build(Workspace):
         self.assertTrue(caught.exception.fix.startswith("fix:  "), caught.exception.fix)
         self.assertEqual((appkit.graphs(self.root), (self.app / "gaps.md").read_bytes()), before)
 
+    def test_a_sent_application_typed_in_another_case_is_still_refused(self):
+        """Windows and macOS open `APPLICATIONS/ACME-...` as the same folder: the graph is
+        named as the folder is, or the sent check looks for a graph that is not there and
+        a second posting is written for a sent application."""
+        other = self.root / "applications" / STEM.upper()
+        if not other.is_dir():
+            self.skipTest("a case-sensitive filesystem: another case is another folder")
+        self.build()
+        self.send()
+        before = appkit.graphs(self.root)
+        with self.assertRaises(posting.Refused) as caught:
+            postingbuild.build(str(other), str(self.decide()), replace=True,
+                               vocabulary=self.root / "vocabulary.ttl", today=TODAY)
+        self.assertIn("sent on 2026-09-20", str(caught.exception))
+        self.assertEqual(appkit.graphs(self.root).keys(), before.keys())
+
+    def test_an_application_is_named_as_its_folder_is(self):
+        from jsk.graph import store as S
+        from jsk.graph import timeline
+        other = self.root / "APPLICATIONS" / STEM.upper()
+        if not other.is_dir():
+            self.skipTest("a case-sensitive filesystem: another case is another folder")
+        self.assertEqual(timeline.workspace_of_app(other)[1], f"applications/{STEM}")
+        self.assertEqual(S.file_name(str(other), str(self.root)), f"applications/{STEM}")
+
     def test_a_stray_application_ttl_file_does_not_freeze_a_stored_application(self):
         """`jsk kb load` leaves the old files where they were; the store alone says sent."""
         self.build()

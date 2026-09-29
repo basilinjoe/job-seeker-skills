@@ -1068,7 +1068,9 @@ def cmd_freeze(args):
 
     final = app_dir
     if submitted != "false":
-        base = os.path.basename(os.path.abspath(app_dir))
+        from .graph.store import spelled              # noqa: PLC0415 - only when asked
+        # As the folder is spelled on disk, not as typed: the renamed folder keeps its case.
+        base = spelled(apps, os.path.basename(os.path.abspath(app_dir)))
         dated = DATED.match(base)
         rest = dated.group(2) if dated else base
         if not dated or dated.group(1) != submitted:
