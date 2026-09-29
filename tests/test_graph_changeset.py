@@ -95,7 +95,7 @@ class Refusals(unittest.TestCase):
 
     def test_an_entry_of_another_file(self):
         self.assertRefused('op:add { k:evt_x j:kind j:note . }\n', "an Event lives in application.ttl",
-                           "writes career/kb.ttl only")
+                           "writes the career only")
 
     def test_the_log(self):
         self.assertRefused('op:add { k:rev_9 j:summary "x" . }\n', "lives in log.ttl")

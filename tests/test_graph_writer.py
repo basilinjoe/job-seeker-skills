@@ -130,37 +130,6 @@ class Layout(unittest.TestCase):
             writer.write([t], "posting")
 
 
-class HandEdits(unittest.TestCase):
-    """What a person's editor does to the file, undone by one rewrite."""
-
-    KB_TEXT = (FIXTURES / "career" / "kb.ttl").read_bytes().decode("utf-8")
-
-    def rewrite(self, text):
-        parsed = io.parse_text(text, "career/kb.ttl")
-        return writer.write(parsed.quads, "kb")
-
-    def test_a_windows_editor_crlf_bom_and_tabs(self):
-        edited = "﻿" + self.KB_TEXT.replace("\n    ", "\n\t").replace("\n", "\r\n")
-        self.assertEqual(self.rewrite(edited), self.KB_TEXT)
-
-    def test_a_subject_written_in_two_places_becomes_one_block(self):
-        text = PFX + ('k:met_team j:subject "engineers led" .\n\n'
-                      'k:met_team.v1 j:of k:met_team ; j:value 6 ; j:confidence j:measured ; '
-                      'j:provenance j:confirmed .\n\nk:met_team j:unit "engineers" .\n')
-        out = self.rewrite(text)
-        self.assertIn('k:met_team j:subject "engineers led" ; j:unit "engineers" .', out)
-        self.assertEqual(out.count("k:met_team j:"), 1)
-
-    def test_sparql_style_prefixes_full_iris_and_stray_prefixes(self):
-        text = ('PREFIX j: <tag:jsk,2026:ns#>\n@prefix ex: <http://example.com/> .\n'
-                '<tag:jsk,2026:id/met_team> j:subject "engineers led" ; '
-                '<tag:jsk,2026:ns#unit> "engineers" .\n')
-        out = self.rewrite(text)
-        self.assertIn('k:met_team j:subject "engineers led" ; j:unit "engineers" .', out)
-        self.assertNotIn("example.com", out)
-        self.assertTrue(out.startswith(PFX))
-
-
 class NeverUnparseable(unittest.TestCase):
     """The writer's output always parses back to the same triples, whatever it is given
     that it does not refuse outright."""

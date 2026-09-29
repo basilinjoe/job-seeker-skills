@@ -1,19 +1,15 @@
-"""career/kb.ttl and career/log.ttl kept in step: the revision and hash they share.
+"""The career and its log kept in step: the revision they share, and the one gate every
+write goes through.
 
-Every command that writes the career - apply, confirm, adopt, fmt - writes kb.ttl, then
-log.ttl, then a copy of what it wrote in .jsk/. kb.ttl's header carries the revision it
-was written at; log.ttl's last entry carries that revision and kb.ttl's hash. So on any
-later load:
+Every command that writes the career - apply, confirm, new - stamps the career's header
+with the next revision and adds the log entry for it, holding what the write touched and
+minted, and writes both in one update of career/store/ (write_graphs): both change, or
+neither does. So a stored record is clean unless something outside jsk wrote the store.
 
-- same revision, same hash: clean;
-- same revision, another hash: somebody edited kb.ttl by hand - legal, and reported, so
-  `jsk kb adopt` can log it and list what it raised;
-- kb.ttl one revision ahead: the write was torn - kb.ttl landed and log.ttl did not;
-- anything else: one of the two files was restored on its own.
-
-Two files cannot be replaced atomically together. This does not prevent a torn write; it
-makes one impossible to miss. Detection, not prevention - the same is true of a hand
-edit, and both are said plainly where they are reported.
+A workspace not yet loaded into a store keeps the two as files, career/kb.ttl and
+career/log.ttl, and two files cannot be replaced atomically together - so for those the
+states below also tell a hand edit, a torn write and a restored file apart. Transitional:
+the file half goes once every workspace is loaded (`jsk kb load`).
 """
 import os
 import time
@@ -55,10 +51,17 @@ def integer(value):
         return None
 
 
+def revision_of(term):
+    """A revision literal as an int, or None unless it is an xsd:integer. The datatype, not
+    only the digits: a store keeps `3.0`^^xsd:decimal as `3`, which int() would accept."""
+    dtype = getattr(getattr(term, "datatype", None), "value", O.XSD + "integer")
+    return integer(term.value) if dtype == O.XSD + "integer" else None
+
+
 def header_revision(quads):
     for q in quads:
         if q.subject.value == O.K + "kb" and q.predicate.value == O.J + "revision":
-            return integer(q.object.value)
+            return revision_of(q.object)
     return None
 
 
@@ -68,7 +71,11 @@ def last_entry(quads):
     entries = {}
     for q in quads:
         if O.class_of(q.subject.value) == "LogEntry":
-            entries.setdefault(q.subject.value, {})[q.predicate.value[len(O.J):]] = q.object.value
+            name = q.predicate.value[len(O.J):]
+            value = q.object.value
+            if name == "revision" and revision_of(q.object) is None:
+                value = ""
+            entries.setdefault(q.subject.value, {})[name] = value
     best = max(((r, e) for e in entries.values()
                 if (r := integer(e.get("revision", ""))) is not None),
                key=lambda pair: pair[0], default=None)
@@ -132,17 +139,15 @@ def literal(value, dtype):
     return ox.Literal(str(value), datatype=ox.NamedNode(O.XSD + dtype))
 
 
-def stamp(quads, revision, today, content=True):
-    """kb.ttl's triples with its header at `revision`. `updated` is the day the last
-    change landed, so a reformat moves the revision and leaves the day alone."""
+def stamp(quads, revision, today):
+    """The career's triples with its header at `revision`, updated `today`."""
     import pyoxigraph as ox
 
     kb = ox.NamedNode(O.K + "kb")
-    drop = {O.J + "revision"} | ({O.J + "updated"} if content else set())
+    drop = {O.J + "revision", O.J + "updated"}
     out = [q for q in quads if not (q.subject == kb and q.predicate.value in drop)]
     out.append(ox.Quad(kb, ox.NamedNode(O.J + "revision"), literal(revision, "integer")))
-    if content:
-        out.append(ox.Quad(kb, ox.NamedNode(O.J + "updated"), literal(today.isoformat(), "date")))
+    out.append(ox.Quad(kb, ox.NamedNode(O.J + "updated"), literal(today.isoformat(), "date")))
     return out
 
 
@@ -167,7 +172,8 @@ def entry(revision, today, by, summary, sha, touched=(), minted=(), answer=None)
 @dataclass(frozen=True)
 class Prepared:
     """A logged write, ready: the revision, both graphs as quads, and the text the writer
-    lays the career out in - what the diff shows and kbSha256 hashes."""
+    lays the career out in - what the diff shows and the entry's kbSha256 hashes (the
+    log's shape still carries one; nothing re-checks it for a stored record)."""
     revision: int
     kb_text: str
     log_text: str
@@ -178,26 +184,18 @@ class Prepared:
         return {KB: self.kb_quads, LOG: self.log_quads}
 
 
-def prepared(store, kb_quads, today, by, summary, touched=(), minted=(), answer=None,
-             content=True):
+def prepared(store, kb_quads, today, by, summary, touched=(), minted=(), answer=None):
     """What a logged write of `kb_quads` would write - the career stamped with the next
-    revision, the log with an entry holding the career's hash."""
+    revision, the log with an entry naming what the write touched and minted."""
     from .io import sha256
     from .writer import write
 
     rev = next_revision(state(store))
-    kb = stamp(kb_quads, rev, today, content)
+    kb = stamp(kb_quads, rev, today)
     kb_text = write(kb, "kb")
     log_quads = list(store.graph(LOG)) if LOG in store.parsed else []
     log_quads += entry(rev, today, by, summary, sha256(kb_text), touched, minted, answer)
     return Prepared(rev, kb_text, write(log_quads, "log"), kb, log_quads)
-
-
-def prepare(store, kb_quads, today, by, summary, touched=(), minted=(), answer=None,
-            content=True):
-    """(revision, kb_text, log_text): prepared(), as the file layout writes it."""
-    p = prepared(store, kb_quads, today, by, summary, touched, minted, answer, content)
-    return p.revision, p.kb_text, p.log_text
 
 
 # --- the store: the one gate every write goes through ---------------------------------------
@@ -227,15 +225,22 @@ def write_graphs(root, graphs, create=False):
     (`jsk new`, `jsk kb load`)."""
     from . import db
 
+    failure = None
     try:
         with db.writing(root, create=create) as w:
             w.replace_graphs(graphs)
             backup(root, w)
     except db.StoreError as e:
-        raise RecordError(str(e), e.fix) from None
+        failure = RecordError(str(e), e.fix)
     except (OSError, RuntimeError) as e:
-        raise RecordError(f"the store refused the write ({e}) - nothing was changed",
-                          "`jsk doctor` checks the store; run the command again") from None
+        failure = RecordError(f"the store refused the write ({e}) - nothing was changed",
+                              "`jsk doctor` checks the store; run the command again")
+    # Raised out here, not inside the except: an exception raised there keeps the store's
+    # error as its context, and that error's traceback holds the frame holding the open
+    # store - which pyoxigraph closes only when its last reference goes. Left open, the
+    # next reader in this process can find RocksDB mid-compaction.
+    if failure is not None:
+        raise failure
 
 
 def backup(root, writer):

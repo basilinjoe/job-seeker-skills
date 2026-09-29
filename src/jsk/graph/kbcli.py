@@ -2,13 +2,11 @@
 
 Usage: jsk kb <verb> [arguments] [--root DIR]
 
-  apply <changeset.trig> [--dry-run]   merge a changeset into career/kb.ttl; prints the diff
+  apply <changeset.trig> [--dry-run]   merge a changeset into the career; prints the diff
   confirm <id>... --answer "..."       confirm entries with the person's answer, logged;
           <id>... --source F --quote "..."  or with a document's own words;
           --summary <resume.json> --answer "..."  or a resume.json's summary
-  adopt [--drop-comments]              log a hand edit, listing every provenance it raised
-  fmt [<file>...] [--drop-comments]    rewrite in the canonical layout; kb.ttl's is logged
-  show <id>... [--bullets]             entries as kb.ttl holds them, and the op:base to use;
+  show <id>... [--bullets]             entries as Turtle, and the op:base to use;
                                        --bullets, a project's name and bullets only
   view [--section NAME]                the whole career as Markdown, to read
   query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale |
@@ -24,15 +22,20 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
          [--ranked] [--cover N]        --ranked with none
          [--today D] [--out FILE]
   check                                validate the workspace; exit 1 on a FAIL
-  path                                 the workspace, kb.ttl, log.ttl and applications/,
-                                       as absolute paths - read these, never guess them
+  path                                 the workspace, career/store/ and applications/,
+                                       as absolute paths
+  load <workspace | dump.trig>         fill an empty career/store/, once: from a workspace
+                                       still laid out as .ttl files, or from a dump
+  dump [--out FILE]                    the whole record as TriG: a backup, and what load reads
+  log [--last N]                       the record's history, newest first
 
 --root is the workspace, the folder holding career/; by default the nearest one above
 the current directory. `jsk kb <verb> --help` says more about one verb.
 
-Every write goes through the same gate: the workspace validates, kb.ttl is exactly what
-the log last recorded (a hand edit is adopted first, so it is logged as one), and the
-record it would write validates too. Then kb.ttl, then log.ttl, and the diff.
+The record lives in career/store/ and is read and written only through jsk. Every write
+goes through the same gate: it waits its turn behind any other write, the workspace
+validates, and the record it would write validates too. Then the career and its log
+entry change in one update - both, or neither - and the diff is printed.
 
 Exit 0 done (or nothing to do), 1 refused, 2 called wrong.
 """
@@ -50,7 +53,7 @@ VERBS = {}
 # every verb takes. main parses them, so an unknown flag is refused by name.
 FLAGS = {}
 # The verbs that can write the career: each runs inside its turn (record.turn).
-WRITES = {"apply", "confirm", "adopt", "fmt", "load"}
+WRITES = {"apply", "confirm", "load"}
 
 
 def verb(values=(), switches=(), lists=()):
@@ -100,20 +103,26 @@ def show_findings(findings, title):
     show(rep.fails, "FAIL", 25)
 
 
+# Why a record may not be written, and the fix. The file states belong to a workspace not
+# yet loaded into a store: every one of them is fixed by loading it, which validates the
+# files and starts writing to the store instead.
+LOAD = "run `jsk kb load .`: the record moves into career/store/, where jsk writes it"
 GUIDE = {
-    "unlogged": ("career/kb.ttl has no log yet", "run `jsk kb adopt` to start log.ttl from it"),
-    "hand-edited": (None, "run `jsk kb adopt` first, so the hand edit is logged as one"),
-    "torn": (None, "run `jsk kb adopt`: it logs the write that did not reach log.ttl"),
-    "out-of-sync": (None, "restore the file that went back on its own, or `jsk kb adopt`"),
-    "missing": ("there is no career/kb.ttl", "run `jsk new`"),
+    "unlogged": ("career/kb.ttl has no log yet", LOAD),
+    "hand-edited": (None, LOAD),
+    "torn": (None, LOAD),
+    "out-of-sync": (None, "restore the record from its backup: `jsk kb load .jsk/backup.trig` "
+                          "into a new workspace (--root), then use that one"),
+    "missing": ("there is no career record here",
+                "run `jsk new`, or `jsk kb load` to import a workspace or a dump"),
     "unreadable": ("career/kb.ttl or career/log.ttl does not parse", "`jsk kb check` shows where"),
 }
 
 
-def writable(store, allow=("clean",), canonical=True):
-    """None when the record may be written; otherwise the exit code of a refusal."""
+def writable(store):
+    """None when the record may be written; otherwise the exit code of a refusal. Only a
+    clean record is: in a store, anything else means something outside jsk wrote it."""
     from . import record as R
-    from .writer import write
 
     blocking = [f for f in store.fails() if f.rule not in ("log-sync",)
                 and (not f.file.startswith("applications/") or f.rule == "syntax")]
@@ -122,13 +131,9 @@ def writable(store, allow=("clean",), canonical=True):
         print("nothing was written")
         return 1
     st = R.state(store)
-    if st.kind not in allow:
+    if st.kind != "clean":
         message, fix = GUIDE[st.kind]
         return refuse([message or st.detail], fix)
-    if canonical and st.kind == "clean" and not store.stored and \
-            write(store.graph(R.KB), "kb") != store.parsed[R.KB].text:
-        return refuse(["career/kb.ttl is not in the canonical layout this jsk writes"],
-                      "run `jsk kb fmt` - a reformat is logged on its own, so no change hides in it")
     return None
 
 
@@ -143,7 +148,7 @@ def new_failures(before, after):
     return [f for f in after.fails() if not f.file.startswith("applications/") or key(f) not in had]
 
 
-def diff(old, new, name="career/kb.ttl"):
+def diff(old, new, name="kb"):
     return "".join(difflib.unified_diff(old.splitlines(True), new.splitlines(True),
                                         f"a/{name}", f"b/{name}"))
 
@@ -154,30 +159,40 @@ def curies(iris):
 
 
 def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=None,
-                 content=True, dry_run=False, notes=(), old=None):
+                 dry_run=False, notes=()):
     """Stamp, validate, print and - unless a dry run - write. Returns the exit code.
-    The diff is from `old` when given (adopt: the revision the log last recorded)."""
+
+    The command already holds its turn (main takes it), so `store` is the record as it
+    stands, and nothing lands between this validating the candidate and writing it."""
     from . import record as R
     from . import store as S
     from .io import parse_text
-
     from .writer import write
 
+    missed = changed_subjects(store.graph(R.KB), quads) - set(touched) - set(minted)
+    if missed:
+        # Rebase trusts the log to name every id a write changed; one it left out would
+        # let a changeset drafted before this write overwrite it unrefused.
+        return refuse([f"this write changes {curies(missed)} without logging it - a jsk bug"],
+                      "report it; the record is untouched")
     today = datetime.date.today()
-    p = R.prepared(store, quads, today, by, summary, touched, minted, answer, content)
+    p = R.prepared(store, quads, today, by, summary, touched, minted, answer)
     rev, kb_text, log_text = p.revision, p.kb_text, p.log_text
-    # gofmt's promise, checked every time: what was written parses back to what was meant.
-    if set(parse_text(kb_text, R.KB).quads) != set(R.stamp(quads, rev, today, content)):
-        return refuse(["the writer did not reproduce the record it was given - a jsk bug"],
-                      "report it; kb.ttl is untouched")
-    after = S.load(root, texts={R.KB: kb_text, R.LOG: log_text})
+    if store.stored:
+        after = S.load(root, graphs=p.graphs())
+    else:
+        # A file workspace keeps the text: gofmt's promise, checked every time - what is
+        # written parses back to what was meant.
+        if set(parse_text(kb_text, R.KB).quads) != set(R.stamp(quads, rev, today)):
+            return refuse(["the writer did not reproduce the record it was given - a jsk bug"],
+                          "report it; the record is untouched")
+        after = S.load(root, texts={R.KB: kb_text, R.LOG: log_text})
     broken = new_failures(store, after)
     if broken:
         show_findings(broken, f"REFUSED  the change would leave {len(broken)} failures:")
         print("nothing was written")
         return 1
-    if old is None:
-        old = write(store.graph(R.KB), "kb") if store.stored else store.parsed[R.KB].text
+    old = write(store.graph(R.KB), "kb") if store.stored else store.parsed[R.KB].text
     print(diff(old, kb_text), end="")
     for label, ids in (("minted", minted), ("touched", touched)):
         if ids:
@@ -198,6 +213,21 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
     print(f"r{rev} written: " + ("career/store/" if store.stored
                                  else "career/kb.ttl and career/log.ttl"))
     return 0
+
+
+def changed_subjects(before, after):
+    """The subjects whose triples differ between two versions of the career, leaving out
+    the header's revision and day, which every write moves: what a write's log entry must
+    name as touched or minted, or a changeset drafted before it would rebase over it
+    unrefused (edit.base_conflicts checks ids, and only the ids the log names)."""
+    from . import ontology as O
+
+    stamp = {(O.K + "kb", O.J + "revision"), (O.K + "kb", O.J + "updated")}
+
+    def triples(quads):
+        return {(q.subject.value, q.predicate.value, str(q.object)) for q in quads
+                if (q.subject.value, q.predicate.value) not in stamp}
+    return {s for s, _, _ in triples(before) ^ triples(after)}
 
 
 def changeset_text(path):
@@ -539,6 +569,16 @@ def quoted_answer(source, quote, root):
     return f'From {rel(source, root)}: "{squash(quote)}"', None
 
 
+def sent(root, path):
+    """Is the application `path` sits in frozen in the store - does the record hold its
+    application graph, which `jsk freeze` writes?"""
+    from . import db
+    from . import store as S
+
+    app = S.file_name(os.path.dirname(os.path.abspath(path)), root)
+    return db.exists(root) and S.app_graph(app, "application") in db.read(root)
+
+
 def confirm_summary(path, answer, root):
     """`jsk kb confirm --summary`: the summary confirmed in resume.json, beside the answer
     and its text's hash. Not logged in log.ttl: a logged write stamps kb.ttl with a new
@@ -558,8 +598,8 @@ def confirm_summary(path, answer, root):
         return code
     if not inside(path, root):
         return refuse([f"{path}: not inside this workspace"], "pass the application's resume.json")
-    if frozen_refusal(os.path.dirname(os.path.abspath(path))):
-        return refuse([f"{path}: frozen - application.ttl beside it records it as it was sent"],
+    if frozen_refusal(os.path.dirname(os.path.abspath(path))) or sent(root, path):
+        return refuse([f"{path}: frozen - the record holds its application as it was sent"],
                       "copy the application to a new dated directory to reuse it")
     try:
         doc = short.read(path)
@@ -694,150 +734,8 @@ def cmd_confirm(args, flags, root):
                         touched=set(todo) | set(asked), answer=answer)
 
 
-PROVENANCE_RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
-
-
-def provenances(quads):
-    from . import ontology as O
-    return {q.subject.value: q.object.value[len(O.J):] for q in quads
-            if q.predicate.value == O.J + "provenance"}
-
-
-def claims(quads, s):
-    from . import ontology as O
-    # s has a provenance in the kb.ttl adopt's writable() passed, so it is a jsk id.
-    names = O.resets(O.class_named(s))
-    return {(q.predicate.value, q.object.value) for q in quads
-            if q.subject.value == s and q.predicate.value[len(O.J):] in names}
-
-
-def upgrades(before, after):
-    """What a hand edit raised: provenance moved up, an entry added as confirmed, or a
-    claim changed under a confirmation it no longer earns. Without the revision the log
-    last recorded to compare against, every confirmed entry is listed."""
-    from .writer import curie
-
-    now = provenances(after)
-    if before is None:
-        return [f"{curie(s)} is confirmed" for s, p in sorted(now.items()) if p == "confirmed"]
-    was, out = provenances(before), []
-    for s, p in sorted(now.items()):
-        if s not in was:
-            if p == "confirmed":
-                out.append(f"{curie(s)}: added as confirmed")
-        elif PROVENANCE_RANK[p] > PROVENANCE_RANK[was[s]]:
-            out.append(f"{curie(s)}: {was[s]} -> {p}")
-        elif p == "confirmed" and claims(before, s) != claims(after, s):
-            changed = sorted({curie(pred) for pred, _ in claims(before, s) ^ claims(after, s)})
-            out.append(f"{curie(s)}: {', '.join(changed)} changed while confirmed")
-    return out
-
-
-def comments_refused(parsed):
-    lines = [f"{parsed.file}:{n} {text}" for n, text in parsed.comments]
-    return refuse([f"{len(lines)} hand comment(s) the canonical layout would drop:"] + lines,
-                  "move each into a j:note on the entry it is about, or pass --drop-comments")
-
-
-@verb(switches=("--drop-comments",))
-def cmd_adopt(args, flags, root):
-    """jsk kb adopt [--drop-comments]
-
-    Logs career/kb.ttl as it now is: after a hand edit, a torn write, a restored file, or
-    for a kb.ttl that has no log yet. It writes the file in the canonical layout and lists
-    every provenance the edit raised - an entry marked confirmed by hand is exactly what
-    `jsk kb confirm` exists to prevent, so each one is named, to be checked with the person.
-    This is detection, not prevention: the edit already happened; adopt makes it visible.
-    """
-    from . import record as R
-    from . import store as S
-    from .io import parse_text
-
-    if args:
-        return usage("jsk kb adopt takes no arguments")
-    store = S.load(root)
-    st = R.state(store)
-    if st.kind == "clean":
-        print(f"nothing to adopt: career/kb.ttl is what r{st.log_revision} logged")
-        return 0
-    code = writable(store, allow=("unlogged", "hand-edited", "torn", "out-of-sync"))
-    if code is not None:
-        return code
-    if store.parsed[R.KB].comments and "--drop-comments" not in flags:
-        return comments_refused(store.parsed[R.KB])
-    old = R.shadow(root, st.logged_sha)
-    before = parse_text(old, R.KB).quads if old is not None else None
-    after = store.graph(R.KB)
-    raised = upgrades(before, after)
-    # With nothing to compare against, every entry may have changed: log them all, so a
-    # changeset drafted before this edit still conflicts with it through op:base.
-    touched = ({q.subject.value for q in set(before) ^ set(after)} if before is not None
-               else {q.subject.value for q in after})
-    what = {"unlogged": "a kb.ttl with no log yet", "hand-edited": "a hand edit",
-            "torn": "a write that did not reach log.ttl", "out-of-sync": "a restored file"}[st.kind]
-    compared = "" if before is not None or st.kind == "unlogged" else \
-        f" No copy of r{st.log_revision} to compare against, so every confirmed entry is listed."
-    summary = (f"Adopted {what}.{compared} " + ("Raised: " + "; ".join(raised) + "." if raised
-                                               else "Raised no provenance.")).strip()
-    for line in raised:
-        print(f"raised   {line}")
-    if raised:
-        print("         check each with the person; `jsk kb confirm <id> --answer` records it")
-    return write_logged(store, root, after, "adopt", summary, touched, old=old)
-
-
-@verb(switches=("--drop-comments",))
-def cmd_fmt(args, flags, root):
-    """jsk kb fmt [<file>...] [--drop-comments]
-
-    Rewrites record files in the canonical layout - career/kb.ttl when none is named. A
-    reformat of kb.ttl is logged on its own (`by fmt`), so no content change can hide in
-    it; a hand-edited kb.ttl is adopted, not formatted. Any other record file (a
-    posting.ttl, an application.ttl) is rewritten in place and not logged. Hand comments
-    would be lost, so a file holding any is refused unless --drop-comments.
-    """
-    from . import ontology as O
-    from . import record as R
-    from . import store as S
-    from .writer import WriteError, write
-
-    drop = "--drop-comments" in flags
-    store = S.load(root)
-    names = [S.file_name(os.path.abspath(a), root) for a in args] or [R.KB]
-    for name in names:
-        if name == R.LOG:
-            return refuse(["career/log.ttl is written by jsk only"], "leave it; every write keeps it")
-        if name not in store.parsed or O.kind_of(name) in (None, "vocabulary"):
-            return usage(f"{name}: not a record file of this workspace that parses")
-    code = 0
-    for name in names:
-        parsed = store.parsed[name]
-        if parsed.comments and not drop:
-            code = comments_refused(parsed)
-            continue
-        try:
-            text = write(store.graph(name), parsed.kind)
-        except WriteError as e:
-            code = refuse([f"{name}: {e}"], "`jsk kb check` shows what is wrong with it")
-            continue
-        if text == parsed.text:
-            print(f"{name}: already canonical")
-            continue
-        if name == R.KB:
-            refused = writable(store, canonical=False)
-            code = refused if refused is not None else write_logged(
-                store, root, store.graph(R.KB), "fmt", "Reformatted kb.ttl; no content changed.",
-                content=False)
-            continue
-        path = os.path.join(root, name)
-        R.replace(R.staged(path, text), path)
-        print(diff(parsed.text, text, name), end="")
-        print(f"{name}: rewritten")
-    return code
-
-
 def entry_text(quads, iri):
-    """One entry as kb.ttl writes it - every part, for the Person's Positioning too."""
+    """One entry as the writer lays it out - every part, for the Person's Positioning too."""
     from .writer import Subjects, block
 
     sub = Subjects(quads)
@@ -868,9 +766,10 @@ def rank(quads, iri):
 def cmd_show(args, flags, root):
     """jsk kb show <id>... [--bullets]
 
-    The entries as their files hold them, in the canonical layout: a project with its
-    bullets, a metric with its versions. The first line is the revision to put in a
-    changeset's op:base, so a change drafted from what was shown is checked against it.
+    The entries as Turtle, each under the name of the graph that holds it (`kb`, the
+    shipped `vocabulary`, an application's): a project with its bullets, a metric with its
+    versions - the shape a changeset is drafted in. The first line is the revision to put
+    in a changeset's op:base, so a change drafted from what was shown is checked against it.
 
     --bullets prints a project as its name and its bullets only - what citing it as
     evidence needs - without the problem, decisions and notes, which run to thousands of
@@ -887,7 +786,7 @@ def cmd_show(args, flags, root):
     store = S.load(root)
     st = R.state(store)
     print(f"# r{st.log_revision} - op:base {st.log_revision}" if st.log_revision else
-          "# not logged yet - `jsk kb adopt` starts the log")
+          "# not logged yet - `jsk kb check` says why")
     code = 0
     for text in args:
         iri = iri_of(text)
@@ -1173,23 +1072,22 @@ def untraced_lines(store, today, bullets=None):
 def cmd_check(args, flags, root):
     """jsk kb check [--only <path>]
 
-    Validates the whole workspace - every rule, every file - and says where kb.ttl and
-    log.ttl stand, and which record files are not in the canonical layout. Exit 1 on any
-    FAIL; a WARN is printed and passes.
+    Validates the whole workspace - every rule, every graph - and says where the career
+    and its log stand. Exit 1 on any FAIL; a WARN is printed and passes.
 
     It also asks the record gate's number check of every live bullet: a bullet it
     refuses fails every resume that selects it, so it is warned of here, once, rather
     than found by each resume run.
 
-    --only <path>   the findings in that file or under that folder (an application's
-                    directory, say), plus every FAIL anywhere, since a FAIL still stops
-                    `jsk match`. The JumpCloud run's full check printed 40 KB of other
-                    applications' warnings to find its own five.
+    --only <graph or path>  the findings in that graph or under that application (`kb`,
+                    `applications/acme`, or the application's folder), plus every FAIL
+                    anywhere, since a FAIL still stops `jsk match`. The JumpCloud run's
+                    full check printed 40 KB of other applications' warnings to find its
+                    own five.
     """
     from ..gates.report import show
     from . import record as R
     from . import store as S
-    from .writer import WriteError, write
 
     only = flags.get("--only")
     if args:
@@ -1197,7 +1095,7 @@ def cmd_check(args, flags, root):
     store = S.load(root)
     if only is not None:
         here = os.path.abspath(only)
-        only = (S.file_name(here, store.root) if os.path.exists(here)
+        only = (S.graph_name(here, store.root) if os.path.exists(here)
                 else only.replace("\\", "/")).rstrip("/")
 
     def within(name):
@@ -1205,14 +1103,6 @@ def cmd_check(args, flags, root):
 
     rep = S.Store(store.root, findings=[f for f in store.findings
                                         if f.severity == "FAIL" or within(f.file)]).report()
-    for name, parsed in sorted(store.parsed.items()):
-        if not store.stored and parsed.kind in ("kb", "log", "posting", "application", "gaps") \
-                and within(name):
-            try:
-                if write(parsed.quads, parsed.kind) != parsed.text:
-                    rep.warn(f"{name} - not in the canonical layout\n        fix: `jsk kb fmt {name}`")
-            except WriteError:
-                pass                     # a file the writer cannot lay out has a FAIL already
     if not rep.fails and R.KB in store.parsed and within(R.KB):
         for line in untraced_lines(store, datetime.date.today()):
             rep.warn(f"a record selecting it fails a gate: {line}\n        fix: record the "
@@ -1231,26 +1121,31 @@ def cmd_check(args, flags, root):
 def cmd_path(args, flags, root):
     """jsk kb path [--root DIR]
 
-    Prints where the record is, as absolute paths: the workspace, career/kb.ttl,
-    career/log.ttl and applications/. Run it from anywhere inside the workspace - an
-    application directory will do - and read the files at the paths it prints.
+    Prints where the record is, as absolute paths: the workspace, career/store/ and
+    applications/. Run it from anywhere inside the workspace - an application directory
+    will do. The store is not a file to read: `jsk kb view`, `show` and `log` read it.
 
-    The workspace is the folder holding career/, so kb.ttl sits at
-    <workspace>/career/kb.ttl. A workspace that is itself named `career` puts it at
-    career/career/kb.ttl, which is why the path is printed rather than worked out.
-    Needs nothing but the files; exit 1 when there is no career/kb.ttl there.
+    The workspace is the folder holding career/. A workspace that is itself named
+    `career` puts the store at career/career/store/, which is why the path is printed
+    rather than worked out. Needs nothing but the folders; exit 1 when there is no
+    career/store/ there.
     """
+    from . import db, legacy
+
     if args:
         return usage("jsk kb path takes no arguments")
-    kb = os.path.join(root, "career", "kb.ttl")
-    if not os.path.isfile(kb):
-        print(f"no career/kb.ttl under {root}")
-        if os.path.isfile(os.path.join(root, "kb.ttl")):
+    store = db.path(root)
+    if not db.exists(root):
+        print(f"no career/store/ under {root}")
+        if legacy.has_files(root):
+            print("        fix: this workspace is still laid out as .ttl files - "
+                  "`jsk kb load .` moves the record into career/store/")
+        elif os.path.isdir(os.path.join(root, "store")) or \
+                os.path.isfile(os.path.join(root, "kb.ttl")):
             print(f"        fix: that folder is career/ itself - the workspace is {os.path.dirname(root)}")
         return 1
     print(f"workspace     {root}")
-    print(f"kb            {kb}")
-    print(f"log           {os.path.join(root, 'career', 'log.ttl')}")
+    print(f"store         {store}")
     print(f"applications  {os.path.join(root, 'applications')}")
     return 0
 
@@ -1265,7 +1160,10 @@ def cmd_load(args, flags, root):
     one listed), and the files are left where they are - jsk stops reading them. Or from a
     `jsk kb dump` (or .jsk/backup.trig): the record as it was dumped.
 
-    Refused when the store already holds a record, and when what would be loaded has a FAIL.
+    Refused when the store already holds a record, when a workspace of files has any FAIL,
+    and when the career it would load has one. An application's documents - posting.md and
+    the rest - are files beside it, not the record: loaded into another workspace, its
+    folder is named so it can be copied across.
     """
     from . import db, legacy
     from . import record as R
@@ -1300,9 +1198,13 @@ def cmd_load(args, flags, root):
     else:
         return usage(f"{args[0]}: not a folder, nor a .trig file")
     after = S.load(root, files=[S.SHIPPED_VOCABULARY], graphs=record)
-    if after.fails():
-        show_findings(after.fails(), f"REFUSED  the record would load with "
-                                     f"{len(after.fails())} failures:")
+    # As for any write: the career must validate, and an application's fault does not
+    # stop it. An application's rules read the documents beside it (posting.md), so one
+    # loaded into another workspace fails them until its folder is copied across.
+    blocking = [f for f in after.fails()
+                if not f.file.startswith("applications/") or f.rule == "syntax"]
+    if blocking:
+        show_findings(blocking, f"REFUSED  the record would load with {len(blocking)} failures:")
         print("nothing was written")
         return 1
     for name, q, kept in rewrites:
@@ -1319,6 +1221,14 @@ def cmd_load(args, flags, root):
     if legacy.has_files(root):
         print("note     career/kb.ttl and the other .ttl files are no longer read - the record "
               "is career/store/; `jsk kb dump` writes it out as text")
+    apps = sorted({n.rsplit("/", 1)[0] for n in record if n.startswith("applications/")})
+    for app in apps:
+        if not os.path.isdir(os.path.join(root, app)):
+            print(f"note     {app}: its documents (posting.md, gaps.md, resume.json, the files "
+                  f"sent) are not in this workspace - copy the folder into {root}")
+    if any(f.file.startswith("applications/") for f in after.fails()):
+        print(f"note     {sum(f.file.startswith('applications/') for f in after.fails())} "
+              "failures in applications - `jsk kb check` lists them")
     return 0
 
 
