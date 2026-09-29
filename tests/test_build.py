@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 import unittest
 
+import appkit
 import careerkit
 from jsk.resume import build
 from jsk.render import emit_latex, emit_text
@@ -437,7 +438,9 @@ class RenderCommand(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             _, path = careerkit.workspace(Path(tmp, "ws"), short=short())
             app = Path(path).parent
-            (app / "application.ttl").write_text("# sent\n", encoding="utf-8")
+            # Sent: the application graph is in the store (a file beside it freezes nothing).
+            appkit.put(Path(tmp, "ws"), appkit.name(app, "application"),
+                       'k:app_contoso_platform j:submitted "2026-09-01"^^xsd:date .\n')
             for out in (app, Path(tmp, "elsewhere")):
                 code, text = self.render(path, "--out", str(out))
                 self.assertEqual(code, 1, text)

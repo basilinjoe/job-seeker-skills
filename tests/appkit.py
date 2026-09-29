@@ -28,7 +28,7 @@ def seed(root):
     if kb is not None and R.header_revision(kb) is None:
         today = datetime.date(2026, 9, 24)
         R.write_graphs(str(root), {
-            R.KB: R.stamp(kb, 1, today, content=False),
+            R.KB: R.stamp(kb, 1, today),
             R.LOG: list(record.get(R.LOG, [])) + R.entry(1, today, "new", "seeded", "0" * 64)})
     return record
 
