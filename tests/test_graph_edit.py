@@ -1,8 +1,13 @@
 """A changeset merged into the fixture career: the four graphs, the refusals that need the
 record, and what apply does unasked - provenance, questions, bullet ids, versions."""
+import atexit
 import datetime
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
+import storekit
 from test_graph_changeset import PFX
 from test_graph_shapes import FIXTURES, load
 
@@ -14,10 +19,23 @@ TODAY = datetime.date(2026, 9, 24)
 STORE = None
 
 
+def seeded(edit=None):
+    """A copy of the fixture workspace in a store; `edit(root)` changes its files first."""
+    root = Path(tempfile.mkdtemp())
+    shutil.copytree(FIXTURES, root, dirs_exist_ok=True)
+    if edit:
+        edit(root)
+    storekit.seed(root)
+    return root
+
+
 def store():
+    """The fixture career as the store holds it, loaded once: apply never writes."""
     global STORE
     if STORE is None:
-        STORE = load(FIXTURES)
+        root = seeded()
+        atexit.register(shutil.rmtree, root, True)
+        STORE = load(root)
     return STORE
 
 
@@ -163,26 +181,23 @@ class Versions(unittest.TestCase):
 
 
 class Restored(unittest.TestCase):
-    """git restored kb.ttl and log.ttl to an older commit; an application.ttl frozen since
-    still names a metric version and a bullet that commit never had. Neither id is free."""
+    """`jsk kb load` of an older backup took the career and its log back; an application
+    frozen since still names a metric version and a bullet that backup never had. Neither
+    id is free."""
 
-    APP = "applications/acme-platform-engineer/application.ttl"
+    APP = "applications/acme-platform-engineer/application"
 
     def setUp(self):
-        import shutil
-        import tempfile
-        from pathlib import Path
-
-        self.root = Path(tempfile.mkdtemp())
+        def sent_more(root):
+            app = root / (self.APP + ".ttl")
+            text = app.read_text(encoding="utf-8")
+            text = text.replace("k:ach_clinical_events_led_migration ;",
+                                "k:ach_clinical_events_led_migration, "
+                                "k:ach_clinical_events_cut_event_latency ;")
+            text = text.replace("k:met_team.v1 .", "k:met_team.v1, k:met_team.v2 .")
+            app.write_text(text, encoding="utf-8", newline="\n")
+        self.root = seeded(sent_more)
         self.addCleanup(shutil.rmtree, self.root)
-        shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
-        app = self.root / self.APP
-        text = app.read_text(encoding="utf-8")
-        text = text.replace("k:ach_clinical_events_led_migration ;",
-                            "k:ach_clinical_events_led_migration, "
-                            "k:ach_clinical_events_cut_event_latency ;")
-        text = text.replace("k:met_team.v1 .", "k:met_team.v1, k:met_team.v2 .")
-        app.write_text(text, encoding="utf-8", newline="\n")
         self.store = load(self.root)
 
     def run_(self, body):
@@ -251,7 +266,7 @@ class Base(unittest.TestCase):
         run('op:changeset op:base 2 .\nop:set { k:prj_clinical_events j:strength 4 . }\n')
 
     def test_a_base_ahead_of_the_log(self):
-        self.assertIn("ahead of log.ttl", refused('op:changeset op:base 9 .\n'
+        self.assertIn("ahead of the log", refused('op:changeset op:base 9 .\n'
                                                   'op:set { k:prj_clinical_events j:strength 4 . }\n'))
 
 

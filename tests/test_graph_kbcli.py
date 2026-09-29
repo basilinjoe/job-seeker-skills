@@ -1,22 +1,24 @@
-"""`jsk kb`, end to end, on a copy of the fixture workspace."""
+"""`jsk kb`, end to end, on a copy of the fixture workspace in its own store."""
 import contextlib
 import datetime
 import io
 import json
 import os
+import re
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
+import storekit
 from test_graph_changeset import PFX
+from test_graph_pack import edit_career
 from test_graph_shapes import FIXTURES
 
 from jsk import cli
+from jsk.graph import db, record
 from jsk.graph import ontology as O
-from jsk.graph import record
 from jsk.graph import store as S
-from jsk.graph.io import sha256
 
 BRAINDUMP = PFX + """
 op:changeset op:base 2 ; op:summary "The payments project, from the 24 Sep braindump." .
@@ -44,10 +46,20 @@ def other_drive(root):
 
 
 class Workspace(unittest.TestCase):
+    """The fixture copied, and put in a store the first time a test runs `jsk kb` on it -
+    so a test can edit the fixture's text first (a record with a FAIL, say: the store
+    keeps what it is given)."""
+
     def setUp(self):
         self.root = tempfile.mkdtemp()
         shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
         self.addCleanup(shutil.rmtree, self.root)
+        self.seeded = False
+
+    def seed(self):
+        if not self.seeded:
+            storekit.seed(self.root)
+            self.seeded = True
 
     def path(self, name):
         return Path(self.root) / name
@@ -57,31 +69,35 @@ class Workspace(unittest.TestCase):
         return str(self.path(name))
 
     def kb(self, *args):
+        self.seed()
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             code = cli.main(["jsk", "kb", *args, "--root", self.root])
         return code, out.getvalue()
 
     def loaded(self):
+        self.seed()
         return S.load(self.root)
 
-    def edit_kb(self, old, new, logged=False):
-        """Change kb.ttl by hand. `logged`: and make log.ttl agree, as though jsk had
-        written it - how a kb.ttl in an older jsk's layout looks."""
+    def record(self):
+        """The whole record as its dump: what a refusal must leave as it was."""
+        self.seed()
+        return db.dump_text(db.read(self.root))
+
+    def kb_text(self):
+        return storekit.kb_text(self.root)
+
+    def log_text(self):
+        return storekit.graph_text(self.root, record.LOG)
+
+    def edit_kb(self, old, new):
+        """Change the career: its text before it is stored, the store after."""
+        if self.seeded:
+            return edit_career(self, self.root, old, new)
         kb = self.path("career/kb.ttl")
         text = kb.read_text(encoding="utf-8")
         self.assertIn(old, text)
-        text = text.replace(old, new)
-        kb.write_text(text, encoding="utf-8", newline="\n")
-        if logged:
-            log = self.path("career/log.ttl")
-            log.write_text(log.read_text(encoding="utf-8").replace(
-                record.last_entry(self.loaded().graph(record.LOG))[1], sha256(text)),
-                encoding="utf-8", newline="\n")
-        return text
-
-    def old_layout(self):
-        return self.edit_kb("# == Metrics\n\n", "# == Metrics\n\n\n", logged=True)
+        kb.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
 
 
 class Apply(Workspace):
@@ -97,9 +113,9 @@ class Apply(Workspace):
                      "+k:ach_payments_moved_card_payments j:project k:prj_payments ; j:rank 2 ;",
                      "+c:payments a j:Domain ; j:label \"payments\" .",
                      "minted   c:payments, k:ach_payments_cut_settlement_latency",
-                     "r3 written: career/kb.ttl and career/log.ttl"):
+                     "r3 written: career/store/"):
             self.assertIn(line, out)
-        log = self.path("career/log.ttl").read_text(encoding="utf-8")
+        log = self.log_text()
         self.assertIn('j:summary "The payments project, from the 24 Sep braindump."', log)
 
     def test_applying_the_same_changeset_twice_changes_nothing_the_second_time(self):
@@ -124,24 +140,14 @@ class Apply(Workspace):
             PFX + 'op:add { c:payments a j:Domain ; j:label "Kafka" . }\n'))
         self.assertEqual(code, 0, out)
 
-    def test_both_files_restored_together_are_clean(self):
-        kb, log = self.path("career/kb.ttl"), self.path("career/log.ttl")
-        old = (kb.read_bytes(), log.read_bytes())
-        self.assertEqual(self.kb("apply", self.changeset(BRAINDUMP))[0], 0)
-        self.assertEqual(record.state(self.loaded()).log_revision, 3)
-        kb.write_bytes(old[0])
-        log.write_bytes(old[1])
-        self.assertEqual(record.state(self.loaded()).kind, "clean")
-
     def test_a_dry_run_writes_nothing(self):
-        kb = self.path("career/kb.ttl")
-        before = (kb.read_bytes(), os.stat(kb).st_mtime_ns)
+        before = self.record()
+        backup = self.path(record.BACKUP).read_bytes()
         code, out = self.kb("apply", self.changeset(BRAINDUMP), "--dry-run")
         self.assertEqual(code, 0, out)
         self.assertIn("+k:prj_payments", out)
         self.assertIn("dry run: r3 not written", out)
-        self.assertEqual((kb.read_bytes(), os.stat(kb).st_mtime_ns), before)
-        self.assertFalse(self.path(".jsk").exists())
+        self.assertEqual((self.record(), self.path(record.BACKUP).read_bytes()), (before, backup))
 
     def test_a_changeset_windows_powershell_wrote_is_read(self):
         # PowerShell 5.1's `>` and Out-File write UTF-16 with a byte-order mark.
@@ -164,21 +170,24 @@ class Apply(Workspace):
         self.assertEqual(code, 2)
         self.assertIn("stdin is refused", out)
 
-    def test_a_hand_edit_is_adopted_before_anything_is_applied(self):
-        kb = self.path("career/kb.ttl")
-        kb.write_text(kb.read_text(encoding="utf-8").replace('"1001-5000"', '"5001-10000"'),
-                      encoding="utf-8", newline="\n")
+    def test_a_store_written_outside_jsk_is_refused(self):
+        s = self.loaded()
+        record.write_graphs(self.root, {record.KB: record.stamp(
+            s.graph(record.KB), 9, datetime.date.today())})
+        before = self.record()
         code, out = self.kb("apply", self.changeset(BRAINDUMP))
-        self.assertEqual(code, 1)
-        self.assertIn("jsk kb adopt", out)
+        self.assertEqual(code, 1, out)
+        self.assertIn("something outside jsk wrote career/store/", out)
+        self.assertIn("backup.trig", out)
+        self.assertEqual(self.record(), before)
 
     def test_a_change_that_breaks_the_record_is_refused_whole(self):
-        before = self.path("career/kb.ttl").read_bytes()
+        before = self.record()
         code, out = self.kb("apply", self.changeset(
             PFX + 'op:add { k:prj_half j:name "Half a project" . }\n'))
         self.assertEqual(code, 1)
         self.assertIn("j:strength is required", out)
-        self.assertEqual(self.path("career/kb.ttl").read_bytes(), before)
+        self.assertEqual(self.record(), before)
 
     def test_a_refusal_names_every_reason(self):
         code, out = self.kb("apply", self.changeset(
@@ -207,12 +216,6 @@ class Apply(Workspace):
         self.assertEqual((code, record.state(self.loaded()).log_revision), (0, 2))
         self.assertIn("nothing to change", out)
 
-    def test_a_non_canonical_kb_is_formatted_first(self):
-        self.old_layout()
-        code, out = self.kb("apply", self.changeset(BRAINDUMP))
-        self.assertEqual(code, 1)
-        self.assertIn("jsk kb fmt", out)
-
     def test_a_changeset_that_is_not_trig(self):
         code, out = self.kb("apply", self.changeset("x", "changes.ttl"))
         self.assertEqual(code, 2)
@@ -229,10 +232,10 @@ class Confirm(Workspace):
         self.assertEqual(code, 0, out)
         s = self.loaded()
         self.assertEqual([f.text() for f in s.findings], [])
-        text = self.path("career/kb.ttl").read_text(encoding="utf-8")
+        text = self.kb_text()
         self.assertIn("k:q_sites_bullet j:about k:ach_site_onboarding_sites_one_platform", text)
         self.assertEqual(text.count('j:answered "' + datetime.date.today().isoformat()), 2)
-        log = self.path("career/log.ttl").read_text(encoding="utf-8")
+        log = self.log_text()
         self.assertIn(f'j:answer "{ANSWER}"', log)
         self.assertIn("j:by j:confirm", log)
 
@@ -308,7 +311,7 @@ class ConfirmFromSource(Workspace):
     def test_a_quote_the_document_holds_confirms_and_is_logged(self):
         code, out = self.confirm("k:ach_site_onboarding_sites_one_platform")
         self.assertEqual(code, 0, out)
-        log = self.path("career/log.ttl").read_text(encoding="utf-8")
+        log = self.log_text()
         self.assertIn(f'From imports/prior-resume.md: \\"{QUOTE}\\"', log)
         self.assertEqual([f.text() for f in self.loaded().findings], [])
 
@@ -435,7 +438,7 @@ class ConfirmSummary(Workspace):
                                           "answer": "Yes, that is exactly what I do.",
                                           "text_sha256": short.digest(self.TEXT)})
         self.assertEqual(short.shape(doc), [])
-        self.assertEqual(record.state(self.loaded()).log_revision, 2)   # not in kb.ttl
+        self.assertEqual(record.state(self.loaded()).log_revision, 2)   # not in the career
         code, out = self.confirm()
         self.assertEqual(code, 0, out)
         self.assertIn("confirmed already", out)
@@ -487,104 +490,6 @@ class ConfirmSummary(Workspace):
         self.assertEqual(code, 2, out)
 
 
-class Adopt(Workspace):
-    def test_a_hand_edit_is_logged_with_what_it_raised(self):
-        self.kb("apply", self.changeset(PFX + 'op:set { k:prj_clinical_events j:strength 4 . }\n'))
-        self.edit_kb("j:outcome \"Onboarding fell to two weeks; 42 sites now run on it.\" ;\n"
-                     "    j:provenance j:inferred .",
-                     "j:outcome \"Onboarding fell to two weeks; 42 sites now run on it.\" ;\n"
-                     "    j:provenance j:confirmed .")
-        self.edit_kb('"Led a team of 6 engineers', '"Led a team of 8 engineers')
-        self.assertEqual(record.state(self.loaded()).kind, "hand-edited")
-        code, out = self.kb("adopt")
-        self.assertEqual(code, 0, out)
-        self.assertIn("raised   k:prj_site_onboarding: inferred -> confirmed", out)
-        self.assertIn("raised   k:ach_clinical_events_led_migration: j:text changed while confirmed", out)
-        self.assertIn("-    j:provenance j:inferred .", out)      # the diff is from r3
-        s = self.loaded()
-        self.assertEqual((record.state(s).kind, record.state(s).log_revision), ("clean", 4))
-        log = self.path("career/log.ttl").read_text(encoding="utf-8")
-        self.assertIn("Raised: k:ach_clinical_events_led_migration: j:text changed while confirmed", log)
-
-    def test_with_no_copy_to_compare_every_confirmed_entry_is_listed(self):
-        self.edit_kb('j:size "1001-5000"', 'j:size "5001-10000"')
-        code, out = self.kb("adopt")
-        self.assertEqual(code, 0, out)
-        self.assertIn("raised   k:prj_clinical_events is confirmed", out)
-        self.assertIn("No copy of r2 to compare against",
-                      self.path("career/log.ttl").read_text(encoding="utf-8"))
-
-    def test_a_torn_write_is_adopted(self):
-        self.edit_kb("j:revision 2 .", "j:revision 3 .")
-        self.assertEqual(record.state(self.loaded()).kind, "torn")
-        code, out = self.kb("adopt")
-        self.assertEqual(code, 0, out)
-        self.assertEqual(record.state(self.loaded()).kind, "clean")
-
-    def test_comments_are_refused_unless_dropped(self):
-        self.edit_kb("# == Metrics\n", "# == Metrics\n# ask about the latency\n")
-        code, out = self.kb("adopt")
-        self.assertEqual(code, 1)
-        self.assertIn("career/kb.ttl:", out)
-        self.assertIn("# ask about the latency", out)
-        code, out = self.kb("adopt", "--drop-comments")
-        self.assertEqual(code, 0, out)
-        self.assertNotIn("# ask", self.path("career/kb.ttl").read_text(encoding="utf-8"))
-
-    def test_a_hand_edit_adopted_without_a_copy_still_conflicts_with_an_older_base(self):
-        # A fresh clone has no .jsk/: adopt cannot say what changed, so it logs every
-        # entry as touched rather than none - op:base must still catch the hand edit.
-        self.kb("apply", self.changeset(PFX + 'op:set { k:prj_clinical_events j:strength 4 . }\n'))
-        shutil.rmtree(self.path(".jsk"))
-        self.edit_kb('j:name "Intranet refresh"', 'j:name "Intranet refresh v2"')
-        self.assertEqual(self.kb("adopt")[0], 0)
-        code, out = self.kb("apply", self.changeset(
-            PFX + 'op:changeset op:base 3 .\nop:set { k:prj_intranet_refresh j:name "Intranet refresh" . }\n'))
-        self.assertEqual(code, 1, out)
-        self.assertIn("changed at r4, after this changeset's op:base r3", out)
-
-    def test_a_clean_record_has_nothing_to_adopt(self):
-        code, out = self.kb("adopt")
-        self.assertEqual(code, 0)
-        self.assertIn("nothing to adopt", out)
-
-
-class Fmt(Workspace):
-    def test_a_reformat_is_logged_on_its_own_and_keeps_the_day(self):
-        self.old_layout()
-        code, out = self.kb("fmt")
-        self.assertEqual(code, 0, out)
-        s = self.loaded()
-        self.assertEqual((record.state(s).kind, record.state(s).log_revision), ("clean", 3))
-        self.assertIn('j:updated "2026-09-20"^^xsd:date ; j:revision 3 .',
-                      self.path("career/kb.ttl").read_text(encoding="utf-8"))
-        self.assertIn("j:by j:fmt", self.path("career/log.ttl").read_text(encoding="utf-8"))
-
-    def test_a_canonical_file_is_left_alone(self):
-        code, out = self.kb("fmt")
-        self.assertEqual((code, record.state(self.loaded()).log_revision), (0, 2))
-        self.assertIn("already canonical", out)
-
-    def test_a_hand_edit_is_adopted_not_formatted(self):
-        self.edit_kb("# == Metrics\n\n", "# == Metrics\n\n\n")
-        code, out = self.kb("fmt")
-        self.assertEqual(code, 1)
-        self.assertIn("jsk kb adopt", out)
-
-    def test_another_record_file_is_rewritten_unlogged(self):
-        posting = self.path("applications/acme-platform-engineer/posting.ttl")
-        posting.write_text(posting.read_text(encoding="utf-8") + "\n\n", encoding="utf-8")
-        code, out = self.kb("fmt", str(posting))
-        self.assertEqual(code, 0, out)
-        self.assertIn("posting.ttl: rewritten", out)
-        self.assertEqual(record.state(self.loaded()).log_revision, 2)
-
-    def test_the_log_is_not_a_file_to_format(self):
-        code, out = self.kb("fmt", str(self.path("career/log.ttl")))
-        self.assertEqual(code, 1)
-        self.assertIn("written by jsk only", out)
-
-
 class Show(Workspace):
     def test_a_project_is_shown_with_its_bullets_and_the_base_to_draft_against(self):
         code, out = self.kb("show", "prj_clinical_events")
@@ -602,8 +507,8 @@ class Show(Workspace):
     def test_a_shipped_concept_is_shown_from_the_vocabulary(self):
         code, out = self.kb("show", "c:kafka")
         self.assertEqual(code, 0, out)
-        self.assertIn("# vocabulary.ttl", out)
-        self.assertIn("# career/kb.ttl", out)       # kb.ttl extends it
+        self.assertIn("\n# vocabulary\n", out)
+        self.assertIn("\n# kb\n", out)                # the career extends it
 
     def test_an_unknown_id_names_the_nearest(self):
         code, out = self.kb("show", "prj_clinical_event")
@@ -628,9 +533,9 @@ class View(Workspace):
         self.assertNotIn("## Projects", out)
 
     def test_it_writes_nothing(self):
-        before = sorted(p.name for p in Path(self.root).rglob("*"))
+        before = self.record()
         self.assertEqual(self.kb("view")[0], 0)
-        self.assertEqual(sorted(p.name for p in Path(self.root).rglob("*")), before)
+        self.assertEqual(self.record(), before)
 
 
 class Query(Workspace):
@@ -641,8 +546,7 @@ class Query(Workspace):
 
     def test_a_question_about_several_entries_is_one_row(self):
         self.edit_kb("k:q_sites_confirm j:about k:prj_site_onboarding ;",
-                     "k:q_sites_confirm j:about k:prj_clinical_events, k:prj_site_onboarding ;",
-                     logged=True)
+                     "k:q_sites_confirm j:about k:prj_clinical_events, k:prj_site_onboarding ;")
         rows = [r for r in json.loads(self.kb("query", "open", "--json")[1])
                 if r["question"] == "k:q_sites_confirm"]
         self.assertEqual([r["about"] for r in rows],
@@ -708,7 +612,7 @@ class Query(Workspace):
     def test_evidence_shows_fewer_text_hits_when_the_term_names_a_concept(self):
         from jsk.graph import named
         self.assertLess(named.TEXT_HITS_RESOLVED, named.TEXT_HITS)
-        kb = self.path("career/kb.ttl")
+        kb = self.path("career/kb.ttl")                 # before it is stored
         kb.write_text(kb.read_text(encoding="utf-8") + "".join(
             f'\nk:ach_intranet_refresh_kafka_{i} j:project k:prj_intranet_refresh ; j:rank {10 + i} ;\n'
             f'    j:text "Kafka note {i}." ; j:provenance j:inferred .\n' for i in range(8)),
@@ -860,14 +764,14 @@ class Check(Workspace):
     def test_a_bullet_every_record_would_fail_on_is_warned_of_once(self):
         """A number no metric holds fails the record gate in whatever record selects
         the bullet - found, on the Everforth run, by the author one gate at a time."""
-        self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites", logged=True)
+        self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites")
         code, out = self.kb("check")
         self.assertEqual(code, 0, out)                     # a WARN, not a FAIL
         self.assertIn("a record selecting it fails a gate:", out)
         self.assertIn("'3' appears in the text but in no metric", out)
 
     def test_export_names_the_bullets_its_draft_already_fails(self):
-        self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites", logged=True)
+        self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites")
         out_file = self.path("applications/draft/resume.json")
         code, out = self.kb("export", "--out", str(out_file))
         self.assertEqual(code, 0, out)
@@ -876,18 +780,13 @@ class Check(Workspace):
         self.assertIn("'3'", out)
         self.assertTrue(out_file.exists())
 
-    def test_a_fail_exits_1_and_a_hand_edit_is_named(self):
+    def test_a_fail_exits_1_and_names_the_graph_and_the_entry(self):
         self.edit_kb("j:cites k:met_team ;", "j:cites k:met_teem ;")
         code, out = self.kb("check")
         self.assertEqual(code, 1)
-        self.assertIn("record   hand-edited at r2", out)
+        self.assertIn("record   clean at r2", out)
         self.assertIn("did you mean k:met_team?", out)
-
-    def test_a_file_out_of_layout_is_named(self):
-        self.old_layout()
-        code, out = self.kb("check")
-        self.assertEqual(code, 0)
-        self.assertIn("career/kb.ttl - not in the canonical layout", out)
+        self.assertRegex(out, r"FAIL  kb k:ach_\w+ - j:cites k:met_teem")    # no line number
 
     APP = "applications/acme-platform-engineer"
 
@@ -902,7 +801,7 @@ class Check(Workspace):
         self.assertEqual(code, 0, out)
         self.assertIn("0 FAIL, 1 WARN", out)
         self.assertIn("Must have Terraform in production", out)
-        self.assertNotIn("appears in the text but in no metric", out)     # kb.ttl's, not its
+        self.assertNotIn("appears in the text but in no metric", out)     # the career's
         code, out = self.kb("check", "--only", str(self.path(self.APP)))    # a path works too
         self.assertIn("0 FAIL, 1 WARN", out)
 
@@ -914,7 +813,7 @@ class Check(Workspace):
 
     def test_only_somewhere_clean(self):
         self.uncover()
-        code, out = self.kb("check", "--only", "career/log.ttl")
+        code, out = self.kb("check", "--only", "log")
         self.assertEqual(code, 0, out)
         self.assertIn("0 FAIL, 0 WARN", out)
 
@@ -924,6 +823,11 @@ class Dispatch(Workspace):
         code, out = self.kb("--help")
         self.assertEqual(code, 0)
         self.assertIn("apply <changeset.trig>", out)
+        verbs = re.findall(r"^  (\w+)", out, re.M)
+        self.assertEqual(verbs, ["apply", "confirm", "show", "view", "query", "pack", "merge",
+                                 "export", "check", "path", "load", "dump", "log"])
+        from jsk.graph import kbcli
+        self.assertEqual(sorted(kbcli.VERBS), sorted(verbs))
 
     def test_a_verb_s_help(self):
         code, out = self.kb("apply", "--help")
@@ -946,14 +850,15 @@ class Dispatch(Workspace):
 
 
 class KbPath(unittest.TestCase):
-    """`jsk kb path` - the paths an agent reads, printed rather than worked out."""
+    """`jsk kb path` - where the record is, printed rather than worked out."""
 
     def setUp(self):
-        # A workspace that is itself named `career`: kb.ttl sits at career/career/kb.ttl.
+        # A workspace that is itself named `career`: the store sits at career/career/store/.
         self.outer = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.outer)
         self.root = os.path.join(self.outer, "career")
         shutil.copytree(FIXTURES, self.root)
+        storekit.seed(self.root)
 
     def run_path(self, *args, cwd=None):
         here = os.getcwd()
@@ -968,22 +873,28 @@ class KbPath(unittest.TestCase):
     def test_it_prints_the_absolute_paths(self):
         code, out = self.run_path("--root", self.root)
         self.assertEqual(code, 0, out)
-        self.assertIn(f"workspace     {self.root}\n", out)
-        self.assertIn(f"kb            {os.path.join(self.root, 'career', 'kb.ttl')}\n", out)
-        self.assertIn(f"log           {os.path.join(self.root, 'career', 'log.ttl')}\n", out)
-        self.assertIn(f"applications  {os.path.join(self.root, 'applications')}\n", out)
+        self.assertEqual(out, f"workspace     {self.root}\n"
+                              f"store         {os.path.join(self.root, 'career', 'store')}\n"
+                              f"applications  {os.path.join(self.root, 'applications')}\n")
 
     def test_it_finds_the_workspace_from_an_application_directory(self):
         code, out = self.run_path(cwd=os.path.join(self.root, "applications"))
         self.assertEqual(code, 0, out)
-        self.assertIn(os.path.join(self.root, "career", "kb.ttl"), out)
+        self.assertIn(os.path.join(self.root, "career", "store"), out)
 
     def test_the_career_folder_itself_is_named_as_the_mistake(self):
         inner = os.path.join(self.root, "career")
         code, out = self.run_path("--root", inner)
         self.assertEqual(code, 1)
-        self.assertIn(f"no career/kb.ttl under {inner}", out)
+        self.assertIn(f"no career/store/ under {inner}", out)
         self.assertIn(f"the workspace is {self.root}", out)
+
+    def test_a_workspace_still_laid_out_as_files_is_told_to_load(self):
+        files = os.path.join(self.outer, "files")
+        shutil.copytree(FIXTURES, files)
+        code, out = self.run_path("--root", files)
+        self.assertEqual(code, 1)
+        self.assertIn("`jsk kb load .`", out)
 
     def test_it_takes_no_arguments(self):
         code, out = self.run_path("kb.ttl", "--root", self.root)
@@ -996,7 +907,7 @@ class UnknownFlags(Workspace):
     flags out by name and leave the rest as arguments, so a mistyped one was caught only
     when the count came out wrong - and then as "takes one changeset", not as the typo."""
 
-    CALLS = [("apply", "changes.trig"), ("adopt",), ("fmt",), ("path",),
+    CALLS = [("apply", "changes.trig"), ("path",), ("load", "x.trig"), ("dump",), ("log",),
              ("confirm", "k:prj_identity", "--answer", "It shipped in March."),
              ("pack", "capabilities"), ("merge", "c:kafka", "--into", "c:python"),
              ("show", "k:prj_identity"), ("view",), ("export", "--select", "prj_identity"),
@@ -1015,6 +926,157 @@ class UnknownFlags(Workspace):
                 code, out = self.kb(*call, "--no-such-flag")
                 self.assertEqual(code, 2, out)
                 self.assertIn("unknown flag: --no-such-flag", out)
+
+
+class Load(unittest.TestCase):
+    """`jsk kb load`: an empty store filled once - from a workspace still laid out as files,
+    or from a dump."""
+
+    APP = "applications/acme-platform-engineer"
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.files = os.path.join(self.tmp, "files")        # a workspace not yet loaded
+        shutil.copytree(FIXTURES, self.files)
+        self.empty = os.path.join(self.tmp, "empty")
+        os.makedirs(self.empty)
+
+    def documents(self):
+        """The application's documents copied into the empty workspace, as a person moving
+        a record would: they are files beside the record, not in it."""
+        os.makedirs(os.path.join(self.empty, self.APP))
+        shutil.copy(os.path.join(self.files, self.APP, "posting.md"),
+                    os.path.join(self.empty, self.APP, "posting.md"))
+
+    def kb(self, root, *args):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cli.main(["jsk", "kb", *args, "--root", root])
+        return code, out.getvalue()
+
+    def edit(self, old, new, file="career/kb.ttl"):
+        path = Path(self.files, file)
+        text = path.read_text(encoding="utf-8")
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
+
+    def test_a_workspace_of_files_loads_in_place_and_its_files_are_no_longer_read(self):
+        kb = Path(self.files, "career/kb.ttl")
+        before = kb.read_bytes()
+        here = os.getcwd()
+        os.chdir(self.files)                                        # `jsk kb load .`, as the fix says
+        self.addCleanup(os.chdir, here)
+        code, out = self.kb(self.files, "load", ".")
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"loaded   \d+ triples in 4 graphs into career/store/, at r2")
+        self.assertIn("career/kb.ttl and the other .ttl files are no longer read", out)
+        self.assertNotIn("not in this workspace", out)
+        self.assertEqual(kb.read_bytes(), before)                  # left where it is
+        s = S.load(self.files)
+        self.assertTrue(s.stored)
+        self.assertEqual(record.state(s).kind, "clean")
+        self.assertEqual(sorted(s.parsed), ["applications/acme-platform-engineer/application",
+                                            "applications/acme-platform-engineer/posting",
+                                            "kb", "log", "vocabulary"])
+        kb.write_text(before.decode("utf-8").replace('"Meridian Health"', '"Elsewhere"'),
+                      encoding="utf-8")
+        self.assertNotIn("Elsewhere", storekit.kb_text(self.files))
+
+    def test_a_number_the_store_would_rewrite_is_kept_by_value_and_said(self):
+        self.edit("    j:value 42 ;", "    j:value 42.0 ;")
+        code, out = self.kb(self.empty, "load", self.files)
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"number   kb k:met_\w+\.v1 j:value 42\.0 kept as 42\n")
+
+    def test_a_workspace_with_a_fail_is_refused_and_nothing_is_stored(self):
+        self.edit("j:cites k:met_team ;", "j:cites k:met_teem ;")
+        code, out = self.kb(self.empty, "load", self.files)
+        self.assertEqual(code, 1, out)
+        self.assertIn("did you mean k:met_team?", out)
+        self.assertIn("nothing was written", out)
+        self.assertFalse(db.exists(self.empty))
+
+    def test_a_store_that_holds_a_record_is_refused(self):
+        self.assertEqual(self.kb(self.empty, "load", self.files)[0], 0)
+        before = db.dump_text(db.read(self.empty))
+        code, out = self.kb(self.empty, "load", self.files)
+        self.assertEqual(code, 1, out)
+        self.assertIn("already holds a record", out)
+        self.assertEqual(db.dump_text(db.read(self.empty)), before)
+
+    def test_a_dump_loads_back_to_the_same_record(self):
+        self.assertEqual(self.kb(self.files, "load", self.files)[0], 0)
+        self.documents()
+        dump = os.path.join(self.tmp, "career.trig")
+        code, out = self.kb(self.files, "dump", "--out", dump)
+        self.assertEqual(code, 0, out)
+        code, out = self.kb(self.empty, "load", dump)
+        self.assertEqual(code, 0, out)
+        self.assertIn("at r2", out)
+        self.assertNotIn("note", out)
+        self.assertEqual(db.dump_text(db.read(self.empty)), db.dump_text(db.read(self.files)))
+        self.assertEqual(self.kb(self.empty, "view"), self.kb(self.files, "view"))
+        self.assertEqual(self.kb(self.empty, "check")[0], 0)
+
+    def test_elsewhere_an_application_s_documents_are_named_to_copy(self):
+        code, out = self.kb(self.empty, "load", self.files)
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"note     {self.APP}: its documents (posting.md", out)
+        self.assertIn("failures in applications - `jsk kb check` lists them", out)
+        self.assertEqual(self.kb(self.empty, "check")[0], 1)          # until it is copied
+
+    def test_the_backup_every_write_leaves_is_a_dump(self):
+        self.assertEqual(self.kb(self.files, "load", self.files)[0], 0)
+        code, out = self.kb(self.empty, "load", os.path.join(self.files, record.BACKUP))
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.kb(self.empty, "view"), self.kb(self.files, "view"))
+
+    def test_a_dump_to_stdout_is_what_the_store_holds(self):
+        self.assertEqual(self.kb(self.files, "load", self.files)[0], 0)
+        code, out = self.kb(self.files, "dump")
+        self.assertEqual(code, 0)
+        self.assertEqual(out, db.dump_text(db.read(self.files)))
+
+    def test_what_is_not_a_record_is_refused(self):
+        bad = os.path.join(self.tmp, "bad.trig")
+        Path(bad).write_text("<tag:a> <tag:b> <tag:c> .\n", encoding="utf-8")
+        code, out = self.kb(self.empty, "load", bad)
+        self.assertEqual(code, 1, out)
+        self.assertIn("outside any record graph", out)
+        Path(bad).write_text("this is not trig", encoding="utf-8")
+        code, out = self.kb(self.empty, "load", bad)
+        self.assertEqual(code, 1, out)
+        self.assertFalse(db.exists(self.empty))
+        self.assertEqual(self.kb(self.empty, "load", self.empty)[0], 2)     # no kb.ttl in it
+        self.assertEqual(self.kb(self.empty, "load")[0], 2)
+
+    def test_a_dump_with_no_store_is_refused(self):
+        code, out = self.kb(self.empty, "dump")
+        self.assertEqual(code, 1, out)
+        self.assertIn("jsk kb load", out)
+
+
+class Log(Workspace):
+    def test_the_history_newest_first(self):
+        self.assertEqual(self.kb("apply", self.changeset(BRAINDUMP))[0], 0)
+        code, out = self.kb("log")
+        self.assertEqual(code, 0, out)
+        revs = re.findall(r"^r(\d+) ", out, re.M)
+        self.assertEqual(revs, ["3", "2", "1"])
+        today = datetime.date.today().isoformat()
+        self.assertIn(f"r3  {today}  apply    The payments project, from the 24 Sep braindump.",
+                      out)
+        self.assertRegex(out, r"    minted   c:payments, k:ach_payments_cut_settlement_latency")
+
+    def test_last_n(self):
+        self.assertEqual(self.kb("apply", self.changeset(BRAINDUMP))[0], 0)
+        code, out = self.kb("log", "--last", "1")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(re.findall(r"^r(\d+) ", out, re.M), ["3"])
+        for bad in ("0", "x", "-1"):
+            with self.subTest(last=bad):
+                self.assertEqual(self.kb("log", "--last", bad)[0], 2)
 
 
 if __name__ == "__main__":

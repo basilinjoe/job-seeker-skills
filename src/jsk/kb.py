@@ -5,28 +5,22 @@ Usage: jsk new <path> --name "Their Name" [--force]
        python -m jsk.kb <path> --name "Their Name" [--force]
        <path>     the workspace folder to create; career/ goes inside it
        --name     the person's full name; the record's header says whose it is
-       --force    start an existing career/kb.ttl over from the empty record, logged, the
-                  old one kept beside it as career/kb.r<N>.ttl
+       --force    start an existing record over from the empty one, logged, the old
+                  record kept beside it as a dump, career/kb.r<N>.trig
 
-Exit 0 = written. Exit 1 = refused, because something was already there, or --force was
-asked for without pyoxigraph (a first scaffold does not need it). Exit 2 = called wrongly.
+Exit 0 = written. Exit 1 = refused, because something was already there, or pyoxigraph
+is missing (the record is a pyoxigraph store). Exit 2 = called wrongly.
 
 It writes:
 
-  career/kb.ttl     the empty record, in the canonical layout: the header naming the
-                    person and every section banner, in the order they are always written
-  career/log.ttl    k:rev_1, `j:by j:new`, holding kb.ttl's hash - so the record is clean
-                    at r1 and `jsk kb apply` works on it straight away
+  career/store/     the record: the empty career - the header naming the person - at r1,
+                    and its log, k:rev_1 `j:by j:new` - so `jsk kb apply` works on it
+                    straight away
   applications/     with a README saying what each application directory holds
-  .gitattributes    `*.ttl` and `*.trig` kept LF, so a Windows checkout cannot change the
-                    hash the log holds
+  .gitattributes    `career/store/** binary`, so git never rewrites the store's line ends
 
-Written through the same writer and the same kb.ttl-then-log.ttl commit every `jsk kb`
-write uses: a record that started any other way would first have to be adopted.
-
-The guidance the old Markdown template carried in HTML comments is not in kb.ttl: a
-comment is not a triple, and `jsk kb fmt` and `adopt` refuse a file holding one. What each
-section holds is the format reference's job, and every write names what it refused.
+Written through the same gate every `jsk kb` write uses (record.write_graphs): one
+update, and .jsk/backup.trig after it.
 """
 import datetime
 import os
@@ -34,13 +28,13 @@ import sys
 
 from .cliutil import docstring_usage, utf8_stdout, wants_help
 
-KB = "career/kb.ttl"
-LOG = "career/log.ttl"
+STORE = "career/store"
 
-# Both lines, whatever else the file already says. Turtle is text, and git's autocrlf
-# would otherwise hand a Windows checkout a kb.ttl whose bytes - and so whose hash - are
-# not the ones log.ttl recorded.
-GITATTRIBUTES = ("*.ttl text eol=lf", "*.trig text eol=lf")
+# The store is RocksDB's files, some of them text-like: git's autocrlf must never touch
+# them. Whatever else the file already says, this is added.
+GITATTRIBUTES = ("career/store/** binary",)
+
+INSTALL = 'python -m pip install "jsk-resume"   - pyoxigraph is one of its dependencies'
 
 APPLICATIONS_README = """# Applications
 
@@ -50,11 +44,13 @@ the day it was sent. Each holds the whole of that application:
 | File | Is |
 |---|---|
 | `posting.md` | the advertisement verbatim, nothing added |
-| `posting.ttl` | what it asks for: each requirement with the advert's own words |
 | `gaps.md` | the assessment of the career against it, and the question queue |
-| `resume.json` | the URS record this submission rendered from |
+| `resume.json` | the short record this submission rendered from |
 | `<Name>_<Company>_Resume.{tex,pdf,txt}` | the files actually sent |
-| `application.ttl` | written by `jsk freeze`: what was sent, the bullets and metric versions it carried, and every event since (`jsk event`) |
+
+What the posting asks for, and what was sent - the bullets and metric versions it
+carried, and every event since (`jsk event`) - are kept in the record, career/store/,
+beside the career.
 
 **Everything in here is frozen at submission.** The career keeps moving; an application
 that pointed at a moving record could not answer what it was answering.
@@ -62,14 +58,6 @@ that pointed at a moving record could not answer what it was answering.
 An application worked through and then held back is still a real application:
 `jsk freeze <dir> --submitted false`.
 """
-
-
-def empty_record(name, today):
-    """The canonical kb.ttl of a career with nothing in it yet, at revision 1."""
-    from .graph import record as R
-    from .graph.writer import write
-
-    return write(R.stamp(header(name), 1, today), "kb")
 
 
 def header(name):
@@ -83,96 +71,59 @@ def header(name):
             ox.Quad(kb, ox.NamedNode(O.J + "name"), ox.Literal(name))]
 
 
-def first_write(root, name, today):
-    """(kb_text, log_text) for a workspace with no career yet: r1 by `new`."""
+def first_write(name, today):
+    """{graph: quads} for a workspace with no career yet: the empty record, r1 by `new`."""
     from .graph import record as R
     from .graph.io import sha256
     from .graph.writer import write
 
-    kb_text = empty_record(name, today)
+    kb = R.stamp(header(name), 1, today)
     log = R.entry(1, today, "new", f"Created by jsk new for {name}: an empty record.",
-                  sha256(kb_text))
-    return kb_text, write(log, "log")
-
-
-def plain_first_write(name, today):
-    """first_write's two files as fixed text, for a machine without pyoxigraph.
-
-    The empty record is always the same shape - the header on one line (KB's predicates
-    are one line group, so the writer never breaks it), every banner, and one log entry -
-    so it can be written without the graph library, and a person in a sandbox that
-    cannot install it can still start and draft changesets. tests/test_kb_new.py holds
-    this to the writer's output byte for byte, so the two cannot drift."""
-    from .graph import ontology as O
-    from .graph.io import sha256
-    from .graph.writer import INDENT, WIDTH, long_string, short_string
-
-    def string(value):
-        return long_string(value) if "\n" in value else short_string(value)
-
-    prefixes = "\n".join(f"@prefix {p}: <{ns}> ." for p, ns in O.PREFIXES)
-    day = f'"{today.isoformat()}"^^xsd:date'
-    head = (f"k:kb j:format {O.FORMAT} ; j:name {string(name)} ; j:updated {day} ; "
-            f"j:revision 1 .")
-    banners = "\n\n".join(f"# == {s}" for s in O.SECTIONS["kb"])
-    kb_text = f"{prefixes}\n\n{head}\n\n{banners}\n"
-
-    lines = [[f"j:revision 1", f"j:date {day}", "j:by j:new"],
-             [f"j:summary {string(f'Created by jsk new for {name}: an empty record.')}"],
-             [f'j:kbSha256 "{sha256(kb_text)}"']]
-    flat = f"k:rev_1 {' ; '.join(f for line in lines for f in line)} ."
-    if len(flat) <= WIDTH and "\n" not in flat:
-        entry = flat
-    else:
-        entry = "k:rev_1 " + f" ;\n{INDENT}".join(" ; ".join(line) for line in lines) + " ."
-    return kb_text, f"{prefixes}\n\n# == Log\n\n{entry}\n"
+                  sha256(write(kb, "kb")))
+    return {R.KB: kb, R.LOG: log}
 
 
 def kept_name(root, revision):
-    """career/kb.r<N>.ttl - or kb.r<N>-2.ttl, -3... - the first that is not there yet.
+    """career/kb.r<N>.trig - or kb.r<N>-2.trig, -3... - the first that is not there yet.
 
-    Beside kb.ttl, where the person will see it: .jsk/ is a cache that ignores itself,
-    and a workspace need not be a git repository. Never a record file - the loader and
-    `jsk doctor` read career/kb.ttl by its exact name."""
+    Beside the store, where the person will see it: .jsk/ is a cache that ignores itself,
+    and a workspace need not be a git repository. A dump, so `jsk kb load` reads it back."""
     base = f"career/kb.r{revision}"
-    rel, n = f"{base}.ttl", 2
+    rel, n = f"{base}.trig", 2
     while os.path.exists(os.path.join(root, rel)):
-        rel, n = f"{base}-{n}.ttl", n + 1
+        rel, n = f"{base}-{n}.trig", n + 1
     return rel
 
 
 def restart(root, name, today):
-    """(kb_text, log_text, revision, kept) replacing an existing kb.ttl with the empty
-    record, as the next revision of the log already there, the old text to be kept at
-    `kept` - or (None, refusal lines).
+    """((graphs, revision, kept, dump text), None) replacing the career with the empty
+    record, as the next revision of the log already there, the whole old record to be kept
+    as a dump at `kept` - or (None, refusal lines).
 
-    Only a clean record is started over: a hand edit, or a write that tore, is text the
-    log never recorded, so it is adopted first and the log says what was replaced."""
+    Only a clean record is started over: anything else was written outside jsk, and the
+    log could not say what was replaced."""
     import contextlib
     import io
 
     from .gates.report import show
+    from .graph import db
     from .graph import record as R
     from .graph import store as S
     from .graph.kbcli import GUIDE
 
     store = S.load(root)
     st = R.state(store)
-    if st.kind == "unreadable":
-        return None, [f"REFUSED  {KB} or {LOG} does not parse, so there is no revision to "
-                      "start over from",
-                      "        fix: `jsk kb check` shows where; or move career/ aside"]
     if st.kind != "clean":
         message, fix = GUIDE[st.kind]
         return None, [f"REFUSED  {message or st.detail} - starting over now would replace "
-                      "text the log never recorded",
+                      "a record the log does not account for",
                       f"        fix: {fix}; then --force again"]
     kept = kept_name(root, st.kb_revision)
-    rev, kb_text, log_text = R.prepare(
-        store, header(name), today, "new",
-        f"Started over by jsk new --force for {name}: kb.ttl replaced by the empty record. "
-        f"r{st.kb_revision}, the last of the old record, is kept as {kept}.")
-    after = S.load(root, texts={R.KB: kb_text, R.LOG: log_text})
+    p = R.prepared(store, header(name), today, "new",
+                   f"Started over by jsk new --force for {name}: the career replaced by the "
+                   f"empty record. r{st.kb_revision}, the last of the old record, is kept as "
+                   f"{kept}.")
+    after = S.load(root, graphs=p.graphs())
     if after.fails():
         lines = [f"REFUSED  starting over would leave {len(after.fails())} failures - an "
                  "application that carried an entry the empty record does not have:"]
@@ -180,10 +131,10 @@ def restart(root, name, today):
         with contextlib.redirect_stdout(buf):
             show(after.report().fails, "FAIL", 25)
         lines += buf.getvalue().rstrip("\n").splitlines()
-        lines.append("        fix: a frozen application keeps its links; move career/ aside "
-                     "and start a new workspace instead")
+        lines.append("        fix: a frozen application keeps its links; start a new "
+                     "workspace elsewhere instead")
         return None, lines
-    return (kb_text, log_text, rev, kept), None
+    return (p.graphs(), p.revision, kept, db.dump_text(db.read(root))), None
 
 
 def gitattributes(root):
@@ -214,53 +165,53 @@ def gitattributes(root):
 def scaffold(root, name, force=False, today=None):
     """(exit code, lines to print). Writes the workspace, or refuses and says why."""
     today = today or datetime.date.today()
-    kb = os.path.normpath(os.path.join(root, KB))
-    exists = os.path.exists(kb)
-    if exists and not force:
-        return 1, [f"REFUSED  already exists: {kb}",
-                   "        fix: change it with `jsk kb apply`; or --force to start over from "
-                   "the empty record (logged, the old one kept beside it as career/kb.r<N>.ttl)"]
     try:
         import pyoxigraph  # noqa: F401
-        graph = True
     except ImportError:
-        graph = False
-    if exists and not graph:
-        return 1, ["FAIL  jsk new --force reads the record it replaces, and needs pyoxigraph",
-                   '      fix: python -m pip install "jsk-resume"   - it is a dependency']
-
+        return 1, ["FAIL  jsk new writes the record into a pyoxigraph store, and this Python "
+                   "has not got pyoxigraph",
+                   f"      fix: {INSTALL}"]
+    from .graph import db, legacy
     from .graph import record as R
 
+    store = os.path.normpath(os.path.join(root, STORE))
+    exists = db.exists(root)
+    if not exists and legacy.has_files(root):
+        return 1, [f"REFUSED  {os.path.normpath(os.path.join(root, 'career', 'kb.ttl'))} is a "
+                   "record still laid out as files",
+                   "        fix: `jsk kb load .` in that workspace moves it into career/store/ - "
+                   "nothing is started over",
+                   "nothing was written"]
+    if exists and not force:
+        return 1, [f"REFUSED  already exists: {store}",
+                   "        fix: change it with `jsk kb apply`; or --force to start over from "
+                   "the empty record (logged, the old record kept beside it as a dump, "
+                   "career/kb.r<N>.trig)"]
     lines = []
-    if not graph:
-        lines.append("note   pyoxigraph is not installed: the empty record was written from its "
-                     "fixed text. `jsk kb` needs pyoxigraph - until it is installed, draft "
-                     "changesets and apply them later.")
-    if exists:
-        done, refusal = restart(root, name, today)
-        if refusal:
-            return 1, refusal + ["nothing was written"]
-        kb_text, log_text, rev, kept = done
-        kept = os.path.normpath(os.path.join(root, kept))
+    # --force reads the record it replaces: its turn first, so nothing lands in between.
+    with R.turn(root):
+        if exists:
+            done, refusal = restart(root, name, today)
+            if refusal:
+                return 1, refusal + ["nothing was written"]
+            graphs, rev, kept, dump = done
+            kept = os.path.normpath(os.path.join(root, kept))
+            try:
+                with open(kept, "x", encoding="utf-8", newline="\n") as fh:   # never overwrites
+                    fh.write(dump)
+            except OSError as e:
+                return 1, [f"FAIL  could not keep the old record at {kept}: {e}",
+                           "        fix: free the path, or check the folder is writable",
+                           "nothing was written"]
+            lines.append(f"kept   {kept} (the record --force replaces; `jsk kb load` reads it)")
+        else:
+            graphs, rev = first_write(name, today), 1
+            os.makedirs(os.path.join(root, "career"), exist_ok=True)
         try:
-            with open(kb, "rb") as src, open(kept, "xb") as dst:   # x: never overwrites
-                dst.write(src.read())
-        except OSError as e:
-            return 1, [f"FAIL  could not keep a copy of {kb} at {kept}: {e}",
-                       "        fix: free the path, or check the folder is writable",
-                       "nothing was written"]
-        lines.append(f"kept   {kept} (the record --force replaces)")
-    else:
-        kb_text, log_text = (first_write(root, name, today) if graph
-                             else plain_first_write(name, today))
-        rev = 1
-    os.makedirs(os.path.join(root, "career"), exist_ok=True)
-    try:
-        R.commit(root, kb_text, log_text)
-    except R.RecordError as e:
-        return 1, lines + [f"FAIL  {e}", f"        fix: {e.fix}"]
-    lines.append(f"wrote  {kb}")
-    lines.append(f"wrote  {os.path.normpath(os.path.join(root, LOG))} (r{rev}, by new)")
+            R.write_graphs(root, graphs, create=not exists)
+        except R.RecordError as e:
+            return 1, lines + [f"FAIL  {e}", f"        fix: {e.fix}"]
+    lines.append(f"wrote  {store} (r{rev}, by new)")
 
     apps = os.path.join(root, "applications")
     readme = os.path.join(apps, "README.md")

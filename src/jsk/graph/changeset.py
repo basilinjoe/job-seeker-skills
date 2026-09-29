@@ -1,4 +1,4 @@
-"""A changeset: the one way an agent changes career/kb.ttl, as TriG.
+"""A changeset: the one way an agent changes the career, as TriG.
 
     @prefix op: <tag:jsk,2026:op#> .
     op:changeset op:base 7 ; op:summary "The payments project, from the braindump" .
@@ -156,7 +156,7 @@ def check(where, s, p, o, refuse):
         return False
     if "kb" not in O.BY_NAME[cls].kinds:
         home = " or ".join(k + ".ttl" for k in O.BY_NAME[cls].kinds)
-        refuse(name(s), f"{article(cls)} lives in {home}", "`jsk kb apply` writes career/kb.ttl only")
+        refuse(name(s), f"{article(cls)} lives in {home}", "`jsk kb apply` writes the career only")
         return False
     if where == "delete" and p.value == O.RDF_TYPE and o == ox.NamedNode(OP + "Entry"):
         return True

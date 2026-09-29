@@ -1,9 +1,9 @@
-"""career/kb.ttl as Markdown, to be read end to end - stdout only, never a second file.
+"""The career as Markdown, to be read end to end - stdout only, never a second file.
 
-docs/WHY.md's rule survives the graph: a person must be able to read their record, whole,
-and correct it. kb.ttl is laid out to be read; this is the same record without the
-syntax, in the same section order. It is never written anywhere, so it can never drift
-from the file it shows.
+docs/WHY.md's rule survives the store: a person must be able to read their record, whole,
+and correct it. The store holds no text to open, so this is how it is read - the record
+without the syntax, in the writer's section order. It is never written anywhere, so it
+can never drift from the record it shows.
 """
 from . import ontology as O
 from .writer import Subjects, curie, order

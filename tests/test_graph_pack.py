@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import storekit
 from test_graph_shapes import FIXTURES
 
 import jsk
@@ -29,6 +30,15 @@ def quads(path):
                           kind="vocabulary").quads
 
 
+def edit_career(case, root, old, new):
+    """Change the stored career as a write would leave it - the header, so the revision,
+    as it was: the edit stands for one made before the fixture's last revision."""
+    text = storekit.kb_text(root)
+    case.assertIn(old, text)
+    record.write_graphs(str(root), {record.KB: gio.parse_text(text.replace(old, new),
+                                                              record.KB).quads})
+
+
 class Fixture(unittest.TestCase):
     """A copy of the fixture workspace, and `jsk kb` run on it."""
 
@@ -36,6 +46,10 @@ class Fixture(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
         self.addCleanup(shutil.rmtree, self.root)
+        self.seed()
+
+    def seed(self):
+        storekit.seed(self.root)
 
     def path(self, name):
         return Path(self.root) / name
@@ -47,16 +61,7 @@ class Fixture(unittest.TestCase):
         return code, out.getvalue(), err.getvalue()
 
     def edit_kb(self, old, new):
-        """Change kb.ttl as a logged write would: canonical, and the log agreeing."""
-        kb = self.path("career/kb.ttl")
-        text = kb.read_text(encoding="utf-8")
-        self.assertIn(old, text)
-        text = writer.write(gio.parse_text(text.replace(old, new), record.KB).quads, "kb")
-        kb.write_text(text, encoding="utf-8", newline="\n")
-        log = self.path("career/log.ttl")
-        was = record.last_entry(gio.parse(log).quads)[1]
-        log.write_text(log.read_text(encoding="utf-8").replace(was, gio.sha256(text)),
-                       encoding="utf-8", newline="\n")
+        edit_career(self, self.root, old, new)
 
     def pack(self, name="pack.trig"):
         code, out, err = self.kb("pack", "capabilities", "--out", str(self.path(name)))
@@ -123,10 +128,8 @@ class ThePack(unittest.TestCase):
 
 class InARecord(Fixture):
     def test_the_pack_beside_the_shipped_vocabulary_fails_nothing_and_clashes_nothing(self):
-        kb = self.path("career/kb.ttl")
-        both = list(gio.parse(kb).quads) + list(quads(PACK))
-        text = writer.write(both, "kb")
-        s = S.load(self.root, texts={record.KB: text})
+        both = list(S.load(self.root).graph(record.KB)) + list(quads(PACK))
+        s = S.load(self.root, graphs={record.KB: both})
         self.assertEqual([f.text() for f in s.fails() if f.rule != "log-sync"], [])
         self.assertEqual([f.text() for f in s.findings
                           if f.rule in ("label-clash", "wall-crossed", "counts-as-cycle",

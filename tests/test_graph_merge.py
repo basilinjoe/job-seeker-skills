@@ -16,6 +16,16 @@ def c(name):
 
 
 class Merge(Fixture):
+    def seed(self):
+        if self._testMethodName == "test_a_concept_a_posting_still_names_is_retired_not_deleted":
+            posting = self.path("applications/acme-platform-engineer/posting.ttl")
+            text = posting.read_text(encoding="utf-8")
+            old = 'j:asked "event-driven" ; j:necessity j:preferred ;'
+            self.assertIn(old, text)
+            posting.write_text(text.replace(old, old + " j:concept c:event-driven-architecture ;"),
+                               encoding="utf-8", newline="\n")
+        super().seed()
+
     def merge(self, a, b, name="merge.trig"):
         code, out, err = self.kb("merge", a, "--into", b, "--out", str(self.path(name)))
         return code, out + err
@@ -79,14 +89,8 @@ class Merge(Fixture):
         self.assertEqual(self.kb("check")[0], 0)
 
     def test_a_concept_a_posting_still_names_is_retired_not_deleted(self):
-        # The dangling rule is a FAIL, and a changeset cannot edit posting.ttl: deleting
+        # The dangling rule is a FAIL, and a changeset cannot edit a posting: deleting
         # c:event-driven-architecture would leave this requirement pointing at nothing.
-        posting = self.path("applications/acme-platform-engineer/posting.ttl")
-        text = posting.read_text(encoding="utf-8")
-        old = 'j:asked "event-driven" ; j:necessity j:preferred ;'
-        self.assertIn(old, text)
-        posting.write_text(text.replace(old, old + " j:concept c:event-driven-architecture ;"),
-                           encoding="utf-8", newline="\n")
         self.edit_kb(VOCAB, VOCAB + "\nc:event-architecture a j:Capability .")
         code, out = self.merge("c:event-driven-architecture", "c:event-architecture")
         self.assertEqual(code, 0, out)

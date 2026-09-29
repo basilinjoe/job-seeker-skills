@@ -1,4 +1,4 @@
-"""A changeset merged into career/kb.ttl, and the refusals only the career can answer.
+"""A changeset merged into the career, and the refusals only the career can answer.
 
 changeset.py has already refused what a changeset may never say. What is left needs the
 record: does the entry exist, is anything pointing at it, was this metric version sent,
@@ -33,7 +33,7 @@ whom than then so across up down out off it we i they them us me all any each mo
 
 @dataclass
 class Edit:
-    quads: list                      # kb.ttl after the change, as quads
+    quads: list                      # the career after the change, as quads
     touched: set = field(default_factory=set)
     minted: set = field(default_factory=set)
     notes: list = field(default_factory=list)
@@ -71,16 +71,17 @@ def carried_versions(store):
 
 
 def log_entries(store):
-    """[(revision, {ids touched or minted})] from log.ttl, oldest first."""
-    from .record import LOG
+    """[(revision, {ids touched or minted})] from the log, oldest first. An entry whose
+    revision is not an integer is left out: tier 1 FAILs it, and that stops the write."""
+    from .record import LOG, revision_of
 
     if LOG not in store.parsed:
         return []
     by: defaultdict = defaultdict(lambda: {"ids": set()})     # and "revision": int
     for q in store.graph(LOG):
         e = by[q.subject.value]
-        if local(q.predicate) == "revision":
-            e["revision"] = int(q.object.value)
+        if local(q.predicate) == "revision" and revision_of(q.object) is not None:
+            e["revision"] = revision_of(q.object)
         elif local(q.predicate) in ("touched", "minted"):
             e["ids"].add(q.object.value)
     return sorted((e["revision"], e["ids"]) for e in by.values() if "revision" in e)
@@ -88,12 +89,12 @@ def log_entries(store):
 
 def taken_ids(store):
     """Every id the record has ever used: what exists, what the log says existed, and every
-    k: id any workspace file names, as subject or object.
+    k: id any record graph names, as subject or object.
 
-    The last is what survives git restoring kb.ttl and log.ttl together to an older
-    commit: the log no longer remembers a bullet or a metric version minted since, but an
-    application.ttl that sent it still names it - and a new entry minted onto that id
-    would read, in that application, as what it sent.
+    The last is what survives `jsk kb load` of an older backup: the log no longer
+    remembers a bullet or a metric version minted since, but an application that sent it
+    still names it - and a new entry minted onto that id would read, in that application,
+    as what it sent.
     """
     import pyoxigraph as ox
 
@@ -109,8 +110,8 @@ def taken_ids(store):
 
 
 def sent_elsewhere(store):
-    """k: ids an application.ttl names that no file defines: what was sent, and has since
-    left the career - by a delete, or by git restoring an older kb.ttl."""
+    """k: ids an application graph names that no graph defines: what was sent, and has
+    since left the career - by a delete, or by `jsk kb load` of an older backup."""
     import pyoxigraph as ox
 
     out = {}
@@ -160,7 +161,7 @@ def mint_question(about, taken):
 
 
 def apply(store, cs, today):
-    """The kb.ttl `cs` makes, as an Edit. Raises Refused with every reason it cannot."""
+    """The career `cs` makes, as an Edit. Raises Refused with every reason it cannot."""
     import pyoxigraph as ox
 
     from .record import KB
@@ -180,7 +181,7 @@ def apply(store, cs, today):
     redirects = defaultdict(dict)          # sent version -> {predicate: objects}
 
     def exists(s):
-        # A concept the shipped vocabulary defines exists: kb.ttl may extend or narrow it.
+        # A concept the shipped vocabulary defines exists: the career may extend or narrow it.
         return s in in_kb or (s.value.startswith(O.C) and s.value in store.homes)
 
     def sent(s, what):
@@ -196,7 +197,7 @@ def apply(store, cs, today):
             sent(s, "op:delete")
         elif s in entries:
             if s not in in_kb:
-                refuse(s, "op:delete of an entry kb.ttl does not hold", "check the id")
+                refuse(s, "op:delete of an entry the career does not hold", "check the id")
             after -= {t for t in after if t[0] == s}
         elif (s, p, o) not in before:
             refuse(s, f"has no {curie(p.value)} {name_of(o)} to delete", "check it against "
@@ -245,7 +246,7 @@ def apply(store, cs, today):
     for s in sorted({s for s, _, _ in cs.add if isinstance(s, ox.NamedNode)} - in_kb,
                     key=lambda s: s.value):
         if s.value in gone:
-            refuse(s, f"was sent in {gone[s.value]}, and kb.ttl no longer defines it",
+            refuse(s, f"was sent in {gone[s.value]}, and the career no longer defines it",
                    "a sent id is never reused: give the new entry another id "
                    "(a metric's next free version number)")
 
@@ -276,7 +277,7 @@ def apply(store, cs, today):
         if s.value in carried:
             sent(s, "op:retire")
         elif s not in in_kb:
-            refuse(s, "op:retire of an entry kb.ttl does not hold", "check the id")
+            refuse(s, "op:retire of an entry the career does not hold", "check the id")
         elif values(after, s, node(O.J + "retired")):
             refuse(s, "is already retired", "leave it, or op:set its j:reason")
         else:
@@ -320,7 +321,7 @@ def base_conflicts(store, cs, refuse):
     entries = log_entries(store)
     last = entries[-1][0] if entries else 0
     if cs.base > last:
-        refuse(None, f"op:base r{cs.base} is ahead of log.ttl, which ends at r{last}",
+        refuse(None, f"op:base r{cs.base} is ahead of the log, which ends at r{last}",
                "draft against the record as it is: `jsk kb show` the entries again")
         return
     named = {s.value for s, _, _ in cs.add + cs.set + cs.retire + cs.delete
@@ -338,7 +339,7 @@ def referenced(store, after, e, refuse):
     from .store import graph_iri
 
     if [f for f in store.definitions.get(e.value, []) if f != KB]:
-        return      # the shipped vocabulary still defines it: removing kb.ttl's part is safe
+        return      # the shipped vocabulary still defines it: removing the career's part is safe
     refs = sorted({curie(s.value) for s, _, o in after if o == e})
     rows = store.select(f"""PREFIX j: <{O.J}> SELECT DISTINCT ?s WHERE {{ GRAPH ?g {{ ?s ?p <{e.value}> }}
         FILTER(?g != j:derived && ?g != <{graph_iri(KB)}>) FILTER(?p NOT IN (j:touched, j:minted)) }}""")
@@ -360,8 +361,8 @@ def versions_of(triples, metric):
 
 def new_version(after, v, changes, today, carried, edit, taken: "set | frozenset" = frozenset()):
     """A sent version's new number, as the next version of its metric - the next number
-    no file has used, so a version an application still names after git restored an older
-    kb.ttl is never minted again with another value."""
+    no graph has used, so a version an application still names after `jsk kb load` of an
+    older backup is never minted again with another value."""
     of = node(O.J + "of")
     metric = next(o for s, p, o in after if s == v and p == of)
     n = max(version_number(x.value) for x in versions_of(after, metric)) + 1
@@ -403,7 +404,7 @@ def provenance(after, before, cs, minted_bullets, edit):
     inferred = node(O.J + "inferred")
     old = {s for s, _, _ in before}
     for s in sorted({s for s, _, _ in after}, key=lambda s: s.value):
-        # apply refuses a kb.ttl that FAILs, and check() a changeset subject that is not a
+        # apply refuses a career that FAILs, and check() a changeset subject that is not a
         # jsk id, so every subject names a class.
         cls = O.class_named(s.value)
         if not cls.claims or s in stated:
