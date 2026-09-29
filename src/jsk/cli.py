@@ -747,6 +747,8 @@ PAGES = re.compile(r"^  pages  (.+?): (\d+) pages? against a budget of (\d+)", r
 # build.py's warning for a line below the floor, as render_resume.py prints it:
 # once per variant rendered, `  warn  [<variant>/<kind>] withheld <what> - ...`.
 WITHHELD = re.compile(r"^  warn  \[[^\]]*\] withheld (.+?) - provenance", re.M)
+# The fit step's outcome, as ship_fit() and fit_pages.py print it.
+FITTED = re.compile(r"^\s*(fit: .+?|over by ~\d+ lines? at the floors)\s*$", re.M)
 
 
 def summary_lines(results):
@@ -778,9 +780,15 @@ def summary_lines(results):
             parts.extend(f"{name} {count} of {budget} pages"
                          for name, count, budget in PAGES.findall(output))
         if result["gate"] == "render":
-            # One line per line held back, however many variants carried it.
-            withheld = set(WITHHELD.findall(output))
-            parts.append(f"withheld {len(withheld)} below the floor")
+            # One line per line held back, however many variants carried it - each
+            # named, because the Arrow run (2026-09-29) shipped a second time only to
+            # grep for which bullet the count was counting.
+            withheld = list(dict.fromkeys(what.split()[-1]
+                                          for what in WITHHELD.findall(output)))
+            parts.append(f"withheld {len(withheld)} below the floor"
+                         + (f": {', '.join(withheld)}" if withheld else ""))
+        if result["gate"] == "fit":
+            parts.extend(FITTED.findall(output)[-1:])
         lines.append(f"  {result['gate']:<{width}}  " + "   ".join(parts))
     worst = worst_exit(results)
     if worst:
@@ -800,7 +808,7 @@ def summary_lines(results):
 # record that fails its gate is never rendered: rendering it would produce a PDF that
 # looks sendable and is not.
 SHIP_USAGE = ("usage: jsk ship <resume.json> --out DIR [--ats-max] "
-              "[--template N] [--pages N] [--json]")
+              "[--template N] [--pages N] [--no-fit] [--json]")
 
 SHIP_VALUE_FLAGS = ("--out", "--template", "--pages")
 
@@ -830,13 +838,85 @@ def frozen_refusal(*dirs):
     return None
 
 
+def ship_fit(out_dir, wrote, render_output, pages=None):
+    """The fit step: each PDF the render put over its budget, fitted. [] when none is.
+
+    The Arrow run (2026-09-29) spent 3 minutes and 13 turns here by hand: `jsk fit`
+    three times, three confirmed bullets cut, then `mv`, `tectonic` and `jsk gates`.
+    The first fit had already reached 2 pages at 0.6in margins, inside the 0.5in floor.
+
+    fit_pages.py is deterministic and writes one file, `<stem>-fitted.tex`, and only
+    when the levers reached the budget inside the floors. That file is moved over the
+    render's .tex and compiled by the function the render compiled with, so the PDF
+    the gates then read is built the way the render built it. At the floors, nothing is
+    written and the unfitted render is kept: cutting evidence is the author's call. The
+    page count stays reported and not failed, as the render reports it - so the step's
+    exit is None then, and the verdict is what it was before ship fitted anything.
+
+    The budget is ship's --pages when given, else the render's own, which is
+    `ats_pages` under --ats-max: the one the render's page line was measured against.
+    """
+    from .render import render_resume              # noqa: PLC0415 - only when asked
+
+    measured = {name: (int(count), int(budget))
+                for name, count, budget in PAGES.findall(render_output)}
+    results = []
+    for pdf in (p for p in wrote if p.lower().endswith(".pdf")):
+        name = os.path.basename(pdf)
+        tex = os.path.splitext(pdf)[0] + ".tex"
+        if name not in measured or not os.path.isfile(tex):
+            continue                              # unmeasured: nothing to fit against
+        count, budget = measured[name][0], pages or measured[name][1]
+        if count <= budget:
+            continue
+        fitted = os.path.splitext(tex)[0] + "-fitted.tex"
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(fitted)                    # an earlier fit's is not this one's
+        fit_args = [tex, "--target-pages", str(budget)]
+        command = " ".join(["fit_pages.py", os.path.basename(tex)] + fit_args[1:])
+        code, output = call_gate("fit_pages.py", fit_args)
+        output += "" if output.endswith("\n") else "\n"
+        if code == 1:
+            results.append({"gate": "fit", "command": command, "status": "OVER BUDGET",
+                            "exit": None,
+                            "output": output + "\nkept the unfitted render; nothing was "
+                                               "cut - that is the author's call, with a "
+                                               "reason\n"})
+            continue
+        if code != 0 or not os.path.isfile(fitted):
+            # Exit 0 with nothing written is a fitter that measured the render inside the
+            # budget the render measured it over. Two counts of one document disagreeing
+            # is a broken toolchain, and neither count can be trusted.
+            results.append(gate_result("fit", command, code if code else 2, output + (
+                "" if code else f"FAIL  fit_pages.py found {os.path.basename(tex)} inside "
+                                f"{budget} pages; the render counted {count}\n")))
+            continue
+        levers = re.findall(r"^  levers: (.+?)\s*$", output, re.M)
+        os.replace(fitted, tex)
+        built, note = render_resume.compile_pdf(tex, out_dir)
+        if not built:
+            results.append(gate_result("fit", command, 2, output + (
+                f"\nRENDER FAILED - {os.path.basename(tex)} was fitted and did not "
+                f"recompile:\n  {note}\n")))
+            continue
+        now = render_resume.page_count(built)
+        results.append(gate_result("fit", command, 0, output + (
+            f"\nmoved {os.path.basename(fitted)} over {os.path.basename(tex)} and "
+            f"recompiled it ({note}); the gates below read the fitted render.\n"
+            f"fit: {levers[-1] if levers else 'levers applied'}, "
+            f"{now if now is not None else 'unmeasured'} "
+            f"page{'' if now == 1 else 's'}\n")))
+    return results
+
+
 def cmd_ship(args):
-    """Record gate, render, mechanical gates - one process, stopping at a failure.
+    """Record gate, render, fit, mechanical gates - one process, stopping at a failure.
 
     Every step is an existing function: the record gate is what `jsk validate`
-    runs, the render is render_resume.py's main(), and the gates are gate_results(),
-    so none of their verdicts is restated here. A legacy URS record is turned away by
-    the record gate itself, with `jsk kb export` as the fix, before anything renders.
+    runs, the render is render_resume.py's main(), the fit is fit_pages.py's main()
+    (ship_fit), and the gates are gate_results(), so none of their verdicts is
+    restated here. A legacy URS record is turned away by the record gate itself, with
+    `jsk kb export` as the fix, before anything renders.
     """
     if wants_help(args):
         print(SHIP_USAGE)
@@ -844,7 +924,7 @@ def cmd_ship(args):
     if view_refusal(args):
         print("\n".join(VIEW_GONE))
         return 2
-    parsed, problem = parse_flags(args, SHIP_VALUE_FLAGS, ("--json", "--ats-max"))
+    parsed, problem = parse_flags(args, SHIP_VALUE_FLAGS, ("--json", "--ats-max", "--no-fit"))
     if problem:
         print(problem)
         print(SHIP_USAGE)
@@ -905,6 +985,9 @@ def cmd_ship(args):
             # ship left in the same directory, are what this ship gates.
             wrote = [os.path.join(out_dir, rel)
                      for rel in re.findall(r"^  wrote  (.+?)\s*$", output, re.M)]
+            if not flags.get("--no-fit"):
+                # Before the gates, so that what they read is what is sent.
+                results.extend(ship_fit(out_dir, wrote, output, pages))
             results.extend(gate_results(out_dir, record, pages, record_gate=False,
                                         only=wrote))
 

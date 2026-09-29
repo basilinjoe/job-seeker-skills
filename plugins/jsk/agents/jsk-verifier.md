@@ -51,7 +51,8 @@ It finds `resume.json` in that directory (`--record <path>` names one elsewhere)
 the render gate. If it is unavailable, run the table's commands individually — the verdicts are the
 same. `--pages N` reports the page count and never fails on it.
 
-Then the page budget, if one was given:
+Then the page budget, if one was given. A render `jsk ship` made is already fitted — `fit: …` in its
+summary; fit only a render made some other way:
 
 ```bash
 jsk fit <Name>_Resume.tex --target-pages 2

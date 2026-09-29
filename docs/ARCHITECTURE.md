@@ -98,12 +98,14 @@ jsk event     D KIND --date DATE                   what came back, added to the 
 jsk kb        dump [--out F.trig] | load SRC       the whole record as TriG; a dump or a .ttl workspace in
 ```
 
-`jsk ship <resume.json> --out DIR [--ats-max] [--template N] [--pages N] [--json]` is the path a
-finished resume takes. The record gate runs first, and a failure stops it: nothing renders, because
-a render of a resume that failed would be a document nobody should read. Then `render --pdf`, then the parse, prose and layout gates over the output directory,
-each step's output printed verbatim. It exits 0 only if every step passed. With `--pages` it reports
-the measured page count and never fails on it — `jsk fit` owns that verdict and is the only thing
-that can act on it. It closes by saying the render gate is still open, because a person reading the
+`jsk ship <resume.json> --out DIR [--ats-max] [--template N] [--pages N] [--no-fit] [--json]` is the
+path a finished resume takes. The record gate runs first, and a failure stops it: nothing renders, because
+a render of a resume that failed would be a document nobody should read. Then `render --pdf`; then,
+if the render is over its budget, `jsk fit`'s levers, the fitted `.tex` moved over the render's and
+recompiled; then the parse, prose and layout gates over the output directory,
+each step's output printed verbatim. It exits 0 only if every step passed. It reports the measured
+page count and never fails on it: a render still over at the floors keeps its unfitted form and says
+`over by ~N lines at the floors`, and what to cut is the author's call. It closes by saying the render gate is still open, because a person reading the
 PDF is the one gate no command can run. It refuses in a frozen application (the file's directory, or
 `--out`, is one the store holds an application graph for): re-rendering would overwrite what was sent.
 

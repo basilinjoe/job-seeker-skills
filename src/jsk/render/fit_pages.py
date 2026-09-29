@@ -26,6 +26,7 @@ Needs a TeX engine and `pymupdf`. Both are external; with either missing this re
 loudly and exits 2, because a page count nobody measured is a page count nobody knows.
 """
 import argparse
+import math
 import os
 import re
 import sys
@@ -117,6 +118,25 @@ def apply_state(tex, state):
     return tex
 
 
+def describe(state):
+    """Every lever a state moves, in plan order, each at the value it sets.
+
+    The plan's labels name only the step that was reached, and each step carries the
+    ones before it: "margins 0.60in" is also no paragraph and no bullet spacing. `jsk
+    ship` prints this line, so what it says it applied is everything it applied."""
+    spacing, bullet, margin_in, font_delta = state
+    moved = []
+    if spacing is not None:
+        moved.append(f"inter-paragraph spacing x{spacing:g}")
+    if bullet is not None:
+        moved.append(f"bullet spacing x{bullet:g}")
+    if margin_in is not None:
+        moved.append(f"margins {margin_in:g}in")
+    if font_delta:
+        moved.append(f"body font -{font_delta:g}pt")
+    return ", ".join(moved)
+
+
 def current_margin_in(tex):
     m = MARGIN.search(tex)
     return float(m.group(2)) if m else None
@@ -140,6 +160,7 @@ def measure_pdf(pdf_path):
             first = blocks[0] if blocks else None
             pages.append({
                 "height": page.rect.height,
+                "top": min((b[1] for b in blocks), default=0.0),
                 "bottom": max((b[3] for b in blocks), default=0.0),
                 "first_text": " ".join((first[4] or "").split())[:60] if first else "",
                 "first_height": (first[3] - first[1]) if first else 0.0,
@@ -169,6 +190,21 @@ def diagnose(pages, target, bottom_margin_pt):
         "needs": spilled["first_height"],
         "free": max(free, 0.0),
     }
+
+
+def lines_over(pages, target, margin_pt, line_pt):
+    """About how many body lines the pages past the budget hold, less the room left
+    on the last page inside it. 0 when the document fits.
+
+    The Arrow run (2026-09-29) was told only that it could not fit, and cut three
+    confirmed bullets to make room nobody had measured. A line count says how much
+    evidence the budget costs, which is what the person deciding the cut needs."""
+    if len(pages) <= target or target < 1 or line_pt <= 0:
+        return 0
+    last = pages[target - 1]
+    free = max(last["height"] - margin_pt - last["bottom"], 0.0)
+    spill = sum(max(p["bottom"] - p.get("top", margin_pt), 0.0) for p in pages[target:])
+    return max(math.ceil((spill - free) / line_pt), 1)
 
 
 # --- reporting ------------------------------------------------------------------
@@ -281,6 +317,7 @@ def main(argv=None):
 
         print("\napplying levers:")
         applied, final, final_tex, broke = None, None, None, False
+        last = (pages, original)                  # the furthest the levers got
         for i, (label, state) in enumerate(lever_plan(), 1):
             measured, staged, note = measure(state, f"step{i}")
             if measured is None:
@@ -293,8 +330,9 @@ def main(argv=None):
                 break
             print(f"  {i:2}  {label:<28} {len(measured)} pages"
                   f"{'   <- target met' if len(measured) <= a.target_pages else ''}")
+            last = (measured, staged)
             if len(measured) <= a.target_pages:
-                applied, final, final_tex = label, measured, staged
+                applied, final, final_tex = state, measured, staged
                 break
 
         if broke:
@@ -304,9 +342,14 @@ def main(argv=None):
 
         if final is None:
             gap = diagnose(pages, a.target_pages, bottom_margin)
+            floor_pages, floor_tex = last
+            over = lines_over(floor_pages, a.target_pages,
+                              (current_margin_in(floor_tex) or MARGIN_FLOOR_IN) * 72.0,
+                              (body_font_pt(floor_tex) or FONT_FLOOR_PT) * 1.2)
             print(f"\nFAIL - cannot reach {a.target_pages} pages without breaching a floor")
             print(f"  every lever is at its floor: {FONT_FLOOR_PT:g}pt body, "
                   f"{MARGIN_FLOOR_IN}in margins")
+            print(f"  over by ~{over} line{'' if over == 1 else 's'} at the floors")
             if gap:
                 print(f"  page {a.target_pages + 1} still carries {gap['text']!r}, "
                       f"needing {gap['needs']:.0f}pt")
@@ -319,10 +362,14 @@ def main(argv=None):
         with open(out, "w", encoding="utf-8") as fh:
             fh.write(final_tex)
 
-        print(f"\nresult: {len(final)} pages   levers applied through: {applied}")
+        print(f"\nresult: {len(final)} pages")
         report_pages(final)
-        print(f"  floors respected: body font {body_font_pt(final_tex):g}pt, "
-              f"margins {current_margin_in(final_tex):g}in")
+        print(f"  levers: {describe(applied)}")
+        # Each value beside its floor. `floors respected: margins 0.6in` was read, in
+        # the Arrow run (2026-09-29), as the floor itself - and three confirmed bullets
+        # were cut for room that 0.1in of margin still had.
+        print(f"  body font {body_font_pt(final_tex):g}pt (floor {FONT_FLOOR_PT:g}pt), "
+              f"margins {current_margin_in(final_tex):g}in (floor {MARGIN_FLOOR_IN:g}in)")
         print(f"wrote: {out}")
         print(f"\nPASS - fits {a.target_pages} pages")
         print("Recompile that .tex and re-run check_ats.py on the new PDF, then look at "

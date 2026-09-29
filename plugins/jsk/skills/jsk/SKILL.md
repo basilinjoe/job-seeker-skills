@@ -91,7 +91,7 @@ changeset to a file for later.
 | `jsk preview <resume.json> --out DIR` | every template, with page counts |
 | `jsk check <file> [--strict] [--only parse\|prose]` | the parse and prose gates on one file |
 | `jsk gates <out-dir> [--record R] [--pages N]` | record, parse, prose, layout gates |
-| `jsk ship <resume.json> --out DIR [--pages N]` | validate, render, gates; stops at a failure |
+| `jsk ship <resume.json> --out DIR [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
 | `jsk fit <resume.tex> --target-pages 2` | fits the render to a page budget |
 | `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | records what was sent, if the gates pass |
 | `jsk event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |

@@ -64,11 +64,12 @@ reads them; the gates read the variant from the PDF. In an application with a po
    the region profile: two pages neutral, three in India and the Gulf, up to four in Australia. Do
    not compress an Australian resume to a US page count nobody asked for.
 
-   `jsk fit` applies density levers in a fixed order (inter-paragraph spacing, bullet spacing,
-   margins, font size) and **stops at the floors**: 10pt body, 0.5" margins. Never cross them by
-   hand either. **Trimming words rarely helps** — a bullet that wraps to six lines usually still does.
-   If it exits non-zero, remove a bullet from `resume.json`, which leaves it in the knowledge base
-   for the next posting. Fitting changes layout: re-run `jsk ship`.
+   `jsk ship` fits an overrun itself: density levers in a fixed order (inter-paragraph spacing,
+   bullet spacing, margins, font size), **stopping at the floors**: 10pt body, 0.5" margins. It
+   recompiles and gates the fitted render; `fit: …` in its summary is done. Never cross the floors
+   by hand either. **Trimming words rarely helps** — a bullet that wraps to six lines usually still
+   does. Only on `over by ~N lines at the floors` remove bullets from `resume.json`, saying why,
+   which leaves them in the knowledge base for the next posting; then re-run `jsk ship`.
 
    No renderer? A geometric estimate of page fill is a reasonable fallback, but label it an estimate
    (one read ~99% where the truth was ~94%).

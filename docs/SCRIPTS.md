@@ -843,8 +843,12 @@ jsk fit resume.tex -o fitted.tex
 
 Rewrites the density knobs in the `.tex`, recompiles, and measures the PDF that comes out. It applies
 the levers in a fixed order — spacing, bullet spacing, margins, font size — stopping at the 10pt and
-0.5" floors instead of crossing them. If the target is unreachable without a breach it exits
-non-zero, because the remedy then is to cut evidence, not to shrink type.
+0.5" floors instead of crossing them. It is deterministic — a fixed plan, each step derived from the
+original `.tex` — and writes one file, `<stem>-fitted.tex` (or `-o`, or `--in-place`), only when the
+target is met. Its closing lines name every lever it moved and print each value beside its floor
+(`margins 0.6in (floor 0.5in)`). If the target is unreachable without a breach it exits 1 with
+`over by ~<n> lines at the floors`, because the remedy then is to cut evidence, not to shrink type.
+`jsk ship` runs it on an overrun itself.
 
 It used to measure a `.docx` through LibreOffice while the PDF was what got sent. The two disagreed,
 and a resume this reported as two pages shipped as three — a gate passing on a document nobody was
@@ -857,7 +861,7 @@ Needs a TeX engine and `pymupdf`.
 ### `jsk ship`
 
 ```bash
-jsk ship <resume.json> --out DIR [--ats-max] [--template N] [--pages N] [--json]
+jsk ship <resume.json> --out DIR [--ats-max] [--template N] [--pages N] [--no-fit] [--json]
 ```
 
 The commands a ship used to be, in one process and in order, each step's output printed
@@ -867,8 +871,15 @@ verbatim under its own `---` heading the way `jsk gates` prints it:
    is rendered**: a PDF made from a resume that failed its gate looks sendable and is not.
 2. **the render** — what `jsk render <resume.json> --out DIR --pdf` runs, with `--ats-max` and
    `--template` passed through. A render that produced no PDF stops here.
-3. **the parse and prose gates** — what `jsk gates DIR --record <resume.json> [--pages N]` runs,
-   less the record gate the first step has just run on the same file.
+3. **the fit**, only when the render is over its budget (`--pages N`, else the render's own:
+   `ats_pages` under `--ats-max`) — what `jsk fit <tex> --target-pages N` runs. When the levers reach
+   the budget inside the floors, the fitted `.tex` is moved over the render's and recompiled the way
+   the render compiled it, and the step ends `fit: <levers>, <n> pages`. When they do not, it ends
+   `over by ~<n> lines at the floors`, nothing is written, and the unfitted render is kept: cutting
+   evidence is the author's call. `--no-fit` skips the step.
+4. **the parse, prose and layout gates** — what `jsk gates DIR --record <resume.json> [--pages N]`
+   runs, less the record gate the first step has just run on the same file. After a fit they read
+   the fitted render.
 
 It refuses before any of them, exit 1, in a frozen application - the store holds an application
 graph for the `resume.json`'s directory or `--out` - because re-rendering would overwrite what was sent; copy the
@@ -877,11 +888,13 @@ application to a new dated directory to reuse it.
 It closes with the same render-gate section `jsk gates` does: **nobody has read the PDF**, and the
 command says so rather than exiting 0 over it. When it stopped early that section says nothing was
 rendered, instead of pointing at a PDF an earlier run left in `DIR`. The page count is reported —
-the renderer's own line, and `--pages N`'s — and never failed; `jsk fit` owns that verdict.
+the renderer's own line, and `--pages N`'s — and never failed, fitted or not: a render still over
+at the floors is `OVER BUDGET` in the fit step, and exits as it would have before ship fitted.
 
 Last of all, as under `jsk gates` and `jsk freeze`, an `=== summary` block: one line a step with
-its status and the step's own `FAIL n   WARN n`, the render's page counts and how many lines it
-withheld below the floor, then the verdict. Nothing in it is a new verdict - each count is
+its status and the step's own `FAIL n   WARN n`, the render's page counts, the lines it withheld
+below the floor, each named (`withheld 1 below the floor: ach_…`), the fit's last line, then the
+verdict. Nothing in it is a new verdict - each count is
 read back off the output above - and it is there so that the tail of a long ship still holds
 every gate. `--json` has no summary; `steps[]` already is one.
 

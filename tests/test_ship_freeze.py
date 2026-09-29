@@ -214,8 +214,9 @@ class ShipRenderGate(ShipCase):
         self.assertNotIn("PASS", render)
 
     def test_over_budget_is_reported_and_never_failed(self):
-        """`jsk fit` owns the page verdict. ship names an overrun and exits 0."""
-        code, out = self.ship("--pages", "1", compile_pdf=fake_compile(pages=3))
+        """`jsk fit` owns the page verdict. ship names an overrun and exits 0. Under
+        --no-fit, which keeps ship as it was before it fitted (ShipFits covers the fit)."""
+        code, out = self.ship("--pages", "1", "--no-fit", compile_pdf=fake_compile(pages=3))
         self.assertEqual(code, 0, out)
         self.assertIn("OVER BUDGET", out)
 
@@ -272,7 +273,9 @@ class ShipSummary(ShipCase):
         self.assertEqual(code, 0, out)
         self.assertGreater(out.count("withheld bullet ach_data_ingestion"), 1, out)
         [render] = [line for line in self.summary(out) if self.step(line) == "render"]
-        self.assertIn("withheld 1 below the floor", render)
+        # Named: the Arrow run shipped a second time only to grep for which one it was.
+        self.assertIn("withheld 1 below the floor: ach_data_ingestion", render)
+        self.assertEqual(render.count("ach_data_ingestion"), 1, render)
 
     def test_a_stop_names_the_step_that_failed(self):
         self.write(BROKEN)
@@ -296,6 +299,142 @@ class ShipSummary(ShipCase):
         code, out = self.ship("--json")
         self.assertEqual(code, 0, out)
         self.assertNotIn("=== summary", out)
+
+
+MARGIN = re.compile(r"margin=([\d.]+)in\]")
+
+
+def margin_compile(fits_at=None, over=3, under=2):
+    """A compile_pdf whose page count follows the margin the .tex asks for: `over`
+    pages until the margin is at or inside `fits_at`, then `under`. None never fits.
+
+    Stands in for the TeX engine on both sides of the fit - the render's compile and
+    the fitter's - so the fitter's levers are the real ones, run over the real .tex
+    the render wrote, and only the typesetting is faked. Every page carries text,
+    because the fitter measures where the text on each page ends."""
+    def compile_pdf(tex_path, out_dir):
+        import pymupdf
+        from jsk.render import tex
+        compile_pdf.into.append(Path(out_dir).resolve())
+        margin = float(MARGIN.search(Path(tex_path).read_text(encoding="utf-8")).group(1))
+        pages = under if fits_at is not None and margin <= fits_at else over
+        pdf = tex.pdf_path_for(tex_path, out_dir)
+        doc = pymupdf.open()
+        for number in range(pages):
+            page = doc.new_page()
+            # Full pages, then ten lines on the last: an overrun of about ten lines.
+            full = 10 if number == pages - 1 else 50
+            lines = CLEAN_RESUME if number == 0 else [f"Page {number + 1} line {i}"
+                                                      for i in range(full)]
+            page.insert_text((72, 72), "\n".join(lines), fontsize=11)
+        doc.save(pdf)
+        doc.close()
+        return pdf, "compiled with fake"
+    compile_pdf.into = []                  # the directory of every compile, in order
+    return compile_pdf
+
+
+class ShipFits(ShipCase):
+    """Ruling 3 of the tailor-time plan (2026-09-29): ship fits the page budget itself.
+
+    The Arrow run rendered 3 pages against 2, ran `jsk fit` three times, cut three
+    confirmed bullets, and then moved, recompiled and gated the fitted .tex by hand.
+    The first fit had already reached 2 pages at 0.6in, inside the 0.5in floor."""
+
+    def fit_ship(self, *extra, fits_at=None):
+        from jsk import cli
+        from jsk.render import fit_pages, render_resume
+        self.fake = fake = margin_compile(fits_at)
+        args = ["jsk", "ship", str(self.record), "--out", str(self.out)]
+        buf = io.StringIO()
+        with mock.patch.object(render_resume, "compile_pdf", fake), \
+                mock.patch.object(fit_pages, "compile_pdf", fake), \
+                mock.patch.object(fit_pages, "available_engine", lambda: "fake"), \
+                contextlib.redirect_stdout(buf):
+            code = cli.main(args + [str(a) for a in extra])
+        return code, buf.getvalue()
+
+    def pdf_pages(self):
+        import pymupdf
+        with pymupdf.open(self.out / "Test_Person_Resume.pdf") as doc:
+            return doc.page_count
+
+    def tex(self):
+        return (self.out / "Test_Person_Resume.tex").read_text(encoding="utf-8")
+
+    def summary_line(self, out, step):
+        lines = out.split("=== summary\n")[1].splitlines()
+        return next(line for line in lines if line.strip().split("  ")[0] == step)
+
+    def test_an_overrun_comes_back_inside_the_budget_naming_its_levers(self):
+        code, out = self.fit_ship(fits_at=0.6)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.pdf_pages(), 2, out)
+        levers = "inter-paragraph spacing x0, bullet spacing x0, margins 0.6in"
+        self.assertIn(f"fit: {levers}, 2 pages", self.summary_line(out, "fit"))
+        self.assertIn("margin=0.6in]", self.tex())
+        # Moved over the original, not left beside it for somebody to move.
+        self.assertEqual(list(self.out.glob("*-fitted.tex")), [], out)
+        # Each value beside its floor: `margins 0.6in` alone was read as the floor.
+        self.assertIn("margins 0.6in (floor 0.5in)", out)
+        self.assertIn("(floor 10pt)", out)
+
+    def test_the_gates_read_the_fitted_render(self):
+        code, out = self.fit_ship(fits_at=0.6)
+        self.assertEqual(code, 0, out)
+        heads = self.headings(out)
+        self.assertEqual(heads[:3], ["record gate", "render", "fit"], out)
+        self.assertIn("layout gate", heads)
+        layout = out.split("--- layout gate")[1].split("\n--- ")[0]
+        self.assertIn("pages: 2 pages", layout)
+
+    def test_no_fit_keeps_the_overrun(self):
+        code, out = self.fit_ship("--no-fit", fits_at=0.6)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.pdf_pages(), 3, out)
+        self.assertNotIn("--- fit", out)
+        self.assertIn("OVER BUDGET", out)
+        self.assertIn("margin=0.8in]", self.tex())
+
+    def test_at_the_floors_it_counts_the_lines_and_changes_nothing(self):
+        code, out = self.fit_ship("--no-fit")
+        self.assertEqual(code, 0, out)
+        tex = (self.out / "Test_Person_Resume.tex").read_bytes()
+        code, out = self.fit_ship()
+        # The page count is reported and never failed, as it was before ship fitted.
+        self.assertEqual(code, 0, out)
+        line = self.summary_line(out, "fit")
+        self.assertIn("OVER BUDGET", line)
+        over = int(re.search(r"over by ~(\d+) lines at the floors$", line).group(1))
+        # Ten of the fake's 15pt lines, counted in 12pt lines of the 10pt floor body.
+        self.assertTrue(10 <= over <= 13, line)
+        self.assertIn("nothing was cut", out)
+        # The .tex is the one a ship without the fit writes; the PDF is the render's own,
+        # compiled once into the output directory - every other compile was the fitter's
+        # scratch - and still over.
+        self.assertEqual((self.out / "Test_Person_Resume.tex").read_bytes(), tex)
+        self.assertEqual(self.fake.into.count(self.out.resolve()), 1, self.fake.into)
+        self.assertGreater(len(self.fake.into), 1, "the fitter never compiled")
+        self.assertEqual(self.pdf_pages(), 3, out)
+        self.assertEqual(list(self.out.glob("*-fitted.tex")), [], out)
+
+    def test_it_fits_to_the_budget_the_render_measured(self):
+        """--ats-max renders against `ats_pages`: 3 pages of 3 is no overrun."""
+        self.write(dict(GOOD, ats_pages=3))
+        code, out = self.fit_ship("--ats-max", fits_at=0.6)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("--- fit", out)
+        self.assertEqual(self.pdf_pages(), 3, out)
+
+    def test_pages_is_the_budget_when_given(self):
+        code, out = self.fit_ship("--pages", "3", fits_at=0.6)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("--- fit", out)
+
+    def test_a_render_inside_its_budget_is_not_fitted(self):
+        code, out = self.ship()
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("--- fit", out)
 
 
 class ShipUsage(ShipCase):

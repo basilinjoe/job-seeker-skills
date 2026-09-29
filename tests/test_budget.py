@@ -456,6 +456,9 @@ class TheMainThreadBudget(unittest.TestCase):
         # costs 120: `jsk posting fetch <file>` and the browser save, ~90 of it the snippet
         # itself, because the Arrow run typed a .docx's 2.5k tokens back out as posting.md
         # and Schneider's portal came through the context the same way.
+        # Held at 6200 for ship fitting itself (tailor-time Task 3, 2026-09-30). Measured:
+        # 6,144 -> 6,184 (SKILL 2,253, tailor 2,576, ship 1,354). mode-ship.md §3 says when to cut and when not: the Arrow run
+        # spent 13 turns fitting by hand and cut what it need not.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",

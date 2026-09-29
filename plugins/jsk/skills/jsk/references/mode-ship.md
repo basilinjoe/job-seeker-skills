@@ -36,8 +36,8 @@ person. **When in doubt, ATS-maximal.** It is longer by design, so it carries it
 jsk ship applications/<stem>/resume.json --out applications/<stem> [--ats-max] [--template NAME] [--pages N]
 ```
 
-One process: the record gate (a failure stops it; nothing renders), then `render --pdf`, then the
-parse, prose and layout gates, each step's output verbatim. Exit 0 only if every step passed. Show that
+One process: the record gate (a failure stops it; nothing renders), then `render --pdf`, the fit if
+it overran (§3), then the parse, prose and layout gates, each step's output verbatim. Exit 0 only if every step passed. Show that
 output. Read the `=== summary` it ends with; the sections above are its evidence. It refuses in a
 frozen application.
 
@@ -54,14 +54,12 @@ re-ship. The summary: `jsk kb confirm --summary <resume.json> --answer "…"`.
 
 ## 3. Fit, if it overran
 
-`jsk ship` reports the measured page count and never fails on it — `jsk fit` owns that verdict:
+**`jsk ship` fits itself**, stopping at the floors (0.5in, 10pt), and gates the fitted render. `fit:
+…, N pages` is done: 0.6in margins are a fit, not a compromise. Never re-run `jsk fit`, `tectonic` or
+`jsk gates` after it.
 
-```bash
-jsk fit applications/<stem>/<Name>_Resume.tex --target-pages N
-```
-
-**A breached floor is a rejection, not a compromise** — cut bullets from `resume.json` instead. Then
-re-run `jsk ship`.
+**Cut evidence only on `over by ~N lines at the floors`**: nothing was changed. Cut about N lines of
+the lowest-ranked bullets from `resume.json`, telling the person why, and re-ship.
 
 ## 4. The render gate
 
