@@ -144,6 +144,11 @@ class AgentReadBudget(unittest.TestCase):
         # there is no copy of the career to read the end of or to refresh. The format
         # grew by what the short file needs said once: a confirmed summary's one edit,
         # everything the record gate fails, and `jsk migrate` for a legacy record.
+        #
+        # Held at 4800: 4,765 -> 4,797 measured, the author 1,798 -> 1,828. It exports
+        # first and surveys from the export's `id | text` lines, then exports again with
+        # --replace (tailor-time plan, Ruling 4); the second export cost what the one
+        # before it did, and the order moved.
         self.assertLess(author + spec + rules, 4800)
 
     def test_the_extractor_reads_its_definition_and_the_format(self):
@@ -293,10 +298,16 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
     def test_the_author_reads_the_assessment_then_only_the_entries_it_uses(self):
         """On the ElevenLabs run the author re-ran the `jsk match` the analyst had
         already copied into gaps.md, then showed the same six projects twice - once
-        with --bullets, once without, 41.5KB of notes it read back from a spill file."""
-        body = self.body("jsk-resume-author.md")
+        with --bullets, once without, 41.5KB of notes it read back from a spill file.
+        On the Arrow and Schneider runs it still showed all 16 ranked projects before
+        exporting - 42KB, read whole. The export lists what it chose now, one line a
+        bullet, and `kb show` is only for the projects it will reword or write."""
+        body = " ".join(self.body("jsk-resume-author.md").split())
         self.assertIn("do not re-run `jsk match`", body)
-        self.assertIn("jsk kb show <the prj_ ids gaps.md ranks> --bullets", body)
+        self.assertLess(body.index("**Export first**"), body.index("jsk kb show <prj_ ids>"))
+        self.assertIn("`id | text` lines are your survey", body)
+        self.assertIn("only for the projects whose bullets you will reword or write", body)
+        self.assertNotIn("<the prj_ ids gaps.md ranks>", body)
         self.assertIn("never the same ids twice", body)
         self.assertIn("not the whole career", body)
 
@@ -304,11 +315,13 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         """It read the 52KB export whole to edit the view and the summary - the last
         two keys - and after a re-export read it again; the ElevenLabs author then
         refreshed a record the career had moved under. The short file holds no copy to
-        read the end of or to refresh: every word goes into the career before the export,
+        read the end of or to refresh: every word goes into the career, the file is
+        exported again over the first (the Arrow author deleted it by hand to do that),
         and the author edits only the order, the summary and the page settings."""
         body = " ".join(self.body("jsk-resume-author.md").split())
-        self.assertIn("Every new or reworded bullet goes into the career before the export", body)
+        self.assertIn("Every new or reworded bullet goes into the career", body)
         self.assertIn("jsk kb export --from-match", body)
+        self.assertIn("--out applications/<stem>/resume.json --replace", body)
         self.assertIn("**Then edit only** `bullets`", body)
         for gone in ("--refresh", "--urs", "view_draft", "include", "narrative",
                      "Read only the end of the record"):

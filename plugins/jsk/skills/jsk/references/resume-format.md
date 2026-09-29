@@ -42,7 +42,7 @@ jsk kb export --ranked --out resume.json      # a general resume; --select <ids>
 jsk validate applications/<stem>/resume.json
 ```
 
-Export never writes over an existing file: edit it. `jsk validate` is the record gate. It fails
+Export writes over an existing file only with `--replace`. `jsk validate` is the record gate. It fails
 the shape, an id the career does not hold or has retired, a bullet whose project has no role, a
 number in a bullet that no current version of a metric it cites holds, a career that does not
 validate, and one out of sync with its log (written outside jsk: restore it from

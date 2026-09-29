@@ -207,14 +207,44 @@ class Command(Workspace):
         self.assertIn("2 bullets", out)
         self.assertIn("jsk validate", out)
 
+    def test_out_lists_each_bullet_chosen_by_its_first_100_characters(self):
+        """The author read 42KB of `kb show --bullets` over 16 projects to learn what the
+        export then chose; these lines are that survey, one a bullet."""
+        path = os.path.join(self.root, "applications", "x", "resume.json")
+        code, out, _ = self.kb("export", "--select", "prj_identity", "prj_events", "--out", path)
+        self.assertEqual(code, 0, out)
+        lines = [line for line in out.splitlines() if " | " in line]
+        self.assertEqual([line.split(" | ")[0] for line in lines],
+                         json.loads(Path(path).read_text(encoding="utf-8"))["bullets"])
+        from jsk.graph import ontology as O
+        from jsk.graph import record as R
+
+        text = export.Career(store().graph(R.KB)).get(O.K + "ach_events_latency", "text")
+        self.assertIn(f"ach_events_latency | {text[:100]}", lines)
+        self.assertTrue(all(len(line.split(" | ", 1)[1]) <= 100 for line in lines))
+        after = out.index("wrote ")
+        self.assertTrue(all(out.index(line) > after for line in lines))
+
     def test_out_never_replaces_a_resume(self):
         path = os.path.join(self.root, "resume.json")
         Path(path).write_text("{}", encoding="utf-8")
         code, out, _ = self.kb("export", "--out", path)
         self.assertEqual(code, 1)
         self.assertIn("REFUSED", out)
-        self.assertIn("edit it, or delete it to start again", out)
+        self.assertIn("pass --replace to export it again", out)
         self.assertEqual(Path(path).read_text(encoding="utf-8"), "{}")
+
+    def test_replace_writes_over_it(self):
+        """The Arrow author deleted resume.json by hand to export again after a changeset."""
+        path = os.path.join(self.root, "resume.json")
+        Path(path).write_text("{}", encoding="utf-8")
+        code, out, _ = self.kb("export", "--select", "prj_identity", "--out", path, "--replace")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(json.loads(Path(path).read_text(encoding="utf-8"))["bullets"],
+                         ["ach_identity_sso", "ach_identity_events"])
+
+    def test_replace_without_out_is_a_usage_error(self):
+        self.assertEqual(self.kb("export", "--replace")[0], 2)
 
     def test_an_unknown_id_exits_1_and_writes_nothing(self):
         path = os.path.join(self.root, "resume.json")

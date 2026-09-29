@@ -40,27 +40,28 @@ read only through `jsk kb` — never open anything under `career/`. Write paths 
 slashes: bash drops the backslashes in `cd C:\Projects\…`.
 
 **Read what the posting selects, not the whole career.** `gaps.md` already holds the match's Ranking
-and Cover and what was answered — do not re-run `jsk match`. Then, once:
+and Cover and what was answered — do not re-run `jsk match`. **Export first** — never write the
+file by hand, never choose the evidence yourself:
 
 ```bash
-jsk kb show <the prj_ ids gaps.md ranks> --bullets   # their bullets and metrics, without the notes
+jsk kb export --from-match applications/<stem> --out applications/<stem>/resume.json
 ```
 
-Drop `--bullets` only for a project with no bullets, whose first ones you write from its notes — one
-`jsk kb show` per id set, never the same ids twice. `jsk kb view --section Positioning` for the
-summary.
+Its `id | text` lines are your survey. Then `jsk kb show <prj_ ids> --bullets` only for the
+projects whose bullets you will reword or write, without `--bullets` for one with none, whose first
+you write from its notes — one `jsk kb show` per id set, never the same ids twice. `jsk kb view --section Positioning` for the summary.
 
 | a project's bullets | what to do |
 |---|---|
-| **present** | The export chooses and orders them. Reword where the posting's words fit better: a new claim, `op:set` its `j:text` below — `inferred` until confirmed. |
+| **present** | The export chose and ordered them. Reword where the posting's words fit better: a new claim, `op:set` its `j:text` below — `inferred` until confirmed. |
 | **absent** | Write its first bullets from `j:problem`, `j:decision`, `j:outcome`. |
 
 **Do not read any other `resume.json`** — another posting's or a master — it becomes a template.
 
 ## The career first, then the file
 
-**Every new or reworded bullet goes into the career before the export**, under its project, citing
-its metric — one changeset for all of them, with the `op:base` that `jsk kb show` printed:
+**Every new or reworded bullet goes into the career**, under its project, citing its metric — one
+changeset for all of them, with the `op:base` that `jsk kb show` printed:
 
 ```turtle
 @prefix j: <tag:jsk,2026:ns#> .
@@ -78,11 +79,11 @@ op:set { k:ach_clinical_events_cut_latency j:text "Cut event propagation to unde
 --dry-run`, then without; it prints minted `ach_` ids, each inferred. A refusal names its fix.
 `resume.json` names bullets by id and never holds their words.
 
-**Then export the file from the match** — never write it by hand, never choose the evidence yourself:
+**Then export again**, unless nothing was reworded:
 
 ```bash
 jsk kb export --from-match applications/<stem> [--select <ach_ ids you wrote>] \
-  --out applications/<stem>/resume.json
+  --out applications/<stem>/resume.json --replace
 ```
 
 **Name every `ach_` you added or reworded with `--select`** (placed by what it shows), and any

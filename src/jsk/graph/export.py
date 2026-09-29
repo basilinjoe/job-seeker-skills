@@ -83,6 +83,52 @@ def region_code(country):
     return None
 
 
+def rows(career, skills):
+    """{category: the skills its row renders}, as the builder forms them: grouped by
+    category in the order a category's first skill comes, each name once across the
+    block, first occurrence winning."""
+    groups, seen = {}, set()
+    for s in skills:
+        groups.setdefault(career.get(s, "category") or "other", []).append(s)
+    out = {}
+    for cat, members in groups.items():
+        for s in members:
+            name = (career.get(s, "name") or "").strip().casefold()
+            if name and name not in seen:
+                seen.add(name)
+                out.setdefault(cat, []).append(s)
+    return out
+
+
+def capped(career, skills, notes=None):
+    """`skills` with each row cut to the MAX_SKILLS_PER_ROW that render, the first kept.
+
+    The order is select.py's, the posting's asks first, so what a row keeps is what the
+    posting asked for. Schneider's export named about 110 skills and Arrow rendered rows
+    of 15-18 where 10 show; the builder dropped the rest with a WARN, and the main thread
+    trimmed the file by hand. A skill cut from one row can let the same name show in a
+    later one, so the cut runs until no row is over."""
+    from ..resume.build import MAX_SKILLS_PER_ROW
+
+    kept, left = list(skills), {}
+    while True:
+        over = {cat: members[MAX_SKILLS_PER_ROW:]
+                for cat, members in rows(career, kept).items()
+                if len(members) > MAX_SKILLS_PER_ROW}
+        if not over:
+            break
+        for cat, cut in over.items():
+            left.setdefault(cat, []).extend(cut)
+        cut = {s for members in over.values() for s in members}
+        kept = [s for s in kept if s not in cut]
+    if notes is not None:
+        for cat, cut in left.items():
+            notes.append(f"NOTE  skills row {cat!r} keeps its first {MAX_SKILLS_PER_ROW}, the "
+                         f"posting's first; {len(cut)} left out: "
+                         f"{', '.join(local(s) for s in cut)}")
+    return kept
+
+
 def short_file(store, selection=None, select=None, notes=None):
     """The short resume.json for a selection, as a dict: ids and settings, nothing the
     career holds. Raises ExportError for a `select` it cannot honour, or a selection
@@ -146,5 +192,5 @@ def short_file(store, selection=None, select=None, notes=None):
     if roles:
         doc["roles"] = [local(r) for r in roles]
     if selection is not None and selection.skills:
-        doc["skills"] = [local(s) for s in selection.skills]
+        doc["skills"] = [local(s) for s in capped(career, selection.skills, notes)]
     return doc

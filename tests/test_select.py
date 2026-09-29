@@ -252,6 +252,56 @@ class Exported(unittest.TestCase):
         self.assertEqual(json.dumps(again), json.dumps(self.doc))
 
 
+TOOLS = "".join(f'\nk:skill_tool{i:02} j:name "Tool {i:02}" ; j:category "Platforms" .\n'
+                for i in range(12)) + (
+    '\nk:skill_kafka j:name "Kafka" ; j:category "Platforms" .\n'
+    '\nk:skill_terraform j:name "Terraform" ; j:category "Platforms" .\n')
+
+
+class Capped(unittest.TestCase):
+    """Arrow rendered skills rows of 15-18 where 10 show, and Schneider's export named about
+    110 skills for the main thread to trim by hand: the export cuts each row to what renders,
+    the posting's asks first."""
+
+    def setUp(self):
+        from jsk.resume.build import MAX_SKILLS_PER_ROW
+
+        self.cap = MAX_SKILLS_PER_ROW
+        root = workspace(self)
+        career_plus(root, TOOLS)                   # Platforms: Kubernetes and these 14
+        self.store = load(root)
+        self.notes = []
+        self.doc = export.short_file(self.store, selection=SEL.select(self.store, POST, TODAY, 3),
+                                     notes=self.notes)
+
+    def test_a_row_of_15_exports_10_the_asked_ones_first(self):
+        platforms = [s for s in self.doc["skills"] if s != "skill_dotnet"]
+        self.assertEqual(len(platforms), self.cap)
+        self.assertEqual(platforms[:3], ["skill_kubernetes", "skill_kafka", "skill_terraform"])
+        self.assertEqual(platforms[3:], [f"skill_tool{i:02}" for i in range(7)])
+        self.assertIn("skill_dotnet", self.doc["skills"])        # its own row, under the cap
+
+    def test_what_the_cut_left_out_is_a_note(self):
+        self.assertEqual(len(self.notes), 1)
+        self.assertIn("skills row 'Platforms'", self.notes[0])
+        self.assertIn("5 left out: skill_tool07, skill_tool08", self.notes[0])
+
+    def test_the_render_drops_nothing(self):
+        from jsk.resume import build
+
+        def cut(doc):
+            return [w for w in build.build(self.store, doc, today=TODAY)["warnings"]
+                    if "skills row" in w]
+
+        self.assertEqual(cut(self.doc), [])
+        uncut = dict(self.doc, skills=ids(SEL.select(self.store, POST, TODAY, 3).skills))
+        self.assertEqual(len(cut(uncut)), 1)                      # what it was before
+
+    def test_the_ranked_export_names_no_skills_to_cut(self):
+        self.assertNotIn("skills", export.short_file(self.store,
+                                                     selection=SEL.ranked(self.store, TODAY)))
+
+
 def many(root, name, n, cites=False):
     """`n` more confirmed bullets on `name`, ranked after the fixture's."""
     career_plus(root, "".join(

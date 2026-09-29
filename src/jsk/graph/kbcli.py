@@ -20,8 +20,8 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   export [--select <id>...]            the short resume.json: the bullets to show, as ids;
          [--from-match <app-dir>]      --from-match chooses them for an application,
          [--ranked] [--cover N]        --ranked with none
-         [--today D] [--out FILE]
-  check                                validate the workspace; exit 1 on a FAIL
+         [--today D] [--out FILE [--replace]]
+  check                               validate the workspace; exit 1 on a FAIL
   path                                 the workspace, career/store/ and applications/,
                                        as absolute paths
   load <workspace | dump.trig>         fill an empty career/store/, once: from a workspace
@@ -805,10 +805,10 @@ def cmd_view(args, flags, root):
 
 
 @verb(values=("--out", "--from-match", "--cover", "--today"),
-      switches=("--ranked", "--urs", "--refresh"), lists=("--select",))
+      switches=("--ranked", "--replace", "--urs", "--refresh"), lists=("--select",))
 def cmd_export(args, flags, root):
     """jsk kb export [--select <id>...] [--from-match <app-dir> [--cover N] | --ranked]
-                     [--today YYYY-MM-DD] [--out resume.json]
+                     [--today YYYY-MM-DD] [--out resume.json [--replace]]
 
     The short resume.json an application starts from: the bullets it shows, in order,
     and its settings - `"resume": 2`, the region when a profile ships for the person's
@@ -823,7 +823,8 @@ def cmd_export(args, flags, root):
 
     --from-match chooses the bullets from `jsk match` of the application (its directory,
     applications/<dir>): the projects that carry the posting with confirmed evidence,
-    their bullets by what they show, the skills the posting asks for first. What it
+    their bullets by what they show, the skills the posting asks for first - each skills
+    row cut to the most a row renders, and a NOTE naming what each cut left out. What it
     cannot close prints as GAP lines - tag-only, unconfirmed, uncovered, unresolved - for
     gaps.md. --select adds to it; --cover and --today are jsk match's.
 
@@ -832,7 +833,10 @@ def cmd_export(args, flags, root):
     number first. The scorer chooses rather than the model, as it does for a posting.
     --select adds to it.
 
-    --out writes the file, never over an existing one; without it the file is printed.
+    --out writes the file, and then each chosen bullet as `id | its first 100 characters`
+    - what a survey of the projects would have read, one line a bullet. It never writes
+    over an existing file unless --replace is given: a re-export after a changeset is
+    the file the career now selects. Without --out the file is printed.
 
     A number in a chosen bullet that no current metric version holds is printed as a
     WARN: it is in the career, not in anything authored, so it is a question for the
@@ -876,6 +880,8 @@ def cmd_export(args, flags, root):
         return usage("--cover goes with --from-match")
     if today_text and not (posting or by_rank):
         return usage("--today goes with --from-match or --ranked")
+    if "--replace" in flags and not out:
+        return usage("--replace goes with --out: it lets the export write over that file")
     today, budget = datetime.date.today(), COVER
     try:
         if today_text:
@@ -908,10 +914,11 @@ def cmd_export(args, flags, root):
         show_findings(blocking, f"REFUSED  {where} {len(blocking)} failures - "
                                 "a resume would carry them:")
         return 1
-    if out and os.path.exists(out):
-        return refuse([f"{out} exists - export writes a new resume.json, never over one"],
-                      "edit it, or delete it to start again - it holds only ids and settings, "
-                      "and the career is read afresh at every render")
+    if out and os.path.exists(out) and "--replace" not in flags:
+        return refuse([f"{out} exists - export writes a new resume.json, never over one "
+                       "unless told to"],
+                      "edit it, or pass --replace to export it again - it holds only ids and "
+                      "settings, and the career is read afresh at every render")
     selection, notes = None, []
     report = sys.stdout if out else sys.stderr
     try:
@@ -953,9 +960,13 @@ def cmd_export(args, flags, root):
         sys.stdout.write(text)
         return 0
     wrote(store, out, text, doc)
+    career = Career(store.graph(R.KB))
+    for b in doc["bullets"]:
+        words = " ".join((career.get(O.K + b, "text") or "").split())
+        print(f"{b} | {words[:100]}")
     print("next: order `bullets`, add a `summary` and set `pages` or `format` if this posting "
-          "wants them, then `jsk validate` it - a reworded bullet goes into the career first, "
-          "with `jsk kb apply`")
+          "wants them, then `jsk validate` it - a reworded bullet goes into the career "
+          "(`jsk kb apply`), then export again with --replace")
     return 0
 
 
