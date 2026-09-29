@@ -48,15 +48,21 @@ work.** Nothing back means nothing recorded, not never applied.
 ## 1. Get the posting
 
 `$ARGUMENTS` may hold a URL, the text, or a path. **Fetch a URL yourself**; the analyst has no
-network tools. **Ashby, Greenhouse or Lever: `jsk posting fetch <url>
-<workspace>/applications/<stem>` first**; if it refuses, as below. **JavaScript-rendered career
+network tools. `<app>` is `<workspace>/applications/<stem>/`. **Ashby, Greenhouse or Lever: `jsk
+posting fetch <url> <app>` first**; if it refuses, as below. **A file (`.docx`, `.html`, `.txt`):
+`jsk posting fetch <file> <app>`**, never through the context. **JavaScript-rendered career
 sites** (Workday, SuccessFactors, iCIMS, Phenom `careers.<company>` portals) **go straight to a
-browser tool**: a plain fetch sees an empty shell and can call a live posting closed. When a fetch
-fails, say so and ask them to paste it — an ordinary outcome, not an error.
+browser tool**: a plain fetch sees an empty shell. Open the posting and save it with
+`browser_run_code_unsafe`, which returns none of the page: `async p=>{const[d]=await
+Promise.all([p.waitForEvent('download'),p.evaluate(()=>{const
+a=document.createElement('a');a.href=URL.createObjectURL(new
+Blob([document.documentElement.outerHTML]));a.download='p.html';a.click()})]);await
+d.saveAs('<app>/posting.html')}`. Fetch that file; tell the analyst the URL. When a fetch fails,
+say so and ask them to paste it — an ordinary outcome, not an error.
 
-Create `<workspace>/applications/<stem>/` and write `posting.md` **with the Write tool, never a
-shell heredoc** (an advert's quotes and apostrophes break the shell): **the advertisement verbatim and
-nothing else**, the URL on its first line. **Never paraphrase it**: every requirement quotes it.
+Pasted text, or a page that save cannot reach: create `<app>` and write `posting.md` **with the
+Write tool, never a shell heredoc** (an advert's quotes and apostrophes break the shell): **the
+advertisement verbatim and nothing else**, the URL on its first line. **Never paraphrase it**.
 
 ## 1b. Triage
 

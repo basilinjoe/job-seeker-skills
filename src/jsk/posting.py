@@ -1,7 +1,7 @@
 """A posting on a public job board, written as an application's posting.md - and then
 its requirements, written into the record as the application's posting.
 
-Usage: jsk posting fetch <url> <application-dir>
+Usage: jsk posting fetch <url>|<file> <application-dir>
        jsk posting extract <application-dir>
        jsk posting build <application-dir> [<decisions-file>] [--replace]
 
@@ -9,13 +9,17 @@ Usage: jsk posting fetch <url> <application-dir>
                        https://jobs.ashbyhq.com/<org>/<job-uuid>
                        https://boards.greenhouse.io/<org>/jobs/<id>  (or job-boards.)
                        https://jobs.lever.co/<org>/<id>
+  <file>             the posting as a file: .docx, .html/.htm (a saved page) or .txt/.md
   <application-dir>  applications/<stem>, created if missing
 
 Reads the board's public JSON API - no key, no browser - and writes
 <application-dir>/posting.md: the URL on its first line, the title, one line of the
 facts the board states, then the description verbatim. A board that serves HTML has it
 turned into text - paragraphs, `- ` list items, entities - and nothing else rewritten.
-posting.md is never overwritten.
+A file is read where it is: `Source: <file name>` on the first line, then its text. A
+.docx gives one line per paragraph, `## ` for a Heading style, `- ` for a list
+paragraph, its Title as the title; .html is turned into text as a board's is; .txt and
+.md are taken as they are. posting.md is never overwritten.
 
 extract prints the header decisions.txt starts with, then every line of posting.md a
 requirement could quote: numbered, with its section (qual, resp, other), a flag (opt:
@@ -29,13 +33,16 @@ with it in the same write. WARNs past 20 requirements, and on a responsibility m
 required that its line does not call required.
 
 Exit 0 written or printed; 1 refused - a board this does not know, a posting not on its
-board, a network failure, a posting.md already there, a decisions file that does not
-hold - each with its fix, nothing written; 2 called wrong.
+board, a network failure, a file it cannot read, a posting.md already there, a decisions
+file that does not hold - each with its fix, nothing written; 2 called wrong.
 
 Written after the ElevenLabs run (2026-09-25), where the posting came off Ashby's API
 through hand-written curl and inline Python and posting.md was assembled by hand: the
-one input every requirement quotes, made by the least repeatable step of the run.
-Only urllib at import: extract and build load graph.postingbuild when they run.
+one input every requirement quotes, made by the least repeatable step of the run. The
+file argument came after the Arrow run (2026-09-29), where a .docx was unzipped with
+inline Python and posting.md typed back out through the context.
+Only urllib at import: extract and build load graph.postingbuild when they run, and a
+.docx loads zipfile and xml.etree when it is read.
 """
 import datetime
 import html
@@ -49,7 +56,7 @@ import urllib.request
 from html.parser import HTMLParser
 
 POSTING = "posting.md"
-USAGE = ("usage: jsk posting fetch <url> <application-dir>\n"
+USAGE = ("usage: jsk posting fetch <url>|<file> <application-dir>\n"
          "       jsk posting extract <application-dir>\n"
          "       jsk posting build <application-dir> [<decisions-file>] [--replace]")
 TIMEOUT = 30
@@ -330,17 +337,137 @@ def posting_md(url, title, facts, description):
     return "\n".join(lines) + "\n"
 
 
+# --- a file ----------------------------------------------------------------------
+
+W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+FILE_KINDS = (".docx", ".html", ".htm", ".txt", ".md")
+
+
+def _runs(node, out):
+    """A paragraph's text in document order: its `w:t` runs, `w:tab` as a space, `w:br`
+    and `w:cr` as a line break. A paragraph nested in it (a text box) is its own."""
+    for child in node:
+        if child.tag == W + "p":
+            continue
+        if child.tag == W + "t":
+            out.append(child.text or "")
+        elif child.tag == W + "tab":
+            out.append(" ")
+        elif child.tag in (W + "br", W + "cr"):
+            out.append("\n")
+        else:
+            _runs(child, out)
+    return out
+
+
+def docx_text(data):
+    """(title, text) of a .docx's word/document.xml: one line per paragraph, `## ` for a
+    Heading style, `- ` for a numbered or List style paragraph (indented by its level),
+    the first Title-style paragraph as the title. Paragraphs are blank-line separated
+    and list items are not, as html_to_text writes them. Raises ValueError."""
+    import io as _io
+    import xml.etree.ElementTree as ET
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(_io.BytesIO(data)) as z:
+            root = ET.fromstring(z.read("word/document.xml"))
+    except (zipfile.BadZipFile, KeyError, ET.ParseError) as exc:
+        raise ValueError(str(exc)) from None
+    body = root.find(W + "body")
+    title, blocks = "", []           # blocks: (is a list item, line)
+    for p in (body.iter(W + "p") if body is not None else ()):
+        text = "".join(_runs(p, [])).strip()
+        text = "\n".join(re.sub(r"[ \t]+", " ", x).strip() for x in text.split("\n"))
+        if not text:
+            continue
+        style = p.find(f"{W}pPr/{W}pStyle")
+        style = (style.get(W + "val") or "") if style is not None else ""
+        num = p.find(f"{W}pPr/{W}numPr")
+        if style == "Title" and not title:
+            title = text.replace("\n", " ")
+        elif style.lower().startswith("heading"):
+            blocks.append((False, "## " + text.replace("\n", " ")))
+        elif num is not None or style.lower().startswith("list"):
+            level = num.find(f"{W}ilvl") if num is not None else None
+            depth = int(level.get(W + "val") or 0) if level is not None else 0
+            blocks.append((True, "  " * depth + "- " + text))
+        else:
+            blocks.append((False, text))
+    lines = []
+    for i, (item, line) in enumerate(blocks):
+        if lines and not (item and blocks[i - 1][0]):
+            lines.append("")
+        lines.append(line)
+    return title, "\n".join(lines)
+
+
+def read_file(path):
+    """(title, text) of a posting saved as a file. Raises Refused."""
+    name = os.path.basename(path)
+    kind = os.path.splitext(name)[1].lower()
+    if kind not in FILE_KINDS:
+        raise Refused(f"{name}: a {kind or 'extensionless'} file is not one posting fetch "
+                      f"reads",
+                      "fix:  save the posting as .docx, .html or .txt and fetch that file, "
+                      "or write posting.md with the Write tool - the advertisement "
+                      "verbatim, `Source: <file name>` on its first line")
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError as exc:
+        raise Refused(f"could not read {path}: {exc.strerror or exc}",
+                      "fix:  check the path, and that the file is not open elsewhere") \
+            from None
+    if kind == ".docx":
+        try:
+            return docx_text(data)
+        except ValueError as exc:
+            raise Refused(f"{name} is not a Word document this can read ({exc})",
+                          "fix:  open it in Word and save it again as .docx, or save it "
+                          "as .txt and fetch that") from None
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise Refused(f"{name} is not UTF-8 text",
+                      "fix:  save it again as UTF-8 and fetch it again") from None
+    if kind in (".html", ".htm"):
+        return "", html_to_text(text)
+    return "", text.replace("\r\n", "\n").strip("\n")
+
+
+def file_md(name, title, text):
+    """(title, posting.md): `Source: <file name>` on line 1, then the title and the text
+    as posting_md writes them. With no title, the text's first line is the title, unless
+    the text has a `# ` heading of its own - a .md already written as posting.md is."""
+    lines = text.split("\n")
+    own = next((m.group(1).strip() for m in map(re.compile(r"# (\S.*)").match, lines) if m),
+               None)
+    if not title and own is not None:
+        return own, "Source: " + name + "\n\n" + text.strip("\n") + "\n"
+    if not title:
+        first = next((i for i, x in enumerate(lines) if x.strip()), 0)
+        title = re.sub(r"^(#+|[-*•])\s+", "", lines[first].strip())
+        text = "\n".join(lines[first + 1:])
+    return title, posting_md(f"Source: {name}", title, [], text.strip("\n"))
+
+
 # --- the command -----------------------------------------------------------------
 
 def fetch(url, app_dir, get=None):
     """(path written, title, characters). Raises Refused.
 
     `get` is fetch_json unless a test hands in its own; looked up at call time so a
-    patch of the module attribute reaches it too."""
-    known = recognise(url)
-    if known is None:
-        raise Refused(f"{url} is not an Ashby, Greenhouse or Lever posting URL",
-                      BROWSER_FIX)
+    patch of the module attribute reaches it too. A `url` that is a file there is is
+    read from disk instead."""
+    is_file = os.path.isfile(url)
+    known = None if is_file else recognise(url)
+    if known is None and not is_file:
+        if urllib.parse.urlsplit(url.strip()).scheme in ("http", "https"):
+            raise Refused(f"{url} is not an Ashby, Greenhouse or Lever posting URL",
+                          BROWSER_FIX)
+        raise Refused(f"{url} is neither a posting URL nor a file there is",
+                      "fix:  check the path, or give the posting's URL")
     target = os.path.join(app_dir, POSTING)
     # Before the network: a posting.md is what an application answered, and a
     # second fetch of a posting since edited would quietly change it.
@@ -348,6 +475,15 @@ def fetch(url, app_dir, get=None):
         raise Refused(f"{target} already exists - posting.md is never overwritten",
                       "fix:  it is what this application answers; a different posting "
                       "is a different application directory")
+    if known is None:
+        name = os.path.basename(url)
+        title, text = read_file(url)
+        if not text.strip():
+            raise Refused(f"{name} holds no text",
+                          "fix:  check it is the posting, or write posting.md with the "
+                          "Write tool - the advertisement verbatim")
+        title, text = file_md(name, title, text)
+        return write(app_dir, target, text), title, len(text)
     provider, org, job, api = known
     try:
         data = (get or fetch_json)(api)
@@ -360,10 +496,14 @@ def fetch(url, app_dir, get=None):
                       BROWSER_FIX)
     title = title.strip()
     text = posting_md(url, title, facts, description)
+    return write(app_dir, target, text), title, len(text)
+
+
+def write(app_dir, target, text):
     os.makedirs(app_dir, exist_ok=True)
     with open(target, "x", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
-    return target, title, len(text)
+    return target
 
 
 def main(argv=None):

@@ -10,6 +10,7 @@ import contextlib
 import io
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -274,6 +275,145 @@ class Refusals(unittest.TestCase):
             self.assertEqual(posting.main(["fetch", ASHBY_URL]), 2)
             self.assertEqual(posting.main(["get", ASHBY_URL, str(self.app)]), 2)
         self.assertIn("usage: jsk posting fetch", buf.getvalue())
+
+
+W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+
+def docx(*paragraphs):
+    """A minimal .docx: word/document.xml holding each (style, numbered, runs) paragraph.
+    A run is text, "\\t" for a w:tab or "\\n" for a w:br."""
+    body = []
+    for style, numbered, runs in paragraphs:
+        ppr = ""
+        if style or numbered:
+            ppr = ("<w:pPr>" + (f'<w:pStyle w:val="{style}"/>' if style else "")
+                   + ('<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>'
+                      if numbered else "") + "</w:pPr>")
+        rs = "".join("<w:r><w:tab/></w:r>" if r == "\t" else "<w:r><w:br/></w:r>"
+                     if r == "\n" else f'<w:r><w:t xml:space="preserve">{r}</w:t></w:r>'
+                     for r in runs)
+        body.append(f"<w:p>{ppr}{rs}</w:p>")
+    xml = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+           f'<w:document xmlns:w="{W_NS}"><w:body>{"".join(body)}</w:body></w:document>')
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", "<Types/>")
+        z.writestr("word/document.xml", xml)
+    return buf.getvalue()
+
+
+class FromAFile(unittest.TestCase):
+    """The Arrow run (2026-09-29) unzipped its .docx with inline Python and typed
+    posting.md back out through the context: 2.5k output tokens, and its apostrophes
+    straightened on the way. A file is read where it is, and extract reads the result."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.app = self.tmp / "applications" / "acme"
+
+    def fetch(self, name, data):
+        path = self.tmp / name
+        path.write_bytes(data)
+        target, title, count = posting.fetch(str(path), str(self.app))
+        text = Path(target).read_text(encoding="utf-8")
+        self.assertEqual(count, len(text))
+        return title, text
+
+    def sections(self, text):
+        """{line text: (section, is an item)} as extract's line step reads posting.md."""
+        from jsk.graph.rules import advert_lines
+        return {x.text: x.section for x in advert_lines(text)}
+
+    def test_a_docx_keeps_its_headings_and_list_paragraphs(self):
+        title, text = self.fetch("Architect.docx", docx(
+            ("Title", False, ["Solutions Architect"]),
+            (None, False, ["We build ", "things", "\t", "that last."]),
+            ("Heading1", False, ["Requirements"]),
+            ("ListParagraph", True, ["Five years of Python"]),
+            (None, True, ["Kubernetes", "\n", "in production"]),
+            (None, False, [""]),
+            ("Heading2", False, ["Responsibilities"]),
+            ("ListBullet", False, ["Design the platform"]),
+        ))
+        self.assertEqual(title, "Solutions Architect")
+        self.assertEqual(text, (
+            "Source: Architect.docx\n\n# Solutions Architect\n\n"
+            "We build things that last.\n\n"
+            "## Requirements\n\n"
+            "- Five years of Python\n- Kubernetes\nin production\n\n"
+            "## Responsibilities\n\n"
+            "- Design the platform\n"))
+        found = self.sections(text)
+        self.assertEqual(found.get("Five years of Python"), "qualification", found)
+        self.assertEqual(found.get("Design the platform"), "responsibility", found)
+        self.assertNotIn("Requirements", found)            # a heading asks nothing
+
+    def test_an_html_page_goes_through_html_to_text(self):
+        title, text = self.fetch("posting.html", (
+            "<html><body><h1>Data Engineer</h1><p>Hello &amp; welcome.</p>"
+            "<h2>Requirements:</h2><ul><li>SQL</li><li>Airflow</li></ul>"
+            "<h2>Responsibilities:</h2><ul><li>Own the pipelines</li></ul>"
+            "</body></html>").encode("utf-8"))
+        self.assertEqual(title, "Data Engineer")
+        self.assertEqual(text, (
+            "Source: posting.html\n\n# Data Engineer\n\nHello & welcome.\n\n"
+            "Requirements:\n\n- SQL\n- Airflow\n\nResponsibilities:\n\n- Own the pipelines\n"))
+        # An <h2> arrives as the page's words, as a board's does; extract reads the section
+        # from them, and each <li> is an item under it.
+        found = self.sections(text)
+        self.assertEqual(found.get("SQL"), "qualification", found)
+        self.assertEqual(found.get("Own the pipelines"), "responsibility", found)
+
+    def test_a_txt_or_md_is_taken_as_it_is(self):
+        _, text = self.fetch("advert.txt", b"Platform Engineer\r\n\r\nYou will:\r\n- ship\r\n")
+        self.assertEqual(text, "Source: advert.txt\n\n# Platform Engineer\n\n"
+                               "You will:\n- ship\n")
+        self.app = self.tmp / "applications" / "other"
+        title, text = self.fetch("advert.md", "# Staff Engineer\n\n- Go\n".encode("utf-8"))
+        self.assertEqual(title, "Staff Engineer")
+        self.assertEqual(text, "Source: advert.md\n\n# Staff Engineer\n\n- Go\n")
+
+    def test_an_unknown_kind_of_file_is_refused_with_its_fix(self):
+        path = self.tmp / "posting.pdf"
+        path.write_bytes(b"%PDF-1.4")
+        with self.assertRaises(posting.Refused) as caught:
+            posting.fetch(str(path), str(self.app))
+        self.assertIn("a .pdf file is not one posting fetch reads", str(caught.exception))
+        self.assertIn(".docx, .html or .txt", caught.exception.fix)
+        self.assertFalse(self.app.exists())
+
+    def test_a_broken_docx_and_a_missing_file_are_refused(self):
+        path = self.tmp / "broken.docx"
+        path.write_bytes(b"not a zip")
+        with self.assertRaises(posting.Refused) as caught:
+            posting.fetch(str(path), str(self.app))
+        self.assertIn("not a Word document", str(caught.exception))
+        with self.assertRaises(posting.Refused) as caught:
+            posting.fetch(str(self.tmp / "missing.docx"), str(self.app))
+        self.assertIn("neither a posting URL nor a file", str(caught.exception))
+        self.assertFalse(self.app.exists())
+
+    def test_posting_md_is_never_overwritten_by_a_file(self):
+        self.app.mkdir(parents=True)
+        (self.app / "posting.md").write_text("what was answered\n", encoding="utf-8")
+        with self.assertRaises(posting.Refused) as caught:
+            self.fetch("advert.txt", b"Something else\n")
+        self.assertIn("already exists", str(caught.exception))
+        self.assertEqual((self.app / "posting.md").read_text(encoding="utf-8"),
+                         "what was answered\n")
+
+    def test_only_urllib_at_import(self):
+        import subprocess
+        import sys
+        code = ("import sys, jsk.posting; "
+                "print(sorted(m for m in ('zipfile', 'xml.etree.ElementTree') "
+                "if m in sys.modules))")
+        out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                             env=fixtures.child_env(), check=True)
+        self.assertEqual(out.stdout.strip(), "[]", out.stderr)
 
 
 if __name__ == "__main__":

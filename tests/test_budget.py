@@ -451,11 +451,16 @@ class TheMainThreadBudget(unittest.TestCase):
         # holds three gaps files where it held one, and a patch goes to gaps.txt.
         # Held at 6100 for the store (2026-09-29). Measured: 5,999 -> 5,993 (SKILL 2,238,
         # tailor 2,456, ship 1,298). The directory lists documents only; commands take it.
+        # 6100 -> 6200 for a posting in a file (tailor-time Task 5, 2026-09-30). Measured:
+        # 6,014 -> 6,144 (SKILL 2,249, tailor 2,576, ship 1,318). mode-tailor.md's step 1
+        # costs 120: `jsk posting fetch <file>` and the browser save, ~90 of it the snippet
+        # itself, because the Arrow run typed a .docx's 2.5k tokens back out as posting.md
+        # and Schneider's portal came through the context the same way.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
                    REFS / "mode-ship.md"),
-            6100)
+            6200)
 
 
 if __name__ == "__main__":

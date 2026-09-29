@@ -11,4 +11,4 @@ Skill(skill="jsk:jsk", args="tailor")
 ```
 
 `references/mode-tailor.md` holds the procedure. `$ARGUMENTS` is the posting — a URL (fetch it
-yourself), the text, or a file path — plus an optional `--rounds N` overriding the gap-round cap.
+yourself), the text, or a file path (`.docx`, `.html`, `.txt`: `jsk posting fetch` reads it) — plus an optional `--rounds N` overriding the gap-round cap.
