@@ -69,6 +69,11 @@ class ResidentCost(unittest.TestCase):
         # Held at 2400 when the URS record went (2026-09-25): 2,251 -> 2,191 measured. The
         # claims gate's row and its `NOT RUN` sentence, `--view` on two commands and the
         # two-halves spec pointer left; `resume-format.md` came in as one name.
+        #
+        # Held at 2400 when the record moved into career/store/ (2026-09-29): 2,237 -> 2,238
+        # measured. The file table's kb.ttl/log.ttl/posting.ttl/application.ttl rows became one
+        # `career/store/` row, `adopt` left the kb verb list and `log` came in, and the hand-edit
+        # sentence became "never open anything under career/" plus the one-line import hint.
         self.assertLess(tokens(SKILL / "SKILL.md"), 2400)
 
 
@@ -91,6 +96,8 @@ class AgentReadBudget(unittest.TestCase):
         # tailor prepare --draft-gaps` the other - and the splitting rules came in.
         # Held for gaps.ttl (2026-09-27): 1,810 -> 1,890. §3 became reviewing a derived
         # assessment and writing gaps.txt; the slot-by-slot gaps.md instructions left.
+        # Held for the store (2026-09-29): 1,890 -> 1,881. The kb.ttl path and the grep
+        # warning left; `jsk match` takes the application directory.
         self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 1900)
 
     def test_the_resume_author_reads_the_short_file_format_and_the_rules(self):
@@ -247,6 +254,9 @@ class TheWritePathStaysCheap(unittest.TestCase):
         # banners, one table row per class with every predicate, provenance, and a
         # changeset. Smaller because the predicates are a table, not an example per
         # section; `jsk kb apply`'s refusals carry what an example used to.
+        # Held for the store (2026-09-29): 1,883 -> 1,905. The file tree became the store's
+        # graphs, the banners the view's section names, "Hand edits" left, and the
+        # canonical-number rule and the rebase-or-refuse `op:base` came in.
         self.assertLess(tokens(REFS / "kb-format.md"), 2000)
 
 
@@ -312,9 +322,11 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         a command does in milliseconds and cannot miscount. That command was `jsk
         index --rank`; it is `jsk match` now, which matches through the vocabulary
         rather than by exact string. The analyst reads the entries it cites, and no
-        more, and no index is named anywhere: it is leaving with the Markdown."""
+        more, and no index is named anywhere: it is leaving with the Markdown. The match
+        takes the application directory now that the posting is a graph in the store."""
         analyst = self.body("jsk-tailor-analyst.md")
-        self.assertIn("jsk match applications/<stem>/posting.ttl", analyst)
+        self.assertIn("jsk match applications/<stem> --gaps", analyst)
+        self.assertNotIn("posting.ttl", analyst)
         self.assertIn("Read a project before citing it as evidence", analyst)
         self.assertIn("Do not read the whole career", analyst)
         self.assertNotIn("jsk index", analyst)
@@ -424,6 +436,8 @@ class TheMainThreadBudget(unittest.TestCase):
         # to reach "you have nothing on PAM" and a query answers it in two seconds.
         # Held at 6100 for gaps.ttl (2026-09-27). Measured: 5,998 -> 6,056. The directory
         # holds three gaps files where it held one, and a patch goes to gaps.txt.
+        # Held at 6100 for the store (2026-09-29). Measured: 5,999 -> 5,993 (SKILL 2,238,
+        # tailor 2,456, ship 1,298). The directory lists documents only; commands take it.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",

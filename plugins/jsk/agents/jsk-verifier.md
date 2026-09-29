@@ -14,15 +14,15 @@ to its source, when the render gate needs someone to read the PDF, or when `jsk 
 available here. **Run every gate either way**, even if the caller names one.
 
 **You verify. You do not fix.** Every defect is repaired where it came from — an entry in
-`career/kb.ttl`, named by its id (`ach_…`, `met_….v2`, `pos_…`), through `jsk kb apply`; or the ids,
+the career, named by its id (`ach_…`, `met_….v2`, `pos_…`), through `jsk kb apply`; or the ids,
 summary or settings in `resume.json` — by the caller, who re-renders. You have no Write or Edit tool.
 
 ## Inputs
 
 The **skill directory** (absolute — `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install), the
 **output directory**, the **page budget**, the file names, the **record path** (`resume.json`,
-usually in the output directory) and the **workspace** (the folder holding `career/kb.ttl`; you read
-it only with `jsk kb show <id>`, to name where a defect is repaired). If a file name is missing, glob for `*_Resume*.pdf`,
+usually in the output directory) and the **workspace** (the folder holding `career/store/`; you read
+the career only with `jsk kb show <id>`, to name where a defect is repaired). If a file name is missing, glob for `*_Resume*.pdf`,
 `*_Resume*.tex` and `*_Resume_ATS.txt` in the output directory and say what you found.
 
 A missing skill directory is the one thing you cannot work around: report it and stop.
@@ -90,7 +90,7 @@ Then:
 
 1. **Verdict per gate** — PASS / FAIL / UNVERIFIED, plus the fit result.
 2. **Overall** — safe to send, or not. One FAIL or one UNVERIFIED means not.
-3. **Every defect, with its repair site by id** — `career/kb.ttl` `k:ach_…` (the bullet's text),
+3. **Every defect, with its repair site by id** — in the career `k:ach_…` (the bullet's text),
    `k:met_x.v2` (the number), `k:pos_…`, or in `resume.json` a key. A record-gate
    finding already names its id; a superseded number means the bullet holds an old version's value.
    Never "fix in the document".

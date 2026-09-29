@@ -38,21 +38,26 @@ and a TeX distribution can be several gigabytes.
 
 Re-run the doctor after any install.
 
-## Phase 3: Create or adopt the knowledge base
+## Phase 3: Create or import the knowledge base
 
-Ask two things:
+**A workspace that still holds `career/kb.ttl` and no `career/store/`** is a record from before the
+store: `jsk kb load .` from it imports it, once. It validates the files as before, lists every
+number it rewrites (`8.40` kept as `8.4`), and leaves the files in place; jsk never reads them again.
+Show the output, then go to phase 4.
 
-1. **Where should the workspace live?** A folder they control, ideally a git repository — this
-   should outlive any tool.
+Otherwise ask two things:
+
+1. **Where should the workspace live?** A folder they control and back up — this should outlive
+   any tool.
 2. **Do they have an existing resume?** It is the fastest skeleton available.
 
 ```bash
 jsk new <path> --name "Their Name"
 ```
 
-That writes `career/kb.ttl` with every section banner present and empty, `career/log.ttl` at
-revision 1, `.gitattributes` and `applications/`. Everything after that goes in through
-`jsk kb apply`. On a new record there is nothing for `jsk kb show` to show: `op:base` is 1.
+That creates `career/store/`, holding an empty career and its log at revision 1, and
+`applications/`. Everything after that goes in through `jsk kb apply`. On a new record there is
+nothing for `jsk kb show` to show: `op:base` is 1.
 
 **Fill the identity first — email and phone** on `k:person`. The parse gate fails a resume without
 them; it is the most common thing left empty.
@@ -113,8 +118,9 @@ If the PDF step reports the resume **unverified**, say so plainly.
 
 Tell them, in plain language and without the framework vocabulary:
 
-- **Where the file is**, and that it is theirs — `career/kb.ttl`, plain text readable in any editor,
-  worth committing to git. `jsk kb view` shows it as a document.
+- **Where the record is**, and that it is theirs — `career/store/`, opened only through `jsk`.
+  `jsk kb view` shows it as a document; `jsk kb dump` writes it all out as text, and every write
+  refreshes a copy in `.jsk/backup.trig`. Back the workspace up.
 - **What works and what does not**, naming any gap left open and what it costs them.
 - **The rhythm.** Something ships → `braindump`, while they still remember the details. Every quarter
   → `refresh`. Before applying → `gaps`, then `resume`. A specific role → `tailor`.

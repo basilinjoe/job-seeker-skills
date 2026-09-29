@@ -59,10 +59,12 @@ When the skill reads a line back and you say "yes, that's right - 800 ms before,
 
 ## 4. You now have two things
 
-**`career/kb.ttl`** — your whole career in one file, yours, readable in any editor. Put the folder
-in Git (`jsk new` writes the `.gitattributes` that keeps it LF). It is the source of truth from here
-on: identity, roles, projects, every verified number, the vocabulary you are matched on. Beside it,
-`career/log.ttl` records every change. `jsk kb view` prints the whole career as Markdown to read.
+**Your career record** — your whole career in `career/store/`, a store in your own folder that
+`jsk` reads and writes. It is the source of truth from here on: identity, roles, projects, every
+verified number, the vocabulary you are matched on, and a log of every change. It is not a text
+file to open in an editor: `jsk kb view` prints the whole career as Markdown to read, `jsk kb log`
+the history, and `jsk kb dump` writes all of it out as text. Every change also refreshes a copy in
+`.jsk/backup.trig`, so back up the folder and you have backed up the record.
 
 **A resume** — a PDF and a plain-text copy for paste-in boxes, both rendered from the same career, so
 they cannot contradict each other. The PDF is the presentation variant for people unless you ask for
@@ -94,7 +96,7 @@ jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
 `jsk ship` checks `resume.json` against your career first - every id live, every number traced to
 a current metric - and renders nothing if that fails, then renders the PDF and checks it and the plain text, printing every
 verdict. It reports the page count but leaves the last check to you: open the PDF and read every
-page. `jsk freeze` refuses until the checks pass, then records in `application.ttl` what was sent,
+page. `jsk freeze` refuses until the checks pass, then records in your record what was sent,
 when, and which bullets rendered and the metric versions they cite, and names the directory after the
 submission date. Use `--submitted false` for an application you worked through and decided not to
 send. When something comes back, `/jsk:pipeline` records it - against the directory's new name,
@@ -110,21 +112,26 @@ jsk kb query pipeline            # every application's stage, and how long since
 The skill runs all of this for you. Underneath, from nothing to a sent application:
 
 ```bash
-jsk new ./my-career --name "Your Name"        # career/kb.ttl (empty) and log.ttl, at r1
+jsk new ./my-career --name "Your Name"        # career/store/: an empty career and its log, at r1
 cd my-career
 jsk kb apply braindump.trig --dry-run         # what a changeset would change
 jsk kb apply braindump.trig                   # ... written and logged, as r2
 jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms to 200, from Grafana."
-jsk match applications/<stem>/posting.ttl     # the posting against the career, with the paths
-jsk kb export --from-match applications/<stem>/posting.ttl --out applications/<stem>/resume.json
+jsk posting build applications/<stem>         # the requirements, from decisions.txt
+jsk match applications/<stem>                 # the posting against the career, with the paths
+jsk kb export --from-match applications/<stem> --out applications/<stem>/resume.json
 jsk ship applications/<stem>/resume.json --out applications/<stem>
 jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
 jsk event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15   # freeze renamed it
 ```
 
 A changeset is a small TriG file; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new
-workspace as it stands. `posting.ttl` (what the posting asks for) and `resume.json` (the bullets chosen
-for that application, by id) are what the tailoring step writes.
+workspace as it stands. `decisions.txt` (what the posting asks for) and `resume.json` (the bullets
+chosen for that application, by id) are what the tailoring step writes.
+
+Already have a workspace from before the store, with `career/kb.ttl`? Run `jsk kb load .` in it,
+once. It checks the files as before, lists every number it rewrites, and imports them; the files
+stay where they are and are not read again.
 
 ## If something looks wrong
 

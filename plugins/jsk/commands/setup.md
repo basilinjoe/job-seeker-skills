@@ -1,5 +1,5 @@
 ---
-description: Set up jsk end to end - check the toolchain, close the gaps, create or adopt a career knowledge base, and prove the pipeline works
+description: Set up jsk end to end - check the toolchain, close the gaps, create or import a career knowledge base, and prove the pipeline works
 argument-hint: Optional path for the workspace, or a resume to import
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill
 ---

@@ -7,7 +7,7 @@ first thing `mode-tailor.md` runs, before a posting is written down.
 
 ## Read the board
 
-The board is every `applications/*/application.ttl`. `jsk freeze` writes each one with its
+The board is every frozen application in the store. `jsk freeze` records each one with its
 `submitted` event; everything after that is `jsk event`. **Read the whole board before saying
 anything:**
 
@@ -46,7 +46,7 @@ jsk event applications/<dir> screen-scheduled --date 2026-09-11 --channel email 
 - **`follow-up-sent` when they chase.** It does not move the stage but restarts the clock, so the
   board stops nagging about work already done.
 
-An application frozen as `application.md` is from before `career/kb.ttl`. It is still frozen, and
+An application frozen as `application.md` is from before the graph record. It is still frozen, and
 `jsk event` refuses it: its events are the `# Timeline` table in that file.
 
 ### The event vocabulary

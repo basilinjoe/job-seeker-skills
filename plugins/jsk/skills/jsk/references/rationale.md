@@ -11,7 +11,7 @@ Two hand-built documents have to agree about every date, bullet and number. They
 moment one is edited — silently, usually in the copy that gets sent. One career with several emitters
 cannot drift, because no emitter decides what the document says.
 
-The builder reads `career/kb.ttl` and the short `resume.json` once — selection, ordering, provenance
+The builder reads the career and the short `resume.json` once — selection, ordering, provenance
 filtering, region, ASCII folding, date formatting — into a plan, and the emitters translate that plan
 into markup without deciding anything.
 

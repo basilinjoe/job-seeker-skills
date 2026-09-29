@@ -18,13 +18,13 @@ application, it belongs in that application's directory.
 
 | File | For |
 |---|---|
-| `resume.json` | The bullets and settings chosen; every file is built from it and `career/kb.ttl` |
+| `resume.json` | The bullets and settings chosen; every file is built from it and the career |
 | `<Name>_Resume.pdf` | Humans — referrals, direct email, interviews |
 | `<Name>_Resume.tex` | What the PDF is compiled from; the prose gate and the fitter both read it |
 | `<Name>_Resume_ATS.txt` | Paste-in boxes |
 
 With `--ats-max` the same two files hold the other variant, never four — named for the recruiter who
-reads them; the gates read the variant from the PDF. Beside a `posting.ttl`, `<Name>` gains the company.
+reads them; the gates read the variant from the PDF. In an application with a posting, `<Name>` gains the company.
 
 ## Build order
 

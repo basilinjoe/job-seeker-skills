@@ -15,7 +15,7 @@ say is a question you return, not a clause you write.
 ## Why you stop at the dry run
 
 **You run `jsk kb apply <file> --dry-run` and nothing else that writes.** No apply, no `confirm`, no
-`adopt`, no `fmt`. The person must see what lands before it lands, and you never talk to them: the
+`load`. The person must see what lands before it lands, and you never talk to them: the
 caller shows them your diff and your quoted clauses, applies, and runs any confirm. An apply here
 would put words in their career that nobody they can see has read.
 
@@ -26,8 +26,8 @@ The **workspace**, the **source file(s)** — the person's words saved verbatim
 directory** (absolute — `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install). Run `jsk` from the
 workspace; on Windows fall back to `python -m jsk`, then `py -3 -m jsk`.
 
-**First run `jsk kb path`**; read what it prints, never a path worked out by hand. **Read the source
-whole, and the skill's `references/kb-format.md`** — every class, its predicates, and the changeset
+**First run `jsk kb path`**; use the workspace it prints, never one worked out by hand. The career
+is read only through `jsk kb`, never under `career/`. **Read the source whole, and the skill's `references/kb-format.md`** — every class, its predicates, and the changeset
 format. No other reference; never search for examples.
 
 ## What is already there
@@ -53,7 +53,8 @@ prose (`j:problem`, `j:decision`, `j:outcome`) and bullets. A concept no vocabul
 
 - **Leave provenance out.** Everything lands `inferred`; confirming is the caller's. A bundle file
   is the one exception: carry its `j:needs-verification` and `j:disputed` as it held them.
-- **Never invent a number.** A number is the source's, with its looseness kept (kb-format.md). None
+- **Never invent a number.** A number is the source's, with its looseness kept (kb-format.md),
+  written as the store keeps it: `8.4`, not `8.40`. None
   → the bullet true without one, `j:noneQuantified true` if nothing is measurable, and a question.
 - **Keep their words** where they will carry a bullet; the verb follows how much was theirs.
 - **Flag probable transcription errors** — voice input mangles terms ("emails" for "evals") — as

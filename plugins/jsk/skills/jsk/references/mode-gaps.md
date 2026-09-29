@@ -87,7 +87,7 @@ awards, process changes, cost savings, and work that prevented a problem rather 
 
 ## Record and close
 
-Each answer is one of three commands — never a hand edit of `career/kb.ttl`:
+Each answer is one of three commands:
 
 - **Confirmed as it stands**: `jsk kb confirm <id> --answer "their words"`. It answers the open
   questions about that entry too.

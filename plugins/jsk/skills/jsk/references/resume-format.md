@@ -1,7 +1,7 @@
 # resume.json
 
 One resume: what was chosen for one posting, and nothing the career holds. Names, dates,
-employers, bullet text and metrics come from `career/kb.ttl` every time the resume is built, so
+employers, bullet text and metrics come from the career every time the resume is built, so
 a confirm or a corrected bullet is on the next render with nothing to update here.
 
 ```json
@@ -37,7 +37,7 @@ summary, `jsk kb confirm --summary <resume.json> --answer "…"` marks it `confi
 answer and the text's hash; a hand-set `confirmed`, or text edited since, fails validate.
 
 ```bash
-jsk kb export --from-match applications/<stem>/posting.ttl --out applications/<stem>/resume.json
+jsk kb export --from-match applications/<stem> --out applications/<stem>/resume.json
 jsk kb export --ranked --out resume.json      # a general resume; --select <ids> adds
 jsk validate applications/<stem>/resume.json
 ```
@@ -45,6 +45,6 @@ jsk validate applications/<stem>/resume.json
 Export never writes over an existing file: edit it. `jsk validate` is the record gate. It fails
 the shape, an id the career does not hold or has retired, a bullet whose project has no role, a
 number in a bullet that no current version of a metric it cites holds, and a career that does not
-validate or that `log.ttl` does not vouch for (`jsk kb adopt`); it warns of labels, "N years of X"
+validate; it warns of labels, "N years of X"
 and brackets. A full URS record (`"urs"` key) from before is refused: write a short one with `jsk kb export`. A
 frozen application keeps its old file as the archive of what was sent.

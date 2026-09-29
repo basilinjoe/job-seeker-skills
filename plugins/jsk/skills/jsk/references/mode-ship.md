@@ -14,7 +14,7 @@ A `resume.json` that validates. Everything else has a default.
 `$ARGUMENTS` names the file. Empty → look for `applications/*/resume.json` and any `resume.json` in
 the workspace, and ask which if there is more than one.
 
-**Nothing here decides what the document says.** A gate failure is repaired in `career/kb.ttl`,
+**Nothing here decides what the document says.** A gate failure is repaired in the career,
 through `jsk kb apply`, or in `resume.json`'s ids and settings, then re-rendered; never worked
 around by loosening a check.
 
@@ -86,14 +86,14 @@ Only once every gate has passed.
 jsk freeze applications/<stem> --submitted <yyyy-mm-dd>|false --channel "<Workday portal>" [--doc FILE ...]
 ```
 
-It re-runs the gates and refuses on a failure, or if `application.ttl` exists. It writes
-`application.ttl`: the posting, date, channel, documents, the `resume.json` hash, the bullets
+It re-runs the gates and refuses on a failure, or if the application is already frozen. It stores
+the application: the posting, date, channel, documents, the `resume.json` hash, the bullets
 that rendered and the metric versions they cite — so `jsk kb query stale` can later name an application
 that sent a number since revised — and a `submitted` event. It renames the directory to the
 submitted date and prints the new path — **use that path from here on**, for `jsk event` too. Then:
 
-- **Stop editing that directory.** `posting.md`, `posting.ttl`, the `gaps.*` files and `resume.json`
-  are the archive — it must still say what the application was answering.
+- **Stop editing that directory.** `posting.md`, `decisions.txt`, the `gaps.*` files and
+  `resume.json` are the archive — it must still say what the application was answering.
 - **Later events are `jsk event <app-dir> <kind> --date …`** (`mode-pipeline.md`), add-only.
 - `--submitted false` is for an application deliberately held back: no `submitted` event, and that
   is correct. **Never add a `submitted` event to clear a gap.**
