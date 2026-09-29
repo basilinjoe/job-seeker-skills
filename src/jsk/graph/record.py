@@ -21,8 +21,10 @@ from dataclasses import dataclass
 
 from . import ontology as O
 
-KB = "career/kb.ttl"
-LOG = "career/log.ttl"
+KB = "kb"                                        # the graphs, by the names the store uses
+LOG = "log"
+KB_FILE = "career/kb.ttl"                        # and the files a workspace not yet loaded
+LOG_FILE = "career/log.ttl"                      # into a store still holds them in
 SHADOW = os.path.join(".jsk", "kb.last.ttl")     # what the last logged write wrote
 REPLACE_TRIES = 6                                # a Windows lock usually clears in ms
 
@@ -77,7 +79,8 @@ def state(store):
     """Where kb.ttl and log.ttl stand with each other."""
     if store.stored:
         return stored_state(store)
-    on_disk = {f: os.path.isfile(os.path.join(store.root, f)) for f in (KB, LOG)}
+    on_disk = {g: os.path.isfile(os.path.join(store.root, f))
+               for g, f in ((KB, KB_FILE), (LOG, LOG_FILE))}
     if KB not in store.parsed:
         return State("unreadable" if on_disk[KB] else "missing")
     if LOG not in store.parsed and on_disk[LOG]:
@@ -284,7 +287,7 @@ def staged(path, text):
 def commit(root, kb_text, log_text):
     """Write kb.ttl, then log.ttl, then the shadow copy. Both files are staged before
     either is replaced, so the window a crash can tear is two renames wide."""
-    kb, log = os.path.join(root, KB), os.path.join(root, LOG)
+    kb, log = os.path.join(root, KB_FILE), os.path.join(root, LOG_FILE)
     tmps = [staged(kb, kb_text), staged(log, log_text)]
     try:
         try:

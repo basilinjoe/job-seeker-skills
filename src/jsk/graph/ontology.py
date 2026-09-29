@@ -389,7 +389,10 @@ HEADS = {"kb": "KB", "posting": "Posting", "application": "Application", "gaps":
 
 FILE_KINDS = {"kb.ttl": "kb", "log.ttl": "log", "posting.ttl": "posting",
               "application.ttl": "application", "gaps.ttl": "gaps",
-              "vocabulary.ttl": "vocabulary"}
+              "vocabulary.ttl": "vocabulary",
+              # ... and as the store names the graph each file became
+              "kb": "kb", "log": "log", "posting": "posting", "application": "application",
+              "gaps": "gaps", "vocabulary": "vocabulary"}
 
 SLUG = r"[a-z0-9]+(?:_[a-z0-9]+)*"
 ID = re.compile(rf"(?P<prefix>[a-z]+)_(?P<slug>{SLUG})(?:\.v(?P<version>[1-9][0-9]*))?")

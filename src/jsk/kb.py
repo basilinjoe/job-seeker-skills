@@ -172,7 +172,7 @@ def restart(root, name, today):
         store, header(name), today, "new",
         f"Started over by jsk new --force for {name}: kb.ttl replaced by the empty record. "
         f"r{st.kb_revision}, the last of the old record, is kept as {kept}.")
-    after = S.load(root, texts={KB: kb_text, LOG: log_text})
+    after = S.load(root, texts={R.KB: kb_text, R.LOG: log_text})
     if after.fails():
         lines = [f"REFUSED  starting over would leave {len(after.fails())} failures - an "
                  "application that carried an entry the empty record does not have:"]

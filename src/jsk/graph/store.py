@@ -113,6 +113,29 @@ def file_name(path, root):
     return os.path.basename(path) if name.startswith("../") or os.path.isabs(name) else name
 
 
+def graph_name(path, root):
+    """The record graph a file holds, by the name the store gives it and findings use:
+    career/kb.ttl is `kb`, career/log.ttl `log`, applications/<stem>/posting.ttl
+    `applications/<stem>/posting` (and application, gaps), the shipped vocabulary
+    `vocabulary`. Any other path is named as file_name names it."""
+    name = file_name(path, root)
+    if name in ("career/kb.ttl", "career/log.ttl"):
+        return name[len("career/"):-len(".ttl")]
+    if os.path.basename(name) == "vocabulary.ttl":
+        return "vocabulary"
+    head, _, tail = name.rpartition("/")
+    if head.startswith("applications/") and head.count("/") == 1 and \
+            tail in ("posting.ttl", "application.ttl", "gaps.ttl"):
+        return name[:-len(".ttl")]
+    return name
+
+
+def app_graph(app, kind):
+    """The graph name of an application's `kind` (posting, application, gaps). `app` is
+    its name relative to the workspace (`applications/<stem>`)."""
+    return f"{app.rstrip('/')}/{kind}"
+
+
 def graph_iri(name):
     """The named graph a file's triples live in. Percent-encoded: a hand-made folder can
     hold a space, and an IRI cannot."""
@@ -162,11 +185,11 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=Non
         items = [(n, None) for n in sorted(record) if record[n] is not None and n not in texts]
         items += [(n, None) for n in sorted(texts)]
         if vocabulary and os.path.isfile(vocabulary):
-            items.append((file_name(vocabulary, store.root), vocabulary))
+            items.append((graph_name(vocabulary, store.root), vocabulary))
     else:
         paths = files if files is not None else workspace_files(root, vocabulary)
-        names = {file_name(p, store.root) for p in paths}
-        items = [(file_name(p, store.root), p) for p in paths]
+        names = {graph_name(p, store.root) for p in paths}
+        items = [(graph_name(p, store.root), p) for p in paths]
         items += [(n, None) for n in sorted(texts) if n not in names]
         if graphs:
             record = {n: t for n, t in graphs.items()}
