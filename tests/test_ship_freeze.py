@@ -477,7 +477,7 @@ class FreezeGraph(GraphCase):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         self.assertIn("--- record gate: record.py", out)
-        self.assertIn("checking: resume.json   against: ", out)
+        self.assertIn("checking: resume.json   against: career/store/", out)
         self.assertNotIn("claims gate", out)
 
     def test_the_career_is_never_touched(self):

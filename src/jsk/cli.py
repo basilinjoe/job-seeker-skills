@@ -12,7 +12,8 @@ Every module with a CLI runs as `python -m jsk.<module>`. This exists so that no
 has to remember every name to get started.
 
     jsk doctor                  what works on this machine
-    jsk new PATH --name NAME    scaffold career/kb.ttl, its log at r1, and applications/
+    jsk new PATH --name NAME    scaffold career/store/ - the career and its log at r1 -
+                                and applications/
     jsk posting fetch URL APP   an Ashby, Greenhouse or Lever posting, as APP/posting.md
       ... extract APP           its lines, numbered, with the concepts each names
       ... build APP             decisions.txt to APP's posting, every quote the advert's own
@@ -248,6 +249,13 @@ def unloaded_refusal(root):
                 "career/store/ now",
                 f"fix:  jsk kb load .   - run in {root}, it imports the files once"]
     return None
+
+
+def refused(refusal):
+    """Print an unloaded_refusal as every command prints it. Returns the exit code."""
+    print("REFUSED - " + refusal[0])
+    print(refusal[1])
+    return 1
 
 
 # Commands that make a record, report on one, or dispatch their own verbs - `jsk kb load`
@@ -1177,7 +1185,7 @@ RETIRED = {
              "posting;\n      `jsk kb view` reads it",
     "migrate": "it moved a user-knowledgebase.md to career/kb.ttl, and jsk no longer reads "
                "the Markdown format.\n"
-               "fix:  `jsk new PATH --name NAME` starts a career/kb.ttl; `jsk kb export` "
+               "fix:  `jsk new PATH --name NAME` starts a career/store/; `jsk kb export` "
                "writes an application's short resume.json",
 }
 
@@ -1210,9 +1218,7 @@ def main(argv):
     sub, rest = args[0], args[1:]
     refusal = (sub in HANDLERS or sub in SIMPLE) and workspace_refusal(sub, rest)
     if refusal:
-        print("REFUSED - " + refusal[0])
-        print(refusal[1])
-        return 1
+        return refused(refusal)
     if sub in HANDLERS:
         return HANDLERS[sub](rest)
     if sub in SIMPLE:

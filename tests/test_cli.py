@@ -937,6 +937,16 @@ class UnloadedWorkspace(unittest.TestCase):
                 self.assertIn("the career is still career/kb.ttl", out)
                 self.assertIn("fix:  jsk kb load .", out)
 
+    def test_every_kb_verb_but_load_and_path_is_refused_with_kb_load(self):
+        from jsk.graph import kbcli
+        for verb in sorted(set(kbcli.VERBS) - {"load", "path"}):
+            with self.subTest(verb=verb):
+                code, out = self.jsk("kb", verb, "--root", self.root)
+                self.assertEqual(code, 1, out)
+                self.assertIn("the career is still career/kb.ttl", out)
+                self.assertIn("fix:  jsk kb load .", out)
+        self.assertFalse((self.root / "career" / "store").exists(), "nothing was imported")
+
     def test_a_command_run_inside_it_is_refused(self):
         here = os.getcwd()
         try:

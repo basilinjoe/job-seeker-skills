@@ -11,7 +11,8 @@ as ids, and a summary - and carried to a document somebody can send:
                         then ordered
 
     jsk doctor                  what works on this machine
-    jsk new PATH --name NAME    scaffold career/kb.ttl, its log at r1, and applications/
+    jsk new PATH --name NAME    scaffold career/store/ - the career and its log at r1 -
+                                and applications/
     jsk kb VERB [...]           the career record: apply, confirm, show, view, query,
                                 export, check
     jsk match POSTING.ttl       a posting against the career, through the vocabulary

@@ -549,16 +549,6 @@ def quoted_answer(source, quote, root):
     return f'From {rel(source, root)}: "{squash(quote)}"', None
 
 
-def sent(root, path):
-    """Is the application `path` sits in frozen in the store - does the record hold its
-    application graph, which `jsk freeze` writes?"""
-    from . import db
-    from . import store as S
-
-    app = S.file_name(os.path.dirname(os.path.abspath(path)), root)
-    return db.exists(root) and S.app_graph(app, "application") in db.read(root)
-
-
 def confirm_summary(path, answer, root):
     """`jsk kb confirm --summary`: the summary confirmed in resume.json, beside the answer
     and its text's hash. Not logged: a logged write stamps the career with a new revision,
@@ -578,7 +568,7 @@ def confirm_summary(path, answer, root):
         return code
     if not inside(path, root):
         return refuse([f"{path}: not inside this workspace"], "pass the application's resume.json")
-    if frozen_refusal(os.path.dirname(os.path.abspath(path))) or sent(root, path):
+    if frozen_refusal(os.path.dirname(os.path.abspath(path))):
         return refuse([f"{path}: frozen - the record holds its application as it was sent"],
                       "copy the application to a new dated directory to reuse it")
     try:
@@ -1304,6 +1294,13 @@ def main(argv=None):
                      "(the folder holding career/)")
     if name == "path":
         return cmd_path(rest, flags, os.path.abspath(root))
+    if name != "load":
+        # `load` is the import itself; every other verb would answer from, or write to, a
+        # record jsk no longer keeps.
+        from ..cli import refused, unloaded_refusal
+        refusal = unloaded_refusal(os.path.abspath(root))
+        if refusal:
+            return refused(refusal)
     try:
         import pyoxigraph  # noqa: F401
     except ImportError:

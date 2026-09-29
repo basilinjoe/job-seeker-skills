@@ -428,6 +428,24 @@ class Refusals(Workspace):
     def test_a_bad_capture_day(self):
         self.refused(header=HEADER + "captured: last week\n", says="would not pass")
 
+    def test_a_number_the_store_would_rewrite_is_refused_as_a_changeset_s_is(self):
+        """Ruling 4. No posting predicate takes a number today, so the builder is made to
+        emit one: the guard is for the day one does, and must say what a changeset says."""
+        import pyoxigraph as ox
+
+        from jsk.graph import ontology as O
+
+        made = postingbuild.triples
+
+        def with_a_number(post, *args):
+            return made(post, *args) + [ox.Triple(
+                ox.NamedNode(post), ox.NamedNode(O.J + "years"),
+                ox.Literal("8.40", datatype=ox.NamedNode(O.XSD + "decimal")))]
+        with mock.patch.object(postingbuild, "triples", with_a_number):
+            e = self.refused(says="j:years 8.40 is kept as 8.4: the career stores numbers "
+                                  "by value")
+        self.assertEqual(e.fix, "fix:  write 8.4")
+
     def test_a_qualification_line_neither_used_nor_dropped(self):
         self.refused(ROWS.replace("7 | docker | Docker | c:docker |\n", ""),
                      says="advert line 7 neither used nor dropped")

@@ -320,8 +320,7 @@ def main(argv):
         fails, warns = fails + warns, []
     st = R.state(store)
     at = f" r{st.log_revision}" if st.log_revision else ""
-    against = "career/store/" if store.stored else R.KB_FILE
-    print(f"checking: {os.path.basename(path)}   against: {against}{at}")
+    print(f"checking: {os.path.basename(path)}   against: career/store/{at}")
     print(f"\nFAIL {len(fails)}   WARN {len(warns)}")
     show(fails, "FAIL", limit)
     show(warns, "warn", limit)

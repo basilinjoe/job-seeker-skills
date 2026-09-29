@@ -157,6 +157,7 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
 
 def built(app_dir, decisions_path, replace, vocabulary, today):
     from . import decisions as D
+    from .changeset import numbers_as_kept
     from .io import GraphError, Missing, Unreadable
     from .queries import PRE, concepts
     from .shapes import tier1
@@ -285,6 +286,13 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
                       "and its record goes into the workspace's store under that name")
     name = app_graph(rel, "posting")
     candidate = parsed_graph(name, built_triples)
+    # Ruling 4: a number the store would keep in another form is refused, as a changeset's
+    # is - the posting has no text left to show `8.40` once it is stored as `8.4`.
+    kept = []
+    numbers_as_kept(candidate.quads, lambda *refusal: kept.append(refusal))
+    if kept:
+        focus, detail, fix = kept[0]
+        raise Refused(f"the posting built would not pass: {focus} {detail}", f"fix:  {fix}")
     # Validated before it is written, as `jsk kb apply` does: a bad url or date is the
     # header's, and is refused here rather than found by the next check.
     try:
