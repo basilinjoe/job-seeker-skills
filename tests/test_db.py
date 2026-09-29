@@ -141,6 +141,60 @@ class Store(unittest.TestCase):
         db.open_writer(self.root, wait=0)               # would raise Busy if still open
         self.assertIsNone(kept._db)
 
+    def test_the_store_is_dropped_even_when_its_flush_fails(self):
+        class Failing:
+            def flush(self):
+                raise OSError("disk gone")
+        w = db.Writer(Failing())
+        with self.assertRaises(OSError):
+            w.close()
+        self.assertIsNone(w._db)
+
+
+class WriteFailures(unittest.TestCase):
+    """What a failed write says: "nothing was changed" only when the update itself failed.
+    A failure after it landed - the flush, the backup - leaves the write in the store."""
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        os.makedirs(os.path.join(self.root, "career"))
+        R.write_graphs(self.root, {"kb": [triple("a", lit("1"))]}, create=True)
+
+    def value(self):
+        return db.read(self.root)["kb"][0].object.value
+
+    def test_a_refused_update_says_nothing_was_changed(self):
+        import appkit
+        with appkit.refusing_store(), self.assertRaises(R.RecordError) as e:
+            R.write_graphs(self.root, {"kb": [triple("a", lit("2"))]})
+        self.assertNotIsInstance(e.exception, R.Written)
+        self.assertIn("nothing was changed", str(e.exception))
+        self.assertEqual(self.value(), "1")
+
+    def test_a_failure_after_the_update_does_not_say_nothing_changed(self):
+        from unittest import mock
+        close = db.Writer.close
+
+        def failing(w):
+            close(w)
+            raise OSError("flush failed")
+        with mock.patch.object(db.Writer, "close", failing), \
+                self.assertRaises(R.Written) as e:
+            R.write_graphs(self.root, {"kb": [triple("a", lit("2"))]})
+        self.assertNotIn("nothing was changed", str(e.exception))
+        self.assertIn("landed", str(e.exception))
+        self.assertEqual(self.value(), "2")
+
+    def test_any_failure_of_the_backup_leaves_the_write_standing(self):
+        from unittest import mock
+
+        def broken(_record):
+            raise ValueError("cannot serialise")
+        with mock.patch.object(db, "dump_text", broken):
+            R.write_graphs(self.root, {"kb": [triple("a", lit("2"))]})
+        self.assertEqual(self.value(), "2")
+
 
 class Turn(unittest.TestCase):
     """Writers queue for their turn instead of being turned away; readers never wait."""

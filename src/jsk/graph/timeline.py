@@ -247,6 +247,8 @@ def write_app_graphs(app_dir, graphs, store=None):
         refuse_if_sent(app_dir, names[kind], store, graph=True)
     try:
         R.write_graphs(root, {names[k]: t for k, t in graphs.items()})
+    except R.Written as e:
+        raise Unwritable(f"{rel}: {e}", e.fix) from None
     except R.RecordError as e:
         raise Unwritable(f"{rel}: not written - {e}", e.fix) from None
     return [names[k] for k, t in graphs.items() if t]
@@ -563,6 +565,11 @@ def added(root, app_dir, kind, date, channel, note, due, today):
                       "check the date against the application's; `jsk kb check` shows the rest")
     try:
         R.write_graphs(root, {rel: new})
+    except R.Written as e:
+        # The event is in the store: not "nothing was written".
+        print(f"FAIL     {e}")
+        print(f"        fix: {e.fix}")
+        return 1
     except R.RecordError as e:
         return refuse([str(e)], e.fix)
     print(diff(write(parsed.quads, "application"), write(new, "application"), rel), end="")

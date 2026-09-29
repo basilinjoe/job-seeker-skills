@@ -30,6 +30,12 @@ class RecordError(Exception):
         self.fix = fix
 
 
+class Written(RecordError):
+    """The update landed, and closing the store after it failed: the record holds the
+    write, so nothing may be undone as though it had not (freeze's rename back), and
+    nobody may be told nothing changed."""
+
+
 @dataclass(frozen=True)
 class State:
     kind: str              # clean | unlogged | hand-edited | torn | out-of-sync | unreadable | missing
@@ -223,16 +229,30 @@ def write_graphs(root, graphs, create=False):
     (`jsk new`, `jsk kb load`)."""
     from . import db
 
-    failure = None
+    failure, landed = None, False
     try:
         with db.writing(root, create=create) as w:
-            w.replace_graphs(graphs)
-            backup(root, w)
+            try:
+                w.replace_graphs(graphs)
+            except (OSError, RuntimeError) as e:
+                failure = RecordError(f"the store refused the write ({e}) - nothing was "
+                                      "changed", "`jsk doctor` checks the store; run the "
+                                      "command again")
+            else:
+                landed = True
+                backup(root, w)
     except db.StoreError as e:
+        # Raised by the open, before any update: nothing changed.
         failure = RecordError(str(e), e.fix)
     except (OSError, RuntimeError) as e:
-        failure = RecordError(f"the store refused the write ({e}) - nothing was changed",
-                              "`jsk doctor` checks the store; run the command again")
+        # The flush, or giving up access or the turn. After the update, the record holds
+        # the write whatever went wrong here; before it (taking the locks), nothing did.
+        failure = (Written(f"the write landed, but the store failed after it ({e})",
+                           "`jsk kb check` shows the record as it now is; `jsk doctor` "
+                           "checks the store") if landed else
+                   RecordError(f"the store could not be opened for the write ({e}) - "
+                               "nothing was changed",
+                               "`jsk doctor` checks the store; run the command again"))
     # Raised out here, not inside the except: an exception raised there keeps the store's
     # error as its context, and that error's traceback holds the frame holding the open
     # store - which pyoxigraph closes only when its last reference goes. Left open, the
@@ -257,5 +277,5 @@ def backup(root, writer):
         with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(text)
         os.replace(tmp, os.path.join(root, BACKUP))
-    except OSError:
+    except Exception:       # noqa: BLE001 - whatever it was, the write it follows stands
         pass

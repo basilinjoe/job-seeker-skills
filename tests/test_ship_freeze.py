@@ -872,6 +872,15 @@ class Event(GraphCase):
                          ("k:app_contoso_platform", "screen-scheduled", "2026-09-26",
                           "2026-09-30", 2))
 
+    def test_a_store_failing_after_the_event_landed_does_not_say_nothing_was_written(self):
+        with appkit.failing_after_write():
+            code, out = self.event("note", "--date", "2026-09-26", "--note", "chased")
+        self.assertEqual(code, 1, out)
+        self.assertIn("landed", out)
+        self.assertNotIn("nothing was written", out)
+        _, events = self.application()
+        self.assertIn("evt_contoso_platform_2026_09_26_note", events)
+
     def test_the_same_event_twice_is_refused(self):
         """Same kind, day, channel, note and due as one already there: a true duplicate."""
         before = self.record

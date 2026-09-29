@@ -99,3 +99,16 @@ def refusing_store():
     def refuse(_db, _new):
         raise RuntimeError("disk full")
     return mock.patch.object(db, "replace_graphs", refuse)
+
+
+def failing_after_write():
+    """The update lands, and closing the store after it fails, as a flush to a full disk
+    would: the record holds the write, and the command must not say it does not."""
+    from unittest import mock
+
+    close = db.Writer.close
+
+    def failing(w):
+        close(w)
+        raise OSError("flush failed")
+    return mock.patch.object(db.Writer, "close", failing)

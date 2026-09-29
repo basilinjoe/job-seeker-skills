@@ -243,9 +243,13 @@ class Writer:
         replace_graphs(self._db, new)
 
     def close(self):
+        """Flush and drop the store - dropped even when the flush fails, or the caller's
+        reference would keep RocksDB's lock past the turn."""
         if self._db is not None:
-            self._db.flush()
-            self._db = None
+            try:
+                self._db.flush()
+            finally:
+                self._db = None
 
 
 # Roots whose store this process has open for writing: a read there would wait on its own
