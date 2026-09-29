@@ -202,112 +202,135 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
     def at(line):
         return f"{decisions_path}:{line}"
 
+    home, rel = workspace_of_app(app_dir)
+    if rel is None or home is None or os.path.normcase(home) != os.path.normcase(root):
+        raise Refused(f"{app_dir} is not in {os.path.join(root, 'applications')}",
+                      "fix:  an application lives at <workspace>/applications/<dir>, "
+                      "and its record goes into the workspace's store under that name")
+
+    # Tailor-cost Ruling 6: every problem the decisions file has, in one pass. A build that
+    # stopped at the first cost Schneider's run six builds, each a turn.
+    problems = []
+
+    def refuse(message, fix):
+        problems.append((message, fix))
+
     head = dec.header
     for key in ("company", "title"):
         if not head.get(key):
-            raise Refused(f"{decisions_path}: the header has no `{key}:`",
-                          f"fix:  add `{key}: ...` above the rows, as extract printed it")
+            refuse(f"{decisions_path}: the header has no `{key}:`",
+                   f"fix:  add `{key}: ...` above the rows, as extract printed it")
     seniority = (head.get("seniority") or "").removeprefix("j:")
     if seniority and seniority not in O.ENUMS["seniority"]:
-        raise Refused(f"{decisions_path}: seniority {seniority!r} is not a level",
-                      f"fix:  one of {', '.join(O.ENUMS['seniority'])}, or leave it blank")
+        refuse(f"{decisions_path}: seniority {seniority!r} is not a level",
+               f"fix:  one of {', '.join(O.ENUMS['seniority'])}, or leave it blank")
 
     lines = {x.n: x for x in advert_lines(advert)}
     retired = {r["c"].value for r in store.select(PRE + "SELECT ?c WHERE { ?c j:retired ?x }")}
     known = concepts(store) - retired
     domains = {r["c"].value for r in store.select(PRE + "SELECT ?c WHERE { ?c a j:Domain }")}
 
+    def near(term):
+        return (f"`jsk kb query concepts --near \"{term}\"` names the nearest; or write `-` "
+                f"and let the match report the term")
+
     def concept(curie, where, domain=False):
+        """The concept's iri, or None and a problem. A header domain is not parsed as a row's
+        concepts are, so `enterprise software` arrives here - and its hint cut it to
+        `terprise software`, by taking off a `c:` it never had."""
+        if not curie.startswith("c:"):
+            refuse(f"{where}: domain {curie!r} is not a concept - write `c:…` or leave it "
+                   f"blank", f"fix:  {near(curie)}")
+            return None
         iri = O.C + curie[2:]
         if iri not in known:
             why = "is retired" if iri in retired else "is not a concept of this workspace"
-            raise Refused(f"{where}: {curie} {why}",
-                          f"fix:  `jsk kb query concepts --near {curie[2:]}` names the nearest; "
-                          f"or write `-` and let the match report the term")
+            refuse(f"{where}: {curie} {why}", f"fix:  {near(curie[2:])}")
+            return None
         if domain and iri not in domains:
-            raise Refused(f"{where}: {curie} is not a Domain", "fix:  name a domain, or none")
+            refuse(f"{where}: {curie} is not a Domain", "fix:  name a domain, or none")
+            return None
         return iri
 
     stem = posting_stem(app_dir, root, store)
-    if not re.fullmatch(O.SLUG, stem):
-        raise Refused(f"{app_dir}: the directory name gives no usable posting id ({stem!r})",
-                      "fix:  name the directory with lowercase words, e.g. acme-staff-engineer")
     post = f"{O.K}post_{stem}"
-    captured = head.get("captured") or existing_captured(store, post) \
-        or (today or datetime.date.today()).isoformat()
-    domain_iris = [concept(c.strip(), at("header"), domain=True)
-                   for c in (head.get("domain") or "").split(",") if c.strip() not in ("", "-")]
+    if not re.fullmatch(O.SLUG, stem):
+        refuse(f"{app_dir}: the directory name gives no usable posting id ({stem!r})",
+               "fix:  name the directory with lowercase words, e.g. acme-staff-engineer")
+        captured = None         # the refusal is raised below; no id to ask the store with
+    else:
+        captured = head.get("captured") or existing_captured(store, post) \
+            or (today or datetime.date.today()).isoformat()
+    domain_iris = [iri for c in (head.get("domain") or "").split(",")
+                   if c.strip() not in ("", "-")
+                   and (iri := concept(c.strip(), at("header"), domain=True))]
 
     used, slugs, asked, reqs, warnings = set(), {}, {}, [], []
     for row in dec.rows:
         line = lines.get(row.n)
         if line is None:
-            raise Refused(f"{at(row.line)}: line {row.n} is not one extract printed "
-                          f"(1-{len(lines)})", f"fix:  re-run `jsk posting extract {app_dir}`")
+            refuse(f"{at(row.line)}: line {row.n} is not one extract printed (1-{len(lines)})",
+                   f"fix:  re-run `jsk posting extract {app_dir}`")
+            continue
+        used.add(row.n)         # answered, even when wrongly: not also "neither used"
         if squash(row.asked).casefold() not in line.text.casefold():
-            raise Refused(f"{at(row.line)}: {row.asked!r} is not in line {row.n}: {line.text!r}",
-                          "fix:  write `asked` as the line writes it, or use the line that "
-                          "says it")
+            refuse(f"{at(row.line)}: {row.asked!r} is not in line {row.n}: {line.text!r}",
+                   "fix:  write `asked` as the line writes it, or use the line that says it")
         if row.slug in slugs:
-            raise Refused(f"{at(row.line)}: slug {row.slug!r} is used on line {slugs[row.slug]} "
-                          f"too", "fix:  one slug per requirement")
-        slugs[row.slug] = row.line
+            refuse(f"{at(row.line)}: slug {row.slug!r} is used on line {slugs[row.slug]} too",
+                   "fix:  one slug per requirement")
+        slugs.setdefault(row.slug, row.line)
         # `jsk match --gaps` pairs gaps.md's rows to requirements by this, so two with one
         # `asked` could never pair and would warn on even a perfect draft.
         term = O.norm(row.asked)
         if term in asked:
-            raise Refused(f"{at(asked[term])} and line {row.line}: two requirements ask "
-                          f"{row.asked!r}",
-                          "fix:  merge them into one requirement, or name each as the advert "
-                          "writes it")
-        asked[term] = row.line
-        iris = [concept(c, at(row.line)) for c in row.concepts]
+            refuse(f"{at(asked[term])} and line {row.line}: two requirements ask "
+                   f"{row.asked!r}",
+                   "fix:  merge them into one requirement, or name each as the advert writes it")
+        asked.setdefault(term, row.line)
+        iris = [iri for c in row.concepts if (iri := concept(c, at(row.line)))]
         need = row.need or default_need(line)
         if need == "required" and line.section == "responsibility" \
                 and not REQUIRED_WORDS.search(line.text):
             warnings.append(f"{at(row.line)}: {row.slug} makes responsibility line {row.n} "
                             f"required, and the line does not say so")
-        used.add(row.n)
         reqs.append((row.slug, row.asked, need, iris, line.text))
     for drop in dec.drops:
         if drop.n not in lines:
-            raise Refused(f"{at(drop.line)}: line {drop.n} is not one extract printed "
-                          f"(1-{len(lines)})", f"fix:  re-run `jsk posting extract {app_dir}`")
+            refuse(f"{at(drop.line)}: line {drop.n} is not one extract printed "
+                   f"(1-{len(lines)})", f"fix:  re-run `jsk posting extract {app_dir}`")
         used.add(drop.n)
     missing = [x.n for x in lines.values()
                if x.section == "qualification" and not x.elig and x.n not in used]
     if missing:
-        raise Refused(f"{decisions_path}: advert line{'s' if len(missing) > 1 else ''} "
-                      f"{', '.join(map(str, missing))} neither used nor dropped",
-                      "fix:  a row for what it asks, or `n | - | <reason>`")
+        refuse(f"{decisions_path}: advert line{'s' if len(missing) > 1 else ''} "
+               f"{', '.join(map(str, missing))} neither used nor dropped",
+               "fix:  a row for what it asks, or `n | - | <reason>`")
+    if problems:
+        raise Refused.every(problems)
     if len(reqs) > SOFT_CAP:
         warnings.append(f"{len(reqs)} requirements, past the soft cap of {SOFT_CAP}: one per "
                         f"term the match can score - or the posting really is that long")
 
+    # What the posting built would fail, once the decisions hold: every one of them too.
     built_triples = triples(post, stem, head, seniority, domain_iris, captured, reqs)
-    rel = workspace_of_app(app_dir)[1]
-    if rel is None or os.path.normcase(workspace_of_app(app_dir)[0]) != os.path.normcase(root):
-        raise Refused(f"{app_dir} is not in {os.path.join(root, 'applications')}",
-                      "fix:  an application lives at <workspace>/applications/<dir>, "
-                      "and its record goes into the workspace's store under that name")
     name = app_graph(rel, "posting")
     candidate = parsed_graph(name, built_triples)
     # Ruling 4: a number the store would keep in another form is refused, as a changeset's
     # is - the posting has no text left to show `8.40` once it is stored as `8.4`.
-    kept = []
-    numbers_as_kept(candidate.quads, lambda *refusal: kept.append(refusal))
-    if kept:
-        focus, detail, fix = kept[0]
-        raise Refused(f"the posting built would not pass: {focus} {detail}", f"fix:  {fix}")
+    numbers_as_kept(candidate.quads, lambda focus, detail, fix: refuse(
+        f"the posting built would not pass: {focus} {detail}", f"fix:  {fix}"))
     # Validated before it is written, as `jsk kb apply` does: a bad url or date is the
     # header's, and is refused here rather than found by the next check.
     try:
         fails = [f.text() for f in tier1(candidate) if f.severity == "FAIL"]
     except GraphError as e:
         fails = [str(e)]
-    if fails:
-        raise Refused(f"the posting built would not pass: {fails[0]}",
-                      "fix:  correct the header or row it names in the decisions file")
+    for fail in fails:
+        refuse(f"the posting built would not pass: {fail}",
+               "fix:  correct the header or row it names in the decisions file")
+    if problems:
+        raise Refused.every(problems)
     # The assessment and gaps.md are derived from the posting just replaced: a requirement
     # it dropped would leave the assessment dangling, and that FAIL would block prepare
     # here. gaps.txt is the analyst's, keyed by slug, and survives any rebuild that keeps

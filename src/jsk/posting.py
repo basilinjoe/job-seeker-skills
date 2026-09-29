@@ -65,11 +65,23 @@ BROWSER_FIX = ("fix:  fetch it with a browser tool and write posting.md with the
 
 
 class Refused(Exception):
-    """A refusal: its message, then the fix line."""
+    """A refusal: its message, then the fix line. `problems` is every (message, fix) it
+    holds - several when `jsk posting build` found more than one, since a build that
+    stopped at the first cost Schneider's run six builds."""
 
-    def __init__(self, message, fix):
+    def __init__(self, message, fix, problems=None):
         super().__init__(message)
         self.fix = fix
+        self.problems = problems or [(message, fix)]
+
+    @classmethod
+    def every(cls, problems):
+        """One refusal holding every (message, fix): the problem itself when there is one,
+        else the count, each problem keeping its own fix."""
+        if len(problems) == 1:
+            return cls(*problems[0])
+        return cls(f"{len(problems)} problems", "fix:  each problem above has its own fix",
+                   problems)
 
 
 class NotOnBoard(Exception):
@@ -538,7 +550,12 @@ def main(argv=None):
                 print(f"WARN - {w}")
     except Refused as exc:
         print(f"REFUSED - {exc}")
-        print(exc.fix)
+        if len(exc.problems) == 1:
+            print(exc.fix)
+        else:
+            for message, fix in exc.problems:
+                print(message)
+                print(fix)
         return 1
     return 0
 

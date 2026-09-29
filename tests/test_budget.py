@@ -98,6 +98,8 @@ class AgentReadBudget(unittest.TestCase):
         # assessment and writing gaps.txt; the slot-by-slot gaps.md instructions left.
         # Held for the store (2026-09-29): 1,890 -> 1,881. The kb.ttl path and the grep
         # warning left; `jsk match` takes the application directory.
+        # Held for tailor-time Task 2 (2026-09-29): 1,881 -> 1,895. One --near call takes
+        # every term, `resp` lines need no row, and build names every problem at once.
         self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 1900)
 
     def test_the_resume_author_reads_the_short_file_format_and_the_rules(self):

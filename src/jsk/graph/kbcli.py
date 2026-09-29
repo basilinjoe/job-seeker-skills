@@ -981,7 +981,7 @@ def wrote(store, path, text, doc):
     print(f"wrote {path}: {len(doc['bullets'])} bullets chosen from the career{at}")
 
 
-@verb(values=("--near",), switches=("--json",))
+@verb(switches=("--json",), lists=("--near",))
 def cmd_query(args, flags, root):
     """jsk kb query <name> [arguments] [--json]
 
@@ -997,8 +997,9 @@ def cmd_query(args, flags, root):
       similar <words>...  the live projects closest to the words (a name, technologies,
                           a sentence), best five, each with the words and concepts shared
       duplicates          pairs of live projects that look like one project told twice
-      concepts [--near <term>]  the vocabulary; with --near, only what the term names and
-                          the few concepts closest to it
+      concepts [--near <term>...]  the vocabulary; with --near, per term, only what it
+                          names and the few concepts closest to it - one table each,
+                          `== <term>` above it (quote a term of several words)
 
     A table by default; --json for the same rows, structured.
     """
@@ -1015,9 +1016,21 @@ def cmd_query(args, flags, root):
     if want.endswith("...") and not rest or not want.endswith("...") and len(rest) != len(want.split()):
         return usage(f"jsk kb query {name} {want}".rstrip())
     if near is not None and name != "concepts":
-        return usage("--near is for `jsk kb query concepts --near <term>` only")
-    columns, rows = fn(S.load(root), *rest, **({"near": near} if near is not None else {}))
-    print(json.dumps(rows, indent=2, ensure_ascii=False) if as_json else table(columns, rows))
+        return usage("--near is for `jsk kb query concepts --near <term>...` only")
+    if near is None:
+        columns, rows = fn(S.load(root), *rest)
+        print(json.dumps(rows, indent=2, ensure_ascii=False) if as_json else table(columns, rows))
+        return 0
+    if not near:
+        return usage("jsk kb query concepts --near <term>... - one or more terms")
+    # Several terms from one load: the analyst ran this 21 times in a shell loop, 15-25 s.
+    store = S.load(root)
+    found = {term: fn(store, near=term) for term in near}
+    if as_json:
+        print(json.dumps({t: rows for t, (_, rows) in found.items()}, indent=2,
+                         ensure_ascii=False))
+    else:
+        print("\n\n".join(f"== {t}\n{table(columns, rows)}" for t, (columns, rows) in found.items()))
     return 0
 
 

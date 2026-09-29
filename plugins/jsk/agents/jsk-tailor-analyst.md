@@ -60,20 +60,21 @@ captured: 2026-09-08
   The same ask in two lines is one requirement, on the qualification line.
 - **`asked`** is the term as the line writes it. **`concepts`**: accept, strike or add to what
   extract proposed; `-` when nothing fits exactly ("cloud-native architecture" is not
-  `c:cloud-migration`), and the match reports a new term. For a term extract proposed nothing for,
-  `jsk kb query concepts --near "<term>"`.
+  `c:cloud-migration`), and the match reports a new term. For the terms extract proposed nothing
+  for, one call: `jsk kb query concepts --near "<term>" "<term>" ...`.
 - **`need`**: leave it blank. A qualification is `required`, `preferred` when worded as optional;
   a responsibility is `implicit` — never promote a guess to `required`.
-- **Every `qual` and `resp` line is used or dropped** (`n | - | reason`). Drop company-internal
-  names nobody outside could have used; the reason reaches the person. `elig` lines are never
-  requirements: they go in `# Eligibility`. About 20 requirements at most; build warns past it.
+- **Every `qual` line is used or dropped** (`n | - | reason`); `resp` needs no row. Drop
+  company-internal names nobody outside could have used; the reason reaches the person. `elig`
+  lines are never requirements: they go in `# Eligibility`. About 20 requirements at most; build
+  warns past it.
 
 ```bash
 jsk posting build applications/<stem>        # --replace to rebuild after changing decisions.txt
 ```
 
 It writes the posting graph, every quote the advert's own line, and refuses what does not hold
-together; fix decisions.txt and run it again.
+together, every problem at once; fix them all and run it again.
 
 ## 2. Match and evidence: one call
 

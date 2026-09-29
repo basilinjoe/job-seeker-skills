@@ -102,7 +102,10 @@ class Workspace(unittest.TestCase):
     def refused(self, rows=ROWS, header=HEADER, says=""):
         with self.assertRaises(posting.Refused) as caught:
             self.build(rows, header)
-        self.assertIn(says, str(caught.exception))
+        # Every problem is reported (tailor-cost Ruling 6): `says` is in one of them.
+        problems = caught.exception.problems
+        self.assertTrue(any(says in message for message, _ in problems), problems)
+        self.assertTrue(all(fix.startswith("fix:") for _, fix in problems), problems)
         self.assertTrue(caught.exception.fix.startswith("fix:"))
         self.assertFalse(appkit.has(self.root, self.target), "a refusal writes nothing")
         return caught.exception
@@ -485,7 +488,9 @@ class Refusals(Workspace):
         with mock.patch.object(postingbuild, "triples", with_a_number):
             e = self.refused(says="j:years 8.40 is kept as 8.4: the career stores numbers "
                                   "by value")
-        self.assertEqual(e.fix, "fix:  write 8.4")
+        # Every problem is reported now (2026-09-29-tailor-time Ruling 2), so what the shapes
+        # say of j:years may come with it; the number's own fix is its own.
+        self.assertIn("fix:  write 8.4", [fix for m, fix in e.problems if "8.40" in m])
 
     def test_a_qualification_line_neither_used_nor_dropped(self):
         self.refused(ROWS.replace("7 | docker | Docker | c:docker |\n", ""),
@@ -499,6 +504,45 @@ class Refusals(Workspace):
 
     def test_other_and_eligibility_lines_may_go_unmentioned(self):
         self.assertEqual(self.build()[1], 7)     # lines 1 and 2 are in no row
+
+    def test_every_problem_in_one_run(self):
+        """2026-09-29-tailor-time Ruling 2: Schneider's run needed six builds, one refusal
+        each. These three came back one at a time; now they come back together, and the
+        hint names the domain as written - it printed `--near terprise software`."""
+        header = HEADER.replace("architecture-ownership", "principal").replace(
+            "c:healthcare", "enterprise software")
+        rows = ROWS.replace("5 | distributed_systems | distributed systems",
+                            "5 | distributed_systems | microservices")
+        e = self.refused(rows, header)
+        self.assertEqual(str(e), "3 problems")
+        messages = [m for m, _ in e.problems]
+        self.assertIn("seniority 'principal' is not a level", messages[0])
+        self.assertIn("domain 'enterprise software' is not a concept - write `c:…` or leave "
+                      "it blank", messages[1])
+        self.assertIn("'microservices' is not in line 5", messages[2])
+        self.assertIn('--near "enterprise software"', e.problems[1][1])
+
+    def test_every_problem_is_printed_with_its_fix(self):
+        self.decide(header=HEADER.replace("architecture-ownership", "principal").replace(
+            "c:healthcare", "enterprise software"))
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = posting.main(["build", str(self.app)])
+        out = buf.getvalue().splitlines()
+        self.assertEqual(code, 1)
+        self.assertEqual(out[0], "REFUSED - 2 problems")
+        self.assertIn("seniority 'principal'", out[1])
+        self.assertTrue(out[2].startswith("fix:  one of "), out)
+        self.assertIn("domain 'enterprise software'", out[3])
+        self.assertTrue(out[4].startswith('fix:  `jsk kb query concepts --near "enterprise '
+                                          'software"`'), out)
+        self.assertEqual(len(out), 5)
+
+    def test_a_parse_error_stays_one_refusal(self):
+        e = self.refused(ROWS + "5 | Bad Slug | systems | - |\n",
+                         header=HEADER.replace("architecture-ownership", "principal"),
+                         says="is not lowercase words")
+        self.assertEqual(len(e.problems), 1)
 
     def test_a_dropped_line_counts_as_answered(self):
         self.build(ROWS.replace("7 | docker | Docker | c:docker |\n",

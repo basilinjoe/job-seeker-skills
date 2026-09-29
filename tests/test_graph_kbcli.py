@@ -631,9 +631,25 @@ class Query(Workspace):
     def test_concepts_near_a_term_is_what_it_names_then_the_closest(self):
         code, out = self.kb("query", "concepts", "--near", "Apache Kafka", "--json")
         self.assertEqual(code, 0, out)
-        rows = [r["concept"] for r in json.loads(out)]
+        # Keyed by term, since --near takes several (2026-09-29-tailor-time Ruling 2).
+        rows = [r["concept"] for r in json.loads(out)["Apache Kafka"]]
         self.assertEqual(rows[0], "c:kafka")
         self.assertLessEqual(len(rows), 6)
+
+    def test_concepts_near_several_terms_is_a_table_each(self):
+        """The analyst ran --near 21 times in a shell loop; one call takes every term."""
+        code, out = self.kb("query", "concepts", "--near", "Apache Kafka", "Terraform")
+        self.assertEqual(code, 0, out)
+        self.assertEqual([x for x in out.splitlines() if x.startswith("== ")],
+                         ["== Apache Kafka", "== Terraform"])
+        kafka, terraform = out.split("== Terraform")
+        self.assertIn("c:kafka", kafka)
+        self.assertIn("c:terraform", terraform)
+
+    def test_concepts_near_needs_a_term(self):
+        code, out = self.kb("query", "concepts", "--near")
+        self.assertEqual(code, 2)
+        self.assertIn("one or more terms", out)
 
     def test_near_is_only_for_concepts(self):
         code, out = self.kb("query", "person", "--near", "Kafka")
