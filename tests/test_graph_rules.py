@@ -244,8 +244,11 @@ class Findings(unittest.TestCase):
         s, _ = shapes_tests.mutated((KB_FILE, "j:revision 2 .", "j:revision 3 .", "", ""))
         [f] = [f for f in s.findings if f.rule == "log-sync"]
         self.assertIn("reached kb.ttl and not log.ttl", f.detail)
-        self.assertIn("set kb.ttl's k:kb j:revision back to 2, then `jsk kb load .`", f.fix)
+        self.assertIn("set kb.ttl's k:kb j:revision back to 2, then run `jsk kb load .` again",
+                      f.fix)
         self.assertNotIn("adopt", f.fix)
+        # Not `jsk kb check`: every verb but load is refused before the import.
+        self.assertNotIn("kb check", f.fix)
         self.assertEqual([f for f in s.findings if f.rule == "hand-edited"], [])
 
     def test_the_import_finds_a_revision_with_no_log_entry(self):

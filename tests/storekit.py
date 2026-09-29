@@ -30,10 +30,41 @@ def seed(root, keep_files=False):
     root = str(root)
     _, record, _ = legacy.read_workspace(root)
     R.write_graphs(root, record, create=True)
+    rehash(root)
     if not keep_files:
         for f in record_files(root):
             os.remove(f)
     return record
+
+
+def rehash(root):
+    """The log's newest entry made to hold the stored career's hash, as a jsk write leaves
+    it: for a test that changes the career in the store as a write would, or seeds a
+    fixture whose log hashed the file's text. `jsk kb check` FAILs a career its log's
+    hash does not match - one written outside jsk."""
+    import pyoxigraph as ox
+
+    from jsk.graph import db
+    from jsk.graph import ontology as O
+
+    record = db.read(str(root))
+    kb, log = record.get(R.KB), record.get(R.LOG)
+    rev, sha = R.last_entry(log or [])
+    if kb is None or rev is None:
+        return
+    from jsk.graph.writer import WriteError
+    try:
+        actual = R.career_sha(kb)
+    except WriteError:
+        return                  # a career with a FAIL the writer cannot lay out: left as it is
+    if sha == actual:
+        return
+    newest = next(t.subject for t in log if t.predicate.value == O.J + "revision"
+                  and R.revision_of(t.object) == rev)
+    sha_p = ox.NamedNode(O.J + "kbSha256")
+    log = [t for t in log if not (t.subject == newest and t.predicate == sha_p)]
+    log.append(ox.Triple(newest, sha_p, ox.Literal(actual)))
+    R.write_graphs(str(root), {R.LOG: log})
 
 
 def graph_text(root, name=R.KB):

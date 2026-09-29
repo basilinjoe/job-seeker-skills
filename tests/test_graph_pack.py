@@ -37,6 +37,7 @@ def edit_career(case, root, old, new):
     case.assertIn(old, text)
     record.write_graphs(str(root), {record.KB: gio.parse_text(text.replace(old, new),
                                                               record.KB).quads})
+    storekit.rehash(root)
 
 
 class Fixture(unittest.TestCase):

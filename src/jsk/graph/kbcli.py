@@ -1082,6 +1082,14 @@ def cmd_check(args, flags, root):
                      "number as a metric version and cite it (j:cites), or correct the words, "
                      "with `jsk kb apply` - every application selecting it pays this otherwise")
     st = R.state(store)
+    # The one check of the career's hash: only jsk writes the store, and every write it
+    # makes to the career logs the hash - so a mismatch is a write from outside. It costs a
+    # full write of the career, so check asks it and a plain load does not.
+    if st.kind == "clean" and R.unrecorded(store.graph(R.KB), store.graph(R.LOG)):
+        rep.fail(f"kb - the career is not what its log last recorded - written outside jsk "
+                 f"(r{st.log_revision})\n        fix: restore it from .jsk/backup.trig "
+                 "(`jsk kb load .jsk/backup.trig` into a new workspace, --root), or `jsk kb "
+                 "dump` to see what it holds")
     print(f"record   {st.kind}" + (f" at r{st.log_revision}" if st.log_revision else "")
           + (f" - {st.detail}" if st.detail else ""))
     print(f"{len(rep.fails)} FAIL, {len(rep.warns)} WARN")
@@ -1123,6 +1131,129 @@ def cmd_path(args, flags, root):
     return 0
 
 
+PROVENANCE_RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
+SHADOW = os.path.join(".jsk", "kb.last.ttl")      # the file workspace's copy of its last write
+
+
+def provenances(quads):
+    from . import ontology as O
+    return {q.subject.value: q.object.value[len(O.J):] for q in quads
+            if q.predicate.value == O.J + "provenance"}
+
+
+def claims(quads, s):
+    from . import ontology as O
+    names = O.resets(O.class_named(s))
+    return {(q.predicate.value, q.object.value) for q in quads
+            if q.subject.value == s and q.predicate.value[len(O.J):] in names}
+
+
+def upgrades(before, after):
+    """What a hand edit raised: provenance moved up, an entry added as confirmed, or a
+    claim changed under a confirmation it no longer earns."""
+    from .writer import curie
+
+    now, was, out = provenances(after), provenances(before), []
+    for s, p in sorted(now.items()):
+        if s not in was:
+            if p == "confirmed":
+                out.append(f"{curie(s)}: added as confirmed")
+        elif PROVENANCE_RANK.get(p, 0) > PROVENANCE_RANK.get(was[s], 0):
+            out.append(f"{curie(s)}: {was[s]} -> {p}")
+        elif p == "confirmed" and claims(before, s) != claims(after, s):
+            changed = sorted({curie(pred) for pred, _ in claims(before, s) ^ claims(after, s)})
+            out.append(f"{curie(s)}: {', '.join(changed)} changed while confirmed")
+    return out
+
+
+def hand_edit(before, src):
+    """(lines naming what a hand edit of kb.ttl raised, the ids it changed - every id in
+    the career when there is nothing to compare against). A provenance raised by hand
+    renders as confirmed with no answer behind it, and after the import no text is left
+    to show it was: so each one is named now, against the shadow copy of the revision the
+    log last recorded when there is one."""
+    from . import record as R
+    from .io import Unreadable, parse_text, read_text, sha256
+
+    st = R.state(before)
+    after = before.graph(R.KB)
+    try:
+        old = read_text(os.path.join(src, SHADOW), "the shadow copy")
+    except Unreadable:
+        old = None
+    if old is None or sha256(old) != st.logged_sha:
+        return ([f"note     kb.ttl was edited by hand after r{st.log_revision}, and there is "
+                 f"nothing to compare it against ({SHADOW} is not r{st.log_revision}): a "
+                 "provenance the edit raised to confirmed cannot be named - check the "
+                 "confirmed entries with the person"],
+                {q.subject.value for q in after})
+    was = parse_text(old, R.KB).quads
+    raised = upgrades(was, after)
+    lines = [f"raised   {line}" for line in raised]
+    if raised:
+        lines.append("         check each with the person; `jsk kb confirm <id> --answer` "
+                     "records it")
+    return lines, {q.subject.value for q in set(was) ^ set(after)}
+
+
+def imported(before, record, rewrites, src):
+    """The files' record with the import's own log entry: the career stamped at the next
+    revision, and an entry `by load` holding its hash - so the store's newest entry hashes
+    its career, as every jsk write leaves it, and a dump of it loads back. Prints the WARNs
+    the file loader found, and what a hand edit raised, before anything is written."""
+    import pyoxigraph as ox
+
+    from ..gates.report import show
+    from . import record as R
+    from . import store as S
+
+    warns = before.warns()
+    if warns:
+        print(f"{len(warns)} WARN in the files, imported as they are:")
+        show(S.Store("", findings=warns).report().warns, "WARN", 0)
+    touched = {q.subject.value for name, q, _ in rewrites if name == R.KB}
+    if R.state(before).kind == "hand-edited":
+        lines, changed = hand_edit(before, src)
+        for line in lines:
+            print(line)
+        touched |= changed
+    today = datetime.date.today()
+    rev = R.next_revision(R.state(before))
+    kb = R.stamp([ox.Quad(t.subject, t.predicate, t.object) for t in record[R.KB]], rev, today)
+    summary = (f"Imported from the files by jsk kb load: {len(record)} graphs, "
+               f"{len(rewrites)} numbers kept by value.")
+    log = [ox.Quad(t.subject, t.predicate, t.object) for t in record.get(R.LOG, [])]
+    log += R.entry(rev, today, "load", summary, R.career_sha(kb), touched)
+    return {**record, R.KB: kb, R.LOG: log}
+
+
+def edited_dump(record, name):
+    """None for a dump as jsk wrote it; else the exit code of its refusal. A number in a
+    spelling the store would rewrite, or a career whose hash is not what its log's newest
+    entry recorded, is a dump changed outside jsk: loaded, the change would enter the
+    record unlogged - a provenance raised by hand renders as confirmed."""
+    import pyoxigraph as ox
+
+    from . import record as R
+    from .changeset import numbers_as_kept
+
+    fix = ("load the dump as `jsk kb dump` wrote it (or .jsk/backup.trig), then change the "
+           "record through `jsk kb apply`")
+    found = []
+    for graph, triples in sorted(record.items()):
+        numbers_as_kept([ox.Quad(t.subject, t.predicate, t.object) for t in triples],
+                        lambda focus, detail, _fix, g=graph: found.append(f"{g} {focus} {detail}"))
+    if found:
+        return refuse([f"{name}: {line}" for line in found] + ["the dump was changed outside jsk"],
+                      fix)
+    if R.KB in record:
+        kb = [ox.Quad(t.subject, t.predicate, t.object) for t in record[R.KB]]
+        why = R.unrecorded(kb, record.get(R.LOG, []))
+        if why:
+            return refuse([f"{name}: the career in it - {why} - was changed outside jsk"], fix)
+    return None
+
+
 @verb()
 def cmd_load(args, flags, root):
     """jsk kb load <workspace folder | dump.trig>
@@ -1160,6 +1291,7 @@ def cmd_load(args, flags, root):
                                           "- fix them in the files first:")
             print("nothing was written")
             return 1
+        record = imported(before, record, rewrites, src)
     elif src.endswith(".trig") and os.path.isfile(src):
         try:
             record = db.parse_dump(read_text(src, os.path.basename(src)))
@@ -1168,6 +1300,9 @@ def cmd_load(args, flags, root):
         except SyntaxError as e:
             return refuse([f"{os.path.basename(src)}:{e.lineno}: {e.msg}"],
                           "a dump is TriG as `jsk kb dump` writes it")
+        code = edited_dump(record, os.path.basename(src))
+        if code is not None:
+            return code
     else:
         return usage(f"{args[0]}: not a folder, nor a .trig file")
     after = S.load(root, files=[S.SHIPPED_VOCABULARY], graphs=record)

@@ -372,11 +372,14 @@ class GraphCase(unittest.TestCase):
         (self.app / "resume.json").write_text(json.dumps(doc, indent=2), encoding="utf-8")
 
     def edit_career(self, old, new):
-        """The career's words changed in the store, as `jsk kb apply` would change them.
-        The store keeps no hash of the career to fall out of step with."""
+        """The career's words changed in the store, as `jsk kb apply` would change them:
+        its log's newest entry holding the new career's hash."""
+        import storekit
+
         text = appkit.text(self.root, "kb")
         assert text.count(old) == 1, old
         appkit.put(self.root, "kb", text.replace(old, new), prefixes=False)
+        storekit.rehash(self.root)
 
     def graph(self, where, kind):
         return appkit.name(where, kind)

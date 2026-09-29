@@ -367,8 +367,9 @@ def out_of_step(kinds):
 def log_sync_fix(row, store):
     rev = row["state"].log_revision
     if row["state"].kind == "torn" and rev is not None:
-        return (f"set kb.ttl's k:kb j:revision back to {rev}, then `jsk kb load .` imports "
-                "it as it is - read `jsk kb check` first for what the unlogged write raised")
+        return (f"set kb.ttl's k:kb j:revision back to {rev}, then run `jsk kb load .` again: "
+                "it imports kb.ttl as it is, and names each provenance the unlogged write "
+                "raised")
     return "restore the file that went back on its own, then `jsk kb load .`"
 
 

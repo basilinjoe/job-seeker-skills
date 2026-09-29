@@ -663,7 +663,7 @@ first.
 | `fit` | Assessment | `strong` · `partial` · `poor` |
 | `flag` | Verdict | `listed-names` |
 | `eventKind` | Event.kind | `submitted` · `acknowledged` · `screen-scheduled` · `screen-done` · `interview-scheduled` · `interview-done` · `onsite-scheduled` · `onsite-done` · `offer` · `offer-accepted` · `rejected` · `withdrawn` · `no-response` · `offer-declined` · `follow-up-sent` · `note` · `referral` · `recruiter-contact` |
-| `logBy` | LogEntry.by | `apply` · `confirm` · `new` - and on entries from before the store, `adopt` · `migrate` · `fmt`, commands that no longer exist |
+| `logBy` | LogEntry.by | `apply` · `confirm` · `new` · `load` - and on entries from before the store, `adopt` · `migrate` · `fmt`, commands that no longer exist |
 
 Notes on a few values:
 
@@ -676,6 +676,10 @@ Notes on a few values:
   tenants". `jsk` renders `at-least` as `15+`, `about` as `~12`, `under` as `<1` and `over` as
   `>5`. On a range, the qualifier applies to the top: `300-800+`.
 - **`logBy` `new`** marks the first revision written by `jsk new`, or by a `--force` start-over.
+  A changeset whose `op:base` is older than the newest `new` entry is refused: it was drafted
+  against the career that was started over.
+- **`logBy` `load`** marks the one entry the one-time import (`jsk kb load` of a workspace laid
+  out as files) adds: the career stamped at the next revision, and the entry holding its hash.
 - **`logBy` `migrate`** marks a first revision written by the retired `jsk migrate`. Nothing
   writes it now; it stays valid so a log written before still loads.
 

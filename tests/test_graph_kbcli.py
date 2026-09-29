@@ -782,6 +782,23 @@ class Check(Workspace):
         self.assertIn("'3'", out)
         self.assertTrue(out_file.exists())
 
+    def test_a_career_written_outside_jsk_fails_its_hash(self):
+        """The store holds what jsk wrote, unless something else wrote it: a provenance
+        raised there would render as confirmed, and only the log's hash notices."""
+        self.seed()
+        s = S.load(self.root)
+        raised = [q for q in s.graph(record.KB)
+                  if q.predicate.value == O.J + "provenance" and q.object.value == O.J + "inferred"]
+        self.assertTrue(raised)
+        import pyoxigraph as ox
+        kb = [ox.Quad(q.subject, q.predicate, ox.NamedNode(O.J + "confirmed"))
+              if q == raised[0] else q for q in s.graph(record.KB)]
+        record.write_graphs(self.root, {record.KB: kb})         # not through a jsk verb
+        code, out = self.kb("check")
+        self.assertEqual(code, 1, out)
+        self.assertIn("the career is not what its log last recorded - written outside jsk", out)
+        self.assertIn(".jsk/backup.trig", out)
+
     def test_a_fail_exits_1_and_names_the_graph_and_the_entry(self):
         self.edit_kb("j:cites k:met_team ;", "j:cites k:met_teem ;")
         code, out = self.kb("check")
@@ -972,7 +989,7 @@ class Load(unittest.TestCase):
         self.addCleanup(os.chdir, here)
         code, out = self.kb(self.files, "load", ".")
         self.assertEqual(code, 0, out)
-        self.assertRegex(out, r"loaded   \d+ triples in 4 graphs into career/store/, at r2")
+        self.assertRegex(out, r"loaded   \d+ triples in 4 graphs into career/store/, at r3")
         self.assertIn("career/kb.ttl and the other .ttl files are no longer read", out)
         self.assertNotIn("not in this workspace", out)
         self.assertEqual(kb.read_bytes(), before)                  # left where it is
@@ -1016,11 +1033,85 @@ class Load(unittest.TestCase):
         self.assertEqual(code, 0, out)
         code, out = self.kb(self.empty, "load", dump)
         self.assertEqual(code, 0, out)
-        self.assertIn("at r2", out)
+        self.assertIn("at r3", out)                 # the fixture's r2, and the import's entry
         self.assertNotIn("note", out)
         self.assertEqual(db.dump_text(db.read(self.empty)), db.dump_text(db.read(self.files)))
         self.assertEqual(self.kb(self.empty, "view"), self.kb(self.files, "view"))
         self.assertEqual(self.kb(self.empty, "check")[0], 0)
+
+    def test_the_import_is_logged_as_one_entry_of_its_own(self):
+        """By j:load, holding the career's hash: so every store's newest entry hashes its
+        career, and a dump of an imported workspace loads back."""
+        code, out = self.kb(self.empty, "load", self.files)
+        self.assertEqual(code, 0, out)
+        self.assertIn("at r3", out)
+        s = S.load(self.empty)
+        self.assertEqual(record.state(s).kind, "clean")
+        self.assertIsNone(record.unrecorded(s.graph(record.KB), s.graph(record.LOG)))
+        code, out = self.kb(self.empty, "log", "--last", "1")
+        self.assertRegex(out, r"^r3  \d{4}-\d\d-\d\d  load     Imported from the files by jsk kb "
+                              r"load: 4 graphs, 0 numbers kept by value")
+
+    def dumped(self):
+        """An imported workspace, dumped: (its dump's path, the dump's text)."""
+        self.assertEqual(self.kb(self.files, "load", self.files)[0], 0)
+        dump = os.path.join(self.tmp, "career.trig")
+        self.assertEqual(self.kb(self.files, "dump", "--out", dump)[0], 0)
+        return dump, Path(dump).read_text(encoding="utf-8")
+
+    def test_an_imported_workspace_dumps_and_loads_back(self):
+        dump, _ = self.dumped()
+        self.documents()
+        code, out = self.kb(self.empty, "load", dump)
+        self.assertEqual(code, 0, out)
+        code, out = self.kb(self.empty, "check")
+        self.assertEqual(code, 0, out)
+
+    def refused_dump(self, old, new):
+        dump, text = self.dumped()
+        self.assertIn(old, text)
+        Path(dump).write_text(text.replace(old, new, 1), encoding="utf-8")
+        code, out = self.kb(self.empty, "load", dump)
+        self.assertEqual(code, 1, out)
+        self.assertIn("nothing was written", out)
+        self.assertFalse(db.exists(self.empty))
+        return out
+
+    def test_a_dump_whose_provenance_was_raised_is_refused(self):
+        out = self.refused_dump("<tag:jsk,2026:ns#provenance> <tag:jsk,2026:ns#inferred>",
+                                "<tag:jsk,2026:ns#provenance> <tag:jsk,2026:ns#confirmed>")
+        self.assertIn("not what its log last recorded", out)
+        self.assertIn("jsk kb apply", out)
+
+    def test_a_dump_whose_number_was_changed_is_refused(self):
+        out = self.refused_dump('<tag:jsk,2026:ns#value> 42 .', '<tag:jsk,2026:ns#value> 43 .')
+        self.assertIn("not what its log last recorded", out)
+
+    def test_a_dump_holding_a_number_the_store_would_rewrite_names_it(self):
+        out = self.refused_dump('<tag:jsk,2026:ns#value> 42 .',
+                                '<tag:jsk,2026:ns#value> "42.0"^^<http://www.w3.org/2001/XMLSchema#decimal> .')
+        self.assertIn("j:value 42.0 is kept as 42", out)
+
+    def test_a_hand_edited_kb_ttl_is_imported_with_its_warning_and_what_it_raised(self):
+        self.edit("j:provenance j:inferred", "j:provenance j:confirmed")
+        code, out = self.kb(self.empty, "load", self.files)
+        self.assertEqual(code, 0, out)
+        self.assertIn("WARN", out)
+        self.assertIn("changed outside `jsk kb`", out)
+        # No copy of the logged revision to compare with: said, not guessed.
+        self.assertIn("nothing to compare", out)
+
+    def test_what_a_hand_edit_raised_is_listed_against_the_shadow_copy(self):
+        shadow = Path(self.files, ".jsk", "kb.last.ttl")
+        shadow.parent.mkdir(exist_ok=True)
+        shadow.write_bytes(Path(self.files, "career/kb.ttl").read_bytes())
+        self.edit("j:cites k:met_sites ;\n    j:provenance j:inferred .",
+                  "j:cites k:met_sites ;\n    j:provenance j:confirmed .")
+        code, out = self.kb(self.empty, "load", self.files)
+        self.assertEqual(code, 0, out)
+        self.assertIn("raised   k:ach_site_onboarding_sites_one_platform: inferred -> confirmed",
+                      out)
+        self.assertNotIn("k:prj_site_onboarding:", out)
 
     def test_elsewhere_an_application_s_documents_are_named_to_copy(self):
         code, out = self.kb(self.empty, "load", self.files)

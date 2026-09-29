@@ -122,7 +122,8 @@ def state(store):
 def stored_state(store):
     """The same, for a record in career/store/: every write puts the career and its log
     entry in one update, so the two agree unless something outside jsk wrote the store.
-    Nothing can be hand-edited or torn; the kb graph's hash is not re-checked."""
+    Nothing can be hand-edited or torn. The career's hash is not re-checked here - it
+    costs a full write of the career on every load; `jsk kb check` asks it (unrecorded)."""
     if KB not in store.parsed:
         return State("missing")
     kb_rev = header_revision(store.parsed[KB].quads)
@@ -132,6 +133,35 @@ def stored_state(store):
     return State("out-of-sync", kb_rev, log_rev, sha,
                  f"the store's career says r{kb_rev} and its log ends at r{log_rev}: "
                  "something outside jsk wrote career/store/")
+
+
+def career_sha(kb_quads):
+    """The career's hash as every log entry's kbSha256 holds it: sha256 of the career as
+    the writer lays it out - the text a write's diff shows."""
+    from .io import sha256
+    from .writer import write
+
+    return sha256(write(kb_quads, "kb"))
+
+
+def unrecorded(kb_quads, log_quads):
+    """None when the career is what its log's newest entry recorded - its kbSha256 is the
+    career's hash; else why not. Only jsk writes the store, and every write it makes to
+    the career carries that hash, so a mismatch is a write from outside jsk, or a dump
+    edited before it was loaded. It costs a full write of the career, so only `jsk kb
+    check` and `jsk kb load` ask it."""
+    from .writer import WriteError
+
+    rev, sha = last_entry(log_quads)
+    if rev is None:
+        return "its log has no entry to check it against"
+    try:
+        actual = career_sha(kb_quads)
+    except WriteError as e:
+        return f"it cannot be laid out to hash ({e})"
+    if sha != actual:
+        return f"it is not what its log last recorded at r{rev}"
+    return None
 
 
 def next_revision(st):

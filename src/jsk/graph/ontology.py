@@ -145,8 +145,9 @@ ENUMS = {
                   "offer-declined", "follow-up-sent", "note", "referral", "recruiter-contact"),
     # `new` is `jsk new`'s r1 (and a --force start-over): neither adopted from a hand
     # edit nor migrated, so neither of those words would say what happened. `migrate` is
-    # kept for the r1 entries `jsk migrate` wrote before it was removed.
-    "logBy": ("apply", "confirm", "adopt", "migrate", "fmt", "new"),
+    # kept for the r1 entries `jsk migrate` wrote before it was removed. `load` is the
+    # one-time import of a workspace laid out as files: its entry hashes what it imported.
+    "logBy": ("apply", "confirm", "adopt", "migrate", "fmt", "new", "load"),
 }
 
 ANY = ("*",)
