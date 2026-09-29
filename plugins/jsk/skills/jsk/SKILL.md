@@ -12,14 +12,14 @@ license: MIT
 
 # Job Seeker Skill
 
-A career knowledge base kept as **one readable Turtle file**, `career/kb.ttl`, validated on every
-load, plus a toolchain that renders verified, ATS-safe resumes from it. Interview someone once;
-regenerate resumes, tailored variants and interview briefs from the file forever after.
+A career knowledge base kept in **one store, `career/store/`**, read and written only through `jsk`
+and validated on every load, plus a toolchain that renders verified, ATS-safe resumes from it.
+Interview someone once; regenerate resumes, tailored variants and interview briefs forever after.
 
 **The knowledge base is the source of truth. A resume is one rendering of it.**
 
 ```
-career/kb.ttl + resume.json  ->  .tex -> .pdf   (the deliverable)
+career/store/ + resume.json  ->  .tex -> .pdf   (the deliverable)
   jsk kb apply   jsk kb export  \-> .txt          (paste-in boxes)
 ```
 
@@ -28,11 +28,10 @@ two hand-built documents stop agreeing the moment one is edited.
 
 | Thing | Is | Written by |
 |---|---|---|
-| `career/kb.ttl` · `career/log.ttl` | the career · every change to it | `jsk kb` |
-| `applications/<stem>/posting.md` · `posting.ttl` | the advert verbatim · its requirements | you · `jsk-tailor-analyst` |
+| `career/store/` | the career, its history, each application's requirements, assessment and timeline | `jsk` only |
+| `applications/<stem>/posting.md` · `decisions.txt` | the advert verbatim · its requirements | you · `jsk-tailor-analyst` |
 | `applications/<stem>/gaps.md` · `gaps.txt` | the assessment · the analyst's changes to it | `jsk` · `jsk-tailor-analyst` |
 | `applications/<stem>/resume.json` | the bullets chosen for this posting, by id | `jsk-resume-author` |
-| `applications/<stem>/application.ttl` | what was sent, and its timeline | `jsk freeze`, `jsk event` |
 
 `applications/` is the directory beside `career/` — resolve it to an absolute path, never the
 working directory.
@@ -57,8 +56,8 @@ different things.
 
 1. **Run `jsk --version`**. Not found → `python3 -m jsk` (`python` or `py -3` on Windows). Neither →
    say so and stop.
-2. **Find the knowledge base** — `jsk doctor`, or search for `career/kb.ttl`. Sessions share no
-   state; never assume one exists. None → setup, unless they asked for something deliverable: deliver
+2. **Find the knowledge base** — `jsk doctor`, or search for `career/store/`. A `career/kb.ttl`
+   with no store is a record from before it: `jsk kb load .`, once. Sessions share no state; never assume one exists. None → setup, unless they asked for something deliverable: deliver
    it first, then offer to capture it.
 3. **`rules/writing-rules.md`, `ats-rules.md`, `structure-rules.md`** beside `career/` override
    their defaults.
@@ -67,12 +66,13 @@ different things.
 
 **One rule: change it with `jsk kb apply <changeset.trig>`**, a small TriG file of `op:add`,
 `op:set` and `op:retire`; `--dry-run` shows the diff. Read with `jsk kb show <ids>` (it prints the
-`op:base`), `jsk kb view` or `jsk kb query`, and before adding anything: people re-tell one project
-months apart in different words. **Confirm only with `jsk kb confirm <id> --answer "their words"`.**
-A hand edit is legal, then `jsk kb adopt`. Every refusal names its fix. `references/kb-format.md`
-has the format, for a changeset you are unsure of.
+`op:base`), `jsk kb view`, `jsk kb query` or `jsk kb log`, and before adding anything: people re-tell
+one project months apart in different words. **Confirm only with `jsk kb confirm <id> --answer
+"their words"`.** Every refusal names its fix. `references/kb-format.md` has the format, for a
+changeset you are unsure of.
 
-**Never edit `career/kb.ttl` blind.** No pyoxigraph → draft the changeset to a file for later.
+**Never open anything under `career/`** — only `jsk` reads the store. No pyoxigraph → draft the
+changeset to a file for later.
 
 ## The `jsk` command
 
@@ -81,10 +81,10 @@ has the format, for a changeset you are unsure of.
 | Command | Does |
 |---|---|
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
-| `jsk new <path> --name "Name"` | an empty `career/kb.ttl`, `career/log.ttl` and `applications/` |
-| `jsk kb apply\|confirm\|show\|view\|query\|check\|adopt\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
+| `jsk new <path> --name "Name"` | an empty `career/store/` and `applications/` |
+| `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
 | `jsk posting fetch <url> <app-dir>` | a job board's posting as `posting.md` |
-| `jsk match <posting.ttl>` | requirements matched through the vocabulary, ranked, questions |
+| `jsk match <app-dir>` | requirements matched through the vocabulary, ranked, questions |
 | `jsk tailor prepare <app-dir> [--draft-gaps]` | the match and all an assessment reads, one digest |
 | `jsk validate <resume.json>` | the record gate |
 | `jsk render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
@@ -93,7 +93,7 @@ has the format, for a changeset you are unsure of.
 | `jsk gates <out-dir> [--record R] [--pages N]` | record, parse, prose, layout gates |
 | `jsk ship <resume.json> --out DIR [--pages N]` | validate, render, gates; stops at a failure |
 | `jsk fit <resume.tex> --target-pages 2` | fits the render to a page budget |
-| `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | writes `application.ttl`, if the gates pass |
+| `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | records what was sent, if the gates pass |
 | `jsk event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |
 
 Exit codes: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are required — the
@@ -103,7 +103,7 @@ PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
 
 | Agent | Hand it | Get back |
 |---|---|---|
-| `jsk-tailor-analyst` | app directory, workspace | `posting.ttl`, the match, `gaps.md` and questions |
+| `jsk-tailor-analyst` | app directory, workspace | the requirements, the match, `gaps.md` and questions |
 | `jsk-resume-author` | posting, gaps, workspace | `resume.json`, every authored clause quoted |
 | `jsk-kb-auditor` | workspace | what is missing, as a prioritised question queue |
 | `jsk-extractor` | workspace, a braindump or document in `sources/` | a dry-run changeset, its inferred clauses quoted |

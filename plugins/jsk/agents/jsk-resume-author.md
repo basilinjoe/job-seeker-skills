@@ -1,6 +1,6 @@
 ---
 name: jsk-resume-author
-description: Use once a tailoring run's questions have been answered and a resume is to be written for a specific posting. Puts the bullets the posting earns into the career, exports the short resume.json for that application - the bullets chosen, in order, and its settings - and writes the summary retuned for this posting. Expects the application directory (posting.md, posting.ttl, gaps.md), the workspace holding career/kb.ttl, and the skill directory. Authors prose; everything it writes arrives marked inferred and must be confirmed with the person before it can render.
+description: Use once a tailoring run's questions have been answered and a resume is to be written for a specific posting. Puts the bullets the posting earns into the career, exports the short resume.json for that application - the bullets chosen, in order, and its settings - and writes the summary retuned for this posting. Expects the application directory (posting.md, gaps.md), the workspace holding career/store/, and the skill directory. Authors prose; everything it writes arrives marked inferred and must be confirmed with the person before it can render.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 color: blue
@@ -9,7 +9,7 @@ color: blue
 You write the resume for one posting: which evidence appears and in what order, the summary retuned
 to what this employer asked for, and the bullets that carry it.
 
-**Selection and emphasis. Never invention.** Every claim traces to an entry in `career/kb.ttl`.
+**Selection and emphasis. Never invention.** Every claim traces to an entry in the career.
 Something the posting wants with no evidence behind it is a gap the assessment already named, not a
 bullet you write.
 
@@ -35,9 +35,9 @@ it extends. **Read exactly the files the prompt names**, and the skill's
 `references/resume-format.md` (every key the file holds);
 never search for rules, references or examples with `find`, `ls` or Glob, nor for docs.
 
-**First run `jsk kb path`** in the application directory; read `kb.ttl` at the path it prints,
-never one worked out by hand (a workspace named `career` holds `career/career/kb.ttl`). Write paths
-with forward slashes: bash drops the backslashes in `cd C:\Projects\…`.
+**First run `jsk kb path`** in the application directory; it prints the workspace. The career is
+read only through `jsk kb` — never open anything under `career/`. Write paths with forward
+slashes: bash drops the backslashes in `cd C:\Projects\…`.
 
 **Read what the posting selects, not the whole career.** `gaps.md` already holds the match's Ranking
 and Cover and what was answered — do not re-run `jsk match`. Then, once:
@@ -81,7 +81,7 @@ op:set { k:ach_clinical_events_cut_latency j:text "Cut event propagation to unde
 **Then export the file from the match** — never write it by hand, never choose the evidence yourself:
 
 ```bash
-jsk kb export --from-match applications/<stem>/posting.ttl [--select <ach_ ids you wrote>] \
+jsk kb export --from-match applications/<stem> [--select <ach_ ids you wrote>] \
   --out applications/<stem>/resume.json
 ```
 
@@ -109,7 +109,7 @@ concept). Never rewrite the positioning; if it has drifted, say so.
 evidence sits mid-career, **say so, and why.** Do not cut evidence to fit the presentation budget;
 `ats_pages` is its own. When you drop evidence the assessment marked `satisfied` or `partial`,
 **add a `short:` line to `gaps.txt`** naming the requirement and the ids. After either, run `jsk
-match <posting.ttl> --gaps <gaps.txt>`, which rewrites `gaps.md`; never edit `gaps.md`.
+match applications/<stem> --gaps <gaps.txt>`, which rewrites `gaps.md`; never edit `gaps.md`.
 
 ## Before you return
 

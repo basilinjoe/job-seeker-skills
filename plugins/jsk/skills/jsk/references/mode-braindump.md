@@ -2,7 +2,7 @@
 
 They talk. You structure. This mode fails if you interrupt.
 
-Everything goes into `career/kb.ttl`, through one `jsk kb apply`. The only other file written is
+Everything goes into the career, through one `jsk kb apply`. The only other file written is
 their words, kept verbatim under `sources/`.
 
 ## Let them finish

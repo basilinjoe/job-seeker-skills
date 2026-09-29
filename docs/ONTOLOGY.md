@@ -5,8 +5,8 @@ one means. Read it to extend the format, write a tool that reads a workspace, or
 a finding fired.
 
 **The definition is code.** [`src/jsk/graph/ontology.py`](../src/jsk/graph/ontology.py) holds
-the format as data. The writer takes its layout from those tables, and the tier-1 rules are
-generated from them. This document and the agent-facing
+the format as data. The entry printer (`jsk kb show`) takes its order from those tables, and the
+tier-1 rules are generated from them. This document and the agent-facing
 [`references/kb-format.md`](../plugins/jsk/skills/jsk/references/kb-format.md) describe that
 file. Where either one disagrees with it, the code is right and the document has a defect. The
 class tables in §5 and the enumerations in §6 were generated from `ontology.py` at format
@@ -16,7 +16,7 @@ Contents
 
 1. [Design commitments](#1-design-commitments)
 2. [Namespaces and identifiers](#2-namespaces-and-identifiers)
-3. [File kinds](#3-file-kinds)
+3. [Graph kinds](#3-graph-kinds)
 4. [The model at a glance](#4-the-model-at-a-glance)
 5. [Classes](#5-classes)
 6. [Enumerations](#6-enumerations)
@@ -39,12 +39,13 @@ from one of them.
 
 | Commitment | What it means in practice |
 |---|---|
-| **One definition** | `ontology.py` is the only place a class or predicate is declared. The writer, the tier-1 validator and the documentation all follow it. It imports only the standard library, so it can be read without pyoxigraph. |
+| **One definition** | `ontology.py` is the only place a class or predicate is declared. The printer, the tier-1 validator and the documentation all follow it. It imports only the standard library, so it can be read without pyoxigraph. |
 | **Closed per class** | Each class accepts only the predicates listed for it. An unknown predicate is a FAIL (`closed`), and the finding suggests the nearest valid name. `j:note` is the escape hatch for anything the format has no field for. |
 | **Type comes from the id** | `k:prj_payments` is a Project because of its `prj_` prefix. Writing `a j:Project` is refused (`no-derived`), and the loader adds `rdf:type` itself. Concepts are the exception: `c:` ids carry no class in their shape, so a concept states `a j:Capability`, `j:Domain` or `j:Technology`. |
-| **No blank nodes on disk** | Every node has an id, so every finding can name the thing it is about. The one `[]` allowed is a new bullet inside a changeset, and `jsk kb apply` mints its id. |
-| **A file per kind, a graph per file** | Each record file loads into its own named graph, so a finding can say which file and line it concerns. Queries run over the union of all of them. |
-| **Derived data is never written** | Types and the counts-as closure live in the `j:derived` graph, which exists only in memory. On disk, the record holds only what a person or `jsk` stated. |
+| **No blank nodes in the record** | Every node has an id, so every finding can name the thing it is about. The one `[]` allowed is a new bullet inside a changeset, and `jsk kb apply` mints its id. |
+| **A graph per record** | Each record - the career, the log, each application's posting, gaps and application - is its own named graph in the store, so a finding can say which graph and which entry it concerns. Queries run over the union of all of them. |
+| **Derived data is never written** | Types and the counts-as closure live in the `j:derived` graph, which exists only in memory. The store holds only what a person or `jsk` stated. |
+| **Numbers by value** | The store keeps an integer or decimal by value (`8.40` is `8.4`). A number written in any other spelling is refused (`non-canonical-number`) rather than changed silently; a value whose zeros matter is a string. |
 | **Claims carry provenance** | An entry that makes a claim about the person holds `j:provenance`. Changing the claim drops it to `inferred`. Only `jsk kb confirm`, given the person's own answer, raises it back to `confirmed`. |
 | **A tag is not evidence** | `Project j:uses` says what a project involved. `Achievement j:shows` says what a bullet proves. Only the second counts as evidence in a verdict. |
 | **Numbers are versioned** | A metric's value lives on a `MetricVersion`. A value that an application already sent never changes; a new value becomes the next version. |
@@ -61,8 +62,9 @@ from one of them.
 | `op:` | `tag:jsk,2026:op#` | Changeset operations; appears in `.trig` changesets only |
 
 The IRIs use the `tag:` scheme (RFC 4151). They are names, not locations, and nothing
-dereferences them. The writer always emits the prefix block complete and in the order `j k c
-xsd`.
+dereferences them. `jsk kb show` and every changeset jsk drafts write the prefix block complete
+and in the order `j k c xsd`. Record graphs are named under `tag:jsk,2026:graph/`: `kb`, `log`,
+`applications/<dir>/posting`, and so on.
 
 ### Entry ids
 
@@ -77,7 +79,7 @@ k:kb   k:person              the two singletons
   says where the bullet sits rather than what it says. `jsk kb apply` mints bullet ids from the
   project and the bullet's content words: `ach_<project>_<two to four words>`.
 - An id is never reused. A retired entry keeps its id for good.
-- An id is defined in exactly one file (`duplicate-id`).
+- An id is defined in exactly one graph (`duplicate-id`).
 
 ### Concept ids
 
@@ -99,34 +101,34 @@ k:kb   k:person              the two singletons
 | `met_x.vN` | MetricVersion | `vrd_` | Verdict |
 | `skill_` | Skill | `rev_` | LogEntry |
 
-## 3. File kinds
+## 3. Graph kinds
 
-A workspace is a directory tree of Turtle files. The loader works out each file's kind from its
+The record is a set of named graphs in one store, `career/store/`. A graph's kind follows from its
 name, and every class declares which kinds it may appear in (`id-home`).
 
 ```
-<workspace>/
-  career/kb.ttl                          kind kb
-  career/log.ttl                         kind log
-  applications/<dir>/posting.ttl         kind posting
-  applications/<dir>/gaps.ttl            kind gaps
-  applications/<dir>/application.ttl     kind application
-<package>/jsk/data/vocabulary.ttl        kind vocabulary (shipped, read-only)
-*.trig                                   a changeset, never loaded as record
+career/store/
+  kb                                     kind kb
+  log                                    kind log
+  applications/<dir>/posting             kind posting
+  applications/<dir>/gaps                kind gaps
+  applications/<dir>/application         kind application
+<package>/jsk/data/vocabulary.ttl        kind vocabulary (shipped, read-only, loaded each run, never stored)
+*.trig                                   a changeset or a dump: input, never stored as a file
 ```
 
-| Kind | Head class (exactly one) | Sections, in written order | Written by |
+| Kind | Head class (exactly one) | Sections, in order | Written by |
 |---|---|---|---|
-| `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `jsk kb apply`, `confirm`, `adopt`, `fmt`, `new`. Hand edits are legal and get adopted. |
-| `log` | none | Log | Every command that writes `kb.ttl` |
-| `posting` | Posting | Posting · Requirements | The tailor analyst, or `jsk posting build` |
+| `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `jsk kb apply`, `confirm`, `new`, `load` |
+| `log` | none | Log | Every command that writes the record, in the same update |
+| `posting` | Posting | Posting · Requirements | `jsk posting build`, from the analyst's `decisions.txt` |
 | `gaps` | Assessment | Assessment · Verdicts | `jsk tailor prepare` / `jsk match --gaps`, derived from the match plus the analyst's `gaps.txt` |
 | `application` | Application | Application · Timeline | `jsk freeze`, `jsk event` |
 | `vocabulary` | none | Vocabulary | Shipped with the package |
 
-Sections are `# == <Name>` comment banners. `kb.ttl` prints every banner, even an empty one,
-because the layout itself is part of the contract. Other kinds print only the banners that have
-content. Any other comment is a WARN (`comment`), since the next write would lose it.
+Sections are how `jsk kb view` groups the career, in this order, and how `jsk kb show` orders
+what it prints. A workspace from before the store held each kind as a `.ttl` file
+(`career/kb.ttl`, `applications/<dir>/posting.ttl`, ...); `jsk kb load .` imports it once.
 
 ## 4. The model at a glance
 
@@ -183,12 +185,12 @@ at `c:` concepts.
 
 The record falls into three layers:
 
-- **The career** (`kb.ttl`): who the person is, where they worked, what they did, and the
+- **The career** (`kb`): who the person is, where they worked, what they did, and the
   numbers that prove it. It changes over time, and the log records every change.
-- **The market** (`posting.ttl`, `gaps.ttl`): what one advert asks for, and how the career
-  measures up against it. These files are per application and are rewritten while tailoring.
-- **The history** (`application.ttl`, `log.ttl`): what was sent and what came back, plus every
-  change ever made to the career. Once written, these are only appended to.
+- **The market** (`posting`, `gaps`): what one advert asks for, and how the career
+  measures up against it. These graphs are per application and are rewritten while tailoring.
+- **The history** (`application`, `log`): what was sent and what came back, plus every
+  change ever made to the record. Once written, these are only appended to.
 
 ## 5. Classes
 
@@ -215,14 +217,14 @@ How to read the tables:
 | `j:provenance` | enum `provenance` | 1 | *only on classes marked "provenance yes"* |
 
 Literal kinds used below: a plain string is `xsd:string`. "(long)" marks prose that may span
-lines, which the writer emits as `"""…"""` and never reflows. Year-month values are strings
+lines, which `jsk kb show` prints as `"""…"""` and never reflows. Year-month values are strings
 matching `YYYY` or `YYYY-MM`.
 
-### 5.1 The career: `kb.ttl`
+### 5.1 The career: `kb`
 
 #### KB
 
-The file's header. It is written before the first banner and records the format revision.
+The career's header. It records the format revision and the revision the record is at.
 
 id `k:kb` · section (header) · provenance no
 
@@ -231,14 +233,14 @@ id `k:kb` · section (header) · provenance no
 | `j:format` | xsd:integer, exactly 3 | 1 |  | the format revision |
 | `j:name` | xsd:string | 1 |  | whose career this is |
 | `j:updated` | xsd:date | 1 |  | the day the last change landed |
-| `j:revision` | xsd:integer 1.. | 0..1 |  | the log revision it was written at |
+| `j:revision` | xsd:integer 1.. | 0..1 |  | the log revision the record is at |
 
 `format`, `updated` and `revision` belong to `jsk`, and a changeset may not set them.
 
 #### Person
 
-The person. A singleton, split across two sections: `positioning` is written under
-`# == Positioning`, and everything else under `# == Identity`.
+The person. A singleton, split across two sections: `positioning` is shown under
+Positioning, and everything else under Identity.
 
 id `k:person` · section Identity · provenance yes
 
@@ -289,9 +291,9 @@ id `k:lang_<slug>` · section Work authorization and languages · provenance yes
 #### Concept
 
 A matching term: a capability, a domain or a technology. Concepts are covered in full in §7.
-They appear both in the shipped `vocabulary.ttl` and under `# == Vocabulary` in `kb.ttl`.
+They appear both in the shipped `vocabulary.ttl` and in the career's own Vocabulary section.
 
-id `c:<slug>` · files kb.ttl, vocabulary.ttl · section Vocabulary · provenance no ·
+id `c:<slug>` · graphs kb, vocabulary · section Vocabulary · provenance no ·
 class stated as `a j:Capability | j:Domain | j:Technology`
 
 | Predicate | Object | Card. | Resets | Meaning |
@@ -302,8 +304,8 @@ class stated as `a j:Capability | j:Domain | j:Technology`
 | `j:partOf` | → concept | 0..n |  | counts as the whole it is part of |
 | `j:implies` | → concept | 0..n |  | suggests this; never satisfies a required one |
 | `j:distinct` | → concept | 0..n |  | never the same thing, whatever the names say |
-| `j:unlabel` | xsd:string | 0..n |  | a shipped label or former label this person drops *(kb.ttl only)* |
-| `j:unlink` | → concept | 0..n |  | a shipped isA or partOf edge to that concept this person drops *(kb.ttl only)* |
+| `j:unlabel` | xsd:string | 0..n |  | a shipped label or former label this person drops *(kb only)* |
+| `j:unlink` | → concept | 0..n |  | a shipped isA or partOf edge to that concept this person drops *(kb only)* |
 
 #### Organisation
 
@@ -370,7 +372,7 @@ bullets cannot be placed under a role fails the record gate when rendered.
 #### Achievement
 
 A bullet: one sentence, written once and reused on every resume that carries it. It sits under
-its project in the `# == Projects` section.
+its project in the Projects section.
 
 id `k:ach_<slug>` (never positional) · section Projects · provenance yes
 
@@ -491,13 +493,13 @@ A question stays open until it has `answered`. Any entry left `inferred` or
 `needs-verification` should have an open question about it (`inferred-unasked`), and `jsk kb
 apply` opens one automatically when it lowers an entry's provenance.
 
-### 5.2 The market: `posting.ttl` and `gaps.ttl`
+### 5.2 The market: `posting` and `gaps`
 
 #### Posting
 
 A job advertisement. The advert's own text sits next to it, verbatim, in `posting.md`.
 
-id `k:post_<slug>` · file posting.ttl · section Posting · provenance no
+id `k:post_<slug>` · graph posting · section Posting · provenance no
 
 | Predicate | Object | Card. | Resets | Meaning |
 |---|---|---|---|---|
@@ -513,7 +515,7 @@ id `k:post_<slug>` · file posting.ttl · section Posting · provenance no
 
 One thing a posting asks for.
 
-id `k:req_<slug>` · file posting.ttl · section Requirements · provenance no
+id `k:req_<slug>` · graph posting · section Requirements · provenance no
 
 | Predicate | Object | Card. | Resets | Meaning |
 |---|---|---|---|---|
@@ -533,7 +535,7 @@ State it when the term is ambiguous, unknown, or lists alternatives ("AWS/GCP/Az
 A posting's gap assessment, written by code. `jsk` derives it from the match and folds in the
 analyst's `gaps.txt`, which may only lower a verdict and must give a reason.
 
-id `k:gap_<stem>` · file gaps.ttl · section Assessment · provenance no
+id `k:gap_<stem>` · graph gaps · section Assessment · provenance no
 
 | Predicate | Object | Card. | Resets | Meaning |
 |---|---|---|---|---|
@@ -552,7 +554,7 @@ required requirement is `satisfied`, and `partial` otherwise.
 
 One requirement's verdict.
 
-id `k:vrd_<stem>_<slug>` · file gaps.ttl · section Verdicts · provenance no
+id `k:vrd_<stem>_<slug>` · graph gaps · section Verdicts · provenance no
 
 | Predicate | Object | Card. | Resets | Meaning |
 |---|---|---|---|---|
@@ -570,17 +572,17 @@ When the two differ, `shortfall` says why. The one flag, `listed-names`, fires o
 requirement whose quote names specific things (for example "Pinecone, Milvus") that none of
 the confirmed evidence bullets mentions.
 
-### 5.3 The history: `application.ttl` and `log.ttl`
+### 5.3 The history: `application` and `log`
 
 #### Application
 
 A submission. `jsk freeze` writes it, and after that it is never edited.
 
-id `k:app_<slug>` · file application.ttl · section Application · provenance no
+id `k:app_<slug>` · graph application · section Application · provenance no
 
 | Predicate | Object | Card. | Resets | Meaning |
 |---|---|---|---|---|
-| `j:posting` | → Posting | 1 |  | what it answered; must be the `posting.ttl` in the same directory (`application-posting`) |
+| `j:posting` | → Posting | 1 |  | what it answered; must be the posting of the same application (`application-posting`) |
 | `j:view` | xsd:string | 0..1 |  | `"resume"` for a short resume.json; a legacy record's URS view |
 | `j:submitted` | xsd:date, or xsd:boolean `false` | 1 |  | the day it was sent, or false when held back |
 | `j:channel` | xsd:string | 0..1 |  | how it was sent |
@@ -596,7 +598,7 @@ career has moved on. They are also why a sent metric version is never edited (§
 
 Something that happened to an application. `jsk event` appends these.
 
-id `k:evt_<slug>` · file application.ttl · section Timeline · provenance no
+id `k:evt_<slug>` · graph application · section Timeline · provenance no
 
 | Predicate | Object | Card. | Resets | Meaning |
 |---|---|---|---|---|
@@ -610,7 +612,7 @@ id `k:evt_<slug>` · file application.ttl · section Timeline · provenance no
 
 One change to the career (§14).
 
-id `k:rev_<N>` · file log.ttl · section Log · provenance no
+id `k:rev_<N>` · graph log · section Log · provenance no
 
 | Predicate | Object | Card. | Resets | Meaning |
 |---|---|---|---|---|
@@ -621,10 +623,11 @@ id `k:rev_<N>` · file log.ttl · section Log · provenance no
 | `j:touched` | → any id (may dangle) | 0..n |  | ids changed |
 | `j:minted` | → any id (may dangle) | 0..n |  | ids created |
 | `j:answer` | xsd:string (long) | 0..1 |  | the person's answer, for a confirm |
-| `j:kbSha256` | xsd:string `[0-9a-f]{64}` | 1 |  | kb.ttl's hash after the change |
-
 `touched` and `minted` may point at ids that no longer exist, because the log outlives what it
-records. They are the only references exempt from `dangling`.
+records. They are the only references exempt from `dangling`. Entries written before the store
+also carried `j:kbSha256`, the hash of the `kb.ttl` they produced; a write to the store is one
+update holding the change and its entry together, so there is no file to hash and no new entry
+carries one.
 
 ## 6. Enumerations
 
@@ -657,7 +660,7 @@ first.
 | `fit` | Assessment | `strong` · `partial` · `poor` |
 | `flag` | Verdict | `listed-names` |
 | `eventKind` | Event.kind | `submitted` · `acknowledged` · `screen-scheduled` · `screen-done` · `interview-scheduled` · `interview-done` · `onsite-scheduled` · `onsite-done` · `offer` · `offer-accepted` · `rejected` · `withdrawn` · `no-response` · `offer-declined` · `follow-up-sent` · `note` · `referral` · `recruiter-contact` |
-| `logBy` | LogEntry.by | `apply` · `confirm` · `adopt` · `migrate` · `fmt` · `new` |
+| `logBy` | LogEntry.by | `apply` · `confirm` · `new` - and on entries from before the store, `adopt` · `migrate` · `fmt`, commands that no longer exist |
 
 Notes on a few values:
 
@@ -693,16 +696,16 @@ Concepts are the terms that postings and the career are matched on.
 | Source | Holds | Who owns it |
 |---|---|---|
 | `src/jsk/data/vocabulary.ttl` (shipped) | **Technologies only**, with their labels, former names, and `isA`/`partOf`/`distinct` edges among themselves | The package; updated by releases |
-| `kb.ttl`, `# == Vocabulary` | The person's capabilities and domains, their own technologies, extra labels and edges on shipped concepts, and any narrowing | The person |
-| `src/jsk/data/capabilities.ttl` (pack) | About 110 capabilities and domains, with posting wordings and edges that hold for anyone | Nobody until adopted. It is never loaded. `jsk kb pack capabilities` drafts it as a changeset. |
+| the career's Vocabulary | The person's capabilities and domains, their own technologies, extra labels and edges on shipped concepts, and any narrowing | The person |
+| `src/jsk/data/capabilities.ttl` (pack) | About 110 capabilities and domains, with posting wordings and edges that hold for anyone | Nobody until applied. It is never loaded. `jsk kb pack capabilities` drafts it as a changeset. |
 
 The shipped vocabulary is restricted to technologies (`shipped-vocabulary`) for a reason. A
 technology alias is close to a fact: K8s is Kubernetes. A capability edge is a judgement, and
 a judgement shipped to every user is how a graph starts to overclaim. So capability edges,
-domains and `implies` exist only in a person's own `kb.ttl`. The starter pack is a proposal
-that the person reads and adopts, and once adopted it is theirs.
+domains and `implies` exist only in a person's own career. The starter pack is a proposal
+that the person reads and applies, and once applied it is theirs.
 
-A shipped concept keeps its shipped class. A `kb.ttl` that reclassifies one is a FAIL
+A shipped concept keeps its shipped class. A career that reclassifies one is a FAIL
 (`concept-reclassed`); the fix is to add a capability of your own and relate the two.
 
 ### 7.3 Names
@@ -732,14 +735,14 @@ The three *counts-as* edges run one way, from narrower to broader:
   `near`, which becomes a question for the person.
 - A cycle through counts-as edges is a FAIL (`counts-as-cycle`). So is a `distinct` pair where
   one concept counts as the other through any path (`wall-crossed`).
-- A capability defined in `kb.ttl` with no label and no `isA`/`partOf` matches only its exact
+- A capability defined in the career with no label and no `isA`/`partOf` matches only its exact
   id. That is one WARN for all such capabilities together (`concepts-bare`), and `jsk kb query
   bare` lists them.
 
 ### 7.5 Narrowing the shipped vocabulary
 
 The shipped file is not the person's to edit, and a local copy would stop picking up releases.
-So `kb.ttl` narrows it with statements instead:
+So the career narrows it with statements instead:
 
 ```turtle
 c:golang j:unlabel "Go" .          # in this person's field, "Go" is never the language
@@ -762,10 +765,10 @@ Every class marked "provenance yes" in §5 carries exactly one `j:provenance`:
 | `disputed` | The person or a source contradicts it. A disputed bullet is evidence of nothing. |
 
 The classes without provenance are Concept, Metric, Skill, Question, and everything outside
-`kb.ttl`. A concept or a metric subject is vocabulary, not a claim. A skill is display text
+the `kb` graph. A concept or a metric subject is vocabulary, not a claim. A skill is display text
 that matching never reads. A question is a request, not an assertion.
 
-**What resets it.** Three things happen when a changeset or a hand edit changes a predicate
+**What resets it.** Three things happen when a changeset changes a predicate
 marked **Resets** on a confirmed entry:
 
 1. the entry drops to `inferred`;
@@ -900,25 +903,26 @@ export --from-match` builds the draft resume from.
 ## 12. Validation rules
 
 Every command that reads the record loads and validates the whole workspace first. Each
-finding carries a rule id, a severity, `file:line`, the id it concerns, and a fix. A FAIL stops
-anything that would write or render. A WARN is reported and the command goes on.
+finding carries a rule id, a severity, the graph (`kb`, `applications/<dir>/posting`), the id it
+concerns, and a fix; the store has no lines to number. A FAIL stops anything that would write or
+render. A WARN is reported and the command goes on.
 
-### 12.1 Tier 1: one file, generated from the ontology
+### 12.1 Tier 1: one graph, generated from the ontology
 
 Code: [`shapes.py`](../src/jsk/graph/shapes.py).
 
 | Rule | Severity | Fires when |
 |---|---|---|
-| `syntax` | FAIL | The file does not parse. `dangling` is suppressed until it does. |
+| `syntax` | FAIL | Text input - a changeset, a dump, a file `jsk kb load` imports - does not parse. `dangling` is suppressed until it does. |
 | `id-form` | FAIL | A subject is not a jsk id; a concept slug is malformed; a bullet id is positional |
-| `id-home` | FAIL | A class appears in a file kind it does not belong to |
+| `id-home` | FAIL | A class appears in a graph kind it does not belong to |
 | `closed` | FAIL | A predicate is not declared for the subject's class (the nearest name is suggested) |
-| `cardinality` | FAIL | A required predicate is missing, a single-valued one holds several values, or the file's head class is not present exactly once |
+| `cardinality` | FAIL | A required predicate is missing, a single-valued one holds several values, or the graph's head class is not present exactly once |
 | `object` | FAIL | Wrong datatype, pattern, range, enum value, reference target class, or an impossible date |
-| `no-blank-nodes` | FAIL | `[ ]` or `_:` on disk |
+| `non-canonical-number` | FAIL | An integer or decimal written in a spelling the store would rewrite (`8.40`, `007`, `+3`); the fix gives the canonical form. It runs on everything that still arrives as text: changesets, posting builds, `jsk kb load` input |
+| `no-blank-nodes` | FAIL | `[ ]` or `_:` in the record |
 | `no-derived` | FAIL | `rdf:type` stated on a `k:` id |
 | `retired-reason` | FAIL | `retired` without `reason` |
-| `comment` | WARN | A comment that is not a section banner; the next write would lose it |
 | `shipped-vocabulary` | FAIL | `vocabulary.ttl` holds a non-Technology, or uses `implies`, `unlabel` or `unlink` |
 
 ### 12.2 Tier 2: the whole workspace, as SPARQL
@@ -929,10 +933,10 @@ SELECT naming `?focus`, and an optional post-processing step.
 | Rule | Severity | Fires when |
 |---|---|---|
 | `dangling` | FAIL | A reference to a `k:` or `c:` id nothing defines (except log `touched`/`minted`) |
-| `duplicate-id` | FAIL | An id is defined in more than one file |
+| `duplicate-id` | FAIL | An id is defined in more than one graph |
 | `concept-typed` | FAIL | A concept with no class |
 | `concept-class` | FAIL | `industry` or `domain` points at a non-Domain |
-| `concept-reclassed` | FAIL | `kb.ttl` gives a shipped concept a different class |
+| `concept-reclassed` | FAIL | The career gives a shipped concept a different class |
 | `primary-contact` | FAIL | `primary` is not one of the person's contact values |
 | `headline-xor` | FAIL | `headlineMetric` together with `noneQuantified true` |
 | `headline-cited` | WARN | A headline metric that no bullet of the project cites |
@@ -946,22 +950,22 @@ SELECT naming `?focus`, and an optional post-processing step.
 | `wall-crossed` | FAIL | Two concepts declared `distinct`, where one still counts as the other |
 | `label-clash` | WARN | Two concepts share a normalised label |
 | `narrows-nothing` | FAIL | An `unlabel`/`unlink` that removes nothing shipped |
-| `concepts-bare` | WARN | `kb.ttl` capabilities with neither labels nor edges (one finding covers them all) |
+| `concepts-bare` | WARN | The career's capabilities with neither labels nor edges (one finding covers them all) |
 | `inferred-unasked` | WARN | An inferred or needs-verification entry with no open question about it |
 | `retired-referenced` | WARN | A live entry points at a retired one (history references are exempt) |
 | `answered-before-asked` | FAIL | A question answered before it was asked |
 | `quote-verbatim` | FAIL | A requirement's quote is empty, missing from `posting.md`, or `posting.md` is absent |
 | `necessity-wording` | WARN | A quote says "must" but is marked preferred, or says "nice to have" but is marked required |
 | `advert-uncovered` | WARN | A requirement-like line in the advert that no requirement quotes and `decisions.txt` has not dropped. Eligibility lines are exempt, since they belong in `gaps.md`. |
-| `application-posting` | FAIL | An application points at a posting in another directory |
+| `application-posting` | FAIL | An application points at another application's posting |
 | `event-before-submit` | WARN | An event dated before its application was submitted |
-| `log-sync` | FAIL | `kb.ttl` does not match the log: a write was torn, or a file went back |
-| `hand-edited` | WARN | `kb.ttl` was edited by hand and has not been adopted yet |
 | `answer-placeholder` | WARN | A confirm whose answer is empty, a placeholder, or a denial |
 
 Every rule id has a mutation test that proves it fires ([`tests/test_graph_shapes.py`](../tests/test_graph_shapes.py),
 [`tests/test_graph_rules.py`](../tests/test_graph_rules.py)). A rule without one fails the
-suite.
+suite. Three rules went with the `.ttl` files: `comment` (a comment the next write would lose),
+`log-sync` (kb.ttl and log.ttl disagreeing) and `hand-edited` (kb.ttl changed outside jsk) -
+none of them can happen to a store only jsk writes.
 
 ## 13. Changesets
 
@@ -976,8 +980,10 @@ graphs:
 | `op:delete` | Removes triples. `k:x a op:Entry` removes the whole entry, which is allowed only if the entry was wrong and nothing points at it. |
 
 `op:changeset op:base N ; op:summary "…"` names the revision the changeset was drafted against.
-If anything the changeset touches has changed since that revision, it is refused. Apply
-validates the result before writing it, writes it in the canonical layout, and logs it. It also
+If anything the changeset names has changed since that revision, it is refused, naming the ids; a
+later write that touched none of them does not stop it, and it applies to the record as it now
+is. Apply validates the result before writing it, writes it to the store in one update with its
+log entry, and refreshes `.jsk/backup.trig`. A changeset is input, never storage. It also
 does four things the changeset did not ask for (§8, §9): it resets provenance on changed claims,
 opens questions, mints bullet ids, and versions sent metrics. A changeset may never write
 `j:confirmed`, `j:revision` or `j:updated`. See
@@ -986,31 +992,37 @@ example.
 
 ## 14. The log
 
-`career/log.ttl` holds one `LogEntry` per change to `kb.ttl`, numbered `k:rev_1`, `k:rev_2`,
-and so on. Each entry records the SHA-256 of the `kb.ttl` it produced, and `kb.ttl`'s header
-records the revision it was written at. From those two values the loader can tell four states
-apart:
+The `log` graph holds one `LogEntry` per write to the record, numbered `k:rev_1`, `k:rev_2`, and
+so on, and the career's header records the revision it is at. `jsk kb log [--last N]` prints it,
+newest first. Every write puts the change, the new revision and its entry in **one update** of the
+store, so the two cannot disagree, and a writer that finds the revision moved while it waited its
+turn re-runs its changeset against the record as it now is (§13). The record is in one of three
+states:
 
-| State | Meaning | Finding |
-|---|---|---|
-| clean | revisions agree and the hash matches the last entry | none |
-| hand-edited | revisions agree, but the hash does not: `kb.ttl` changed outside `jsk kb` | `hand-edited` WARN; `jsk kb adopt` logs the edit and lists the provenance it lowered |
-| torn | `kb.ttl` is one revision ahead of the log: the last write reached `kb.ttl` and not `log.ttl` | `log-sync` FAIL; `jsk kb adopt` repairs it |
-| out-of-sync | any other disagreement, such as one file restored from a backup without the other | `log-sync` FAIL |
+| State | Meaning |
+|---|---|
+| clean | the career's revision is the log's last |
+| empty | a store with no record yet: `jsk new` or `jsk kb load` fills it |
+| missing | no `career/store/`: `jsk new`, or `jsk kb load .` for a workspace still laid out as `.ttl` files |
+
+Before the store, the career and its log were two files, `career/kb.ttl` and `career/log.ttl`,
+written one after the other; a hash in each entry and a copy in `.jsk/` let the loader detect a
+hand edit or a write torn between them, and `jsk kb adopt` repaired either. Detection was all two
+files allowed. The store prevents both, and those states and that command are gone.
 
 ## 15. Changing the ontology
 
 1. **Edit `ontology.py`.** Add the `Pred` to the right line of the right `Class`. Set
    `claim=True` if changing it should reset provenance, and add it to `PLACES` if it places a
-   claim without being one. The writer and the tier-1 rules pick up the change automatically.
+   claim without being one. The printer and the tier-1 rules pick up the change automatically.
 2. **Edit `references/kb-format.md`** in the same commit. It is the agent's view of the format,
    and ARCHITECTURE.md treats any drift between the two as a defect. Update this document too.
 3. **A cross-entry rule** is one new row in `rules.RULES`, plus a mutation test proving it
    fires.
-4. **A breaking change**, one that existing files would fail, bumps `FORMAT` and needs a
+4. **A breaking change**, one that existing records would fail, bumps `FORMAT` and needs a
    migration. A new optional predicate is not breaking.
 5. **New shipped vocabulary** goes in `data/vocabulary.ttl` and must be technologies only.
-   Capabilities and domains go in `data/capabilities.ttl`, the pack, where adopting them is
+   Capabilities and domains go in `data/capabilities.ttl`, the pack, where applying them is
    the person's choice.
 
 ---

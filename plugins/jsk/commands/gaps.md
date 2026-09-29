@@ -11,4 +11,4 @@ Skill(skill="jsk:jsk", args="gaps")
 ```
 
 `references/mode-gaps.md` holds the procedure. `$ARGUMENTS` may be the workspace,
-the folder holding `career/kb.ttl`.
+the folder holding `career/store/`.

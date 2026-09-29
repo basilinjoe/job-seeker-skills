@@ -6,7 +6,7 @@ Match the career against a posting, close the gaps, then write the resume once.
 
 **Tailoring is selection and emphasis. It is never invention.**
 
-Every claim must trace to a `confirmed` entry in `career/kb.ttl`. If the posting wants something
+Every claim must trace to a `confirmed` entry in the career. If the posting wants something
 they have not done, say so — do not manufacture a bullet; someone who bluffs past a screen is found
 out in the first technical conversation. `resume.json` names career entries by id, so it cannot
 hold what the career does not.
@@ -14,19 +14,20 @@ hold what the career does not.
 ## The shape
 
 ```
-posting.md     the advert, verbatim   ──►  posting.ttl  its requirements, each quoting it
+posting.md     the advert, verbatim   ──►  posting      its requirements, each quoting it
 jsk match      requirements × career  ──►  gaps.md      verdicts, shortfalls, the question queue
 answers        jsk kb apply / confirm ──►  resume.json  authored once, confirmed, shipped
 ```
 
-One directory per application:
+One directory per application; its requirements, assessment and timeline are graphs in the store:
 
 ```
 applications/<yyyy-mm-dd>-<company>-<role>/
-  posting.md  posting.ttl  gaps.txt  gaps.ttl  gaps.md  resume.json  application.ttl  <Name>_<Company>_Resume.{tex,pdf,txt}
+  posting.md  decisions.txt  gaps.txt  gaps.md  resume.json  <Name>_<Company>_Resume.{tex,pdf,txt}
 ```
 
-Name it for the day it is being worked on; `jsk freeze` renames it if it is sent later.
+Name it for the day it is being worked on; `jsk freeze` renames it if it is sent later. Commands
+take the directory (`applications/<stem>`), never a file inside it.
 
 **Two agent passes, and the person in between.** One writes the assessment; one writes the resume
 after the questions are answered. The resume is written **last** — never from a career you are
@@ -67,13 +68,12 @@ dispatch the analyst in the background and ask at once; on "stop", stop the agen
 
 ## 2. Assess
 
-Send `jsk-tailor-analyst` the application directory and the workspace, both absolute, and the
-`kb` path `jsk kb path` printed — the file, never "the folder holding career/kb.ttl", which in a
-workspace named `career` is the wrong folder. Add the
+Send `jsk-tailor-analyst` the application directory and the workspace, both absolute, as `jsk kb
+path` printed them. Add the
 posting facts worth flagging, then stop: **its definition holds the procedure and the return, so
 do not send the skill directory or ask for a report.** It decides the requirements, `jsk posting
-build` writes `posting.ttl`, and `jsk tailor prepare` derives `gaps.md` and drafts the `gaps.txt` it fills in.
-It never touches `career/kb.ttl`.
+build` stores them, and `jsk tailor prepare` derives `gaps.md` and drafts the `gaps.txt` it fills in.
+It never touches the career.
 
 It returns three lines: the fit, what is blocking, and the path to `gaps.md`. **Read `gaps.md` and
 show them the assessment whole**, not a summary of it and not a rewrite, leading with the blocking
@@ -105,7 +105,7 @@ numbered, ask for a bulk reply, and that is the one time the turn ends on the qu
 
 ### Answers go into the career
 
-An answer changes **`career/kb.ttl`** — never `gaps.md` or `resume.json`, both downstream of it.
+An answer changes **the career** — never `gaps.md` or `resume.json`, both downstream of it.
 
 - **A round's corrections and new facts are one changeset**, one `jsk kb apply`, after
   `jsk kb show <ids>` for the `op:base`. A corrected claim comes back `inferred`; confirm it next.
@@ -121,7 +121,7 @@ An answer changes **`career/kb.ttl`** — never `gaps.md` or `resume.json`, both
   ```
 - **A term they name** (`ambiguous`, `unknown-term`): if `asked` is a term, not a clause, the
   changeset labels the concept with it — `op:add { c:ai-agents j:label "autonomous agents" . }`
-  — so no later posting asks again. A clause stays a `j:concept` in `posting.ttl`.
+  — so no later posting asks again. A clause stays a concept in `decisions.txt`.
 - **What they confirmed**: `jsk kb confirm <ids> --answer "their words"`, which also answers the
   open questions about them.
 - **Unanswerable**: soften or cut the claim in the changeset; never leave it pending forever.
@@ -131,7 +131,7 @@ An answer changes **`career/kb.ttl`** — never `gaps.md` or `resume.json`, both
 Revise the assessment **only when an answer changed what the career holds**. Re-run `jsk match`.
 
 **Patch it yourself when every change is a row** — a lowered verdict, an answered `ask:` struck —
-in `gaps.txt`; then `jsk match <posting.ttl> --gaps <gaps.txt>` rewrites `gaps.md` from the new
+in `gaps.txt`; then `jsk match <app-dir> --gaps <gaps.txt>` rewrites `gaps.md` from the new
 match, and fails a verdict above it. **Send it back only when the fit could change or an answer
 needs a row the assessment lacks**: `SendMessage` to the same agent with what changed.
 

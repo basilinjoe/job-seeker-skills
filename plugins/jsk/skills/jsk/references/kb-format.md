@@ -1,46 +1,46 @@
-# The record: Turtle files in git
+# The record: one store, read as Turtle
 
-For reading `career/kb.ttl` and drafting a changeset. Nobody writes `career/` but `jsk`; you
-change the career with `jsk kb apply`, and read it with `jsk kb show`, `view` and `query`.
+For reading the career and drafting a changeset. The record is named graphs in one store,
+`career/store/`, that only `jsk` opens: you change it with `jsk kb apply`, and read it with
+`jsk kb show` (entries as Turtle, and the `op:base`), `view`, `query` and `log`.
 
 ```
 <workspace>/
-  .gitattributes             *.ttl text eol=lf
-  career/kb.ttl              the whole career, one readable file
-  career/log.ttl             every change: revision, day, command, summary, kb.ttl's hash
+  career/store/              the record: graphs kb (the career), log (every change),
+                             applications/<stem>/posting, .../application, .../gaps
+  .jsk/backup.trig           the whole record as TriG, after every write
+  changes/                   changesets you draft, for jsk kb apply
   applications/<yyyy-mm-dd>-<company>-<role>/
     posting.md               the advertisement, verbatim - nothing else
-    posting.ttl              what it asks for (the analyst writes it)
+    decisions.txt            the analyst's requirements, for jsk posting build
     gaps.txt                 what the analyst changes in the assessment
-    gaps.ttl · gaps.md       the assessment, derived from the match - jsk writes both
+    gaps.md                  the assessment, derived from the match - jsk writes it
     resume.json              the bullets and settings this submission rendered from
-    application.ttl          what was sent, and its timeline - jsk freeze, jsk event
 ```
 
-## Layout
+## Sections
 
-A fixed prefix block (`j:` the ontology, `k:` ids, `c:` concepts, `xsd:`), the header
-`k:kb j:format 3 ; j:name … ; j:updated … ; j:revision N .` (`format`, `updated` and `revision`
-are jsk's to write), then one banner per section, always all of them, in this order:
+The career's header is `k:kb j:format 3 ; j:name … ; j:updated … ; j:revision N .` (`format`,
+`updated` and `revision` are jsk's to write). `jsk kb view` prints it in these sections, in this
+order; `--section` takes one name:
 
 ```
-# == Identity
-# == Positioning
-# == Work authorization and languages
-# == Vocabulary
-# == Organisations
-# == Roles
-# == Projects
-# == Metrics
-# == Skills
-# == Education
-# == Certifications
-# == Open source
-# == Open questions
+Identity
+Positioning
+Work authorization and languages
+Vocabulary
+Organisations
+Roles
+Projects
+Metrics
+Skills
+Education
+Certifications
+Open source
+Open questions
 ```
 
-Bullets sit under their project, versions under their metric, prose in `"""…"""`. Values are
-never reflowed. No blank nodes on disk. `jsk kb fmt` restores the layout.
+Bullets sit under their project, versions under their metric. `kb show` prints prose in `"""…"""`.
 
 ## Ids
 
@@ -71,10 +71,12 @@ ontology has no field for. Enums are `j:` words (`j:ongoing`, `j:measured`); dat
 `architecture-ownership` `product-ownership` `platform-design` `team-leadership`
 `technical-ownership` `hands-on-senior` `hands-on` `junior`. A number stated loosely keeps how:
 "15-20" is `j:value 15 ; j:upper 20`, "50+" `j:qualifier j:at-least` (`j:about` ~, `j:under` <,
-`j:over` >); several numbers in one are several metrics.
+`j:over` >); several numbers in one are several metrics. The store keeps a number by value, so
+write it as it keeps it - `8.4`, not `8.40`; `7`, not `007` - or apply refuses it; a grade whose
+zeros matter (`3.80`) is a string.
 
 **Tag versus evidence.** A project's `uses` is a tag; a bullet's `shows` is evidence. A concept a
-project names must exist - in the shipped vocabulary or under `# == Vocabulary`
+project names must exist - in the shipped vocabulary or the career's own Vocabulary
 (`c:x a j:Capability ; j:label "X" .`).
 
 ## Provenance
@@ -110,29 +112,23 @@ op:retire { k:prj_intranet j:reason "Too old to earn a line." . }
 - `op:add` adds; `op:set` replaces every value of each (entry, predicate) it names; `op:retire`
   keeps the entry, dated, with its reason; `op:delete` removes triples, or `k:x a op:Entry` the
   whole entry - only one that was wrong, never one anything points at.
-- `op:base` is the revision `jsk kb show` printed; a later change to what you touch is refused.
+- `op:base` is the revision `jsk kb show` printed. A later write that touched nothing you name
+  does not stop it; a later change to what you touch is refused, naming the ids.
 - A new bullet is `[]` with `j:project` and `j:rank`. A new `j:value` on a metric version an
   application sent becomes the next version; the sent one never changes. Never write `j:confirmed`, `j:revision` or `j:updated`.
 - `--dry-run` first. Every refusal says what fixes it.
 
 Without pyoxigraph, draft the changeset into a file and say it waits for `jsk kb apply`.
 
-## Hand edits
+## The posting graph
 
-Legal. The next load says `kb.ttl changed outside jsk kb apply`; `jsk kb adopt` logs the edit and
-lists every provenance it raised, to check with the person.
-
-## posting.ttl
+`jsk posting build` writes it from `decisions.txt`; `jsk kb show k:post_<stem>` prints it:
 
 ```turtle
-# == Posting
-
 k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;
     j:url "https://…" ;
     j:seniority j:platform-design ;
     j:captured "2026-09-08"^^xsd:date ; j:advert "posting.md" .
-
-# == Requirements
 
 k:req_acme_platform_k8s j:posting k:post_acme_platform ;
     j:asked "K8s" ; j:necessity j:required ; j:concept c:kubernetes ;

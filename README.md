@@ -4,9 +4,9 @@ Claude skills for job seekers. Currently ships one plugin: **Job Seeker Skill**.
 
 ## Job Seeker Skill
 
-Most resume tools start from a blank page every time. This one keeps your career in **one file you
-own** — `career/kb.ttl`, a graph laid out as one readable file and checked every time it is loaded
-— and treats a resume as one *rendering* of it.
+Most resume tools start from a blank page every time. This one keeps your career in **one record you
+own** — a graph in `career/store/`, in your own folder, checked every time it is loaded — and
+treats a resume as one *rendering* of it.
 
 **Interview once. Regenerate resumes, tailored variants, LinkedIn copy and interview briefs forever.**
 
@@ -14,8 +14,8 @@ Five things make it different:
 
 - **The career checks itself.** Every entry has an id and every link is by id, so a bullet citing a
   metric that does not exist, or a role at an employer that is not there, is found the next time
-  anything runs. Changes go in through `jsk kb apply` - validated, written, logged, with the diff
-  shown - and nothing can be marked confirmed except by your own answer.
+  anything runs. Changes go in through `jsk kb apply` - validated, written in one step, logged, with
+  the diff shown - and nothing can be marked confirmed except by your own answer.
 - **Nothing is hand-built.** The PDF and the paste-in plain text are both built from your knowledge
   base and a short `resume.json` naming what this resume shows — so they cannot drift apart or
   contradict each other.
@@ -91,36 +91,35 @@ details. Every quarter → `refresh`. Before applying → `gaps`, then `resume`.
 ```
 my-career/                  `jsk new ./my-career --name "Your Name"` makes this
   career/
-    kb.ttl                  the whole career, in fixed sections
-    log.ttl                 every change to it, numbered, each with kb.ttl's hash
+    store/                  the record: the career, every change to it, and each application's
+                            requirements, assessment and timeline - read and written by jsk only
   applications/
     2026-09-08-acme-platform-engineer/
       posting.md            the advertisement, verbatim
-      posting.ttl           what it asks for, each requirement quoting the advert
+      decisions.txt         what it asks for, as the analyst read it
       gaps.md               the assessment, and the question queue
       resume.json           the bullets and settings this submission rendered from
-      application.ttl       what was sent, what it carried, and what came back
       Priya_Raman_Resume.{tex,pdf}
       Priya_Raman_Resume_ATS.txt
-  .gitattributes            keeps *.ttl and *.trig LF, so the hashes hold on Windows
+  .jsk/backup.trig          the whole record as text, refreshed after every change
 ```
 
-One file for the career, and a frozen directory per application. `kb.ttl` holds identity,
+One record for the career, and a frozen directory per application. The career holds identity,
 positioning, work rights, vocabulary, organisations, roles, projects, metrics, skills, education,
-certifications, open source and the open questions — each under a fixed banner, in the order the
-format reference ([kb-format.md](plugins/jsk/skills/jsk/references/kb-format.md)) describes.
-`jsk freeze` writes `application.ttl` once the gates pass and names the directory after the day it
+certifications, open source and the open questions — in fixed sections, in the order the format
+reference ([kb-format.md](plugins/jsk/skills/jsk/references/kb-format.md)) describes.
+`jsk freeze` records what was sent once the gates pass and names the directory after the day it
 was sent; from then on it is an archive, and `jsk event` adds what came back.
 
 It is a graph - every entry an id, every link between entries by id - because that is what lets a
 program check it on every load, match a posting one way through a vocabulary, keep every version of
-a number, and join a resume back to the career it claims. It is laid out as one file, in the old
-section order, because a career record survives a year only if the person whose career it is can
-read it end to end and correct it. [Why it works this way](docs/WHY.md) has the whole argument,
-including what it costs.
+a number, and join a resume back to the career it claims. It lives in a store rather than a text
+file so that every change lands whole, through one gate that validates and logs it. The cost is
+real: there is no file to open in an editor and no git history of the record. You read it with
+`jsk kb view` (the whole career as Markdown) and `jsk kb log`, and `jsk kb dump` writes all of it
+out as TriG. [Why it works this way](docs/WHY.md) has the whole argument, including what it costs.
 
-Plain text in Turtle: readable in any editor, versionable in Git, parsed by any graph library. Keep
-it in a repo you control so it outlives any single tool, including this one.
+Back up the folder and the record goes with it; the dump is what outlives this tool.
 
 ### Documentation
 
@@ -130,8 +129,8 @@ it in a repo you control so it outlives any single tool, including this one.
 | [Concepts](docs/CONCEPTS.md) | The vocabulary, on one screen |
 | [Why it works this way](docs/WHY.md) | The reasoning behind every design decision |
 | [Commands](docs/SCRIPTS.md) | The `jsk` command: every subcommand, flags, dependencies, exit codes |
-| [The knowledge base format](plugins/jsk/skills/jsk/references/kb-format.md) | Every section, class and predicate of `career/kb.ttl`, and what goes in each |
-| [The ontology](docs/ONTOLOGY.md) | The full model: every file kind, class, predicate and enum, the vocabulary's semantics, provenance, matching and every validation rule |
+| [The knowledge base format](plugins/jsk/skills/jsk/references/kb-format.md) | Every section, class and predicate of the career, and what goes in each |
+| [The ontology](docs/ONTOLOGY.md) | The full model: every graph kind, class, predicate and enum, the vocabulary's semantics, provenance, matching and every validation rule |
 | [Architecture](docs/ARCHITECTURE.md) | For anyone editing this repo |
 | [The resume file](plugins/jsk/skills/jsk/references/resume-format.md) | `resume.json`: every key, and the rule that its only prose is the summary |
 

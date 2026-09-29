@@ -9,10 +9,12 @@ in place of `python3`.
 Every subcommand below also exists as a module you can run or import directly —
 `python3 -m jsk.gates.check_ats resume.pdf`, `from jsk.resume import build`. The headings name both.
 
-**The career is `career/kb.ttl`**, the graph record: one Turtle file in the old knowledge base's
-section order, loaded and validated on every run. `jsk kb` changes it (through changesets) and
-reads it back, `jsk match` ranks it against a posting, `jsk freeze` and `jsk event` record what
-was sent and what came back. A resume is built from it and a short `resume.json` - the bullets
+**The career is in `career/store/`**, the graph record: named graphs in one Oxigraph store -
+`kb`, `log`, and each application's `posting`, `application` and `gaps` - read and written only
+through `jsk`, and validated on every run. `jsk kb` changes it (through changesets) and reads it
+back, `jsk match` ranks it against a posting, `jsk freeze` and `jsk event` record what was sent and
+what came back. Documents - `posting.md`, `decisions.txt`, `gaps.txt`, `gaps.md`, `resume.json`,
+the renders - stay files in `applications/<dir>/`. A resume is built from it and a short `resume.json` - the bullets
 chosen for one posting, by id, and its settings - which `jsk kb export` writes and `jsk validate`
 checks against the career. The rendering half carries that to a document somebody can send.
 
@@ -20,13 +22,13 @@ checks against the career. The rendering half carries that to a document somebod
 
 ```bash
 jsk doctor                       # what works on this machine
-jsk new ./my-career --name "Your Name"     # career/kb.ttl and its log, at r1
+jsk new ./my-career --name "Your Name"     # career/store/ with the career and its log, at r1
 jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
 jsk posting fetch <url> applications/<dir>   # an Ashby, Greenhouse or Lever posting, as posting.md
-jsk match applications/<dir>/posting.ttl   # a posting against the career, through the vocabulary
+jsk match applications/<dir>     # a posting against the career, through the vocabulary
 jsk tailor prepare applications/<dir> --draft-gaps   # the match and everything an assessment reads
 jsk validate resume.json         # the record gate
-jsk kb export --from-match applications/<dir>/posting.ttl --out applications/<dir>/resume.json
+jsk kb export --from-match applications/<dir> --out applications/<dir>/resume.json
 jsk render resume.json --out . --pdf
 jsk check resume.pdf             # both document gates, one pass
 jsk check cover-letter.txt --only letter --record resume.json   # a cover letter's words and numbers
@@ -67,11 +69,11 @@ The `jsk.preflight` module.
 jsk doctor                 # verifies end to end
 jsk doctor --quick         # skip the render
 jsk doctor --json          # machine-readable
-jsk doctor --kb PATH       # check a specific career/kb.ttl, or the workspace holding it
+jsk doctor --kb PATH       # check a specific workspace, the folder holding career/store/
 ```
 
 Bare `jsk doctor` runs the record gate over the shipped example workspace (`jsk/data/example/`:
-a small `career/kb.ttl` and a short `resume.json`), renders it and runs the parse and prose gates on
+a small career and a short `resume.json`), renders it and runs the parse and prose gates on
 the result, so a pass means the pipeline genuinely works here rather than looking like it should.
 
 Verdicts: `READY` · `READY, with gaps` · `BLOCKED` (the install is broken) · `BROKEN` (the toolchain
@@ -80,11 +82,13 @@ is present but failed its own gates — that is a bug in the skill, not in your 
 Gaps are reported by what they *disable*, not by package name. Runs on a bare Python: a preflight
 that needs installing first is not a preflight.
 
-Without `--kb` it searches three directories down for `career/kb.ttl` - a `kb.ttl` counts only
-inside a folder named `career`, and dot folders (`.jsk/`, `.git/`) are never searched. Searching by
-filename rather than by a directory shape is deliberate — a bundle used to be recognised by the
-folders inside it, so a half-created one was invisible here and reported as absent while the person
-was looking straight at it.
+Without `--kb` it searches three directories down for a workspace, and dot folders (`.jsk/`,
+`.git/`) are never searched. For the one it finds it reports the store: present, readable, its
+revision, and whether `.jsk/backup.trig` exists and at which revision. A `career/kb.ttl` with no
+`career/store/` beside it is a workspace from before the store, reported with its fix, `jsk kb
+load .`. Searching by name rather than by a directory shape is deliberate — a bundle used to be
+recognised by the folders inside it, so a half-created one was invisible here and reported as
+absent while the person was looking straight at it.
 
 ### `jsk new`
 
@@ -92,44 +96,35 @@ The `jsk.kb` module.
 
 ```bash
 jsk new ./my-career --name "Your Name"
-jsk new ./my-career --name "Your Name" --force   # start career/kb.ttl over from the empty record
+jsk new ./my-career --name "Your Name" --force   # start the career over from the empty record
 ```
 
 Writes a graph workspace:
 
 | Path | Is |
 |---|---|
-| `career/kb.ttl` | the empty record in the canonical layout: a header naming the person (`k:kb j:name`) and every section banner, `# == Identity` to `# == Open questions`, at `j:revision 1` |
-| `career/log.ttl` | `k:rev_1`, `j:by j:new`, holding kb.ttl's hash |
+| `career/store/` | the store, holding the `kb` graph - the empty career: a header naming the person (`k:kb j:name`) at `j:revision 1` - and the `log` graph with `k:rev_1`, `j:by j:new` |
 | `applications/README.md` | what each application directory holds |
-| `.gitattributes` | `*.ttl text eol=lf` and `*.trig text eol=lf`, added to whatever is there already |
 
-Both record files come out of the same writer and the same kb.ttl-then-log.ttl commit every
-`jsk kb` write uses, so the record is **clean at r1** and `jsk kb apply` works on it straight away:
-writes refuse a record that is unlogged or hand-edited, and a workspace that started any other way
-would first have to be adopted. The `.gitattributes` lines matter on Windows: a checkout that
-turned kb.ttl's line endings to CRLF would change the bytes whose hash `log.ttl` holds.
+Both graphs go in through the same write gate every `jsk kb` write uses, in one update, so the
+record is **clean at r1** and `jsk kb apply` works on it straight away. It needs pyoxigraph, a
+dependency of the package, as every `jsk kb` verb does: without it there is no store to create.
 
 The empty record holds no identity: `k:person` arrives with the first changeset, like any other
 entry, as `j:inferred` with a question - the name on the command line says whose record this is,
-not that anyone confirmed how it should head a resume. Works without pyoxigraph: the empty record
-is fixed text, written byte for byte as the writer would, so a sandbox that cannot install it can
-start and draft changesets for later. `--force`, and every `jsk kb` verb, need pyoxigraph, a
-dependency of the package.
+not that anyone confirmed how it should head a resume.
 
-It refuses (exit 1, nothing written) when `career/kb.ttl` exists. `--force` overrides that. Over an existing record it starts over **as the next
-revision** - kb.ttl becomes the empty record, `log.ttl` keeps every earlier entry and gains one by
-`new`, and the replaced kb.ttl is kept beside it as `career/kb.r<N>.ttl`, N its revision (then
-`kb.r<N>-2.ttl` if that name is taken - it never overwrites a file; the loader and `jsk doctor` read
-only `career/kb.ttl`, so the copy is not a record file). It is refused while kb.ttl is
-hand-edited, torn or out of sync with the log - `jsk kb adopt` first, so the log records the text
-it replaces - where a frozen application carried an entry the empty record would not have, or
-where `log.ttl` does not parse.
+It refuses (exit 1, nothing written) when the workspace already holds a record, and when it holds
+`career/kb.ttl` and no store - that is a record from before the store, for `jsk kb load .`.
+`--force` overrides the first. Over an existing record it starts over **as the next revision** -
+the career becomes the empty record, the log keeps every earlier entry and gains one by `new`, and
+the replaced career is written beside the store as `career/kb.r<N>.trig`, N its revision (then
+`kb.r<N>-2.trig` if that name is taken - it never overwrites a file, and nothing reads it: it is
+a copy for a person, not the record). It is refused where a frozen application carried an entry
+the empty record would not have.
 
-Guidance that the Markdown template carried in HTML comments is not in kb.ttl: a comment is not
-part of the graph, and `jsk kb fmt` and `adopt` refuse a file holding one. What each section holds
-is the format reference's job (`references/kb-format.md` in the skill), and every refused write
-names what it refused.
+What each section holds is the format reference's job (`references/kb-format.md` in the skill),
+and every refused write names what it refused.
 
 ## The record
 
@@ -162,11 +157,11 @@ The `jsk.graph.postingbuild` module, over `jsk.graph.decisions`.
 
 ```bash
 jsk posting extract applications/<dir>             # the advert's lines, numbered
-jsk posting build applications/<dir>               # decisions.txt -> posting.ttl
+jsk posting build applications/<dir>               # decisions.txt -> the posting graph
 jsk posting build applications/<dir> my.txt --replace
 ```
 
-The model decides; code writes the Turtle. `extract` prints a `decisions.txt` header (company,
+The model decides; code writes the graph. `extract` prints a `decisions.txt` header (company,
 title, URL, a seniority hint from the title, today's date) and every line of `posting.md` a
 requirement could quote, numbered, with its section - `qual` under a heading that names
 requirements, `resp` under responsibilities, `other` for prose and anything else; benefits are
@@ -175,13 +170,15 @@ holds.
 
 `decisions.txt` is the header, then one `|`-separated row per requirement - `n | slug | asked |
 concepts | need`, `need` blank for the default - or a drop, `n | - | reason`. `build` writes
-`posting.ttl` in the canonical layout with every `j:quote` the extracted line itself, so
+the posting graph, `applications/<dir>/posting` in the store, with every `j:quote` the extracted
+line itself, so
 `quote-verbatim` and `advert-uncovered` cannot fail by construction (a dropped line is answered,
 not uncovered). Necessity defaults from the section: a qualification `required`, or `preferred`
 when optional; a responsibility or prose line `implicit`, unless its words say required. It
 refuses - writing nothing - an `asked` not in its line, an unknown or retired concept, a duplicate
-slug or asked term, a `qual` or `resp` line neither used nor dropped, and an existing `posting.ttl`
-without `--replace` (which keeps its posting id). It WARNs past 20 requirements and on a
+slug or asked term, a `qual` or `resp` line neither used nor dropped, a number the store would rewrite, and an
+existing posting graph without `--replace` (which keeps its posting id, and drops the old posting
+and gaps graphs in the same update that writes the new one). It WARNs past 20 requirements and on a
 responsibility set to `required` without required wording.
 
 Exit 0 written or printed; 1 refused, with a `fix:` line; 2 called wrong.
@@ -191,15 +188,16 @@ Exit 0 written or printed; 1 refused, with a `fix:` line; 2 called wrong.
 The `jsk.graph.match` module, over the queries in `jsk.graph.queries`.
 
 ```bash
-jsk match applications/<dir>/posting.ttl                 # the four sections, as Markdown
-jsk match applications/<dir>/posting.ttl --cover 2       # a cover of at most two projects
-jsk match applications/<dir>/posting.ttl --json --today 2026-09-24
-jsk match applications/<dir>/posting.ttl --gaps applications/<dir>/gaps.txt  # check, then write gaps.ttl + gaps.md
+jsk match applications/<dir>                 # the four sections, as Markdown
+jsk match applications/<dir> --cover 2       # a cover of at most two projects
+jsk match applications/<dir> --json --today 2026-09-24
+jsk match applications/<dir> --gaps applications/<dir>/gaps.txt  # check, then write the gaps graph + gaps.md
 ```
 
-A posting's requirements joined with the career through the vocabulary - the shipped `jsk/data/vocabulary.ttl` and the knowledge base's own additions. Reads the
-whole workspace the posting sits in (`career/kb.ttl`, `applications/*/`) and validates it first;
-any FAIL is printed and nothing is matched. Needs pyoxigraph, a dependency of the package.
+A posting's requirements joined with the career through the vocabulary - the shipped `jsk/data/vocabulary.ttl` and the knowledge base's own additions. It takes the
+application directory, as `jsk posting build` and `jsk freeze` do; a path ending `posting.ttl` is
+refused with the directory form in the fix. Loads the whole record and validates it first; any
+FAIL is printed and nothing is matched. Needs pyoxigraph, a dependency of the package.
 
 **Requirements** puts each one in a bucket: `matched` (a project holds the concept, or a narrower
 one within two hops - `via c:aks, 1 hop`), `near` (only an `implies` path, for a required one, or
@@ -217,22 +215,22 @@ strings. **Cover** is the smallest set of projects, at most `--cover` (default 3
 required requirement anything carries. **Questions** are derived from the gaps, never invented.
 
 Exit 0 with the result - missing requirements included, since this is an assessment, not a gate;
-1 when the workspace has a FAIL; 2 called wrong, or a path that is not
-`applications/<dir>/posting.ttl`.
+1 when the workspace has a FAIL; 2 called wrong, or a path that is not an application directory
+with a posting.
 
-**The assessment** is three files beside `posting.ttl`, each with one owner. `gaps.ttl` (loaded
-with the workspace, so SPARQL reaches it) and `gaps.md` (what the person reads) are written by
+**The assessment** is three parts, each with one owner. The gaps graph (in the store, so SPARQL
+reaches it) and `gaps.md` in the application directory (what the person reads) are written by
 code: derived from the match - per requirement the match's verdict, the projects behind it and a
 one-line basis - with the analyst's `gaps.txt` folded in. `gaps.txt` holds only what the match
 cannot know, one line each: `fit:`, `eligibility:`, `short:`, `surplus:` and `ask:` lines, and
 rows `slug | verdict | reason`, paired to requirements by slug. Nothing reads `gaps.md` back. A
 satisfied requirement whose `asked` lists items (`Vector databases (Pinecone, Weaviate)`) that no
 confirmed evidence bullet names is **flagged**, and its row must be answered `keep` or lowered.
-Both are rebuilt on every run from the career as it stands; once `application.ttl` records a
-submission date, they are frozen.
+Both are rebuilt on every run from the career as it stands; once the application graph records
+a submission date, they are frozen.
 
 **`--gaps <gaps.txt>`** prints no match: it checks the posting's own `gaps.txt`, then writes
-`gaps.ttl` and `gaps.md`. It FAILs, and writes nothing, on a verdict above the match's (satisfied
+the gaps graph and `gaps.md`. It FAILs, and writes nothing, on a verdict above the match's (satisfied
 > partial > unevidenced > unsatisfied; an `indeterminate` may become anything but satisfied or
 partial), a lowering with no reason, a flagged row with no
 row (once there is a gaps.txt - with none, gaps.md marks it not yet reviewed), a slug that is not the posting's, and any `<!-- jsk: -->` slot still in the file. A row the
@@ -241,7 +239,7 @@ the match's verdict: each is the match's verdict already. Each row gets one find
 under-reads, the career needs the tag or the confirmed bullet, made in the conversation. A
 `gaps.md` is refused: it is written by jsk. Exit 1 on any FAIL, 0 otherwise.
 
-**`--draft-gaps <gaps.txt>`** writes `gaps.ttl` and `gaps.md` from the match alone, then drafts
+**`--draft-gaps <gaps.txt>`** writes the gaps graph and `gaps.md` from the match alone, then drafts
 `gaps.txt`, never over one already there: `fit:` at its default (poor when a required requirement
 is unsatisfied, strong when every one is satisfied, else partial), the person's eligibility facts
 as comments, a row slot for each flagged requirement, `decisions.txt`'s drops as comments, and the
@@ -264,12 +262,11 @@ jsk tailor prepare applications/<dir> --draft-gaps     # and draft gaps.txt with
 ```
 
 Everything an assessment reads, in one process and one digest, where the analyst used to make
-about ten calls, each one a model turn. In order: `posting.ttl` put in the canonical layout (as
-`jsk kb fmt` would; left alone if it holds hand comments); the check, scoped to this application
+about ten calls, each one a model turn. In order: the check, scoped to this application
 plus every FAIL anywhere (as `jsk kb check --only`); the match as `jsk match` prints it; `jsk kb
 query evidence` for every `missing` and `candidate` term; `jsk kb query person`; the cover's
 projects (at most three, or the top-ranked that carry a requirement), bullets only; and what those
-projects hold unconfirmed; and the assessment - `gaps.ttl` and `gaps.md` written on every run,
+projects hold unconfirmed; and the assessment - the gaps graph and `gaps.md` written on every run,
 with the flagged rows and the counts by verdict. Every section has a size cap and prints
 `… N more cut` when it cuts. A `gaps.txt` the check refuses is reported there, not an exit 1:
 the analyst may be halfway through it.
@@ -279,7 +276,7 @@ over one already there, and not for an application already sent. `--cover N` and
 
 Exit 0 digest printed; 1 a FAIL that stops the match (the career, the vocabulary or this
 application's own directory - one in another application does not), printed before it stops;
-2 called wrong, or no `posting.ttl` in the directory.
+2 called wrong, a `posting.ttl` path (it takes the directory), or no posting built for it yet.
 
 ### `jsk kb`
 
@@ -292,7 +289,8 @@ jsk kb apply changes.trig --dry-run      # the diff it would make, nothing writt
 jsk kb apply changes.trig                # merged, validated, written, logged
 ```
 
-**`apply`** is how an agent changes `career/kb.ttl`: a changeset, in TriG, with four graphs. A
+**`apply`** is how an agent changes the career: a changeset, in TriG, with four graphs. A
+changeset is input - a file you write, say `changes/2026-09-08-payments.trig` - never storage. A
 first braindump into the empty record `jsk new` writes (r1) - it applies as it stands:
 
 ```trig
@@ -343,8 +341,14 @@ op:delete { k:q_duplicate a op:Entry . k:ach_x j:shows c:java . }
 `op:set` replaces every value of each (entry, predicate) it names. `op:retire` dates the entry
 today and keeps the reason. `op:delete` removes exact triples, or with `a op:Entry` the whole
 entry - refused while anything points at it, since retiring is what keeps the history. `op:base`
-is the log revision the changeset was drafted against: an entry changed after it is a conflict,
-refused, to be re-read. The header's `op:summary` becomes the log entry's.
+is the log revision the changeset was drafted against. A write since then that touched nothing the
+changeset names does not stop it: it applies to the record as it now is, and every rule runs again.
+An entry the changeset names that changed after `op:base` is a conflict, refused, naming the ids,
+to be re-read. The header's `op:summary` becomes the log entry's.
+
+A number is written as the store keeps it: an integer or decimal whose spelling the store would
+rewrite (`8.40`, `007`, `+3`) is refused, `non-canonical-number`, with the fix `write 8.4`. A grade
+whose zeros matter (`3.80`) is a string, which `gradeValue` allows.
 
 What apply does unasked: a new bullet (a `[]` with `j:project`) gets its id,
 `ach_<project>_<three words of its text>`, never one the record has used. An entry whose claims
@@ -355,18 +359,17 @@ another file, cannot use blank nodes except for a new bullet, and cannot name a 
 ontology does not have (it suggests the nearest).
 
 The record it would write is validated before anything is written, and so is the workspace
-before it starts: a FAIL in the career, a hand edit not yet adopted, or a torn write refuses the
-apply with the command that fixes it. Then `career/kb.ttl` is replaced, then `career/log.ttl`,
-and a copy of what was written goes to `.jsk/kb.last.ttl` (a cache that ignores itself in git).
-Two files cannot be replaced together atomically: a crash between them is detected on the next
-load - `log-sync`, "the last write reached kb.ttl and not log.ttl" - not prevented. On Windows, a
-file locked by an editor or a virus scanner is retried for about a second; if it stays locked
-nothing is changed. Stdin (`-`) is refused: a pipe that never closes hangs the command.
+before it starts: a FAIL in the career refuses the apply with the command that fixes it. Then the
+write takes its **turn**: a writer that finds another jsk write in progress prints `waiting for
+another jsk write to finish` and waits, in arrival order, rather than being refused. In its turn
+the career, its log entry and the revision go into the store in **one update** - all of it lands
+or none does - and `.jsk/backup.trig` is overwritten with the whole record as TriG (best effort;
+read only by `jsk kb load`). A process that dies holding its turn gives it up with its file
+handle. Stdin (`-`) is refused: a pipe that never closes hangs the command.
 
 ```bash
 jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms before, 200 after, from the Grafana board."
-jsk kb adopt                             # after a hand edit of kb.ttl
-jsk kb fmt                               # after a jsk upgrade changed the layout
+jsk kb log --last 5                      # the newest five revisions: day, command, summary, ids
 ```
 
 **`confirm`** is the only way an entry becomes `j:confirmed`, and it takes the person's answer in
@@ -375,18 +378,9 @@ log entry keeps the answer beside the ids. An answer that says nothing - `yes`, 
 `confirmed`, a placeholder - is refused, and one that reached the log by hand is flagged by
 `answer-placeholder`. This is an instruction with an audit trail, not a proof that anyone asked.
 
-**`adopt`** logs `kb.ttl` as it now is. Hand edits are legal; they are also invisible to the log
-until adopted, so every write refuses until they are (`hand-edited`, a WARN, says so on every
-load). Adopt lists every provenance the edit raised - an entry moved up to confirmed, added as
-confirmed, or a claim changed while confirmed - comparing against `.jsk/kb.last.ttl`, the copy of
-the last logged revision; without that copy it lists every confirmed entry. It also records a
-torn write and a file restored on its own, and starts the log for a `kb.ttl` that has none.
-Detection, not prevention: the edit already happened, and adopt makes it visible.
-
-**`fmt`** rewrites a record file in the canonical layout: `kb.ttl` when none is named, logged on
-its own (`by fmt`, the day unchanged) so no content change hides in a reformat. A `posting.ttl`
-or `application.ttl` is rewritten in place, unlogged. Hand comments would be lost: `adopt` and
-`fmt` refuse a file with any, listing them, unless `--drop-comments`.
+**`log`** is the history, newest first: each revision's number, day, the command that made it
+(`apply`, `confirm`, `new`, ...), its summary, and the ids it minted and touched. `--last N`, the
+newest N (default 10). It is how the history is read - there is no log file to open.
 
 ```bash
 jsk kb show prj_payments met_settlement  # the entries, and the op:base to draft against
@@ -396,14 +390,14 @@ jsk kb query experience c:kubernetes     # | experience <concept> | pipeline
 jsk kb query evidence GraphQL "React Native" BFF  # each term: holders, then text naming it
 jsk kb query person                      # location, work mode, rights to work, ongoing roles
 jsk kb query concepts                    # every concept: labels, counts as, projects holding it
-jsk kb query bare                        # kb.ttl's capabilities with no label and no isA/partOf
+jsk kb query bare                        # the career's capabilities with no label and no isA/partOf
 jsk kb pack capabilities --out pack.trig # the capability starter pack, drafted as a changeset
 jsk kb merge c:a --into c:b --out m.trig # two concepts that are one, drafted as a changeset
 jsk kb query similar "event pipeline Kafka"  # the closest live projects, words and concepts shared
 jsk kb query duplicates                  # pairs of projects that look like one told twice
 jsk kb show prj_payments --bullets       # a project's name and bullets, without its notes
-jsk kb path                              # the workspace, kb.ttl, log.ttl, applications/
-jsk kb check                             # every rule, the record's state, the layout
+jsk kb path                              # the workspace, career/store/, applications/
+jsk kb check                             # every rule, and the record's state
 jsk kb check --only applications/<dir>   # that application's findings, and every FAIL anywhere
 jsk kb query concepts --near "event mesh"  # what a term names, then the closest few concepts
 ```
@@ -420,24 +414,52 @@ refuses a shipped concept, different classes and a `distinct` pair, and lists th
 `j:shows` it rewrites: they come back `inferred`, to be confirmed again. The `concepts-bare` WARN,
 once per record, counts the capabilities `query bare` lists: they match only their exact id.
 
-**`show`** prints entries exactly as their files hold them - a project with its bullets, a
-metric with its versions, a concept from the vocabulary and from `kb.ttl` - under a first line
-naming the revision to put in `op:base`. **`view`** is the whole career as Markdown in `kb.ttl`'s
-section order, entries not confirmed and retired ones marked; it goes to stdout and never to a
-file, so it cannot drift from the record. **`query`** answers a named question as a table or
+**`show`** prints entries as Turtle, each under the graph that holds it (`# kb`,
+`# applications/<dir>/posting`) - a project with its bullets, a metric with its versions, a
+concept from the vocabulary and from the career - under a first line naming the revision to put in
+`op:base`. It is the shape a changeset is drafted in. **`view`** is the whole career as Markdown in
+the career's section order, entries not confirmed and retired ones marked; it goes to stdout and
+never to a file, so it cannot drift from the record. Together with `query` and `log` they are the
+only way to read the record: nothing under `career/` is meant to be opened. **`query`** answers a named question as a table or
 `--json`: `open` questions, `unconfirmed` entries with the question open about each, the projects
 that `holds` a concept (or one that counts as it, with the evidence), `stale` - applications
 that sent a metric version since replaced - `experience` of a concept (the months the roles
 behind the projects holding it cover, overlaps once: what the record gate compares "N years
 of X" against), and `pipeline`, each application's stage: the kind of its latest dated event,
 the day, the days since, and any due date on it. A stage is never stored; it is this query.
-**`check`** runs every rule over the workspace, says
-where `kb.ttl` and `log.ttl` stand, and names files out of the canonical layout; exit 1 on a FAIL.
+**`check`** runs every rule over the workspace and says at
+which revision the record stands; exit 1 on a FAIL. A finding names the graph (`kb`,
+`applications/<dir>/posting`) and the entry's id - the record has no lines to number.
 It also asks the record gate's number check of every live bullet and warns of each one it would
 refuse in any `resume.json` that selected it, so it is fixed once rather than by each resume run.
 
+**`path`** prints the workspace, `career/store/` and `applications/` as absolute paths - where
+to run from and write to, never files to read. It needs nothing but the folders.
+
 ```bash
-jsk kb export --from-match applications/2026-09-08-ashby/posting.ttl --out applications/2026-09-08-ashby/resume.json
+jsk kb dump --out record.trig            # the whole record as TriG: a backup, or to move it
+jsk kb load record.trig                  # fill an empty store from a dump or .jsk/backup.trig
+jsk kb load .                            # import a workspace still laid out as .ttl files, once
+```
+
+**`dump`** writes every record graph - the career, its log, every application's graphs, never
+the vocabulary or anything derived - as TriG, to stdout or `--out`. The same record always dumps
+to the same text. jsk writes one to `.jsk/backup.trig` after every write as well.
+
+**`load`** fills an **empty** store, once, and refuses one that already holds a record. From a
+dump it loads the record as it was dumped. From a folder still laid out as files - `career/kb.ttl`,
+`career/log.ttl`, `applications/*/posting.ttl`, `application.ttl`, `gaps.ttl`, the layout before
+the store - it validates them exactly as the file loader always did and refuses on any FAIL, lists
+each number it rewrites to the store's spelling (`8.40` kept as `8.4`), and loads the lot in one
+update. The files are left where they are, and jsk never reads them again; it says so once. Any
+other command in a workspace with `career/kb.ttl` and no store refuses, naming `jsk kb load .`.
+
+**The store's format is tied to the pyoxigraph version.** Raising the pin is `jsk kb dump` with
+the old version, then `jsk kb load` into a fresh store with the new one - never an upgrade in
+place. A store that will not open is loaded again from `.jsk/backup.trig`.
+
+```bash
+jsk kb export --from-match applications/2026-09-08-ashby --out applications/2026-09-08-ashby/resume.json
 jsk kb export --ranked --out resume.json
 jsk kb export --select prj_payments ach_ledger_cut_close pos_lead --out resume.json
 ```
@@ -445,13 +467,14 @@ jsk kb export --select prj_payments ach_ledger_cut_close pos_lead --out resume.j
 **`export`** writes the short `resume.json` - `"resume": 2`, the `bullets` chosen as `ach_` ids in
 order, `roles` shown with no bullet, `skills`, the `region` when a profile ships for the person's
 country, and `"pages": 2`. Nothing the career holds is copied: every render reads the words,
-numbers and dates from `kb.ttl` as it stands, so a changeset applied or a bullet confirmed
+numbers and dates from the career as it stands, so a changeset applied or a bullet confirmed
 afterwards is in the next render with nothing to update. `references/resume-format.md` in the
 skill has every key. `--out` never replaces an existing file ("edit it, or delete it to start
 again"); without it the file goes to stdout, the notes to stderr.
 
-**`--from-match`** makes the selection from `jsk match`, the same way for the same posting every
-time. A project carries a requirement only when a live, confirmed bullet shows it, so a tag is not
+**`--from-match <app-dir>`** makes the selection from `jsk match`, the same way for the same
+posting every time; like `jsk match`, it takes the application directory and refuses a
+`posting.ttl` path. A project carries a requirement only when a live, confirmed bullet shows it, so a tag is not
 enough. The export takes the smallest cover of the required requirements, then the rest of the
 ranking that carries anything, up to eight projects. It scores each confirmed bullet by what it
 shows (required ×3, preferred ×1, +1 for a metric with a current version) and gives positions 1-2
@@ -480,7 +503,7 @@ A bullet whose project names no role is left out with a `NOTE`: it would render 
 A selection holding no bullet is refused, exit 1, and nothing is written. A career that fails its
 rules is refused: the resume would carry the failures. Last, the record gate's number check runs
 over the chosen bullets and prints each it refuses as a `WARN` - a number no current metric
-version holds is in `kb.ttl`, not in anything authored, so it is a question for the person,
+version holds is in the career, not in anything authored, so it is a question for the person,
 answered in the career before any word is retuned.
 
 `--urs` and `--refresh` are gone with the full record, each a usage error saying so: the short file
@@ -501,14 +524,14 @@ jsk validate resume.json --max-findings 0    # print every one
 
 The **record gate**: a short `resume.json` and the career bullets it selects, before anything
 renders. It finds the workspace from the file (`kbcli.find_root`, so a workspace named `career`
-works) and loads it; a file outside any workspace is exit 2 naming `career/kb.ttl`, and a legacy
+works) and loads it; a file outside any workspace is exit 2 naming where to keep it, and a legacy
 URS record (`"urs"` key) is exit 2 naming `jsk kb export`, which writes a short one.
 
 | Check | Severity |
 |---|---|
-| `career-invalid` / `career-unlogged` - the career has a FAIL, or is not what `log.ttl` last recorded: a provenance raised by hand would render unseen (`jsk kb check`, `jsk kb adopt`) | FAIL |
+| `career-invalid` - the career has a FAIL (`jsk kb check`) | FAIL |
 | shape - an unknown key, a wrong type, `resume` not 2, no `bullets`, a bad `format` or summary `status`, an id with the wrong prefix, a duplicate | FAIL |
-| ids - an id `kb.ttl` does not hold (with the nearest), a retired one (with its reason), a bullet whose project names no role | FAIL |
+| ids - an id the career does not hold (with the nearest), a retired one (with its reason), a bullet whose project names no role | FAIL |
 | `number-untraced` - a numeral in a chosen bullet is in no current version of a metric it cites | FAIL |
 | `number-superseded` - it is only a replaced version's number; the line names the current one | FAIL |
 | `label-unheld` - a vocabulary label in a bullet names a concept its project does not hold | WARN |
@@ -521,12 +544,12 @@ written ("Go", never "go"); a longer one also with its first letter in the other
 longest label is read first, so ".NET Framework" is never read as ".NET". A shape FAIL stops the
 id checks: until the shape is right the ids may not be lists of ids.
 
-An untraced number is the one finding never to "fix" by changing the number: it is in `kb.ttl`, so
+An untraced number is the one finding never to "fix" by changing the number: it is in the career, so
 it is a question for the person, answered with `jsk kb apply` (the figure, cited from the bullet)
 or by changing the words. `jsk kb check` and `jsk match` ask the same of the career's bullets.
 
 It replaced two gates. `validate_urs` checked a 30-47KB URS record against itself and the claims
-gate checked that record against `kb.ttl`; most of what the two asked was whether the copy had
+gate checked that record against the career; most of what the two asked was whether the copy had
 drifted, and with no copy there is nothing to drift. `jsk validate`, `jsk gates`, `jsk ship` and
 `jsk freeze` all run this one.
 
@@ -818,8 +841,8 @@ verbatim under its own `---` heading the way `jsk gates` prints it:
 3. **the parse and prose gates** — what `jsk gates DIR --record <resume.json> [--pages N]` runs,
    less the record gate the first step has just run on the same file.
 
-It refuses before any of them, exit 1, in a frozen application - `application.ttl` beside the
-`resume.json` or in `--out` - because re-rendering would overwrite what was sent; copy the
+It refuses before any of them, exit 1, in a frozen application - the store holds an application
+graph for the `resume.json`'s directory or `--out` - because re-rendering would overwrite what was sent; copy the
 application to a new dated directory to reuse it.
 
 It closes with the same render-gate section `jsk gates` does: **nobody has read the PDF**, and the
@@ -843,15 +866,11 @@ jsk freeze <app-dir> --submitted YYYY-MM-DD|false --channel TEXT [--doc FILE ...
 ```
 
 Freezes one `applications/<yyyy-mm-dd>-<company>-<role>/` directory the way `references/mode-ship.md`
-describes: renames it to the day it was sent, if its leading date says otherwise, and writes what
-was sent beside `posting.md`, `gaps.md` and `resume.json`. Which file depends on the workspace's
-career record, found beside `applications/`.
-
-**`career/kb.ttl` - the graph record.** It writes `application.ttl`:
+describes: renames it to the day it was sent, if its leading date says otherwise, and records what
+was sent as the application graph, `applications/<dir>/application` in the store, as
+`jsk kb show k:app_acme_platform` prints it:
 
 ```turtle
-# == Application
-
 k:app_acme_platform j:posting k:post_acme_platform ; j:view "resume" ;
     j:submitted "2026-09-08"^^xsd:date ; j:channel "Workday portal" ;
     j:document "Priya_Raman_Acme_Resume.pdf", "Priya_Raman_Acme_Resume_ATS.txt" ;
@@ -859,39 +878,37 @@ k:app_acme_platform j:posting k:post_acme_platform ; j:view "resume" ;
     j:carried k:ach_events_latency, k:ach_events_team ;
     j:carriedVersion k:met_latency.v2, k:met_team.v1 .
 
-# == Timeline
-
 k:evt_acme_platform_2026_09_08_submitted j:application k:app_acme_platform ;
     j:date "2026-09-08"^^xsd:date ; j:kind j:submitted ; j:channel "Workday portal" .
 ```
 
-The id's stem is the posting's (`k:post_acme_platform` in `posting.ttl`, which must be there),
-and never changes when the directory is renamed. `recordSha256` is the frozen `resume.json`'s,
+The id's stem is the posting's (`k:post_acme_platform` in the posting graph, which must be
+there), and never changes when the directory is renamed. `recordSha256` is the frozen `resume.json`'s,
 byte for byte. `carried` is every bullet that rendered - the plan's `sent`, so one withheld below
 the floor is not carried - and `carriedVersion` is the current version, now, of every metric those
 bullets cite. No copy of the content is written: the PDF, `.txt` and `.tex` beside it are the
 words sent. That is what makes a later
 revision visible: `jsk kb apply` never changes a sent version - a new number becomes the next
-one - and `jsk kb query stale` names every application that sent the old. The file is validated
-with the whole workspace before anything is renamed or written, and is written canonically. It
-is not logged in `log.ttl`, and `kb.ttl` is never touched.
+one - and `jsk kb query stale` names every application that sent the old. The graph is validated
+with the whole record before anything is renamed or written, and goes in through the same write
+gate as every other write, with its log entry. The career itself is never touched.
 
 The documents are the `--doc` files, or every `.pdf` and `.txt` in the
 directory. The final path is printed.
 
 It refuses — exit 1, saying why, with nothing renamed and nothing written — when:
 
-- **`application.ttl` or `application.md` already exists.** A frozen application is never
-  re-frozen; later events are `jsk event`.
+- **the application is already frozen** - the store holds its application graph, or the
+  directory holds an `application.md` from before the graph record. A frozen application is
+  never re-frozen; later events are `jsk event`.
 - **any mechanical gate fails.** It runs what `jsk gates <app-dir> --record <app-dir>/resume.json`
   runs - the record gate first - in process, and prints it. A failing document is never frozen.
-- `posting.ttl` is missing or holds no posting, there is nothing to list as documents, the renamed directory would land on one that
-  already exists, or the `application.ttl` it would write does not validate.
+- no posting graph was built for it, there is nothing to list as documents, the renamed directory
+  would land on one that already exists, or the application graph it would write does not validate.
 
 `--submitted false` is for an application worked through and deliberately held back: it writes
-`submitted false` leaves the directory's name alone, and records **no
-`submitted` event** — an accurate blank rather than a false green. It never touches the
-career: `kb.ttl` and `log.ttl` are not written.
+`submitted false`, leaves the directory's name alone, and records **no `submitted` event** — an
+accurate blank rather than a false green. It never touches the career.
 
 ### `jsk event`
 
@@ -903,7 +920,7 @@ jsk event applications/2026-09-08-acme-platform rejected --date 2026-10-02 --cha
 jsk event applications/2026-09-08-acme-platform note --date unknown --note "Recruiter said Q4."
 ```
 
-Adds one event to a frozen application's `application.ttl`: `k:evt_<stem>_<date>_<kind>`, with
+Adds one event to a frozen application's graph: `k:evt_<stem>_<date>_<kind>`, with
 `--channel`, `--note` and `--due` when given. The kind is the closed pipeline vocabulary -
 `submitted`, `acknowledged`, `screen-scheduled`, `screen-done`, `interview-scheduled`,
 `interview-done`, `onsite-scheduled`, `onsite-done`, `offer`, `offer-accepted`, `rejected`,
@@ -917,11 +934,10 @@ wrong weekday; a `--date` after today is a WARN. `--today` fixes the day, for te
 Add-only: it never edits or removes an event. A second event of the same kind on the same day -
 another note, a round-2 `interview-done`, a second `unknown`-dated contact - is minted
 `k:evt_<stem>_<date>_<kind>_2`, then `_3`; only an
-event identical to one already there (same kind, date, channel, note and due) is refused. The whole workspace is loaded with the
-event in it and validated before the file is replaced; a file with hand comments, or not in the
-canonical layout, is refused until `jsk kb fmt <file>`, so the event is the only change in its
-diff. An application frozen as `application.md` is pointed at its `# Timeline` table. Not logged
-in `log.ttl`: the log is the career's.
+event identical to one already there (same kind, date, channel, note and due) is refused. The whole record is loaded with the
+event in it and validated before anything is written, and the event goes in through the same write
+gate as every other write. An application frozen as `application.md` is pointed at its
+`# Timeline` table.
 
 The stage is never stored: `jsk kb query pipeline` derives it from the latest dated event.
 
@@ -930,12 +946,20 @@ Exit 0 added, 1 refused, 2 called wrong.
 ## What is not here any more
 
 **`jsk index`** read `user-knowledgebase.md`: an overview with line ranges, and `--rank` against
-a posting's frontmatter. The career is `career/kb.ttl` now - `jsk match` ranks it against a
-`posting.ttl`, `jsk kb view` and `jsk kb show` read it - and `jsk index` says so and exits 2.
+a posting's frontmatter. The career is a graph record now - `jsk match` ranks it against a
+posting, `jsk kb view` and `jsk kb show` read it - and `jsk index` says so and exits 2.
 
 **`jsk migrate`** moved a `user-knowledgebase.md` to `career/kb.ttl`, once. The Markdown knowledge
 base is no longer read: `jsk migrate` says so, naming `jsk new PATH --name NAME` to start a
-`career/kb.ttl`. A frozen `application.md` is still honoured as frozen.
+record. A frozen `application.md` is still honoured as frozen.
+
+**The record as `.ttl` files** - `career/kb.ttl`, `career/log.ttl` and each application's
+`posting.ttl`, `application.ttl` and `gaps.ttl` - left on 2026-09-29 for `career/store/`. With the
+files went `jsk kb adopt` (log a hand edit), `jsk kb fmt` (restore the canonical layout), the
+`hand-edited`, `torn`, `out-of-sync` and `unlogged` states, `kbSha256` and `.jsk/kb.last.ttl`:
+there is no file to edit by hand, no layout to restore and no second file to tear. So did git
+diffs of the record and opening it in an editor - `jsk kb view`, `show`, `log` and `dump` read it
+instead ([WHY.md](WHY.md) says what that cost). `jsk kb load .` imports such a workspace, once.
 
 **The URS record** - the full `resume.json` copied out of the career, with its views, its 11KB
 specification and its claims gate - left on 2026-09-25. The short file names what one resume

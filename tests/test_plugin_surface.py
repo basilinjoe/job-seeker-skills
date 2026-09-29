@@ -139,12 +139,13 @@ class AgentFrontmatter(unittest.TestCase):
         only as good as the sentence stating it. So the sentence is asserted.
 
         The graph record has a write command again, `jsk kb apply`, and it cannot
-        confirm anything - but the analyst still holds Bash, so it could run apply, and
-        Write, so it could edit `career/kb.ttl` by hand. The analyst's boundary is
-        absolute: it writes posting.ttl and the assessment and never the career.
+        confirm anything - but the analyst still holds Bash, so it could run apply. The
+        career is in career/store/ now, so Write can no longer reach it; apply still can.
+        The analyst's boundary is absolute: through jsk it writes the posting and the
+        assessment and never the career.
         """
         body = (PLUGIN / "agents" / "jsk-tailor-analyst.md").read_text(encoding="utf-8")
-        self.assertIn("Never touch `career/kb.ttl`", " ".join(body.split()))
+        self.assertIn("**Never touch the career**", " ".join(body.split()))
 
     def test_the_author_is_told_in_writing_that_everything_it_writes_is_inferred(self):
         """The author's boundary is different from the analyst's, because it does write
@@ -219,45 +220,44 @@ class AgentFrontmatter(unittest.TestCase):
                 self.assertIn("Bash", tools)
 
 
-class TheBannersAndTheFormatAgree(unittest.TestCase):
-    """The writer prints the banners; `kb-format.md` shows them to a model.
+class TheSectionsAndTheFormatAgree(unittest.TestCase):
+    """`jsk kb view` prints the sections; `kb-format.md` lists them for a model.
 
     This used to check that `jsk new`'s Markdown headings and `kb-spec.md` named the
-    same sections - one rule in two languages, Python in `src/` and Markdown in
-    `plugins/`. The rule is the same with the graph record, one level down: the
-    sections are `ontology.SECTIONS["kb"]`, which the writer prints as `# == <Section>`
-    banners in that order, and a model reads kb.ttl by them. A banner missing from the
-    format reference, or listed in another order, sends a model to the wrong place in
-    the file - or has it add a section the writer would never print.
+    same sections, then that the writer's `# == <Section>` banners in kb.ttl matched
+    the format reference. The career is in a store now and has no file layout, but the
+    sections survive one level up: `ontology.SECTIONS["kb"]` is the order `jsk kb view`
+    prints the career in and the names `--section` takes. A section missing from the
+    format reference, or listed in another order, sends a model to a `--section` that
+    is not there - or has it look for one the view never prints.
     """
 
     def format_text(self):
         return (SKILL / "references" / "kb-format.md").read_text(encoding="utf-8")
 
-    def banners(self):
-        """The banners kb-format.md lists for kb.ttl: its Layout section's, not the
-        posting.ttl example's further down."""
-        layout = self.format_text().split("## Layout", 1)[1].split("\n## ", 1)[0]
-        return re.findall(r"^# == (.+)$", layout, re.M)
+    def sections(self):
+        """The names kb-format.md's Sections part lists, in its code block."""
+        part = self.format_text().split("## Sections", 1)[1].split("\n## ", 1)[0]
+        block = part.split("```", 2)[1]
+        return [line.strip() for line in block.splitlines() if line.strip()]
 
-    def test_the_format_lists_every_banner_in_the_writers_order(self):
+    def test_the_format_lists_every_section_in_the_views_order(self):
         from jsk.graph.ontology import SECTIONS
 
-        self.assertEqual(self.banners(), list(SECTIONS["kb"]))
+        self.assertEqual(self.sections(), list(SECTIONS["kb"]))
 
-    def test_the_writer_prints_the_banners_as_the_format_shows_them(self):
-        """The shape, not only the names: an empty record from the writer carries
-        exactly the banner lines kb-format.md lists."""
-        from jsk.graph import writer
+    def test_the_view_prints_the_sections_as_the_format_shows_them(self):
+        """The shape, not only the names: an empty career rendered by `jsk kb view`
+        carries exactly the section headings kb-format.md lists."""
+        from jsk.graph import view
 
-        text = writer.write([], "kb")
-        self.assertEqual(re.findall(r"^# == (.+)$", text, re.M),
-                         self.banners())
+        text = view.render([])
+        self.assertEqual(re.findall(r"^## (.+)$", text, re.M), self.sections())
 
     def test_the_format_names_every_predicate_a_model_may_draft(self):
         """A predicate kb-format.md does not name is one a model drafting a changeset
         cannot know exists - it reaches for `j:note`, or invents a name that apply
-        refuses. So every predicate of every class that kb.ttl or posting.ttl holds is
+        refuses. So every predicate of every class the career or a posting holds is
         named in it, backticked."""
         from jsk.graph.ontology import CLASSES
 
@@ -268,14 +268,16 @@ class TheBannersAndTheFormatAgree(unittest.TestCase):
         self.assertEqual(missing, [], f"kb-format.md does not name: {missing}")
 
 
-class TheLogIsItsOwnFile(unittest.TestCase):
-    """The history is `career/log.ttl`, written by `jsk kb` and nothing else.
+class TheLogIsWrittenByJskAlone(unittest.TestCase):
+    """The history is the store's `log` graph, written by jsk and read with `jsk kb log`.
 
     It moved out of the knowledge base into `log.md` because nothing that tailors or
     authors a resume reads the history, then became `log.ttl` when every change started
-    going through `jsk kb apply`, which logs it. The failure this guards is an
-    instruction drifting back: a mode file still saying "append a row to `## Log`", or
-    to `log.md`, has a model hand-writing a log that apply owns.
+    going through `jsk kb apply`, which logs it, then a graph in career/store/ written in
+    the same update as the change. The failure this guards is an instruction drifting
+    back: a mode file still saying "append a row to `## Log`", or to `log.md`, has a
+    model hand-writing a log that apply owns; one saying to read `log.ttl` sends it at a
+    file that is no longer the record.
     """
 
     def test_no_instruction_writes_a_log_by_hand(self):
@@ -284,15 +286,95 @@ class TheLogIsItsOwnFile(unittest.TestCase):
             with self.subTest(file=path.name):
                 self.assertNotIn("## Log", text)
                 self.assertNotIn("log.md", text)
+                self.assertNotIn("log.ttl", text)
+
+    def test_the_agents_that_date_a_pass_read_the_log_through_jsk(self):
+        """The auditor and the refresh mode read the history to date the last pass; with
+        no file to open, `jsk kb log` is the only way, so each names it."""
+        self.assertIn("jsk kb log", (PLUGIN / "agents" / "jsk-kb-auditor.md").read_text(
+            encoding="utf-8"))
+        self.assertIn("jsk kb log", (SKILL / "references" / "mode-refresh.md").read_text(
+            encoding="utf-8"))
+
+
+class AgentsNeverReadRecordFiles(unittest.TestCase):
+    """The record is career/store/, and only jsk opens it.
+
+    The agents used to be told to run `jsk kb path` and read or grep `kb.ttl`, `log.ttl`
+    and `posting.ttl` at the paths it printed. Those files are not the record any more -
+    a workspace imported with `jsk kb load .` still has them, stale, which makes a read
+    of one worse than none: it looks right and is out of date. So no plugin file names a
+    record file, except SKILL.md and mode-setup.md naming `career/kb.ttl` once, as the
+    sign of a workspace to import; and nothing tells a model to read what `jsk kb path`
+    prints.
+    """
+
+    RECORD_FILES = ("kb.ttl", "log.ttl", "posting.ttl", "application.ttl", "gaps.ttl")
+    # Where `career/kb.ttl` may appear: the sign of a workspace from before the store.
+    IMPORT_HINT = {"SKILL.md", "mode-setup.md"}
+
+    def test_no_plugin_file_names_a_record_file(self):
+        for path in sorted(PLUGIN.rglob("*.md")):
+            text = path.read_text(encoding="utf-8")
+            for name in self.RECORD_FILES:
+                found = text.count(name)
+                if name == "kb.ttl" and path.name in self.IMPORT_HINT:
+                    found -= text.count("`career/kb.ttl`")
+                with self.subTest(file=path.name, record=name):
+                    self.assertEqual(found, 0, f"{path.name} names {name}")
+
+    def test_the_import_hint_names_the_import(self):
+        for name in self.IMPORT_HINT:
+            path = next(PLUGIN.rglob(name))
+            with self.subTest(file=name):
+                self.assertIn("jsk kb load .", path.read_text(encoding="utf-8"))
+
+    def test_no_agent_is_told_to_read_the_paths_kb_path_prints(self):
+        for path in sorted(PLUGIN.joinpath("agents").glob("*.md")):
+            body = " ".join(path.read_text(encoding="utf-8").split())
+            with self.subTest(agent=path.name):
+                self.assertNotIn("read the files at", body)
+                self.assertNotIn("read and grep", body)
+                self.assertNotIn("grep `kb", body)
 
 
 class ChangesetsRouteThroughApply(unittest.TestCase):
     """The P6 rule, asserted where it can be: the career changes through `jsk kb apply`,
     and no mode or agent tells a model to grep, sed or Edit it by hand.
 
-    Hand edits are legal - `jsk kb adopt` logs them - but an instruction to make one is
-    the okf failure again: the verb a model is not told about is the one it routes around.
+    With the record in career/store/ there is no hand edit to make, and `jsk kb adopt`
+    and `jsk kb fmt`, which answered one, are gone. An instruction naming either is the
+    okf failure again: a verb the prose promises that the CLI does not have.
     """
+
+    RETIRED = ("jsk kb adopt", "jsk kb fmt", "`adopt`", "`fmt`")
+
+    def test_no_file_names_a_retired_verb(self):
+        for name, text in self.plugin_texts().items():
+            for verb in self.RETIRED:
+                with self.subTest(file=name, verb=verb):
+                    self.assertNotIn(verb, text)
+
+    def test_every_kb_verb_the_plugin_names_is_one_jsk_kb_has(self):
+        """`jsk kb <verb>` named anywhere in the plugin is a verb kbcli registers."""
+        from jsk.graph import kbcli
+
+        for name, text in self.plugin_texts().items():
+            for verb in set(re.findall(r"jsk kb ([a-z]+)", text)):
+                with self.subTest(file=name, verb=verb):
+                    self.assertIn(verb, kbcli.VERBS)
+
+    def test_the_skill_names_the_read_verbs_and_the_load(self):
+        """The kb row of SKILL.md's table, and the reads its one rule names: what an
+        agent reads with is the whole of how it reads."""
+        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+        row = re.search(r"^\| `jsk kb ([a-z\\|]+)` \|", text, re.M)
+        self.assertIsNotNone(row, "SKILL.md has no `jsk kb` row")
+        listed = row.group(1).replace("\\", "").split("|")
+        self.assertEqual(sorted(listed), sorted(
+            ["apply", "confirm", "show", "view", "query", "log", "check", "export", "pack",
+             "merge"]))
+        self.assertIn("jsk kb load .", text)
 
     def plugin_texts(self):
         return {p.name: p.read_text(encoding="utf-8") for p in sorted(PLUGIN.rglob("*.md"))}
@@ -315,8 +397,7 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
         text = " ".join((SKILL / "SKILL.md").read_text(encoding="utf-8").split())
         self.assertIn("change it with `jsk kb apply <changeset.trig>`", text)
         self.assertIn("Confirm only with `jsk kb confirm <id> --answer", text)
-        self.assertIn("then `jsk kb adopt`", text)
-        self.assertIn("Never edit `career/kb.ttl` blind.", text)
+        self.assertIn("Never open anything under `career/`", text)
         self.assertNotIn("## Editing the knowledge base", text)
 
     def test_every_changeset_the_plugin_shows_is_one_apply_accepts(self):
