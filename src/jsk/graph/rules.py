@@ -1,6 +1,6 @@
 """Tier 2: the rules that need the whole workspace, as SPARQL over the union graph.
 
-References across files, metric versions, the vocabulary's edges, applications and their
+References across graphs, metric versions, the vocabulary's edges, applications and their
 postings. Each rule is one row - id, severity, a SELECT naming ?focus, and a fix - so
 adding one is adding a row, and tests/test_graph_rules.py proves each one fires.
 """
@@ -85,8 +85,8 @@ def node(iri):
 
 
 def duplicates(rows, store):
-    """One row per extra file a k: id is defined in, pointing at that file: the edit that
-    broke the rule is the second definition, not the first. The loader already knows
+    """One row per extra graph a k: id is defined in, pointing at that graph: the edit
+    that broke the rule is the second definition, not the first. The loader already knows
     where every subject is, so this is a lookup, not a query over every quad."""
     return [{"focus": node(iri), "file": file, "home": files[0]}
             for iri, files in store.definitions.items() if iri.startswith(O.K)
@@ -104,7 +104,7 @@ def unmatched_narrowing(rows, store):
 
 
 def reclassed(rows, store):
-    """A concept whose kb.ttl class differs from its shipped class. Reported in kb.ttl."""
+    """A concept whose class in the career differs from its shipped class. Reported in kb."""
     kinds = {graph_iri(f): (f, p.kind) for f, p in store.parsed.items()}
     by = defaultdict(lambda: {"kb": set(), "vocabulary": set(), "file": None})
     for r in rows:
@@ -120,10 +120,10 @@ def reclassed(rows, store):
 
 
 def bare_capabilities(store):
-    """{concept iri: kb file} for each live capability kb.ttl defines that nothing labels
-    or places: no j:label, no isA or partOf, in any file. Such a concept matches a posting
-    only by its exact id, so "system design" never reaches c:systems-design. A kb that adds
-    only an edge to one has placed it. The `bare` query lists the same set."""
+    """{concept iri: kb graph} for each live capability the career defines that nothing
+    labels or places: no j:label, no isA or partOf, in any graph. Such a concept matches a
+    posting only by its exact id, so "system design" never reaches c:systems-design. A kb
+    that adds only an edge to one has placed it. The `bare` query lists the same set."""
     kinds = {graph_iri(f): (f, p.kind) for f, p in store.parsed.items()}
     rows = store.select(PREFIX + """SELECT DISTINCT ?g ?c WHERE { GRAPH ?g { ?c a j:Capability }
         FILTER(?g != j:derived)
@@ -351,18 +351,25 @@ def uncovered(rows, store):
 
 
 def out_of_step(kinds):
-    """Rows for the record state kinds a rule reports, at k:kb in kb.ttl."""
+    """Rows for the record state kinds a rule reports, at k:kb in kb - for a workspace
+    still laid out as files, which the import reads. A stored record has none of these
+    states: every write puts the career and its log entry in one update, and the store
+    keeps no text for a hand to edit."""
     def post(rows, store):
         from .record import state
+        if store.stored:
+            return []
         st = state(store)
         return [{"focus": node(O.K + "kb"), "state": st}] if st.kind in kinds else []
     return post
 
 
 def log_sync_fix(row, store):
-    if row["state"].kind == "torn":
-        return "run `jsk kb adopt`: it logs the write and lists what the write raised"
-    return "restore the file that went back on its own, or run `jsk kb adopt` to log kb.ttl as it is"
+    rev = row["state"].log_revision
+    if row["state"].kind == "torn" and rev is not None:
+        return (f"set kb.ttl's k:kb j:revision back to {rev}, then `jsk kb load .` imports "
+                "it as it is - read `jsk kb check` first for what the unlogged write raised")
+    return "restore the file that went back on its own, then `jsk kb load .`"
 
 
 # What an answer is not: a word that agrees without saying what was agreed to.
@@ -537,7 +544,7 @@ RULES = [
          """SELECT ?focus ?g ?h WHERE { ?focus a j:Application .
               GRAPH ?g { ?focus j:posting ?p } GRAPH ?h { ?p j:captured ?c } }""",
          lambda r: "its posting is defined in another application's directory",
-         "an application answers the posting.ttl beside it", misplaced_postings),
+         "an application answers the posting beside it, in its own directory", misplaced_postings),
     Rule("event-before-submit", WARN,
          """SELECT ?focus ?d ?s WHERE { ?focus j:application ?a ; j:date ?d .
               ?a j:submitted ?s
@@ -552,14 +559,14 @@ RULES = [
     Rule("concept-reclassed", FAIL,
          """SELECT ?focus ?g ?t WHERE { GRAPH ?g { ?focus a ?t }
               FILTER(?g != j:derived && STRSTARTS(STR(?focus), STR(c:))) }""",
-         lambda r: (f"kb.ttl makes it {', '.join(curie(t) for t in r['kb'])}; the shipped "
+         lambda r: (f"the career makes it {', '.join(curie(t) for t in r['kb'])}; the shipped "
                     f"vocabulary has it as {', '.join(curie(t) for t in r['shipped'])}"),
          "a shipped concept keeps its class: add a capability of your own and relate them",
          reclassed),
     Rule("concepts-bare", WARN, None,
-         lambda r: (f"1 capability in kb.ttl has no label and no isA/partOf - it matches "
+         lambda r: (f"1 capability in the career has no label and no isA/partOf - it matches "
                     f"only its exact id" if r["n"] == 1 else
-                    f"{r['n']} capabilities in kb.ttl have no label and no isA/partOf - "
+                    f"{r['n']} capabilities in the career have no label and no isA/partOf - "
                     f"they match only their exact id"),
          "see `jsk kb query bare`; label the most-held first, or adopt "
          "`jsk kb pack capabilities`", bare),
@@ -578,14 +585,15 @@ RULES = [
          lambda r: "the advert asks " + repr(r["line"] if len(r["line"]) <= 70
                                              else r["line"][:67].rstrip() + "…")
                    + " and no requirement quotes it",
-         "write a requirement quoting it in posting.ttl, or - if it is eligibility (work "
+         "write a requirement quoting it in the posting, or - if it is eligibility (work "
          "rights, clearance, location) - it belongs in gaps.md's # Eligibility and can stay "
          "unquoted", uncovered),
     Rule("log-sync", FAIL, None,
          lambda r: r["state"].detail, log_sync_fix, out_of_step(("torn", "out-of-sync"))),
     Rule("hand-edited", WARN, None,
          lambda r: r["state"].detail + " - legal, and not yet logged",
-         "run `jsk kb adopt`: it logs the edit and lists every provenance it raised",
+         "`jsk kb load .` imports kb.ttl as it is, the edit with it: check every "
+         "provenance the edit raised first, since the log will not show it",
          out_of_step(("hand-edited",))),
     Rule("answer-placeholder", WARN,
          """SELECT ?focus ?a WHERE { ?focus j:by j:confirm OPTIONAL { ?focus j:answer ?a } }""",

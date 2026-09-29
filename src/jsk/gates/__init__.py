@@ -5,7 +5,7 @@ A resume passes five gates before anybody sends it. Four of them are here and ru
 
     record gate   record.py          is the short resume.json sound, and does every
                                      number in a bullet it selects trace to a current
-                                     metric version in career/kb.ttl? Runs before
+                                     metric version in the career? Runs before
                                      anything is rendered, because a defect there
                                      becomes a defect in every file at once.
     parse gate    check_ats.py       will an ATS read the PDF without mangling it?

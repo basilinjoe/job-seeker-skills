@@ -80,7 +80,9 @@ def open_reader(root):
                       "run `jsk new`, or `jsk kb load` to import a workspace or a dump")
     try:
         return ox.Store.read_only(path(root))
-    except OSError as e:
+    except (OSError, RuntimeError) as e:
+        # RuntimeError: RocksDB's "Corruption: ..." (a damaged CURRENT or table file)
+        # comes out of pyoxigraph as one, not as an OSError.
         raise StoreError(f"career/store/ could not be opened: {e}",
                          "`jsk doctor` checks it; `jsk kb load` restores .jsk/backup.trig") from None
 
@@ -104,6 +106,10 @@ def open_writer(root, wait=LOCK_WAIT, create=False):
     while True:
         try:
             return ox.Store(path(root))
+        except RuntimeError as e:
+            raise StoreError(f"career/store/ could not be opened for writing: {e}",
+                             "`jsk doctor` checks the store; `jsk kb load` restores "
+                             ".jsk/backup.trig into an empty workspace") from None
         except OSError as e:
             if not is_lock_error(e):
                 raise StoreError(f"career/store/ could not be opened for writing: {e}",

@@ -100,15 +100,27 @@ def read(path):
 
 def workspace(path):
     """The workspace root above the file. Walked up, never worked out: the real one is
-    a folder named `career` holding career/kb.ttl."""
+    the folder holding career/store/."""
     from ..graph.kbcli import find_root
 
     root = find_root(os.path.dirname(os.path.abspath(path)))
     if root is None:
         raise ShortError(f"{path} is not inside a workspace",
-                         "keep resume.json under the folder holding career/kb.ttl - "
-                         "the resume is built from it")
+                         "keep resume.json under the folder holding career/store/ - "
+                         "the resume is built from the career in it")
     return root
+
+
+def career(root):
+    """The workspace at `root`, loaded. A store that will not open is a ShortError with
+    its fix, as a file that cannot be read is - never a traceback."""
+    from ..graph import store as S
+    from ..graph.io import GraphError
+
+    try:
+        return S.load(root)
+    except GraphError as e:
+        raise ShortError(str(e), e.fix) from None
 
 
 def shape(doc):
@@ -179,7 +191,7 @@ def ids(doc, store):
                 near = difflib.get_close_matches(
                     iri, sorted(i for i, c in known.items() if c == cls), n=1)
                 hint = f" - did you mean {near[0][len(O.K):]}?" if near else ""
-                out.append(f"{key}: {ident} is not in career/kb.ttl{hint}")
+                out.append(f"{key}: {ident} is not in the career{hint}")
                 continue
             if known[iri] != cls:
                 out.append(f"{key}: {ident} is a {known[iri]}, not a {cls}")
@@ -222,12 +234,10 @@ def main(argv):
     try:
         doc = read(path)
         root = workspace(path)
+        fails = shape(doc) or ids(doc, career(root))
     except ShortError as e:
         print(f"FAIL  {e}\n      fix: {e.fix}")
         return 1
-    from ..graph import store as S
-
-    fails = shape(doc) or ids(doc, S.load(root))
     for line in fails:
         print(f"FAIL  {line}")
     if fails:

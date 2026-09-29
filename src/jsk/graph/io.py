@@ -1,4 +1,5 @@
-"""Reading a record file: its triples, where each subject is, and what a rewrite would lose.
+"""Reading Turtle and TriG text - a changeset, a dump, the vocabulary, the files a workspace
+is imported from: its triples, where each subject is, and what storing it would lose.
 
 pyoxigraph is imported inside the functions that need it, never at module top, so a
 command that never reads the graph never pays for it (11-12 ms, measured in P0).
@@ -27,13 +28,13 @@ class GraphError(Exception):
 
 @dataclass
 class Parsed:
-    file: str          # as reported: relative to the workspace root, forward slashes
-    kind: str | None   # None: a file no record kind is named like, as kind_of reads it
+    file: str          # as reported: the graph's name once loaded (`kb`), else the file's
+    kind: str | None   # None: a name no record kind is named like, as kind_of reads it
     quads: list        # pyoxigraph Quads, all in the default graph
-    lines: dict        # subject iri -> the first line it starts, 1-based
-    comments: list     # (line, text): hand comments a rewrite would drop
-    sha256: str = ""   # of the normalised text: what log.ttl records for kb.ttl
-    text: str = ""     # the normalised text, for the canonical check and the diff
+    lines: dict        # subject iri -> the first line it starts, 1-based; {} when stored
+    comments: list     # (line, text): hand comments the store would not keep
+    sha256: str = ""   # of the normalised text: what log.ttl recorded for kb.ttl
+    text: str = ""     # the normalised text; "" for a graph out of the store
 
 
 def normalise(text):

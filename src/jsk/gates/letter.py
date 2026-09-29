@@ -286,11 +286,16 @@ def main(argv=None):
             print("FAIL  the number check needs pyoxigraph, and this Python has not got it - "
                   "`jsk doctor` says how to install it")
             return 1
-        from ..graph import store as S
+        try:
+            store = short.career(root)
+        except short.ShortError as err:
+            print(f"FAIL  {err}")
+            print(f"fix:  {err.fix}")
+            return 2
 
         beside = os.path.join(os.path.dirname(os.path.abspath(record)), "posting.md")
         posting = read(beside) if os.path.exists(beside) else None
-        fails += number_lines(body(text), doc, S.load(root), posting)
+        fails += number_lines(body(text), doc, store, posting)
         against = os.path.basename(record)
     print(f"checking: {os.path.basename(path)}   against: {against}")
     print(f"words: {words} (limit {LIMIT})")

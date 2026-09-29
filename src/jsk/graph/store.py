@@ -1,13 +1,18 @@
-"""The workspace in memory: every record file loaded, types derived, rules run.
+"""The workspace in memory: every record graph loaded, types derived, rules run.
 
-Each file is its own named graph, so a finding can say which file it is in; derived
-triples go in j:derived, which is never written; queries run over the union. Loading
-never raises on bad content - it reports, and the caller decides what a FAIL stops.
+The record comes out of career/store/ (db.py) into an in-memory store, graph by graph,
+so a finding can say which graph it is in (`kb`, `applications/acme/posting`); the
+shipped vocabulary is read from its file each time; derived triples go in j:derived,
+which is never written; queries run over the union. Loading never raises on bad
+content - it reports, and the caller decides what a FAIL stops.
+
+A workspace still laid out as files (career/kb.ttl, applications/*/*.ttl) loads from
+them: that is the front end of the one-time import (legacy.py, `jsk kb load`), and of
+nothing else once every workspace has a store.
 """
 import glob
 import os
 from dataclasses import dataclass, field
-from urllib.parse import quote
 
 from . import ontology as O
 from .io import GraphError, Unreadable, parse, parse_text
@@ -22,7 +27,8 @@ SHIPPED_VOCABULARY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspat
 
 
 def workspace_files(root, vocabulary=SHIPPED_VOCABULARY):
-    """The record files under a workspace root, in a fixed order. Missing ones are absent."""
+    """The record files under a workspace root still laid out as files, in a fixed order -
+    what the import reads. Missing ones are absent."""
     found = [os.path.join(root, "career", "kb.ttl"), os.path.join(root, "career", "log.ttl")]
     for pattern in ("posting.ttl", "application.ttl", "gaps.ttl"):
         # Escaped: a root named "jobs [2026]" is a glob character class, and would
@@ -39,11 +45,13 @@ def workspace_files(root, vocabulary=SHIPPED_VOCABULARY):
 class Store:
     root: str
     findings: list = field(default_factory=list)
-    parsed: dict = field(default_factory=dict)      # file -> Parsed
-    homes: dict = field(default_factory=dict)       # subject iri -> first file defining it
-    definitions: dict = field(default_factory=dict)  # subject iri -> every file, load order
-    unmatched: list = field(default_factory=list)   # kb.ttl narrowing quads that removed nothing
-    stored: bool = False     # the record came from career/store/, not from files
+    parsed: dict = field(default_factory=dict)      # graph name -> Parsed
+    homes: dict = field(default_factory=dict)       # subject iri -> first graph defining it
+    definitions: dict = field(default_factory=dict)  # subject iri -> every graph, load order
+    unmatched: list = field(default_factory=list)   # kb narrowing quads that removed nothing
+    # The record is graphs - out of career/store/, or the candidate a write validates in
+    # their place - not files: so no lines, no comments, and no hash for the log to check.
+    stored: bool = False
     # The pyoxigraph.Store load() fills; None in a Store built only to report findings.
     # Any, because pyoxigraph is imported inside the functions that need it, never here.
     ox: "Any" = None
@@ -54,15 +62,20 @@ class Store:
         names = [var.value for var in result.variables]
         return [{n: sol[n] for n in names if sol[n] is not None} for sol in result]
 
-    def graph(self, file):
-        """One file's triples, for the writer - as parsed, never read back out of
-        Oxigraph, which keeps numbers by value ("8.40" would come back as 8.4)."""
-        return self.parsed[file].quads
+    def graph(self, name):
+        """One graph's triples, as loaded: a stored graph's as career/store/ keeps them
+        (numbers by value - `8.4`, never `8.40`), a text's or a file's as parsed. Never
+        read back out of the in-memory store, which keeps numbers by value too and would
+        turn a text's `8.40` into `8.4` unreported."""
+        return self.parsed[name].quads
 
     def file_of(self, iri):
+        """The graph that first defines `iri` - its name, which findings print."""
         return self.homes.get(iri)
 
     def line_of(self, iri, file=None):
+        """The line `iri` starts on in a text or a file; 0 in a stored graph, which has
+        no lines, and a finding at line 0 prints none."""
         file = file or self.homes.get(iri)
         return self.parsed[file].lines.get(iri, 0) if file in self.parsed else 0
 
@@ -118,7 +131,12 @@ def graph_name(path, root):
     career/kb.ttl is `kb`, career/log.ttl `log`, applications/<stem>/posting.ttl
     `applications/<stem>/posting` (and application, gaps), the shipped vocabulary
     `vocabulary`. Any other path is named as file_name names it."""
-    name = file_name(path, root)
+    return short_name(file_name(path, root))
+
+
+def short_name(name):
+    """graph_name for a name already relative to the workspace (`career/kb.ttl`). A graph
+    name comes back as it is, so a caller may pass either."""
     if name in ("career/kb.ttl", "career/log.ttl"):
         return name[len("career/"):-len(".ttl")]
     if os.path.basename(name) == "vocabulary.ttl":
@@ -137,19 +155,34 @@ def app_graph(app, kind):
 
 
 def graph_iri(name):
-    """The named graph a file's triples live in. Percent-encoded: a hand-made folder can
-    hold a space, and an IRI cannot."""
-    return "file:" + quote(name, safe="/-._~")
+    """The named graph a record graph's triples live in, in memory as in career/store/:
+    the same IRI (db.graph_iri), so a query means the same thing over either."""
+    from .db import graph_iri as iri
+    return iri(name)
 
 
 def record_graphs(root):
     """{name: [Triple]} of the workspace's record, from career/store/ - or None when the
-    workspace has no store yet (it is still laid out as files)."""
+    workspace has no store yet (it is still laid out as files). A store that will not open
+    is a GraphError naming it, as an unreadable file was: never a traceback."""
     from . import db
 
     if not db.exists(root):
         return None
-    return db.read(root)
+    try:
+        return db.read(root)
+    except db.StoreError as e:
+        raise GraphError(str(e), e.fix, "career/store/") from None
+
+
+# Graphs in the order the file loader met their files: the career, its log, then each
+# kind of application graph. The first graph defining an id is its home, and a duplicate
+# is reported where it was added - in the application, not in the career it came from.
+ORDER = {"kb": 0, "log": 1, "posting": 2, "application": 3, "gaps": 4}
+
+
+def load_order(name):
+    return ORDER.get(name.rsplit("/", 1)[-1], len(ORDER)), name
 
 
 def parsed_graph(name, triples):
@@ -167,34 +200,40 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=Non
     """Load, derive, validate and close over a workspace.
 
     The record comes from career/store/ - or, while a workspace has no store, from its
-    files. `graphs`
-    ({name: triples, or None to drop}) stands in for the store's graphs, and `texts`
-    ({name: text}) for a file's: how a write validates the record it is about to write
-    before writing it. `files` overrides file discovery."""
+    files (the import's front end). `graphs` ({name: triples, or None to drop}) stands in
+    for the store's graphs, and `texts` ({name: text}) for one graph as text - a posting
+    build's, or an import's: how a write validates the record it is about to write before
+    writing it. A text wins over a graph of the same name, and both over the store.
+    `files` overrides file discovery, and reads files only: the store is not opened."""
     import pyoxigraph as ox
 
     from .rules import tier2
     from .shapes import Finding, tier1
 
     store = Store(os.path.abspath(root), ox=ox.Store())
-    texts = texts or {}
+    # Keyed by graph name, whichever a caller passed: `career/kb.ttl` is `kb`.
+    texts = {short_name(n): t for n, t in (texts or {}).items()}
+    graphs = {short_name(n): t for n, t in (graphs or {}).items()}
     record = None if files is not None else record_graphs(store.root)
-    stored = record is not None
+    # A career handed over as graphs is the record as the store will hold it (`jsk kb
+    # load` validating what it imports), whether or not a store exists yet.
+    stored = record is not None or "kb" in graphs
     if record is not None:
-        record.update(graphs or {})
-        items = [(n, None) for n in sorted(record) if record[n] is not None and n not in texts]
-        items += [(n, None) for n in sorted(texts)]
+        record.update(graphs)
+        names = {n for n in record if record[n] is not None} | set(texts)
+        items: list = [(n, None) for n in sorted(names, key=load_order)]
         if vocabulary and os.path.isfile(vocabulary):
             items.append((graph_name(vocabulary, store.root), vocabulary))
     else:
         paths = files if files is not None else workspace_files(root, vocabulary)
         names = {graph_name(p, store.root) for p in paths}
         items = [(graph_name(p, store.root), p) for p in paths]
-        items += [(n, None) for n in sorted(texts) if n not in names]
+        items += [(n, None) for n in sorted(texts, key=load_order) if n not in names]
         if graphs:
-            record = {n: t for n, t in graphs.items()}
-            items = [(n, p) for n, p in items if n not in record]
-            items += [(n, None) for n in sorted(record) if record[n] is not None]
+            record = dict(graphs)
+            items = [(n, p) for n, p in items if n not in record or n in texts]
+            items += [(n, None) for n in sorted(record, key=load_order)
+                      if record[n] is not None and n not in texts]
     derived = ox.NamedNode(O.DERIVED)
     for name, path in items:
         try:
@@ -205,8 +244,12 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=Non
             else:
                 parsed = parse(path)
         except GraphError as e:
-            store.findings.append(Finding("syntax", "FAIL", name, e.line or 0, "",
-                                          str(e).split(": ", 1)[-1], e.fix))
+            detail = str(e).split(": ", 1)[-1]
+            if path and name not in texts:
+                # A file the import reads: the person fixes the file, so it is named.
+                detail = f"{file_name(path, store.root)}: {detail}"
+            store.findings.append(Finding("syntax", "FAIL", name, e.line or 0, "", detail,
+                                          e.fix))
             continue
         except Unreadable as e:
             raise GraphError(str(e), e.fix, name) from None

@@ -17,11 +17,11 @@ holds ids and settings, so what is left to ask is of the file and of the career 
 it names:
 
   FAIL  the file's shape: an unknown key, a wrong type, no bullets (short.shape)
-  FAIL  an id kb.ttl does not hold, a retired one, a bullet whose project has no role
+  FAIL  an id the career does not hold, a retired one, a bullet whose project has no role
         (short.ids)
   FAIL  a number in a selected bullet no current version of a metric it cites holds -
         untraced - or one only a replaced version holds - superseded (numbers.untraced)
-  FAIL  a career that does not validate, or that log.ttl does not vouch for
+  FAIL  a career that does not validate, or that its log does not vouch for
   WARN  a vocabulary label in a bullet its project does not hold
   WARN  "N years of X" in the headline, the summary or a bullet, beyond the roles
         behind the projects holding X
@@ -98,25 +98,37 @@ def curie(iri):
 def career_refusal(store):
     """A FAIL line when the career cannot be trusted to check against, else None.
 
-    Carried from the claims gate: a provenance raised by hand in kb.ttl, never adopted,
+    Carried from the claims gate: a provenance raised outside `jsk kb`, never logged,
     renders as confirmed - and with no copy of the career left to compare, the log is
-    the only thing that would notice."""
+    the only thing that would notice. In career/store/ every jsk write lands with its log
+    entry, so the two part only when something else wrote the store."""
     from ..graph import record as R
 
     broken = [f for f in store.fails() if f.rule != "log-sync"
               and not f.file.startswith("applications/")]
+    where = R.KB if store.stored else R.KB_FILE
     if broken:
-        return line("career-invalid", "career/kb.ttl",
+        return line("career-invalid", where,
                     f"the career record has {len(broken)} failures, so nothing in this "
                     "resume can be checked against it", "`jsk kb check` lists them")
     st = R.state(store)
-    if st.kind != "clean":
-        return line("career-unlogged", "career/kb.ttl",
-                    f"kb.ttl is not what log.ttl last recorded ({st.kind}"
-                    + (f": {st.detail}" if st.detail else "") + ") - a provenance raised by "
-                    "hand would render unseen",
-                    "run `jsk kb adopt`: it logs the edit and lists every provenance it raised")
-    return None
+    if st.kind == "clean":
+        return None
+    detail = f"{st.kind}" + (f": {st.detail}" if st.detail else "")
+    if not store.stored:
+        return line("career-unlogged", where,
+                    f"kb.ttl is not what log.ttl last recorded ({detail}) - a provenance "
+                    "raised by hand would render unseen",
+                    "`jsk kb load .` imports the career into career/store/; check every "
+                    "provenance the edit raised first (`jsk kb check`)")
+    if st.kind in ("missing", "empty"):
+        return line("career-missing", "career/store/", "the store holds no career to check "
+                    "this resume against", "`jsk kb load` a workspace or a dump into it")
+    return line("career-unlogged", where,
+                f"the career in career/store/ is not what its log last recorded ({detail}) - "
+                "a provenance raised outside jsk would render unseen",
+                "`jsk kb load .jsk/backup.trig` into an empty workspace restores the last "
+                "write jsk made")
 
 
 def numbers_lines(store, bullets, today):
@@ -134,7 +146,7 @@ def numbers_lines(store, bullets, today):
                             f"'{s['number']}' is {curie(s['version'])}'s number, replaced on "
                             f"{s['until']} (current: {current})",
                             f"state the current number - `jsk kb show {curie(metric)}` - or, "
-                            "if the old one is still true, record that in kb.ttl first"))
+                            "if the old one is still true, record that in the career first"))
         if f.numbers:
             names = ", ".join(curie(m) for m in f.cites) or "no metric - it cites none"
             many = len(f.numbers) > 1
@@ -185,7 +197,7 @@ def label_lines(store, career, bullets, vocabulary):
                 out.append(line("label-unheld", b[len(O.K):],
                                 f"names {label!r} ({names}), which {curie(project)} does not "
                                 "hold", f"drop it from the bullet, or add it to {curie(project)} "
-                                "in kb.ttl if the work really used it"))
+                                "with `jsk kb apply` if the work really used it"))
     return out
 
 
@@ -211,7 +223,7 @@ def years_lines(store, texts, vocabulary, today):
                                 f"projects holding it cover {months // 12}y{months % 12}m",
                                 f"state what the roles cover (`jsk kb query experience "
                                 f"{curie(sorted(concepts)[0])}`), or add the work that makes up "
-                                "the rest to kb.ttl"))
+                                "the rest with `jsk kb apply`"))
     return out
 
 
@@ -303,15 +315,20 @@ def main(argv):
               "`jsk doctor` says how to install it")
         return 1
     from ..graph import record as R
-    from ..graph import store as S
 
-    store = S.load(root)
+    try:
+        store = short.career(root)
+    except short.ShortError as err:
+        print(f"FAIL  {err}")
+        print(f"fix:  {err.fix}")
+        return 2
     fails, warns = findings(doc, store)
     if strict:
         fails, warns = fails + warns, []
     st = R.state(store)
     at = f" r{st.log_revision}" if st.log_revision else ""
-    print(f"checking: {os.path.basename(path)}   against: career/kb.ttl{at}")
+    against = "career/store/" if store.stored else R.KB_FILE
+    print(f"checking: {os.path.basename(path)}   against: {against}{at}")
     print(f"\nFAIL {len(fails)}   WARN {len(warns)}")
     show(fails, "FAIL", limit)
     show(warns, "warn", limit)

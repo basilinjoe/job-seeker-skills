@@ -40,19 +40,18 @@ def short(bullets=MERIDIAN, **keys):
 
 
 class GateCase(unittest.TestCase):
-    def workspace(self, edits=(), doc=None, logged=True):
+    def workspace(self, edits=(), doc=None):
         tmp = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, tmp, True)
-        return careerkit.workspace(Path(tmp, "ws"), edits=list(edits),
-                                   short=doc or short(), logged=logged)
+        return careerkit.workspace(Path(tmp, "ws"), edits=list(edits), short=doc or short())
 
-    def store(self, edits=(), logged=True):
-        root, _ = self.workspace(edits, logged=logged)
+    def store(self, edits=()):
+        root, _ = self.workspace(edits)
         return careerkit.store(root)
 
-    def findings(self, doc=None, edits=(), logged=True):
+    def findings(self, doc=None, edits=()):
         doc = doc or short()
-        root, _ = self.workspace(edits, doc, logged)
+        root, _ = self.workspace(edits, doc)
         return record.findings(doc, careerkit.store(root), TODAY)
 
     def reworded(self, old, new):
@@ -179,20 +178,35 @@ class Ids(GateCase):
 
 
 class Career(GateCase):
-    def test_a_hand_edit_not_yet_adopted_is_refused(self):
-        """A provenance raised by hand in kb.ttl renders as confirmed: the gate refuses a
-        career log.ttl does not vouch for, as the claims gate did."""
-        fails, _ = self.findings(edits=[("j:shows c:fastapi ;\n    j:provenance j:inferred .",
-                                         "j:shows c:fastapi ;\n    j:provenance j:confirmed .")],
-                                 logged=False)
+    def test_a_career_its_log_does_not_vouch_for_is_refused(self):
+        """A provenance raised outside `jsk kb` renders as confirmed: the gate refuses a
+        career its log does not vouch for, as the claims gate did. In career/store/ every
+        jsk write lands with its entry, so only a write from outside jsk parts them; any
+        state but clean that record.state reports for a stored career is refused."""
+        from types import SimpleNamespace
+
+        from jsk.graph import record as R
+        s = self.store()
+        apart = SimpleNamespace(kind="out-of-sync", detail="r2 and r1", log_revision=1)
+        with mock.patch.object(R, "state", return_value=apart):
+            fails, _ = record.findings(short(), s, TODAY)
         [line] = fails
-        self.assertIn("career-unlogged", line)
-        self.assertIn("jsk kb adopt", line)
+        self.assertTrue(line.startswith("career-unlogged kb - the career in career/store/ is "
+                                        "not what its log last recorded (out-of-sync"), line)
+        self.assertIn("backup.trig", line)
 
     def test_a_career_that_does_not_validate_is_refused(self):
         fails, _ = self.findings(edits=[("j:cites k:met_team ;", "j:cites k:met_teem ;")])
         [line] = fails
-        self.assertIn("career-invalid", line)
+        self.assertTrue(line.startswith("career-invalid kb - "), line)
+
+    def test_a_store_with_no_career_is_refused(self):
+        from jsk.graph import record as R
+        root, _ = self.workspace()
+        R.write_graphs(root, {"kb": None})
+        fails, _ = record.findings(short(), careerkit.store(root), TODAY)
+        [line] = fails
+        self.assertTrue(line.startswith("career-missing career/store/"), line)
 
 
 class Labels(GateCase):
@@ -327,7 +341,7 @@ class Validate(GateCase):
         _, path = self.workspace()
         code, out = run_cli("validate", path)
         self.assertEqual(code, 0, out)
-        self.assertIn("checking: resume.json   against: career/kb.ttl r1", out)
+        self.assertIn("checking: resume.json   against: career/store/ r1", out)
         self.assertIn("FAIL 0   WARN 0", out)
         self.assertIn("PASS - safe to render", out)
 
@@ -345,7 +359,22 @@ class Validate(GateCase):
             path.write_text(json.dumps(short()), encoding="utf-8")
             code, out = run_cli("validate", path)
         self.assertEqual(code, 2, out)
-        self.assertIn("career/kb.ttl", out)
+        self.assertIn("career/store/", out)
+        self.assertNotIn("Traceback", out)
+
+    def test_a_store_that_will_not_open_is_refused_with_the_fix(self):
+        import os
+        import shutil
+
+        from jsk.graph import db
+        root, path = self.workspace()
+        shutil.rmtree(os.path.join(root, db.STORE_DIR))
+        os.makedirs(os.path.join(root, db.STORE_DIR))
+        Path(root, db.STORE_DIR, "CURRENT").write_text("garbage\n", encoding="utf-8")
+        code, out = run_cli("validate", path)
+        self.assertEqual(code, 2, out)
+        self.assertIn("career/store/ could not be opened", out)
+        self.assertIn("fix:", out)
         self.assertNotIn("Traceback", out)
 
     def test_a_legacy_record_is_refused_with_export_as_the_fix(self):
@@ -434,8 +463,11 @@ class ExperienceQuery(unittest.TestCase):
     clean summary's "5 years" passes and S8's "8 years" warns."""
 
     def test_kb_query_experience_counts_overlaps_once(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, tmp, True)
+        root, _ = careerkit.workspace(tmp)
         code, out = run_cli("kb", "query", "experience", "c:kubernetes", "--json",
-                            "--root", careerkit.FIXTURES)
+                            "--root", root)
         self.assertEqual(code, 0, out)
         rows = json.loads(out)
         self.assertEqual([r["project"] for r in rows[:-1]], ["k:prj_data", "k:prj_events"])
