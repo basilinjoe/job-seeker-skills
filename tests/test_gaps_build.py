@@ -1,10 +1,14 @@
-"""gaps.ttl and gaps.md: the derived assessment with gaps.txt folded in - checked against the
-match, written only when nothing FAILs, frozen once the application is sent."""
+"""The assessment (the gaps graph) and gaps.md: the derived assessment with gaps.txt folded
+in - checked against the match, written only when nothing FAILs, frozen once the
+application is sent."""
 import datetime
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
+
+import appkit
+from appkit import seed
 
 from jsk.graph import assessment as A
 from jsk.graph import gapsbuild as B
@@ -26,9 +30,19 @@ class Build(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.root = Path(self.tmp)
         shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
+        seed(self.root)
 
     def app(self, posting="contoso"):
         return self.root / "applications" / posting
+
+    def gaps(self, posting="contoso"):
+        return f"applications/{posting}/gaps"
+
+    def ttl(self, posting="contoso"):
+        return appkit.text(self.root, self.gaps(posting))
+
+    def assessed(self, posting="contoso"):
+        return appkit.has(self.root, self.gaps(posting))
 
     def load(self):
         return store.load(self.root, vocabulary=self.root / "vocabulary.ttl")
@@ -58,10 +72,11 @@ class Build(unittest.TestCase):
 
     def test_with_no_gaps_txt_the_derived_assessment_is_written_and_loads_clean(self):
         written, found = self.build()
-        self.assertEqual((sorted(Path(w).name for w in written), found),
-                         (["gaps.md", "gaps.ttl"], []))
+        self.assertEqual(([B.shown(w) for w in written], found),
+                         ([self.gaps(), "gaps.md"], []))
+        self.assertFalse((self.app() / "gaps.ttl").exists())
         s = self.load()
-        name = "applications/contoso/gaps.ttl"
+        name = self.gaps()
         self.assertEqual([f.text() for f in s.fails()], [])
         self.assertEqual([f.text() for f in s.findings if f.file == name], [])
         # SPARQL reaches it: one verdict per contoso requirement.
@@ -82,11 +97,11 @@ class Build(unittest.TestCase):
         self.assertIn("- **.NET** (required): unevidenced - carried by prj_events (tag), "
                       "prj_identity (tag) only", md)
 
-    def test_a_rebuild_is_byte_identical_and_keeps_its_day(self):
+    def test_a_rebuild_is_identical_and_keeps_its_day(self):
         self.build()
-        ttl, md = self.read("gaps.ttl"), self.read("gaps.md")
+        ttl, md = appkit.facts(self.root, self.gaps()), self.read("gaps.md")
         self.build(today=TODAY + datetime.timedelta(days=3))
-        self.assertEqual((self.read("gaps.ttl"), self.read("gaps.md")), (ttl, md))
+        self.assertEqual((appkit.facts(self.root, self.gaps()), self.read("gaps.md")), (ttl, md))
 
     # --- the overlay folded in ---------------------------------------------------------
 
@@ -95,7 +110,7 @@ class Build(unittest.TestCase):
                                     "k8s | partial | one AKS cluster | never on call\n"
                                     "short: no on-call ownership\nask: Who ran it?\n")
         self.assertEqual(found, [])
-        ttl, md = self.read("gaps.ttl"), self.read("gaps.md")
+        ttl, md = self.ttl(), self.read("gaps.md")
         self.assertIn('k:vrd_contoso_k8s j:assessment k:gap_contoso', ttl)
         self.assertIn("j:matched j:satisfied ; j:verdict j:partial", ttl)
         self.assertIn('j:shortfall "one AKS cluster | never on call"', ttl)
@@ -120,19 +135,19 @@ class Build(unittest.TestCase):
         self.assertEqual(self.fails(found), [
             "k8s is flagged (names Nomad; the evidence never does) and gaps.txt has no row "
             "for it"])
-        self.assertFalse((self.app() / "gaps.ttl").exists())
+        self.assertFalse(self.assessed())
         written, found = self.build("k8s | keep\n", flag_k8s=True)
         self.assertEqual(found, [])
         self.assertIn("| satisfied | prj_events | kept after review: names Nomad; the evidence "
                       "never does |", self.read("gaps.md"))
-        self.assertIn("j:flag j:listed-names", self.read("gaps.ttl"))
+        self.assertIn("j:flag j:listed-names", self.ttl())
 
     # --- what FAILs, and writes nothing ------------------------------------------------
 
     def assert_fails(self, txt, *expected, posting="contoso"):
         written, found = self.build(txt, posting=posting)
         self.assertEqual(written, [])
-        self.assertFalse((self.app(posting) / "gaps.ttl").exists())
+        self.assertFalse(self.assessed(posting))
         self.assertEqual(self.fails(found), list(expected))
 
     def test_an_unknown_slug_fails(self):
@@ -164,7 +179,7 @@ class Build(unittest.TestCase):
         self.assertEqual([(s, t) for s, t, _ in found],
                          [("WARN", "gaps.txt line 1: `keep` on k8s, which no flag asks about "
                                    "now")])
-        self.assertIn("j:matched j:satisfied ; j:verdict j:satisfied", self.read("gaps.ttl"))
+        self.assertIn("j:matched j:satisfied ; j:verdict j:satisfied", self.ttl())
 
     def test_an_unfilled_slot_fails(self):
         self.assert_fails("fit: partial\neligibility: <!-- jsk: judge it -->\n",
@@ -222,7 +237,7 @@ class Build(unittest.TestCase):
 
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = M.main([str(self.app() / "posting.ttl"), "--today", "2026-09-24",
+            code = M.main([str(self.app()), "--today", "2026-09-24",
                            "--gaps", str(self.app() / "gaps.txt")])
         return code, out.getvalue()
 
@@ -232,7 +247,7 @@ class Build(unittest.TestCase):
         self.assertIn(f"FAIL  {name}", out)
         self.assertIn("UTF-8", out)
         self.assertNotIn("Traceback", out)
-        self.assertFalse((self.app() / "gaps.ttl").exists())
+        self.assertFalse(self.assessed())
 
     def test_a_gaps_txt_that_is_not_utf8_fails_naming_it(self):
         (self.app() / "gaps.txt").write_bytes(b"fit: partial\n" + self.CP1252)
@@ -255,18 +270,14 @@ class Build(unittest.TestCase):
 
     def test_a_sent_application_is_frozen(self):
         self.build()
-        before = self.read("gaps.ttl")
-        (self.app() / "application.ttl").write_text(
-            "@prefix j: <tag:jsk,2026:ns#> .\n@prefix k: <tag:jsk,2026:id/> .\n"
-            "@prefix c: <tag:jsk,2026:concept/> .\n"
-            "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n# == Application\n\n"
-            'k:app_contoso j:posting k:post_contoso ; j:submitted "2026-09-20"^^xsd:date .\n',
-            encoding="utf-8", newline="\n")
+        before = appkit.facts(self.root, self.gaps())
+        appkit.put(self.root, "applications/contoso/application",
+                   'k:app_contoso j:posting k:post_contoso ; j:submitted "2026-09-20"^^xsd:date .\n')
         written, found = self.build("k8s | partial | changed my mind\n")
         self.assertEqual(written, [])
         self.assertEqual(self.fails(found), ["applications/contoso: sent on 2026-09-20 - "
-                                             "gaps.ttl and gaps.md are frozen"])
-        self.assertEqual(self.read("gaps.ttl"), before)
+                                             "its assessment and gaps.md are frozen"])
+        self.assertEqual(appkit.facts(self.root, self.gaps()), before)
 
 
 if __name__ == "__main__":

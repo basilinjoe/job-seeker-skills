@@ -66,7 +66,7 @@ def eligibility(store, lines):
 
 HEAD = [
     "# gaps.txt - your overlay on the assessment jsk derived from the match.",
-    "# `jsk match <posting.ttl> --gaps <this file>` checks it and writes gaps.ttl and gaps.md.",
+    "# `jsk match <application> --gaps <this file>` checks it, then writes the assessment and gaps.md.",
     "# A requirement not listed keeps the match's verdict (gaps.md shows each, with its evidence).",
     "# A row is `slug | verdict | reason`: it lowers a verdict, never raises one.",
 ]

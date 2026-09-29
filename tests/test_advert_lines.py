@@ -121,11 +121,12 @@ class LabelsIn(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        from appkit import stored_copy
         from test_graph_shapes import FIXTURES
 
         from jsk.graph import queries
         from jsk.graph import store as S
-        cls.named = staticmethod(queries.labels_in(S.load(str(FIXTURES))))
+        cls.named = staticmethod(queries.labels_in(S.load(str(stored_copy(FIXTURES)))))
 
     def ids(self, line):
         return [c.rsplit("/", 1)[1] for c in self.named(line)]

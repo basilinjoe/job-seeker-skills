@@ -50,24 +50,29 @@ STEMS = {
 }
 
 
-def company_of(record_path):
-    """The employer from the posting.ttl beside the record, or None.
+def company_of(record_path, store=None):
+    """The employer of the posting of the application the record sits in, or None.
 
     mode-tailor.md has always laid an application out as
     `<Name>_<Company>_Resume.{tex,pdf,txt}`, and the renderer wrote `<Name>_Resume`:
     a recruiter holding five candidates' files could not tell whose was for them.
 
-    A naming nicety, so a posting that cannot be read - missing, or not UTF-8 - names
-    the file with no company rather than stopping the render."""
-    import re
+    `store` is the workspace the render already loaded, so this costs one SELECT over
+    the posting graph and no second load. A naming nicety, so a record outside an
+    application, or one with no posting, names the file with no company rather than
+    stopping the render."""
+    from ..graph import store as S
+    from ..graph.queries import PRE
+    from ..graph.timeline import workspace_of_app
 
-    from ..graph.io import Unreadable, read_text
-    posting = os.path.join(os.path.dirname(os.path.abspath(record_path)), "posting.ttl")
-    try:
-        found = re.search(r'j:company\s+"([^"]+)"', read_text(posting, "posting.ttl"))
-    except Unreadable:
+    root, rel = workspace_of_app(os.path.dirname(os.path.abspath(record_path)))
+    if root is None:
         return None
-    return found.group(1) if found else None
+    if store is None:
+        store = S.load(root)
+    graph = S.graph_iri(S.app_graph(rel, "posting"))
+    found = store.select(PRE + f"SELECT ?c WHERE {{ GRAPH <{graph}> {{ ?p j:company ?c }} }}")
+    return found[0]["c"].value if found else None
 
 
 def select_targets(fmt, profile):
@@ -252,7 +257,7 @@ def main(argv):
     base = arg(argv, "--name")
     if not base:
         base = safe_name(plan_for("presentation")["name"])
-        company = company_of(src)
+        company = company_of(src, store)
         if company:
             base = f"{base}_{safe_name(company)}"
 

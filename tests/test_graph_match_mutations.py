@@ -72,7 +72,9 @@ def run(mutation=None):
         tmp = Path(tmp)
         shutil.copytree(SRC, tmp / "src", ignore=shutil.ignore_patterns("__pycache__"))
         (tmp / "tests").mkdir()
-        shutil.copy(TESTS / "test_graph_match.py", tmp / "tests")
+        # appkit and storekit seed the store GapsFlags runs against.
+        for helper in ("test_graph_match.py", "appkit.py", "storekit.py"):
+            shutil.copy(TESTS / helper, tmp / "tests")
         shutil.copytree(TESTS / "match_fixtures", tmp / "tests" / "match_fixtures")
         for file, old, new in ([mutation] if isinstance(mutation, tuple) else mutation or []):
             path = tmp / file

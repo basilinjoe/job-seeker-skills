@@ -15,8 +15,8 @@ has to remember every name to get started.
     jsk new PATH --name NAME    scaffold career/kb.ttl, its log at r1, and applications/
     jsk posting fetch URL APP   an Ashby, Greenhouse or Lever posting, as APP/posting.md
       ... extract APP           its lines, numbered, with the concepts each names
-      ... build APP             decisions.txt to APP/posting.ttl, every quote the advert's own
-    jsk match POSTING.ttl       a posting against the graph record, through the vocabulary
+      ... build APP             decisions.txt to APP's posting, every quote the advert's own
+    jsk match APP               a posting against the graph record, through the vocabulary
     jsk tailor prepare APP      the match and everything an assessment reads, in one digest
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
     jsk validate RESUME.json    the record gate, before anything renders
@@ -32,7 +32,7 @@ has to remember every name to get started.
     jsk freeze APP --submitted DATE|false --channel TEXT   archive a sent application
     jsk event APP KIND --date DATE      add a screen, an offer, a rejection to one
 
-The career is the graph record, career/kb.ttl: changed through `jsk kb apply`, read with
+The career is the graph record, in career/store/: changed through `jsk kb apply`, read with
 `jsk kb show` and `jsk kb view`, validated on every load. `jsk kb export` writes an
 application's short resume.json - the bullets chosen, as ids - out of it, every render
 builds from the career and that file, and `jsk validate` checks the file and the bullets it
@@ -173,12 +173,106 @@ def run_in_process(script, args):
 
 
 def cmd_doctor(args):
-    """Preflight, verifying end to end unless told otherwise."""
+    """Preflight, verifying end to end unless told otherwise - then the record's store."""
     if "--quick" in args:
         args = [a for a in args if a != "--quick"]
     elif "--verify" not in args:
         args = list(args) + ["--verify"]
-    return run_in_process("preflight.py", args)
+    code = run_in_process("preflight.py", args)
+    if wants_help(args) or "--json" in args:
+        return code
+    kb = args[args.index("--kb") + 1] if "--kb" in args[:-1] else None
+    lines, broken = store_report(kb)
+    print("\nThe record:")
+    print("\n".join(lines))
+    return max(code, 1 if broken else 0)
+
+
+def store_report(start=None):
+    """(lines, broken) saying where the record's store stands: there, readable, its
+    revision, and whether .jsk/backup.trig - the dump every write refreshes, and what
+    `jsk kb load` restores from - is there, at which revision. `start` is a workspace, a
+    path inside one, or its career/kb.ttl; by default the current directory."""
+    from .graph import db
+    from .graph import record as R
+    from .graph.kbcli import find_root
+
+    here = start or os.getcwd()
+    if os.path.isfile(here):
+        here = os.path.dirname(os.path.abspath(here))
+    root = find_root(here)
+    if root is None:
+        return [f"  gap   no workspace at or above {here}",
+                "           `jsk new PATH --name NAME` starts one"], False
+    refusal = unloaded_refusal(root)
+    if refusal:
+        return [f"  FAIL  {refusal[0]}", f"           {refusal[1]}"], True
+    try:
+        graphs = db.read(root)
+    except db.StoreError as e:
+        return [f"  FAIL  {db.path(root)}: {e}", f"           {e.fix}"], True
+    revision = R.header_revision(graphs.get(R.KB, []))
+    lines = [f"  ok    store    {db.path(root)}",
+             f"           readable, at r{revision}" if revision is not None
+             else "           readable, and it holds no career revision"]
+    backup = os.path.join(root, R.BACKUP)
+    if not os.path.isfile(backup):
+        lines += ["  gap   backup   no .jsk/backup.trig yet",
+                  "           the next write refreshes it; `jsk kb dump` writes one now"]
+        return lines, False
+    try:
+        from .graph.io import read_text
+        at = R.header_revision(db.parse_dump(read_text(backup, R.BACKUP)).get(R.KB, []))
+    except Exception as e:                   # noqa: BLE001 - reported, never a crash
+        lines += [f"  gap   backup   {backup} does not read back: {e}"]
+        return lines, False
+    lines.append(f"  ok    backup   {backup}")
+    lines.append(f"           at r{at}" + ("" if at == revision else
+                                          f" - one write behind the store's r{revision}; the "
+                                          "next write refreshes it"))
+    return lines, False
+
+
+def unloaded_refusal(root):
+    """[what is wrong, the fix] for a workspace whose career is still career/kb.ttl, with
+    no career/store/ - or None. The record lives in the store now (plan P5): a command
+    that read the files would answer from a record jsk no longer writes, so each refuses
+    until `jsk kb load .` has imported them, once.
+
+    The shipped example (paths.EXAMPLE_WORKSPACE) is the exception: it is package data,
+    read-only, and a store's format is tied to the pyoxigraph version, so it ships as
+    files and is read from them."""
+    from .paths import EXAMPLE_WORKSPACE
+
+    if root and os.path.normcase(os.path.abspath(root)) == \
+            os.path.normcase(EXAMPLE_WORKSPACE):
+        return None
+    if root and os.path.isfile(os.path.join(root, "career", "kb.ttl")) and \
+            not os.path.isdir(os.path.join(root, "career", "store")):
+        return [f"{root}: the career is still career/kb.ttl, and jsk reads it from "
+                "career/store/ now",
+                f"fix:  jsk kb load .   - run in {root}, it imports the files once"]
+    return None
+
+
+# Commands that make a record, report on one, or dispatch their own verbs - `jsk kb load`
+# is the import itself, so kbcli refuses for the other kb verbs.
+NO_RECORD = {"new", "doctor", "kb"}
+
+
+def workspace_refusal(sub, rest):
+    """unloaded_refusal for the workspace a command runs in - the one around the current
+    directory, or around any path it was given - or None."""
+    from .graph.kbcli import find_root
+
+    if sub in NO_RECORD or wants_help(rest):
+        return None
+    starts = [os.getcwd()] + [a for a in rest if not a.startswith("-") and os.path.exists(a)]
+    for start in starts:
+        refusal = unloaded_refusal(find_root(start))
+        if refusal:
+            return refusal
+    return None
 
 
 # The three formats an application archive may still hold from an older layout.
@@ -721,7 +815,8 @@ def not_rendered(why):
 
 
 def frozen_refusal(*dirs):
-    """Lines refusing a render into, or from, a frozen application - or None."""
+    """Lines refusing a render into, or from, a frozen application - or None. Frozen is
+    what the application's record says (timeline.frozen), not whether a file is there."""
     from .graph.timeline import frozen
 
     for d in dirs:
@@ -828,8 +923,8 @@ def cmd_ship(args):
 # nothing in the directory edited again. The command does the first two and refuses
 # whenever the third is already true or the documents would not survive their gates.
 #
-# It writes application.ttl - what was sent, and the bullets and metric versions it
-# carried - and later events go in with `jsk event`.
+# It writes the application's record - what was sent, and the bullets and metric versions
+# it carried - and later events go in with `jsk event`.
 FREEZE_USAGE = ("usage: jsk freeze <app-dir> --submitted YYYY-MM-DD|false "
                 "--channel TEXT [--doc FILE ...]")
 
@@ -838,6 +933,7 @@ APPLICATION_TTL = "application.ttl"
 WORKING_FILES = ("gaps.txt", "decisions.txt")
 POSTING_TTL = "posting.ttl"
 GRAPH_KB = os.path.join("career", "kb.ttl")
+GRAPH_STORE = os.path.join("career", "store")
 DATED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 
 
@@ -849,10 +945,10 @@ def freeze_refusal(*lines):
 
 
 def cmd_freeze(args):
-    """Archive one application directory: rename it to its day and write application.ttl.
+    """Archive one application directory: rename it to its day and write its record.
 
-    Never touches the career: not kb.ttl or log.ttl. `jsk event` records what happens
-    to the application afterwards; this command only freezes what was sent.
+    Never touches the career or its log. `jsk event` records what happens to the
+    application afterwards; this command only freezes what was sent.
     """
     if wants_help(args):
         print(FREEZE_USAGE)
@@ -880,8 +976,9 @@ def cmd_freeze(args):
     # round. It happened: a session wrote them relative to its working directory.
     apps = os.path.dirname(os.path.abspath(app_dir))
     workspace = os.path.dirname(apps)
-    if not os.path.isfile(os.path.join(workspace, GRAPH_KB)):
-        print(f"no career/kb.ttl beside {apps}")
+    if not (os.path.isdir(os.path.join(workspace, GRAPH_STORE))
+            or os.path.isfile(os.path.join(workspace, GRAPH_KB))):
+        print(f"no career/store/ beside {apps}")
         print("fix:  move the directory into the applications/ folder next to career/")
         return 2
     submitted = flags.get("--submitted")
@@ -904,21 +1001,22 @@ def cmd_freeze(args):
         print("fix:  --channel \"Workday portal\"   - where it was sent")
         return 2
 
-    # An application.md is one frozen before the career moved to kb.ttl, and is as
-    # frozen as an application.ttl.
-    for name, later in ((APPLICATION_TTL, "Later events are `jsk event`, one each."),
-                        (APPLICATION, "It was frozen as Markdown before the career moved "
-                                      "to career/kb.ttl.")):
-        target = os.path.join(app_dir, name)
-        if os.path.exists(target):
-            return freeze_refusal(
-                f"{target} already exists. A frozen application is never re-frozen.", later)
+    # Frozen is what the record says: its application graph - or, in a workspace not yet
+    # loaded into a store, application.ttl. An application.md is one frozen before the
+    # career moved to kb.ttl, and is as frozen as either.
+    from .graph import timeline                       # noqa: PLC0415 - only when asked
+    held = timeline.frozen(app_dir)
+    if held:
+        later = ("It was frozen as Markdown before the career moved to career/kb.ttl."
+                 if held.endswith(APPLICATION) else "Later events are `jsk event`, one each.")
+        return freeze_refusal(
+            f"{held} already exists. A frozen application is never re-frozen.", later)
 
-    # company and title live in posting.ttl; timeline.freeze() reads and checks it.
-    if not os.path.isfile(os.path.join(app_dir, POSTING_TTL)):
-        return freeze_refusal(f"no {POSTING_TTL} in {app_dir}",
-                              "application.ttl names the posting it answered; the "
-                              "analyst writes posting.ttl beside posting.md.")
+    # company and title live in the posting; timeline.freeze() reads and checks it.
+    if not timeline.has_record(app_dir, "posting"):
+        return freeze_refusal(f"no posting in {app_dir}",
+                              "the application's record names the posting it answered: "
+                              f"`jsk posting build {app_dir}` writes it from posting.md.")
 
     record = os.path.join(app_dir, DEFAULT_RECORD)
     try:
@@ -1025,21 +1123,14 @@ def cmd_freeze(args):
             "fix: send the letter's .txt beside it, or leave it out with --doc.",
             "nothing was renamed or written.")
 
-    from .graph import timeline                       # noqa: PLC0415 - only when asked
-    text, problems = timeline.freeze(workspace, app_dir, plan, record_bytes, submitted,
-                                     channel, documents)
-    if problems:
-        return freeze_refusal(*problems, "nothing was renamed or written.")
+    from .graph import record as R                    # noqa: PLC0415 - only when asked
 
-    if final != app_dir:
-        try:
-            os.rename(app_dir, final)
-        except OSError as exc:
-            return freeze_refusal(f"cannot rename {app_dir} to {final}: {exc}",
-                                  "nothing was written.")
-    written = os.path.join(final, APPLICATION_TTL)
-    with open(written, "x", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
+    # The turn before the record is read: what freeze() validates is what it writes over.
+    with R.turn(workspace):
+        written = freeze_write(workspace, app_dir, final, plan, record_bytes, submitted,
+                               channel, documents)
+    if isinstance(written, int):
+        return written
     print(f"froze  {written}")
     if final != app_dir:
         print(f"moved  {app_dir} -> {final}")
@@ -1052,12 +1143,46 @@ def cmd_freeze(args):
     return 0
 
 
+def freeze_write(workspace, app_dir, final, plan, record_bytes, submitted, channel,
+                 documents):
+    """Validate the application's record, rename the directory, write the record. Returns
+    what was written, or the exit code of a refusal - each one leaving the directory and
+    the record as they were."""
+    from .graph import record as R                    # noqa: PLC0415 - only when asked
+    from .graph import timeline                       # noqa: PLC0415
+
+    quads, problems = timeline.freeze(workspace, app_dir, plan, record_bytes, submitted,
+                                      channel, documents)
+    if problems:
+        return freeze_refusal(*problems, "nothing was renamed or written.")
+    if final != app_dir:
+        try:
+            os.rename(app_dir, final)
+        except OSError as exc:
+            return freeze_refusal(f"cannot rename {app_dir} to {final}: {exc}",
+                                  "nothing was written.")
+    try:
+        return timeline.write_frozen(workspace, app_dir, final, quads)
+    except (R.RecordError, OSError) as exc:
+        # The store refused, so the directory goes back to the name its graphs still have.
+        undone = final == app_dir
+        if not undone:
+            with contextlib.suppress(OSError):
+                os.rename(final, app_dir)
+                undone = True
+        return freeze_refusal(f"the record was not written: {exc}",
+                              f"fix: {getattr(exc, 'fix', 'run the command again')}",
+                              "nothing was written" + ("." if undone else
+                                                       f", and {final} could not be renamed "
+                                                       f"back to {app_dir}."))
+
+
 # Subcommands that went, with what replaced them. Said by name rather than as an unknown
 # command: a shell history or an old mode file still holds them, and "unknown command"
 # reads as a broken install.
 RETIRED = {
     "index": "it read user-knowledgebase.md, and the career is career/kb.ttl now.\n"
-             "fix:  `jsk match applications/<dir>/posting.ttl` ranks the career against a "
+             "fix:  `jsk match applications/<dir>` ranks the career against a "
              "posting;\n      `jsk kb view` reads it",
     "migrate": "it moved a user-knowledgebase.md to career/kb.ttl, and jsk no longer reads "
                "the Markdown format.\n"
@@ -1092,6 +1217,11 @@ def main(argv):
         print(f"jsk {__version__}")
         return 0
     sub, rest = args[0], args[1:]
+    refusal = (sub in HANDLERS or sub in SIMPLE) and workspace_refusal(sub, rest)
+    if refusal:
+        print("REFUSED - " + refusal[0])
+        print(refusal[1])
+        return 1
     if sub in HANDLERS:
         return HANDLERS[sub](rest)
     if sub in SIMPLE:

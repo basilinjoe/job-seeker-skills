@@ -1,11 +1,11 @@
 """`jsk posting extract` and `jsk posting build`: code extracts, the model decides, code
-writes posting.ttl.
+writes the posting - the application's posting graph in career/store/.
 
 The JumpCloud run spent 26.5k output tokens hand-writing posting.ttl, most of it ids and
 quotes copied character for character. These tests pin that the build's quotes cannot
 drift from the advert, that no qualification or responsibility line goes unanswered,
-that every bad decision is refused before anything is written, and that a rebuild is
-byte-identical.
+that every bad decision is refused before anything is written, and that a rebuild writes
+the same graph.
 """
 import contextlib
 import datetime
@@ -14,8 +14,11 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+import appkit
 import fixtures  # noqa: F401 - puts the worktree's src first on sys.path
+from appkit import seed
 
 from jsk import posting
 from jsk.graph import postingbuild, rules, store
@@ -83,7 +86,9 @@ class Workspace(unittest.TestCase):
         self.app = self.root / "applications" / STEM
         self.app.mkdir(parents=True)
         (self.app / "posting.md").write_text(ADVERT, encoding="utf-8", newline="\n")
-        self.target = self.app / "posting.ttl"
+        seed(self.root)
+        self.target = f"applications/{STEM}/posting"
+        self.gaps = f"applications/{STEM}/gaps"
 
     def decide(self, rows=ROWS, header=HEADER, name="decisions.txt"):
         path = self.app / name
@@ -99,14 +104,17 @@ class Workspace(unittest.TestCase):
             self.build(rows, header)
         self.assertIn(says, str(caught.exception))
         self.assertTrue(caught.exception.fix.startswith("fix:"))
-        self.assertFalse(self.target.exists(), "a refusal writes nothing")
+        self.assertFalse(appkit.has(self.root, self.target), "a refusal writes nothing")
         return caught.exception
 
     def loaded(self):
         return store.load(self.root, vocabulary=self.root / "vocabulary.ttl")
 
     def text(self):
-        return self.target.read_text(encoding="utf-8")
+        return appkit.text(self.root, self.target)
+
+    def put_posting(self, turtle):
+        appkit.put(self.root, self.target, turtle, prefixes=False)
 
 
 class Lines(unittest.TestCase):
@@ -180,9 +188,9 @@ class Extract(Workspace):
 class Build(Workspace):
     def test_the_built_posting_passes_the_quote_and_coverage_checks(self):
         path, count, warnings = self.build()
-        self.assertEqual((Path(path), count, warnings), (self.target, 7, []))
+        self.assertEqual((path, count, warnings), (self.target, 7, []))
         s = self.loaded()
-        mine = [f for f in s.findings if f.file == f"applications/{STEM}/posting.ttl"]
+        mine = [f for f in s.findings if f.file == self.target]
         self.assertEqual([f.text() for f in mine if f.rule in
                           ("quote-verbatim", "advert-uncovered", "necessity-wording")], [])
         self.assertEqual([f.text() for f in mine if f.severity == "FAIL"], [])
@@ -239,45 +247,89 @@ class Build(Workspace):
         self.build()
         self.assertIn('"2026-09-27"^^xsd:date', self.text())
 
-    def test_a_rebuild_is_byte_identical(self):
+    def test_a_rebuild_writes_the_same_graph(self):
         self.build()
-        first = self.target.read_bytes()
+        first = appkit.facts(self.root, self.target)
         self.build(replace=True)
-        self.assertEqual(self.target.read_bytes(), first)
+        self.assertEqual(appkit.facts(self.root, self.target), first)
+
+    def test_the_posting_is_a_graph_in_the_store_and_no_file(self):
+        self.build()
+        self.assertTrue(appkit.has(self.root, self.target))
+        self.assertFalse((self.app / "posting.ttl").exists())
+
+    def put_gaps(self):
+        appkit.put(self.root, self.gaps, "k:gap_acme_staff_platform j:fit j:partial .\n")
 
     def test_a_rebuild_removes_the_derived_assessment_and_keeps_gaps_txt(self):
-        """A rebuild can drop a requirement gaps.ttl names, and that dangling ref would block
-        prepare in this directory; gaps.txt is the analyst's, keyed by slug."""
+        """A rebuild can drop a requirement the assessment names, and that dangling ref would
+        block prepare in this directory; gaps.txt is the analyst's, keyed by slug."""
         self.build()
-        for name in ("gaps.ttl", "gaps.md", "gaps.txt"):
+        self.put_gaps()
+        for name in ("gaps.md", "gaps.txt"):
             (self.app / name).write_text(name + "\n", encoding="utf-8")
         _, _, warnings = self.build(replace=True)
-        self.assertEqual([n for n in ("gaps.ttl", "gaps.md", "gaps.txt")
-                          if (self.app / n).exists()], ["gaps.txt"])
-        self.assertEqual(warnings, ["removed gaps.ttl and gaps.md, derived from the posting.ttl "
-                                    "this replaces; `jsk tailor prepare` writes them again, with "
-                                    "gaps.txt folded in"])
+        self.assertFalse(appkit.has(self.root, self.gaps))
+        self.assertEqual([n for n in ("gaps.md", "gaps.txt") if (self.app / n).exists()],
+                         ["gaps.txt"])
+        self.assertEqual(warnings, [f"removed {self.gaps} and gaps.md, derived from the "
+                                    "posting this replaces; `jsk tailor prepare` writes them "
+                                    "again, with gaps.txt folded in"])
+
+    def test_replace_writes_the_posting_and_drops_the_assessment_in_one_update(self):
+        """P4: the two change together or not at all - a posting rebuilt beside the old
+        assessment would leave it naming requirements that may be gone."""
+        from jsk.graph import record as R
+        self.build()
+        self.put_gaps()
+        calls = []
+        real = R.write_graphs
+
+        def spy(root, graphs, create=False):
+            calls.append(sorted(graphs))
+            return real(root, graphs, create)
+        with mock.patch.object(R, "write_graphs", spy):
+            self.build(ROWS.replace("c:docker |", "c:docker | preferred"), replace=True)
+        self.assertEqual(calls, [sorted([self.target, self.gaps])])
+        self.assertIn("j:necessity j:preferred", self.text())
+
+    def test_a_replace_the_store_refuses_changes_neither(self):
+        self.build()
+        self.put_gaps()
+        before = (appkit.facts(self.root, self.target), appkit.facts(self.root, self.gaps))
+        with appkit.refusing_store():
+            with self.assertRaises(posting.Refused) as caught:
+                self.build(ROWS.replace("c:docker |", "c:docker | preferred"), replace=True)
+        self.assertIn("nothing was changed", str(caught.exception))
+        self.assertEqual((appkit.facts(self.root, self.target),
+                          appkit.facts(self.root, self.gaps)), before)
 
     def send(self, submitted='"2026-09-20"^^xsd:date'):
-        (self.app / "application.ttl").write_text(
-            "@prefix j: <tag:jsk,2026:ns#> .\n@prefix k: <tag:jsk,2026:id/> .\n"
-            "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n"
-            f"k:app_acme_staff_platform j:submitted {submitted} .\n",
-            encoding="utf-8", newline="\n")
+        appkit.put(self.root, f"applications/{STEM}/application",
+                   f"k:app_acme_staff_platform j:submitted {submitted} .\n")
 
     def test_a_sent_posting_is_not_rebuilt_and_its_assessment_is_left_alone(self):
-        """Ruling 6: a sent posting is what the application answered - posting.ttl, and the
-        gaps files derived from it, keep their bytes, and the refusal writes nothing."""
+        """Ruling 6: a sent posting is what the application answered - the posting, and the
+        assessment derived from it, stay as they are, and the refusal writes nothing."""
         self.build()
-        for name in ("gaps.ttl", "gaps.md"):
-            (self.app / name).write_text(name + "\n", encoding="utf-8")
-        before = {n: (self.app / n).read_bytes() for n in ("posting.ttl", "gaps.ttl", "gaps.md")}
+        self.put_gaps()
+        (self.app / "gaps.md").write_text("gaps.md\n", encoding="utf-8")
         self.send()
+        before = (appkit.graphs(self.root), (self.app / "gaps.md").read_bytes())
         with self.assertRaises(posting.Refused) as caught:
             self.build(ROWS.replace("c:docker |", "c:docker | preferred"), replace=True)
         self.assertIn("sent on 2026-09-20", str(caught.exception))
         self.assertTrue(caught.exception.fix.startswith("fix:  "), caught.exception.fix)
-        self.assertEqual({n: (self.app / n).read_bytes() for n in before}, before)
+        self.assertEqual((appkit.graphs(self.root), (self.app / "gaps.md").read_bytes()), before)
+
+    def test_a_stray_application_ttl_file_does_not_freeze_a_stored_application(self):
+        """`jsk kb load` leaves the old files where they were; the store alone says sent."""
+        self.build()
+        (self.app / "application.ttl").write_text(
+            appkit.PREFIXES + 'k:app_acme_staff_platform j:submitted "2026-09-20"^^xsd:date .\n',
+            encoding="utf-8")
+        self.build(ROWS.replace("c:docker |", "c:docker | preferred"), replace=True)
+        self.assertIn("j:necessity j:preferred", self.text())
 
     def test_an_application_held_back_is_rebuilt(self):
         """`submitted false`: frozen for the documents, but not sent - the posting may move."""
@@ -286,22 +338,24 @@ class Build(Workspace):
         self.build(replace=True)
         self.assertIn("k:post_acme_staff_platform", self.text())
 
-    def test_an_existing_posting_ttl_needs_replace(self):
-        self.target.write_text("hand reviewed\n", encoding="utf-8")
+    def test_an_existing_posting_needs_replace(self):
+        kept = 'k:post_hand j:company "Hand reviewed" .\n'
+        appkit.put(self.root, self.target, kept)
+        before = appkit.facts(self.root, self.target)
         with self.assertRaises(posting.Refused) as caught:
             self.build()
         self.assertIn("--replace", caught.exception.fix)
-        self.assertEqual(self.text(), "hand reviewed\n")
+        self.assertEqual(appkit.facts(self.root, self.target), before)
         self.build(replace=True)
-        self.assertIn("k:post_acme_staff_platform", self.text())
+        self.assertIn('j:company "Acme Health"', self.text())       # whole, under its id
 
     def test_a_rebuild_keeps_the_posting_id_and_capture_day_already_there(self):
-        """application.ttl points at the posting id already written, and the advert was
-        saved on the day posting.ttl says, not on the day of the rebuild."""
+        """The application record points at the posting id already written, and the advert
+        was saved on the day the posting says, not on the day of the rebuild."""
         self.build(header=HEADER + "captured: 2026-09-01\n")
         legacy = self.text().replace("post_acme_staff_platform", "post_acme_staff") \
             .replace("req_acme_staff_platform_", "req_acme_staff_")
-        self.target.write_text(legacy, encoding="utf-8", newline="\n")
+        self.put_posting(legacy)
         self.build(replace=True)
         self.assertIn("k:post_acme_staff j:company", self.text())
         self.assertIn("k:req_acme_staff_python ", self.text())
@@ -431,7 +485,7 @@ class Command(Workspace):
 
     def test_a_refusal_exits_1_and_says_why(self):
         self.decide(self.MAIN_ROWS)
-        self.target.write_text("kept\n", encoding="utf-8")
+        appkit.put(self.root, self.target, 'k:post_kept j:company "Kept" .\n')
         code, out = self.main("build", str(self.app))
         self.assertEqual(code, 1)
         self.assertTrue(out.startswith("REFUSED - "), out)
@@ -460,13 +514,13 @@ class Command(Workspace):
         self.decide(self.MAIN_ROWS)
         self.assert_refused_naming(["extract", str(self.app)], "posting.md")
         self.assert_refused_naming(["build", str(self.app)], "posting.md")
-        self.assertFalse(self.target.exists())
+        self.assertFalse(appkit.has(self.root, self.target))
 
     def test_a_decisions_file_that_is_not_utf8_is_refused(self):
         path = self.decide(self.MAIN_ROWS)
         path.write_bytes(path.read_bytes() + b"# " + self.CP1252)
         self.assert_refused_naming(["build", str(self.app)], "decisions.txt")
-        self.assertFalse(self.target.exists())
+        self.assertFalse(appkit.has(self.root, self.target))
 
     def test_called_wrong_exits_2(self):
         for args in (["extract"], ["extract", "a", "b"], ["build"], ["build", "a", "b", "c"],

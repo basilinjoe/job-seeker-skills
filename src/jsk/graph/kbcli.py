@@ -18,7 +18,7 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
                                        what the record lacks; not applied
   merge c:a --into c:b [--out FILE]    two concepts that are one, as a changeset; not applied
   export [--select <id>...]            the short resume.json: the bullets to show, as ids;
-         [--from-match <posting.ttl>]  --from-match chooses them for a posting,
+         [--from-match <app-dir>]      --from-match chooses them for an application,
          [--ranked] [--cover N]        --ranked with none
          [--today D] [--out FILE]
   check                                validate the workspace; exit 1 on a FAIL
@@ -834,25 +834,25 @@ def cmd_view(args, flags, root):
 @verb(values=("--out", "--from-match", "--cover", "--today"),
       switches=("--ranked", "--urs", "--refresh"), lists=("--select",))
 def cmd_export(args, flags, root):
-    """jsk kb export [--select <id>...] [--from-match <posting.ttl> [--cover N] | --ranked]
+    """jsk kb export [--select <id>...] [--from-match <app-dir> [--cover N] | --ranked]
                      [--today YYYY-MM-DD] [--out resume.json]
 
     The short resume.json an application starts from: the bullets it shows, in order,
     and its settings - `"resume": 2`, the region when a profile ships for the person's
     country, `"pages": 2`. Nothing the career holds is copied: the render reads the
-    words, numbers and dates from kb.ttl as it stands, so a changeset applied or a bullet
-    confirmed afterwards is in the next ship with nothing to update.
+    words, numbers and dates from the career as it stands, so a changeset applied or a
+    bullet confirmed afterwards is in the next ship with nothing to update.
 
     --select names what to show: prj_ brings a project and its bullets, ach_ one bullet
     (and narrows its project to the bullets named), pos_ a role shown with no bullet.
     Retired entries never come. With none of --select, --from-match or --ranked, the
     whole career.
 
-    --from-match chooses the bullets from `jsk match`: the projects that carry the
-    posting with confirmed evidence, their bullets by what they show, the skills the
-    posting asks for first. What it cannot close prints as GAP lines - tag-only,
-    unconfirmed, uncovered, unresolved - for gaps.md. --select adds to it; --cover and
-    --today are jsk match's.
+    --from-match chooses the bullets from `jsk match` of the application (its directory,
+    applications/<dir>): the projects that carry the posting with confirmed evidence,
+    their bullets by what they show, the skills the posting asks for first. What it
+    cannot close prints as GAP lines - tag-only, unconfirmed, uncovered, unresolved - for
+    gaps.md. --select adds to it; --cover and --today are jsk match's.
 
     --ranked is the same with no posting, for a general rebuild: the projects by strength
     and recency, their confirmed bullets by the same bands, a bullet citing a current
@@ -862,8 +862,8 @@ def cmd_export(args, flags, root):
     --out writes the file, never over an existing one; without it the file is printed.
 
     A number in a chosen bullet that no current metric version holds is printed as a
-    WARN: it is in kb.ttl, not in anything authored, so it is a question for the person
-    before any word is retuned.
+    WARN: it is in the career, not in anything authored, so it is a question for the
+    person before any word is retuned.
 
     --urs and --refresh are gone with the full record: the short file is the one format,
     and there is nothing in it to refresh.
@@ -874,7 +874,7 @@ def cmd_export(args, flags, root):
     from . import record as R
     from . import store as S
     from .export import Career, ExportError, chosen, short_file
-    from .match import COVER, blocks, workspace_of
+    from .match import COVER, application, blocks, posting_in
     from .writer import curie
 
     # Said by name rather than as an unknown flag - so they are switches it takes: an
@@ -884,7 +884,7 @@ def cmd_export(args, flags, root):
                      "there is - drop --urs")
     if "--refresh" in flags:
         return usage("--refresh is gone: a short resume.json holds ids, and every render "
-                     "builds from kb.ttl as it stands, so there is nothing to refresh")
+                     "builds from the career as it stands, so there is nothing to refresh")
     out, posting, cover_text, today_text = (flags.get(f) for f in
                                             ("--out", "--from-match", "--cover", "--today"))
     by_rank = "--ranked" in flags
@@ -894,7 +894,7 @@ def cmd_export(args, flags, root):
         if not select:
             return usage("--select needs one or more ids")
     if args:
-        return usage("jsk kb export [--select <id>...] [--from-match <posting.ttl> | --ranked] "
+        return usage("jsk kb export [--select <id>...] [--from-match <app-dir> | --ranked] "
                      "[--out resume.json] - the short resume.json is the one format it writes")
     if posting and by_rank:
         return usage("--ranked is the selection with no posting, --from-match the one for a "
@@ -913,20 +913,21 @@ def cmd_export(args, flags, root):
         return usage("--cover takes a whole number and --today a YYYY-MM-DD date")
     if budget < 1:
         return usage("--cover takes a whole number of at least 1")
+    app = None
     if posting:
-        home = workspace_of(posting)
-        if (home is None or not os.path.isfile(posting)
-                or os.path.normcase(os.path.realpath(home))
-                != os.path.normcase(os.path.realpath(root))):
-            return usage(f"{posting}: not a posting.ttl inside this workspace's "
-                         "applications/<dir>/ folder")
+        home, app = application(posting, "jsk kb export --from-match")
+        if home is None:
+            print("\n".join(app))
+            return 2
+        if os.path.normcase(os.path.realpath(home)) != os.path.normcase(os.path.realpath(root)):
+            return usage(f"{posting}: not an application of this workspace ({root})")
     store = S.load(root)
     if R.KB not in store.parsed:
         st = R.state(store)
         return refuse([GUIDE[st.kind][0] or st.detail], GUIDE[st.kind][1])
-    # The career always; with --from-match, the posting's own directory too, as jsk match.
-    here = (S.file_name(os.path.dirname(os.path.abspath(posting)), store.root) + "/"
-            if posting else None)
+    # The career always; with --from-match, the application's own directory too, as jsk
+    # match.
+    here = S.file_name(app, store.root) + "/" if posting else None
     blocking = [f for f in store.fails() if f.rule != "log-sync"
                 and (not f.file.startswith("applications/") or (here and blocks(f, here)))]
     if blocking:
@@ -948,12 +949,11 @@ def cmd_export(args, flags, root):
             if by_rank:
                 selection = SEL.ranked(store, today, extra)
             else:
-                posts = [iri for iri in store.homes if O.class_of(iri) == "Posting"
-                         and store.file_of(iri) == S.file_name(posting, store.root)]
-                if len(posts) != 1:
+                post = posting_in(store, app)
+                if post is None:
                     return refuse([f"{posting} holds no posting"],
-                                  "check it with `jsk kb check`")
-                selection = SEL.select(store, posts[0], today, budget, extra)
+                                  f"`jsk posting build {posting}` writes it from posting.md")
+                selection = SEL.select(store, post, today, budget, extra)
         if selection is not None:
             # The gaps first: when nothing is selected they are the reason, and a refusal
             # printed without them would leave the author to run jsk match to find out why.
@@ -970,9 +970,9 @@ def cmd_export(args, flags, root):
         print(note, file=report)
     faults = untraced_lines(store, today, [O.K + b for b in doc["bullets"]])
     if faults:
-        print(f"WARN  {len(faults)} check(s) fail on the chosen bullets as kb.ttl holds them - "
-              "a question for the person, answered in kb.ttl (`jsk kb apply`) before any "
-              "word is retuned:", file=report)
+        print(f"WARN  {len(faults)} check(s) fail on the chosen bullets as the career holds "
+              "them - a question for the person, answered in the career (`jsk kb apply`) "
+              "before any word is retuned:", file=report)
         for line in faults:
             print(f"        {line}", file=report)
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
@@ -994,7 +994,7 @@ def wrote(store, path, text, doc):
         fh.write(text)
     st = R.state(store)
     at = f" at r{st.log_revision}" if st.log_revision else ""
-    print(f"wrote {path}: {len(doc['bullets'])} bullets chosen from career/kb.ttl{at}")
+    print(f"wrote {path}: {len(doc['bullets'])} bullets chosen from the career{at}")
 
 
 @verb(values=("--near",), switches=("--json",))

@@ -7,12 +7,13 @@ Usage: jsk tailor prepare <applications/<dir>> [--draft-gaps] [--cover N] [--tod
   --cover N     the most projects the cover may use (default 3)
   --today       the date recency is measured from (default: today)
 
-One process, one digest, in this order: posting.ttl in the canonical layout; the check,
-scoped to this application plus any FAIL anywhere; the match as `jsk match` prints it; what
-the record holds for every missing and candidate term; the person, for eligibility; the
-cover's projects with their bullets; what those projects hold unconfirmed; and the
-assessment - gaps.ttl and gaps.md, derived from the match with gaps.txt folded in when
-there is one, written on every run. Every section has a size cap and says when it was cut.
+One process, one digest, in this order: the check, scoped to this application plus any
+FAIL anywhere; the match as `jsk match` prints it; what the record holds for every missing
+and candidate term; the person, for eligibility; the cover's projects with their bullets;
+what those projects hold unconfirmed; and the assessment - the gaps graph and gaps.md,
+derived from the match with gaps.txt folded in when there is one, written on every run.
+Every section has a size cap and says when it was cut. (A workspace not yet loaded into
+career/store/ gets a first section: posting.ttl rewritten in the canonical layout.)
 
 Exit 0 digest printed; 1 a FAIL blocks the match, or the draft could not be written; 2
 called wrong. A gaps.txt the check refuses is reported in the digest, not an exit 1: the
@@ -69,7 +70,7 @@ def main(argv=None):
     if len(argv) != 2 or argv[0] != "prepare":
         print(USAGE)
         return 2
-    from .match import COVER, workspace_of
+    from .match import COVER, application
     try:
         budget = int(options.get("--cover", COVER))
         today = (datetime.date.fromisoformat(options["--today"]) if "--today" in options
@@ -80,12 +81,9 @@ def main(argv=None):
     if budget < 1:
         print("--cover takes a whole number of at least 1")
         return 2
-    app = os.path.abspath(argv[1])
-    posting = os.path.join(app, "posting.ttl")
-    root = workspace_of(posting)
-    if root is None or not os.path.isfile(posting):
-        print(f"{argv[1]}: no posting.ttl in an applications/<dir>/ folder of a workspace\n"
-              f"      fix: `jsk posting build {argv[1]}` writes it")
+    root, app = application(argv[1], "jsk tailor prepare")
+    if root is None:
+        print("\n".join(app))
         return 2
     try:
         import pyoxigraph  # noqa: F401
@@ -93,42 +91,29 @@ def main(argv=None):
         print("FAIL  jsk tailor needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
-    return prepare(root, app, posting, budget, today, draft)
+    from . import record as R
+
+    # It writes the assessment, so it takes its turn before it reads the record.
+    with R.turn(root):
+        return prepare(root, app, argv[1], budget, today, draft)
 
 
-def prepare(root, app, posting, budget, today, draft):
+def prepare(root, app, named_as, budget, today, draft):
     from . import named
     from . import ontology as O
-    from . import record as R
     from . import store as S
     from .kbcli import entry_text, with_children
-    from .match import blocks, markdown, result
+    from .match import blocks, markdown, posting_in, result
     from .shapes import curie
-    from .writer import WriteError, write
 
     store = S.load(root)
-    name = S.file_name(posting, store.root)
-    here = S.file_name(app, store.root) + "/"
+    rel = S.file_name(app, store.root)
+    here = rel + "/"
 
-    # 1. The canonical layout, as `jsk kb fmt` writes it.
-    parsed = store.parsed.get(name)
-    if parsed is None:
-        said = "does not parse - the check below says why"
-    elif parsed.comments:
-        said = "holds hand comments, so it is left as it is"
-    else:
-        try:
-            text = write(store.graph(name), parsed.kind)
-        except WriteError as e:
-            text = None
-            said = f"cannot be laid out: {e}"
-        else:
-            said = "already canonical"
-        if text is not None and text != parsed.text:
-            R.replace(R.staged(posting, text), posting)
-            said = "rewritten in the canonical layout"
-            store = S.load(root)
-    section("posting.ttl", [f"{name}: {said}"])
+    # 1. A posting.ttl laid out as `jsk kb fmt` writes it. The store has no layout, so a
+    # stored workspace has no such step, and the digest no such section.
+    if not store.stored:
+        store = canonical(root, store, app, S.app_graph(rel, "posting"))
 
     # 2. The check, scoped: this application's findings and every FAIL, since a FAIL
     # anywhere may still stop the match.
@@ -142,12 +127,11 @@ def prepare(root, app, posting, budget, today, draft):
         print(f"\nFAIL  {len(blocking)} of them stop the match - fix them, then run this again")
         return 1
 
-    posts = [iri for iri in store.homes if O.class_of(iri) == "Posting"
-             and store.file_of(iri) == name]
-    if len(posts) != 1:
-        print(f"\n{name}: holds no posting")
+    post = posting_in(store, app)
+    if post is None:
+        print(f"\n{rel}: holds no posting\n"
+              f"      fix: `jsk posting build {named_as}` writes it from posting.md")
         return 1
-    post = posts[0]
 
     # 3. The match, as `jsk match` prints it.
     r = result(store, post, today, budget, len(store.fails()) - len(blocking))
@@ -208,10 +192,12 @@ def prepare(root, app, posting, budget, today, draft):
     written, found = build(app, store, r, today, derived)
     lines = [f"{s}  {t}\n      fix: {f}" for s, t, f in found]
     if written:
+        from .gapsbuild import shown
+
         counts = {}
         for row in derived.rows:
             counts[row.matched or "implicit"] = counts.get(row.matched or "implicit", 0) + 1
-        lines.append("wrote " + " and ".join(os.path.basename(w) for w in written)
+        lines.append("wrote " + " and ".join(shown(w) for w in written)
                      + f" - fit {derived.fit} by default; "
                      + ", ".join(f"{n} {v}" for v, n in counts.items()))
     lines += [f"flagged {row.slug}: {row.flag_text}" for row in derived.rows if row.flags]
@@ -221,14 +207,14 @@ def prepare(root, app, posting, budget, today, draft):
         from .timeline import sent_day
 
         try:
-            held = sent_day(app) and "the application is sent, and its assessment with it"
-        except GraphError as e:         # an application.ttl that says neither way
+            held = sent_day(app, store) and "the application is sent, and its assessment with it"
+        except GraphError as e:         # an application record that says neither way
             held = f"{e}\n      fix: {e.fix}"
         if held:
             lines.append(f"no gaps.txt drafted: {held}")
         elif os.path.exists(target):
-            lines.append(f"{target} already exists - left as it is; `jsk match {name} "
-                         f"--gaps {target}` checks it and rewrites gaps.ttl and gaps.md")
+            lines.append(f"{target} already exists - left as it is; `jsk match {rel} "
+                         f"--gaps {target}` checks it and rewrites the assessment and gaps.md")
         else:
             try:
                 text = draft_gaps(derived, store, os.path.join(app, "posting.md"))
@@ -241,6 +227,36 @@ def prepare(root, app, posting, budget, today, draft):
                 lines.append(f"wrote {target}: {slots} slots to fill")
     section("gaps", lines)
     return 0
+
+
+def canonical(root, store, app, name):
+    """A posting.ttl file rewritten in the canonical layout, as `jsk kb fmt` writes it, and
+    its section of the digest; the store reloaded when the file changed. Only for a
+    workspace not yet loaded into career/store/."""
+    from . import record as R
+    from . import store as S
+    from .writer import WriteError, write
+
+    posting = os.path.join(app, "posting.ttl")
+    parsed = store.parsed.get(name)
+    if parsed is None:
+        said = "does not parse - the check below says why"
+    elif parsed.comments:
+        said = "holds hand comments, so it is left as it is"
+    else:
+        try:
+            text = write(store.graph(name), parsed.kind)
+        except WriteError as e:
+            text = None
+            said = f"cannot be laid out: {e}"
+        else:
+            said = "already canonical"
+        if text is not None and text != parsed.text:
+            R.replace(R.staged(posting, text), posting)
+            said = "rewritten in the canonical layout"
+            store = S.load(root)
+    section("posting.ttl", [f"{name}: {said}"])
+    return store
 
 
 if __name__ == "__main__":

@@ -1,10 +1,11 @@
-"""`jsk kb export`: the short resume.json an application starts from, out of career/kb.ttl.
+"""`jsk kb export`: the short resume.json an application starts from, out of the career.
 
 The short file names ids and settings only - what was chosen - so it cannot copy a
 number from an old version or a status the career no longer holds: the render reads both
-from kb.ttl. (The URS draft `export.urs` wrote went on 2026-09-25; what it checked of
+from the career. (The URS draft `export.urs` wrote went on 2026-09-25; what it checked of
 numbers is tests/test_record_gate.py's now.)
 """
+import atexit
 import contextlib
 import io
 import json
@@ -13,6 +14,8 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+
+import appkit
 
 from jsk import cli
 from jsk.graph import export
@@ -23,10 +26,21 @@ FIXTURES = Path(__file__).parent / "claims_fixtures"
 STORE = None
 
 
+def stored(root, text=None):
+    """The fixture career, its kb.ttl replaced by `text` when given, in a store at `root`."""
+    shutil.copytree(FIXTURES / "career", os.path.join(root, "career"), dirs_exist_ok=True)
+    if text is not None:
+        Path(root, "career", "kb.ttl").write_bytes(text.encode())
+    appkit.seed(root)
+    return S.load(root)
+
+
 def store():
     global STORE
     if STORE is None:
-        STORE = S.load(FIXTURES)
+        root = tempfile.mkdtemp()
+        atexit.register(shutil.rmtree, root, True)
+        STORE = stored(root)
     return STORE
 
 
@@ -58,13 +72,10 @@ class Retired(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.root, True)
-        shutil.copytree(FIXTURES / "career", os.path.join(self.root, "career"))
-        path = os.path.join(self.root, "career", "kb.ttl")
-        text = Path(path).read_text(encoding="utf-8")
+        text = (FIXTURES / "career" / "kb.ttl").read_text(encoding="utf-8")
         start = text.index("k:ach_events_terraform")
         end = text.index("k:prj_identity")
-        Path(path).write_bytes((text[:start] + RETIRED.strip() + "\n\n" + text[end:]).encode())
-        self.store = S.load(self.root)
+        self.store = stored(self.root, text[:start] + RETIRED.strip() + "\n\n" + text[end:])
 
     def test_a_retired_bullet_is_left_out(self):
         self.assertNotIn("ach_events_terraform", export.short_file(self.store)["bullets"])
@@ -75,9 +86,9 @@ class Retired(unittest.TestCase):
         self.assertIn("retired", str(caught.exception))
 
     def retire(self, iri):
-        path = os.path.join(self.root, "career", "kb.ttl")
-        with open(path, "a", encoding="utf-8", newline="\n") as fh:
-            fh.write(f'\n{iri} j:retired "2026-09-01"^^xsd:date ; j:reason "gone" .\n')
+        appkit.put(self.root, "kb", appkit.text(self.root, "kb")
+                   + f'\n{iri} j:retired "2026-09-01"^^xsd:date ; j:reason "gone" .\n',
+                   prefixes=False)
         self.store = S.load(self.root)
 
     def test_a_bullet_whose_project_is_retired_is_refused_not_dropped(self):
@@ -100,7 +111,8 @@ class Retired(unittest.TestCase):
 
 
 class Workspace(unittest.TestCase):
-    """A copy of the fixture career to run `jsk kb` in."""
+    """A copy of the fixture career to run `jsk kb` in - put into its store at the first
+    command, so a test may edit kb.ttl before then."""
 
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -108,6 +120,8 @@ class Workspace(unittest.TestCase):
         shutil.copytree(FIXTURES / "career", os.path.join(self.root, "career"))
 
     def kb(self, *args):
+        if not os.path.isdir(os.path.join(self.root, "career", "store")):
+            appkit.seed(self.root)
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = cli.main(["jsk", "kb", *args, "--root", self.root])
@@ -158,13 +172,10 @@ class ShortFile(unittest.TestCase):
     def test_a_country_with_a_profile_names_its_region(self):
         root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, root, True)
-        shutil.copytree(FIXTURES / "career", os.path.join(root, "career"))
-        path = os.path.join(root, "career", "kb.ttl")
-        text = Path(path).read_text(encoding="utf-8")
-        Path(path).write_bytes(text.replace('j:headline "Platform Engineer" ;',
-                                            'j:headline "Platform Engineer" ; j:country "AU" ;',
-                                            1).encode())
-        self.assertEqual(export.short_file(S.load(root))["region"], "au")
+        text = (FIXTURES / "career" / "kb.ttl").read_text(encoding="utf-8")
+        s = stored(root, text.replace('j:headline "Platform Engineer" ;',
+                                      'j:headline "Platform Engineer" ; j:country "AU" ;', 1))
+        self.assertEqual(export.short_file(s)["region"], "au")
 
     def test_a_bad_select_is_refused(self):
         with self.assertRaises(export.ExportError):
@@ -233,8 +244,6 @@ class Command(Workspace):
         text = Path(path).read_text(encoding="utf-8")
         Path(path).write_bytes(text.replace("a team of 6 engineers",
                                             "a team of 6 engineers across 3 sites", 1).encode())
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(cli.main(["jsk", "kb", "adopt", "--root", self.root]), 0)
         dest = os.path.join(self.root, "applications", "x", "resume.json")
         code, out, _ = self.kb("export", "--select", "prj_events", "--out", dest)
         self.assertEqual(code, 0, out)
@@ -259,7 +268,7 @@ class Removed(Workspace):
         code, out, _ = self.kb("export", "--refresh", path)
         self.assertEqual(code, 2)
         self.assertIn("--refresh", out)
-        self.assertIn("builds from kb.ttl", out)
+        self.assertIn("builds from the career as it stands", out)
         self.assertEqual(Path(path).read_text(encoding="utf-8"), '{"urs": "1.0.0"}')
 
 
