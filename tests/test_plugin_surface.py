@@ -372,8 +372,8 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
         self.assertIsNotNone(row, "SKILL.md has no `jsk kb` row")
         listed = row.group(1).replace("\\", "").split("|")
         self.assertEqual(sorted(listed), sorted(
-            ["apply", "confirm", "show", "view", "query", "log", "check", "export", "pack",
-             "merge"]))
+            ["apply", "confirm", "show", "view", "query", "log", "check", "path", "export",
+             "pack", "merge"]))
         self.assertIn("jsk kb load .", text)
 
     def plugin_texts(self):

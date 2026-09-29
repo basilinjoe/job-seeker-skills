@@ -11,4 +11,4 @@ Skill(skill="jsk:jsk", args="refresh")
 ```
 
 `references/mode-refresh.md` holds the procedure. `$ARGUMENTS` may name a period; otherwise work
-forward from the last entry `jsk kb log` prints.
+forward from the newest entry, the first line `jsk kb log` prints.

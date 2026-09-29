@@ -45,7 +45,7 @@ from one of them.
 | **No blank nodes in the record** | Every node has an id, so every finding can name the thing it is about. The one `[]` allowed is a new bullet inside a changeset, and `jsk kb apply` mints its id. |
 | **A graph per record** | Each record - the career, the log, each application's posting, gaps and application - is its own named graph in the store, so a finding can say which graph and which entry it concerns. Queries run over the union of all of them. |
 | **Derived data is never written** | Types and the counts-as closure live in the `j:derived` graph, which exists only in memory. The store holds only what a person or `jsk` stated. |
-| **Numbers by value** | The store keeps an integer or decimal by value (`8.40` is `8.4`). A number written in any other spelling is refused (`non-canonical-number`) rather than changed silently; a value whose zeros matter is a string. |
+| **Numbers by value** | The store keeps an integer or decimal by value (`8.40` is `8.4`). A number written in any other spelling is refused rather than changed silently - in a changeset, a posting build or a dump `jsk kb load` reads (`changeset.numbers_as_kept`) - while the one-time import of `.ttl` files rewrites each one and lists it; a value whose zeros matter is a string. |
 | **Claims carry provenance** | An entry that makes a claim about the person holds `j:provenance`. Changing the claim drops it to `inferred`. Only `jsk kb confirm`, given the person's own answer, raises it back to `confirmed`. |
 | **A tag is not evidence** | `Project j:uses` says what a project involved. `Achievement j:shows` says what a bullet proves. Only the second counts as evidence in a verdict. |
 | **Numbers are versioned** | A metric's value lives on a `MetricVersion`. A value that an application already sent never changes; a new value becomes the next version. |
@@ -120,7 +120,7 @@ career/store/
 | Kind | Head class (exactly one) | Sections, in order | Written by |
 |---|---|---|---|
 | `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `jsk kb apply`, `confirm`, `new`, `load` |
-| `log` | none | Log | Every command that writes the record, in the same update |
+| `log` | none | Log | Every write to the career, in the same update (`apply`, `confirm`, `new`), and the one-time import's one entry (`load`). `jsk freeze`, `jsk event` and the posting and gaps builds add none |
 | `posting` | Posting | Posting · Requirements | `jsk posting build`, from the analyst's `decisions.txt` |
 | `gaps` | Assessment | Assessment · Verdicts | `jsk tailor prepare` / `jsk match --gaps`, derived from the match plus the analyst's `gaps.txt` |
 | `application` | Application | Application · Timeline | `jsk freeze`, `jsk event` |
@@ -628,9 +628,10 @@ id `k:rev_<N>` · graph log · section Log · provenance no
 `touched` and `minted` may point at ids that no longer exist, because the log outlives what it
 records. They are the only references exempt from `dangling`. `j:kbSha256` is the hash of the
 career as the writer lays it out as Turtle - the text a write's diff shows - and every entry
-still carries one. Before the store it let the loader tell a hand-edited `career/kb.ttl` from
-the one the log recorded, and the one-time import still checks it; nothing re-checks it on a
-stored record, where the change and its entry land in one update.
+carries one. It guards the way in: `jsk kb load` refuses a dump whose career is not what its
+newest entry hashed, so an edited provenance or number is not loaded unlogged, and `jsk kb
+check` FAILs a store whose career does not match it - one written outside jsk. A plain load does
+not check it: that would cost a full write of the career on every command.
 
 ## 6. Enumerations
 
@@ -926,7 +927,6 @@ Code: [`shapes.py`](../src/jsk/graph/shapes.py).
 | `closed` | FAIL | A predicate is not declared for the subject's class (the nearest name is suggested) |
 | `cardinality` | FAIL | A required predicate is missing, a single-valued one holds several values, or the graph's head class is not present exactly once |
 | `object` | FAIL | Wrong datatype, pattern, range, enum value, reference target class, or an impossible date |
-| `non-canonical-number` | FAIL | An integer or decimal written in a spelling the store would rewrite (`8.40`, `007`, `+3`); the fix gives the canonical form. It runs on everything that still arrives as text: changesets, posting builds, `jsk kb load` input |
 | `no-blank-nodes` | FAIL | `[ ]` or `_:` in the record |
 | `no-derived` | FAIL | `rdf:type` stated on a `k:` id |
 | `retired-reason` | FAIL | `retired` without `reason` |
@@ -973,7 +973,17 @@ Every rule id has a mutation test that proves it fires ([`tests/test_graph_shape
 suite. Three rules now fire only on the `.ttl` files the one-time import reads (`jsk kb
 load`): `comment` (a comment the store would not keep), `log-sync` (the career file and its log
 disagreeing) and `hand-edited` (the career file changed outside jsk). None of them can happen to
-a store only jsk writes; the import refuses on `log-sync`, a FAIL, and reports the two WARNs.
+a store only jsk writes. The import refuses on `log-sync`, a FAIL, and prints every WARN its file
+loader found - `comment`, `hand-edited` and the rest - before it loads. For a hand-edited
+`kb.ttl` it also lists each entry the edit raised to `confirmed`, compared with `.jsk/kb.last.ttl`
+when that is the revision the log last recorded, and otherwise says there is nothing to compare
+it against.
+
+A number the store would rewrite (`8.40`, `007`, `+3`) is not a rule: tier 1 also runs on the
+files the import reads, where the number is rewritten and listed. It is a refusal in
+`changeset.py` (`numbers_as_kept`), applied to changesets, posting builds and dumps `jsk kb load`
+reads, whose fix names the literal the store keeps (`write 8.4`; the decimal `8.0` is `write
+"8"^^xsd:decimal`).
 
 ## 13. Changesets
 
@@ -990,8 +1000,9 @@ graphs:
 `op:changeset op:base N ; op:summary "…"` names the revision the changeset was drafted against.
 If anything the changeset names has changed since that revision, it is refused, naming the ids; a
 later write that touched none of them does not stop it, and it applies to the record as it now
-is. Apply validates the result before writing it, writes it to the store in one update with its
-log entry, and refreshes `.jsk/backup.trig`. A changeset is input, never storage. It also
+is. One drafted before a `jsk new --force` start-over is refused whatever it names: the career
+it was drafted against is gone. Apply validates the result before writing it, writes it to the
+store in one update with its log entry, and refreshes `.jsk/backup.trig`. A changeset is input, never storage. It also
 does four things the changeset did not ask for (§8, §9): it resets provenance on changed claims,
 opens questions, mints bullet ids, and versions sent metrics. A changeset may never write
 `j:confirmed`, `j:revision` or `j:updated`. See
@@ -1000,16 +1011,19 @@ example.
 
 ## 14. The log
 
-The `log` graph holds one `LogEntry` per write to the record, numbered `k:rev_1`, `k:rev_2`, and
-so on, and the career's header records the revision it is at. `jsk kb log [--last N]` prints it,
-newest first. Every write puts the change, the new revision and its entry in **one update** of the
-store, so the two cannot disagree, and a writer that finds the revision moved while it waited its
-turn re-runs its changeset against the record as it now is (§13). The record is in one of three
-states:
+The `log` graph holds one `LogEntry` per write to the career, numbered `k:rev_1`, `k:rev_2`, and
+so on, and the career's header records the revision it is at: `apply`, `confirm` and `new` each
+add one, and the one-time import adds one of its own (`by load`). `jsk freeze`, `jsk event` and
+the posting and gaps builds write only an application's graphs and add none. `jsk kb log [--last
+N]` prints it, newest first. Every write puts the change, the new revision and its entry in **one
+update** of the store, so the two cannot disagree. A writing command takes its turn before it
+reads the record, so a writer queued behind another reads, validates and applies to what that one
+left, once it finishes; there is no retry, and a changeset whose ids that write changed is refused
+(§13). The record is in one of three states:
 
 | State | Meaning |
 |---|---|
-| clean | the career's revision is the log's last |
+| clean | the career's revision is the log's last. `jsk kb check` also asks that the career is what the newest entry hashed (`kbSha256`), and FAILs one written outside jsk |
 | out-of-sync | they differ: something outside jsk wrote the store - `jsk kb load .jsk/backup.trig` into a new workspace restores the last write jsk made |
 | missing | no career yet - no `career/store/`, or an empty one: `jsk new`, or `jsk kb load` to import a workspace or a dump |
 

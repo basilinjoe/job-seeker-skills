@@ -43,7 +43,8 @@ Re-run the doctor after any install.
 **A workspace that still holds `career/kb.ttl` and no `career/store/`** is a record from before the
 store: `jsk kb load .` from it imports it, once. It validates the files as before, lists every
 number it rewrites (`8.40` kept as `8.4`), and leaves the files in place; jsk never reads them again.
-Show the output, then go to phase 4.
+Show the output. On `REFUSED`, apply each printed fix to the files and run `jsk kb load .` again;
+once it loads, go to phase 4.
 
 Otherwise ask two things:
 

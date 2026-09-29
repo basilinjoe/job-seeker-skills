@@ -82,7 +82,7 @@ changeset to a file for later.
 |---|---|
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk new <path> --name "Name"` | an empty `career/store/` and `applications/` |
-| `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
+| `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|path\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
 | `jsk posting fetch <url> <app-dir>` | a job board's posting as `posting.md` |
 | `jsk match <app-dir>` | requirements matched through the vocabulary, ranked, questions |
 | `jsk tailor prepare <app-dir> [--draft-gaps]` | the match and all an assessment reads, one digest |

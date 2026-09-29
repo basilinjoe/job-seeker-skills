@@ -44,7 +44,8 @@ jsk validate applications/<stem>/resume.json
 
 Export never writes over an existing file: edit it. `jsk validate` is the record gate. It fails
 the shape, an id the career does not hold or has retired, a bullet whose project has no role, a
-number in a bullet that no current version of a metric it cites holds, and a career that does not
-validate; it warns of labels, "N years of X"
+number in a bullet that no current version of a metric it cites holds, a career that does not
+validate, and one out of sync with its log (written outside jsk: restore it from
+`.jsk/backup.trig`); it warns of labels, "N years of X"
 and brackets. A full URS record (`"urs"` key) from before is refused: write a short one with `jsk kb export`. A
 frozen application keeps its old file as the archive of what was sent.

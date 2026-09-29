@@ -106,6 +106,11 @@ Writes a graph workspace:
 |---|---|
 | `career/store/` | the store, holding the `kb` graph - the empty career: a header naming the person (`k:kb j:name`) at `j:revision 1` - and the `log` graph with `k:rev_1`, `j:by j:new` |
 | `applications/README.md` | what each application directory holds |
+| `.gitattributes` | `career/store/** binary`, added to one already there: git never rewrites the store's line ends |
+
+After the first write there is also `.jsk/`, with `.jsk/backup.trig` in it. `.jsk/` ignores itself
+for git, so a person who backs the workspace up with git commits a `jsk kb dump --out record.trig`
+too: the store's own files are not text a diff can read, and the backup is not committed.
 
 Both graphs go in through the same write gate every `jsk kb` write uses, in one update, so the
 record is **clean at r1** and `jsk kb apply` works on it straight away. It needs pyoxigraph, a
@@ -120,9 +125,10 @@ It refuses (exit 1, nothing written) when the workspace already holds a record, 
 `--force` overrides the first. Over an existing record it starts over **as the next revision** -
 the career becomes the empty record, the log keeps every earlier entry and gains one by `new`, and
 the replaced career is written beside the store as `career/kb.r<N>.trig`, N its revision (then
-`kb.r<N>-2.trig` if that name is taken - it never overwrites a file, and nothing reads it: it is
-a copy for a person, not the record). It is refused where a frozen application carried an entry
-the empty record would not have.
+`kb.r<N>-2.trig` if that name is taken - it never overwrites a file; it is a dump, which `jsk kb
+load` reads into a new workspace, not the record). It is refused where a frozen application
+carried an entry the empty record would not have. A changeset drafted before the start-over is
+refused afterwards, whatever it names: its `op:base` is older than the newest `by new` entry.
 
 What each section holds is the format reference's job (`references/kb-format.md` in the skill),
 and every refused write names what it refused.
@@ -348,8 +354,10 @@ An entry the changeset names that changed after `op:base` is a conflict, refused
 to be re-read. The header's `op:summary` becomes the log entry's.
 
 A number is written as the store keeps it: an integer or decimal whose spelling the store would
-rewrite (`8.40`, `007`, `+3`) is refused, `non-canonical-number`, with the fix `write 8.4`. A grade
-whose zeros matter (`3.80`) is a string, which `gradeValue` allows.
+rewrite (`8.40`, `007`, `+3`) is refused, with the fix naming the literal the store keeps - `write
+8.4`, or for the decimal `8.0`, `write "8"^^xsd:decimal`. This is a refusal in `changeset.py`, not a
+rule id; posting builds and dumps `jsk kb load` reads are held to it too. A grade whose zeros matter
+(`3.80`) is a string, which `gradeValue` allows.
 
 What apply does unasked: a new bullet (a `[]` with `j:project`) gets its id,
 `ach_<project>_<three words of its text>`, never one the record has used. An entry whose claims
@@ -359,14 +367,16 @@ version, and the one it replaces is closed. A changeset cannot confirm anything,
 another file, cannot use blank nodes except for a new bullet, and cannot name a predicate the
 ontology does not have (it suggests the nearest).
 
-The record it would write is validated before anything is written, and so is the workspace
-before it starts: a FAIL in the career refuses the apply with the command that fixes it. Then the
-write takes its **turn**: a writer that finds another jsk write in progress prints `waiting for
-another jsk write to finish` and waits, in arrival order, rather than being refused. In its turn
-the career, its log entry and the revision go into the store in **one update** - all of it lands
-or none does - and `.jsk/backup.trig` is overwritten with the whole record as TriG (best effort;
-read only by `jsk kb load`). A process that dies holding its turn gives it up with its file
-handle. Stdin (`-`) is refused: a pipe that never closes hangs the command.
+The command takes its **turn** before it reads the record: a writer that finds another jsk write
+in progress prints `waiting for another jsk write to finish` and waits, in arrival order, rather
+than being refused, and reads the record only once the one ahead of it has finished - so it
+validates and applies to what that one left. There is no retry: a changeset naming an id that
+write changed is refused, as above. The workspace is validated before the apply starts - a FAIL
+in the career refuses it with the command that fixes it - and the record it would write before
+anything is written. Then the career, its log entry and the revision go into the store in **one
+update** - all of it lands or none does - and `.jsk/backup.trig` is overwritten with the whole
+record as TriG (best effort; read only by `jsk kb load`). A process that dies holding its turn
+gives it up with its file handle. Stdin (`-`) is refused: a pipe that never closes hangs the command.
 
 ```bash
 jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms before, 200 after, from the Grafana board."
@@ -433,31 +443,47 @@ which revision the record stands; exit 1 on a FAIL. A finding names the graph (`
 `applications/<dir>/posting`) and the entry's id - the record has no lines to number.
 It also asks the record gate's number check of every live bullet and warns of each one it would
 refuse in any `resume.json` that selected it, so it is fixed once rather than by each resume run.
+And it asks that the career is what its log's newest entry hashed (`kbSha256`): a mismatch is a
+FAIL, `the career is not what its log last recorded - written outside jsk`, restored from
+`.jsk/backup.trig` into a new folder, or read with `jsk kb dump`. Only `check` asks it - it costs a
+full write of the career, and every other command loads the record on every run.
 
 **`path`** prints the workspace, `career/store/` and `applications/` as absolute paths - where
 to run from and write to, never files to read. It needs nothing but the folders.
 
 ```bash
-jsk kb dump --out record.trig            # the whole record as TriG: a backup, or to move it
-jsk kb load record.trig                  # fill an empty store from a dump or .jsk/backup.trig
-jsk kb load .                            # import a workspace still laid out as .ttl files, once
+jsk kb dump --out record.trig                  # the whole record as TriG: a backup, or to move it
+jsk kb load record.trig --root ../restored     # fill a new, empty folder from a dump or .jsk/backup.trig
+jsk kb load .                                  # import a workspace still laid out as .ttl files, once
 ```
 
 **`dump`** writes every record graph - the career, its log, every application's graphs, never
 the vocabulary or anything derived - as TriG, to stdout or `--out`. The same record always dumps
 to the same text. jsk writes one to `.jsk/backup.trig` after every write as well.
 
-**`load`** fills an **empty** store, once, and refuses one that already holds a record. From a
-dump it loads the record as it was dumped. From a folder still laid out as files - `career/kb.ttl`,
+**`load`** fills an **empty** store, once, and refuses one that already holds a record. Pointed
+at a folder with no `career/` yet by `--root`, it creates the store there; run in a folder that is
+no workspace, without `--root`, it is exit 2, "no workspace here". From a dump it loads the record
+as it was dumped - and refuses a dump that was edited: one holding a number in a spelling the
+store would rewrite, named, or whose career is not what its log's newest entry hashed
+(`kbSha256`) - a provenance raised, a number changed. Load an unedited dump, and change the record
+through `jsk kb apply` once it is loaded. From a folder still laid out as files - `career/kb.ttl`,
 `career/log.ttl`, `applications/*/posting.ttl`, `application.ttl`, `gaps.ttl`, the layout before
-the store - it validates them exactly as the file loader always did and refuses on any FAIL, lists
-each number it rewrites to the store's spelling (`8.40` kept as `8.4`), and loads the lot in one
+the store - it validates them exactly as the file loader always did and refuses on any FAIL,
+prints every WARN, lists each number it rewrites to the store's spelling (`8.40` kept as `8.4`)
+and, for a `kb.ttl` edited by hand since its last logged write, each entry the edit raised to
+`confirmed` (against `.jsk/kb.last.ttl`, or says there is nothing to compare against). It adds
+one log entry of its own, `by load`, holding the imported career's hash, and loads the lot in one
 update. The files are left where they are, and jsk never reads them again; it says so once. Any
 other command in a workspace with `career/kb.ttl` and no store refuses, naming `jsk kb load .`.
 
-**The store's format is tied to the pyoxigraph version.** Raising the pin is `jsk kb dump` with
-the old version, then `jsk kb load` into a fresh store with the new one - never an upgrade in
-place. A store that will not open is loaded again from `.jsk/backup.trig`.
+**Restoring, and moving to a new pyoxigraph.** Load into a new, empty folder: `jsk kb load
+record.trig --root <new folder>` (or move `career/store/` aside first and run `jsk kb load
+record.trig --root .`), then copy the `applications/<dir>` folders across - `posting.md`, the
+renders and the rest are files beside the record, not in it, and the load names each one missing.
+**The store's format is tied to the pyoxigraph version**, so raising the pin is `jsk kb dump` with
+the old version, then that load with the new one - never an upgrade in place. A store that will
+not open is restored the same way from `.jsk/backup.trig`.
 
 ```bash
 jsk kb export --from-match applications/2026-09-08-ashby --out applications/2026-09-08-ashby/resume.json
@@ -531,6 +557,8 @@ URS record (`"urs"` key) is exit 2 naming `jsk kb export`, which writes a short 
 | Check | Severity |
 |---|---|
 | `career-invalid` - the career has a FAIL (`jsk kb check`) | FAIL |
+| `career-unlogged` - the career and its log are out of sync: something outside jsk wrote the store. Restore it from the backup: `jsk kb load .jsk/backup.trig --root <new folder>` | FAIL |
+| `career-missing` - the store holds no career to check against: `jsk new`, or `jsk kb load` | FAIL |
 | shape - an unknown key, a wrong type, `resume` not 2, no `bullets`, a bad `format` or summary `status`, an id with the wrong prefix, a duplicate | FAIL |
 | ids - an id the career does not hold (with the nearest), a retired one (with its reason), a bullet whose project names no role | FAIL |
 | `number-untraced` - a numeral in a chosen bullet is in no current version of a metric it cites | FAIL |
@@ -962,7 +990,7 @@ record. A frozen `application.md` is still honoured as frozen.
 files went `jsk kb adopt` (log a hand edit), `jsk kb fmt` (restore the canonical layout), the
 `hand-edited`, `torn` and `unlogged` states of a stored record, and `.jsk/kb.last.ttl`: there is
 no file to edit by hand, no layout to restore and no second file to tear. (Each log entry still
-carries `kbSha256`, the hash of the career as the writer lays it out; only the import checks it.) So did git
+carries `kbSha256`, the hash of the career as the writer lays it out; `jsk kb load` of a dump and `jsk kb check` check it.) So did git
 diffs of the record and opening it in an editor - `jsk kb view`, `show`, `log` and `dump` read it
 instead ([WHY.md](WHY.md) says what that cost). `jsk kb load .` imports such a workspace, once.
 

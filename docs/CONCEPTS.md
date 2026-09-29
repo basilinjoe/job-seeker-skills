@@ -135,7 +135,9 @@ parses, not that it is correct — see [WHY.md](WHY.md) for the three real resum
 
 **Record gate** — `jsk validate`, over `resume.json` and the career bullets it selects: the file's
 shape; an id the career does not hold, has retired, or a bullet whose project has no role; a number
-no current version of a metric the bullet cites holds; and a career that does not validate. It runs first inside `jsk gates`, `jsk ship` and `jsk freeze`.
+no current version of a metric the bullet cites holds; a career that does not validate; and a
+career out of sync with its log - written outside jsk, restored from `.jsk/backup.trig`. It runs
+first inside `jsk gates`, `jsk ship` and `jsk freeze`.
 
 **Unverified** — what a resume is called until somebody has read every rendered page, and what it
 stays when no PDF renderer was available to produce one.

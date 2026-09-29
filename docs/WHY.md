@@ -12,8 +12,8 @@ Interview once. Regenerate resumes, tailored variants, LinkedIn copy and intervi
 
 The record is `career/store/`: one graph store in your workspace, read and written only through
 `jsk`. It is yours - a folder on your disk, not a service - and `jsk kb dump` writes all of it out
-as plain TriG text whenever you want a copy another tool can read. Back the workspace up so it
-outlives any single tool, including this one.
+as plain TriG text whenever you want a copy another tool can read. Back the workspace up; what
+outlives any single tool, this one included, is the dump.
 
 ## One graph, kept in one store
 
@@ -55,20 +55,21 @@ that does not parse. The store can only hold what passed - but a new release's r
 reach an old record, and loading is where they do. A finding names the graph (`kb`,
 `applications/acme-sre/posting`) and the entry's id. A far larger career than anyone has - three
 hundred projects of three bullets each and a hundred applications, about sixteen thousand triples -
-validated in about 0.3 seconds on a laptop when it was parsed from files, and reading it out of the
-store measured about 0.2 more; `tests/test_graph_budget.py` fails past 1.2, so there is no reason
-to check less than everything.
+read out of the store and validated in 441-519 ms on a Windows desktop, where the same workspace
+parsed from its files took 580 ms on the same machine; `tests/test_graph_budget.py` fails past 1.2
+seconds, so there is no reason to check less than everything.
 
 **Every write goes through one gate.** `jsk kb apply`, `confirm`, `pack` and `merge` changesets,
 `jsk posting build`, `jsk freeze` and `jsk event` all end in the same function: it writes every
 graph the change touches in one update - all of them or none - and refreshes `.jsk/backup.trig`.
-A change to the career carries its log entry in that update; `jsk freeze`, `jsk event` and the
-posting and gaps builds write only an application's graphs and add no entry, because the log is
-the career's history. A writing command takes the writer's turn (`career/store.lock`) before it
-reads the record, so what it validates is what it writes over. Two writers queue rather than one
-being turned away: the second prints `waiting for another jsk write to finish`, goes when the
-first is done, and reads what the first left. If the first changed nothing the second's
-changeset names, the second still applies; if it did, the second is refused, naming the ids.
+Every write to the career gets a log entry, in the same update; `jsk freeze`, `jsk event` and the
+posting and gaps builds write only an application's graphs and add none, because the log is the
+career's history; the one-time import adds one entry of its own (`by load`). A writing command
+takes the writer's turn (`career/store.lock`) before it reads the record, so what it validates is
+what it writes over. Two writers queue rather than one being turned away: the second prints
+`waiting for another jsk write to finish`, goes when the first is done, and reads what the first
+left. If the first changed nothing the second's changeset names, the second still applies; if it
+did, the second is refused, naming the ids.
 Readers do not queue behind a writing command, but each read waits for any single write's
 open-update-close in progress (`career/store.access`, shared by readers, exclusive to a write):
 a read-only open while another process writes is undefined behaviour in the store.
@@ -90,13 +91,16 @@ the record were each weighed and given up for it. What went with them:
   day, the command, its summary and the ids it minted and touched - but only inside jsk.
 - **A format tied to one library.** The files under `career/store/` are RocksDB as the pinned
   pyoxigraph writes it, and a later version may not open them. The escape hatch is the dump: raising
-  the pin means `jsk kb dump` with the old version, then `jsk kb load` into a fresh store with the
-  new one. jsk also overwrites `.jsk/backup.trig` after every write, so a store that will not open
-  can be loaded again from it.
+  the pin means `jsk kb dump --out record.trig` with the old version, then, with the new one, `jsk
+  kb load record.trig --root <a new empty folder>` (or move `career/store/` aside and load with
+  `--root .`), and copy the `applications/<dir>` folders across - their documents are files, not
+  the record. jsk also overwrites `.jsk/backup.trig` after every write, so a store that will not
+  open can be loaded again from it the same way.
 - **Numbers are kept by value.** The store keeps `8.40` as `8.4` and `007` as `7`, so there is no
   parsed text left to recover the original spelling from. Rather than change a number silently, a
-  changeset or posting build that writes one the store would rewrite is refused (`write 8.4`); a grade whose zeros
-  matter (`3.80`) is written as a string.
+  changeset, a posting build or a dump that holds one the store would rewrite is refused (`write
+  8.4`); the one-time import of a workspace of files rewrites each one and lists it. A grade whose
+  zeros matter (`3.80`) is written as a string.
 
 ### What the store buys
 
@@ -109,7 +113,10 @@ the record were each weighed and given up for it. What went with them:
   adopt` and `jsk kb fmt` commands that answered them are gone. `out-of-sync` is left only for a
   store something outside jsk wrote, restored from the backup.
 - **Queued writers.** Two sessions writing at once wait their turn instead of racing two renames.
-- **One gate.** No write can skip the rules, the log or the lock, because there is no other way in.
+- **One gate.** Every jsk write goes through the rules, the log and the lock. The way in from
+  outside - `jsk kb load` of a dump - is refused when the dump's career is not what its log last
+  hashed (`kbSha256`, the career as the writer lays it out), so an edited provenance or number
+  does not slip in unlogged; `jsk kb check` asks the same of the store itself.
 
 ### What the graph costs
 
@@ -177,9 +184,12 @@ graph record keeps a write path, so each failure needs an answer:
 | Surgical writes were promised, and a person's file got redumped | There is no file layout to redump. `jsk kb show` prints entries in one fixed shape, so what an agent reads is what it drafts against |
 | This page said a person must be able to read and correct their record end to end | Read: `jsk kb view` prints the whole career as Markdown to stdout, never a second copy that could drift. Correct: through a changeset, not by opening the record - the part of that promise the store gave up |
 
-Two limits, stated rather than hidden. The store can be read only through `jsk`: a person without
-it, or without pyoxigraph, has `.jsk/backup.trig` and nothing more readable. And `jsk kb confirm
---answer` is an instruction with an audit trail, not a proof that anybody asked the person.
+Three limits, stated rather than hidden. The store can be read only through `jsk`: a person
+without it, or without pyoxigraph, has `.jsk/backup.trig` and nothing more readable. `jsk kb
+confirm --answer` is an instruction with an audit trail, not a proof that anybody asked the
+person. And the hash that refuses an edited dump is a gate against accidents and casual edits,
+not against a determined person with the file: someone who edits a dump and recomputes its
+`kbSha256` can still load it.
 
 ## Every document is rendered from the career, never hand-built
 

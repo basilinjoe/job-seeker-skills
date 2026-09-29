@@ -15,7 +15,8 @@ Five things make it different:
 - **The career checks itself.** Every entry has an id and every link is by id, so a bullet citing a
   metric that does not exist, or a role at an employer that is not there, is found the next time
   anything runs. Changes go in through `jsk kb apply` - validated, written in one step, logged, with
-  the diff shown - and nothing can be marked confirmed except by your own answer.
+  the diff shown - and nothing can be marked confirmed except by your own answer: a backup edited
+  outside jsk is refused when it is loaded back.
 - **Nothing is hand-built.** The PDF and the paste-in plain text are both built from your knowledge
   base and a short `resume.json` naming what this resume shows — so they cannot drift apart or
   contradict each other.
@@ -101,7 +102,9 @@ my-career/                  `jsk new ./my-career --name "Your Name"` makes this
       resume.json           the bullets and settings this submission rendered from
       Priya_Raman_Resume.{tex,pdf}
       Priya_Raman_Resume_ATS.txt
-  .jsk/backup.trig          the whole record as text, refreshed after every change
+  .jsk/backup.trig          the whole record as text, refreshed after every change; .jsk/ is
+                            git-ignored, so if git is your backup, commit a `jsk kb dump` too
+  .gitattributes            `career/store/** binary`, so git never rewrites the store's files
 ```
 
 One record for the career, and a frozen directory per application. The career holds identity,
@@ -114,10 +117,10 @@ was sent; from then on it is an archive, and `jsk event` adds what came back.
 It is a graph - every entry an id, every link between entries by id - because that is what lets a
 program check it on every load, match a posting one way through a vocabulary, keep every version of
 a number, and join a resume back to the career it claims. It lives in a store rather than a text
-file so that every change lands whole, through one gate that validates and logs it. The cost is
-real: there is no file to open in an editor and no git history of the record. You read it with
-`jsk kb view` (the whole career as Markdown) and `jsk kb log`, and `jsk kb dump` writes all of it
-out as TriG. [Why it works this way](docs/WHY.md) has the whole argument, including what it costs.
+file so that every change lands whole, through one gate that validates it and logs every change
+to the career. The cost is real: there is no file to open in an editor and no git history of the
+record. You read it with `jsk kb view` (the whole career as Markdown) and `jsk kb log`, and `jsk kb
+dump` writes all of it out as TriG. [Why it works this way](docs/WHY.md) has the whole argument, including what it costs.
 
 Back up the folder and the record goes with it; the dump is what outlives this tool.
 
