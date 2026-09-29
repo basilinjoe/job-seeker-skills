@@ -217,6 +217,35 @@ class Turn(unittest.TestCase):
         self.assertIn("done", out)
         self.assertGreater(reads, 5)
 
+    def test_a_writer_killed_mid_write_leaves_a_whole_revision(self):
+        # Verification 3: kill a writer at arbitrary points, again and again. The store must
+        # open every time and hold one whole write - the old one or the new - never a mix,
+        # and the next writer must get in.
+        import random
+
+        loop = """
+            import pyoxigraph as ox
+            from jsk.graph import record as R
+            n = int(sys.argv[1]) * 1000
+            print('started', flush=True)
+            while True:
+                n += 1
+                R.write_graphs(root, {"kb": [ox.Triple(ox.NamedNode(f"tag:s{i}"),
+                    ox.NamedNode("tag:p"), ox.Literal(str(n))) for i in range(400)]})
+        """
+        rng = random.Random(7)
+        for round_ in range(6):
+            p = subprocess.Popen([sys.executable, "-c", f"import sys, time\nroot = {self.root!r}\n"
+                                  + textwrap.dedent(loop), str(round_ + 1)], env=child_env(),
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.assertEqual(p.stdout.readline().strip(), "started")
+            time.sleep(rng.uniform(0.2, 1.5))
+            p.kill()
+            p.communicate(timeout=30)
+            values = {t.object.value for t in db.read(self.root)["kb"]}
+            self.assertEqual(len(values), 1, f"round {round_}: a mix of writes {sorted(values)[:3]}")
+            R.write_graphs(self.root, {"probe": [triple("x", lit(str(round_)))]})
+
     def test_a_read_inside_this_process_s_own_write_is_refused(self):
         with db.writing(self.root):
             with self.assertRaises(RuntimeError):
