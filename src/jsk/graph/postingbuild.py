@@ -15,7 +15,7 @@ import re
 
 from ..posting import POSTING, Refused
 from . import ontology as O
-from .rules import REQUIRED_WORDS, advert_lines, squash
+from .rules import FIRST_LINE, REQUIRED_WORDS, advert_lines, squash
 
 DECISIONS = "decisions.txt"
 SOFT_CAP = 20
@@ -62,7 +62,7 @@ def read_advert(app_dir):
 def advert_header(advert):
     """(title, company, url) as posting.md states them: the `# ` heading, the first fact
     of the `a · b · c` line under it, and a URL on line 1. With no `# ` heading the title
-    is the first line that is not the URL, and the company is blank - a guess extract
+    is the first line that is not the URL or `Source:`, and the company is blank - a guess extract
     prints for the analyst to correct, where a blank title only made them type it."""
     lines = advert.split("\n")
     first = next((x.strip() for x in lines if x.strip()), "")
@@ -78,7 +78,7 @@ def advert_header(advert):
             return title, company, url
     body = re.sub(r"\A---\n.*?\n---\n", "", advert, flags=re.S).split("\n")    # frontmatter
     title = next((squash(x.strip().lstrip("#")) for x in body
-                  if x.strip().lstrip("#").strip() and x.strip() != url), "")
+                  if x.strip().lstrip("#").strip() and not FIRST_LINE.fullmatch(x.strip())), "")
     return title, company, url
 
 

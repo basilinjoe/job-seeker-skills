@@ -234,6 +234,10 @@ OFFERS_MORE = re.compile(r"(?i)what'?s in it for|\brewards?\b|why join|\bour (va
                          r"\babout us\b|\bperks\b")
 # A sentence's end. A closing `?` is allowed: "What's in it for me?" is a heading.
 TERMINAL = re.compile(r"[.!;,]\Z")
+# Headings about the company or the role as a whole: they end a section, never sit in one.
+ABOUT = re.compile(r"(?i)about\b|(job description|(role |job )?overview|the role)\s*:?\Z")
+# posting.md's first line: the URL, or `Source: <file>` when it was fetched from a file.
+FIRST_LINE = re.compile(r"https?://\S+|Source: .+")
 
 
 def bare_heading(text):
@@ -247,8 +251,25 @@ def bare_heading(text):
         return True
     return bool(HEADING_ASKS.search(text) or HEADING_DOES.search(text)
                 or HEADING_OFFERS.search(text) or HEADING_NOT.search(text) or OFFERS_MORE.search(text)
-                or re.match(r"(?i)about\b", text)
-                or re.fullmatch(r"(?i)(job description|(role |job )?overview|the role)\s*:?", text))
+                or ABOUT.match(text))
+
+
+def sub_heading(text):
+    """A marked heading that names no section: under qualifications or responsibilities it
+    keeps theirs. The Arrow .docx put "Technical Expertise" and "Team Collaboration and
+    Coordination" under "Key Responsibilities", and all 21 items read as `other`.
+
+    Not a bare heading - `S,T,O` in capitals opened Allianz's 96-line skills grid - nor a
+    `#LI-Remote` hashtag, which in the corpus comes before the boilerplate: both end the
+    section as before."""
+    if re.match(r"#[^#\s]", text) or not (text.startswith("#") or BOLD_LINE.fullmatch(text)
+                                          or text.endswith(":")):
+        return False
+    words = squash(text).lstrip("#").strip()
+    return not (HEADING_ASKS.search(words) or HEADING_DOES.search(words)
+                or HEADING_OFFERS.search(words) or HEADING_NOT.search(words)
+                or OFFERS_MORE.search(words) or ABOUT.match(words)
+                or re.match(r"(?i)the position\b", words))
 
 
 @dataclass(frozen=True)
@@ -270,9 +291,10 @@ def advert_lines(advert):
     """Every line of the advert a requirement could quote, numbered, with its section. Under
     a qualifications or a responsibilities heading each line is its own item, listed or not:
     a posting.md is written one item per line, and joining them made one quote of a section.
-    Elsewhere a list item is `other`, and so is a prose paragraph, its lines joined. What an
-    offered (benefits) heading lists is left out; so are posting.md's URL line and headings,
-    which name sections and ask nothing."""
+    A heading naming no section is a sub-heading there, and keeps it. Elsewhere a list item
+    is `other`, and so is a prose paragraph, its lines joined. What an offered (benefits)
+    heading lists is left out; so are posting.md's first line (the URL, or `Source: <file>`)
+    and headings, which name sections and ask nothing."""
     advert = re.sub(r"\A---\n.*?\n---\n", "", advert, flags=re.S)    # frontmatter
     found = []          # [section, text, optional heading, is an item]
     section, opt_heading, wrapping, prose = "other", False, None, False
@@ -289,6 +311,8 @@ def advert_lines(advert):
         wrapping = None
         if not text:
             prose = False
+        elif not found and not prose and not item and FIRST_LINE.fullmatch(text):
+            continue                                # posting.md's first line: where it came from
         elif _heading(line, text, item):
             words = squash(text)
             prose = False
@@ -299,15 +323,13 @@ def advert_lines(advert):
             elif (HEADING_OFFERS.search(words) or HEADING_NOT.search(words)
                   or OFFERS_MORE.search(words)):
                 section, opt_heading = "offered", False
-            else:
+            elif not (section in ("qualification", "responsibility") and sub_heading(text)):
                 section, opt_heading = "other", False
         elif item:
             prose, wrapping = False, "skip"
             if section != "offered":
                 found.append([section, squash(item.group(1)), opt_heading, True])
                 wrapping = "join"
-        elif not found and not prose and re.match(r"https?://\S+\Z", text):
-            continue                                # posting.md's first line: the URL
         elif section == "offered":
             continue                                # a benefits paragraph asks nothing
         elif section in ("qualification", "responsibility"):

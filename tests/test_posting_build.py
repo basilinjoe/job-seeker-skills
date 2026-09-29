@@ -181,6 +181,9 @@ class Extract(Workspace):
         self.assertIn("company: \n", out)
         self.assertEqual(postingbuild.advert_header("Principal Engineer\nAcme\n"),
                          ("Principal Engineer", "", ""))
+        # A fetched file's first line says where it came from, and is not the title either.
+        self.assertEqual(postingbuild.advert_header("Source: role.docx\n\nLead Architect\n"),
+                         ("Lead Architect", "", ""))
 
     def test_the_directory_date_is_not_part_of_the_id(self):
         dated = self.app.parent / f"2026-09-27-{STEM}"

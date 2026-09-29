@@ -184,6 +184,65 @@ and welcome everyone.
         self.assertEqual((line.section, line.text), ("other", "Acme builds software for hospitals."))
 
 
+class SubHeadings(unittest.TestCase):
+    """A marked heading naming no section keeps the section it is under: the Arrow .docx,
+    fetched, gives `## Key Responsibilities` and then sub-headings under it."""
+
+    ARROW = """Source: AI Enterprise Architect.docx
+
+## Key Responsibilities
+
+## Technical Expertise
+
+- Design the enterprise AI architecture.
+
+## Team Collaboration and Coordination
+
+- Work with the delivery teams.
+
+**Stakeholders**
+
+- Brief the steering committee.
+
+## Requirements
+
+- Ten years of architecture.
+
+Education:
+
+- A degree in computer science.
+
+## About Arrow
+
+Arrow distributes technology.
+"""
+
+    def test_sub_headings_keep_the_section(self):
+        self.assertEqual([(x.section, x.text) for x in rules.advert_lines(self.ARROW)], [
+            ("responsibility", "Design the enterprise AI architecture."),
+            ("responsibility", "Work with the delivery teams."),
+            ("responsibility", "Brief the steering committee."),
+            ("qualification", "Ten years of architecture."),
+            ("qualification", "A degree in computer science."),
+            ("other", "Arrow distributes technology."),      # `About …` ends the section
+        ])
+
+    def test_a_hashtag_or_a_bare_heading_still_ends_it(self):
+        # `#LI-Remote` comes before the boilerplate; `S,T,O` opened Allianz's skills grid.
+        for heading in ("#LI-Remote", "S,T,O"):
+            with self.subTest(heading=heading):
+                lines = rules.advert_lines(f"## Requirements\n\n- Kafka.\n\n{heading}\n\n"
+                                           "We are an equal opportunity employer.\n")
+                self.assertEqual([x.section for x in lines], ["qualification", "other"])
+
+    def test_the_source_line_is_left_out_like_the_url(self):
+        lines = rules.advert_lines("Source: Requirements.docx\n\n## Requirements\n\n- Kafka.\n")
+        self.assertEqual([(x.section, x.text) for x in lines], [("qualification", "Kafka.")])
+        # Only as the first line: later, it is the advert's own words.
+        later = rules.advert_lines("Acme builds software.\n\nSource: our own survey\n")
+        self.assertEqual(len(later), 2)
+
+
 class LabelsIn(unittest.TestCase):
     """queries.labels_in: the concepts whose whole label a line holds, proposed beside it."""
 
