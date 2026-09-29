@@ -1,5 +1,34 @@
 # The record in RocksDB - implementation plan
 
+## Status (2026-09-29)
+
+Built on `feat/vocabulary-graph`, P1-P6 and the file-mode removal P7 called for:
+
+- P1 `db.py`, its tests, Ruling 4's check - a94b093; graphs take their short names - 8ab1cbf.
+- P3 the kb write path (`new`, `apply`, `confirm`, `load`, `dump`, `log`; `adopt`/`fmt` gone) -
+  34b9584, merged b999335.
+- P2 the loader, rules and every reader from the store - fdfc88a, merged 2f59bad; readers take
+  shared access, a write exclusive (`career/store.access`) - 9d39cea.
+- P4 applications in the store, Ruling 11's `APP`, P5's refusal and doctor's store report -
+  c705080, merged d5ad183; the merges' crossings - c6c8571.
+- P6 prose, agents, budgets - b898aa2, merged b989cea. Amendments - 584eb65, 25c80a3.
+- Final pass: the transitional file mode removed but for the import (`legacy.read_workspace`)
+  - 9cde455; kb verbs refuse an unloaded workspace, Ruling 4 for posting builds - 73c25ae; prose
+  and messages brought in line with what was built - 02e2965.
+
+`io.parse` and `store.workspace_files` stay, as the import's front end (Ruling 9: deleted in
+release N+1 with it). Not yet done:
+
+- P7's two opus reviews (code, prose) of the whole diff.
+- Verification 1 on CI: the Windows and Linux jobs, the `flock` branch on Linux in particular.
+- Verification 2's third process: `tests/test_graph_queue.py` runs four `jsk kb apply`
+  processes at one base and they land in turn, but no test has a `kb show` answer while one
+  holds its turn.
+- Verification 3: no test kills a `jsk kb apply` mid-write, nor a turn holder mid-turn (P3's
+  "a holder killed mid-turn does not block the next").
+- Verification 5: the replay of a scratch copy of the real career (`kb load`, check, match,
+  ship) and the render comparison with the file-based branch tip.
+
 **Spec:** none. This plan and its Rulings are the spec. The decision is the user's (2026-09-29):
 the career record stops being Turtle files and lives in a persistent Oxigraph store (RocksDB),
 read and written only through jsk. Git history, diffs, hand edits and plain text as the record
