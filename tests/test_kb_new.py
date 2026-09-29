@@ -253,6 +253,20 @@ class Force(Scaffold):
             self.assertEqual(code, 0, buf.getvalue())
             self.assertIn("k:prj_payments", storekit.kb_text(elsewhere))
 
+    def test_a_changeset_drafted_before_a_start_over_is_refused(self):
+        """It was drafted against the career --force replaced: applied to the empty one, it
+        would bring back part of a record the person chose to start over from."""
+        self.new()
+        drafted = scripts_changesets()[0]
+        self.assertIn("op:base 1", drafted)
+        self.assertEqual(self.new("--force")[0], 0)
+        before = self.record()
+        code, out = self.apply(drafted)
+        self.assertEqual(code, 1, out)
+        self.assertIn("started over", out)
+        self.assertIn("r2", out)
+        self.assertEqual(self.record(), before)
+
     def test_the_kept_copy_never_overwrites_a_file(self):
         self.new()
         self.path("career/kb.r1.trig").write_text("someone else's", encoding="utf-8")

@@ -87,6 +87,21 @@ def log_entries(store):
     return sorted((e["revision"], e["ids"]) for e in by.values() if "revision" in e)
 
 
+def started_over(store):
+    """The revisions `jsk new` wrote: r1, and each --force start-over since."""
+    from .record import LOG, revision_of
+
+    if LOG not in store.parsed:
+        return []
+    by, revs = {}, {}
+    for q in store.graph(LOG):
+        if local(q.predicate) == "by":
+            by[q.subject.value] = q.object.value
+        elif local(q.predicate) == "revision" and revision_of(q.object) is not None:
+            revs[q.subject.value] = revision_of(q.object)
+    return sorted(r for s, r in revs.items() if by.get(s) == O.J + "new")
+
+
 def taken_ids(store):
     """Every id the record has ever used: what exists, what the log says existed, and every
     k: id any record graph names, as subject or object.
@@ -323,6 +338,14 @@ def base_conflicts(store, cs, refuse):
     if cs.base > last:
         refuse(None, f"op:base r{cs.base} is ahead of the log, which ends at r{last}",
                "draft against the record as it is: `jsk kb show` the entries again")
+        return
+    # `jsk new --force` replaced the whole career and logs no ids: a changeset drafted
+    # before it was drafted against a record that is gone, whatever it names.
+    restart = max(started_over(store), default=None)
+    if restart is not None and restart > cs.base:
+        refuse(None, f"the career was started over at r{restart} (`jsk new --force`), after "
+                     f"this changeset's op:base r{cs.base}",
+               "draft it again against the record as it is now: `jsk kb show` what it names")
         return
     named = {s.value for s, _, _ in cs.add + cs.set + cs.retire + cs.delete
              if isinstance(s, ox.NamedNode)}
