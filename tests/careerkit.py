@@ -2,8 +2,9 @@
 resume.json in its application.
 
 The record went from a 41KB copy of the career to a short file naming what was chosen,
-so a test builds a career the way a person has one - kb.ttl - and says what it picks,
-rather than hand-writing the copy the renderer used to read.
+so a test builds a career the way a person has one - Turtle a test can read, put in
+career/store/ - and says what it picks, rather than hand-writing the copy the renderer
+used to read.
 """
 import json
 import shutil
@@ -25,9 +26,11 @@ def workspace(root, edits=(), short=None, logged=True, stored=True):
     career/kb.ttl, and `short` (a dict) written as the application's resume.json - the
     fixture's own short file there is removed either way, so a test says what it picks.
 
-    The edits stand for ones made with `jsk kb apply`, so log.ttl is made to agree with
-    them (`logged`). Then the record goes into career/store/ and the .ttl files go
-    (`stored`, storekit.seed) - a workspace as jsk keeps one."""
+    The edits stand for ones made with `jsk kb apply`. Then the record goes into
+    career/store/ and the .ttl files go (`stored`, storekit.seed) - a workspace as jsk
+    keeps one, where every write lands with its log entry and no hash is checked. Left as
+    files (`stored=False`), log.ttl is made to agree with the edits (`logged`), as the
+    file loader checks it."""
     root = Path(root)
     shutil.copytree(FIXTURES, root, dirs_exist_ok=True)
     kb = root / "career" / "kb.ttl"
@@ -36,7 +39,7 @@ def workspace(root, edits=(), short=None, logged=True, stored=True):
         assert text.count(old) == 1, old
         text = text.replace(old, new)
     kb.write_text(text, encoding="utf-8", newline="\n")
-    if edits and logged:
+    if edits and logged and not stored:
         relog(root)
     path = root / APP / "resume.json"
     path.unlink(missing_ok=True)

@@ -2,7 +2,7 @@
 
 The pipeline is one-way and has a single narrow waist:
 
-    career/kb.ttl + resume.json -> render plan -> {latex+pdf, txt}
+    career (career/store/) + resume.json -> render plan -> {latex+pdf, txt}
 
 `jsk.resume.build` makes every content decision exactly once - selection,
 ordering, provenance filtering, ASCII folding, date formatting. The emitters

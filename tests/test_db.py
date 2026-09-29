@@ -106,6 +106,34 @@ class Store(unittest.TestCase):
             db.open_writer(self.root, wait=0, create=True)
         self.assertNotIsInstance(e.exception, db.Busy)
 
+    def test_a_corrupt_store_is_a_store_error_not_a_traceback(self):
+        # RocksDB reports corruption as a RuntimeError, which open_reader let through.
+        os.makedirs(os.path.join(self.root, db.STORE_DIR))
+        Path(self.root, db.STORE_DIR, "CURRENT").write_text("garbage\n", encoding="utf-8")
+        for opener in (db.open_reader, lambda root: db.open_writer(root, wait=0)):
+            with self.assertRaises(db.StoreError) as e:
+                opener(self.root)
+            self.assertNotIsInstance(e.exception, db.Busy)
+            self.assertIn("jsk doctor", e.exception.fix)
+
+    def test_the_lock_is_told_from_other_errors_on_either_os(self):
+        # RocksDB's own words for its LOCK being held. The Windows one is what open_writer
+        # meets on this machine; the Linux one is flock's EAGAIN, which only the Linux CI job
+        # would otherwise see - and read as "not the lock", reporting a queue as a fault.
+        linux = OSError("IO error: While lock file: /home/u/ws/career/store/LOCK: "
+                        "Resource temporarily unavailable")
+        windows = OSError("IO error: Failed to create lock file: C:\\ws\\career\\store/LOCK: "
+                          "The process cannot access the file because it is being used by "
+                          "another process.")
+        self.assertTrue(db.is_lock_error(linux))
+        self.assertTrue(db.is_lock_error(windows))
+        for other in ("IO error: No such file or directory: While opening a file for sequentially "
+                      "reading: /ws/career/store/CURRENT: No such file or directory",
+                      "Corruption: block checksum mismatch",
+                      "IO error: While open a file for appending: /ws/career/store/LOCK: "
+                      "Permission denied"):
+            self.assertFalse(db.is_lock_error(OSError(other)), other)
+
     def test_the_store_is_closed_when_writing_ends(self):
         self.write({"kb": [triple("a", lit("1"))]})
         with db.writing(self.root) as w:

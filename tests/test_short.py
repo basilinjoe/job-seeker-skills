@@ -68,10 +68,10 @@ class Read(unittest.TestCase):
             p.write_text(json.dumps(OK), encoding="utf-8")
             with self.assertRaises(short.ShortError) as err:
                 short.workspace(p)
-            self.assertIn("career/kb.ttl", err.exception.fix)
+            self.assertIn("career/store/", err.exception.fix)
 
     def test_a_workspace_named_career_is_found(self):
-        # The real one holds career/career/kb.ttl: the parent of the file's folder's
+        # The real one holds career/career/store/: the parent of the file's folder's
         # parent is the wrong answer, so the walk up is the only right one.
         with tempfile.TemporaryDirectory() as tmp:
             root, path = careerkit.workspace(Path(tmp, "career"), short=OK)
@@ -147,24 +147,43 @@ class Shape(unittest.TestCase):
 
 
 class Example(unittest.TestCase):
-    """The workspace jsk doctor renders: a small career and a short file over it."""
+    """The workspace jsk doctor renders: a small career and a short file over it. It
+    ships as files, and doctor imports it into a store of its own before rendering, as
+    `jsk kb load` imports a person's (preflight.verify)."""
+
+    def stored(self):
+        import shutil
+
+        from storekit import seed
+
+        from jsk import paths
+        from jsk.graph import store as S
+
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        shutil.copytree(paths.EXAMPLE_WORKSPACE, tmp, dirs_exist_ok=True)
+        seed(tmp)
+        return S.load(tmp)
 
     def test_the_example_reads_and_every_id_is_held(self):
         from jsk import paths
-        from jsk.graph import store as S
 
         doc = short.read(paths.EXAMPLE_SHORT)
         self.assertEqual(short.shape(doc), [])
         self.assertEqual(Path(short.workspace(paths.EXAMPLE_SHORT)),
                          Path(paths.EXAMPLE_WORKSPACE))
-        self.assertEqual(short.ids(doc, S.load(paths.EXAMPLE_WORKSPACE)), [])
+        self.assertEqual(short.ids(doc, self.stored()), [])
 
-    def test_the_example_career_is_clean(self):
+    def test_the_example_career_imports_clean(self):
         from jsk import paths
+        from jsk.graph import legacy
         from jsk.graph import record as R
-        from jsk.graph import store as S
 
-        store = S.load(paths.EXAMPLE_WORKSPACE)
+        imported, _, rewrites = legacy.read_workspace(paths.EXAMPLE_WORKSPACE)
+        self.assertEqual(imported.fails(), [])
+        self.assertEqual(R.state(imported).kind, "clean")
+        self.assertEqual(rewrites, [])          # doctor's import changes no number
+        store = self.stored()
         self.assertEqual(store.fails(), [])
         self.assertEqual(R.state(store).kind, "clean")
 

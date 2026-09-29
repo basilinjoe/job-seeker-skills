@@ -412,7 +412,7 @@ class RenderCommand(unittest.TestCase):
             path.write_text(json.dumps(short()), encoding="utf-8")
             code, text = self.render(str(path), "--out", str(Path(tmp, "out")))
             self.assertEqual(code, 2)
-            self.assertIn("career/kb.ttl", text)
+            self.assertIn("career/store/", text)
             self.assertNotIn("Traceback", text)
 
     def test_the_file_s_format_decides_the_variant_and_its_budget(self):
@@ -452,9 +452,17 @@ class RenderCommand(unittest.TestCase):
             self.assertIn("drop --view", text)
 
     def test_the_example_renders(self):
+        # As doctor renders it: the shipped files imported into a store of their own.
+        import shutil
+
+        from storekit import seed
+
         from jsk import paths
         with tempfile.TemporaryDirectory() as tmp:
-            code, text = self.render(paths.EXAMPLE_SHORT, "--out", tmp)
+            ws = Path(tmp, "example")
+            shutil.copytree(paths.EXAMPLE_WORKSPACE, ws)
+            seed(ws)
+            code, text = self.render(str(ws / "resume.json"), "--out", tmp)
             self.assertEqual(code, 0, text)
             self.assertTrue(Path(tmp, "Priya_Raman_Resume.tex").exists())
 

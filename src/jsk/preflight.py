@@ -6,7 +6,7 @@ Usage: jsk doctor [--quick] [--kb PATH] [--json]
        --quick    (jsk doctor) check the toolchain without the end-to-end render
        --verify   (python -m) render the shipped example end to end and run every gate;
                   `jsk doctor` does this unless given --quick
-       --kb       check a specific career/kb.ttl (or its workspace) rather than searching
+       --kb       check a specific career/store/ (or its workspace) rather than searching
        --json     machine-readable output
 
 Exit 0 = the core pipeline works. Exit 1 = something required is broken.
@@ -29,13 +29,15 @@ import sys
 import tempfile
 
 from . import __version__
-from .paths import EXAMPLE_SHORT, SCHEMA_DIR as SCHEMA
+from .paths import EXAMPLE_SHORT, EXAMPLE_WORKSPACE, SCHEMA_DIR as SCHEMA
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 MIN_PYTHON = (3, 10)
 
-# The whole career, in one file: career/kb.ttl in a workspace.
+# The whole career, in one store: career/store/ in a workspace. A workspace from before
+# the store holds career/kb.ttl instead, which nothing reads until `jsk kb load` imports it.
+STORE_DIRNAME = "store"
 GRAPH_KB_FILENAME = "kb.ttl"
 
 # Module names rather than filenames since these became a package. A filename check
@@ -47,7 +49,7 @@ MODULES = ["cli", "cliutil", "kb", "paths"]
 # these imports pyoxigraph at module top, so find_spec answers "is the code here" even on
 # a machine without the engine - the engine is its own check below.
 GRAPH_MODULES = ["graph", "graph.ontology", "graph.io", "graph.writer", "graph.shapes",
-                 "graph.rules", "graph.store", "graph.queries", "graph.match", "graph.record",
+                 "graph.rules", "graph.db", "graph.store", "graph.queries", "graph.match", "graph.record",
                  "graph.changeset", "graph.edit", "graph.kbcli", "graph.named", "graph.view",
                  "graph.timeline", "graph.export", "graph.scoring"]
 GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.report",
@@ -80,8 +82,9 @@ INSTALL = {
                 "note": "Reads the PDF: check_ats.py extracts its text and "
                         "fit_pages.py measures its pages."},
     "pyoxigraph": {"pip": "pyoxigraph",
-                   "note": "The graph engine: reads, validates and queries kb.ttl and the "
-                           "applications. A dependency of jsk-resume, so a missing one "
+                   "note": "The graph engine: holds the career in career/store/, and reads, "
+                           "validates and queries it and the applications. A dependency "
+                           "of jsk-resume, so a missing one "
                            "means the install skipped dependencies."},
 }
 
@@ -134,19 +137,33 @@ def walk_for(start, found):
     return None
 
 
+def record_in(career):
+    """The record a `career` folder holds: its store/, else - a workspace not yet loaded
+    into one - its kb.ttl, else None."""
+    store = os.path.join(career, STORE_DIRNAME)
+    if os.path.isdir(store):
+        return store
+    kb = os.path.join(career, GRAPH_KB_FILENAME)
+    return kb if os.path.isfile(kb) else None
+
+
+def is_store(path):
+    return os.path.basename(os.path.normpath(path)) == STORE_DIRNAME
+
+
 def find_kb(start="."):
-    """The career record, `career/kb.ttl`: the file, found by its name and its folder.
+    """The career record, `career/store/`, found by its name and its folder - or a
+    workspace's `career/kb.ttl` from before the store, which is found so it can be named.
 
     Searched for by name rather than by a directory shape. A bundle used to be
     recognised by the folders inside it, which meant a half-created one - `projects/`
     made, `resume-generation/` not yet - was invisible to this check and reported as
-    "no bundle" while the person was looking straight at it. `kb.ttl` alone is not
-    enough of a name - `.jsk/kb.last.ttl` is a cache, and a stray kb.ttl elsewhere is
-    nobody's career - so it counts only inside a folder named `career`.
+    "no bundle" while the person was looking straight at it. `store` alone is not
+    enough of a name, nor `kb.ttl` - `.jsk/kb.last.ttl` was a cache, and a stray one
+    elsewhere is nobody's career - so they count only inside a folder named `career`.
     """
-    return walk_for(start, lambda root, files: os.path.join(root, GRAPH_KB_FILENAME)
-                    if os.path.basename(root) == "career" and GRAPH_KB_FILENAME in files
-                    else None)
+    return walk_for(start, lambda root, files: record_in(root)
+                    if os.path.basename(root) == "career" else None)
 
 
 def depth(path, base):
@@ -231,7 +248,7 @@ def gather(kb_arg=None):
                  "and fit_pages.py cannot measure its pages, so the parse gate "
                  "and the page budget are both unverifiable"))
 
-    # REQUIRED: the career is kb.ttl and nothing else reads it. Every render builds from
+    # REQUIRED: the career is in career/store/, which only it opens. Every render builds from
     # it, `jsk ship` runs the record gate against it before it renders, and `jsk kb` and
     # `jsk match` start there, so a machine without the engine cannot
     # produce a resume from the career at all. It is a dependency of jsk-resume, so a
@@ -239,42 +256,53 @@ def gather(kb_arg=None):
     # this module stays standard-library only.
     checks.append(Check(
         "pyoxigraph", importlib.util.find_spec("pyoxigraph") is not None, key="pyoxigraph",
-        disables="cannot read or validate the graph record (kb.ttl): `jsk kb`, `jsk match` "
-                 "and every render and record gate cannot start"))
+        disables="cannot open, read or validate the graph record (career/store/): `jsk kb`, "
+                 "`jsk match` and every render and record gate cannot start"))
 
     kb, problem = resolve_kb(kb_arg)
-    if kb:
+    if kb and is_store(kb):
         # The path once, on the detail line: in the name as well, it printed twice.
         checks.append(Check("knowledge base", True, detail=kb))
+    elif kb:
+        workspace = os.path.dirname(os.path.dirname(os.path.abspath(kb)))
+        checks.append(Check(
+            "knowledge base", False,
+            disables=f"{kb} is not read any more - the career lives in career/store/. "
+                     f"`jsk kb load .` in {workspace} imports it, once"))
     elif problem:
         checks.append(Check("knowledge base", False, disables=problem))
     else:
         checks.append(Check(
             "knowledge base", False,
             disables="nothing to render from yet - `jsk new PATH --name NAME` creates "
-                     "career/kb.ttl"))
+                     "career/store/"))
 
     return checks, kb
 
 
 def resolve_kb(kb_arg=None):
-    """(career/kb.ttl or None, what is wrong with `--kb` or None).
+    """(career/store/ - or a career/kb.ttl not yet loaded into one - or None, what is
+    wrong with `--kb` or None).
 
-    `--kb` may name the file, or the workspace folder. Anything else is refused by name
+    `--kb` may name the store, or the workspace folder. Anything else is refused by name
     rather than taken on trust: `--kb pyproject.toml` used to report "ok knowledge
     base", and a path that does not exist said there was nothing to render from yet,
-    which reads as an empty career rather than a typo.
+    which reads as an empty career rather than a typo. A kb.ttl is taken, so the report
+    can say it has not been imported rather than that it is not a career.
     """
     if kb_arg is None:
         return find_kb(), None
-    wanted = f"pass career/{GRAPH_KB_FILENAME}, or the workspace folder holding it"
+    wanted = f"pass career/{STORE_DIRNAME}/, or the workspace folder holding it"
     if not os.path.exists(kb_arg):
         return None, f"--kb {kb_arg} does not exist - {wanted}"
+    parent = os.path.dirname(os.path.abspath(kb_arg))
     if os.path.isdir(kb_arg):
-        graph = os.path.join(kb_arg, "career", GRAPH_KB_FILENAME)
-        if os.path.isfile(graph):
-            return graph, None
-        return None, (f"--kb {kb_arg} holds no career/{GRAPH_KB_FILENAME}, so it is not a "
+        if is_store(kb_arg) and os.path.basename(parent) == "career":
+            return kb_arg, None
+        found = record_in(os.path.join(kb_arg, "career"))
+        if found:
+            return found, None
+        return None, (f"--kb {kb_arg} holds no career/{STORE_DIRNAME}/, so it is not a "
                       f"career workspace - {wanted}")
     if os.path.basename(kb_arg) == GRAPH_KB_FILENAME:
         return kb_arg, None
@@ -290,8 +318,8 @@ def resolve_kb(kb_arg=None):
 # them cannot produce a resume at all - reporting that as a degraded install
 # would be telling someone their toolchain works when it does not.
 #
-# pyoxigraph is required for the same reason: the career is kb.ttl, and every render and
-# the record gate `jsk ship` runs read it.
+# pyoxigraph is required for the same reason: the career is in its store, and every render
+# and the record gate `jsk ship` runs read it.
 REQUIRED = {"Python", "modules", "renderer package", "gates package", "graph record package",
             "profile schema", "TeX engine", "pymupdf", "pyoxigraph"}
 
@@ -316,15 +344,24 @@ def verify(tmp):
                       [f"{EXAMPLE_SHORT} missing"]))
         return steps
 
+    # The example ships as files - a package cannot carry a store, whose format is the
+    # installed pyoxigraph's - so it is imported into a store of its own, as `jsk kb load`
+    # imports a person's, and everything after reads it from there, as a person's does.
+    workspace = os.path.join(tmp, "example")
+    os.makedirs(workspace, exist_ok=True)
+    short = os.path.join(workspace, os.path.basename(EXAMPLE_SHORT))
+    shutil.copyfile(EXAMPLE_SHORT, short)
+    if not run("load the example career into a store",
+               [__package__, "kb", "load", EXAMPLE_WORKSPACE, "--root", workspace]):
+        return steps
     # The file the render reads, not the old example.resume.json: validating a URS record
     # the render no longer touched passed a check on the wrong file. The record gate, as
     # `jsk ship` runs it: shape, ids and every number traced in the example career.
-    run("validate the example resume",
-        [f"{__package__}.gates.record", EXAMPLE_SHORT])
+    run("validate the example resume", [f"{__package__}.gates.record", short])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the builder works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",
-             [f"{__package__}.render.render_resume", EXAMPLE_SHORT, "--out", tmp, "--pdf"])
+             [f"{__package__}.render.render_resume", short, "--out", tmp, "--pdf"])
     if not ok:
         return steps
 
@@ -336,7 +373,7 @@ def verify(tmp):
         [f"{__package__}.gates.check_ats", txt, "--strict"])
     run("prose gate", [f"{__package__}.gates.check_prose", tex])
     # The record names the region, so the paper is checked against it, not warned about.
-    run("layout gate", [f"{__package__}.gates.layout", pdf, "--record", EXAMPLE_SHORT])
+    run("layout gate", [f"{__package__}.gates.layout", pdf, "--record", short])
     return steps
 
 

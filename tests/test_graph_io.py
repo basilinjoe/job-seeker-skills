@@ -1,12 +1,14 @@
-"""Reading a record file: its triples, where each subject starts, and what a rewrite
-would lose. Errors name file:line:column, because a person fixes a hand edit by going
-to that line.
+"""Reading Turtle text - a changeset, a posting build, a workspace being imported: its
+triples, where each subject starts, and what storing it would lose. Errors name
+file:line:column, because a person fixes text by going to that line. Once in
+career/store/ there is no text, and nothing here applies to it.
 """
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
-from jsk.graph import io
+from jsk.graph import io, legacy
 from jsk.graph import ontology as O
 
 PFX = "".join(f"@prefix {n}: <{ns}> .\n" for n, ns in O.PREFIXES)
@@ -59,6 +61,18 @@ class Reading(unittest.TestCase):
             with self.assertRaises(io.GraphError) as cm:
                 io.parse(path)
             self.assertIn("not UTF-8", str(cm.exception))
+
+    def test_the_import_of_a_non_utf8_kb_names_it_and_takes_nothing(self):
+        # `jsk kb load` refuses on this FAIL; the career is not half-read into a store.
+        with tempfile.TemporaryDirectory() as tmp:
+            shutil.copytree(Path(__file__).parent / "graph_fixtures", tmp, dirs_exist_ok=True)
+            kb = Path(tmp) / "career" / "kb.ttl"
+            kb.write_bytes(kb.read_bytes().replace(b"Priya", b"Pr\xedya"))
+            store, record, _ = legacy.read_workspace(tmp)
+        [f] = [f for f in store.fails() if f.rule == "syntax"]
+        self.assertEqual(f.file, "kb")
+        self.assertIn("not UTF-8", f.detail)
+        self.assertNotIn("kb", record)
 
 
 class ReadText(unittest.TestCase):

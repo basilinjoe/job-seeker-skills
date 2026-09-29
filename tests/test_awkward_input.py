@@ -9,10 +9,15 @@ read through io.read_text now; these tests hold each command to what that promis
 
 The first three forms are the same text, so the command must do the same thing with each:
 the same exit code, the same output once the temp directory is taken out, and the same
-files written. The fourth is not UTF-8, and the command must say so - naming the file,
-exiting non-zero, writing nothing, and never with a traceback. `jsk render` is the one
-exception: posting.ttl only gives it the company for the file name, so an unreadable one
-names the file with no company (Ruling 8).
+files - and the same record in career/store/ - written. The fourth is not UTF-8, and the
+command must say so - naming the file, exiting non-zero, writing nothing, and never with
+a traceback.
+
+The record itself is no longer text: once it is in career/store/, kb.ttl and posting.ttl
+are read exactly once, by `jsk kb load` importing a workspace still laid out as files, so
+that is where their four forms are tried (Import). The texts that stay files - posting.md,
+decisions.txt, gaps.txt, a source document, resume.json - are tried against the command
+that reads each, over a workspace whose record is in its store.
 
 Each command runs in a child interpreter, as a person runs it, so that a traceback is
 something the output would show rather than something the test runner would catch.
@@ -23,15 +28,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import careerkit
 from fixtures import AWKWARD, CLI, run, write_awkward
-from test_build import short
+from storekit import seed
 from test_graph_kbcli import QUOTE, SOURCE
 from test_graph_shapes import FIXTURES as GRAPH
 from test_posting_build import ADVERT, HEADER, ROWS
 
+from jsk.graph import db
+
 MATCH = Path(__file__).parent / "match_fixtures"
 PLAIN, SAME, REFUSED = AWKWARD[0], AWKWARD[1:3], AWKWARD[3]
+# The store, as it is compared: its record dumped, since RocksDB's own files differ from
+# one write of the same record to the next (ids, logs, manifests).
+DUMP = "career/store (dumped)"
 
 # Each authored text carries a character cp1252 writes above 0x7f, or its cp1252 form
 # would be plain ASCII and test nothing: write_awkward refuses one that does not.
@@ -42,15 +51,22 @@ DECISIONS = HEADER + "\n# the analyst’s rows, one per line the advert asks for
 DOCUMENT = SOURCE.replace("# Prior resume", "# Prior résumé")
 SUMMARY = "Architect who builds clinical event platforms – the ones other teams build on."
 TITLE = ('j:title "Platform Engineer"', 'j:title "Platform Engineer – Core"')
+HEADLINE = ('j:headline "Principal Solution Architect"',
+            'j:headline "Principal Solution Architect – Health"')
 
 
 def snapshot(root, skip=None):
     """{relative path: bytes} of every file under root, less any holding `skip` - the
     authored file as written, and a verbatim copy of it, which differ between the forms
     by design. A refusal is compared with nothing skipped: a verbatim copy it left
-    behind is a write."""
-    return {p.relative_to(root).as_posix(): p.read_bytes()
-            for p in sorted(root.rglob("*")) if p.is_file() and p.read_bytes() != skip}
+    behind is a write. career/store/ is one entry, its record as dumped."""
+    store = root / db.STORE_DIR
+    out = {p.relative_to(root).as_posix(): p.read_bytes()
+           for p in sorted(root.rglob("*")) if p.is_file() and store not in p.parents
+           and p != root / db.LOCK_FILE and p.read_bytes() != skip}
+    if db.exists(root):
+        out[DUMP] = db.dump_text(db.read(root)).encode("utf-8")
+    return out
 
 
 def scrubbed(out, root):
@@ -62,13 +78,19 @@ def scrubbed(out, root):
     return out
 
 
+def graphs(found):
+    """The record graphs a form's run left in career/store/, by name."""
+    dump = found[2].get(DUMP)
+    return set(db.parse_dump(dump.decode("utf-8"))) if dump else set()
+
+
 class Forms(unittest.TestCase):
     """One command, run once over a fresh workspace for each form of one authored file."""
 
     def forms(self, text, build, target, command):
         """{form: (exit code, output, files after less the authored file, every file
-        before, every file after)}. `build(root)` makes the
-        workspace, `target(root)` is the authored file, `command(root)` the arguments."""
+        before, every file after)}. `build(root)` makes the workspace, `target(root)` is
+        the authored file, `command(root)` the arguments."""
         found = {}
         for form in AWKWARD:
             root = Path(tempfile.mkdtemp())
@@ -109,6 +131,50 @@ class Forms(unittest.TestCase):
         return found
 
 
+# --- jsk kb load: the one reader of the record's files ---------------------------------
+
+ACME = Path("applications") / "acme-platform-engineer"
+
+
+def edited(path, old, new):
+    text = path.read_text(encoding="utf-8")
+    assert text.count(old) == 1, old
+    return text.replace(old, new)
+
+
+def files_workspace(root):
+    """The graph fixture as a workspace from before the store: files, and no store."""
+    shutil.copytree(GRAPH, root, dirs_exist_ok=True)
+
+
+class Import(Forms):
+    """A kb.ttl or posting.ttl saved by a Windows editor is imported the same as one jsk
+    wrote - or, as cp1252, refused naming it, with no store left behind half-filled."""
+
+    def load(self, target, old, new, arrow=False):
+        text = edited(GRAPH / target, old, new)
+        if arrow:
+            text = text.replace("→", "->")
+        found = self.check(text, files_workspace,
+                           lambda r: r / target, lambda r: ["kb", "load", r, "--root", r],
+                           target.name)
+        self.assertEqual(graphs(found[PLAIN]), {"kb", "log", f"{ACME.as_posix()}/posting",
+                                                f"{ACME.as_posix()}/application"})
+        return found
+
+    def test_load_reads_kb_ttl(self):
+        # The fixture's one arrow has no cp1252 byte, and a Windows editor saving it so
+        # would have had to drop it; the rest is the fixture as it is.
+        target = Path("career") / "kb.ttl"
+        self.assertEqual((GRAPH / target).read_text(encoding="utf-8").count("→"), 1)
+        found = self.load(target, *HEADLINE, arrow=True)
+        self.assertIn("Principal Solution Architect – Health".encode(), found[PLAIN][2][DUMP])
+
+    def test_load_reads_posting_ttl(self):
+        found = self.load(ACME / "posting.ttl", *TITLE)
+        self.assertIn("Platform Engineer – Core".encode(), found[PLAIN][2][DUMP])
+
+
 # --- jsk posting extract / build ------------------------------------------------------
 
 STEM = "acme-staff-platform"
@@ -119,7 +185,9 @@ def posting_app(root):
 
 
 def graph_workspace(root):
+    """The graph fixture with its record in career/store/, as jsk keeps one."""
     shutil.copytree(GRAPH, root, dirs_exist_ok=True)
+    seed(root)
 
 
 def with_decisions(root):
@@ -141,13 +209,13 @@ class Posting(Forms):
         found = self.check(ADVERT, with_decisions, lambda r: posting_app(r) / "posting.md",
                            lambda r: ["posting", "build", posting_app(r),
                                       posting_app(r) / "decisions.txt"], "posting.md")
-        self.assertIn(f"applications/{STEM}/posting.ttl", found[PLAIN][2])
+        self.assertIn(f"applications/{STEM}/posting", graphs(found[PLAIN]))
 
     def test_build_reads_decisions_txt(self):
         found = self.check(DECISIONS, with_advert, lambda r: posting_app(r) / "decisions.txt",
                            lambda r: ["posting", "build", posting_app(r),
                                       posting_app(r) / "decisions.txt"], "decisions.txt")
-        self.assertIn(f"applications/{STEM}/posting.ttl", found[PLAIN][2])
+        self.assertIn(f"applications/{STEM}/posting", graphs(found[PLAIN]))
 
 
 # --- jsk match --gaps -----------------------------------------------------------------
@@ -155,75 +223,21 @@ class Posting(Forms):
 CONTOSO = Path("applications") / "contoso"
 
 
+def match_workspace(root):
+    shutil.copytree(MATCH, root, dirs_exist_ok=True)
+    seed(root)
+
+
 class MatchGaps(Forms):
     def test_match_gaps_reads_gaps_txt(self):
         found = self.check(
-            GAPS_TXT, lambda r: shutil.copytree(MATCH, r, dirs_exist_ok=True),
-            lambda r: r / CONTOSO / "gaps.txt",
-            lambda r: ["match", r / CONTOSO / "posting.ttl", "--gaps", r / CONTOSO / "gaps.txt",
+            GAPS_TXT, match_workspace, lambda r: r / CONTOSO / "gaps.txt",
+            lambda r: ["match", r / CONTOSO, "--gaps", r / CONTOSO / "gaps.txt",
                        "--today", "2026-09-24"], "gaps.txt")
         written = found[PLAIN][2]
-        self.assertIn("applications/contoso/gaps.ttl", written)
+        self.assertIn("applications/contoso/gaps", graphs(found[PLAIN]))
         self.assertIn("meets it – based in Pune".encode(),
                       written["applications/contoso/gaps.md"])
-
-
-# --- jsk tailor prepare ---------------------------------------------------------------
-
-ACME = Path("applications") / "acme-platform-engineer"
-ACME_POSTING = (GRAPH / ACME / "posting.ttl").read_text(encoding="utf-8")
-
-
-def unsent(root):
-    """The graph fixture with its application unsent, so that prepare writes gaps.ttl and
-    gaps.md rather than keeping a frozen assessment."""
-    graph_workspace(root)
-    (root / ACME / "application.ttl").unlink()
-
-
-class TailorPrepare(Forms):
-    def test_prepare_reads_posting_ttl(self):
-        text = ACME_POSTING.replace(*TITLE)
-        self.assertNotEqual(text, ACME_POSTING)
-        found = self.check(text, unsent, lambda r: r / ACME / "posting.ttl",
-                           lambda r: ["tailor", "prepare", r / ACME, "--today", "2026-09-27"],
-                           "posting.ttl")
-        self.assertIn(f"{ACME.as_posix()}/gaps.ttl", found[PLAIN][2])
-
-
-# --- jsk render -----------------------------------------------------------------------
-
-WS = "ws"
-
-
-def render_workspace(root):
-    careerkit.workspace(root / WS, short=short())
-
-
-def contoso_posting():
-    text = (careerkit.FIXTURES / careerkit.APP / "posting.ttl").read_text(encoding="utf-8")
-    return text.replace(*TITLE)
-
-
-class Render(Forms):
-    def test_render_reads_posting_ttl_for_the_company_or_goes_without(self):
-        text = contoso_posting()
-        self.assertIn("Platform Engineer – Core", text)
-        found = self.forms(text, render_workspace,
-                           lambda r: r / WS / careerkit.APP / "posting.ttl",
-                           lambda r: ["render", r / WS / careerkit.APP / "resume.json",
-                                      "--out", r / "out", "--format", "latex"])
-        self.assert_the_same(found)
-        tex = {form: sorted(n for n in found[form][2] if n.startswith("out/"))
-               for form in AWKWARD}
-        self.assertEqual(tex[PLAIN], ["out/Test_Person_Contoso_Resume.tex"])
-        code, out, after, _, _ = found[REFUSED]
-        with self.subTest(form=REFUSED):
-            self.assertEqual(code, 0, out)
-            self.assertNotIn("Traceback", out)
-            self.assertEqual(tex[REFUSED], ["out/Test_Person_Resume.tex"])
-            self.assertEqual(after["out/Test_Person_Resume.tex"],
-                             found[PLAIN][2]["out/Test_Person_Contoso_Resume.tex"])
 
 
 # --- jsk kb confirm -------------------------------------------------------------------
@@ -239,7 +253,7 @@ class KbConfirm(Forms):
             lambda r: ["kb", "confirm", "k:ach_site_onboarding_sites_one_platform",
                        "--source", r / DOC, "--quote", QUOTE, "--root", r], "prior-resume.md")
         self.assertIn(f'From imports/prior-resume.md: \\"{QUOTE}\\"'.encode(),
-                      found[PLAIN][2]["career/log.ttl"])
+                      found[PLAIN][2][DUMP])
 
     def test_confirm_summary_reads_resume_json(self):
         doc = {"resume": 2, "bullets": ["ach_clinical_events_event_latency"],

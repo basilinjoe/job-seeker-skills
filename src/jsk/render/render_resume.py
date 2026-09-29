@@ -13,7 +13,7 @@ Usage:
   --template NAME    visual theme for the PDF (default: monolith)
   --list-templates   print the themes with what each is for, and exit
   --pdf              compile the .tex with whatever TeX engine is installed
-  --name N           basename for the outputs (default: the person's name in kb.ttl)
+  --name N           basename for the outputs (default: the person's name in the career)
 
 Exit 0 = rendered. Exit 1 = nothing written, or --pdf produced no PDF.
 Exit 2 = usage error.

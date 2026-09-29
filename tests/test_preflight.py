@@ -26,11 +26,11 @@ VERDICT = 0 if tex.available_engine() else 1
 
 
 class KnowledgeBaseDiscovery(unittest.TestCase):
-    """The career is one file, `career/kb.ttl`, so finding it is finding that file.
+    """The career is one store, `career/store/`, so finding it is finding that folder.
 
     A bundle used to be recognised by the directories inside it, which meant a
     half-created one was invisible here and reported as "no bundle" while the person
-    was looking straight at it. A filename cannot be half-present.
+    was looking straight at it. A name cannot be half-present.
     """
 
     def setUp(self):
@@ -39,6 +39,12 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def make_kb(self, parent, name="my-career"):
+        path = parent / name / "career" / "store"
+        path.mkdir(parents=True)
+        return path
+
+    def make_files(self, parent, name="old-career"):
+        """A workspace from before the store: career/kb.ttl, not yet imported."""
         root = parent / name / "career"
         root.mkdir(parents=True)
         path = root / "kb.ttl"
@@ -48,6 +54,30 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
     def test_finds_the_graph_record_by_name(self):
         path = self.make_kb(self.tmp)
         self.assertEqual(Path(preflight.find_kb(self.tmp)), path)
+
+    def test_a_store_outside_a_career_folder_is_not_one(self):
+        (self.tmp / "notes" / "store").mkdir(parents=True)
+        self.assertIsNone(preflight.find_kb(self.tmp))
+
+    def test_a_workspace_not_yet_imported_is_named_with_the_import(self):
+        """A kb.ttl is not read any more; saying "nothing to render from" beside it would
+        read as a lost career. It is found, and the report says how to import it."""
+        path = self.make_files(self.tmp)
+        self.assertEqual(Path(preflight.find_kb(self.tmp)), path)
+        checks, found = preflight.gather(str(path.parent.parent))
+        kb = next(c for c in checks if c.name.startswith("knowledge base"))
+        self.assertFalse(kb.ok)
+        self.assertFalse(preflight.is_required(kb))
+        self.assertIn("`jsk kb load .`", kb.disables)
+        self.assertIn("career/store/", kb.disables)
+
+    def test_the_store_wins_over_the_files_it_was_imported_from(self):
+        # `jsk kb load .` leaves the files where they are.
+        self.make_files(self.tmp, "ws")
+        path = self.tmp / "ws" / "career" / "store"
+        path.mkdir()
+        self.assertEqual(Path(preflight.find_kb(self.tmp)), path)
+        self.assertEqual(preflight.resolve_kb(str(self.tmp / "ws")), (str(path), None))
 
     def test_a_kb_ttl_outside_a_career_folder_is_not_one(self):
         (self.tmp / "notes").mkdir()
@@ -89,7 +119,7 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         self.assertIsNone(preflight.find_kb(self.tmp))
 
     def test_dot_directories_are_not_searched(self):
-        """`.jsk/kb.last.ttl` is a cache, and a .git folder holds old copies."""
+        """`.jsk/` holds a backup, and a .git folder holds old copies."""
         self.make_kb(self.tmp / ".hidden")
         self.assertIsNone(preflight.find_kb(self.tmp))
 
@@ -215,8 +245,13 @@ class CliBehaviour(unittest.TestCase):
         with mock.patch.object(preflight.subprocess, "run", fake):
             preflight.verify(str(self.tmp))
         render = next(c for c in calls if any("render_resume" in a for a in c))
-        self.assertIn(paths.EXAMPLE_SHORT, render)
+        # A copy beside the store the example was imported into, never the package's own.
+        self.assertIn(str(self.tmp / "example" / "resume.json"), render)
+        self.assertNotIn(paths.EXAMPLE_SHORT, render)
         self.assertNotIn("--view", render)
+        load = next(c for c in calls if "load" in c)
+        self.assertEqual(load[-5:], ["kb", "load", paths.EXAMPLE_WORKSPACE, "--root",
+                                     str(self.tmp / "example")])
 
     def test_verify_validates_the_short_file_not_the_legacy_record(self):
         """The validate step read example.resume.json - a URS record nothing renders any
@@ -233,10 +268,12 @@ class CliBehaviour(unittest.TestCase):
         with mock.patch.object(preflight.subprocess, "run", fake):
             steps = preflight.verify(str(self.tmp))
         check = next(c for c in calls if any("gates.record" in a for a in c))
-        self.assertIn(paths.EXAMPLE_SHORT, check)
+        self.assertIn(str(self.tmp / "example" / "resume.json"), check)
         self.assertFalse(any("validate_urs" in a for c in calls for a in c))
-        self.assertEqual(steps[0][0], "validate the example resume")
-        self.assertEqual(len(steps), 6)
+        self.assertEqual([s[0] for s in steps[:2]], ["load the example career into a store",
+                                                     "validate the example resume"])
+        self.assertEqual(len(steps), 7)
+        self.assertIn(paths.EXAMPLE_WORKSPACE, calls[0])
 
     def test_json_output_is_machine_readable(self):
         code, out = run(PREFLIGHT, "--json")
@@ -252,12 +289,11 @@ class CliBehaviour(unittest.TestCase):
         self.assertEqual(code, 0, out)
         payload = json.loads(out)
         self.assertTrue(payload["ok"])
-        self.assertEqual(len(payload["verify"]), 6)
+        self.assertEqual(len(payload["verify"]), 7)
 
     def test_kb_override_is_honoured(self):
-        path = self.tmp / "mine" / "career" / "kb.ttl"
-        path.parent.mkdir(parents=True)
-        path.write_text("k:kb j:format 3 .", encoding="utf-8")
+        path = self.tmp / "mine" / "career" / "store"
+        path.mkdir(parents=True)
         code, out = run(PREFLIGHT, "--kb", path, "--json")
         self.assertEqual(code, VERDICT, out)
         self.assertEqual(Path(json.loads(out)["knowledge_base"]), path)
@@ -348,13 +384,13 @@ class TheGraphRecord(unittest.TestCase):
         self.assertTrue(graph.ok, graph.disables)
 
     def test_the_engine_is_required(self):
-        """The career is kb.ttl and `jsk ship` runs the record gate against it before
-        it renders, so a machine without the engine cannot produce a resume from the
+        """The career is in career/store/ and `jsk ship` runs the record gate against it
+        before it renders, so a machine without the engine cannot produce a resume from the
         career. It used to be reported as a gap."""
         checks, _ = preflight.gather()
         engine = next(c for c in checks if c.name == "pyoxigraph")
         self.assertTrue(preflight.is_required(engine))
-        self.assertIn("kb.ttl", engine.disables)
+        self.assertIn("career/store/", engine.disables)
         line, note = preflight.hint("pyoxigraph")
         self.assertIn("-m pip install pyoxigraph", line)
         self.assertTrue(note)

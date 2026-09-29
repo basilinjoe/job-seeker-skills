@@ -1,4 +1,4 @@
-"""Reading career/kb.ttl for a resume: the subjects, their values, and the employers a
+"""Reading the career graph for a resume: the subjects, their values, and the employers a
 set of roles comes to.
 
 These lived in graph/export.py while the resume was a URS record copied out of the

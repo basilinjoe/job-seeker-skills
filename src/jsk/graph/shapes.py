@@ -1,9 +1,10 @@
 """The rules a record must keep, and the findings that name where it does not.
 
-Tier 1 is generated from ontology.py and runs on one file at a time: shape, ids, values.
+Tier 1 is generated from ontology.py and runs on one graph at a time: shape, ids, values.
 Tier 2 is SPARQL over the whole workspace: references, versions, the vocabulary's edges.
-Every rule has an id, a severity and a fix, and every finding names file:line and the id
-it is about - a finding that says only "invalid" is one nobody can act on.
+Every rule has an id, a severity and a fix, and every finding names the graph (`kb`,
+`applications/acme/posting`) - and the line, for one that arrived as text - and the id it
+is about: a finding that says only "invalid" is one nobody can act on.
 """
 import difflib
 import re
@@ -24,8 +25,8 @@ XSD_TYPES = {O.XSD + t: t for t in ("string", "integer", "decimal", "boolean", "
 class Finding:
     rule: str
     severity: str
-    file: str
-    line: int
+    file: str        # the graph's name - `kb`, `applications/acme/posting`
+    line: int        # 0 in a stored graph, which has no lines: none is printed
     focus: str       # the id as a CURIE, "" for a whole-file finding
     detail: str
     fix: str
@@ -44,7 +45,10 @@ def curie(iri):
 # --- tier 1: one file, generated from the ontology --------------------------------------
 
 def tier1(parsed):
-    """Findings for one parsed file."""
+    """Findings for one parsed graph - a stored one, or one that arrived as text (a
+    changeset, a posting build, the import). What only text can get wrong - a comment
+    the store will not keep - is asked of text alone: a stored graph has none, and its
+    findings name the graph with no line."""
     import pyoxigraph as ox
 
     out = []
@@ -53,10 +57,10 @@ def tier1(parsed):
         out.append(Finding(rule, sev, parsed.file, parsed.lines.get(s, 0) if s else 0,
                            curie(s) if s else "", detail, fix))
 
-    for line, text in parsed.comments:
+    for line, text in parsed.comments if parsed.text else ():
         out.append(Finding("comment", WARN, parsed.file, line, "",
-                           f"comment {text[:40]!r} will be lost on the next write",
-                           "move it into a j:note on the entry it is about"))
+                           f"comment {text[:40]!r} is not kept: the career stores triples, "
+                           "not text", "move it into a j:note on the entry it is about"))
 
     props = defaultdict(lambda: defaultdict(list))
     for q in parsed.quads:
@@ -72,7 +76,7 @@ def tier1(parsed):
         count = sum(1 for s in props if O.class_of(s) == head)
         if count != 1:
             add("cardinality", FAIL, None,
-                f"a {parsed.kind} file holds exactly one {head}; this one holds {count}",
+                f"a {parsed.kind} graph holds exactly one {head}; this one holds {count}",
                 HEAD_FIX[head])
 
     for s, preds in props.items():
@@ -90,8 +94,8 @@ def tier1(parsed):
             add("id-form", FAIL, s, "a numbered bullet id says where it sits, not what it is",
                 "name it after its content: ach_<project>_<two to four words>")
         if parsed.kind not in cls.kinds:
-            add("id-home", FAIL, s, f"a {name} does not belong in a {parsed.kind} file",
-                f"move it to {' or '.join(k + '.ttl' for k in cls.kinds)}")
+            add("id-home", FAIL, s, f"a {name} does not belong in a {parsed.kind} graph",
+                f"move it to {' or '.join(cls.kinds)}")
             continue
         for p, objs in preds.items():
             if p == O.RDF_TYPE:
@@ -151,10 +155,12 @@ def shipped_vocabulary(add, s, preds):
 
 
 HEAD_FIX = {
-    "KB": 'start the file with k:kb j:format 3 ; j:name "…" ; j:updated "YYYY-MM-DD"^^xsd:date .',
-    "Posting": "one k:post_<stem> per posting.ttl; another posting gets its own directory",
-    "Application": "one k:app_<stem> per application.ttl; another gets its own directory",
-    "Assessment": "one k:gap_<stem> per gaps.ttl; `jsk tailor prepare` writes it",
+    "KB": 'the career has one header: k:kb j:format 3 ; j:name "…" ; '
+          'j:updated "YYYY-MM-DD"^^xsd:date .',
+    "Posting": "one k:post_<stem> per application's posting; another posting gets its own "
+               "directory",
+    "Application": "one k:app_<stem> per application; another gets its own directory",
+    "Assessment": "one k:gap_<stem> per application's gaps; `jsk tailor prepare` writes it",
 }
 
 

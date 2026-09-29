@@ -6,7 +6,7 @@ text is folded to ASCII. The emitters receive finished strings and decide nothin
 the PDF and the plain text built from one resume cannot disagree.
 
 This was `render/resolve.py`, which read a URS record copied out of career/kb.ttl. It reads
-the career itself now. What the resolver rendered from data kb.ttl cannot hold - date of
+the career itself now. What the resolver rendered from data the career cannot hold - date of
 birth, a photo, referees, compensation, an engagement's location - is gone with the
 copy: a feature comes back by giving its data a home in the ontology first.
 """
@@ -422,12 +422,11 @@ def load(path):
     """(store, doc, root) for the resume.json at `path`, checked. Raises
     short.ShortError for a file that cannot be read, sits outside a workspace, or fails
     its checks - loaded once, so a render building two variants reads the career once."""
-    from ..graph import store as S
     from . import short
 
     doc = short.read(path)
     root = short.workspace(path)
-    store = S.load(root)
+    store = short.career(root)
     fails = short.shape(doc) or short.ids(doc, store)
     if fails:
         raise short.ShortError(f"{path}: " + "; ".join(fails),
