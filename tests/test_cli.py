@@ -7,6 +7,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,6 +16,8 @@ from unittest import mock
 import careerkit
 from fixtures import (CHECK_ATS, CHECK_PROSE, CLI, CLEAN_RESUME, EXAMPLE_SHORT, SCRIPTS,
                       build_pdf, build_text, load_script, resume_with, run)
+
+from jsk import cli
 
 JSK = CLI
 EXAMPLE = EXAMPLE_SHORT
@@ -787,11 +790,31 @@ class PreviewInProcess(unittest.TestCase):
         self.assertNotIn("template that does not build", out)
 
 
-class Match(unittest.TestCase):
-    """`jsk match`: an assessment, so it exits 0 with gaps; 1 only for a broken record."""
+def match_workspace(tmp, edit=None):
+    """tests/match_fixtures copied to `tmp`, `edit(root)` applied to its files, then put
+    into its store. Returns the root."""
+    import shutil
 
-    FIX = Path(__file__).parent / "match_fixtures"
-    CONTOSO = FIX / "applications" / "contoso" / "posting.ttl"
+    from appkit import seed
+    shutil.copytree(Path(__file__).parent / "match_fixtures", tmp, dirs_exist_ok=True)
+    if edit:
+        edit(Path(tmp))
+    seed(tmp)
+    return Path(tmp)
+
+
+class Match(unittest.TestCase):
+    """`jsk match APP`: an assessment, so it exits 0 with gaps; 1 only for a broken record."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.FIX = match_workspace(cls._tmp.name)
+        cls.CONTOSO = cls.FIX / "applications" / "contoso"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
 
     def test_it_prints_the_four_sections(self):
         code, out = run(JSK, "match", self.CONTOSO, "--today", "2026-09-24")
@@ -810,30 +833,29 @@ class Match(unittest.TestCase):
         self.assertEqual({q["asked"]: q["state"] for q in r["requirements"]}["Go"], "ambiguous")
 
     def test_a_broken_record_is_not_matched(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            import shutil
-            shutil.copytree(self.FIX, tmp, dirs_exist_ok=True)
-            kb = Path(tmp) / "career" / "kb.ttl"
+        def broken(root):
+            kb = root / "career" / "kb.ttl"
             kb.write_text(kb.read_text(encoding="utf-8").replace("j:uses c:aks,", "j:uses c:akss,"),
                           encoding="utf-8")
-            code, out = run(JSK, "match", Path(tmp) / "applications" / "contoso" / "posting.ttl")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = match_workspace(tmp, broken)
+            code, out = run(JSK, "match", root / "applications" / "contoso")
         self.assertEqual(code, 1, out)
         self.assertIn("fix them before matching", out)
         self.assertIn("c:akss: nothing defines it", out)
 
     def test_another_postings_fault_does_not_stop_this_one(self):
-        """A FAIL in kb.ttl, the vocabulary or this posting's own directory stops the match;
-        one in an unrelated application only gets mentioned - an old advert that no
-        longer quotes cleanly must not block every new one."""
+        """A FAIL in the career, the vocabulary or this application's own directory stops
+        the match; one in an unrelated application only gets mentioned - an old advert
+        that no longer quotes cleanly must not block every new one."""
         with tempfile.TemporaryDirectory() as tmp:
-            import shutil
-            shutil.copytree(self.FIX, tmp, dirs_exist_ok=True)
-            md = Path(tmp) / "applications" / "fabrikam" / "posting.md"
+            root = match_workspace(tmp)
+            md = root / "applications" / "fabrikam" / "posting.md"
             md.write_text("Senior Developer at Fabrikam\n", encoding="utf-8")
-            code, out = run(JSK, "match", Path(tmp) / "applications" / "contoso" / "posting.ttl")
+            code, out = run(JSK, "match", root / "applications" / "contoso")
             self.assertEqual(code, 0, out)
             self.assertIn("4 failures elsewhere in the workspace", out)
-            code, out = run(JSK, "match", Path(tmp) / "applications" / "fabrikam" / "posting.ttl")
+            code, out = run(JSK, "match", root / "applications" / "fabrikam")
             self.assertEqual(code, 1, out)
 
     def test_the_warnings_are_named_not_waved_away(self):
@@ -842,30 +864,35 @@ class Match(unittest.TestCase):
         self.assertNotIn("none changes the match", out)
 
     def test_an_implied_carrier_says_so(self):
-        code, out = run(JSK, "match", self.FIX / "applications" / "northwind" / "posting.ttl",
+        code, out = run(JSK, "match", self.FIX / "applications" / "northwind",
                         "--today", "2026-09-24")
         self.assertIn("k:prj_events (via c:kafka, 1 hop, implied)", out)
 
     def test_a_relative_path_from_inside_the_workspace(self):
-        from jsk.graph.match import workspace_of
+        from jsk.graph.match import application
         here = os.getcwd()
         try:
             os.chdir(self.FIX)
-            self.assertEqual(workspace_of(os.path.join("applications", "contoso", "posting.ttl")),
-                             str(self.FIX))
+            root, app = application(os.path.join("applications", "contoso"))
+            self.assertEqual((root, app), (str(self.FIX), str(self.CONTOSO)))
         finally:
             os.chdir(here)
+
+    def test_the_posting_ttl_form_is_refused_with_the_new_one(self):
+        """Ruling 11: the posting is a graph now, not a file to point at."""
+        code, out = run(JSK, "match", self.CONTOSO / "posting.ttl")
+        self.assertEqual(code, 2, out)
+        self.assertIn("takes the application now, not its posting.ttl", out)
+        self.assertIn(f"fix:  jsk match {self.CONTOSO}", out)
 
     def test_gaps_txt_that_raises_a_verdict_fails(self):
         """--gaps checks the analyst's gaps.txt against the match: .NET is carried only by
         tags, so `satisfied` is a raise; `unsatisfied`, with its reason, is a lowering."""
         with tempfile.TemporaryDirectory() as tmp:
-            import shutil
-            shutil.copytree(self.FIX, tmp, dirs_exist_ok=True)
-            app = Path(tmp) / "applications" / "contoso"
+            app = match_workspace(tmp) / "applications" / "contoso"
             gaps = app / "gaps.txt"
             gaps.write_text("dotnet | satisfied | it is on the projects\n", encoding="utf-8")
-            args = (JSK, "match", app / "posting.ttl", "--gaps", gaps, "--today", "2026-09-24")
+            args = (JSK, "match", app, "--gaps", gaps, "--today", "2026-09-24")
             code, out = run(*args)
             self.assertEqual(code, 1, out)
             self.assertIn("FAIL  gaps.txt line 1: dotnet: satisfied, above the match's "
@@ -875,13 +902,110 @@ class Match(unittest.TestCase):
                             encoding="utf-8")
             code, out = run(*args)
             self.assertEqual(code, 0, out)
-            self.assertIn("0 FAIL, 0 WARN - wrote gaps.ttl and gaps.md", out)
+            self.assertIn("0 FAIL, 0 WARN - wrote applications/contoso/gaps and gaps.md", out)
 
     def test_outside_the_layout_is_a_usage_error(self):
-        code, out = run(JSK, "match", self.FIX / "career" / "kb.ttl")
+        code, out = run(JSK, "match", self.FIX / "career")
         self.assertEqual(code, 2, out)
         code, out = run(JSK, "match", self.CONTOSO, "--cover", "none")
         self.assertEqual(code, 2, out)
+
+
+class UnloadedWorkspace(unittest.TestCase):
+    """Plan P5: a workspace still laid out as files - career/kb.ttl, no career/store/ - is
+    refused by every command, with the one fix that imports it."""
+
+    def setUp(self):
+        import shutil
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        shutil.copytree(Path(__file__).parent / "match_fixtures", self.root, dirs_exist_ok=True)
+
+    def jsk(self, *args):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = cli.main(["jsk", *map(str, args)])
+        return code, buf.getvalue()
+
+    def test_a_command_given_a_path_in_it_is_refused_with_kb_load(self):
+        for args in (("match", self.root / "applications" / "contoso"),
+                     ("tailor", "prepare", self.root / "applications" / "contoso"),
+                     ("posting", "build", self.root / "applications" / "contoso")):
+            with self.subTest(args=args[0]):
+                code, out = self.jsk(*args)
+                self.assertEqual(code, 1, out)
+                self.assertIn("the career is still career/kb.ttl", out)
+                self.assertIn("fix:  jsk kb load .", out)
+
+    def test_a_command_run_inside_it_is_refused(self):
+        here = os.getcwd()
+        try:
+            os.chdir(self.root / "applications")
+            code, out = self.jsk("validate", "resume.json")
+        finally:
+            os.chdir(here)
+        self.assertEqual(code, 1, out)
+        self.assertIn("jsk kb load .", out)
+
+    def test_a_loaded_workspace_is_not(self):
+        from appkit import seed
+        seed(self.root)
+        (self.root / "career" / "kb.ttl").write_text("# left by kb load\n", encoding="utf-8")
+        code, out = self.jsk("match", self.root / "applications" / "contoso")
+        self.assertEqual(code, 0, out)
+
+    def test_the_helper_the_kb_verbs_call(self):
+        self.assertIsNotNone(cli.unloaded_refusal(str(self.root)))
+        self.assertIsNone(cli.unloaded_refusal(None))
+        from jsk import paths
+        self.assertIsNone(cli.unloaded_refusal(paths.EXAMPLE_WORKSPACE))   # package data
+
+
+class DoctorStore(unittest.TestCase):
+    """`jsk doctor`'s lines on the record: the store, its revision, the backup's."""
+
+    def setUp(self):
+        import shutil
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        shutil.copytree(Path(__file__).parent / "graph_fixtures", self.root, dirs_exist_ok=True)
+
+    def test_a_store_its_revision_and_its_backup(self):
+        from appkit import seed
+        seed(self.root)
+        lines, broken = cli.store_report(str(self.root))
+        text = "\n".join(lines)
+        self.assertFalse(broken, text)
+        self.assertIn(f"ok    store    {self.root / 'career' / 'store'}", text)
+        self.assertRegex(text, r"readable, at r\d+")
+        self.assertIn("ok    backup", text)
+        revision = re.search(r"readable, at (r\d+)", text).group(1)
+        self.assertIn(f"at {revision}\n", text + "\n")
+
+    def test_no_backup_is_a_gap(self):
+        from appkit import seed
+        seed(self.root)
+        (self.root / ".jsk" / "backup.trig").unlink()
+        lines, broken = cli.store_report(str(self.root))
+        self.assertFalse(broken)
+        self.assertIn("no .jsk/backup.trig yet", "\n".join(lines))
+
+    def test_a_workspace_not_yet_loaded_fails_with_kb_load(self):
+        lines, broken = cli.store_report(str(self.root))
+        self.assertTrue(broken)
+        self.assertIn("jsk kb load .", "\n".join(lines))
+
+    def test_doctor_prints_them_after_the_preflight(self):
+        from appkit import seed
+        seed(self.root)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            cli.main(["jsk", "doctor", "--quick", "--kb", str(self.root)])
+        out = buf.getvalue()
+        self.assertIn("\nThe record:\n", out)
+        self.assertIn("ok    store", out)
 
 
 class ParseFlags(unittest.TestCase):

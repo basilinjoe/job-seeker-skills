@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import appkit
+
 from jsk import cli
 from jsk.graph import export
 from jsk.graph import ontology as O
@@ -59,13 +61,21 @@ def workspace(test, posting=POSTING):
     return root
 
 
+def load(root):
+    """The workspace loaded - put into its store first, the first time, so a test edits
+    kb.ttl as Turtle and then reads the record as jsk keeps it."""
+    if not os.path.isdir(os.path.join(root, "career", "store")):
+        appkit.seed(root)
+    return S.load(root)
+
+
 def ids(iris):
     return [i[len(O.K):] for i in iris]
 
 
 class Selected(unittest.TestCase):
     def setUp(self):
-        self.store = S.load(workspace(self))
+        self.store = load(workspace(self))
         self.sel = SEL.select(self.store, POST, TODAY, 3)
 
     def test_projects_are_the_cover_then_what_carries_evidence(self):
@@ -99,13 +109,13 @@ class Selected(unittest.TestCase):
         self.assertNotIn("Terraform", [g.requirement for g in self.sel.gaps])
 
     def test_deterministic(self):
-        again = SEL.select(S.load(self.store.root), POST, TODAY, 3)
+        again = SEL.select(load(self.store.root), POST, TODAY, 3)
         self.assertEqual(again, self.sel)
 
 
 class Extra(unittest.TestCase):
     def setUp(self):
-        self.store = S.load(workspace(self))
+        self.store = load(workspace(self))
 
     def test_a_project_added_brings_its_first_bullet(self):
         sel = SEL.select(self.store, POST, TODAY, 3, extra=[O.K + "prj_game"])
@@ -128,7 +138,7 @@ class Nothing(unittest.TestCase):
         posting = POSTING.split("k:req_sel_k8s")[0] + (
             'k:req_sel_rust j:posting k:post_contoso_select ; j:asked "Rust" ;\n'
             '    j:necessity j:required ; j:quote "Rust is required." .\n')
-        sel = SEL.select(S.load(workspace(self, posting)), POST, TODAY, 3)
+        sel = SEL.select(load(workspace(self, posting)), POST, TODAY, 3)
         self.assertEqual(sel.projects, [])
         self.assertEqual([g.kind for g in sel.gaps], ["uncovered"])
 
@@ -161,7 +171,7 @@ k:ach_x2 j:project k:prj_x ; j:rank 2 ; j:text "Wrote Rust." ; j:shows c:rust ;
 k:ach_x3 j:project k:prj_x ; j:rank 3 ; j:text "Wrote SQL." ; j:shows c:sql-server ;
     j:provenance j:confirmed .
 """)
-        sel = SEL.select(S.load(root), POST, TODAY, 1)
+        sel = SEL.select(load(root), POST, TODAY, 1)
         self.assertIn(O.K + "prj_x", sel.projects)
         self.assertEqual(ids(sel.bullets[O.K + "prj_x"]), ["ach_x1", "ach_x2", "ach_x3"])
         self.assertEqual(sel.gaps, [])
@@ -177,7 +187,7 @@ class Reworded(unittest.TestCase):
         end = text.index("k:ach_events_team")
         kb.write_bytes((text[:at] + text[at:end].replace("j:confirmed", "j:inferred")
                         + text[end:]).encode())
-        self.sel = SEL.select(S.load(root), POST, TODAY, 3,
+        self.sel = SEL.select(load(root), POST, TODAY, 3,
                               extra=[O.K + "ach_events_latency"])
 
     def test_it_is_placed_by_what_it_shows(self):
@@ -191,7 +201,7 @@ class Reworded(unittest.TestCase):
 
 class Implied(unittest.TestCase):
     def test_a_bullet_showing_what_only_implies_it_is_named(self):
-        sel = SEL.select(S.load(workspace(self, asking("IaC", need="preferred"))),
+        sel = SEL.select(load(workspace(self, asking("IaC", need="preferred"))),
                          POST, TODAY, 3)
         self.assertIn("k:ach_events_terraform shows c:terraform, which only implies",
                       sel.gaps[0].detail)
@@ -221,7 +231,7 @@ class Pick(unittest.TestCase):
 
 class Exported(unittest.TestCase):
     def setUp(self):
-        self.store = S.load(workspace(self))
+        self.store = load(workspace(self))
         self.doc = export.short_file(self.store, selection=SEL.select(self.store, POST, TODAY, 3))
 
     def test_the_selected_bullets_in_the_selection_s_order(self):
@@ -237,7 +247,7 @@ class Exported(unittest.TestCase):
         self.assertEqual(short.ids(self.doc, self.store), [])
 
     def test_byte_identical(self):
-        store = S.load(self.store.root)
+        store = load(self.store.root)
         again = export.short_file(store, selection=SEL.select(store, POST, TODAY, 3))
         self.assertEqual(json.dumps(again), json.dumps(self.doc))
 
@@ -258,7 +268,7 @@ class Ranked(unittest.TestCase):
         self.root = workspace(self)
 
     def sel(self, extra=()):
-        return SEL.ranked(S.load(self.root), TODAY, extra)
+        return SEL.ranked(load(self.root), TODAY, extra)
 
     def test_projects_by_strength_and_recency(self):
         sel = self.sel()
@@ -310,9 +320,9 @@ class Ranked(unittest.TestCase):
                          ["ach_portal_frontend", "ach_portal_more0"])
 
     def test_deterministic(self):
-        store = S.load(self.root)
+        store = load(self.root)
         first = export.short_file(store, selection=SEL.ranked(store, TODAY))
-        store = S.load(self.root)
+        store = load(self.root)
         self.assertEqual(json.dumps(export.short_file(store, selection=SEL.ranked(store, TODAY))),
                          json.dumps(first))
 
@@ -325,7 +335,7 @@ class Ranked(unittest.TestCase):
         kb.write_bytes(text.replace("j:strength 2 ; j:recency 2016", "j:strength 5 ; j:recency 2016")
                        .replace("j:strength 5 ; j:recency 2026", "j:strength 1 ; j:recency 2026")
                        .encode())
-        store = S.load(self.root)
+        store = load(self.root)
         doc = export.short_file(store, selection=SEL.ranked(store, TODAY))
         self.assertEqual(doc["bullets"][0], "ach_game_players")
         self.assertEqual(doc["bullets"][-2:], ["ach_events_latency", "ach_events_team"])  # 5th
@@ -351,7 +361,7 @@ class SkillAliases(unittest.TestCase):
         kb.write_bytes(text.replace('j:alias "C#" .', 'j:alias "C#", "Widgetry" .').encode())
         if label:
             career_plus(root, '\nc:widgetry a j:Capability ; j:label "Widgetry" .\n')
-        return ids(SEL.select(S.load(root), POST, TODAY, 3).skills)
+        return ids(SEL.select(load(root), POST, TODAY, 3).skills)
 
     def test_an_alias_no_project_holds_ranks_nothing(self):
         self.assertEqual(self.order(label=True), ["skill_kubernetes", "skill_dotnet"])
@@ -363,9 +373,11 @@ class SkillAliases(unittest.TestCase):
 class Command(unittest.TestCase):
     def setUp(self):
         self.root = workspace(self)
-        self.posting = os.path.join(self.root, "applications", "contoso-select", "posting.ttl")
+        # --from-match takes the application (Ruling 11), not its posting.ttl.
+        self.posting = os.path.join(self.root, "applications", "contoso-select")
 
     def kb(self, *args):
+        load(self.root)
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = cli.main(["jsk", "kb", *args, "--root", self.root])
@@ -399,14 +411,20 @@ class Command(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("NOTE  k:prj_data has no confirmed bullet", err)
 
-    def test_a_posting_outside_applications_is_a_usage_error(self):
-        stray = os.path.join(self.root, "posting.ttl")
-        shutil.copy(self.posting, stray)
-        self.assertEqual(self.kb("export", "--from-match", stray)[0], 2)
+    def test_a_folder_outside_applications_is_a_usage_error(self):
+        code, out, _ = self.kb("export", "--from-match", os.path.join(self.root, "career"))
+        self.assertEqual(code, 2, out)
+        self.assertIn("not an application", out)
 
-    def test_a_posting_from_another_workspace_is_a_usage_error(self):
+    def test_a_posting_ttl_path_is_refused_with_the_application_form(self):
+        code, out, _ = self.kb("export", "--from-match",
+                               os.path.join(self.posting, "posting.ttl"))
+        self.assertEqual(code, 2, out)
+        self.assertIn(f"fix:  jsk kb export --from-match {self.posting}", out)
+
+    def test_an_application_of_another_workspace_is_a_usage_error(self):
         other = workspace(self)
-        theirs = os.path.join(other, "applications", "contoso-select", "posting.ttl")
+        theirs = os.path.join(other, "applications", "contoso-select")
         self.assertEqual(self.kb("export", "--from-match", theirs)[0], 2)
 
     def test_cover_and_today_need_from_match(self):
@@ -440,17 +458,20 @@ class Command(unittest.TestCase):
             'k:req_sel_rust j:posting k:post_contoso_select ; j:asked "Rust" ;\n'
             '    j:necessity j:required ; j:quote "Rust is required." .\n')
         self.root = workspace(self, posting)
-        self.posting = os.path.join(self.root, "applications", "contoso-select", "posting.ttl")
-        dest = os.path.join(os.path.dirname(self.posting), "resume.json")
+        self.posting = os.path.join(self.root, "applications", "contoso-select")
+        dest = os.path.join(self.posting, "resume.json")
         code, out, _ = self.kb("export", "--from-match", self.posting, "--out", dest)
         self.assertEqual(code, 1, out)
         self.assertIn("GAP   uncovered   Rust (required)", out)
         self.assertIn("REFUSED", out)
         self.assertFalse(os.path.exists(dest))
 
-    def test_a_broken_posting_refuses(self):
-        Path(self.posting).write_bytes(b"this is not turtle")
-        self.assertEqual(self.kb("export", "--from-match", self.posting)[0], 1)
+    def test_an_application_with_no_posting_refuses(self):
+        load(self.root)
+        appkit.drop(self.root, "applications/contoso-select/posting")
+        code, out, _ = self.kb("export", "--from-match", self.posting)
+        self.assertEqual(code, 1, out)
+        self.assertIn("jsk posting build", out)
 
 
 if __name__ == "__main__":

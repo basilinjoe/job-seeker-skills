@@ -39,7 +39,9 @@ DERIVED = Derived(
 class Draft(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.s = store.load(FIXTURES, vocabulary=FIXTURES / "vocabulary.ttl")
+        from appkit import stored_copy
+        root = stored_copy(FIXTURES)
+        cls.s = store.load(root, vocabulary=root / "vocabulary.ttl")
         cls.text = G.draft_gaps(DERIVED, cls.s, str(ADVERT))
         cls.overlay = A.parse(cls.text)
 
@@ -98,7 +100,7 @@ class Draft(unittest.TestCase):
         head = self.text.split("\n\n")[0]
         self.assertTrue(all(line.startswith("#") for line in head.split("\n")), head)
         self.assertIn("--gaps", head)
-        self.assertIn("gaps.ttl and gaps.md", head)
+        self.assertIn("writes the assessment and gaps.md", head)
         self.assertIn("never raises", head)
 
     def test_eligibility_facts_are_comments_above_the_slot(self):

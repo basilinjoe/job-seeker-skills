@@ -1,6 +1,6 @@
-"""gaps.ttl as a file kind: laid out by the writer, loaded beside posting.ttl, validated like
-every other record file - and a fault in one application's assessment stops only that
-application's match."""
+"""The gaps graph as a record kind: laid out by the writer, loaded beside the posting,
+validated like every other record graph - and a fault in one application's assessment
+stops only that application's match."""
 import shutil
 import tempfile
 import unittest
@@ -50,31 +50,36 @@ class GapsKind(unittest.TestCase):
         return store.load(self.root, vocabulary=self.root / "vocabulary.ttl")
 
     def put(self, quads, app="contoso"):
-        path = self.root / "applications" / app / "gaps.ttl"
-        path.write_text(write(quads, "gaps"), encoding="utf-8", newline="\n")
-        return path
+        """The assessment written into the store - seeded from the fixture first, so an
+        edit a test made to its kb.ttl goes in with it."""
+        from appkit import seed
+
+        from jsk.graph import record as R
+        if not (self.root / "career" / "store").exists():
+            seed(self.root)
+        R.write_graphs(str(self.root), {f"applications/{app}/gaps": quads})
 
     def test_kind_and_sections(self):
-        self.assertEqual(O.kind_of("applications/x/gaps.ttl"), "gaps")
+        self.assertEqual(O.kind_of("applications/x/gaps"), "gaps")
         self.assertEqual(O.class_of(O.K + "gap_contoso"), "Assessment")
         self.assertEqual(O.class_of(O.K + "vrd_contoso_k8s"), "Verdict")
         text = write(assessment(), "gaps")
         self.assertLess(text.index("# == Assessment"), text.index("# == Verdicts"))
 
-    def test_a_written_gaps_ttl_loads_clean_and_round_trips(self):
-        path = self.put(assessment())
+    def test_a_written_assessment_loads_clean_and_round_trips(self):
+        self.put(assessment())
         s = self.load()
-        name = "applications/contoso/gaps.ttl"
+        name = "applications/contoso/gaps"
         self.assertIn(name, s.parsed)
         self.assertEqual([f.text() for f in s.fails()], [])
         self.assertEqual([f.text() for f in s.warns() if f.file == name], [])
-        self.assertEqual(write(s.graph(name), "gaps"), path.read_text(encoding="utf-8"))
+        self.assertEqual(write(s.graph(name), "gaps"), write(assessment(), "gaps"))
 
     def test_a_dangling_requirement_fails_there_and_blocks_only_that_posting(self):
         self.put(assessment(requirement="req_contoso_gone"))
         fails = self.load().fails()
         self.assertEqual({(f.rule, f.file) for f in fails},
-                         {("dangling", "applications/contoso/gaps.ttl")})
+                         {("dangling", "applications/contoso/gaps")})
         self.assertTrue(all(M.blocks(f, "applications/contoso/") for f in fails))
         self.assertFalse(any(M.blocks(f, "applications/fabrikam/") for f in fails))
 
@@ -94,7 +99,7 @@ class GapsKind(unittest.TestCase):
             '    j:reason "sold" ;'), encoding="utf-8", newline="\n")
         self.put(assessment())
         found = [f for f in self.load().warns() if f.rule == "retired-referenced"
-                 and f.file == "applications/contoso/gaps.ttl"]
+                 and f.file == "applications/contoso/gaps"]
         self.assertEqual(found, [])
 
 

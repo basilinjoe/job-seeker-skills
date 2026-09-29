@@ -1,5 +1,6 @@
 """`jsk posting extract` and `jsk posting build`: code extracts the advert's lines, the model
-decides in decisions.txt, code writes posting.ttl.
+decides in decisions.txt, code writes the posting - the application's posting graph in
+career/store/ (posting.ttl in a workspace not yet loaded into one).
 
 Hand-writing posting.ttl cost the JumpCloud run 26.5k output tokens, most of them ids,
 predicates and quotes copied character for character - exactly what the checks then
@@ -113,7 +114,7 @@ def extract(app_dir, vocabulary=None, today=None):
     word, level = seniority_hint(title)
     out = []
     if root is None:
-        out.append(f"# no workspace (career/kb.ttl) above {app_dir}: no concepts proposed")
+        out.append(f"# no workspace (career/store/) above {app_dir}: no concepts proposed")
     out += [f"# {title or '?'} at {company or '?'}",
             f"# posting id: post_{posting_stem(app_dir, root, store)}"]
     if word:
@@ -143,27 +144,40 @@ def default_need(line):
 
 
 def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=None):
-    """(path written, requirements, warnings). Raises Refused, and then writes nothing."""
+    """(what was written, requirements, warnings): the posting graph's name, or in a
+    workspace not yet loaded into a store, posting.ttl's path. Raises Refused, and then
+    writes nothing. Runs inside the workspace's turn, taken before anything is read."""
+    from . import record as R
+    from .kbcli import find_root
+
+    root = find_root(app_dir)
+    with R.turn(root, dry_run=root is None):
+        return built(app_dir, decisions_path, replace, vocabulary, today)
+
+
+def built(app_dir, decisions_path, replace, vocabulary, today):
     from . import decisions as D
     from .io import GraphError, Missing, Unreadable, parse_text
     from .queries import PRE, concepts
     from .shapes import tier1
-    from .store import file_name
-    from .timeline import Frozen, Unwritable, refuse_if_sent, remove_app_file, write_app_file
+    from .store import app_graph, file_name, parsed_graph
+    from .timeline import (Frozen, Unwritable, app_graphs, has_record, refuse_if_sent,
+                           remove_app_file, workspace_of_app, write_app_file,
+                           write_app_graphs)
     from .writer import write
 
     # Ruling 6 of the 2026-09-28 review: a sent posting is what the application answered,
-    # so it is not rebuilt - and the gaps files derived from it are not removed. Asked
+    # so it is not rebuilt - and the assessment derived from it is not removed. Asked
     # first, so the refusal writes nothing; the writes below ask again.
     try:
         refuse_if_sent(app_dir, POSTING_TTL)
     except Frozen as e:
         raise Refused(str(e), f"fix:  {e.fix}") from None
     target = os.path.join(app_dir, POSTING_TTL)
-    if os.path.exists(target) and not replace:
-        raise Refused(f"{target} already exists",
+    if has_record(app_dir, "posting") and not replace:
+        raise Refused(f"{app_dir} already holds its posting",
                       "fix:  pass --replace to rebuild it from the decisions file - a "
-                      "hand-reviewed posting.ttl is replaced whole")
+                      "hand-reviewed posting is replaced whole")
     advert = read_advert(app_dir)
     decisions_path = decisions_path or os.path.join(app_dir, DECISIONS)
     try:
@@ -178,7 +192,7 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
         raise Refused(f"{decisions_path}: {e}", "fix:  correct that line") from None
     root, store = workspace(app_dir, vocabulary)
     if root is None or store is None:
-        raise Refused(f"no workspace (career/kb.ttl) above {app_dir}",
+        raise Refused(f"no workspace (career/store/) above {app_dir}",
                       "fix:  an application lives at <workspace>/applications/<stem>")
 
     def at(line):
@@ -266,31 +280,52 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
         warnings.append(f"{len(reqs)} requirements, past the soft cap of {SOFT_CAP}: one per "
                         f"term the match can score - or the posting really is that long")
 
-    text = write(triples(post, stem, head, seniority, domain_iris, captured, reqs), "posting")
-    name = file_name(os.path.abspath(target), root)
+    built_triples = triples(post, stem, head, seniority, domain_iris, captured, reqs)
+    rel = workspace_of_app(app_dir)[1]
+    if store.stored:
+        if rel is None or os.path.normcase(workspace_of_app(app_dir)[0]) != \
+                os.path.normcase(root):
+            raise Refused(f"{app_dir} is not in {os.path.join(root, 'applications')}",
+                          "fix:  an application lives at <workspace>/applications/<dir>, "
+                          "and its record goes into the workspace's store under that name")
+        name = app_graph(rel, "posting")
+        candidate = parsed_graph(name, built_triples)
+    else:
+        text = write(built_triples, "posting")
+        name = file_name(os.path.abspath(target), root)
     # Validated before it is written, as `jsk kb apply` does: a bad url or date is the
     # header's, and is refused here rather than found by the next check.
     try:
-        fails = [f.text() for f in tier1(parse_text(text, name)) if f.severity == "FAIL"]
+        fails = [f.text() for f in tier1(candidate if store.stored else parse_text(text, name))
+                 if f.severity == "FAIL"]
     except GraphError as e:
         fails = [str(e)]
     if fails:
-        raise Refused(f"the posting.ttl built would not pass: {fails[0]}",
+        raise Refused(f"the posting built would not pass: {fails[0]}",
                       "fix:  correct the header or row it names in the decisions file")
-    if os.path.dirname(os.path.abspath(app_dir)) != os.path.join(root, "applications"):
+    if not store.stored and \
+            os.path.dirname(os.path.abspath(app_dir)) != os.path.join(root, "applications"):
         warnings.append(f"{app_dir} is not in {os.path.join(root, 'applications')}: "
                         f"jsk kb check will not read it")
+    # The assessment and gaps.md are derived from the posting just replaced: a requirement
+    # it dropped would leave the assessment dangling, and that FAIL would block prepare
+    # here. gaps.txt is the analyst's, keyed by slug, and survives any rebuild that keeps
+    # the slugs.
     try:
-        write_app_file(app_dir, POSTING_TTL, text)
-        # gaps.ttl and gaps.md are derived from the posting just replaced: a requirement it
-        # dropped would leave gaps.ttl dangling, and that FAIL would block prepare here.
-        # gaps.txt is the analyst's, keyed by slug, and survives any rebuild that keeps the
-        # slugs.
-        removed = [n for n in ("gaps.ttl", "gaps.md") if remove_app_file(app_dir, n)]
+        if store.stored:
+            had_gaps = "gaps" in (app_graphs(app_dir, store) or {})
+            # One update: the new posting and the old assessment's removal land together.
+            target = write_app_graphs(app_dir, {"posting": built_triples, "gaps": None},
+                                      store)[0]
+            removed = [app_graph(rel, "gaps")] if had_gaps else []
+        else:
+            write_app_file(app_dir, POSTING_TTL, text)
+            removed = [n for n in ("gaps.ttl",) if remove_app_file(app_dir, n)]
+        removed += [n for n in ("gaps.md",) if remove_app_file(app_dir, n, store)]
     except Unwritable as e:
         raise Refused(str(e), f"fix:  {e.fix}") from None
     if removed:
-        warnings.append(f"removed {' and '.join(removed)}, derived from the posting.ttl this "
+        warnings.append(f"removed {' and '.join(removed)}, derived from the posting this "
                         f"replaces; `jsk tailor prepare` writes them again"
                         + (", with gaps.txt folded in" if os.path.isfile(
                             os.path.join(app_dir, "gaps.txt")) else ""))

@@ -1,5 +1,5 @@
 """A posting on a public job board, written as an application's posting.md - and then
-its requirements, written as posting.ttl.
+its requirements, written into the record as the application's posting.
 
 Usage: jsk posting fetch <url> <application-dir>
        jsk posting extract <application-dir>
@@ -22,10 +22,11 @@ requirement could quote: numbered, with its section (qual, resp, other), a flag 
 optional-worded; elig: eligibility, never a requirement) and the concepts its labels name.
 
 build reads decisions.txt (default <application-dir>/decisions.txt) - `n | slug | asked |
-concepts | need` rows and `n | - | reason` drops - and writes posting.ttl, each quote the
-extracted line itself. Every qual and resp line must be used or dropped. An existing
-posting.ttl is replaced only with --replace. WARNs past 20 requirements, and on a
-responsibility made required that its line does not call required.
+concepts | need` rows and `n | - | reason` drops - and writes the posting into
+career/store/, each quote the extracted line itself. Every qual and resp line must be used
+or dropped. An existing posting is replaced only with --replace, and its assessment goes
+with it in the same write. WARNs past 20 requirements, and on a responsibility made
+required that its line does not call required.
 
 Exit 0 written or printed; 1 refused - a board this does not know, a posting not on its
 board, a network failure, a posting.md already there, a decisions file that does not

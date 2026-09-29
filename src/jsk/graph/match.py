@@ -1,20 +1,21 @@
 """jsk match - a posting's requirements joined with the career, through the vocabulary.
 
-Usage: jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] [--today YYYY-MM-DD]
+Usage: jsk match <applications/<dir>> [--cover N] [--json] [--today YYYY-MM-DD]
                  [--gaps <gaps.txt> | --draft-gaps <gaps.txt>]
 
   --cover N         the most projects the cover may use (default 3)
   --json            the same result, structured
   --today           the date recency is measured from (default: today)
-  --gaps F          check the posting's gaps.txt against the match, then write gaps.ttl and
-                    gaps.md beside it; a `<!-- jsk: ... -->` slot still in it is a FAIL, and
-                    on a FAIL nothing is written
-  --draft-gaps F    write gaps.ttl and gaps.md from the match alone, then draft gaps.txt with
-                    a slot wherever judgement is needed; refuses an F that exists
+  --gaps F          check the application's gaps.txt against the match, then write the
+                    assessment and gaps.md; a `<!-- jsk: ... -->` slot still in it is a
+                    FAIL, and on a FAIL nothing is written
+  --draft-gaps F    write the assessment and gaps.md from the match alone, then draft
+                    gaps.txt with a slot wherever judgement is needed; refuses an F that
+                    exists
 
-Reads the whole graph workspace the posting belongs to - career/kb.ttl, the applications,
-the shipped vocabulary - and validates it first: a record with a FAIL is not matched,
-because a match over a broken record would be a guess.
+Reads the whole record of the workspace the application belongs to - the career, the
+applications, the shipped vocabulary - and validates it first: a record with a FAIL is
+not matched, because a match over a broken record would be a guess.
 
 Exit 0 matched (missing requirements included: this is an assessment, not a gate),
 1 the workspace has FAIL findings, or --gaps found a FAIL, 2 called wrong.
@@ -36,13 +37,40 @@ from .ontology import ENUMS
 COVER = 3
 
 
-def workspace_of(posting):
-    """The directory holding applications/, or None when the posting is not in that layout."""
-    folder = os.path.dirname(os.path.abspath(posting))
-    apps = os.path.dirname(folder)
-    if os.path.basename(apps) != "applications" or os.path.basename(posting) != "posting.ttl":
-        return None
-    return os.path.dirname(apps)
+def application(arg, command="jsk match"):
+    """(workspace root, application directory) for the application `arg` names - its
+    directory, applications/<dir> - or (None, [what is wrong, the fix]).
+
+    Ruling 11 of the 2026-09-29 plan: the posting is a graph in career/store/ now, not a
+    file to point at, so every command takes the application, as `jsk posting build` and
+    `jsk freeze` always did. A path to posting.ttl is how a shell history or an older
+    agent file still calls it, so it is refused with the new form."""
+    here = os.path.abspath(arg)
+    if os.path.basename(here) == "posting.ttl":
+        folder = os.path.dirname(arg.rstrip("/\\")) or "."
+        return None, [f"{arg}: {command} takes the application now, not its posting.ttl",
+                      f"fix:  {command} {folder}"]
+    apps = os.path.dirname(here)
+    root = os.path.dirname(apps)
+    career = os.path.join(root, "career")
+    if not os.path.isdir(here) or os.path.basename(apps) != "applications" or not (
+            os.path.isdir(os.path.join(career, "store"))
+            or os.path.isfile(os.path.join(career, "kb.ttl"))):
+        return None, [f"{arg}: not an application - a folder in the applications/ of a "
+                      "workspace", f"fix:  {command} applications/<dir>, the folder "
+                      "holding posting.md"]
+    return root, here
+
+
+def posting_in(store, app):
+    """The one Posting the application `app` (its directory) holds, or None."""
+    from . import ontology as O
+    from . import store as S
+
+    name = S.app_graph(S.file_name(app, store.root), "posting")
+    posts = [iri for iri in store.homes if O.class_of(iri) == "Posting"
+             and store.file_of(iri) == name]
+    return posts[0] if len(posts) == 1 else None
 
 
 SOURCES = "dashboards, retros, release notes"
@@ -76,7 +104,7 @@ def record_faults(store, post, today, budget, ranked=None):
     hand. So every live bullet of the top-ranked projects that carry a requirement is
     asked about too, by rank: the ones gaps.md cites and the author reads (`ranked`, `TOP`).
 
-    Empty when the workspace has no kb.ttl: the match stands alone."""
+    Empty when the workspace has no career: the match stands alone."""
     from ..resume.career import Career
     from . import record as R
     from . import select as SEL
@@ -325,7 +353,7 @@ def main(argv=None):
     as_json = "--json" in argv
     argv = [a for a in argv if a != "--json"]
     if len(argv) != 1 or {"--gaps", "--draft-gaps"} <= options.keys():
-        print("usage: jsk match <applications/<dir>/posting.ttl> [--cover N] [--json] "
+        print("usage: jsk match <applications/<dir>> [--cover N] [--json] "
               "[--today YYYY-MM-DD] [--gaps <gaps.txt> | --draft-gaps <gaps.txt>]")
         return 2
     try:
@@ -338,13 +366,12 @@ def main(argv=None):
     if budget < 1:
         print("--cover takes a whole number of at least 1")
         return 2
-    posting = argv[0]
-    root = workspace_of(posting)
-    if root is None or not os.path.isfile(posting):
-        print(f"{posting}: not a posting.ttl inside an applications/<dir>/ folder of a workspace")
+    root, app = application(argv[0])
+    if root is None:
+        print("\n".join(app))
         return 2
     for flag in ("--gaps", "--draft-gaps"):
-        refused = flag in options and gaps_refusal(posting, options[flag], flag == "--draft-gaps")
+        refused = flag in options and gaps_refusal(app, options[flag], flag == "--draft-gaps")
         if refused:
             print(refused)
             return 1
@@ -355,43 +382,52 @@ def main(argv=None):
         print("FAIL  jsk match needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
+    from . import record as R
+
+    # --gaps and --draft-gaps write the assessment, so they take their turn before they
+    # read: what they validate is what they write over. A plain match only reads.
+    writes = "--gaps" in options or "--draft-gaps" in options
+    with R.turn(root, dry_run=not writes):
+        return matched(root, app, argv[0], options, today, budget, as_json)
+
+
+def matched(root, app, named, options, today, budget, as_json):
     from ..gates.report import show
-    from . import ontology as O
     from . import store as S
 
     store = S.load(root)
-    here = S.file_name(os.path.dirname(os.path.abspath(posting)), store.root) + "/"
+    here = S.file_name(app, store.root) + "/"
     blocking = [f for f in store.fails() if blocks(f, here)]
     if blocking:
         rep = S.Store(store.root, findings=blocking).report()
         print(f"FAIL  the workspace has {len(rep.fails)} failures - fix them before matching:")
         show(rep.fails, "FAIL", 25)
         return 1
-    posts = [iri for iri in store.homes if O.class_of(iri) == "Posting"
-             and store.file_of(iri) == S.file_name(posting, store.root)]
-    if len(posts) != 1:
-        print(f"{posting}: holds no posting")          # the cardinality rule makes this rare
+    post = posting_in(store, app)
+    if post is None:
+        print(f"{named}: holds no posting\n"
+              f"      fix: `jsk posting build {named}` writes it from posting.md")
         return 1
-    r = result(store, posts[0], today, budget, len(store.fails()) - len(blocking))
+    r = result(store, post, today, budget, len(store.fails()) - len(blocking))
     if "--gaps" in options:
-        return report_gaps(r, store, posting, today)
+        return report_gaps(r, store, app, today)
     if "--draft-gaps" in options:
-        return write_draft(r, store, posting, today, options["--draft-gaps"])
+        return write_draft(r, store, app, today, options["--draft-gaps"])
     print(json.dumps(r, indent=2, ensure_ascii=False) if as_json else markdown(r), end="")
     return 0
 
 
-def gaps_refusal(posting, path, drafting):
-    """Why `path` is not this posting's gaps.txt, or None. gaps.md is written by jsk now,
-    and read by nothing: a gaps.md with no gaps.ttl beside it is an older assessment."""
+def gaps_refusal(app, path, drafting):
+    """Why `path` is not this application's gaps.txt, or None. gaps.md is written by jsk
+    now, and read by nothing: a gaps.md jsk did not write is an older assessment."""
     if path.endswith(".md"):
-        return (f"FAIL  {path}: gaps.md is written by jsk now; a gaps.md with no gaps.ttl "
-                f"beside it is an older assessment, read by people only\n"
-                f"      fix: pass the posting's gaps.txt - --draft-gaps drafts one")
-    want = os.path.join(os.path.dirname(os.path.abspath(posting)), "gaps.txt")
+        return (f"FAIL  {path}: gaps.md is written by jsk now; one it did not write is an "
+                f"older assessment, read by people only\n"
+                f"      fix: pass the application's gaps.txt - --draft-gaps drafts one")
+    want = os.path.join(os.path.abspath(app), "gaps.txt")
     if os.path.normcase(os.path.abspath(path)) != os.path.normcase(want):
-        return (f"FAIL  {path}: not this posting's gaps.txt\n"
-                f"      fix: pass {want} - gaps.ttl and gaps.md are written beside it")
+        return (f"FAIL  {path}: not this application's gaps.txt\n"
+                f"      fix: pass {want} - gaps.md is written beside it")
     if drafting and os.path.exists(path):
         # The analyst's filled slots are its judgement; a re-run must not wipe them.
         return (f"FAIL  {path} exists - the draft would overwrite it\n"
@@ -409,32 +445,32 @@ def show_build(written, found, label):
         print(f"{severity}  {text}\n      fix: {fix}")
     fails = sum(s == "FAIL" for s, _, _ in found)
     if written:
-        wrote = " - wrote " + " and ".join(os.path.basename(w) for w in written)
+        from .gapsbuild import shown
+        wrote = " - wrote " + " and ".join(shown(w) for w in written)
     else:
         wrote = " - nothing written" if fails else ""
     print(f"{label}: {fails} FAIL, {len(found) - fails} WARN{wrote}")
     return 1 if fails else 0
 
 
-def report_gaps(r, store, posting, today):
-    """--gaps: check gaps.txt, then write gaps.ttl and gaps.md; 1 on any FAIL."""
+def report_gaps(r, store, app, today):
+    """--gaps: check gaps.txt, then write the assessment and gaps.md; 1 on any FAIL."""
     from .gapsbuild import build
 
-    app = os.path.dirname(os.path.abspath(posting))
     written, found = build(app, store, r, today)
     return show_build(written, found, os.path.join(app, "gaps.txt"))
 
 
-def write_draft(r, store, posting, today, path):
+def write_draft(r, store, app, today, path):
     """--draft-gaps: the assessment from the match alone, then gaps.txt drafted over it."""
+    from . import store as S
     from .gapsbuild import build
     from .gapsderive import derive
     from .gapsdraft import MARK, draft_gaps
 
-    app = os.path.dirname(os.path.abspath(posting))
     derived = derive(r, store)
     written, found = build(app, store, r, today, derived)
-    if show_build(written, found, os.path.join(app, "gaps.ttl")):
+    if show_build(written, found, S.app_graph(S.file_name(app, store.root), "gaps")):
         return 1
     text = draft_gaps(derived, store, os.path.join(app, "posting.md"))
     with open(path, "x", encoding="utf-8", newline="\n") as fh:

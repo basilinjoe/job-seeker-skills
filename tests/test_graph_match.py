@@ -38,7 +38,17 @@ TRUTH = {
 }
 
 
-def load(root=FIXTURES):
+STORED = []
+
+
+def load(root=None):
+    """The fixture - in a store, as jsk keeps a record - with its own vocabulary. `root`
+    is a copy already seeded; by default one copy of the fixture, made once."""
+    if root is None:
+        if not STORED:
+            from appkit import stored_copy
+            STORED.append(stored_copy(FIXTURES))
+        root = STORED[0]
     return store.load(root, vocabulary=Path(root) / "vocabulary.ttl")
 
 
@@ -242,6 +252,8 @@ def edited(old, new, file="career/kb.ttl", also=()):
         assert was in text, was
         path.write_text(text.replace(was, now), encoding="utf-8", newline="\n")
     try:
+        from appkit import seed
+        seed(tmp)
         return load(tmp)
     finally:
         shutil.rmtree(tmp)
@@ -405,7 +417,7 @@ class RecordFaults(unittest.TestCase):
     def test_a_workspace_without_a_career_still_matches(self):
         from jsk.graph import match as M
         s = load()
-        del s.parsed["career/kb.ttl"]
+        del s.parsed["kb"]
         self.assertEqual(M.record_faults(s, post("contoso"), TODAY, 3), [])
 
 
@@ -466,33 +478,59 @@ class Verdicts(unittest.TestCase):
 
 
 class GapsFlags(unittest.TestCase):
-    """`jsk match --gaps` / `--draft-gaps`: gaps.txt checked, gaps.ttl and gaps.md written
-    beside it. The rules themselves are tests/test_gaps_build.py's."""
+    """`jsk match APP --gaps` / `--draft-gaps`: gaps.txt checked, the assessment and gaps.md
+    written. The rules themselves are tests/test_gaps_build.py's."""
+
+    GAPS = "applications/contoso/gaps"
 
     def setUp(self):
+        from appkit import seed
+
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         shutil.copytree(FIXTURES, self.tmp, dirs_exist_ok=True)
+        seed(self.tmp)
         self.app = Path(self.tmp) / "applications" / "contoso"
         self.txt = self.app / "gaps.txt"
 
-    def main(self, *argv):
+    def main(self, *argv, app=None):
         import contextlib
         import io
 
         from jsk.graph import match as M
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = M.main([str(self.app / "posting.ttl"), "--today", "2026-09-24",
-                           *map(str, argv)])
+            code = M.main([str(app or self.app), "--today", "2026-09-24", *map(str, argv)])
         return code, out.getvalue()
+
+    def assessed(self):
+        import appkit
+        return appkit.has(self.tmp, self.GAPS)
+
+    def test_the_application_is_matched(self):
+        code, out = self.main()
+        self.assertEqual(code, 0, out)
+        self.assertIn("# Match - ", out)
+        self.assertFalse(self.assessed())                  # a plain match writes nothing
+
+    def test_a_posting_ttl_path_is_refused_with_the_application_form(self):
+        code, out = self.main(app=self.app / "posting.ttl")
+        self.assertEqual(code, 2, out)
+        self.assertIn("jsk match takes the application now, not its posting.ttl", out)
+        self.assertIn(f"fix:  jsk match {self.app}", out)
+
+    def test_a_folder_that_is_not_an_application_is_refused(self):
+        code, out = self.main(app=Path(self.tmp) / "career")
+        self.assertEqual(code, 2, out)
+        self.assertIn("not an application", out)
 
     def test_draft_writes_the_derived_assessment_then_gaps_txt(self):
         code, out = self.main("--draft-gaps", self.txt)
         self.assertEqual(code, 0, out)
-        self.assertIn("0 FAIL, 0 WARN - wrote gaps.ttl and gaps.md", out)
+        self.assertIn(f"0 FAIL, 0 WARN - wrote {self.GAPS} and gaps.md", out)
         self.assertIn(f"wrote {self.txt}: 10 requirements, 4 slots to fill", out)
-        self.assertTrue((self.app / "gaps.ttl").exists())
+        self.assertTrue(self.assessed())
+        self.assertFalse((self.app / "gaps.ttl").exists())
         # The draft's slots are a FAIL, and a FAIL writes nothing.
         before = (self.app / "gaps.md").read_bytes()
         code, out = self.main("--gaps", self.txt)
@@ -505,7 +543,7 @@ class GapsFlags(unittest.TestCase):
                             "k8s | partial | one AKS cluster\n", encoding="utf-8")
         code, out = self.main("--gaps", self.txt)
         self.assertEqual((code, out.splitlines()[-1]),
-                         (0, f"{self.txt}: 0 FAIL, 0 WARN - wrote gaps.ttl and gaps.md"))
+                         (0, f"{self.txt}: 0 FAIL, 0 WARN - wrote {self.GAPS} and gaps.md"))
         self.assertIn("partial (match: satisfied)",
                       (self.app / "gaps.md").read_text(encoding="utf-8"))
 
@@ -517,7 +555,7 @@ class GapsFlags(unittest.TestCase):
         self.assertIn("FAIL  gaps.txt line 1: dotnet: satisfied, above the match's unevidenced",
                       out)
         self.assertIn("the career needs the tag or the confirmation", out)
-        self.assertFalse((self.app / "gaps.ttl").exists())
+        self.assertFalse(self.assessed())
 
     def test_draft_refuses_a_gaps_txt_that_exists(self):
         self.txt.write_text("the analyst's work\n", encoding="utf-8")
@@ -535,7 +573,7 @@ class GapsFlags(unittest.TestCase):
     def test_another_directory_or_no_file_is_refused(self):
         code, out = self.main("--gaps", Path(self.tmp) / "gaps.txt")
         self.assertEqual(code, 1)
-        self.assertIn("not this posting's gaps.txt", out)
+        self.assertIn("not this application's gaps.txt", out)
         code, out = self.main("--gaps", self.txt)
         self.assertEqual(code, 1)
         self.assertIn("no such file", out)

@@ -92,5 +92,47 @@ class Frozen(unittest.TestCase):
         self.assertEqual((self.app / "gaps.ttl").read_bytes(), b"what was sent\n")
 
 
+class StoredFrozen(unittest.TestCase):
+    """In a workspace with career/store/, sent is what the application graph says - and
+    only that: `jsk kb load` leaves the old .ttl files where they were."""
+
+    APP = "applications/acme-platform-engineer"
+
+    def setUp(self):
+        import shutil
+
+        from appkit import seed
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        shutil.copytree(Path(__file__).parent / "graph_fixtures", self.root, dirs_exist_ok=True)
+        seed(self.root)
+        self.app = self.root / self.APP
+
+    def test_the_application_graph_says_it_was_sent(self):
+        self.assertEqual(timeline.frozen(self.app), f"{self.APP}/application")
+        self.assertEqual(timeline.sent_day(self.app), "2026-09-10")
+
+    def test_a_sent_application_refuses_its_posting_and_assessment(self):
+        import appkit
+        before = appkit.graphs(self.root)
+        for kind in ("posting", "gaps"):
+            with self.subTest(kind=kind), self.assertRaises(timeline.Frozen) as cm:
+                timeline.write_app_graphs(self.app, {kind: None})
+            self.assertIn(f"{self.APP}/{kind}: the application was sent on 2026-09-10",
+                          str(cm.exception))
+        with self.assertRaises(timeline.Frozen):
+            timeline.write_app_file(self.app, "gaps.md", "rebuilt\n")
+        self.assertEqual(appkit.graphs(self.root).keys(), before.keys())
+
+    def test_with_no_application_graph_a_file_beside_it_freezes_nothing(self):
+        import appkit
+        appkit.drop(self.root, f"{self.APP}/application")
+        application(self.app, "2026-05-01")
+        self.assertIsNone(timeline.frozen(self.app))
+        self.assertIsNone(timeline.sent_day(self.app))
+        self.assertEqual(timeline.write_app_graphs(self.app, {"gaps": None}), [])
+
+
 if __name__ == "__main__":
     unittest.main()

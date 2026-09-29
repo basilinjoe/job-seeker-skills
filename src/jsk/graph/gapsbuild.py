@@ -1,13 +1,13 @@
-"""gaps.ttl and gaps.md: the derived assessment with the analyst's gaps.txt folded in.
+"""The assessment and gaps.md: the derived assessment with the analyst's gaps.txt folded in.
 
 gaps.txt is the only file a model edits, and it holds only what the match cannot know: a
 lowered verdict with its reason, a flagged row kept or lowered, eligibility, fit, and the
 prose. Everything else is `gapsderive.derive`. This checks the overlay against the match,
-then writes gaps.ttl - loaded with the workspace, so SPARQL reaches it - and renders gaps.md
-from the two. Nothing reads gaps.md back.
+then writes the assessment as the application's gaps graph - part of the record, so SPARQL
+reaches it - and renders gaps.md from the two. Nothing reads gaps.md back.
 
 Both are rebuilt on every run from the career as it stands, so there is no stale copy to
-warn about; once application.ttl records the day it was sent, both are left as they were,
+warn about; once the application records the day it was sent, both are left as they were,
 because a sent assessment is what it said at the time.
 """
 import datetime
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from .assessment import MARK
 
-HEADER = "<!-- written by jsk from gaps.ttl - edit gaps.txt, not this -->"
+HEADER = "<!-- written by jsk from the assessment - edit gaps.txt, not this -->"
 KEPT = "kept after review"
 UNREVIEWED = "flagged, not yet reviewed"
 
@@ -81,7 +81,7 @@ def outcome(o, row, was, rows):
     where = f"gaps.txt line {o.line}"
     if row is None:
         return ("FAIL", f"{where}: {o.slug!r} is not a requirement of this posting",
-                "name it as posting.ttl's req_<stem>_<slug> does - "
+                "name it as the posting's req_<stem>_<slug> does - "
                 + ", ".join(sorted(rows))[:200])
     if MARK in o.verdict:
         return None                                     # the slot FAIL names it
@@ -258,7 +258,7 @@ def render(r, a, today, lines=(), dropped=()):
     """gaps.md: what the person reads, from the assessment and the match."""
     from .match import cover_lines, ranking_lines
 
-    out = ["---", "type: Gap Assessment", "posting: posting.ttl",
+    out = ["---", "type: Gap Assessment", f"posting: {a.derived.posting}",
            f"assessed: {today.isoformat()}", f"fit: {a.fit}", "---", HEADER, "",
            "# Eligibility", "",
            a.eligibility or "Not judged: gaps.txt has no `eligibility:` line.", "",
@@ -275,11 +275,12 @@ def render(r, a, today, lines=(), dropped=()):
 # --- the build -------------------------------------------------------------------------
 
 def previous_verdicts(store, app_rel, stem):
-    """{slug: j:matched} from the gaps.ttl being replaced - the verdict id's local part
+    """{slug: j:matched} from the assessment being replaced - the verdict id's local part
     after `vrd_<stem>_`, which is the requirement's slug."""
     from . import ontology as O
+    from .store import app_graph
 
-    parsed = store.parsed.get(f"{app_rel}/gaps.ttl")
+    parsed = store.parsed.get(app_graph(app_rel, "gaps"))
     head = f"{O.K}vrd_{stem}_"
     return {q.subject.value[len(head):]: q.object.value[len(O.J):]
             for q in (parsed.quads if parsed else ())
@@ -287,37 +288,54 @@ def previous_verdicts(store, app_rel, stem):
 
 
 def assessed(store, app_rel):
-    """The day the gaps.ttl being replaced was made, or None."""
+    """The day the assessment being replaced was made, or None."""
     from . import ontology as O
+    from .store import app_graph
 
-    parsed = store.parsed.get(f"{app_rel}/gaps.ttl")
+    parsed = store.parsed.get(app_graph(app_rel, "gaps"))
     for q in parsed.quads if parsed else ():
         if q.predicate.value == O.J + "assessed":
             return datetime.date.fromisoformat(q.object.value)
     return None
 
 
+def same_triples(a, b):
+    """Do two graphs hold the same triples? Compared as (s, p, o), since one side may be
+    Quads out of a store and the other Triples just built."""
+    return {(t.subject, t.predicate, t.object) for t in a} == \
+        {(t.subject, t.predicate, t.object) for t in b}
+
+
+def shown(written):
+    """How a written thing is named in a report: a file by its name, a graph by its own."""
+    return written if written.startswith("applications/") else os.path.basename(written)
+
+
 def build(app_dir, store, r, today, derived=None):
-    """Write gaps.ttl and gaps.md for the match `r` of the posting in `app_dir`.
-    Returns (paths written, findings). On a FAIL nothing is written; with no gaps.txt the
-    derived assessment is written alone - the path that needs no agent."""
+    """Write the assessment - the gaps graph (gaps.ttl, in a workspace not yet loaded into
+    a store) and gaps.md - for the match `r` of the posting in `app_dir`. The caller holds
+    its turn (record.turn) and loaded `store` inside it. Returns (what was written - graph
+    names and file paths - and findings). On a FAIL nothing is written; with no gaps.txt
+    the derived assessment is written alone - the path that needs no agent."""
     from . import assessment as A
     from . import decisions as D
     from . import store as S
     from .gapsderive import derive
     from .gapsdraft import advert, drops
     from .io import GraphError, Missing, Unreadable, read_text
-    from .timeline import Unwritable, sent_day, write_app_file
+    from .timeline import Unwritable, sent_day, write_app_file, write_app_graphs
     from .writer import WriteError, write
 
     app_rel = S.file_name(os.path.abspath(app_dir), store.root)
+    gaps = S.app_graph(app_rel, "gaps")
     try:
-        day = sent_day(app_dir)
+        day = sent_day(app_dir, store)
     except GraphError as e:
-        return [], [("FAIL", f"{app_rel}/application.ttl: {e}", e.fix)]
+        return [], [("FAIL", f"{S.app_graph(app_rel, 'application')}: {e}", e.fix)]
     if day:
-        return [], [("FAIL", f"{app_rel}: sent on {day} - gaps.ttl and gaps.md are frozen",
-                     "a sent assessment is what it said at the time; nothing to rebuild")]
+        return [], [("FAIL", f"{app_rel}: sent on {day} - its assessment and gaps.md are "
+                     "frozen", "a sent assessment is what it said at the time; nothing to "
+                     "rebuild")]
     derived = derived or derive(r, store)
     try:
         text, reviewed = read_text(os.path.join(app_dir, "gaps.txt"), "gaps.txt"), True
@@ -335,16 +353,17 @@ def build(app_dir, store, r, today, derived=None):
         return [], found
     a = fold(derived, overlay, previous)
     # An assessment that has not changed keeps the day it was made: re-running prepare
-    # tomorrow must not rewrite the file for its date alone.
-    try:
-        before = assessed(store, app_rel)
-        if before and write(triples(a, before), "gaps") == \
-                store.parsed[f"{app_rel}/gaps.ttl"].text:
-            today = before
-        ttl_text = write(triples(a, today), "gaps")
-    except WriteError as e:          # an id jsk would not write: a bug here, never a crash
-        return [], found + [("FAIL", f"gaps.ttl: {e}", "report it - the assessment is derived, "
-                             "so nothing in gaps.txt can cause it")]
+    # tomorrow must not rewrite it for its date alone.
+    before = assessed(store, app_rel)
+    if before and same_triples(triples(a, before), store.graph(gaps)):
+        today = before
+    ttl_text = None
+    if not store.stored:
+        try:
+            ttl_text = write(triples(a, today), "gaps")
+        except WriteError as e:      # an id jsk would not write: a bug here, never a crash
+            return [], found + [("FAIL", f"gaps.ttl: {e}", "report it - the assessment is "
+                                 "derived, so nothing in gaps.txt can cause it")]
     try:
         dropped = drops(app_dir)
         lines = advert(os.path.join(app_dir, "posting.md"))
@@ -355,9 +374,12 @@ def build(app_dir, store, r, today, derived=None):
         return [], found + [("FAIL", str(e), e.fix)]
     md_text = render(r, a, today, lines, dropped)
     written = []
-    for name, body in (("gaps.ttl", ttl_text), ("gaps.md", md_text)):
-        try:
-            written.append(write_app_file(app_dir, name, body))
-        except Unwritable as e:     # locked, or sent between the check above and now
-            return written, found + [("FAIL", str(e), e.fix)]
+    try:
+        if store.stored:
+            written += write_app_graphs(app_dir, {"gaps": triples(a, today)}, store)
+        else:
+            written.append(write_app_file(app_dir, "gaps.ttl", ttl_text, store))
+        written.append(write_app_file(app_dir, "gaps.md", md_text, store))
+    except Unwritable as e:         # locked, or the store refused the write
+        return written, found + [("FAIL", str(e), e.fix)]
     return written, found

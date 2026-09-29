@@ -1,8 +1,8 @@
-"""What an application starts from, out of career/kb.ttl.
+"""What an application starts from, out of the career.
 
 `short_file` is what `jsk kb export` writes: the short resume.json, the ids a resume
 shows and its settings, and nothing the career holds - the render reads the words, the
-numbers and the dates from kb.ttl as it stands, so there is no copy to go stale and
+numbers and the dates from the career as it stands, so there is no copy to go stale and
 nothing to refresh (docs/superpowers/specs/2026-09-25-short-resume-json-design.md).
 
 What `select` narrows is the experience: a project brings its bullets, a bullet brings
@@ -37,7 +37,7 @@ def chosen(career, select):
         iri = O.K + text.removeprefix("k:")
         if iri not in known:
             near = difflib.get_close_matches(iri, sorted(known), n=1)
-            raise ExportError(f"{text} is not in career/kb.ttl",
+            raise ExportError(f"{text} is not in the career",
                               f"did you mean {local(near[0])}?" if near
                               else "`jsk kb view` lists the ids")
         cls = career.sub.cls[iri].name

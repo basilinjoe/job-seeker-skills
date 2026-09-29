@@ -26,7 +26,9 @@ def req(asked, verdict="satisfied", necessity="required"):
 class Derive(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.s = store.load(FIXTURES, vocabulary=FIXTURES / "vocabulary.ttl")
+        from appkit import stored_copy
+        root = stored_copy(FIXTURES)
+        cls.s = store.load(root, vocabulary=root / "vocabulary.ttl")
         cls.r = {p: M.result(cls.s, O.K + "post_" + p, TODAY, 3) for p in POSTINGS}
         cls.d = {p: G.derive(cls.r[p], cls.s) for p in POSTINGS}
 

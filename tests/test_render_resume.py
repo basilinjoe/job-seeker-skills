@@ -149,17 +149,28 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.assertIn("jsk kb export", out)
         self.assertNotIn("Traceback", out)
 
-    def test_a_posting_that_is_not_utf8_names_the_file_with_no_company(self):
-        """The company is a naming nicety (Ruling 8): a cp1252 posting.ttl - a Windows
-        editor's curly quote - loses the suffix, where it crashed the render."""
-        root, path = careerkit.workspace(self.tmp / "ws", short=short())
-        Path(path).with_name("posting.ttl").write_bytes(
-            b'@prefix j: <https://jsk.dev/o#> .\nk:p j:company "Contoso \x93Labs\x94" .\n')
+    def rendered_as(self, path):
         code, out = run(RENDER_RESUME, path, "--out", self.tmp / "out", "--format", "latex")
         self.assertEqual(code, 0, out)
         self.assertNotIn("Traceback", out)
-        self.assertEqual([p.name for p in (self.tmp / "out").glob("*.tex")],
-                         ["Test_Person_Resume.tex"])
+        return [p.name for p in (self.tmp / "out").glob("*.tex")]
+
+    def test_the_company_is_the_posting_graphs(self):
+        """Read from the application's posting in the store, which the render has loaded
+        already - one SELECT. A posting.ttl file beside the record is not the record."""
+        root, path = careerkit.workspace(self.tmp / "ws", short=short())
+        Path(path).with_name("posting.ttl").write_bytes(
+            b'@prefix j: <https://jsk.dev/o#> .\nk:p j:company "Contoso \x93Labs\x94" .\n')
+        self.assertEqual(self.rendered_as(path), ["Test_Person_Contoso_Resume.tex"])
+
+    def test_an_application_with_no_posting_names_the_file_with_no_company(self):
+        """The company is a naming nicety (Ruling 8): with no posting to read it from, the
+        suffix goes, and the render does not stop."""
+        import appkit
+
+        root, path = careerkit.workspace(self.tmp / "ws", short=short())
+        appkit.drop(root, appkit.name(Path(path).parent, "posting"))
+        self.assertEqual(self.rendered_as(path), ["Test_Person_Resume.tex"])
 
     def test_absent_tex_engine_is_reported_not_assumed(self):
         if tex.available_engine():

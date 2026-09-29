@@ -15,6 +15,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import appkit
 import careerkit
 from fixtures import CLI, CLEAN_RESUME, build_pdf, build_text, run
 
@@ -332,11 +333,13 @@ class ShipUsage(ShipCase):
         self.assertIn("fix:", out)
 
 
-# --- the graph record: career/kb.ttl ---------------------------------------------------
+# --- the graph record: career/store/ ---------------------------------------------------
 
 class GraphCase(unittest.TestCase):
-    """graphsim's career (tests/claims_fixtures) with the Contoso application rendered and
-    ready to freeze - built without a TeX engine."""
+    """graphsim's career (tests/claims_fixtures) in a store, with the Contoso application
+    rendered and ready to freeze - built without a TeX engine."""
+
+    EDITS = ()      # (old, new) in kb.ttl before it goes into the store, as careerkit's
 
     def setUp(self):
         import shutil
@@ -345,6 +348,15 @@ class GraphCase(unittest.TestCase):
         self.root = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
         shutil.copytree(careerkit.FIXTURES, self.root, dirs_exist_ok=True)
+        if self.EDITS:
+            kb = self.root / "career" / "kb.ttl"
+            text = kb.read_text(encoding="utf-8")
+            for old, new in self.EDITS:
+                assert text.count(old) == 1, old
+                text = text.replace(old, new)
+            kb.write_text(text, encoding="utf-8", newline="\n")
+            careerkit.relog(self.root)
+        appkit.seed(self.root)
         self.app = self.root / "applications" / "contoso-platform"
         self.render()
 
@@ -360,19 +372,14 @@ class GraphCase(unittest.TestCase):
         (self.app / "resume.json").write_text(json.dumps(doc, indent=2), encoding="utf-8")
 
     def edit_career(self, old, new):
-        """kb.ttl changed as `jsk kb apply` would have: log.ttl agrees with it."""
-        from jsk.graph import record as R
-        from jsk.graph.io import sha256
-
-        kb = self.root / "career" / "kb.ttl"
-        text = kb.read_text(encoding="utf-8")
+        """The career's words changed in the store, as `jsk kb apply` would change them.
+        The store keeps no hash of the career to fall out of step with."""
+        text = appkit.text(self.root, "kb")
         assert text.count(old) == 1, old
-        kb.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
-        # From this text's hash, not the fixture's: a second edit follows a first.
-        log = self.root / R.LOG
-        log.write_text(log.read_text(encoding="utf-8").replace(
-            sha256(text), sha256(kb.read_text(encoding="utf-8"))),
-            encoding="utf-8", newline="\n")
+        appkit.put(self.root, "kb", text.replace(old, new), prefixes=False)
+
+    def graph(self, where, kind):
+        return appkit.name(where, kind)
 
     def jsk(self, *args):
         from jsk import cli
@@ -393,11 +400,9 @@ class GraphCase(unittest.TestCase):
     def application(self, where=None):
         """{predicate: sorted values} of the frozen application, and its events."""
         from jsk.graph import ontology as O
-        from jsk.graph.io import parse
 
-        parsed = parse(str((where or self.sent) / "application.ttl"))
         app, events = {}, {}
-        for q in parsed.quads:
+        for q in appkit.triples(self.root, self.graph(where or self.sent, "application")):
             name, value = q.predicate.value[len(O.J):], q.object.value
             if O.class_of(q.subject.value) == "Application":
                 app.setdefault(name, []).append(value)
@@ -436,29 +441,52 @@ class FreezeGraph(GraphCase):
         self.assertEqual(events["evt_contoso_platform_2026_09_24_submitted"]["kind"],
                          "tag:jsk,2026:ns#submitted")
 
-    def test_what_it_writes_is_canonical_and_the_workspace_validates(self):
-        from jsk.graph.writer import write
+    def test_it_writes_the_application_graph_and_no_file(self):
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"froze  {self.graph(self.sent, 'application')}", out)
+        self.assertFalse((self.sent / "application.ttl").exists())
 
+    def test_the_rename_moves_the_applications_graphs_with_it_and_the_workspace_validates(self):
+        """A graph is named by its directory: the posting and the assessment move to the
+        new name in the update that writes the application, and none stays at the old."""
+        appkit.put(self.root, self.graph(self.app, "gaps"),
+                   "k:gap_contoso_platform j:posting k:post_contoso_platform ; "
+                   'j:assessed "2026-09-24"^^xsd:date ; j:fit j:partial .\n')
+        posting = appkit.facts(self.root, self.graph(self.app, "posting"))
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         s = self.store()
         self.assertEqual([f.text() for f in s.fails()], [])
-        name = "applications/2026-09-24-contoso-platform/application.ttl"
-        self.assertEqual(write(s.graph(name), "application"), s.parsed[name].text)
+        self.assertEqual({k for k in s.parsed if k.startswith("applications/")},
+                         {self.graph(self.sent, kind) for kind in
+                          ("posting", "gaps", "application")})
+        self.assertEqual(appkit.facts(self.root, self.graph(self.sent, "posting")), posting)
+
+    def test_a_store_that_refuses_the_write_leaves_the_directory_where_it_was(self):
+        before = appkit.graphs(self.root)
+        with appkit.refusing_store():
+            code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("the record was not written", out)
+        self.assertTrue(self.app.exists())
+        self.assertFalse(self.sent.exists())
+        self.assertEqual(appkit.graphs(self.root).keys(), before.keys())
 
     def test_the_record_gate_runs_and_its_output_is_shown(self):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         self.assertIn("--- record gate: record.py", out)
-        self.assertIn("checking: resume.json   against: career/kb.ttl", out)
+        self.assertIn("checking: resume.json   against: ", out)
         self.assertNotIn("claims gate", out)
 
     def test_the_career_is_never_touched(self):
-        before = [(self.root / "career" / f).read_bytes() for f in ("kb.ttl", "log.ttl")]
+        """Nor logged: the log is the career's history, and an application is not the
+        career."""
+        before = [appkit.facts(self.root, g) for g in ("kb", "log")]
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
-        self.assertEqual([(self.root / "career" / f).read_bytes()
-                          for f in ("kb.ttl", "log.ttl")], before)
+        self.assertEqual([appkit.facts(self.root, g) for g in ("kb", "log")], before)
         self.assertIn("jsk event", out)
 
     def test_held_back_has_no_submitted_event(self):
@@ -475,14 +503,15 @@ class FreezeGraph(GraphCase):
         self.assertIn("number-superseded", out)
         self.assertIn("never frozen", out)
         self.assertTrue(self.app.exists())
-        self.assertFalse((self.app / "application.ttl").exists())
+        self.assertFalse(appkit.has(self.root, self.graph(self.app, "application")))
         self.assertFalse(self.sent.exists())
 
-    def test_no_posting_ttl_is_refused(self):
-        (self.app / "posting.ttl").unlink()
+    def test_no_posting_is_refused(self):
+        appkit.drop(self.root, self.graph(self.app, "posting"))
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
-        self.assertIn("no posting.ttl", out)
+        self.assertIn("no posting in", out)
+        self.assertIn("jsk posting build", out)
         self.assertFalse(self.sent.exists())
 
     def test_a_frozen_application_is_never_refrozen(self):
@@ -506,15 +535,19 @@ class FreezeWrites(GraphCase):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         self.assertFalse(self.app.exists())
-        self.assertTrue((self.sent / "posting.ttl").exists())
+        self.assertTrue(appkit.has(self.root, self.graph(self.sent, "posting")))
         self.assertIn(str(self.sent), out)
 
     def test_a_directory_already_named_for_the_day_stays_where_it_is(self):
+        posting = appkit.triples(self.root, self.graph(self.app, "posting"))
+        from jsk.graph import record as R
+        R.write_graphs(str(self.root), {self.graph(self.app, "posting"): None,
+                                        self.graph(self.sent, "posting"): posting})
         self.app.rename(self.sent)
         self.app = self.sent
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
-        self.assertTrue((self.sent / "application.ttl").exists())
+        self.assertTrue(appkit.has(self.root, self.graph(self.sent, "application")))
         self.assertNotIn("moved", out)
 
     def test_a_named_document_is_the_only_one_gated_and_listed(self):
@@ -535,14 +568,19 @@ class FreezeWrites(GraphCase):
         self.assertIn("--- prose gate", out)
 
 
-class FreezeRefuses(GraphCase):
-    """Every refusal leaves the directory exactly as it was: no application.ttl, and
-    no rename."""
-
+class Untouched:
     def assertUntouched(self):
         self.assertTrue(self.app.exists())
+        if (self.root / "career" / "store").exists():
+            self.assertFalse([g for g in appkit.graphs(self.root)
+                              if g.endswith("/application")])
         self.assertFalse((self.app / "application.ttl").exists())
         self.assertFalse(self.sent.exists())
+
+
+class FreezeRefuses(Untouched, GraphCase):
+    """Every refusal leaves the directory exactly as it was: no application record, and
+    no rename."""
 
     def test_two_pdfs_and_no_doc_is_a_question_not_a_guess(self):
         """Only the person knows which render was sent; listing both archives one
@@ -558,14 +596,15 @@ class FreezeRefuses(GraphCase):
         """A session once wrote its applications relative to its working directory.
         The been-here-before check looks beside the career, so a round frozen anywhere
         else is one no later round can see."""
-        (self.root / "career" / "kb.ttl").unlink()
+        import shutil
+        shutil.rmtree(self.root / "career" / "store")
         code, out = self.freeze()
         self.assertEqual(code, 2, out)
-        self.assertIn("no career/kb.ttl beside", out)
+        self.assertIn("no career/store/ beside", out)
         self.assertIn("fix:", out)
         self.assertUntouched()
 
-    def test_an_application_md_is_as_frozen_as_an_application_ttl(self):
+    def test_an_application_md_is_as_frozen_as_an_application_record(self):
         (self.app / "application.md").write_text("original\n", encoding="utf-8")
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
@@ -611,8 +650,7 @@ class FreezeRefuses(GraphCase):
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
         self.assertIn("already exists", out)
-        self.assertFalse((self.app / "application.ttl").exists())
-        self.assertFalse((self.sent / "application.ttl").exists())
+        self.assertFalse([g for g in appkit.graphs(self.root) if g.endswith("/application")])
 
     def test_a_named_document_that_is_not_there_is_refused(self):
         code, out = self.freeze("--doc", "Cover_Letter.pdf")
@@ -629,15 +667,10 @@ LETTER = ("Dear Hiring Manager,\n\n"
           "Best regards,\nJane Doe\n")
 
 
-class FreezeLetters(GraphCase):
+class FreezeLetters(Untouched, GraphCase):
     """Ruling 5 (2026-09-28): every document freeze lists has passed a gate that read it.
     The gates read `*_Resume*` renders and freeze listed every .pdf and .txt, so a cover
-    letter went into application.ttl as sent with no gate having opened it."""
-
-    def assertUntouched(self):
-        self.assertTrue(self.app.exists())
-        self.assertFalse((self.app / "application.ttl").exists())
-        self.assertFalse(self.sent.exists())
+    letter went into the application record as sent with no gate having opened it."""
 
     def test_a_letter_holding_a_placeholder_is_never_frozen(self):
         (self.app / "cover-letter.txt").write_text(
@@ -698,14 +731,16 @@ class FreezeMarkdownWorkspace(GraphCase):
     jsk no longer reads that file: with no career/kb.ttl beside it, nothing is frozen."""
 
     def setUp(self):
+        import shutil
+
         super().setUp()
-        (self.root / "career" / "kb.ttl").unlink()
+        shutil.rmtree(self.root / "career" / "store")
         (self.root / "user-knowledgebase.md").write_text("# KB\n", encoding="utf-8")
 
     def test_it_is_refused_for_want_of_the_record(self):
         code, out = self.freeze()
         self.assertEqual(code, 2, out)
-        self.assertIn("no career/kb.ttl", out)
+        self.assertIn("no career/store/", out)
         self.assertNotIn("jsk migrate", out)
         self.assertTrue(self.app.exists())
         self.assertFalse(self.sent.exists())
@@ -763,16 +798,14 @@ class Stale(GraphCase):
 
 
 class ShipGraph(GraphCase):
+    EDITS = (CONTACTED,)
+
     def ship(self):
         from jsk.render import render_resume
 
         out_dir = self.root / "out"
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
             return self.jsk("ship", self.app / "resume.json", "--out", out_dir)
-
-    def setUp(self):
-        super().setUp()
-        self.edit_career(*CONTACTED)
 
     def test_a_clean_record_ships_through_the_record_gate(self):
         code, out = self.ship()
@@ -809,14 +842,24 @@ class Event(GraphCase):
     def event(self, *args):
         return self.jsk("event", self.sent, *args)
 
+    @property
+    def record(self):
+        return appkit.facts(self.root, self.graph(self.sent, "application"))
+
     def test_an_event_is_appended_and_the_stage_follows_it(self):
-        before = (self.sent / "application.ttl").read_text(encoding="utf-8")
+        name = self.graph(self.sent, "application")
+        before, text = self.record, appkit.text(self.root, name)
+        log = appkit.facts(self.root, "log")
         code, out = self.event("screen-scheduled", "--date", "2026-09-26", "--channel", "email",
                                "--due", "2026-09-30", "--note", "Phone screen, 30 min")
         self.assertEqual(code, 0, out)
         self.assertIn("added    k:evt_contoso_platform_2026_09_26_screen_scheduled", out)
-        after = (self.sent / "application.ttl").read_text(encoding="utf-8")
-        self.assertTrue(after.startswith(before.split("# == Timeline")[0]), after)
+        self.assertIn(f"+++ b/{name}", out)                  # the diff names the graph
+        self.assertTrue(self.record > before)               # added to, nothing taken away
+        after = appkit.text(self.root, name)
+        self.assertTrue(after.startswith(text.split("# == Timeline")[0]), after)
+        self.assertEqual(appkit.facts(self.root, "log"), log)   # the career's log is not its
+        self.assertFalse((self.sent / "application.ttl").exists())
         _, events = self.application()
         e = events["evt_contoso_platform_2026_09_26_screen_scheduled"]
         self.assertEqual((e["date"], e["channel"], e["due"], e["note"]),
@@ -831,12 +874,12 @@ class Event(GraphCase):
 
     def test_the_same_event_twice_is_refused(self):
         """Same kind, day, channel, note and due as one already there: a true duplicate."""
-        before = (self.sent / "application.ttl").read_bytes()
+        before = self.record
         code, out = self.event("submitted", "--date", "2026-09-24", "--channel", "Workday portal")
         self.assertEqual(code, 1, out)
         self.assertIn("already recorded", out)
         self.assertIn("k:evt_contoso_platform_2026_09_24_submitted", out)
-        self.assertEqual((self.sent / "application.ttl").read_bytes(), before)
+        self.assertEqual(self.record, before)
 
     def test_a_second_event_of_a_kind_on_a_day_gets_the_next_suffix(self):
         """Two notes, two interview rounds, on one day: each is recorded, minted `_2`,
@@ -872,11 +915,11 @@ class Event(GraphCase):
             self.assertIn(f"evt_contoso_platform_unknown_recruiter_contact{want}\n", out)
 
     def test_an_unknown_kind_is_refused_with_the_nearest(self):
-        before = (self.sent / "application.ttl").read_bytes()
+        before = self.record
         code, out = self.event("interview-schedule", "--date", "2026-09-26")
         self.assertEqual(code, 2, out)
         self.assertIn("did you mean 'interview-scheduled'?", out)
-        self.assertEqual((self.sent / "application.ttl").read_bytes(), before)
+        self.assertEqual(self.record, before)
 
     def test_a_bad_date_is_a_call_error(self):
         for bad in ("26/09/2026", "2026-02-30", "soon"):
@@ -929,21 +972,23 @@ class Event(GraphCase):
         def broken(*args, **kwargs):
             iri, quads = real(*args, **kwargs)
             return iri, quads + [timeline.quad(iri, "due", timeline.lit("soon"))]
-        path = self.sent / "application.ttl"
-        before = path.read_bytes()
+        before = self.record
         with mock.patch.object(timeline, "event_quads", broken):
             code, out = self.event("note", "--date", "2026-09-27")
         self.assertEqual(code, 1, out)
         self.assertIn("would leave", out)
-        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(self.record, before)
 
-    def test_a_hand_formatted_file_is_refused_until_fmt(self):
-        path = self.sent / "application.ttl"
-        path.write_text(path.read_text(encoding="utf-8") + "\n\n", encoding="utf-8",
-                        newline="\n")
-        code, out = self.event("note", "--date", "2026-09-27")
+    def test_an_unfrozen_application_has_no_record_to_add_to(self):
+        code, out = self.jsk("event", self.root / "applications" / "elsewhere-x", "note",
+                             "--date", "2026-09-27")
+        self.assertEqual(code, 2, out)
+        (self.root / "applications" / "elsewhere-x").mkdir()
+        code, out = self.jsk("event", self.root / "applications" / "elsewhere-x", "note",
+                             "--date", "2026-09-27")
         self.assertEqual(code, 1, out)
-        self.assertIn("jsk kb fmt", out)
+        self.assertIn("holds no application record", out)
+        self.assertIn("jsk freeze", out)
 
     def test_a_directory_outside_applications_is_a_call_error(self):
         code, out = self.jsk("event", self.root / "career", "note", "--date", "2026-09-27")
@@ -1005,7 +1050,7 @@ class FreezeShort(ShortCase):
         code, out = self.freeze("--view", "view_contoso")
         self.assertEqual(code, 2, out)
         self.assertIn("drop --view", out)
-        self.assertFalse((self.app / "application.ttl").exists())
+        self.assertFalse(appkit.has(self.root, self.graph(self.app, "application")))
 
     def test_a_file_that_does_not_build_is_never_frozen(self):
         self.short.write_text(json.dumps({"resume": 2, "bullets": ["ach_nope"]}),
@@ -1013,13 +1058,13 @@ class FreezeShort(ShortCase):
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
         self.assertIn("ach_nope", out)
-        self.assertFalse((self.app / "application.ttl").exists())
+        self.assertFalse(appkit.has(self.root, self.graph(self.app, "application")))
         self.assertFalse(self.sent.exists())
 
 
 class ShipFrozen(ShortCase):
     """Review Focus 5: a frozen application is what was sent. Re-rendering into it would
-    overwrite the PDF the application.ttl says went out."""
+    overwrite the PDF the application's record says went out."""
 
     def ship(self, *args):
         from jsk.render import render_resume
@@ -1027,20 +1072,31 @@ class ShipFrozen(ShortCase):
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
             return self.jsk("ship", *args)
 
+    def frozen(self):
+        appkit.put(self.root, self.graph(self.app, "application"),
+                   'k:app_contoso_platform j:posting k:post_contoso_platform ; '
+                   'j:submitted "false"^^xsd:boolean .\n')
+
     def test_it_refuses_to_render_into_a_frozen_directory(self):
-        (self.app / "application.ttl").write_text("# frozen\n", encoding="utf-8")
+        self.frozen()
         before = (self.app / "Jane_Doe_Resume.pdf").read_bytes()
         code, out = self.ship(self.short, "--out", self.app)
         self.assertEqual(code, 1, out)
-        self.assertIn(f"frozen: {self.app / 'application.ttl'}", out)
+        self.assertIn(f"frozen: {self.graph(self.app, 'application')}", out)
         self.assertIn("re-rendering would overwrite what was sent", out)
         self.assertIn("fix:", out)
         self.assertIn("new dated directory", out)
         self.assertNotIn("--- ", out)                       # no step ran
         self.assertEqual((self.app / "Jane_Doe_Resume.pdf").read_bytes(), before)
 
-    def test_it_refuses_a_record_from_a_frozen_directory_rendered_elsewhere(self):
+    def test_a_stray_application_ttl_file_freezes_nothing_in_a_stored_workspace(self):
+        """`jsk kb load` leaves the old files where they were; the store alone says."""
         (self.app / "application.ttl").write_text("# frozen\n", encoding="utf-8")
+        code, out = self.ship(self.short, "--out", self.root / "out")
+        self.assertNotIn("frozen:", out)
+
+    def test_it_refuses_a_record_from_a_frozen_directory_rendered_elsewhere(self):
+        self.frozen()
         out_dir = self.root / "out"
         code, out = self.ship(self.short, "--out", out_dir)
         self.assertEqual(code, 1, out)
