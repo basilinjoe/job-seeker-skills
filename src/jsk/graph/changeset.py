@@ -113,11 +113,13 @@ def numbers_as_kept(quads, refuse):
     nothing - and an op:delete of `8.40` would delete nothing. A grade whose zeros are the
     point (`3.80`) is a string: j:gradeValue takes one."""
     from .io import canonical_numbers
+    from .writer import literal
 
     for q, kept in canonical_numbers(quads)[1]:
+        # The fix as Turtle: the decimal 8.0 is kept as "8", and a bare `8` is an integer.
         refuse(name(q.subject), f"{name(q.predicate)} {q.object.value} is kept as "
                f"{kept.value}: the career stores numbers by value",
-               f"write {kept.value}" + (' - or, for a grade whose zeros matter, a string: '
+               f"write {literal(kept)}" + (' - or, for a grade whose zeros matter, a string: '
                                         f'"{q.object.value}"'
                                         if q.predicate.value.endswith("gradeValue") else ""))
 

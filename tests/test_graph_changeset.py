@@ -45,6 +45,15 @@ class Reading(unittest.TestCase):
         self.assertEqual(len(cs.add), 1)
         self.assertEqual(cs.add[0][2].value, "Payments")
 
+    def test_a_number_s_fix_is_written_as_the_literal_the_store_keeps(self):
+        # `8.0` is kept as the decimal "8": `write 8` would be read as an integer.
+        [line] = refusals("op:set { k:met_x.v1 j:value 8.0 . }\n")
+        self.assertIn("fix: write \"8\"^^xsd:decimal", line)
+        [line] = refusals("op:set { k:met_x.v1 j:value 8.40 . }\n")
+        self.assertIn("fix: write 8.4", line)
+        [line] = refusals("op:set { k:met_x.v1 j:baseline 007 . }\n")
+        self.assertIn("fix: write 7", line)
+
     def test_a_syntax_error_is_a_graph_error(self):
         with self.assertRaises(GraphError):
             read("op:add { k:prj_x j:name . }\n")
