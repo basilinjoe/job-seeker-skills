@@ -43,6 +43,7 @@ class Store:
     homes: dict = field(default_factory=dict)       # subject iri -> first file defining it
     definitions: dict = field(default_factory=dict)  # subject iri -> every file, load order
     unmatched: list = field(default_factory=list)   # kb.ttl narrowing quads that removed nothing
+    stored: bool = False     # the record came from career/store/, not from files
     # The pyoxigraph.Store load() fills; None in a Store built only to report findings.
     # Any, because pyoxigraph is imported inside the functions that need it, never here.
     ox: "Any" = None
@@ -118,25 +119,68 @@ def graph_iri(name):
     return "file:" + quote(name, safe="/-._~")
 
 
-def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None):
-    """Load, derive, validate and close over a workspace. `files` overrides discovery;
-    `texts` ({file name: text}) stands in for what is on disk - how `jsk kb apply`
-    validates the record it is about to write before writing it."""
+def record_graphs(root):
+    """{name: [Triple]} of the workspace's record, from career/store/ - or None when the
+    workspace has no store yet (it is still laid out as files)."""
+    from . import db
+
+    if not db.exists(root):
+        return None
+    return db.read(root)
+
+
+def parsed_graph(name, triples):
+    """A graph out of the store as a Parsed: triples, no text - so no lines and no comments."""
+    import pyoxigraph as ox
+
+    from .io import Parsed
+    from .ontology import kind_of
+
+    quads = [ox.Quad(t.subject, t.predicate, t.object) for t in triples]
+    return Parsed(name, kind_of(name), quads, {}, [])
+
+
+def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=None):
+    """Load, derive, validate and close over a workspace.
+
+    The record comes from career/store/ - or, while a workspace has no store, from its
+    files. `graphs`
+    ({name: triples, or None to drop}) stands in for the store's graphs, and `texts`
+    ({name: text}) for a file's: how a write validates the record it is about to write
+    before writing it. `files` overrides file discovery."""
     import pyoxigraph as ox
 
     from .rules import tier2
     from .shapes import Finding, tier1
 
     store = Store(os.path.abspath(root), ox=ox.Store())
-    paths = files if files is not None else workspace_files(root, vocabulary)
     texts = texts or {}
-    names = {file_name(p, store.root) for p in paths}
-    paths = list(paths) + [os.path.join(store.root, n) for n in sorted(texts) if n not in names]
+    record = None if files is not None else record_graphs(store.root)
+    stored = record is not None
+    if record is not None:
+        record.update(graphs or {})
+        items = [(n, None) for n in sorted(record) if record[n] is not None and n not in texts]
+        items += [(n, None) for n in sorted(texts)]
+        if vocabulary and os.path.isfile(vocabulary):
+            items.append((file_name(vocabulary, store.root), vocabulary))
+    else:
+        paths = files if files is not None else workspace_files(root, vocabulary)
+        names = {file_name(p, store.root) for p in paths}
+        items = [(file_name(p, store.root), p) for p in paths]
+        items += [(n, None) for n in sorted(texts) if n not in names]
+        if graphs:
+            record = {n: t for n, t in graphs.items()}
+            items = [(n, p) for n, p in items if n not in record]
+            items += [(n, None) for n in sorted(record) if record[n] is not None]
     derived = ox.NamedNode(O.DERIVED)
-    for path in paths:
-        name = file_name(path, store.root)
+    for name, path in items:
         try:
-            parsed = parse_text(texts[name], name) if name in texts else parse(path)
+            if name in texts:
+                parsed = parse_text(texts[name], name)
+            elif record is not None and name in record:
+                parsed = parsed_graph(name, record[name])
+            else:
+                parsed = parse(path)
         except GraphError as e:
             store.findings.append(Finding("syntax", "FAIL", name, e.line or 0, "",
                                           str(e).split(": ", 1)[-1], e.fix))
@@ -152,6 +196,7 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None):
                                  if isinstance(q.subject, ox.NamedNode)):
             store.homes.setdefault(iri, name)
             store.definitions.setdefault(iri, []).append(name)
+    store.stored = stored
     narrow(store)
     derive_types(store, derived)
     store.findings += tier2(store)

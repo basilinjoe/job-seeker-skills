@@ -75,6 +75,8 @@ def last_entry(quads):
 
 def state(store):
     """Where kb.ttl and log.ttl stand with each other."""
+    if store.stored:
+        return stored_state(store)
     on_disk = {f: os.path.isfile(os.path.join(store.root, f)) for f in (KB, LOG)}
     if KB not in store.parsed:
         return State("unreadable" if on_disk[KB] else "missing")
@@ -101,6 +103,21 @@ def state(store):
     return State("out-of-sync", kb_rev, log_rev, sha,
                  f"kb.ttl is at r{kb_rev} and log.ttl ends at r{log_rev}: one of them was "
                  f"restored without the other")
+
+
+def stored_state(store):
+    """The same, for a record in career/store/: every write puts the career and its log
+    entry in one update, so the two agree unless something outside jsk wrote the store.
+    Nothing can be hand-edited or torn; the kb graph's hash is not re-checked."""
+    if KB not in store.parsed:
+        return State("missing")
+    kb_rev = header_revision(store.parsed[KB].quads)
+    log_rev, sha = last_entry(store.parsed[LOG].quads) if LOG in store.parsed else (None, None)
+    if kb_rev is not None and kb_rev == log_rev:
+        return State("clean", kb_rev, log_rev, sha)
+    return State("out-of-sync", kb_rev, log_rev, sha,
+                 f"the store's career says r{kb_rev} and its log ends at r{log_rev}: "
+                 "something outside jsk wrote career/store/")
 
 
 def next_revision(st):
@@ -144,18 +161,98 @@ def entry(revision, today, by, summary, sha, touched=(), minted=(), answer=None)
     return out
 
 
-def prepare(store, kb_quads, today, by, summary, touched=(), minted=(), answer=None,
-            content=True):
-    """(revision, kb_text, log_text): what a logged write of `kb_quads` would write -
-    kb.ttl stamped with the next revision, log.ttl with an entry holding its hash."""
+@dataclass(frozen=True)
+class Prepared:
+    """A logged write, ready: the revision, both graphs as quads, and the text the writer
+    lays the career out in - what the diff shows and kbSha256 hashes."""
+    revision: int
+    kb_text: str
+    log_text: str
+    kb_quads: list
+    log_quads: list
+
+    def graphs(self):
+        return {KB: self.kb_quads, LOG: self.log_quads}
+
+
+def prepared(store, kb_quads, today, by, summary, touched=(), minted=(), answer=None,
+             content=True):
+    """What a logged write of `kb_quads` would write - the career stamped with the next
+    revision, the log with an entry holding the career's hash."""
     from .io import sha256
     from .writer import write
 
     rev = next_revision(state(store))
-    kb_text = write(stamp(kb_quads, rev, today, content), "kb")
+    kb = stamp(kb_quads, rev, today, content)
+    kb_text = write(kb, "kb")
     log_quads = list(store.graph(LOG)) if LOG in store.parsed else []
     log_quads += entry(rev, today, by, summary, sha256(kb_text), touched, minted, answer)
-    return rev, kb_text, write(log_quads, "log")
+    return Prepared(rev, kb_text, write(log_quads, "log"), kb, log_quads)
+
+
+def prepare(store, kb_quads, today, by, summary, touched=(), minted=(), answer=None,
+            content=True):
+    """(revision, kb_text, log_text): prepared(), as the file layout writes it."""
+    p = prepared(store, kb_quads, today, by, summary, touched, minted, answer, content)
+    return p.revision, p.kb_text, p.log_text
+
+
+# --- the store: the one gate every write goes through ---------------------------------------
+
+BACKUP = os.path.join(".jsk", "backup.trig")
+
+
+def turn(root, dry_run=False):
+    """The context a writing command runs in: with a store and not a dry run, this
+    process's turn (db.write_turn), taken before the command reads the record - so what it
+    validates is what it writes over, and a write that queued behind another applies to
+    what that one left. Nothing else writes while it is held, so the command reads the
+    store read-only as usual."""
+    import contextlib
+
+    from . import db
+
+    if dry_run or not db.exists(root):
+        return contextlib.nullcontext()
+    return db.write_turn(root)
+
+
+def write_graphs(root, graphs, create=False):
+    """Replace `graphs` ({name: triples, or None to drop}) in the store in one update, then
+    refresh the backup. Every write to the store comes through here - the only caller of
+    db.replace_graphs (tests/test_db.py checks). `create`: the store may not exist yet
+    (`jsk new`, `jsk kb load`)."""
+    from . import db
+
+    try:
+        with db.writing(root, create=create) as w:
+            w.replace_graphs(graphs)
+            backup(root, w)
+    except db.StoreError as e:
+        raise RecordError(str(e), e.fix) from None
+    except (OSError, RuntimeError) as e:
+        raise RecordError(f"the store refused the write ({e}) - nothing was changed",
+                          "`jsk doctor` checks the store; run the command again") from None
+
+
+def backup(root, writer):
+    """The whole record as TriG in .jsk/backup.trig, after every write: the store's format
+    is tied to the pyoxigraph version, and this survives a pin bump or a store that will not
+    open (`jsk kb load .jsk/backup.trig`). Best effort - the write already happened."""
+    from . import db
+
+    folder = os.path.join(root, ".jsk")
+    try:
+        text = db.dump_text(writer.graphs())
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, ".gitignore"), "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("*\n")
+        tmp = os.path.join(root, BACKUP + ".tmp")
+        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        os.replace(tmp, os.path.join(root, BACKUP))
+    except OSError:
+        pass
 
 
 def replace(src, dst, tries=REPLACE_TRIES, wait=0.05):

@@ -49,6 +49,8 @@ VERBS = {}
 # verb -> (flags taking a value, switches, flags taking a list), beside --root, which
 # every verb takes. main parses them, so an unknown flag is refused by name.
 FLAGS = {}
+# The verbs that can write the career: each runs inside its turn (record.turn).
+WRITES = {"apply", "confirm", "adopt", "fmt", "load"}
 
 
 def verb(values=(), switches=(), lists=()):
@@ -60,10 +62,12 @@ def verb(values=(), switches=(), lists=()):
 
 
 def find_root(start):
-    """The nearest folder at or above `start` holding career/kb.ttl, or None."""
+    """The nearest folder at or above `start` holding career/store/ (or, not yet loaded
+    into one, career/kb.ttl), or None."""
     here = os.path.abspath(start)
     while True:
-        if os.path.isfile(os.path.join(here, "career", "kb.ttl")):
+        if os.path.isdir(os.path.join(here, "career", "store")) or \
+                os.path.isfile(os.path.join(here, "career", "kb.ttl")):
             return here
         up = os.path.dirname(here)
         if up == here:
@@ -121,7 +125,7 @@ def writable(store, allow=("clean",), canonical=True):
     if st.kind not in allow:
         message, fix = GUIDE[st.kind]
         return refuse([message or st.detail], fix)
-    if canonical and st.kind == "clean" and \
+    if canonical and st.kind == "clean" and not store.stored and \
             write(store.graph(R.KB), "kb") != store.parsed[R.KB].text:
         return refuse(["career/kb.ttl is not in the canonical layout this jsk writes"],
                       "run `jsk kb fmt` - a reformat is logged on its own, so no change hides in it")
@@ -157,9 +161,11 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
     from . import store as S
     from .io import parse_text
 
+    from .writer import write
+
     today = datetime.date.today()
-    rev, kb_text, log_text = R.prepare(store, quads, today, by, summary, touched, minted,
-                                       answer, content)
+    p = R.prepared(store, quads, today, by, summary, touched, minted, answer, content)
+    rev, kb_text, log_text = p.revision, p.kb_text, p.log_text
     # gofmt's promise, checked every time: what was written parses back to what was meant.
     if set(parse_text(kb_text, R.KB).quads) != set(R.stamp(quads, rev, today, content)):
         return refuse(["the writer did not reproduce the record it was given - a jsk bug"],
@@ -170,7 +176,9 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
         show_findings(broken, f"REFUSED  the change would leave {len(broken)} failures:")
         print("nothing was written")
         return 1
-    print(diff(store.parsed[R.KB].text if old is None else old, kb_text), end="")
+    if old is None:
+        old = write(store.graph(R.KB), "kb") if store.stored else store.parsed[R.KB].text
+    print(diff(old, kb_text), end="")
     for label, ids in (("minted", minted), ("touched", touched)):
         if ids:
             print(f"{label:8} {curies(ids)}")
@@ -180,11 +188,15 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
         print(f"dry run: r{rev} not written")
         return 0
     try:
-        R.commit(root, kb_text, log_text)
+        if store.stored:
+            R.write_graphs(root, p.graphs())
+        else:
+            R.commit(root, kb_text, log_text)
     except R.RecordError as e:
         print(f"FAIL  {e}\n        fix: {e.fix}")
         return 1
-    print(f"r{rev} written: career/kb.ttl and career/log.ttl")
+    print(f"r{rev} written: " + ("career/store/" if store.stored
+                                 else "career/kb.ttl and career/log.ttl"))
     return 0
 
 
@@ -1194,7 +1206,8 @@ def cmd_check(args, flags, root):
     rep = S.Store(store.root, findings=[f for f in store.findings
                                         if f.severity == "FAIL" or within(f.file)]).report()
     for name, parsed in sorted(store.parsed.items()):
-        if parsed.kind in ("kb", "log", "posting", "application", "gaps") and within(name):
+        if not store.stored and parsed.kind in ("kb", "log", "posting", "application", "gaps") \
+                and within(name):
             try:
                 if write(parsed.quads, parsed.kind) != parsed.text:
                     rep.warn(f"{name} - not in the canonical layout\n        fix: `jsk kb fmt {name}`")
@@ -1242,6 +1255,138 @@ def cmd_path(args, flags, root):
     return 0
 
 
+@verb()
+def cmd_load(args, flags, root):
+    """jsk kb load <workspace folder | dump.trig>
+
+    Fills this workspace's empty career/store/ - once. From a workspace still laid out as
+    files (career/kb.ttl, log.ttl, applications/*/*.ttl): they are read and validated as
+    they always were, every number is kept as the store keeps it (`8.40` becomes `8.4`, each
+    one listed), and the files are left where they are - jsk stops reading them. Or from a
+    `jsk kb dump` (or .jsk/backup.trig): the record as it was dumped.
+
+    Refused when the store already holds a record, and when what would be loaded has a FAIL.
+    """
+    from . import db, legacy
+    from . import record as R
+    from . import store as S
+    from .io import Unreadable, read_text
+
+    if len(args) != 1:
+        return usage("jsk kb load takes one workspace folder or one .trig dump")
+    src = os.path.abspath(args[0])
+    if db.exists(root) and any(db.read(root).values()):
+        return refuse([f"{os.path.join(root, db.STORE_DIR)} already holds a record"],
+                      "load into a new workspace (`jsk new` elsewhere is not needed - an "
+                      "empty folder with --root will do)")
+    rewrites = []
+    if os.path.isdir(src):
+        if not legacy.has_files(src):
+            return usage(f"{src}: no career/kb.ttl - not a workspace laid out as files")
+        before, record, rewrites = legacy.read_workspace(src)
+        if before.fails():
+            show_findings(before.fails(), f"REFUSED  {src} has {len(before.fails())} failures "
+                                          "- fix them in the files first:")
+            print("nothing was written")
+            return 1
+    elif src.endswith(".trig") and os.path.isfile(src):
+        try:
+            record = db.parse_dump(read_text(src, os.path.basename(src)))
+        except (Unreadable, db.StoreError) as e:
+            return refuse([str(e)], e.fix)
+        except SyntaxError as e:
+            return refuse([f"{os.path.basename(src)}:{e.lineno}: {e.msg}"],
+                          "a dump is TriG as `jsk kb dump` writes it")
+    else:
+        return usage(f"{args[0]}: not a folder, nor a .trig file")
+    after = S.load(root, files=[S.SHIPPED_VOCABULARY], graphs=record)
+    if after.fails():
+        show_findings(after.fails(), f"REFUSED  the record would load with "
+                                     f"{len(after.fails())} failures:")
+        print("nothing was written")
+        return 1
+    for name, q, kept in rewrites:
+        print(f"number   {name} {curies([q.subject.value])} {curies([q.predicate.value])} "
+              f"{q.object.value} kept as {kept.value}")
+    try:
+        R.write_graphs(root, record, create=True)
+    except R.RecordError as e:
+        print(f"FAIL  {e}\n        fix: {e.fix}")
+        return 1
+    st = R.state(S.load(root))
+    print(f"loaded   {sum(map(len, record.values()))} triples in {len(record)} graphs into "
+          f"career/store/, at r{st.kb_revision}")
+    if legacy.has_files(root):
+        print("note     career/kb.ttl and the other .ttl files are no longer read - the record "
+              "is career/store/; `jsk kb dump` writes it out as text")
+    return 0
+
+
+@verb(values=("--out",))
+def cmd_dump(args, flags, root):
+    """jsk kb dump [--out FILE.trig]
+
+    The whole record - the career, its log, every application's graphs - as TriG, to
+    stdout or FILE: a backup, and what `jsk kb load` reads back. jsk writes one after every
+    write to .jsk/backup.trig as well. Raising pyoxigraph's version is `dump` with the old
+    one, then `load` into a new store with the new one.
+    """
+    from . import db
+
+    if args:
+        return usage("jsk kb dump takes no arguments - --out FILE.trig, or stdout")
+    out = flags.get("--out")
+    if out is not None and not out.endswith(".trig"):
+        return usage(f"{out}: a dump is a .trig file")
+    try:
+        text = db.dump_text(db.read(root))
+    except db.StoreError as e:
+        return refuse([str(e)], e.fix)
+    if out is None:
+        sys.stdout.write(text)
+        return 0
+    with open(out, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+    print(f"wrote {out}")
+    return 0
+
+
+@verb(values=("--last",))
+def cmd_log(args, flags, root):
+    """jsk kb log [--last N]
+
+    The record's history, newest first: each revision's date, what made it (apply, confirm,
+    new, ...), its summary, and the ids it minted and touched. --last N, the newest N
+    (default 10).
+    """
+    from . import ontology as O
+    from . import record as R
+    from . import store as S
+
+    if args:
+        return usage("jsk kb log takes no arguments - --last N")
+    last = flags.get("--last", "10")
+    if not last.isdigit() or int(last) < 1:
+        return usage(f"--last {last}: a count, 1 or more")
+    store = S.load(root)
+    if R.LOG not in store.parsed:
+        return refuse(["the record has no log"], "`jsk kb check` says what is wrong")
+    entries = {}
+    for q in store.graph(R.LOG):
+        if O.class_of(q.subject.value) == "LogEntry":
+            entries.setdefault(q.subject.value, {}).setdefault(
+                q.predicate.value[len(O.J):], []).append(q.object.value)
+    rows = sorted(entries.values(), key=lambda e: -int(R.integer(e.get("revision", ["0"])[0]) or 0))
+    for e in rows[:int(last)]:
+        by = e.get("by", ["?"])[0].rsplit("#", 1)[-1].rsplit("/", 1)[-1]
+        print(f"r{e.get('revision', ['?'])[0]}  {e.get('date', ['?'])[0]}  {by:8} "
+              f"{e.get('summary', [''])[0]}")
+        for label in ("minted", "touched"):
+            if e.get(label):
+                print(f"    {label:8} {curies(e[label])}")
+    return 0
+
+
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or (wants_help(args) and args[0] not in VERBS):
@@ -1272,7 +1417,12 @@ def main(argv=None):
         print("FAIL  jsk kb needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
-    return VERBS[name](rest, flags, os.path.abspath(root))
+    from . import record as R
+
+    root = os.path.abspath(root)
+    # A verb that writes the store takes its turn before it reads it (record.turn).
+    with R.turn(root, dry_run=name not in WRITES or "--dry-run" in flags):
+        return VERBS[name](rest, flags, root)
 
 
 if __name__ == "__main__":

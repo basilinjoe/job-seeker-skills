@@ -173,6 +173,8 @@ costs nothing on a machine without the engine and `jsk doctor` can report on it.
 | `writer.py` | the one canonical layout: prefix block, section banners, subjects by class then natural key, predicates in ontology order, `"""` prose never reflowed. pyoxigraph parses and queries; it never writes a record |
 | `shapes.py` · `rules.py` | tier 1, generated from the ontology (closed predicates, required, cardinality, datatype, enum, id prefix); tier 2, the cross-node rules, each a SPARQL query with a fix, each with a mutation test |
 | `store.py` | a workspace in memory: one named graph per file, derived triples in `j:derived`, every rule run on every load |
+| `db.py` | the record on disk: one RocksDB store per workspace at `career/store/`, a named graph per record, the writers' turn (a blocking OS lock), one update per write, dump and parse |
+| `legacy.py` | a workspace still laid out as `.ttl` files, read once for `jsk kb load` - numbers kept as the store keeps them |
 | `record.py` | kb.ttl and log.ttl kept in step: revision, hash, `state` (clean, hand-edited, torn, ...), `prepare` and `commit` |
 | `changeset.py` · `edit.py` · `kbcli.py` | `jsk kb`: a changeset read and refused or merged, and every verb over the record |
 | `pack.py` · `merge.py` | `jsk kb pack` (the capability starter pack) and `jsk kb merge` (two concepts that are one), each drafted as a changeset and never applied |
@@ -284,6 +286,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   graph/                            the career record: see "Inside the graph package"
     ontology.py                     the format, as data     writer.py     the canonical layout
     io.py  store.py  record.py      parse, load and validate, kb.ttl and log.ttl in step
+    db.py  legacy.py                the store on disk, and the one-time import from files
     shapes.py  rules.py             tier 1 and tier 2 rules
     changeset.py  edit.py  kbcli.py `jsk kb`
     pack.py  merge.py               `jsk kb pack` and `jsk kb merge`, drafted as changesets

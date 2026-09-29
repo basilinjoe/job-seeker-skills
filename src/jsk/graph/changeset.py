@@ -99,9 +99,27 @@ def read(text, file="changeset.trig"):
         if check(where, s, p, o, refuse):
             getattr(cs, where).append((s, p, o))
     bullets_named(parsed.quads, refuse)
+    numbers_as_kept(parsed.quads, refuse)
     if refusals:
         raise Refused(refusals)
     return cs
+
+
+def numbers_as_kept(quads, refuse):
+    """A number the store would rewrite (`8.40`, `007`) is refused, never rewritten here.
+
+    The store keeps numbers by value, so the career holds `8.4`; `8.40` beside it would
+    read as a changed claim - unconfirmed, and a sent metric given a new version for
+    nothing - and an op:delete of `8.40` would delete nothing. A grade whose zeros are the
+    point (`3.80`) is a string: j:gradeValue takes one."""
+    from .io import canonical_numbers
+
+    for q, kept in canonical_numbers(quads)[1]:
+        refuse(name(q.subject), f"{name(q.predicate)} {q.object.value} is kept as "
+               f"{kept.value}: the career stores numbers by value",
+               f"write {kept.value}" + (' - or, for a grade whose zeros matter, a string: '
+                                        f'"{q.object.value}"'
+                                        if q.predicate.value.endswith("gradeValue") else ""))
 
 
 def header(cs, s, p, o, refuse):
