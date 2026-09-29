@@ -140,6 +140,12 @@ is no parsed text to fall back on. Ruling 4 settles it.
   reload" needs no code of its own: `edit.apply` and `base_conflicts` already do the rest.
   The price is a turn held for a command's whole run (well under a second on a real career)
   rather than ~100 ms; readers still never wait.
+- **Readers do wait - for one write, not a command (Ruling 7's "readers never wait" was
+  wrong).** pyoxigraph documents a read-only open while another process writes as undefined
+  behaviour, and on Windows it is concrete: the reader's handle on CURRENT makes the writer's
+  rename fail. A second lock, `career/store.access`, is held shared by every read and
+  exclusively by a write for its open-update-close only, so a reader waits at most one
+  write's worth (9d39cea; the race test in `tests/test_db.py` fails without it).
 - **The RocksDB handle never leaves db.py.** pyoxigraph has no `close()`; a store closes
   when its last reference goes. Writers get a `db.Writer` that drops its store on leaving
   `db.writing`, so a caller's variable cannot keep RocksDB's lock past the turn.
