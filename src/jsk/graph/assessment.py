@@ -1,5 +1,5 @@
 """gaps.txt - the analyst's overlay on the assessment the match already derived. The model
-writes only this; code folds it in, writes gaps.ttl and renders gaps.md.
+writes only this; code folds it in, writes the assessment's graph and renders gaps.md.
 
     fit: partial
     eligibility: India-based, authorised to work there; the role is India remote

@@ -90,7 +90,8 @@ It re-runs the gates and refuses on a failure, or if the application is already 
 the application: the posting, date, channel, documents, the `resume.json` hash, the bullets
 that rendered and the metric versions they cite — so `jsk kb query stale` can later name an application
 that sent a number since revised — and a `submitted` event. It renames the directory to the
-submitted date and prints the new path — **use that path from here on**, for `jsk event` too. Then:
+submitted date, moving the application's graphs in the store to the new name in the same write,
+and prints the new path — **use that path from here on**, for `jsk event` too. Then:
 
 - **Stop editing that directory.** `posting.md`, `decisions.txt`, the `gaps.*` files and
   `resume.json` are the archive — it must still say what the application was answering.

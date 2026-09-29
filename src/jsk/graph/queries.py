@@ -97,7 +97,7 @@ def requirements(store, post):
 
 def labels(store):
     """{normalised label: {concept iris}} over labels and former labels, shipped and the
-    person's own - after kb.ttl's unlabels, which the loader has already applied."""
+    person's own - after the career's unlabels, which the loader has already applied."""
     out = {}
     for r in store.select(PRE + """SELECT ?c ?l WHERE { ?c j:label|j:former ?l }"""):
         out.setdefault(O.norm(r["l"].value), set()).add(r["c"].value)

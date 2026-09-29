@@ -193,7 +193,7 @@ def store_report(start=None):
     """(lines, broken) saying where the record's store stands: there, readable, its
     revision, and whether .jsk/backup.trig - the dump every write refreshes, and what
     `jsk kb load` restores from - is there, at which revision. `start` is a workspace, a
-    path inside one, or its career/kb.ttl; by default the current directory."""
+    path inside one, or its career/store/; by default the current directory."""
     from .graph import db
     from .graph import record as R
     from .graph.kbcli import find_root
@@ -305,7 +305,7 @@ def record_refusal(target):
                 "      frozen document is meant to be read, not re-checked."]
     if target.endswith(".md"):
         return [f"FAIL  cannot validate: {target}",
-                "fix:  the career is career/kb.ttl, which `jsk kb check` validates. This",
+                "fix:  the career is in career/store/, which `jsk kb check` validates. This",
                 "      gate reads an application's choice from the career - pass resume.json"]
     if target.endswith(".ttl"):
         return [f"FAIL  cannot validate: {target}",
@@ -863,7 +863,7 @@ def cmd_ship(args):
         print("fix:  --out names the directory to render into - the application's own")
         return 2
     # Before anything renders (Review Focus 5): the render writes over the PDF and .txt
-    # that application.ttl says were sent, and the archive would then describe files it
+    # that the application's record says were sent, and the archive would then describe files it
     # no longer holds.
     refusal = frozen_refusal(flags["--out"], os.path.dirname(os.path.abspath(record)))
     if refusal:
@@ -1180,10 +1180,10 @@ def freeze_write(workspace, app_dir, final, plan, record_bytes, submitted, chann
 # command: a shell history or an old mode file still holds them, and "unknown command"
 # reads as a broken install.
 RETIRED = {
-    "index": "it read user-knowledgebase.md, and the career is career/kb.ttl now.\n"
+    "index": "it read user-knowledgebase.md, and the career is career/store/ now.\n"
              "fix:  `jsk match applications/<dir>` ranks the career against a "
              "posting;\n      `jsk kb view` reads it",
-    "migrate": "it moved a user-knowledgebase.md to career/kb.ttl, and jsk no longer reads "
+    "migrate": "it moved a user-knowledgebase.md into the career, and jsk no longer reads "
                "the Markdown format.\n"
                "fix:  `jsk new PATH --name NAME` starts a career/store/; `jsk kb export` "
                "writes an application's short resume.json",

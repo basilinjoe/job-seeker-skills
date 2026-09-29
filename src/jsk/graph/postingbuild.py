@@ -1,6 +1,6 @@
 """`jsk posting extract` and `jsk posting build`: code extracts the advert's lines, the model
 decides in decisions.txt, code writes the posting - the application's posting graph in
-career/store/ (posting.ttl in a workspace not yet loaded into one).
+career/store/.
 
 Hand-writing posting.ttl cost the JumpCloud run 26.5k output tokens, most of them ids,
 predicates and quotes copied character for character - exactly what the checks then
@@ -16,7 +16,6 @@ from ..posting import POSTING, Refused
 from . import ontology as O
 from .rules import REQUIRED_WORDS, advert_lines, squash
 
-POSTING_TTL = "posting.ttl"
 DECISIONS = "decisions.txt"
 SOFT_CAP = 20
 ASKED_SECTIONS = ("qualification", "responsibility")
@@ -90,7 +89,7 @@ def workspace(app_dir, vocabulary):
 
 
 def posting_stem(app_dir, root, store):
-    """The stem of the Posting already in posting.ttl - application.ttl points at it - else
+    """The stem of the Posting already in the posting graph - the application points at it - else
     the directory's."""
     if store is not None:
         from .store import file_name
@@ -144,8 +143,8 @@ def default_need(line):
 
 
 def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=None):
-    """(what was written, requirements, warnings): the posting graph's name, or in a
-    workspace not yet loaded into a store, posting.ttl's path. Raises Refused, and then
+    """(what was written, requirements, warnings): the posting graph's name. Raises
+    Refused, and then
     writes nothing. Runs inside the workspace's turn, taken before anything is read."""
     from . import record as R
     from .kbcli import find_root
@@ -169,7 +168,8 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
     # so it is not rebuilt - and the assessment derived from it is not removed. Asked
     # first, so the refusal writes nothing; the writes below ask again.
     try:
-        refuse_if_sent(app_dir, POSTING_TTL)
+        refuse_if_sent(app_dir, app_graph(workspace_of_app(app_dir)[1] or app_dir, "posting"),
+                       graph=True)
     except Frozen as e:
         raise Refused(str(e), f"fix:  {e.fix}") from None
     if has_record(app_dir, "posting") and not replace:
@@ -324,7 +324,7 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
 
 
 def existing_captured(store, post):
-    """The day posting.ttl already says it was saved: a rebuild is not a new capture."""
+    """The day the posting already says it was saved: a rebuild is not a new capture."""
     from .queries import PRE
 
     found = store.select(PRE + f"SELECT ?d WHERE {{ <{post}> j:captured ?d }}")

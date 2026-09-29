@@ -623,11 +623,14 @@ id `k:rev_<N>` · graph log · section Log · provenance no
 | `j:touched` | → any id (may dangle) | 0..n |  | ids changed |
 | `j:minted` | → any id (may dangle) | 0..n |  | ids created |
 | `j:answer` | xsd:string (long) | 0..1 |  | the person's answer, for a confirm |
+| `j:kbSha256` | sha256 hex | 1 |  | the career's hash after the change, as the writer lays it out |
+
 `touched` and `minted` may point at ids that no longer exist, because the log outlives what it
-records. They are the only references exempt from `dangling`. Entries written before the store
-also carried `j:kbSha256`, the hash of the `kb.ttl` they produced; a write to the store is one
-update holding the change and its entry together, so there is no file to hash and no new entry
-carries one.
+records. They are the only references exempt from `dangling`. `j:kbSha256` is the hash of the
+career as the writer lays it out as Turtle - the text a write's diff shows - and every entry
+still carries one. Before the store it let the loader tell a hand-edited `career/kb.ttl` from
+the one the log recorded, and the one-time import still checks it; nothing re-checks it on a
+stored record, where the change and its entry land in one update.
 
 ## 6. Enumerations
 
@@ -963,9 +966,10 @@ SELECT naming `?focus`, and an optional post-processing step.
 
 Every rule id has a mutation test that proves it fires ([`tests/test_graph_shapes.py`](../tests/test_graph_shapes.py),
 [`tests/test_graph_rules.py`](../tests/test_graph_rules.py)). A rule without one fails the
-suite. Three rules went with the `.ttl` files: `comment` (a comment the next write would lose),
-`log-sync` (kb.ttl and log.ttl disagreeing) and `hand-edited` (kb.ttl changed outside jsk) -
-none of them can happen to a store only jsk writes.
+suite. Three rules now fire only on the `.ttl` files the one-time import reads (`jsk kb
+load`): `comment` (a comment the store would not keep), `log-sync` (the career file and its log
+disagreeing) and `hand-edited` (the career file changed outside jsk). None of them can happen to
+a store only jsk writes; the import refuses on `log-sync`, a FAIL, and reports the two WARNs.
 
 ## 13. Changesets
 
@@ -1002,8 +1006,11 @@ states:
 | State | Meaning |
 |---|---|
 | clean | the career's revision is the log's last |
-| empty | a store with no record yet: `jsk new` or `jsk kb load` fills it |
-| missing | no `career/store/`: `jsk new`, or `jsk kb load .` for a workspace still laid out as `.ttl` files |
+| out-of-sync | they differ: something outside jsk wrote the store - `jsk kb load .jsk/backup.trig` into a new workspace restores the last write jsk made |
+| missing | no career yet - no `career/store/`, or an empty one: `jsk new`, or `jsk kb load` to import a workspace or a dump |
+
+A workspace still laid out as `.ttl` files is none of these: every command but `jsk kb load`
+refuses it, naming `jsk kb load .`.
 
 Before the store, the career and its log were two files, `career/kb.ttl` and `career/log.ttl`,
 written one after the other; a hash in each entry and a copy in `.jsk/` let the loader detect a

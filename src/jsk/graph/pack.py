@@ -1,10 +1,10 @@
-"""`jsk kb pack`: a starter pack of capabilities, drafted as a changeset for kb.ttl.
+"""`jsk kb pack`: a starter pack of capabilities, drafted as a changeset for the career.
 
 data/capabilities.ttl holds capabilities and domains with the wordings postings use and
 the counts-as edges that are true for anyone. It is never loaded as vocabulary: the
 shipped vocabulary is technologies only (shapes.shipped_vocabulary), because a capability
 edge is judgement. The pack is a proposal a person reads and adopts into their own
-kb.ttl, where the judgement is theirs.
+career, where the judgement is theirs.
 
 `draft` works out what the pack adds to this workspace and nothing else:
 
@@ -49,7 +49,7 @@ def cur(iri):
 # --- the workspace's concepts ----------------------------------------------------------
 
 def classes(store):
-    """{concept iri: {class names}} as kb.ttl and the vocabulary state them."""
+    """{concept iri: {class names}} as the career and the vocabulary state them."""
     from .store import graph_iri
 
     homes = {graph_iri(f) for f, p in store.parsed.items() if p.kind in ("kb", "vocabulary")}

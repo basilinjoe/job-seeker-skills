@@ -38,7 +38,7 @@ class WriteError(ValueError):
 # --- terms -----------------------------------------------------------------------------
 
 def curie(iri):
-    # Only the prefixes every written file declares: an `op:` CURIE in a kb.ttl would not
+    # Only the prefixes every written file declares: an `op:` CURIE in Turtle shown would not
     # parse. Changesets are P3's, with their own prefix block.
     for name, ns in O.PREFIXES:
         if iri.startswith(ns) and PN_LOCAL.fullmatch(iri[len(ns):]):

@@ -111,6 +111,8 @@ PDF is the one gate no command can run. It refuses in a frozen application (the 
 step. It refuses unless the mechanical gates pass and no application graph exists yet, then
 writes one — what was sent, the `resume.json` hash, the bullets that rendered (the
 plan's `sent`) and the metric versions they cite — and renames the directory to the submitted date.
+The application's posting and assessment graphs move to the new name in the same update that
+writes its application graph; no log entry is added, since the log is the career's.
 No copy of the content is written: the PDF, `.txt` and `.tex` beside it are the words sent. After that the directory is
 an archive: later events are added with `jsk event`, never edited.
 
@@ -180,7 +182,7 @@ costs nothing on a machine without the engine and `jsk doctor` can report on it.
 | `store.py` | a workspace in memory: the record graphs copied out of the store (or a write's candidate graphs) plus the shipped vocabulary, derived triples in `j:derived`, every rule run on every load |
 | `db.py` | the record on disk: one RocksDB store per workspace at `career/store/`, a named graph per record, the writers' turn (a blocking OS lock), one update per write, dump and parse. The only module that opens the store |
 | `legacy.py` | a workspace still laid out as `.ttl` files, read once for `jsk kb load` - validated as before, numbers kept as the store keeps them and each rewrite reported |
-| `record.py` | **the write gate**: revision and log entry, `state` (clean, missing, empty), and `commit` - the turn, the revision re-checked (rebase or refuse), every touched graph and the log entry in one `db.replace_graphs`, then `.jsk/backup.trig`. The only caller of `replace_graphs` |
+| `record.py` | **the write gate**: revision and log entry (`prepared`), `state` (clean, out-of-sync, missing - and, for the files the import reads, hand-edited, torn and unlogged), `turn` - the writer's turn, taken before a writing command reads the record - and `write_graphs`: every touched graph in one `db.replace_graphs`, then `.jsk/backup.trig`. The only caller of `replace_graphs` |
 | `changeset.py` · `edit.py` · `kbcli.py` | `jsk kb`: a changeset read and refused or merged, and every verb over the record |
 | `pack.py` · `merge.py` | `jsk kb pack` (the capability starter pack) and `jsk kb merge` (two concepts that are one), each drafted as a changeset and never applied |
 | `queries.py` · `named.py` · `match.py` | the vocabulary and the named questions; `jsk match` |
@@ -194,7 +196,9 @@ costs nothing on a machine without the engine and `jsk doctor` can report on it.
 **Its boundaries.** Only `db.py` opens `career/store/`, and only `record.py` calls
 `db.replace_graphs`; `tests/test_db.py` fails if anything else does. So every write - `jsk kb`'s
 verbs, `jsk new`, the posting and gaps builds, `jsk freeze` and `jsk event` - goes through
-`record.commit` after the would-be record validates, and lands with its log entry in one update.
+`record.write_graphs` after the would-be record validates, in one update of the store. A write
+to the career lands with its log entry in that update; `jsk freeze`, `jsk event` and the builds
+write only an application's graphs and add no entry, since the log is the career's history.
 The SPARQL queries are not storage access: they ask a validated in-memory store about a career,
 and stay grouped by purpose (`queries`, `named`, `match`, `rules`).
 
@@ -364,8 +368,8 @@ tests/                              unittest: one file per module, plus the mani
 `jsk-resume`; `plugins/jsk/` is markdown that calls `jsk`.
 
 **The package owns the career record; the skill writes changesets and short files.** Every write
-to `career/store/` goes through `record.commit` (from `jsk kb`, `jsk new`, the posting builds,
-`jsk freeze` and `jsk event`), and every load validates it. No agent reads a file under `career/`. The skill exports each `resume.json` from the career and edits its order,
+to `career/store/` goes through `record.write_graphs` (from `jsk kb`, `jsk new`, the posting
+builds, `jsk freeze` and `jsk event`), and every load validates it. No agent reads a file under `career/`. The skill exports each `resume.json` from the career and edits its order,
 summary and settings, which is why the record gate runs before anything renders: it is the last
 point at which a mistake is still cheap.
 
@@ -472,7 +476,7 @@ story:
    imported once with `jsk kb load .`; any other command there refuses, naming that fix.
 
 **The graph package and its boundaries** are what hold the third one: every write goes through
-`record.commit` after the would-be record validates, and the package never imports `render/` nor
+`record.write_graphs` after the would-be record validates, and the package never imports `render/` nor
 is imported by it. See "Inside the graph package" above.
 
 A bundle from a version before 4.0 has one route: read it whole and build the record from it

@@ -276,16 +276,16 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=Non
     return store
 
 
-# kb.ttl predicate -> the shipped predicates it removes
+# career predicate -> the shipped predicates it removes
 NARROWS = {"unlabel": ("label", "former"), "unlink": ("isA", "partOf")}
 
 
 def narrow(store):
-    """kb.ttl's `unlabel` and `unlink`, applied to the shipped vocabulary - in memory only.
+    """The career's `unlabel` and `unlink`, applied to the shipped vocabulary - in memory only.
 
     A shipped entry can be wrong for one person's field ("Go" is never the language in
     theirs). The shipped file is not theirs to edit, and a copy of it would stop tracking
-    releases, so the removal is a statement in kb.ttl that the loader honours. One that
+    releases, so the removal is a statement in the career that the loader honours. One that
     removes nothing is kept in `store.unmatched` for the narrows-nothing rule: a typo
     there would otherwise change nothing, silently.
     """

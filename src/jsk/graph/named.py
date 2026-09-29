@@ -193,7 +193,7 @@ def text_pattern(term):
 
 
 def kb_text(store):
-    """(entry, predicate, text, provenance, project) for every string in career/kb.ttl
+    """(entry, predicate, text, provenance, project) for every string in the career
     on a live entry - what a grep of the file would find, without the retired, and
     without the vocabulary's labels, which the concept match has already answered."""
     from . import record as R
@@ -258,7 +258,7 @@ def evidence_for(store, *terms):
 @query("concepts", doc="every concept: its labels, what it counts as, how many projects hold it")
 def concept_list(store, near=None):
     """The vocabulary as one table, shipped and the person's own, to map a posting's
-    phrases onto before posting.ttl is written: "cloud-native architecture" is a label no
+    phrases onto before the posting is written: "cloud-native architecture" is a label no
     concept has, and `j:concept` names the one it means. Read once, it replaces the grep
     for concept ids that followed every match full of `candidate`s.
 
@@ -287,7 +287,7 @@ def concept_list(store, near=None):
               "held": held.get(c, "")} for c in shown])
 
 
-@query("bare", doc="kb.ttl's capabilities with no label and no isA/partOf, most-held first")
+@query("bare", doc="the career's capabilities with no label and no isA/partOf, most-held first")
 def bare_list(store):
     """What `concepts-bare` counts, one row each: a capability nothing labels or places
     matches only its exact id, so a posting's "system design" misses c:systems-design.

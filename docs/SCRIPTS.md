@@ -73,7 +73,8 @@ jsk doctor --kb PATH       # check a specific workspace, the folder holding care
 ```
 
 Bare `jsk doctor` runs the record gate over the shipped example workspace (`jsk/data/example/`:
-a small career and a short `resume.json`), renders it and runs the parse and prose gates on
+a small career and a short `resume.json`, shipped as files and imported with `jsk kb load` into a
+temporary store first, as a person's workspace from before the store is), renders it and runs the parse and prose gates on
 the result, so a pass means the pipeline genuinely works here rather than looking like it should.
 
 Verdicts: `READY` · `READY, with gaps` · `BLOCKED` (the install is broken) · `BROKEN` (the toolchain
@@ -891,7 +892,10 @@ words sent. That is what makes a later
 revision visible: `jsk kb apply` never changes a sent version - a new number becomes the next
 one - and `jsk kb query stale` names every application that sent the old. The graph is validated
 with the whole record before anything is renamed or written, and goes in through the same write
-gate as every other write, with its log entry. The career itself is never touched.
+gate as every other write. It adds no log entry: the log is the career's history, and the career
+itself is never touched. A graph is named by its directory, so when the directory is renamed its
+posting and assessment graphs move to the new name in the same update that writes the
+application graph - all three land, or none does and the directory is renamed back.
 
 The documents are the `--doc` files, or every `.pdf` and `.txt` in the
 directory. The final path is printed.
@@ -956,8 +960,9 @@ record. A frozen `application.md` is still honoured as frozen.
 **The record as `.ttl` files** - `career/kb.ttl`, `career/log.ttl` and each application's
 `posting.ttl`, `application.ttl` and `gaps.ttl` - left on 2026-09-29 for `career/store/`. With the
 files went `jsk kb adopt` (log a hand edit), `jsk kb fmt` (restore the canonical layout), the
-`hand-edited`, `torn`, `out-of-sync` and `unlogged` states, `kbSha256` and `.jsk/kb.last.ttl`:
-there is no file to edit by hand, no layout to restore and no second file to tear. So did git
+`hand-edited`, `torn` and `unlogged` states of a stored record, and `.jsk/kb.last.ttl`: there is
+no file to edit by hand, no layout to restore and no second file to tear. (Each log entry still
+carries `kbSha256`, the hash of the career as the writer lays it out; only the import checks it.) So did git
 diffs of the record and opening it in an editor - `jsk kb view`, `show`, `log` and `dump` read it
 instead ([WHY.md](WHY.md) says what that cost). `jsk kb load .` imports such a workspace, once.
 

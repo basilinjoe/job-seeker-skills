@@ -1,6 +1,6 @@
 """`jsk kb merge c:a --into c:b`: two concepts that are one, drafted as a changeset.
 
-Every kb.ttl triple pointing at c:a points at c:b instead - a project's j:uses and
+Every career triple pointing at c:a points at c:b instead - a project's j:uses and
 j:domain, an organisation's j:industry, a bullet's j:shows, another concept's edges. c:a's
 labels and former labels move to c:b, and so does its id as words ("ai agent design"),
 so wording that found c:a finds c:b. Its own edges move with it, unless one would make a
@@ -9,9 +9,9 @@ cycle or cross a distinct wall. Nothing is applied: `jsk kb apply --dry-run` rea
 A bullet whose j:shows changes is a claim changed, so applying it drops the bullet to
 j:inferred and asks about it: those bullets are the re-confirm list, printed with it.
 
-Then c:a goes. A posting.ttl is not a changeset's to edit, and one whose requirement
+Then c:a goes. A posting is not a changeset's to edit, and one whose requirement
 still names c:a through j:concept would dangle - the `dangling` rule is a FAIL, and
-edit.referenced refuses the delete for it. So c:a is deleted when nothing outside kb.ttl
+edit.referenced refuses the delete for it. So c:a is deleted when nothing outside the career
 names it, and retired, with a reason naming c:b, when a posting still does: the posting
 then reads `retired-referenced`, a WARN that says to re-point it.
 """
@@ -74,7 +74,7 @@ def draft(store, a, b):
     delete, add, notes, reconfirm = [], [], [], set()
     walls = Walls({e for e in known if a not in (e[0], e[2])})
 
-    # Pointers at c:a, from anywhere in kb.ttl. j:unlink names a shipped edge to drop, and
+    # Pointers at c:a, from anywhere in the career. j:unlink names a shipped edge to drop, and
     # c:a is not shipped, so there is nothing of it to redirect.
     for s, p, o in sorted(kb, key=str):
         if o != A or s == A or p.value == O.J + "unlink":

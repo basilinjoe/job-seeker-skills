@@ -226,7 +226,7 @@ def cmd_apply(args, flags, root):
     """jsk kb apply <changeset.trig> [--dry-run]
 
     Merges a changeset (op:add, op:set, op:retire, op:delete; see docs/SCRIPTS.md) into
-    career/kb.ttl, then logs it. A changed claim drops to j:inferred and is asked about; a
+    the career, then logs it. A changed claim drops to j:inferred and is asked about; a
     new bullet gets its id; a sent metric version gets a successor instead of a change.
     --dry-run prints the diff and writes nothing.
     """
@@ -346,12 +346,12 @@ def cmd_pack(args, flags, root):
 def cmd_merge(args, flags, root):
     """jsk kb merge c:a --into c:b [--out FILE.trig]
 
-    Drafts a changeset making two concepts one. Every kb.ttl triple pointing at c:a -
+    Drafts a changeset making two concepts one. Every career triple pointing at c:a -
     j:uses, j:domain, j:industry, j:shows, another concept's edges - points at c:b; c:a's
     labels, former labels and own edges move to c:b, and c:a's id is added to c:b as a
     label in words, so the wording that found c:a finds c:b.
 
-    c:a is then deleted - or retired, with a reason, when a posting.ttl still names it
+    c:a is then deleted - or retired, with a reason, when a posting still names it
     through j:concept: a changeset does not edit postings, and deleting it would leave
     the posting dangling.
 
@@ -478,7 +478,7 @@ def unquoted_numbers(quads, iri, quote):
     from . import ontology as O
 
     said = scaled(numerals(quote))
-    # iri is in a kb.ttl writable() passed, where every subject is a jsk id.
+    # iri is in a career writable() passed, where every subject is a jsk id.
     kinds = {p.name for p in O.class_named(iri).preds.values()
              if p.claim and p.obj in (O.STR, O.NUM)}
     out = []
@@ -666,7 +666,7 @@ def cmd_confirm(args, flags, root):
         cls = O.class_of(iri)
         if iri not in in_kb:
             problems.append(unknown(iri, store))
-        # In a kb.ttl writable() passed, so a jsk id with a class.
+        # In a career writable() passed, so a jsk id with a class.
         elif not O.class_named(iri).claims:
             problems.append((f"{text} has no provenance to confirm: a {cls} is not a claim",
                              "confirm the entry that makes the claim"))
@@ -786,7 +786,7 @@ def cmd_show(args, flags, root):
 def cmd_view(args, flags, root):
     """jsk kb view [--section NAME]
 
-    The whole career as Markdown, in kb.ttl's section order, to read end to end and
+    The whole career as Markdown, in the career's section order, to read end to end and
     correct - stdout only; it is never written to a file, so it cannot drift. Entries not
     confirmed, and retired ones, say so beside their names.
     """

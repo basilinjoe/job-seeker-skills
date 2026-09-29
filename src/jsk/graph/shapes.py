@@ -141,17 +141,17 @@ def shipped_vocabulary(add, s, preds):
 
     Technology aliases are close to fact - K8s is Kubernetes. A capability edge is
     judgement, and a judgement shipped to every user is how a graph starts overclaiming,
-    so capabilities, domains and `implies` live only in a person's own kb.ttl. Narrowing
+    so capabilities, domains and `implies` live only in a person's own career. Narrowing
     is the person's too: a shipped file that unlabels itself is a file to fix.
     """
     for t in preds.get(O.RDF_TYPE, []):
         if t.value != O.J + "Technology":
             add("shipped-vocabulary", FAIL, s, f"the shipped vocabulary is technologies only, "
-                f"not {curie(t.value)}", "move it into a person's kb.ttl")
+                f"not {curie(t.value)}", "move it into the career, with `jsk kb apply`")
     for name in ("implies", "unlabel", "unlink"):
         if O.J + name in preds:
             add("shipped-vocabulary", FAIL, s, f"j:{name} does not belong in the shipped vocabulary",
-                "implies is a person's claim, and narrowing is a person's choice: kb.ttl")
+                "implies is a person's claim, and narrowing is a person's choice: the career")
 
 
 HEAD_FIX = {

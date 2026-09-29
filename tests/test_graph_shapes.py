@@ -66,7 +66,7 @@ MUTATIONS = {
                 "j:note"),
     "shipped-vocabulary": ("vocabulary.ttl", 'c:docker a j:Technology ; j:label "Docker" .',
                            'c:docker a j:Capability ; j:label "Docker" .', "c:docker",
-                           "move it into a person's kb.ttl"),
+                           "move it into the career"),
 }
 
 

@@ -64,7 +64,7 @@ def entry(sub, s, part, indent=""):
 
 
 def render(triples, only=None):
-    """The Markdown for kb.ttl's triples; `only` limits it to one section."""
+    """The Markdown for the career's triples; `only` limits it to one section."""
     sub = Subjects(triples)
     header = next(iter(sub.of("KB")), None)
     out = [f"# {sub.get(header, 'name', 'Career')}", ""] if header else []

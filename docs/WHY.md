@@ -60,12 +60,18 @@ store measured about 0.2 more; `tests/test_graph_budget.py` fails past 1.2, so t
 to check less than everything.
 
 **Every write goes through one gate.** `jsk kb apply`, `confirm`, `pack` and `merge` changesets,
-`jsk posting build`, `jsk freeze` and `jsk event` all end in the same function: it takes the
-writer's turn, re-checks the revision, writes every graph the change touches and its log entry in
-one update - all of them or none - and refreshes `.jsk/backup.trig`. Two writers queue rather than
-one being turned away: the second prints `waiting for another jsk write to finish` and goes when
-the first is done. If the first changed nothing the second's changeset names, the second still
-applies; if it did, the second is refused, naming the ids.
+`jsk posting build`, `jsk freeze` and `jsk event` all end in the same function: it writes every
+graph the change touches in one update - all of them or none - and refreshes `.jsk/backup.trig`.
+A change to the career carries its log entry in that update; `jsk freeze`, `jsk event` and the
+posting and gaps builds write only an application's graphs and add no entry, because the log is
+the career's history. A writing command takes the writer's turn (`career/store.lock`) before it
+reads the record, so what it validates is what it writes over. Two writers queue rather than one
+being turned away: the second prints `waiting for another jsk write to finish`, goes when the
+first is done, and reads what the first left. If the first changed nothing the second's
+changeset names, the second still applies; if it did, the second is refused, naming the ids.
+Readers do not queue behind a writing command, but each read waits for any single write's
+open-update-close in progress (`career/store.access`, shared by readers, exclusive to a write):
+a read-only open while another process writes is undefined behaviour in the store.
 
 ### What the store costs
 
@@ -89,7 +95,7 @@ the record were each weighed and given up for it. What went with them:
   can be loaded again from it.
 - **Numbers are kept by value.** The store keeps `8.40` as `8.4` and `007` as `7`, so there is no
   parsed text left to recover the original spelling from. Rather than change a number silently, a
-  changeset that writes one the store would rewrite is refused (`write 8.4`); a grade whose zeros
+  changeset or posting build that writes one the store would rewrite is refused (`write 8.4`); a grade whose zeros
   matter (`3.80`) is written as a string.
 
 ### What the store buys
@@ -99,8 +105,9 @@ the record were each weighed and given up for it. What went with them:
   `kb.ttl` and then `log.ttl`, and a crash between the two renames left them disagreeing; a hash, a
   shadow copy and a `torn` state existed only to notice that afterwards.
 - **No hand-edited or torn states.** Nothing outside jsk writes the store, so the states that
-  covered a file changed behind jsk's back - `hand-edited`, `torn`, `out-of-sync`, `unlogged` - and
-  the `jsk kb adopt` and `jsk kb fmt` commands that answered them are gone.
+  covered a file changed behind jsk's back - `hand-edited`, `torn`, `unlogged` - and the `jsk kb
+  adopt` and `jsk kb fmt` commands that answered them are gone. `out-of-sync` is left only for a
+  store something outside jsk wrote, restored from the backup.
 - **Queued writers.** Two sessions writing at once wait their turn instead of racing two renames.
 - **One gate.** No write can skip the rules, the log or the lock, because there is no other way in.
 

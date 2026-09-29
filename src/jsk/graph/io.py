@@ -33,7 +33,7 @@ class Parsed:
     quads: list        # pyoxigraph Quads, all in the default graph
     lines: dict        # subject iri -> the first line it starts, 1-based; {} when stored
     comments: list     # (line, text): hand comments the store would not keep
-    sha256: str = ""   # of the normalised text: what log.ttl recorded for kb.ttl
+    sha256: str = ""   # of the normalised text: what the import checks against the log
     text: str = ""     # the normalised text; "" for a graph out of the store
 
 

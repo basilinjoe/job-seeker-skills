@@ -134,7 +134,7 @@ ENUMS = {
     "credentialState": ("active", "expired", "lapsed"),
     "openSourceRole": ("maintainer", "contributor", "author"),
     "necessity": ("required", "preferred", "implicit"),
-    # gaps.ttl. A verdict's order is not its rank: match.RANK ranks the first four, and
+    # the assessment. A verdict's order is not its rank: match.RANK ranks the first four, and
     # `indeterminate` is about the record, not the candidate, so it ranks nowhere.
     "verdict": ("satisfied", "partial", "unevidenced", "unsatisfied", "indeterminate"),
     "fit": ("strong", "partial", "poor"),
@@ -152,7 +152,7 @@ ENUMS = {
 ANY = ("*",)
 
 CLASSES = (
-    # --- kb.ttl ------------------------------------------------------------------------
+    # --- kb: the career ------------------------------------------------------------
     Class("KB", "=kb", ("kb",), None, (
         (Pred("format", Lit(("integer",), lo=FORMAT, hi=FORMAT), "1", "the format revision"),
          Pred("name", STR, "1", "whose career this is"),
@@ -291,7 +291,7 @@ CLASSES = (
         (Pred("asked", DATE, "1", "when it was raised"),
          Pred("answered", DATE, "?", "when it was answered")),
     ), "the gap queue"),
-    # --- posting.ttl -------------------------------------------------------------------
+    # --- applications/<dir>/posting ---------------------------------------------------
     Class("Posting", "post", ("posting",), "Posting", (
         (Pred("company", STR, "1", "the employer advertising"),
          Pred("title", STR, "1", "the advertised title")),
@@ -310,7 +310,7 @@ CLASSES = (
                                           "lists alternatives")),
         (Pred("quote", TEXT, "1", "the advert's own words"),),
     ), "one thing a posting asks for"),
-    # --- application.ttl ---------------------------------------------------------------
+    # --- applications/<dir>/application -----------------------------------------------
     Class("Application", "app", ("application",), "Application", (
         (Pred("posting", Ref(("Posting",)), "1", "what it answered"),
          Pred("view", STR, "?", "\"resume\" for a short resume.json; a legacy record's "
@@ -332,7 +332,7 @@ CLASSES = (
          Pred("channel", STR, "?", "how"),
          Pred("due", DATE, "?", "a date somebody committed to")),
     ), "something that happened to an application"),
-    # --- gaps.ttl ----------------------------------------------------------------------
+    # --- applications/<dir>/gaps: the assessment ----------------------------------------
     # Written by code: the match, derived, with the analyst's gaps.txt folded in.
     Class("Assessment", "gap", ("gaps",), "Assessment", (
         (Pred("posting", Ref(("Posting",)), "1", "the posting assessed"),
@@ -354,7 +354,7 @@ CLASSES = (
         (Pred("basis", STR, "1", "why the match says what it says"),),
         (Pred("shortfall", STR, "?", "the analyst's reason for lowering it"),),
     ), "one requirement's verdict"),
-    # --- log.ttl -----------------------------------------------------------------------
+    # --- log: the career's history -----------------------------------------------------
     Class("LogEntry", "rev", ("log",), "Log", (
         (Pred("revision", Lit(("integer",), lo=1), "1", "counts up from 1"),
          Pred("date", DATE, "1", "the day"),
@@ -363,7 +363,7 @@ CLASSES = (
         (Pred("touched", Ref(ANY, may_dangle=True), "*", "ids changed"),),
         (Pred("minted", Ref(ANY, may_dangle=True), "*", "ids created"),),
         (Pred("answer", TEXT, "?", "the person's answer, for a confirm"),),
-        (Pred("kbSha256", SHA256, "1", "kb.ttl's hash after the change"),),
+        (Pred("kbSha256", SHA256, "1", "the career's hash after the change, as the writer lays it out"),),
     ), "one change to the career"),
 )
 
@@ -381,12 +381,13 @@ SECTIONS = {
     "gaps": ("Assessment", "Verdicts"),
     "log": ("Log",),
 }
-# kb.ttl prints every banner, empty or not: the structure is the contract.
+# The career prints every banner, empty or not: the structure is the contract.
 ALL_BANNERS = {"kb"}
 
 # The class each file kind holds exactly one of: what makes the file that kind of file.
 HEADS = {"kb": "KB", "posting": "Posting", "application": "Application", "gaps": "Assessment"}
 
+# The file names are the import's: a workspace from before the store (legacy.py).
 FILE_KINDS = {"kb.ttl": "kb", "log.ttl": "log", "posting.ttl": "posting",
               "application.ttl": "application", "gaps.ttl": "gaps",
               "vocabulary.ttl": "vocabulary",

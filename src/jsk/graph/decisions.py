@@ -1,5 +1,5 @@
 """decisions.txt - the analyst's choices about an advert, which `jsk posting build` turns into
-posting.ttl. The model writes only this; code writes the Turtle.
+posting graph. The model writes only this; code writes the triples.
 
     company: JumpCloud
     title: Staff Software Engineer, PAM / PWM - India

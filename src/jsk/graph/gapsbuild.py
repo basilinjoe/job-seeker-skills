@@ -67,7 +67,7 @@ def slots(text):
 
 def outcome(o, row, was, rows):
     """The one (severity, text, fix) gaps.txt row `o` gets against the match's `row`, or
-    None. `was` is the match's verdict when gaps.ttl was last written; `rows` names the
+    None. `was` is the match's verdict when the assessment was last written; `rows` names the
     requirements when `row` is None.
 
     One case per return, in the order of the 2026-09-28 review's Ruling 7. A chain of
@@ -106,7 +106,7 @@ def outcome(o, row, was, rows):
     if not o.reason:
         return ("FAIL", f"{where}: {o.slug} is lowered to {o.verdict} with no reason",
                 "say why, after a second `|` - it becomes the Shortfall")
-    # An implicit row has no j:matched, so gaps.ttl never recorded a `was` for it.
+    # An implicit row has no j:matched, so the assessment never recorded a `was` for it.
     if row.matched is not None and was is not None and raises(row.matched, was):
         return ("WARN", f"{where}: the match now says {row.matched}; you lowered it to "
                 f"{o.verdict} because {o.reason} - still true?",
@@ -117,7 +117,7 @@ def outcome(o, row, was, rows):
 
 def check(derived, overlay, text="", previous=None, reviewed=True):
     """(severity, text, fix) for each way gaps.txt leaves the match. `previous` is
-    {slug: the match's verdict when gaps.ttl was last written}: a row that lowered a verdict
+    {slug: the match's verdict when the assessment was last written}: a row that lowered a verdict
     the match has since moved is named, not failed, because the career moved, not the row.
     `reviewed` is False when there is no gaps.txt at all: a flagged row waits for the analyst
     then, and the derived assessment is still written - that is the path with no agent.
@@ -162,7 +162,7 @@ def fold(derived, overlay, previous=None):
 
 
 def triples(a, today):
-    """gaps.ttl's triples. Ids are derived: k:gap_<stem>, and k:vrd_<stem>_<slug> for
+    """The assessment graph's triples. Ids are derived: k:gap_<stem>, and k:vrd_<stem>_<slug> for
     k:req_<stem>_<slug> - never chosen, so a rebuild writes the same file."""
     import pyoxigraph as ox
 

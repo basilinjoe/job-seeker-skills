@@ -84,7 +84,7 @@ class Career:
 @dataclass
 class Employer:
     """One employer and kind of work, with the roles held there: what a resume shows as
-    one block. kb.ttl has no engagement - a role names its organisation and its kind -
+    one block. The career has no engagement - a role names its organisation and its kind -
     so this is where the block comes from."""
     org: str
     kind: str
