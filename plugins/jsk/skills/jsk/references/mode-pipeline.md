@@ -46,8 +46,8 @@ jsk event applications/<dir> screen-scheduled --date 2026-09-11 --channel email 
 - **`follow-up-sent` when they chase.** It does not move the stage but restarts the clock, so the
   board stops nagging about work already done.
 
-An application frozen as `application.md` belongs to a career not yet migrated: offer `jsk migrate`
-(`mode-setup.md`) first, which writes its `application.ttl`; then `jsk event` as above.
+An application frozen as `application.md` is from before `career/kb.ttl`. It is still frozen, and
+`jsk event` refuses it: its events are the `# Timeline` table in that file.
 
 ### The event vocabulary
 

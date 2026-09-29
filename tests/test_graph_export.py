@@ -260,7 +260,6 @@ class Removed(Workspace):
         self.assertEqual(code, 2)
         self.assertIn("--refresh", out)
         self.assertIn("builds from kb.ttl", out)
-        self.assertIn("jsk migrate", out)
         self.assertEqual(Path(path).read_text(encoding="utf-8"), '{"urs": "1.0.0"}')
 
 

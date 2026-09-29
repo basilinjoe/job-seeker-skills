@@ -22,7 +22,7 @@ RECORD_GATE = "jsk.gates.record"
 GOOD = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team", "ach_identity_sso"]}
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
-SUBCOMMANDS = ["doctor", "new", "match", "kb", "migrate", "validate", "render", "preview",
+SUBCOMMANDS = ["doctor", "new", "match", "kb", "validate", "render", "preview",
                "check", "gates", "fit", "ship", "freeze", "event", "posting", "tailor"]
 
 
@@ -83,14 +83,25 @@ class Usage(unittest.TestCase):
 
     def test_jsk_index_is_retired_and_says_what_replaced_it(self):
         """It read user-knowledgebase.md. The career is career/kb.ttl now: `jsk match`
-        ranks it against a posting, `jsk kb view` reads it, `jsk migrate` moves an old
-        file across. A bare "unknown command" would read as a broken install."""
+        ranks it against a posting, `jsk kb view` reads it. A bare "unknown command" would
+        read as a broken install."""
         code, out = run(JSK, "index", "user-knowledgebase.md")
         self.assertEqual(code, 2, out)
-        for pointer in ("jsk match", "jsk kb view", "jsk migrate"):
+        for pointer in ("jsk match", "jsk kb view"):
             self.assertIn(pointer, out)
         from jsk import cli
         self.assertNotIn("index", cli.SIMPLE)
+
+    def test_jsk_migrate_is_retired_and_says_what_replaced_it(self):
+        """It moved a user-knowledgebase.md to career/kb.ttl. The Markdown format is not
+        read any more: `jsk new` starts a record, `jsk kb export` writes a resume.json."""
+        code, out = run(JSK, "migrate", "user-knowledgebase.md")
+        self.assertEqual(code, 2, out)
+        self.assertIn("jsk migrate was retired", out)
+        for pointer in ("jsk new", "jsk kb export"):
+            self.assertIn(pointer, out)
+        from jsk import cli
+        self.assertNotIn("migrate", cli.SIMPLE)
 
     def test_unknown_subcommand_names_the_real_ones(self):
         code, out = run(JSK, "frobnicate")
@@ -164,9 +175,8 @@ class ValidateRouting(unittest.TestCase):
         code, out = run(JSK, "validate", kb)
         self.assertEqual(code, 2, out)
         self.assertIn("resume.json", out)
-        # It is not "prose that is not machine-checked" any more: it is an old career
-        # that `jsk migrate` moves to the record `jsk kb check` validates.
-        self.assertIn("jsk migrate", out)
+        # The career is the record `jsk kb check` validates, not a Markdown file.
+        self.assertNotIn("jsk migrate", out)
         self.assertIn("jsk kb check", out)
 
     def test_the_graph_record_is_refused_and_pointed_at_kb_check(self):
@@ -772,7 +782,7 @@ class PreviewInProcess(unittest.TestCase):
         code, out = self.preview(never)
         self.assertEqual(code, 2, out)
         self.assertEqual(out.count("full URS record"), 1, out)
-        self.assertIn("jsk migrate", out)
+        self.assertIn("jsk kb export", out)
         self.assertNotIn("FAILED", out)
         self.assertNotIn("template that does not build", out)
 

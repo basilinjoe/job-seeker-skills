@@ -45,13 +45,6 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         path.write_text("k:kb j:format 3 .", encoding="utf-8")
         return path
 
-    def make_markdown(self, parent, name="my-career"):
-        root = parent / name
-        root.mkdir(parents=True, exist_ok=True)
-        path = root / "user-knowledgebase.md"
-        path.write_text("# Career knowledge base", encoding="utf-8")
-        return path
-
     def test_finds_the_graph_record_by_name(self):
         path = self.make_kb(self.tmp)
         self.assertEqual(Path(preflight.find_kb(self.tmp)), path)
@@ -61,29 +54,21 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         (self.tmp / "notes" / "kb.ttl").write_text("", encoding="utf-8")
         self.assertIsNone(preflight.find_kb(self.tmp))
 
-    def test_a_markdown_knowledge_base_is_not_the_record(self):
-        """It is still found - to be pointed at `jsk migrate` - but never as the record."""
-        path = self.make_markdown(self.tmp)
-        self.assertIsNone(preflight.find_kb(self.tmp))
-        self.assertEqual(Path(preflight.find_markdown_kb(self.tmp)), path)
-
-    def test_a_migrated_workspace_is_its_graph_record(self):
-        self.make_markdown(self.tmp)
+    def test_a_workspace_folder_is_its_graph_record(self):
         path = self.make_kb(self.tmp)
-        self.assertEqual(preflight.resolve_kb(str(self.tmp / "my-career")),
-                         (str(path), None, None))
-        md = self.tmp / "my-career" / "user-knowledgebase.md"
-        self.assertEqual(preflight.resolve_kb(str(md)), (str(path), None, None))
+        self.assertEqual(preflight.resolve_kb(str(self.tmp / "my-career")), (str(path), None))
 
     def test_kb_names_only_a_career_record(self):
-        """`--kb pyproject.toml` reported "ok knowledge base", `--kb README.md` called it
-        a Markdown knowledge base not yet migrated, and a path that does not exist said
-        there was nothing to render from yet. Each is refused for what it is."""
+        """`--kb pyproject.toml` reported "ok knowledge base", and a path that does not
+        exist said there was nothing to render from yet. Each is refused for what it is -
+        an old user-knowledgebase.md too, which jsk no longer reads."""
         (self.tmp / "pyproject.toml").write_text("[project]", encoding="utf-8")
         (self.tmp / "README.md").write_text("# readme", encoding="utf-8")
+        (self.tmp / "user-knowledgebase.md").write_text("# Career", encoding="utf-8")
         (self.tmp / "empty").mkdir()
         for name, words in (("pyproject.toml", "is not a career record"),
                             ("README.md", "is not a career record"),
+                            ("user-knowledgebase.md", "is not a career record"),
                             ("nonexistent", "does not exist"),
                             ("empty", "not a career workspace")):
             with self.subTest(name=name):
@@ -102,15 +87,6 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
     def test_a_directory_with_no_knowledge_base_is_not_one(self):
         (self.tmp / "notacareer" / "projects").mkdir(parents=True)
         self.assertIsNone(preflight.find_kb(self.tmp))
-        self.assertIsNone(preflight.find_markdown_kb(self.tmp))
-
-    def test_a_differently_named_markdown_file_is_not_one(self):
-        """Every other .md in a career folder - a posting, a log, a draft - would
-        otherwise be reported as the knowledge base by whichever one os.walk saw
-        first."""
-        (self.tmp / "career").mkdir()
-        (self.tmp / "career" / "resume.md").write_text("draft", encoding="utf-8")
-        self.assertIsNone(preflight.find_markdown_kb(self.tmp))
 
     def test_dot_directories_are_not_searched(self):
         """`.jsk/kb.last.ttl` is a cache, and a .git folder holds old copies."""
@@ -121,34 +97,6 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         deep = self.tmp / "a" / "b" / "c" / "d"
         self.make_kb(deep)
         self.assertIsNone(preflight.find_kb(self.tmp))
-
-
-class AMarkdownKnowledgeBaseIsPointedAtMigrate(unittest.TestCase):
-    """A user-knowledgebase.md with no kb.ttl beside it is a gap, never a FAIL: the
-    render path starts at resume.json and still works, and blocking on it would hide
-    every other finding behind one migration."""
-
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.tmp = Path(self._tmp.name)
-        self.addCleanup(self._tmp.cleanup)
-        self.md = self.tmp / "user-knowledgebase.md"
-        self.md.write_text("# Career knowledge base", encoding="utf-8")
-
-    def test_it_is_a_gap_naming_migrate(self):
-        checks, found = preflight.gather(str(self.md))
-        kb = next(c for c in checks if c.name.startswith("knowledge base"))
-        self.assertFalse(kb.ok)
-        self.assertFalse(preflight.is_required(kb))
-        self.assertIn(f"jsk migrate {self.md}", kb.disables)
-        self.assertEqual(found, str(self.md))
-
-    def test_json_reports_it_apart_from_the_record(self):
-        code, out = run(PREFLIGHT, "--kb", self.md, "--json")
-        self.assertEqual(code, VERDICT, out)
-        payload = json.loads(out)
-        self.assertIsNone(payload["knowledge_base"])
-        self.assertEqual(Path(payload["markdown_knowledge_base"]), self.md)
 
 
 class GapsAreDescribedByWhatTheyCost(unittest.TestCase):

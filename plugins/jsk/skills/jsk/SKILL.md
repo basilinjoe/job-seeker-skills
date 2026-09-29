@@ -44,7 +44,7 @@ different things.
 
 | Mode | Trigger | Read |
 |---|---|---|
-| **setup** | no knowledge base, a Markdown one, or "set this up" | `references/mode-setup.md` |
+| **setup** | no knowledge base, or "set this up" | `references/mode-setup.md` |
 | **braindump** | telling you about their work; long unstructured messages | `references/mode-braindump.md` |
 | **resume** | "build my resume", "is this ATS-safe" | `references/mode-resume.md` |
 | **tailor** | a job description or URL; "customise for this role" | `references/mode-tailor.md` |
@@ -60,9 +60,7 @@ different things.
 2. **Find the knowledge base** — `jsk doctor`, or search for `career/kb.ttl`. Sessions share no
    state; never assume one exists. None → setup, unless they asked for something deliverable: deliver
    it first, then offer to capture it.
-3. **A `user-knowledgebase.md`** is the old Markdown format: offer `jsk migrate` (mode-setup.md);
-   never run it unasked.
-4. **`rules/writing-rules.md`, `ats-rules.md`, `structure-rules.md`** beside `career/` override
+3. **`rules/writing-rules.md`, `ats-rules.md`, `structure-rules.md`** beside `career/` override
    their defaults.
 
 ## Changing the career
@@ -84,7 +82,6 @@ has the format, for a changeset you are unsure of.
 |---|---|
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk new <path> --name "Name"` | an empty `career/kb.ttl`, `career/log.ttl` and `applications/` |
-| `jsk migrate <user-knowledgebase.md>` | a Markdown knowledge base to the graph, once |
 | `jsk kb apply\|confirm\|show\|view\|query\|check\|adopt\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
 | `jsk posting fetch <url> <app-dir>` | a job board's posting as `posting.md` |
 | `jsk match <posting.ttl>` | requirements matched through the vocabulary, ranked, questions |

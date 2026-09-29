@@ -46,19 +46,6 @@ If you already have a resume, point at it — it is the fastest possible startin
 Setup checks what your machine can do, offers to close any gaps, creates your knowledge base, then
 renders a real resume from it and checks it. It asks before installing anything.
 
-**Already have a `user-knowledgebase.md`** from an earlier version? Setup finds it, and `jsk doctor`
-names it as a gap. Move it across once:
-
-```bash
-jsk migrate ./my-career/user-knowledgebase.md --dry-run   # every file it would write, printed
-jsk migrate ./my-career/user-knowledgebase.md             # career/kb.ttl and log.ttl, at r1
-```
-
-It refuses unless the new record reads back as exactly what the Markdown held, and it deletes
-nothing - `user-knowledgebase.md`, `log.md` and every application stay where they are. Each
-unsent `resume.json` is shortened to the new format and put through the record gate against the new
-career, so you see at once anything it chose that the career does not back. `jsk migrate` is in this release only.
-
 ## 3. Answer the questions
 
 Setup interviews you. Ramble — unstructured is fine, and it is easier to structure your answers than

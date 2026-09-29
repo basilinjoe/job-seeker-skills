@@ -36,7 +36,6 @@ from .cliutil import docstring_usage, utf8_stdout, wants_help
 
 KB = "career/kb.ttl"
 LOG = "career/log.ttl"
-MARKDOWN_KB = "user-knowledgebase.md"
 
 # Both lines, whatever else the file already says. Turtle is text, and git's autocrlf
 # would otherwise hand a Windows checkout a kb.ttl whose bytes - and so whose hash - are
@@ -221,11 +220,6 @@ def scaffold(root, name, force=False, today=None):
         return 1, [f"REFUSED  already exists: {kb}",
                    "        fix: change it with `jsk kb apply`; or --force to start over from "
                    "the empty record (logged, the old one kept beside it as career/kb.r<N>.ttl)"]
-    markdown = os.path.join(root, MARKDOWN_KB)
-    if not exists and os.path.exists(markdown) and not force:
-        return 1, [f"REFUSED  {markdown} is here: this career is already written down",
-                   f"        fix: `jsk migrate {markdown}` moves it to {KB}, checked; "
-                   "--force starts an empty record beside it instead"]
     try:
         import pyoxigraph  # noqa: F401
         graph = True

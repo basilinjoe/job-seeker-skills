@@ -108,8 +108,7 @@ step. It refuses unless the mechanical gates pass and no application archive exi
 writes `application.ttl` — what was sent, the `resume.json` hash, the bullets that rendered (the
 plan's `sent`) and the metric versions they cite — and renames the directory to the submitted date.
 No copy of the content is written: the PDF, `.txt` and `.tex` beside it are the words sent. After that the directory is
-an archive: later events are added with `jsk event`, never edited. A workspace still on
-`user-knowledgebase.md` is refused until it migrates.
+an archive: later events are added with `jsk event`, never edited.
 
 Every subcommand runs **in process**. `cli.py` imports the module behind it and calls its `main()`
 with the same arguments, so the output and the exit code are the module's own and nothing is
@@ -122,7 +121,7 @@ reported failure instead of a traceback.
 
 | Module | Decides |
 |---|---|
-| `short.py` | the short file: `read` (refuses a legacy URS record, naming `jsk migrate`), `workspace` (by `kbcli.find_root`, never `dirname`), `shape` and `ids` - the FAIL lines the record gate and the builder share |
+| `short.py` | the short file: `read` (refuses a legacy URS record, naming `jsk kb export`), `workspace` (by `kbcli.find_root`, never `dirname`), `shape` and `ids` - the FAIL lines the record gate and the builder share |
 | `career.py` | reading the career graph: `Career`, employers and their roles by date, periods. Shared with export, select and match |
 | `build.py` | *what* the document says: `build(store, doc)` returns the plan; `from_path(path)` reads, checks and builds |
 
@@ -186,9 +185,8 @@ costs nothing on a machine without the engine and `jsk doctor` can report on it.
 | `view.py` · `timeline.py` | `jsk kb view`; `jsk freeze`'s application.ttl and `jsk event` |
 
 **Its boundaries.** A write to `career/kb.ttl` goes only through `record.prepare` and
-`record.commit`, after the would-be workspace validates. There are three callers:
-`kbcli.write_logged`, `jsk new` and `jsk migrate`. All three write r1 or the next revision, with
-a log entry.
+`record.commit`, after the would-be workspace validates. There are two callers:
+`kbcli.write_logged` and `jsk new`. Both write r1 or the next revision, with a log entry.
 
 Outward, the package reaches seven places beyond the shared helpers `cliutil` and `paths`:
 
@@ -278,13 +276,11 @@ docs/                               this directory - human-facing documentation
 src/jsk/                            THE CLI. one installed package, `jsk` on the command line
   __init__.py                       __version__
   __main__.py                       `python -m jsk`, the same entry point as `jsk`
-  cli.py                            the dispatcher: sixteen subcommands, each run in process
+  cli.py                            the dispatcher: fifteen subcommands, each run in process
   cliutil.py                        one contract for --help across the hand-rolled entry points
   paths.py                          where the packaged schema lives - stated once
   kb.py                             `jsk new` - scaffolds career/kb.ttl, log.ttl at r1, applications/
   posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
-  migrate.py                        `jsk migrate` - user-knowledgebase.md to the graph, once (until N+1)
-  kbindex.py                        the Markdown reader migrate uses; deleted in release N+1
   graph/                            the career record: see "Inside the graph package"
     ontology.py                     the format, as data     writer.py     the canonical layout
     io.py  store.py  record.py      parse, load and validate, kb.ttl and log.ttl in step
@@ -350,14 +346,13 @@ tests/                              unittest: one file per module, plus the mani
   fixtures.py                       the path setup, and helpers every suite shares
   careerkit.py                      a workspace per test: claims_fixtures, edited, with a short file
   graph_fixtures/                   a valid graph workspace: kb.ttl at r2, log.ttl, one application
-  kb2_template.md                   the Markdown template `jsk new` used to write, for migrate's tests
 ```
 
 **The code and the skill are two artefacts.** `src/jsk/` is a Python package installed from PyPI as
 `jsk-resume`; `plugins/jsk/` is markdown that calls `jsk`.
 
 **The package owns the career record; the skill writes changesets and short files.** Every write
-to `career/kb.ttl` goes through `jsk kb` (or `jsk new` and `jsk migrate`, which write r1), and every
+to `career/kb.ttl` goes through `jsk kb` (or `jsk new`, which writes r1), and every
 load validates it. The skill exports each `resume.json` from the career and edits its order,
 summary and settings, which is why the record gate runs before anything renders: it is the last
 point at which a mistake is still cheap.
@@ -401,7 +396,7 @@ directory named after what they have in common.
 | What the prose gate rejects | `src/jsk/gates/check_prose.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
 | What the layout gate rejects | `src/jsk/gates/layout.py` | `docs/SCRIPTS.md`, `tests/test_layout.py` |
 | What makes a `resume.json` fail | `src/jsk/gates/record.py`, `src/jsk/resume/short.py` (shape, ids) | `references/resume-format.md`, `tests/test_record_gate.py`, `tests/test_short.py` |
-| A key in `resume.json` | `short.KEYS` in `src/jsk/resume/short.py` | `references/resume-format.md`, `build.py`, `migrate.shorten`, `export.short_file` |
+| A key in `resume.json` | `short.KEYS` in `src/jsk/resume/short.py` | `references/resume-format.md`, `build.py`, `export.short_file` |
 | **What content is selected** | `src/jsk/resume/build.py` | never an emitter; `tests/test_build.py` |
 | **How a document looks** | `src/jsk/render/emit_*.py` | never `build.py` |
 | **A palette, typeface or rule** | `src/jsk/render/themes.py` | `references/templates.md`, `tests/test_themes.py` |
@@ -432,17 +427,18 @@ story:
 
    Version 4.0 replaced the `okf` command and its bundle format outright, with no compatibility shim:
    a shim over a per-noun write command would have to write into a file whose shape it cannot know.
-   The graph record retires one subcommand the same way, with a pointer rather than a shim:
-   `jsk index` read `user-knowledgebase.md` and now exits 2 naming `jsk match`, `jsk kb view` and
-   `jsk migrate`. The short file retired flags the same way: `--urs` and `--refresh` on `jsk kb
+   The graph record retires two subcommands the same way, with a pointer rather than a shim:
+   `jsk index` read `user-knowledgebase.md` and now exits 2 naming `jsk match` and `jsk kb view`;
+   `jsk migrate` moved that file to the graph and now says the Markdown knowledge base is no longer
+   read, naming `jsk new PATH --name NAME`. The short file retired flags the same way: `--urs` and `--refresh` on `jsk kb
    export` are usage errors naming what replaced them, and `--view` is gone from `render`, `ship`,
    `gates` and `freeze` - a `resume.json` is one resume.
 
 2. **The short file's shape and gate behaviour.** `resume.json` is `"resume": 2` and exactly the
    keys `references/resume-format.md` lists; an unknown key fails. It is **no longer the narrow
    waist** - the render plan is, and the plan is internal. The one break was deliberate: a legacy
-   URS record is read only by `jsk migrate`, which shortens it once in an unfrozen application; a
-   frozen application's record is the archive of what was sent and is never rendered again - its
+   URS record is refused everywhere, naming `jsk kb export` to write a short one; a frozen
+   application's record is the archive of what was sent and is never rendered again - its
    PDF is what was sent. A gate keeps failing on exactly what it fails on today.
 
 3. **The career record's format.** `career/kb.ttl` is the person's file, and it outlives any one
@@ -458,11 +454,7 @@ story:
 goes through `record.prepare`/`record.commit` after the would-be workspace validates, and the
 package never imports `render/` nor is imported by it. See "Inside the graph package" above.
 
-A Markdown knowledge base moves across with `jsk migrate`, once, round-trip checked, deleting
-nothing. **It exists for one release.** The next deletes `jsk migrate`, `kbindex.py`,
-`tests/test_kbindex.py` and the `[index]`/`[migrate]` extras; nothing outside migrate imports `kbindex` (the weights,
-`SENIORITY` and `experience` live in `graph/scoring.py`, and a test holds the graph package to
-that). A bundle from a version before 4.0 has one route: read it whole and build the record from it
+A bundle from a version before 4.0 has one route: read it whole and build the record from it
 with `jsk new` and changesets - and a changeset cannot confirm, so it carries `needs-verification` and
 `disputed` as the bundle held them and everything else arrives `inferred`; `jsk kb confirm <ids>
 --source <bundle file> --quote "…"` then raises what the bundle held confirmed, checking the quote
@@ -526,12 +518,9 @@ optional extra, imported at the point of use.
 
 ```bash
 pip install jsk-resume              # the graph record, the record gate, prose gate, .txt parse gate
-pip install 'jsk-resume[all]'       # + pymupdf, and the Markdown reader for jsk migrate
+pip install 'jsk-resume[all]'       # + pymupdf
 pip install -e '.[dev]'             # the above plus pytest, pytest-xdist, ruff
 ```
-
-The `migrate` extra (markdown-it-py, pyyaml; `index` is its alias) reads a `user-knowledgebase.md`
-for `jsk migrate`, and goes with it in release N+1.
 
 Two things are optional to install and required to ship:
 

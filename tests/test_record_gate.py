@@ -348,14 +348,14 @@ class Validate(GateCase):
         self.assertIn("career/kb.ttl", out)
         self.assertNotIn("Traceback", out)
 
-    def test_a_legacy_record_is_refused_with_migrate_as_the_fix(self):
-        # Nothing but `jsk migrate` reads a full URS record now (spec ruling 6).
+    def test_a_legacy_record_is_refused_with_export_as_the_fix(self):
+        # Nothing reads a full URS record now (spec ruling 6).
         _, path = self.workspace()
-        legacy = Path(__file__).parent / "migrate_fixtures" / "contoso-resume.urs.json"
+        legacy = Path(__file__).parent / "legacy_fixtures" / "contoso-resume.urs.json"
         Path(path).write_bytes(legacy.read_bytes())
         code, out = run_cli("validate", path)
         self.assertEqual(code, 2, out)
-        self.assertIn("jsk migrate", out)
+        self.assertIn("jsk kb export", out)
         self.assertNotIn("Traceback", out)
 
     def test_view_is_a_usage_error(self):

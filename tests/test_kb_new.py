@@ -176,18 +176,15 @@ class Refusals(Scaffold):
         self.assertIn("jsk kb apply", out)
         self.assertEqual({n: self.path(n).read_bytes() for n in (kb.KB, kb.LOG)}, before)
 
-    def test_a_markdown_career_is_pointed_at_migrate(self):
+    def test_an_old_markdown_career_is_left_alone(self):
+        """jsk no longer reads user-knowledgebase.md: `jsk new` starts the record beside
+        it, without --force, and never touches the old file."""
         self.path("user-knowledgebase.md").write_text("---\nkb: 2\n---\n", encoding="utf-8")
         code, out = self.new()
-        self.assertEqual(code, 1)
-        self.assertIn("jsk migrate", out)
-        self.assertFalse(self.path(kb.KB).exists())
-
-    def test_force_starts_an_empty_record_beside_a_markdown_one(self):
-        self.path("user-knowledgebase.md").write_text("---\nkb: 2\n---\n", encoding="utf-8")
-        code, out = self.new("--force")
         self.assertEqual(code, 0, out)
-        self.assertTrue(self.path("user-knowledgebase.md").exists())
+        self.assertTrue(self.path(kb.KB).exists())
+        self.assertEqual(self.path("user-knowledgebase.md").read_text(encoding="utf-8"),
+                         "---\nkb: 2\n---\n")
 
 
 class Force(Scaffold):

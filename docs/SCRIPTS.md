@@ -15,7 +15,6 @@ reads it back, `jsk match` ranks it against a posting, `jsk freeze` and `jsk eve
 was sent and what came back. A resume is built from it and a short `resume.json` - the bullets
 chosen for one posting, by id, and its settings - which `jsk kb export` writes and `jsk validate`
 checks against the career. The rendering half carries that to a document somebody can send.
-**Only `jsk migrate` reads a `user-knowledgebase.md`** - once, to move it across.
 
 ## The whole surface
 
@@ -26,7 +25,6 @@ jsk kb apply changes.trig        # change the graph record; `jsk kb --help` list
 jsk posting fetch <url> applications/<dir>   # an Ashby, Greenhouse or Lever posting, as posting.md
 jsk match applications/<dir>/posting.ttl   # a posting against the career, through the vocabulary
 jsk tailor prepare applications/<dir> --draft-gaps   # the match and everything an assessment reads
-jsk migrate user-knowledgebase.md   # the Markdown knowledge base to career/kb.ttl, once
 jsk validate resume.json         # the record gate
 jsk kb export --from-match applications/<dir>/posting.ttl --out applications/<dir>/resume.json
 jsk render resume.json --out . --pdf
@@ -88,13 +86,6 @@ filename rather than by a directory shape is deliberate — a bundle used to be 
 folders inside it, so a half-created one was invisible here and reported as absent while the person
 was looking straight at it.
 
-With no graph record but a `user-knowledgebase.md`, the knowledge-base line is a **gap**, not a
-FAIL: `knowledge base at …/user-knowledgebase.md (Markdown, not migrated)`, naming
-`jsk migrate <path>`. Nothing renders from that workspace until it migrates - a resume is built
-from `career/kb.ttl` - but blocking on the migration would hide every other finding behind it. `--json` reports the two
-apart: `knowledge_base` is the graph record or `null`, `markdown_knowledge_base` the Markdown
-file or `null`.
-
 ### `jsk new`
 
 The `jsk.kb` module.
@@ -126,10 +117,7 @@ is fixed text, written byte for byte as the writer would, so a sandbox that cann
 start and draft changesets for later. `--force`, and every `jsk kb` verb, need pyoxigraph, a
 dependency of the package.
 
-It refuses (exit 1, nothing written) when `career/kb.ttl` exists, or when a `user-knowledgebase.md`
-is in the folder and no `career/kb.ttl` is - that career is already written down, and
-`jsk migrate` moves it across checked; `jsk new` would leave it behind, and migrate refuses once a
-kb.ttl exists. `--force` overrides both. Over an existing record it starts over **as the next
+It refuses (exit 1, nothing written) when `career/kb.ttl` exists. `--force` overrides that. Over an existing record it starts over **as the next
 revision** - kb.ttl becomes the empty record, `log.ttl` keeps every earlier entry and gains one by
 `new`, and the replaced kb.ttl is kept beside it as `career/kb.r<N>.ttl`, N its revision (then
 `kb.r<N>-2.ttl` if that name is taken - it never overwrites a file; the loader and `jsk doctor` read
@@ -496,69 +484,10 @@ version holds is in `kb.ttl`, not in anything authored, so it is a question for 
 answered in the career before any word is retuned.
 
 `--urs` and `--refresh` are gone with the full record, each a usage error saying so: the short file
-is the one format, and it holds nothing to refresh. A full URS record from before is converted
-once with `jsk migrate`.
+is the one format, and it holds nothing to refresh. A full URS record from before is not converted:
+export a short one in its place.
 
 Exit 0 written; 1 refused, with every reason; 2 called wrong.
-
-### `jsk migrate`
-
-The `jsk.migrate` module. Moves a Markdown knowledge base to the graph record, once.
-
-```bash
-jsk migrate ./my-career/user-knowledgebase.md --dry-run   # every file it would write, printed
-jsk migrate ./my-career/user-knowledgebase.md             # written, logged as r1
-```
-
-The workspace is the folder holding `user-knowledgebase.md`. It writes `career/kb.ttl` and
-`career/log.ttl` there - kb.ttl at `j:revision 1`, log.ttl's `k:rev_1` (`j:by j:migrate`) holding
-its hash and `log.md`'s whole history as its note - so `jsk kb` reads the record as clean. Each
-`applications/<dir>/` gets `posting.ttl` (the requirements, each with a `j:quote` of the advert's
-words), `posting.md` rewritten as the advert alone, and `application.ttl` when `application.md`
-exists: its frontmatter, its `# Timeline` rows as events, and `j:carried` links to the bullets its
-`resume.json` sent. The old `posting.md` is kept whole as `posting.orig.md`. **Nothing is
-deleted**: `user-knowledgebase.md`, `log.md`, `application.md`, `gaps.md` and `resume.json` stay.
-
-Ids follow the ontology: `proj_` becomes `prj_`, `role_` `pos_`, `metric_` `met_`; a metric
-becomes a `Metric` and its `.v1`. Enums take URS's values (`self-reported` is `reported`,
-`work-visa` `employment-visa`), and the overloaded `status` splits into `j:provenance`,
-`j:authorization` (work rights) and `j:credentialState` (certifications). A bullet takes the id a
-`resume.json` already gave the same words, so the applications' links still join; otherwise one
-is minted from its project and its words. An entry with no `status` is `j:inferred` - a migration
-never raises a provenance. A value the ontology has no field for is kept as a `j:note` on its entry
-and named in the output; an unknown section is kept word for word as a note on `k:kb`.
-
-It refuses, writing nothing, when `career/kb.ttl` exists; when the file is not in the Markdown
-format's shape (the old reader, `jsk.kbindex`, decides); when a required value is missing (a role
-with no organisation, a metric whose value is not a number); when the new workspace would have a FAIL; or
-when the round trip fails - the graph, written and parsed back, must read as exactly the entries
-read from the Markdown, and the old reader's own view of the projects, roles, years of experience,
-metrics and questions must match the same view of the graph. After writing it shortens each
-unfrozen application's `resume.json`, as the second form below does, and runs the record gate over
-each. Needs markdown-it-py and pyyaml (the `migrate` extra).
-
-Exit 0 migrated (or would be); 1 refused, with every reason; 2 called wrong.
-
-```bash
-jsk migrate ./my-career --dry-run            # a graph workspace: what it would shorten
-jsk migrate ./my-career                      # each unfrozen full record, shortened in place
-jsk migrate applications/<dir>/resume.json --view view_acme   # one, naming the view to carry
-```
-
-The second form is for a workspace already on the graph whose applications still hold a full URS
-record (a `"urs"` key) from before the short file. Each `applications/<dir>/resume.json` in an
-application with no `application.ttl` is shortened in place - its view's bullets in include order,
-skills, format, region, page budgets, floor and authored summary - and the full record is kept
-beside it as `resume.urs.json` (an existing one refuses: it may be the only copy). Then each short
-file is checked with the record gate. A frozen application's record is the archive of what was
-sent and is left as it is; nothing reads it again. `--view` chooses the view of a record holding
-several. A legacy `resume.json` at the workspace root is not converted - export a new one. Exit 0
-every record shortened and checked clean, 1 one was refused or fails, 2 no workspace or called
-wrongly.
-
-**`jsk migrate` is for one release.** The release after this one deletes it, with the Markdown
-reader (`jsk/kbindex.py`) and the `migrate` and `index` extras. Migrate before upgrading past it; a
-`user-knowledgebase.md` left after that stays readable by a person and by nothing in `jsk`.
 
 ### `jsk validate`
 
@@ -573,7 +502,7 @@ jsk validate resume.json --max-findings 0    # print every one
 The **record gate**: a short `resume.json` and the career bullets it selects, before anything
 renders. It finds the workspace from the file (`kbcli.find_root`, so a workspace named `career`
 works) and loads it; a file outside any workspace is exit 2 naming `career/kb.ttl`, and a legacy
-URS record (`"urs"` key) is exit 2 naming `jsk migrate`.
+URS record (`"urs"` key) is exit 2 naming `jsk kb export`, which writes a short one.
 
 | Check | Severity |
 |---|---|
@@ -947,9 +876,6 @@ one - and `jsk kb query stale` names every application that sent the old. The fi
 with the whole workspace before anything is renamed or written, and is written canonically. It
 is not logged in `log.ttl`, and `kb.ttl` is never touched.
 
-**A workspace still on `user-knowledgebase.md`** is refused, exit 1: `jsk migrate` it first,
-which also turns any `application.md` it froze into an `application.ttl`.
-
 The documents are the `--doc` files, or every `.pdf` and `.txt` in the
 directory. The final path is printed.
 
@@ -990,7 +916,7 @@ wrong weekday; a `--date` after today is a WARN. `--today` fixes the day, for te
 
 Add-only: it never edits or removes an event. A second event of the same kind on the same day -
 another note, a round-2 `interview-done`, a second `unknown`-dated contact - is minted
-`k:evt_<stem>_<date>_<kind>_2`, then `_3`, as `jsk migrate` mints a timeline's repeats; only an
+`k:evt_<stem>_<date>_<kind>_2`, then `_3`; only an
 event identical to one already there (same kind, date, channel, note and due) is refused. The whole workspace is loaded with the
 event in it and validated before the file is replaced; a file with hand comments, or not in the
 canonical layout, is refused until `jsk kb fmt <file>`, so the event is the only change in its
@@ -1005,13 +931,16 @@ Exit 0 added, 1 refused, 2 called wrong.
 
 **`jsk index`** read `user-knowledgebase.md`: an overview with line ranges, and `--rank` against
 a posting's frontmatter. The career is `career/kb.ttl` now - `jsk match` ranks it against a
-`posting.ttl`, `jsk kb view` and `jsk kb show` read it - and `jsk index` says so and exits 2. Its
-module, `jsk.kbindex`, stays one release because `jsk migrate` reads the Markdown with it.
+`posting.ttl`, `jsk kb view` and `jsk kb show` read it - and `jsk index` says so and exits 2.
+
+**`jsk migrate`** moved a `user-knowledgebase.md` to `career/kb.ttl`, once. The Markdown knowledge
+base is no longer read: `jsk migrate` says so, naming `jsk new PATH --name NAME` to start a
+`career/kb.ttl`. A frozen `application.md` is still honoured as frozen.
 
 **The URS record** - the full `resume.json` copied out of the career, with its views, its 11KB
 specification and its claims gate - left on 2026-09-25. The short file names what one resume
-shows and the career supplies the rest; `jsk migrate` converts an unfrozen application's full
-record once, and a frozen one is the archive of what was sent. `--view` went from `render`,
+shows and the career supplies the rest; a full record is refused, naming `jsk kb export` to write
+a short one, and a frozen application keeps its own as the archive of what was sent. `--view` went from `render`,
 `preview`, `gates`, `ship` and `freeze`, and `--urs` and `--refresh` from `jsk kb export`.
 
 The `okf` commands left with the bundle format, in 4.0. The graph record brings back a write path -

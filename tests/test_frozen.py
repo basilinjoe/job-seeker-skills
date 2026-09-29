@@ -68,6 +68,22 @@ class Frozen(unittest.TestCase):
         self.assertTrue(timeline.frozen(self.app))
         self.assertIsNone(timeline.sent_day(self.app))
 
+    def test_an_application_md_is_read_as_a_person_saved_it(self):
+        """Only its `submitted:` line is read, with no YAML parser: a BOM, CRLF, a quoted
+        date and the lines around it must not hide it."""
+        for text in ("﻿---\r\ntitle: \"Acme: Platform\"\r\nsubmitted: 2026-04-02\r\n---\r\n",
+                     "---\ntype: Application\nsubmitted: \"2026-04-02\"  # sent\n---\n# Timeline\n"):
+            with self.subTest(text=text):
+                (self.app / "application.md").write_bytes(text.encode("utf-8"))
+                self.assertEqual(timeline.sent_day(self.app), "2026-04-02")
+
+    def test_an_application_md_that_never_closes_refuses(self):
+        (self.app / "application.md").write_text("---\nsubmitted: 2026-04-02\n",
+                                                 encoding="utf-8")
+        with self.assertRaises(timeline.Frozen) as cm:
+            timeline.write_app_file(self.app, "gaps.ttl", "rebuilt\n")
+        self.assertIn("whether it was sent is unknown", str(cm.exception))
+
     def test_an_application_ttl_that_does_not_parse_refuses(self):
         (self.app / "application.ttl").write_text("not turtle", encoding="utf-8")
         with self.assertRaises(timeline.Frozen) as cm:

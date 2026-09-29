@@ -140,13 +140,13 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.assertIn("a resume.json is one resume", out)
         self.assertEqual(list(self.tmp.glob("*")), [])
 
-    def test_a_legacy_record_is_refused_with_migrate_as_the_fix(self):
+    def test_a_legacy_record_is_refused_with_export_as_the_fix(self):
         root, path = careerkit.workspace(self.tmp / "ws")
-        legacy = Path(__file__).parent / "migrate_fixtures" / "contoso-resume.urs.json"
+        legacy = Path(__file__).parent / "legacy_fixtures" / "contoso-resume.urs.json"
         Path(path).write_bytes(legacy.read_bytes())
         code, out = run(RENDER_RESUME, path, "--out", self.tmp / "out")
         self.assertEqual(code, 2, out)
-        self.assertIn("jsk migrate", out)
+        self.assertIn("jsk kb export", out)
         self.assertNotIn("Traceback", out)
 
     def test_a_posting_that_is_not_utf8_names_the_file_with_no_company(self):

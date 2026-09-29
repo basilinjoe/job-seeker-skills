@@ -582,14 +582,14 @@ class FreezeRefuses(GraphCase):
         self.assertIn("never frozen", out)
         self.assertUntouched()
 
-    def test_a_legacy_record_is_never_frozen_and_is_pointed_at_migrate(self):
-        """Nothing but `jsk migrate` reads a full URS record now; an unfrozen one is
-        converted once, and a frozen one is the archive and never rendered again."""
-        legacy = Path(__file__).parent / "migrate_fixtures" / "contoso-resume.urs.json"
+    def test_a_legacy_record_is_never_frozen_and_is_pointed_at_export(self):
+        """Nothing reads a full URS record now; an unfrozen one is written again with
+        `jsk kb export`, and a frozen one is the archive and never rendered again."""
+        legacy = Path(__file__).parent / "legacy_fixtures" / "contoso-resume.urs.json"
         (self.app / "resume.json").write_bytes(legacy.read_bytes())
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
-        self.assertIn("jsk migrate", out)
+        self.assertIn("jsk kb export", out)
         self.assertUntouched()
 
     def test_a_view_is_a_usage_error_naming_one_resume(self):
@@ -694,20 +694,19 @@ class FreezeLetters(GraphCase):
 
 
 class FreezeMarkdownWorkspace(GraphCase):
-    """Only `jsk migrate` reads a user-knowledgebase.md. freeze wrote an application.md
-    for a workspace still on one; it refuses and says to migrate first."""
+    """freeze once wrote an application.md for a workspace still on user-knowledgebase.md.
+    jsk no longer reads that file: with no career/kb.ttl beside it, nothing is frozen."""
 
     def setUp(self):
         super().setUp()
         (self.root / "career" / "kb.ttl").unlink()
-        self.markdown = self.root / "user-knowledgebase.md"
-        self.markdown.write_text("# KB\n", encoding="utf-8")
+        (self.root / "user-knowledgebase.md").write_text("# KB\n", encoding="utf-8")
 
-    def test_it_is_refused_and_pointed_at_migrate(self):
+    def test_it_is_refused_for_want_of_the_record(self):
         code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn(f"jsk migrate {self.markdown}", out)
-        self.assertNotIn("log.md", out)
+        self.assertEqual(code, 2, out)
+        self.assertIn("no career/kb.ttl", out)
+        self.assertNotIn("jsk migrate", out)
         self.assertTrue(self.app.exists())
         self.assertFalse(self.sent.exists())
         self.assertEqual(sorted(p.name for p in self.app.iterdir()
@@ -841,7 +840,7 @@ class Event(GraphCase):
 
     def test_a_second_event_of_a_kind_on_a_day_gets_the_next_suffix(self):
         """Two notes, two interview rounds, on one day: each is recorded, minted `_2`,
-        `_3` as `jsk migrate` mints a timeline's repeats."""
+        then `_3`."""
         stem = "evt_contoso_platform_2026_09_26"
         for n, (kind, note, want) in enumerate([
                 ("note", "Recruiter called", f"{stem}_note"),

@@ -19,7 +19,6 @@ has to remember every name to get started.
     jsk match POSTING.ttl       a posting against the graph record, through the vocabulary
     jsk tailor prepare APP      the match and everything an assessment reads, in one digest
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
-    jsk migrate KB.md           user-knowledgebase.md to career/kb.ttl, once, round-trip checked
     jsk validate RESUME.json    the record gate, before anything renders
     jsk render RESUME [...]     one resume.json to a PDF and plain text
     jsk preview RESUME --out D  the same resume in every template, to pick a look
@@ -38,10 +37,8 @@ The career is the graph record, career/kb.ttl: changed through `jsk kb apply`, r
 application's short resume.json - the bullets chosen, as ids - out of it, every render
 builds from the career and that file, and `jsk validate` checks the file and the bullets it
 selects before anything renders - the last point at which a mistake is still cheap.
-Only `jsk migrate` reads a user-knowledgebase.md, once, and it writes nothing into it.
 
-pyoxigraph for the graph record, pymupdf to read a PDF, and markdown-it-py with pyyaml
-for `jsk migrate`.
+pyoxigraph for the graph record, and pymupdf to read a PDF.
 """
 
 import contextlib
@@ -70,7 +67,6 @@ SIMPLE = {
     "match": "match.py",
     "tailor": "prepare.py",
     "kb": "kbcli.py",
-    "migrate": "migrate.py",
     "event": "timeline.py",
     "render": "render_resume.py",
     "preview": "preview_templates.py",
@@ -212,9 +208,8 @@ def record_refusal(target):
                 "      frozen document is meant to be read, not re-checked."]
     if target.endswith(".md"):
         return [f"FAIL  cannot validate: {target}",
-                "fix:  a user-knowledgebase.md is an old career: `jsk migrate` moves it to",
-                "      career/kb.ttl, which `jsk kb check` validates. This gate reads an",
-                "      application's choice from the career - pass resume.json"]
+                "fix:  the career is career/kb.ttl, which `jsk kb check` validates. This",
+                "      gate reads an application's choice from the career - pass resume.json"]
     if target.endswith(".ttl"):
         return [f"FAIL  cannot validate: {target}",
                 "fix:  the graph record is validated on every load - `jsk kb check`",
@@ -743,7 +738,7 @@ def cmd_ship(args):
     Every step is an existing function: the record gate is what `jsk validate`
     runs, the render is render_resume.py's main(), and the gates are gate_results(),
     so none of their verdicts is restated here. A legacy URS record is turned away by
-    the record gate itself, with `jsk migrate` as the fix, before anything renders.
+    the record gate itself, with `jsk kb export` as the fix, before anything renders.
     """
     if wants_help(args):
         print(SHIP_USAGE)
@@ -834,10 +829,7 @@ def cmd_ship(args):
 # whenever the third is already true or the documents would not survive their gates.
 #
 # It writes application.ttl - what was sent, and the bullets and metric versions it
-# carried - and later events go in with `jsk event`. A workspace whose career is still
-# user-knowledgebase.md is refused and pointed at `jsk migrate`: only migrate reads the
-# Markdown, and an application.md written here would be an archive in a format nothing
-# else reads, of a career no gate could check it against.
+# carried - and later events go in with `jsk event`.
 FREEZE_USAGE = ("usage: jsk freeze <app-dir> --submitted YYYY-MM-DD|false "
                 "--channel TEXT [--doc FILE ...]")
 
@@ -845,7 +837,6 @@ APPLICATION = "application.md"
 APPLICATION_TTL = "application.ttl"
 WORKING_FILES = ("gaps.txt", "decisions.txt")
 POSTING_TTL = "posting.ttl"
-KNOWLEDGE_BASE = "user-knowledgebase.md"
 GRAPH_KB = os.path.join("career", "kb.ttl")
 DATED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 
@@ -890,13 +881,6 @@ def cmd_freeze(args):
     apps = os.path.dirname(os.path.abspath(app_dir))
     workspace = os.path.dirname(apps)
     if not os.path.isfile(os.path.join(workspace, GRAPH_KB)):
-        markdown = os.path.join(workspace, KNOWLEDGE_BASE)
-        if os.path.isfile(markdown):
-            # Refused rather than frozen as Markdown: only `jsk migrate` reads a
-            # user-knowledgebase.md, and it moves every application.md across with it.
-            return freeze_refusal(
-                f"the career beside {apps} is still {KNOWLEDGE_BASE}, not career/kb.ttl.",
-                f"Run `jsk migrate {markdown}` first; nothing was renamed or written.")
         print(f"no career/kb.ttl beside {apps}")
         print("fix:  move the directory into the applications/ folder next to career/")
         return 2
@@ -920,8 +904,8 @@ def cmd_freeze(args):
         print("fix:  --channel \"Workday portal\"   - where it was sent")
         return 2
 
-    # An application.md is one frozen before the career moved to kb.ttl - `jsk migrate`
-    # writes an application.ttl beside each - and is as frozen as an application.ttl.
+    # An application.md is one frozen before the career moved to kb.ttl, and is as
+    # frozen as an application.ttl.
     for name, later in ((APPLICATION_TTL, "Later events are `jsk event`, one each."),
                         (APPLICATION, "It was frozen as Markdown before the career moved "
                                       "to career/kb.ttl.")):
@@ -945,7 +929,7 @@ def cmd_freeze(args):
                               "application.ttl records its hash, and its gate has to pass.")
     # What was sent is what the builder renders from the short file now, over the career
     # as it stands - the same build the PDF beside it came from. A legacy URS record is
-    # refused here with `jsk migrate` as the fix (short.read).
+    # refused here with `jsk kb export` as the fix (short.read).
     from .resume import build, short                 # noqa: PLC0415 - only when asked
     try:
         plan, _ = build.from_path(record)
@@ -1070,13 +1054,15 @@ def cmd_freeze(args):
 
 # Subcommands that went, with what replaced them. Said by name rather than as an unknown
 # command: a shell history or an old mode file still holds them, and "unknown command"
-# reads as a broken install. kbindex.py stays one more release because `jsk migrate`
-# reads the Markdown with it; release N+1 deletes both.
+# reads as a broken install.
 RETIRED = {
     "index": "it read user-knowledgebase.md, and the career is career/kb.ttl now.\n"
              "fix:  `jsk match applications/<dir>/posting.ttl` ranks the career against a "
-             "posting;\n      `jsk kb view` reads it; `jsk migrate user-knowledgebase.md` "
-             "moves an old file across, once",
+             "posting;\n      `jsk kb view` reads it",
+    "migrate": "it moved a user-knowledgebase.md to career/kb.ttl, and jsk no longer reads "
+               "the Markdown format.\n"
+               "fix:  `jsk new PATH --name NAME` starts a career/kb.ttl; `jsk kb export` "
+               "writes an application's short resume.json",
 }
 
 

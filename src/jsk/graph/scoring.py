@@ -1,10 +1,5 @@
 """The numbers `jsk match` ranks by and `jsk kb query experience` adds up.
 
-They lived in kbindex.py, the Markdown reader, because `jsk index` computed them first.
-The graph kept using them after `jsk index` was retired, which left the career's ranking
-importing a module that release N+1 deletes with `jsk migrate`. They are here now, and
-kbindex imports them from here for as long as it exists.
-
 Standard library only, like ontology.py: importing this must not import pyoxigraph.
 """
 import re

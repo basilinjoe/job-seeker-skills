@@ -1,11 +1,11 @@
 # Mode: setup
 
 Get this machine from nothing to a working, verified pipeline, with a knowledge base created from
-nothing, from an existing resume, or from an older Markdown one. Four phases, in order; **do not
+nothing or from an existing resume. Four phases, in order; **do not
 skip phase 1**.
 
 `$ARGUMENTS` may hold a path: a `.docx`, `.pdf` or `.md` resume is a document to import in phase 3;
-a `user-knowledgebase.md` is a knowledge base to migrate; a directory is where the workspace goes.
+a directory is where the workspace goes.
 Empty → ask.
 
 ## Phase 1: Find out what works
@@ -78,27 +78,6 @@ it. Show them the diff, then `jsk kb apply` it. It lands `inferred`; then run th
 agent proposed for what the document states — `jsk kb confirm <ids> --source <file> --quote "its
 exact words"`, each number in the quote — and ask about every clause it quoted as its own. No
 agents? Do the same inline (`references/kb-format.md` has the shapes).
-
-### If they have a `user-knowledgebase.md`
-
-The Markdown format this replaced. Offer the migration; never run it unasked.
-
-```bash
-jsk migrate <path>/user-knowledgebase.md --dry-run
-jsk migrate <path>/user-knowledgebase.md
-```
-
-It writes `career/kb.ttl` and `career/log.ttl` beside it, and `posting.ttl` and `application.ttl` in
-each application directory, and refuses unless the graph reads back as exactly what the Markdown
-held. **It never deletes anything** and never raises a provenance. Show them its output — what it
-kept as notes, and any record-gate failures in the `resume.json` files it shortened. Then `jsk kb
-view` is their career, read end to end; keep the Markdown until they confirm it is complete.
-A migrated career's capabilities carry no labels (`concepts-bare`): offer `jsk kb pack capabilities
---out pack.trig`, shown with `jsk kb apply --dry-run` and applied only if they agree with it.
-
-A graph workspace whose unfrozen `applications/*/resume.json` still hold a full URS record (an
-`"urs"` key): `jsk migrate <workspace>` shortens each in place, once, keeping the old one as
-`resume.urs.json`. A frozen application's record is the archive of what was sent and stays as it is.
 
 An older **bundle** (`projects/` and `resume-generation/`) has no migration command: read it whole
 and build the record from it like a resume — `jsk new`, then `jsk-extractor` per bundle file, each

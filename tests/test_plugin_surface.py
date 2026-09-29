@@ -297,13 +297,12 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
     def plugin_texts(self):
         return {p.name: p.read_text(encoding="utf-8") for p in sorted(PLUGIN.rglob("*.md"))}
 
-    def test_nothing_names_the_markdown_knowledge_base_except_its_migration(self):
-        allowed = {"SKILL.md", "mode-setup.md", "setup.md"}
+    def test_nothing_names_the_markdown_knowledge_base(self):
+        """jsk no longer reads it, and `jsk migrate` went with it."""
         for name, text in self.plugin_texts().items():
-            if name in allowed:
-                continue
             with self.subTest(file=name):
                 self.assertNotIn("user-knowledgebase.md", text)
+                self.assertNotIn("jsk migrate", text)
 
     def test_no_file_names_the_index_command(self):
         """`jsk index` leaves with the Markdown reader; `jsk match` replaced it."""
@@ -486,10 +485,8 @@ class DocumentedSurface(unittest.TestCase):
         """A short resume.json is one resume, so `--view` left render, preview, gates,
         ship and freeze. An example still passing it is a usage error copied into a
         shell by whoever trusts the page."""
-        # legacy-kb-spec.md is the Markdown era's format, kept as it was; nothing runs it.
         texts = {p.relative_to(REPO).as_posix(): p.read_text(encoding="utf-8")
-                 for p in [*PLUGIN.rglob("*.md"), REPO / "README.md", *(REPO / "docs").glob("*.md")]
-                 if p.name != "legacy-kb-spec.md"}
+                 for p in [*PLUGIN.rglob("*.md"), REPO / "README.md", *(REPO / "docs").glob("*.md")]}
         for path, text in texts.items():
             for line in text.splitlines():
                 if re.search(r"jsk (ship|render|preview|gates|freeze)\b.*--view", line):

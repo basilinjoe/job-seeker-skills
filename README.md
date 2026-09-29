@@ -60,9 +60,6 @@ Already have a resume? Point at it — it is the fastest starting point availabl
 /jsk:setup ./old-resume.docx
 ```
 
-Already have a `user-knowledgebase.md` from an earlier version? `jsk migrate` moves it to
-`career/kb.ttl` once, checks the round trip, and deletes nothing. It is in this release only.
-
 Works in Claude Code and Claude Cowork. Full instructions, including manual install, in the
 [Quickstart](docs/QUICKSTART.md).
 

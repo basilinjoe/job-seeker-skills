@@ -46,5 +46,5 @@ Export never writes over an existing file: edit it. `jsk validate` is the record
 the shape, an id the career does not hold or has retired, a bullet whose project has no role, a
 number in a bullet that no current version of a metric it cites holds, and a career that does not
 validate or that `log.ttl` does not vouch for (`jsk kb adopt`); it warns of labels, "N years of X"
-and brackets. A full URS record (`"urs"` key) from before is converted once: `jsk migrate <workspace>` for
-every application's, `jsk migrate <resume.json>` for one anywhere else.
+and brackets. A full URS record (`"urs"` key) from before is refused: write a short one with `jsk kb export`. A
+frozen application keeps its old file as the archive of what was sent.

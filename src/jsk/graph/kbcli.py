@@ -101,7 +101,7 @@ GUIDE = {
     "hand-edited": (None, "run `jsk kb adopt` first, so the hand edit is logged as one"),
     "torn": (None, "run `jsk kb adopt`: it logs the write that did not reach log.ttl"),
     "out-of-sync": (None, "restore the file that went back on its own, or `jsk kb adopt`"),
-    "missing": ("there is no career/kb.ttl", "run `jsk migrate` or `jsk new`"),
+    "missing": ("there is no career/kb.ttl", "run `jsk new`"),
     "unreadable": ("career/kb.ttl or career/log.ttl does not parse", "`jsk kb check` shows where"),
 }
 
@@ -973,8 +973,7 @@ def cmd_export(args, flags, root):
                      "there is - drop --urs")
     if "--refresh" in flags:
         return usage("--refresh is gone: a short resume.json holds ids, and every render "
-                     "builds from kb.ttl as it stands, so there is nothing to refresh. A full "
-                     "URS record is converted once with `jsk migrate`")
+                     "builds from kb.ttl as it stands, so there is nothing to refresh")
     out, posting, cover_text, today_text = (flags.get(f) for f in
                                             ("--out", "--from-match", "--cover", "--today"))
     by_rank = "--ranked" in flags

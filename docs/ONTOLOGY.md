@@ -117,7 +117,7 @@ name, and every class declares which kinds it may appear in (`id-home`).
 
 | Kind | Head class (exactly one) | Sections, in written order | Written by |
 |---|---|---|---|
-| `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `jsk kb apply`, `confirm`, `adopt`, `fmt`, `new`, `migrate`. Hand edits are legal and get adopted. |
+| `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `jsk kb apply`, `confirm`, `adopt`, `fmt`, `new`. Hand edits are legal and get adopted. |
 | `log` | none | Log | Every command that writes `kb.ttl` |
 | `posting` | Posting | Posting · Requirements | The tailor analyst, or `jsk posting build` |
 | `gaps` | Assessment | Assessment · Verdicts | `jsk tailor prepare` / `jsk match --gaps`, derived from the match plus the analyst's `gaps.txt` |
@@ -670,6 +670,8 @@ Notes on a few values:
   tenants". `jsk` renders `at-least` as `15+`, `about` as `~12`, `under` as `<1` and `over` as
   `>5`. On a range, the qualifier applies to the top: `300-800+`.
 - **`logBy` `new`** marks the first revision written by `jsk new`, or by a `--force` start-over.
+- **`logBy` `migrate`** marks a first revision written by the retired `jsk migrate`. Nothing
+  writes it now; it stays valid so a log written before still loads.
 
 ## 7. Concepts and the vocabulary
 

@@ -68,10 +68,6 @@ pass, writes `application.ttl` and names the directory after the day it was sent
 `jsk event` adds what happened next, and nothing is edited. The career keeps moving, and an
 application that pointed at a moving source could not answer what it was answering.
 
-**Markdown knowledge base** — `user-knowledgebase.md`, what earlier versions kept the career in.
-`jsk migrate` moves it to `career/kb.ttl` once, checking the round trip and deleting nothing. It
-is available for this release only.
-
 ## The rendering
 
 **Resume file** — `resume.json`, about twenty lines for one resume: the bullets chosen, by id, in

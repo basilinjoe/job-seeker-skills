@@ -28,6 +28,7 @@ import datetime
 import difflib
 import hashlib
 import os
+import re
 import sys
 
 from . import ontology as O
@@ -133,14 +134,7 @@ def sent_day(app_dir):
         return None
     try:
         if path.endswith(LEGACY):
-            from ..kbindex import KBError, frontmatter
-
-            try:
-                front, _ = frontmatter(read_text(path, LEGACY), LEGACY)
-            except KBError as e:
-                raise GraphError(str(e), e.fix, LEGACY) from None
-            day = str(front.get("submitted", ""))
-            return day if is_date(day) else None
+            return legacy_submitted(read_text(path, LEGACY))
         quads = parse(path).quads
     except Unreadable as e:
         raise GraphError(str(e), e.fix, os.path.basename(path)) from None
@@ -149,6 +143,27 @@ def sent_day(app_dir):
                 getattr(q.object, "datatype", None) is not None and \
                 q.object.datatype.value == O.XSD + "date":
             return q.object.value
+    return None
+
+
+def legacy_submitted(text):
+    """The `submitted:` date in an application.md's frontmatter, or None - `false`, a
+    held-back application, is None too. Only that one line is read, so no YAML parser is
+    needed; a frontmatter that never closes raises GraphError, as a file that cannot be
+    read."""
+    from .io import GraphError
+
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    closing = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if closing is None:
+        raise GraphError(f"{LEGACY}'s frontmatter never closes", "end it with a --- line",
+                         LEGACY)
+    for line in lines[1:closing]:
+        m = re.match(r"submitted:\s*[\"']?([^\"'#\s]*)", line)
+        if m:
+            return m.group(1) if is_date(m.group(1)) else None
     return None
 
 
@@ -364,8 +379,7 @@ def main(argv=None):
     if not os.path.isfile(path):
         if os.path.isfile(os.path.join(app_dir, "application.md")):
             return refuse([f"{app_dir} was frozen as application.md, which this command does "
-                           f"not write"], "append the row to its # Timeline table by hand, or "
-                          "`jsk migrate` the workspace to the graph record")
+                           f"not write"], "append the row to its # Timeline table by hand")
         return refuse([f"no {APPLICATION} in {app_dir}"],
                       "an application gets one when it is frozen: `jsk freeze`")
     try:
@@ -384,7 +398,7 @@ def free_iri(store, base, quads):
 
     Two notes on one day, a round-1 and a round-2 interview-done, two recruiter-contacts
     dated unknown are all real, so the id is the first of base, base_2, base_3... that is
-    free - as `jsk migrate` mints a timeline's repeats. Only an event identical in every
+    free. Only an event identical in every
     field (kind, date, channel, note, due) is a duplicate: running the same command
     twice records nothing new."""
     want = {(q.predicate, q.object) for q in quads}

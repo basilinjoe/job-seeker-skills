@@ -20,15 +20,14 @@ class Read(unittest.TestCase):
             self.assertEqual(short.read(path)["bullets"], OK["bullets"])
             self.assertEqual(Path(short.workspace(path)), Path(root))
 
-    def test_a_legacy_record_points_at_migrate(self):
+    def test_a_legacy_record_points_at_export(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp, "resume.json")
             p.write_text(json.dumps({"urs": "1.0.0"}), encoding="utf-8")
             with self.assertRaises(short.ShortError) as err:
                 short.read(p)
-            # The file named, not a bare `jsk migrate`: the workspace sweep reads only
-            # applications/*/resume.json, and this one could be anywhere.
-            self.assertIn(f"jsk migrate {p}", err.exception.fix)
+            # The file named: the short one is written over it.
+            self.assertIn(f"jsk kb export --select <id>... --out {p}", err.exception.fix)
 
     def test_not_json_and_missing_are_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -250,7 +249,7 @@ class Main(unittest.TestCase):
             p.write_text(json.dumps({"urs": "1.0.0"}), encoding="utf-8")
             code, out = self.main(p)
         self.assertEqual(code, 1, out)
-        self.assertIn("jsk migrate", out)
+        self.assertIn("jsk kb export", out)
 
     def test_called_wrong_exits_two(self):
         self.assertEqual(self.main()[0], 2)

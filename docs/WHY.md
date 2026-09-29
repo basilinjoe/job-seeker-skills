@@ -119,7 +119,7 @@ graph record keeps a write path, so each failure needs an answer:
 
 | What went wrong with `okf` | How the graph record answers it |
 |---|---|
-| The skill named about thirty verbs, costing 5,128 tokens resident in every session | Four new top-level verbs: `kb`, `match`, `event`, `migrate`. Sub-verbs live in `--help` and in each refusal's `fix:` line, not in the skill's entry point |
+| The skill named about thirty verbs, costing 5,128 tokens resident in every session | Three new top-level verbs: `kb`, `match`, `event`. Sub-verbs live in `--help` and in each refusal's `fix:` line, not in the skill's entry point |
 | A missing verb meant hand-authoring the file; the CLI's coverage was the agent's ceiling | One generic `jsk kb apply`, whose coverage is the **ontology**: anything the format can say, a changeset can say. `j:note` on every class is a relief valve for anything it cannot. Hand edits are legal and validated anyway |
 | Unsafe defaults: a `--status confirmed` flag; `--body -` reading stdin and hanging | There is no status flag. A changeset asserting `confirmed` is refused. Stdin (`-`) is refused. The only way to confirm is `jsk kb confirm <id> --answer "..."`, with the person's words logged |
 | Cross-file atomicity was claimed and not real | `apply` writes two files, `kb.ttl` then `log.ttl`, with the same revision and a hash in both. It cannot make that atomic, and says so: a write torn between them is **detected** on the next load, and `jsk kb adopt` records it |
@@ -130,13 +130,6 @@ Two limits, stated rather than hidden. Hand-edit detection is **detection, not p
 agent that edits `kb.ttl` directly is noticed on the next load and its edit listed, not stopped.
 And `jsk kb confirm --answer` is an instruction with an audit trail, not a proof that anybody
 asked the person.
-
-### If you have a `user-knowledgebase.md`
-
-`jsk migrate user-knowledgebase.md` moves it across once. It is refused unless the round trip holds -
-the graph, written and parsed back, must read as exactly the entries the Markdown held - and it
-deletes nothing. It exists for one release: the one after deletes it, along with the Markdown
-reader. The old text of this page, and of every argument it made, is in git history.
 
 ## Every document is rendered from the career, never hand-built
 

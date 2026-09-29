@@ -36,19 +36,12 @@ dependencies = ["pyoxigraph>=0.5.11,<0.6"]
 # never existed - nothing imported it, so it was a dependency that bought a line in
 # the doctor's report and nothing else.
 #
-# `pyyaml` came back with `jsk index`, beside markdown-it-py: the two replaced about
-# a hundred lines of hand-written Markdown and YAML parsing, and they are optional -
-# `jsk index` says what to install rather than failing on import.
-#
-# `migrate` is the same two: the Markdown reader, which now exists only to move a
-# user-knowledgebase.md to career/kb.ttl once. `jsk index` is retired (P7); `index`
-# stays as an alias of `migrate` this release so an existing install line still works.
-# Release N+1 deletes both extras, with kbindex.py and `jsk migrate` itself.
+# The `migrate` and `index` extras (markdown-it-py and pyyaml) went with `jsk migrate`
+# and the Markdown knowledge base it read. pyyaml stays in `dev` only: the plugin
+# surface tests read the skill files' frontmatter with it.
 pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
-migrate = ["markdown-it-py", "pyyaml"]  # jsk migrate: the Markdown knowledge base, read once
-index = ["markdown-it-py", "pyyaml"]    # alias of migrate; removed in release N+1
-all = ["pymupdf", "markdown-it-py", "pyyaml"]
-dev = ["pymupdf", "markdown-it-py", "pyyaml", "pytest", "pytest-xdist", "ruff", "pyright==1.1.414"]
+all = ["pymupdf"]
+dev = ["pymupdf", "pyyaml", "pytest", "pytest-xdist", "ruff", "pyright==1.1.414"]
 
 [project.scripts]
 jsk = "jsk.cli:main_console"

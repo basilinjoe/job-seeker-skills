@@ -15,7 +15,6 @@ as ids, and a summary - and carried to a document somebody can send:
     jsk kb VERB [...]           the career record: apply, confirm, show, view, query,
                                 export, check
     jsk match POSTING.ttl       a posting against the career, through the vocabulary
-    jsk migrate KB.md           an old user-knowledgebase.md to career/kb.ttl, once
     jsk validate RESUME         the record gate: is the resume.json sound?
     jsk render RESUME --out D   one resume.json to a PDF and plain text
     jsk preview RESUME --out D  the same resume in every template, to pick a look
@@ -38,8 +37,7 @@ the only way in.
 
 One dependency is required: `pyoxigraph`, the engine that reads, validates and queries
 kb.ttl. Everything else is optional and imported at the point of use rather than here:
-`pymupdf` to read a PDF, and `markdown-it-py` with `pyyaml` for `jsk migrate` alone. A
-bare Python runs the record gate, the prose gate and the `.txt` parse gate, and
+`pymupdf` to read a PDF. A bare Python runs the record gate, the prose gate and the `.txt` parse gate, and
 `jsk doctor` is standard-library only, so it can report on a machine before anything is
 installed on it.
 """

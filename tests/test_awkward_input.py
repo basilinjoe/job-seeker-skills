@@ -2,7 +2,7 @@
 reaches it: as jsk writes it, with a BOM, with CRLF line endings, and as cp1252.
 
 Three of the nine defects in the 2026-09-28 review were one reader meeting one of these:
-a BOM hid application.md's frontmatter from `jsk migrate`, and a cp1252 posting.md,
+a BOM hid application.md's frontmatter from the Markdown reader, and a cp1252 posting.md,
 decisions.txt, gaps.txt or posting.ttl raised UnicodeDecodeError past an `except OSError`.
 No test had fed a reader anything but the bytes jsk itself writes. Every authored file is
 read through io.read_text now; these tests hold each command to what that promises.
@@ -28,8 +28,6 @@ from fixtures import AWKWARD, CLI, run, write_awkward
 from test_build import short
 from test_graph_kbcli import QUOTE, SOURCE
 from test_graph_shapes import FIXTURES as GRAPH
-from test_migrate import APPLICATION_MD, POSTING_MD
-from test_migrate import workspace as legacy_workspace
 from test_posting_build import ADVERT, HEADER, ROWS
 
 MATCH = Path(__file__).parent / "match_fixtures"
@@ -43,8 +41,6 @@ GAPS_TXT = ("fit: poor\neligibility: meets it – based in Pune\n"
 DECISIONS = HEADER + "\n# the analyst’s rows, one per line the advert asks for\n" + ROWS
 DOCUMENT = SOURCE.replace("# Prior resume", "# Prior résumé")
 SUMMARY = "Architect who builds clinical event platforms – the ones other teams build on."
-APPLICATION = APPLICATION_MD.replace("company site\n", "café site\n", 1)
-LEGACY_ADVERT = POSTING_MD.replace("at scale", "at scàle")
 TITLE = ('j:title "Platform Engineer"', 'j:title "Platform Engineer – Core"')
 
 
@@ -255,28 +251,6 @@ class KbConfirm(Forms):
                        "Yes, that is exactly what I do.", "--root", r], "resume.json")
         written = json.loads(found[PLAIN][2][GLOBEX.as_posix()])
         self.assertEqual(written["summary"]["status"], "confirmed")
-
-
-# --- jsk migrate ----------------------------------------------------------------------
-
-SENT = Path("applications") / "2026-09-10-acme-platform-engineer"
-
-
-class Migrate(Forms):
-    def migrate(self, text, name):
-        found = self.check(text, legacy_workspace, lambda r: r / SENT / name,
-                           lambda r: ["migrate", r / "user-knowledgebase.md"],
-                           f"{SENT.as_posix()}/{name}")
-        self.assertIn(f"{SENT.as_posix()}/application.ttl", found[PLAIN][2])
-        return found
-
-    def test_migrate_reads_application_md(self):
-        found = self.migrate(APPLICATION, "application.md")
-        self.assertIn("café site".encode(),
-                      found[PLAIN][2][f"{SENT.as_posix()}/application.ttl"])
-
-    def test_migrate_reads_the_legacy_posting_md(self):
-        self.migrate(LEGACY_ADVERT, "posting.md")
 
 
 if __name__ == "__main__":

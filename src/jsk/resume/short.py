@@ -23,7 +23,6 @@ KEYS = {"resume": int, "bullets": list, "roles": list, "skills": list, "format":
         "region": str, "pages": int, "ats_pages": int, "floor": str, "summary": dict}
 SUMMARY_KEYS = ("text", "status", "answer", "text_sha256")
 CONFIRM = 'confirm it with `jsk kb confirm --summary <resume.json> --answer "their words"`'
-MIGRATED = "carried over from the confirmed URS summary by jsk migrate"
 
 
 def digest(text):
@@ -88,12 +87,11 @@ def read(path):
     if not isinstance(doc, dict):
         raise ShortError(f"{path}: not a resume.json", "write one with `jsk kb export`")
     if "urs" in doc:
-        # A full record from before the career built the resume: the choices in it are
-        # still good, and migrate carries them over. The file is named because a bare
-        # `jsk migrate` sweeps only applications/*/resume.json.
+        # A full record from before the career built the resume. A sent one stays as the
+        # archive of what was sent; an unsent one is written again from the career.
         raise ShortError(f"{path} is a full URS record, which jsk no longer reads",
-                         f"convert it with `jsk migrate {path}` - it keeps the view's "
-                         "choices")
+                         "write a short one with `jsk kb export --select <id>... --out "
+                         f"{path}`")
     if doc.get("resume") != VERSION:
         raise ShortError(f"{path}: \"resume\" is {doc.get('resume')!r}, not {VERSION}",
                          "write it again with `jsk kb export`")
