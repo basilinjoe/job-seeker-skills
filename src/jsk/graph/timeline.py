@@ -349,10 +349,18 @@ def sent_versions(store, bullets):
     return sorted(r["v"].value for r in rows)
 
 
+class Sealed:
+    """What freeze() validated inside the turn, for write_frozen: the application's graph
+    name as it stands, the application graph to write, and the graphs a rename moves - as
+    that load read them, so nothing is read again once the folder has moved."""
+
+    def __init__(self, rel, quads, moves):
+        self.rel, self.quads, self.moves = rel, quads, moves
+
+
 def freeze(root, app_dir, plan, short_bytes, submitted, channel, documents):
-    """(the application record's quads, None) for an application whose resume.json is a
-    short file, validated with the whole workspace - or (None, [lines saying why not]).
-    write_frozen writes it.
+    """(Sealed, None) for an application whose resume.json is a short file, validated with
+    the whole workspace - or (None, [lines saying why not]). write_frozen writes it.
 
     `plan` is what the builder rendered: its `sent` names the bullets that cleared the
     floor, so a bullet the file lists but the render withheld is not claimed as sent. No
@@ -375,6 +383,12 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
     from .kbcli import new_failures
 
     store = S.load(root)
+    # Asked again here, inside the turn: another freeze of this application may have
+    # landed since `jsk freeze` asked, while this one waited.
+    held = frozen(app_dir, store)
+    if held:
+        return None, [f"{held} already exists. A frozen application is never re-frozen.",
+                      "Later events are `jsk event`, one each."]
     rel = S.file_name(os.path.abspath(app_dir), store.root)
     posting, stem = posting_of(store, rel)
     if posting is None:
@@ -390,29 +404,28 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
     if broken:
         return None, (["the application record it would write does not validate:"]
                       + [f.text() for f in broken])
-    return quads, None
+    moves = {kind: store.graph(S.app_graph(rel, kind)) for kind in ("posting", "gaps")
+             if S.app_graph(rel, kind) in store.parsed}
+    return Sealed(rel, quads, moves), None
 
 
-def write_frozen(root, app_dir, final, quads):
-    """Write what freeze() validated, once `app_dir` is at `final` (the directory renamed
-    to the day it was sent, or left where it was). Returns the graph's name.
+def write_frozen(root, sealed, final):
+    """Write what freeze() validated, once the directory is at `final` (renamed to the day
+    it was sent, or left where it was). Returns the graph's name.
 
     A graph is named by its directory, so a rename moves the posting and the assessment
     to the new name in the same update that writes the application - all three land, or
     none does."""
-    from . import db
     from . import record as R
     from .store import app_graph
 
-    old, new = workspace_of_app(app_dir)[1], workspace_of_app(final)[1]
+    old, new = sealed.rel, workspace_of_app(final)[1]
     graphs = {}
     if old != new:
-        held = db.read(root)
-        for kind in ("posting", "gaps"):
-            if app_graph(old, kind) in held:
-                graphs[app_graph(old, kind)] = None
-                graphs[app_graph(new, kind)] = held[app_graph(old, kind)]
-    graphs[app_graph(new, "application")] = quads
+        for kind, triples in sealed.moves.items():
+            graphs[app_graph(old, kind)] = None
+            graphs[app_graph(new, kind)] = triples
+    graphs[app_graph(new, "application")] = sealed.quads
     R.write_graphs(root, graphs)
     return app_graph(new, "application")
 

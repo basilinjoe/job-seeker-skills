@@ -473,6 +473,80 @@ class FreezeGraph(GraphCase):
         self.assertFalse(self.sent.exists())
         self.assertEqual(appkit.graphs(self.root).keys(), before.keys())
 
+    def test_a_freeze_that_lands_while_this_one_waits_is_not_overwritten(self):
+        """Frozen is asked again inside the turn: another freeze of this application can
+        land between the first check and this one's turn."""
+        from unittest import mock
+
+        from jsk.graph import record as R
+        turn = R.turn
+        other = 'k:app_contoso_platform j:submitted "2026-09-23"^^xsd:date .\n'
+
+        def landed_first(root, dry_run=False):
+            appkit.put(self.root, self.graph(self.app, "application"), other)
+            return turn(root, dry_run)
+        with mock.patch.object(R, "turn", landed_first):
+            code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("never re-frozen", out)
+        self.assertTrue(self.app.exists())
+        self.assertFalse(self.sent.exists())
+        self.assertEqual(self.application(self.app)[0]["submitted"], ["2026-09-23"])
+
+    def test_the_store_is_not_read_again_after_the_rename(self):
+        """The graphs a rename moves are the ones freeze() validated inside the turn: read
+        again after the rename, a store that will not open left the folder renamed."""
+        from unittest import mock
+
+        from jsk.graph import db
+        read = db.read
+
+        def before_the_rename_only(root):
+            if not self.app.exists():
+                raise db.StoreError("career/store/ could not be opened", "`jsk doctor`")
+            return read(root)
+        with mock.patch.object(db, "read", before_the_rename_only):
+            code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(appkit.has(self.root, self.graph(self.sent, "posting")))
+
+    def test_a_store_error_while_writing_renames_the_folder_back(self):
+        from unittest import mock
+
+        from jsk.graph import db, timeline
+
+        def unopenable(*_args):
+            raise db.StoreError("career/store/ could not be opened", "`jsk doctor` checks it")
+        with mock.patch.object(timeline, "write_frozen", unopenable):
+            code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertIn("the record was not written", out)
+        self.assertTrue(self.app.exists())
+        self.assertFalse(self.sent.exists())
+
+    def test_a_store_failing_after_the_write_landed_keeps_the_rename(self):
+        """The application's graph is in the store under the new name: renaming the folder
+        back would part it from its graphs, and "nothing was written" would be false."""
+        with appkit.failing_after_write():
+            code, out = self.freeze()
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("nothing was written", out)
+        self.assertIn("landed", out)
+        self.assertTrue(self.sent.exists())
+        self.assertFalse(self.app.exists())
+        self.assertTrue(appkit.has(self.root, self.graph(self.sent, "application")))
+
+    def test_an_application_typed_in_another_case_moves_its_graphs(self):
+        other = self.app.parent / self.app.name.upper()
+        if not other.is_dir():
+            self.skipTest("a case-sensitive filesystem: another case is another folder")
+        self.app = other
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(self.sent.is_dir())
+        self.assertEqual(sorted(g for g in appkit.graphs(self.root) if g.startswith("appl")),
+                         sorted(self.graph(self.sent, k) for k in ("posting", "application")))
+
     def test_the_record_gate_runs_and_its_output_is_shown(self):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)

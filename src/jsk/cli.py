@@ -1152,8 +1152,10 @@ def freeze_write(workspace, app_dir, final, plan, record_bytes, submitted, chann
     from .graph import record as R                    # noqa: PLC0415 - only when asked
     from .graph import timeline                       # noqa: PLC0415
 
-    quads, problems = timeline.freeze(workspace, app_dir, plan, record_bytes, submitted,
-                                      channel, documents)
+    from .graph import db                             # noqa: PLC0415
+
+    sealed, problems = timeline.freeze(workspace, app_dir, plan, record_bytes, submitted,
+                                       channel, documents)
     if problems:
         return freeze_refusal(*problems, "nothing was renamed or written.")
     if final != app_dir:
@@ -1163,8 +1165,13 @@ def freeze_write(workspace, app_dir, final, plan, record_bytes, submitted, chann
             return freeze_refusal(f"cannot rename {app_dir} to {final}: {exc}",
                                   "nothing was written.")
     try:
-        return timeline.write_frozen(workspace, app_dir, final, quads)
-    except (R.RecordError, OSError) as exc:
+        return timeline.write_frozen(workspace, sealed, final)
+    except R.Written as exc:
+        # The graphs are in the store under the new name: the folder stays with them.
+        print(f"FAIL  the application's record was written, and then: {exc}")
+        print(f"      fix: {exc.fix}")
+        return 1
+    except (R.RecordError, db.StoreError, OSError) as exc:
         # The store refused, so the directory goes back to the name its graphs still have.
         undone = final == app_dir
         if not undone:
