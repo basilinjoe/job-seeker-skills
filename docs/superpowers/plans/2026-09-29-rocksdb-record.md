@@ -131,6 +131,29 @@ is no parsed text to fall back on. Ruling 4 settles it.
     one other than `record.py` calls `db.replace_graphs`. The same layering makes `jsk mcp`
     (next plan) a sibling of `kbcli.py` over the same functions.
 
+### Amendments made while building (2026-09-29)
+
+- **The turn is taken before the command reads, not after it validates (Ruling 7).** A
+  writing command runs whole inside its turn (`record.turn`, re-entrant), reading the store
+  read-only as usual - nothing else can write while it is held. So a write queued behind
+  another always loads, validates and applies to what that one left, and "the revision moved,
+  reload" needs no code of its own: `edit.apply` and `base_conflicts` already do the rest.
+  The price is a turn held for a command's whole run (well under a second on a real career)
+  rather than ~100 ms; readers still never wait.
+- **The RocksDB handle never leaves db.py.** pyoxigraph has no `close()`; a store closes
+  when its last reference goes. Writers get a `db.Writer` that drops its store on leaving
+  `db.writing`, so a caller's variable cannot keep RocksDB's lock past the turn.
+- **`Parsed` stays the per-graph container** (`Store.parsed`, not a new `Store.graphs`): a
+  stored graph is a `Parsed` with triples and no text, so tier 1 and every caller work
+  unchanged. `kbSha256` stays (Ruling 10 listed it as gone): it is the hash of the career as
+  the writer lays it out - the diff's text - and the ontology requires it.
+- **Ruling 4's check lives in `changeset.py` (`numbers_as_kept`)**, where the plan's P3
+  note put it, not as a tier-1 rule id: tier 1 also runs on the file workspace the import
+  reads, and there the numbers are rewritten and reported, not refused.
+- **A transitional dual mode.** A workspace without `career/store/` loads from its files
+  until every area is converted; graphs take their short names in both modes. The final
+  pass removes the file mode everywhere but the importer.
+
 ## Architecture
 
 ```
