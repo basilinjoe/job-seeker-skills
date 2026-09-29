@@ -106,25 +106,18 @@ def career_refusal(store):
 
     broken = [f for f in store.fails() if f.rule != "log-sync"
               and not f.file.startswith("applications/")]
-    where = R.KB if store.stored else R.KB_FILE
     if broken:
-        return line("career-invalid", where,
+        return line("career-invalid", R.KB,
                     f"the career record has {len(broken)} failures, so nothing in this "
                     "resume can be checked against it", "`jsk kb check` lists them")
     st = R.state(store)
     if st.kind == "clean":
         return None
     detail = f"{st.kind}" + (f": {st.detail}" if st.detail else "")
-    if not store.stored:
-        return line("career-unlogged", where,
-                    f"kb.ttl is not what log.ttl last recorded ({detail}) - a provenance "
-                    "raised by hand would render unseen",
-                    "`jsk kb load .` imports the career into career/store/; check every "
-                    "provenance the edit raised first (`jsk kb check`)")
     if st.kind in ("missing", "empty"):
         return line("career-missing", "career/store/", "the store holds no career to check "
                     "this resume against", "`jsk kb load` a workspace or a dump into it")
-    return line("career-unlogged", where,
+    return line("career-unlogged", R.KB,
                 f"the career in career/store/ is not what its log last recorded ({detail}) - "
                 "a provenance raised outside jsk would render unseen",
                 "`jsk kb load .jsk/backup.trig` into an empty workspace restores the last "

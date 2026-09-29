@@ -18,7 +18,7 @@ from pathlib import Path
 from storekit import seed
 
 from jsk.graph import ontology as O
-from jsk.graph import shapes, store
+from jsk.graph import db, shapes, store
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"
 
@@ -26,8 +26,12 @@ FIXTURES = Path(__file__).parent / "graph_fixtures"
 def load(root):
     """A workspace loaded against its own vocabulary.ttl, not the shipped one: the fixtures'
     hand-worked answers must not move when the shipped vocabulary grows. From its store
-    when it has one, else from its files."""
-    return store.load(root, vocabulary=Path(root) / "vocabulary.ttl")
+    when it has one, else from its files as the one-time import reads them
+    (legacy.read_workspace) - the only reader of record files left."""
+    vocabulary = Path(root) / "vocabulary.ttl"
+    if db.exists(root):
+        return store.load(root, vocabulary=vocabulary)
+    return store.load(root, files=store.workspace_files(root, vocabulary))
 
 
 # The files a mutation edits, and the graphs findings name.
@@ -189,7 +193,7 @@ class Findings(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "career").mkdir()
             (Path(tmp) / "career" / "kb.ttl").write_text("", encoding="utf-8")
-            s = store.load(tmp)
+            s = store.load(tmp, files=store.workspace_files(tmp))
         [f] = [f for f in s.findings if f.rule == "cardinality"]
         self.assertEqual((f.file, f.line), (KB, 0))
         self.assertIn("exactly one KB; this one holds 0", f.detail)

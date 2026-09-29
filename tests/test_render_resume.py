@@ -22,15 +22,13 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import CHECK_ATS, RENDER_RESUME, load_script, run, render_module
-from jsk import paths
+from fixtures import CHECK_ATS, RENDER_RESUME, load_script, run, render_module, example_short
 from jsk.resume import build
 from test_build import LEAD_TITLE, BuildCase, short
 
 emit_latex = render_module("render.emit_latex")
 tex = render_module("render.tex")
 
-EXAMPLE = paths.EXAMPLE_SHORT
 TEAM = '"Led a team of 6 engineers."'
 
 
@@ -106,7 +104,7 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         return out
 
     def test_the_plain_text_passes_check_ats_strict(self):
-        self.render(EXAMPLE)
+        self.render(example_short())
         code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume_ATS.txt", "--strict")
         self.assertEqual(code, 0, out)
         self.assertIn("PASS", out)
@@ -114,7 +112,7 @@ class RenderedFilesPassTheGates(unittest.TestCase):
     def test_one_record_yields_one_deliverable_and_the_paste_in_text(self):
         """Four artefacts became two plus the .tex they come from. The .docx was
         removed because the fitter measured it while the PDF was what shipped."""
-        self.render(EXAMPLE)
+        self.render(example_short())
         for name in ("Priya_Raman_Resume.tex", "Priya_Raman_Resume_ATS.txt"):
             self.assertTrue((self.tmp / name).exists(), name)
         self.assertEqual(list(self.tmp.glob("*.docx")), [])
@@ -122,20 +120,20 @@ class RenderedFilesPassTheGates(unittest.TestCase):
     def test_ats_max_switches_the_variant_rather_than_adding_a_file(self):
         """One .tex either way, named for the recruiter - `_ATS` was the name on the
         file they were sent. What it holds is in its own jsk-variant keyword."""
-        self.render(EXAMPLE, "--ats-max")
+        self.render(example_short(), "--ats-max")
         self.assertEqual([p.name for p in self.tmp.glob("*.tex")], ["Priya_Raman_Resume.tex"])
         self.assertIn("jsk-variant:ats-maximal",
                       (self.tmp / "Priya_Raman_Resume.tex").read_text(encoding="utf8"))
 
     def test_plain_text_is_ascii_only(self):
-        self.render(EXAMPLE)
+        self.render(example_short())
         raw = (self.tmp / "Priya_Raman_Resume_ATS.txt").read_bytes()
         self.assertTrue(all(b < 128 for b in raw))
 
     def test_a_view_is_a_usage_error_naming_one_resume(self):
         """A resume.json is one resume: --view chose among a full record's views, and
         went with the record."""
-        code, out = run(RENDER_RESUME, EXAMPLE, "--out", self.tmp, "--view", "view_x")
+        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--view", "view_x")
         self.assertEqual(code, 2, out)
         self.assertIn("a resume.json is one resume", out)
         self.assertEqual(list(self.tmp.glob("*")), [])
@@ -175,7 +173,7 @@ class RenderedFilesPassTheGates(unittest.TestCase):
     def test_absent_tex_engine_is_reported_not_assumed(self):
         if tex.available_engine():
             self.skipTest("a TeX engine is installed, so there is nothing to report")
-        code, out = run(RENDER_RESUME, EXAMPLE, "--out", self.tmp, "--pdf")
+        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--pdf")
         self.assertIn("UNVERIFIED", out)
         self.assertEqual(code, 1, out)
 
@@ -195,7 +193,7 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
     def test_a_pdf_is_actually_produced(self):
-        code, out = run(RENDER_RESUME, EXAMPLE, "--out", self.tmp, "--pdf")
+        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--pdf")
         self.assertEqual(code, 0, out)
         self.assertTrue((self.tmp / "Priya_Raman_Resume.pdf").exists(), out)
 
@@ -207,7 +205,7 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
         try:
             os.chdir(self.tmp)
             os.mkdir("rel")
-            code, out = run(RENDER_RESUME, EXAMPLE, "--out", "rel", "--pdf")
+            code, out = run(RENDER_RESUME, example_short(), "--out", "rel", "--pdf")
             self.assertEqual(code, 0, out)
             self.assertTrue((self.tmp / "rel" / "Priya_Raman_Resume.pdf").exists(), out)
         finally:
@@ -218,14 +216,14 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
         module.compile_pdf = lambda tex_path, out_dir: (None, "stub: no PDF")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            code = module.main(["render_resume.py", str(EXAMPLE),
+            code = module.main(["render_resume.py", str(example_short()),
                                 "--out", str(self.tmp), "--pdf"])
         self.assertEqual(code, 1, buf.getvalue())
         self.assertIn("UNVERIFIED", buf.getvalue())
 
     def test_without_pdf_a_missing_engine_is_not_a_failure(self):
         """Rendering the .tex alone is a legitimate thing to ask for."""
-        code, out = run(RENDER_RESUME, EXAMPLE, "--out", self.tmp)
+        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp)
         self.assertEqual(code, 0, out)
 
 
@@ -247,12 +245,12 @@ class ThePageCountIsMeasured(unittest.TestCase):
     def test_the_render_reports_the_pages_it_actually_produced(self):
         import pymupdf
 
-        code, out = run(RENDER_RESUME, EXAMPLE, "--out", self.tmp, "--pdf")
+        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--pdf")
         self.assertEqual(code, 0, out)
         with pymupdf.open(self.tmp / "Priya_Raman_Resume.pdf") as pdf:
             actual = pdf.page_count
         self.assertIn(f"pages  Priya_Raman_Resume.pdf: {actual} page", out)
-        budget = build.from_path(EXAMPLE)[0]["pages"]
+        budget = build.from_path(example_short())[0]["pages"]
         self.assertIn(f"against a budget of {budget}", out)
 
     def test_over_budget_is_named_rather_than_left_to_be_noticed(self):

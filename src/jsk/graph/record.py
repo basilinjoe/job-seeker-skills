@@ -6,23 +6,20 @@ with the next revision and adds the log entry for it, holding what the write tou
 minted, and writes both in one update of career/store/ (write_graphs): both change, or
 neither does. So a stored record is clean unless something outside jsk wrote the store.
 
-A workspace not yet loaded into a store keeps the two as files, career/kb.ttl and
-career/log.ttl, and two files cannot be replaced atomically together - so for those the
-states below also tell a hand edit, a torn write and a restored file apart. Transitional:
-the file half goes once every workspace is loaded (`jsk kb load`).
+A workspace still laid out as files, career/kb.ttl and career/log.ttl, is only ever read -
+by the one-time import (`jsk kb load`, legacy.py). Two files could not be replaced
+atomically together, so for those the states below also tell a hand edit, a torn write and
+a restored file apart: the import refuses each of them before it fills a store.
 """
 import os
-import time
 from dataclasses import dataclass
 
 from . import ontology as O
 
 KB = "kb"                                        # the graphs, by the names the store uses
 LOG = "log"
-KB_FILE = "career/kb.ttl"                        # and the files a workspace not yet loaded
-LOG_FILE = "career/log.ttl"                      # into a store still holds them in
-SHADOW = os.path.join(".jsk", "kb.last.ttl")     # what the last logged write wrote
-REPLACE_TRIES = 6                                # a Windows lock usually clears in ms
+KB_FILE = "career/kb.ttl"                        # and the files a workspace from before the
+LOG_FILE = "career/log.ttl"                      # store holds them in, which the import reads
 
 
 class RecordError(Exception):
@@ -83,7 +80,8 @@ def last_entry(quads):
 
 
 def state(store):
-    """Where kb.ttl and log.ttl stand with each other."""
+    """Where the career and its log stand with each other - in the store, or in the files
+    the import reads."""
     if store.stored:
         return stored_state(store)
     on_disk = {g: os.path.isfile(os.path.join(store.root, f))
@@ -261,78 +259,3 @@ def backup(root, writer):
         os.replace(tmp, os.path.join(root, BACKUP))
     except OSError:
         pass
-
-
-def replace(src, dst, tries=REPLACE_TRIES, wait=0.05):
-    """os.replace, retried: on Windows an editor, a sync client or a virus scanner holding
-    the file makes it fail for a moment, and a moment later it succeeds."""
-    for n in range(tries):
-        try:
-            os.replace(src, dst)
-            return
-        except PermissionError:
-            if n == tries - 1:
-                raise RecordError(f"{os.path.basename(dst)} is locked by another program - an "
-                                  f"editor, a sync client or a virus scanner",
-                                  "close it and run the command again") from None
-            time.sleep(wait * (n + 1))
-
-
-def staged(path, text):
-    """`text` written beside `path` as path.tmp, flushed to disk: replacing is then the
-    only step left, and it is the one step the filesystem makes atomic."""
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
-        fh.flush()
-        os.fsync(fh.fileno())
-    return tmp
-
-
-def commit(root, kb_text, log_text):
-    """Write kb.ttl, then log.ttl, then the shadow copy. Both files are staged before
-    either is replaced, so the window a crash can tear is two renames wide."""
-    kb, log = os.path.join(root, KB_FILE), os.path.join(root, LOG_FILE)
-    tmps = [staged(kb, kb_text), staged(log, log_text)]
-    try:
-        try:
-            replace(tmps[0], kb)
-        except RecordError as e:
-            raise RecordError(f"{e} - nothing was changed", e.fix) from None
-        try:
-            replace(tmps[1], log)
-        except RecordError as e:
-            raise RecordError(f"{e} - kb.ttl was written and log.ttl was not",
-                              "close it, then run `jsk kb adopt`: it logs the write") from None
-    finally:
-        for tmp in tmps:
-            if os.path.exists(tmp):
-                os.remove(tmp)
-    write_shadow(root, kb_text)
-
-
-def write_shadow(root, text):
-    """A copy of what was logged, so `jsk kb adopt` can say what a later hand edit
-    changed. Kept in .jsk/, which ignores itself: it is a cache, never a second record.
-    Best effort - without it adopt still works, and says it had nothing to compare."""
-    folder = os.path.join(root, ".jsk")
-    try:
-        os.makedirs(folder, exist_ok=True)
-        with open(os.path.join(folder, ".gitignore"), "w", encoding="utf-8", newline="\n") as fh:
-            fh.write("*\n")
-        with open(os.path.join(root, SHADOW), "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(text)
-    except OSError:
-        pass
-
-
-def shadow(root, sha):
-    """The text the last logged write wrote, or None when the copy is missing or is not
-    the revision the log says it is."""
-    from .io import Unreadable, read_text, sha256
-
-    try:
-        text = read_text(os.path.join(root, SHADOW), "the shadow copy")
-    except Unreadable:
-        return None
-    return text if sha and sha256(text) == sha else None

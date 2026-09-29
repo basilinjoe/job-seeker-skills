@@ -31,14 +31,13 @@ import hashlib
 import os
 import re
 import sys
+import time
 
 from . import ontology as O
 
-APPLICATION = "application.ttl"
-POSTING = "posting.ttl"
-# An application's record graphs, by kind: in career/store/ as applications/<dir>/<kind>,
-# and in a workspace not yet loaded into one, as these files in the directory.
-RECORD = {"posting": POSTING, "application": APPLICATION, "gaps": "gaps.ttl"}
+# An application's record graphs, by kind: in career/store/ as applications/<dir>/<kind>.
+RECORD = ("posting", "application", "gaps")
+REPLACE_TRIES = 6                                # a Windows lock usually clears in ms
 KINDS = O.ENUMS["eventKind"]
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
@@ -101,11 +100,11 @@ def posting_of(store, rel_dir):
 # confirm must not touch them. `sent_day`: the application's record holds the day it was
 # sent, so the posting it answered and the assessment of it are what they said then. A
 # held-back application (submitted false) is frozen but not sent. An application.md is
-# one frozen before the career moved to kb.ttl, and is as frozen as an application record.
+# one frozen before the career was a graph, and is as frozen as an application record.
 #
-# In a workspace with career/store/ the record is the store's application graph and
-# nothing else: `jsk kb load` leaves the .ttl files where they were, and a stray
-# application.ttl there must not freeze, or unfreeze, anything.
+# The record is the store's application graph and nothing else: `jsk kb load` leaves the
+# .ttl files where they were, and a stray application.ttl there must not freeze, or
+# unfreeze, anything.
 
 LEGACY = "application.md"
 
@@ -122,14 +121,14 @@ def workspace_of_app(app_dir):
 
 def app_graphs(app_dir, store=None):
     """{kind: triples} of the record graphs the application holds in its workspace's
-    store - or None when the workspace has no store yet, and its files are the record.
-    Read from `store` when it is that workspace's, loaded; from the store on disk if not."""
+    store - {} when it is in no workspace with a store. Read from `store` when it is that
+    workspace's, loaded; from the store on disk if not."""
     from . import db
     from .store import app_graph
 
     root, rel = workspace_of_app(app_dir)
     if root is None or not db.exists(root):
-        return None
+        return {}
     if store is not None and store.stored and \
             os.path.normcase(os.path.abspath(store.root)) == os.path.normcase(root):
         graphs = {n: p.quads for n, p in store.parsed.items()}
@@ -140,12 +139,8 @@ def app_graphs(app_dir, store=None):
 
 
 def has_record(app_dir, kind, store=None):
-    """Does the application hold its `kind` graph (posting, application, gaps)? In a
-    workspace not yet loaded into a store, whether the file is there."""
-    graphs = app_graphs(app_dir, store)
-    if graphs is None:
-        return os.path.isfile(os.path.join(app_dir, RECORD[kind]))
-    return kind in graphs
+    """Does the application hold its `kind` graph (posting, application, gaps)?"""
+    return kind in app_graphs(app_dir, store)
 
 
 class Unwritable(Exception):
@@ -162,16 +157,11 @@ class Frozen(Unwritable):
 
 def frozen(app_dir, store=None):
     """What says `app_dir` was frozen, else None: the application graph's name
-    (`applications/<dir>/application`), or - in a workspace not yet loaded into a store -
-    the application.ttl path; a legacy application.md's path in either."""
-    graphs = app_graphs(app_dir, store)
-    if graphs is not None and "application" in graphs:
+    (`applications/<dir>/application`), or a legacy application.md's path."""
+    if "application" in app_graphs(app_dir, store):
         return f"{workspace_of_app(app_dir)[1]}/application"
-    for name in (APPLICATION, LEGACY) if graphs is None else (LEGACY,):
-        path = os.path.join(app_dir, name)
-        if os.path.isfile(path):
-            return path
-    return None
+    path = os.path.join(app_dir, LEGACY)
+    return path if os.path.isfile(path) else None
 
 
 def submitted_day(triples):
@@ -189,21 +179,18 @@ def sent_day(app_dir, store=None):
     legacy application.md's `submitted:` - or None. Raises GraphError when that cannot be
     read: whether it was sent is then unknown, and the writers below refuse rather than
     guess."""
-    from .io import GraphError, Unreadable, parse, read_text
+    from .io import GraphError, Unreadable, read_text
 
     graphs = app_graphs(app_dir, store)
-    if graphs is not None and "application" in graphs:
+    if "application" in graphs:
         return submitted_day(graphs["application"])
     path = frozen(app_dir, store)
     if path is None:
         return None
     try:
-        if path.endswith(LEGACY):
-            return legacy_submitted(read_text(path, LEGACY))
-        quads = parse(path).quads
+        return legacy_submitted(read_text(path, LEGACY))
     except Unreadable as e:
         raise GraphError(str(e), e.fix, os.path.basename(path)) from None
-    return submitted_day(quads)
 
 
 def legacy_submitted(text):
@@ -236,7 +223,7 @@ def refuse_if_sent(app_dir, name, store=None, graph=False):
     try:
         day = sent_day(app_dir, store)
     except GraphError as e:
-        raise Frozen(f"{name}: {os.path.basename(frozen(app_dir, store) or APPLICATION)} "
+        raise Frozen(f"{name}: {os.path.basename(frozen(app_dir, store) or LEGACY)} "
                      f"beside it cannot be read, so whether it was sent is unknown ({e})",
                      "`jsk kb check` shows what is wrong with it") from None
     if day:
@@ -266,22 +253,41 @@ def write_app_graphs(app_dir, graphs, store=None):
 
 
 def write_app_file(app_dir, name, text, store=None):
-    """Write `name` in `app_dir`, staged and replaced - or raise Unwritable, writing
+    """Write the document `name` in `app_dir` (gaps.md) - or raise Unwritable, writing
     nothing: Frozen when the application is sent, else the file is locked or the disk
-    refused. The documents (gaps.md), and the record files of a workspace not yet loaded
-    into a store; a stored record's graphs go through write_app_graphs."""
-    from . import record as R
-
+    refused. The record's graphs go through write_app_graphs."""
     refuse_if_sent(app_dir, name, store)
-    path = os.path.join(app_dir, name)
+    return write_document(os.path.join(app_dir, name), text)
+
+
+def write_document(path, text, tries=REPLACE_TRIES, wait=0.05):
+    """`text` staged beside `path` as path.tmp, flushed, then renamed over it - the one step
+    the filesystem makes atomic, so a crash leaves the old document or the new one. The
+    rename is retried: on Windows an editor, a sync client or a virus scanner holding the
+    file makes it fail for a moment, and a moment later it succeeds. Raises Unwritable,
+    having written nothing."""
     tmp = path + ".tmp"
     try:
-        R.replace(R.staged(path, text), path)
-    except (R.RecordError, OSError) as e:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        for n in range(tries):
+            try:
+                os.replace(tmp, path)
+                return path
+            except PermissionError:
+                if n == tries - 1:
+                    raise Unwritable(f"{path}: not written - it is locked by another "
+                                     "program - an editor, a sync client or a virus scanner",
+                                     "close it and run the command again") from None
+                time.sleep(wait * (n + 1))
+    except OSError as e:
+        raise Unwritable(f"{path}: not written - {e.strerror or e}",
+                         "check the folder and its permissions") from None
+    finally:
         if os.path.exists(tmp):
             os.remove(tmp)
-        raise Unwritable(f"{path}: not written - {e}",
-                         getattr(e, "fix", "check the folder and its permissions")) from None
     return path
 
 
@@ -304,7 +310,7 @@ def remove_app_file(app_dir, name, store=None):
 
 def application_quads(stem, posting, view, submitted, channel, documents, record_bytes,
                       bullets, versions):
-    """application.ttl's triples: the application, and its submitted event when it was
+    """The application graph's triples: the application, and its submitted event when it was
     sent - a held-back one has none, an accurate blank rather than a false green."""
     app = f"{O.K}app_{stem}"
     out = [quad(app, "posting", node(posting))]
@@ -361,7 +367,6 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
     `carried_of(store)` is (bullet iris, metric version iris) for what was sent."""
     from . import store as S
     from .kbcli import new_failures
-    from .writer import write
 
     store = S.load(root)
     rel = S.file_name(os.path.abspath(app_dir), store.root)
@@ -374,11 +379,7 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
     bullets, versions = carried_of(store)
     _, quads = application_quads(stem, posting, view, submitted, channel, documents,
                                  record_bytes, bullets, versions)
-    name = S.app_graph(rel, "application")
-    if store.stored:
-        after = S.load(root, graphs={name: quads})
-    else:
-        after = S.load(root, texts={name: write(quads, "application")})
+    after = S.load(root, graphs={S.app_graph(rel, "application"): quads})
     broken = new_failures(store, after)
     if broken:
         return None, (["the application record it would write does not validate:"]
@@ -388,22 +389,15 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
 
 def write_frozen(root, app_dir, final, quads):
     """Write what freeze() validated, once `app_dir` is at `final` (the directory renamed
-    to the day it was sent, or left where it was). Returns what was written: the graph's
-    name, or in a workspace not yet loaded into a store, application.ttl's path.
+    to the day it was sent, or left where it was). Returns the graph's name.
 
-    A graph is named by its directory, so in the store a rename moves the posting and
-    the assessment to the new name in the same update that writes the application -
-    all three land, or none does."""
+    A graph is named by its directory, so a rename moves the posting and the assessment
+    to the new name in the same update that writes the application - all three land, or
+    none does."""
     from . import db
     from . import record as R
     from .store import app_graph
-    from .writer import write
 
-    if not db.exists(root):
-        path = os.path.join(final, APPLICATION)
-        with open(path, "x", encoding="utf-8", newline="\n") as fh:
-            fh.write(write(quads, "application"))
-        return path
     old, new = workspace_of_app(app_dir)[1], workspace_of_app(final)[1]
     graphs = {}
     if old != new:
@@ -487,7 +481,7 @@ def main(argv=None):
     if not os.path.isdir(app_dir):
         return usage(f"not a directory: {app_dir}")
     if os.path.basename(os.path.dirname(os.path.abspath(app_dir))) != "applications":
-        # The loader finds applications/*/application.ttl and nothing else, so an event
+        # An application's graph is named applications/<dir>/application, so an event
         # written anywhere else would be one no query ever reads.
         return usage(f"{app_dir} is not in an applications/ folder - pass "
                      "applications/<dir>, beside career/")
@@ -540,29 +534,14 @@ def added(root, app_dir, kind, date, channel, note, due, today):
     from . import record as R
     from . import store as S
     from .kbcli import diff, new_failures
-    from .writer import WriteError, curie, write
+    from .writer import curie, write
 
     store = S.load(root)
     rel = S.app_graph(S.file_name(os.path.abspath(app_dir), store.root), "application")
-    path = os.path.join(app_dir, APPLICATION)
     parsed = store.parsed.get(rel)
     if parsed is None:
         return refuse([f.text() for f in store.findings if f.file == rel] or
-                      [f"{rel} does not parse"], "`jsk kb check` shows where")
-    if not store.stored:
-        # A file's layout and comments are what its diff shows; a graph in the store has
-        # neither, so nothing here asks about them.
-        if parsed.comments:
-            return refuse([f"{rel}:{n} {text}" for n, text in parsed.comments],
-                          f"move each into a j:note, or `jsk kb fmt {rel} --drop-comments`")
-        try:
-            canonical = write(parsed.quads, "application") == parsed.text
-        except WriteError as e:
-            return refuse([f"{rel}: {e}"], "`jsk kb check` shows what is wrong with it")
-        if not canonical:
-            return refuse([f"{rel} is not in the canonical layout this jsk writes"],
-                          f"`jsk kb fmt {rel}` first, so the event is the only change in "
-                          "its diff")
+                      [f"{rel} is not in the store"], "`jsk kb check` shows what is wrong")
     app = next((q.subject.value for q in parsed.quads
                 if O.class_of(q.subject.value) == "Application"), None)
     if app is None:
@@ -577,22 +556,16 @@ def added(root, app_dir, kind, date, channel, note, due, today):
                       "event to say more")
     iri, quads = event_quads(app, stem, date, kind, channel, note, due, iri=iri)
     new = list(parsed.quads) + quads
-    text = write(new, "application")
-    after = S.load(root, graphs={rel: new}) if store.stored else \
-        S.load(root, texts={rel: text})
+    after = S.load(root, graphs={rel: new})
     broken = new_failures(store, after)
     if broken:
         return refuse([f"the event would leave {rel} failing:"] + [f.text() for f in broken],
                       "check the date against the application's; `jsk kb check` shows the rest")
     try:
-        if store.stored:
-            R.write_graphs(root, {rel: new})
-        else:
-            R.replace(R.staged(path, text), path)
+        R.write_graphs(root, {rel: new})
     except R.RecordError as e:
         return refuse([str(e)], e.fix)
-    old = write(parsed.quads, "application") if store.stored else parsed.text
-    print(diff(old, text, rel), end="")
+    print(diff(write(parsed.quads, "application"), write(new, "application"), rel), end="")
     print(f"added    {curie(iri)}")
     today = today or datetime.date.today()
     print(f"recorded {kind} on {when(date, today)}")

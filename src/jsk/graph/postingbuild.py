@@ -157,14 +157,12 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
 
 def built(app_dir, decisions_path, replace, vocabulary, today):
     from . import decisions as D
-    from .io import GraphError, Missing, Unreadable, parse_text
+    from .io import GraphError, Missing, Unreadable
     from .queries import PRE, concepts
     from .shapes import tier1
-    from .store import app_graph, file_name, parsed_graph
+    from .store import app_graph, parsed_graph
     from .timeline import (Frozen, Unwritable, app_graphs, has_record, refuse_if_sent,
-                           remove_app_file, workspace_of_app, write_app_file,
-                           write_app_graphs)
-    from .writer import write
+                           remove_app_file, workspace_of_app, write_app_graphs)
 
     # Ruling 6 of the 2026-09-28 review: a sent posting is what the application answered,
     # so it is not rebuilt - and the assessment derived from it is not removed. Asked
@@ -173,7 +171,6 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
         refuse_if_sent(app_dir, POSTING_TTL)
     except Frozen as e:
         raise Refused(str(e), f"fix:  {e.fix}") from None
-    target = os.path.join(app_dir, POSTING_TTL)
     if has_record(app_dir, "posting") and not replace:
         raise Refused(f"{app_dir} already holds its posting",
                       "fix:  pass --replace to rebuild it from the decisions file - a "
@@ -282,45 +279,31 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
 
     built_triples = triples(post, stem, head, seniority, domain_iris, captured, reqs)
     rel = workspace_of_app(app_dir)[1]
-    if store.stored:
-        if rel is None or os.path.normcase(workspace_of_app(app_dir)[0]) != \
-                os.path.normcase(root):
-            raise Refused(f"{app_dir} is not in {os.path.join(root, 'applications')}",
-                          "fix:  an application lives at <workspace>/applications/<dir>, "
-                          "and its record goes into the workspace's store under that name")
-        name = app_graph(rel, "posting")
-        candidate = parsed_graph(name, built_triples)
-    else:
-        text = write(built_triples, "posting")
-        name = file_name(os.path.abspath(target), root)
+    if rel is None or os.path.normcase(workspace_of_app(app_dir)[0]) != os.path.normcase(root):
+        raise Refused(f"{app_dir} is not in {os.path.join(root, 'applications')}",
+                      "fix:  an application lives at <workspace>/applications/<dir>, "
+                      "and its record goes into the workspace's store under that name")
+    name = app_graph(rel, "posting")
+    candidate = parsed_graph(name, built_triples)
     # Validated before it is written, as `jsk kb apply` does: a bad url or date is the
     # header's, and is refused here rather than found by the next check.
     try:
-        fails = [f.text() for f in tier1(candidate if store.stored else parse_text(text, name))
-                 if f.severity == "FAIL"]
+        fails = [f.text() for f in tier1(candidate) if f.severity == "FAIL"]
     except GraphError as e:
         fails = [str(e)]
     if fails:
         raise Refused(f"the posting built would not pass: {fails[0]}",
                       "fix:  correct the header or row it names in the decisions file")
-    if not store.stored and \
-            os.path.dirname(os.path.abspath(app_dir)) != os.path.join(root, "applications"):
-        warnings.append(f"{app_dir} is not in {os.path.join(root, 'applications')}: "
-                        f"jsk kb check will not read it")
     # The assessment and gaps.md are derived from the posting just replaced: a requirement
     # it dropped would leave the assessment dangling, and that FAIL would block prepare
     # here. gaps.txt is the analyst's, keyed by slug, and survives any rebuild that keeps
     # the slugs.
     try:
-        if store.stored:
-            had_gaps = "gaps" in (app_graphs(app_dir, store) or {})
-            # One update: the new posting and the old assessment's removal land together.
-            target = write_app_graphs(app_dir, {"posting": built_triples, "gaps": None},
-                                      store)[0]
-            removed = [app_graph(rel, "gaps")] if had_gaps else []
-        else:
-            write_app_file(app_dir, POSTING_TTL, text)
-            removed = [n for n in ("gaps.ttl",) if remove_app_file(app_dir, n)]
+        had_gaps = "gaps" in app_graphs(app_dir, store)
+        # One update: the new posting and the old assessment's removal land together.
+        target = write_app_graphs(app_dir, {"posting": built_triples, "gaps": None},
+                                  store)[0]
+        removed = [app_graph(rel, "gaps")] if had_gaps else []
         removed += [n for n in ("gaps.md",) if remove_app_file(app_dir, n, store)]
     except Unwritable as e:
         raise Refused(str(e), f"fix:  {e.fix}") from None

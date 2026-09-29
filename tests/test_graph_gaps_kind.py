@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 import pyoxigraph as ox
+from storekit import seed
 
 from jsk.graph import match as M
 from jsk.graph import ontology as O
@@ -118,6 +119,7 @@ class ConfirmedTexts(unittest.TestCase):
                 ("guess", 4, "inferred", ""), ("argued", 5, "disputed", ""),
                 ("old", 6, "confirmed", ' j:retired "2026-01-01"^^xsd:date ; j:reason "gone" ;')))
         kb.write_text(kb.read_text(encoding="utf-8") + extra, encoding="utf-8", newline="\n")
+        seed(root)
         s = store.load(root, vocabulary=root / "vocabulary.ttl")
         self.assertEqual([f.text() for f in s.fails()], [])
         self.assertEqual(Q.confirmed_texts(s, O.K + "prj_events", O.C + "kafka"),

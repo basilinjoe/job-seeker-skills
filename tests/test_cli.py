@@ -14,13 +14,12 @@ from pathlib import Path
 from unittest import mock
 
 import careerkit
-from fixtures import (CHECK_ATS, CHECK_PROSE, CLI, CLEAN_RESUME, EXAMPLE_SHORT, SCRIPTS,
+from fixtures import (CHECK_ATS, CHECK_PROSE, CLI, CLEAN_RESUME, example_short, SCRIPTS,
                       build_pdf, build_text, load_script, resume_with, run)
 
 from jsk import cli
 
 JSK = CLI
-EXAMPLE = EXAMPLE_SHORT
 RECORD_GATE = "jsk.gates.record"
 GOOD = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team", "ach_identity_sso"]}
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
@@ -129,14 +128,14 @@ class ValidateRouting(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def test_json_routes_to_the_record_validator(self):
-        code, out = run(JSK, "validate", EXAMPLE)
+        code, out = run(JSK, "validate", example_short())
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)
 
     def test_an_unknown_flag_is_refused_not_ignored(self):
         """`--level` went with the bundle format. Ignoring it exited 0, which read as
         "level 2 confirmed"; placed first, its value was taken for the file."""
-        for argv in ([EXAMPLE, "--level", "2"], ["--level", "2", EXAMPLE]):
+        for argv in ([example_short(), "--level", "2"], ["--level", "2", example_short()]):
             with self.subTest(argv=argv):
                 code, out = run(JSK, "validate", *argv)
                 self.assertEqual(code, 2, out)
@@ -144,11 +143,11 @@ class ValidateRouting(unittest.TestCase):
 
     def test_flags_are_forwarded_unchanged(self):
         """--strict is the underlying script's flag; the dispatcher must not eat it."""
-        code, out = run(JSK, "validate", EXAMPLE, "--strict")
+        code, out = run(JSK, "validate", example_short(), "--strict")
         self.assertIn("checking:", out)
         # The script's own refusal, naming the flag: it reached the record gate
         # rather than being dropped on the way.
-        code2, out2 = run(JSK, "validate", EXAMPLE, "--nonsense-flag")
+        code2, out2 = run(JSK, "validate", example_short(), "--nonsense-flag")
         self.assertEqual(code2, 2, out2)
         self.assertIn("unknown flag: --nonsense-flag", out2)
 
@@ -959,7 +958,8 @@ class UnloadedWorkspace(unittest.TestCase):
         self.assertIsNotNone(cli.unloaded_refusal(str(self.root)))
         self.assertIsNone(cli.unloaded_refusal(None))
         from jsk import paths
-        self.assertIsNone(cli.unloaded_refusal(paths.EXAMPLE_WORKSPACE))   # package data
+        # The shipped example too: whatever reads it imports it first, as doctor does.
+        self.assertIsNotNone(cli.unloaded_refusal(paths.EXAMPLE_WORKSPACE))
 
 
 class DoctorStore(unittest.TestCase):

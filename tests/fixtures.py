@@ -10,6 +10,7 @@ bare checkout - which is what ARCHITECTURE.md promises and what CI relies on.
 """
 import importlib
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -198,8 +199,28 @@ CHECK_PROSE = f"{PACKAGE}.gates.check_prose"
 PREFLIGHT = f"{PACKAGE}.preflight"
 # The shipped example workspace's short resume.json: what `jsk doctor` renders, and what
 # a render test reaches for when any resume will do. (example.resume.json, the full URS
-# record it replaced, went on 2026-09-25.)
+# record it replaced, went on 2026-09-25.) It ships beside the career as files, which jsk
+# no longer reads: a test renders example_short(), as doctor renders its import.
 EXAMPLE_SHORT = SRC / PACKAGE / "data" / "example" / "resume.json"
+_EXAMPLE = []
+
+
+def example_short():
+    """The example's resume.json in a copy of the workspace whose career is in a store of
+    its own - as `jsk doctor` imports it (preflight.verify). Made once per test process and
+    only read, so every render test shares it; removed when the process exits."""
+    if not _EXAMPLE:
+        import atexit
+        import tempfile
+
+        from storekit import seed
+
+        root = Path(tempfile.mkdtemp()) / "example"
+        atexit.register(shutil.rmtree, root.parent, True)
+        shutil.copytree(EXAMPLE_SHORT.parent, root)
+        seed(root)
+        _EXAMPLE.append(root / EXAMPLE_SHORT.name)
+    return _EXAMPLE[0]
 
 
 def render_module(name):

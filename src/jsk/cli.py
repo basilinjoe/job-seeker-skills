@@ -239,14 +239,9 @@ def unloaded_refusal(root):
     that read the files would answer from a record jsk no longer writes, so each refuses
     until `jsk kb load .` has imported them, once.
 
-    The shipped example (paths.EXAMPLE_WORKSPACE) is the exception: it is package data,
-    read-only, and a store's format is tied to the pyoxigraph version, so it ships as
-    files and is read from them."""
-    from .paths import EXAMPLE_WORKSPACE
-
-    if root and os.path.normcase(os.path.abspath(root)) == \
-            os.path.normcase(EXAMPLE_WORKSPACE):
-        return None
+    The shipped example (paths.EXAMPLE_WORKSPACE) is no exception: it ships as files,
+    since a store's format is tied to the installed pyoxigraph, and whatever reads it
+    imports it into a store of its own first, as `jsk doctor` does (preflight.verify)."""
     if root and os.path.isfile(os.path.join(root, "career", "kb.ttl")) and \
             not os.path.isdir(os.path.join(root, "career", "store")):
         return [f"{root}: the career is still career/kb.ttl, and jsk reads it from "
@@ -929,10 +924,7 @@ FREEZE_USAGE = ("usage: jsk freeze <app-dir> --submitted YYYY-MM-DD|false "
                 "--channel TEXT [--doc FILE ...]")
 
 APPLICATION = "application.md"
-APPLICATION_TTL = "application.ttl"
 WORKING_FILES = ("gaps.txt", "decisions.txt")
-POSTING_TTL = "posting.ttl"
-GRAPH_KB = os.path.join("career", "kb.ttl")
 GRAPH_STORE = os.path.join("career", "store")
 DATED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 
@@ -976,8 +968,7 @@ def cmd_freeze(args):
     # round. It happened: a session wrote them relative to its working directory.
     apps = os.path.dirname(os.path.abspath(app_dir))
     workspace = os.path.dirname(apps)
-    if not (os.path.isdir(os.path.join(workspace, GRAPH_STORE))
-            or os.path.isfile(os.path.join(workspace, GRAPH_KB))):
+    if not os.path.isdir(os.path.join(workspace, GRAPH_STORE)):
         print(f"no career/store/ beside {apps}")
         print("fix:  move the directory into the applications/ folder next to career/")
         return 2
@@ -1001,13 +992,12 @@ def cmd_freeze(args):
         print("fix:  --channel \"Workday portal\"   - where it was sent")
         return 2
 
-    # Frozen is what the record says: its application graph - or, in a workspace not yet
-    # loaded into a store, application.ttl. An application.md is one frozen before the
-    # career moved to kb.ttl, and is as frozen as either.
+    # Frozen is what the record says: its application graph. An application.md is one
+    # frozen before the career was a graph, and is as frozen as one.
     from .graph import timeline                       # noqa: PLC0415 - only when asked
     held = timeline.frozen(app_dir)
     if held:
-        later = ("It was frozen as Markdown before the career moved to career/kb.ttl."
+        later = ("It was frozen as Markdown before the career was a graph."
                  if held.endswith(APPLICATION) else "Later events are `jsk event`, one each.")
         return freeze_refusal(
             f"{held} already exists. A frozen application is never re-frozen.", later)
@@ -1024,7 +1014,8 @@ def cmd_freeze(args):
             record_bytes = fh.read()
     except OSError as exc:
         return freeze_refusal(f"cannot read the record {record}: {exc}",
-                              "application.ttl records its hash, and its gate has to pass.")
+                              "the application's record keeps its hash, and its gate "
+                              "has to pass.")
     # What was sent is what the builder renders from the short file now, over the career
     # as it stands - the same build the PDF beside it came from. A legacy URS record is
     # refused here with `jsk kb export` as the fix (short.read).
@@ -1039,7 +1030,7 @@ def cmd_freeze(args):
         documents = []
         # `named`, not `doc`: that name once held the record, which timeline.freeze()
         # read below, and a graph freeze given --doc raised AttributeError on the last
-        # --doc path instead of writing application.ttl.
+        # --doc path instead of writing the application's record.
         for named in flags["--doc"]:
             name = os.path.basename(named)
             if not os.path.isfile(os.path.join(app_dir, name)):

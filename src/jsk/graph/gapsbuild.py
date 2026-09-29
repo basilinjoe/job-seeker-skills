@@ -312,8 +312,7 @@ def shown(written):
 
 
 def build(app_dir, store, r, today, derived=None):
-    """Write the assessment - the gaps graph (gaps.ttl, in a workspace not yet loaded into
-    a store) and gaps.md - for the match `r` of the posting in `app_dir`. The caller holds
+    """Write the assessment - the gaps graph and gaps.md - for the match `r` of the posting in `app_dir`. The caller holds
     its turn (record.turn) and loaded `store` inside it. Returns (what was written - graph
     names and file paths - and findings). On a FAIL nothing is written; with no gaps.txt
     the derived assessment is written alone - the path that needs no agent."""
@@ -324,7 +323,6 @@ def build(app_dir, store, r, today, derived=None):
     from .gapsdraft import advert, drops
     from .io import GraphError, Missing, Unreadable, read_text
     from .timeline import Unwritable, sent_day, write_app_file, write_app_graphs
-    from .writer import WriteError, write
 
     app_rel = S.file_name(os.path.abspath(app_dir), store.root)
     gaps = S.app_graph(app_rel, "gaps")
@@ -357,13 +355,6 @@ def build(app_dir, store, r, today, derived=None):
     before = assessed(store, app_rel)
     if before and same_triples(triples(a, before), store.graph(gaps)):
         today = before
-    ttl_text = None
-    if not store.stored:
-        try:
-            ttl_text = write(triples(a, today), "gaps")
-        except WriteError as e:      # an id jsk would not write: a bug here, never a crash
-            return [], found + [("FAIL", f"gaps.ttl: {e}", "report it - the assessment is "
-                                 "derived, so nothing in gaps.txt can cause it")]
     try:
         dropped = drops(app_dir)
         lines = advert(os.path.join(app_dir, "posting.md"))
@@ -375,10 +366,7 @@ def build(app_dir, store, r, today, derived=None):
     md_text = render(r, a, today, lines, dropped)
     written = []
     try:
-        if store.stored:
-            written += write_app_graphs(app_dir, {"gaps": triples(a, today)}, store)
-        else:
-            written.append(write_app_file(app_dir, "gaps.ttl", ttl_text, store))
+        written += write_app_graphs(app_dir, {"gaps": triples(a, today)}, store)
         written.append(write_app_file(app_dir, "gaps.md", md_text, store))
     except Unwritable as e:         # locked, or the store refused the write
         return written, found + [("FAIL", str(e), e.fix)]

@@ -172,7 +172,15 @@ class Discovery(unittest.TestCase):
             s = store.load(tmp)
             self.assertEqual(sorted(s.parsed), ["vocabulary"])
             self.assertEqual(s.findings, [])
-            self.assertFalse(s.stored)
+            self.assertEqual(R.state(s).kind, "missing")
+
+    def test_a_career_still_in_files_is_refused_with_the_import(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
+            with self.assertRaises(GraphError) as e:
+                store.load(tmp)
+        self.assertEqual(e.exception.file, "career/kb.ttl")
+        self.assertIn("jsk kb load .", e.exception.fix)
 
     def test_an_empty_store_holds_no_career(self):
         with tempfile.TemporaryDirectory() as tmp:

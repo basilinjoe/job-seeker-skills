@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from fixtures import CLI, CLEAN_RESUME, EXAMPLE_SHORT, RENDER_RESUME, run, render_module
+from fixtures import CLI, CLEAN_RESUME, example_short, RENDER_RESUME, run, render_module
 from jsk.gates import layout
 
 tex = render_module("render.tex")
@@ -80,7 +80,7 @@ class EveryShippedTemplatePasses(unittest.TestCase):
         for name in themes.names():
             for variant in ((), ("--ats-max",)):
                 out = cls.tmp / (name + "".join(variant))
-                code, output = run(RENDER_RESUME, EXAMPLE_SHORT, "--out", out, "--template",
+                code, output = run(RENDER_RESUME, example_short(), "--out", out, "--template",
                                    name, "--format", "latex", "--pdf", *variant)
                 assert code == 0, output
                 cls.pdfs[out.name] = next(out.glob("*.pdf"))
@@ -92,7 +92,7 @@ class EveryShippedTemplatePasses(unittest.TestCase):
     def test_every_template_and_variant_passes_against_its_record(self):
         for name, path in self.pdfs.items():
             with self.subTest(template=name):
-                code, out = run(LAYOUT, path, "--record", EXAMPLE_SHORT)
+                code, out = run(LAYOUT, path, "--record", example_short())
                 self.assertEqual(code, 0, f"{name}:\n{out}")
                 self.assertIn("region: AU", out)
                 self.assertIn("paper: A4", out)
@@ -106,13 +106,13 @@ class EveryShippedTemplatePasses(unittest.TestCase):
 
     def test_a_us_render_is_letter_and_fails_against_an_au_record(self):
         out_dir = self.tmp / "us"
-        code, output = run(RENDER_RESUME, EXAMPLE_SHORT, "--out", out_dir, "--format", "latex",
+        code, output = run(RENDER_RESUME, example_short(), "--out", out_dir, "--format", "latex",
                            "--pdf", "--region", "US")
         self.assertEqual(code, 0, output)
         path = next(out_dir.glob("*.pdf"))
         code, out = run(LAYOUT, path, "--region", "US")
         self.assertEqual(code, 0, out)
-        code, out = run(LAYOUT, path, "--record", EXAMPLE_SHORT)
+        code, out = run(LAYOUT, path, "--record", example_short())
         self.assertEqual(code, 1, out)
         self.assertIn("paper Letter - the AU region renders on A4", out)
 
@@ -260,7 +260,7 @@ class CheckOnlyLayout(LayoutCase):
         this gate stops seeing."""
         from jsk.resume import build
         for fmt in ("presentation", "ats-maximal"):
-            plan, _ = build.from_path(EXAMPLE_SHORT, fmt=fmt)
+            plan, _ = build.from_path(example_short(), fmt=fmt)
             for section in plan["sections"]:
                 if section.get("heading"):
                     self.assertIn(section["heading"], layout.SECTION_TITLES)

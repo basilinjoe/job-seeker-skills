@@ -740,13 +740,15 @@ class Similar(Workspace):
 
     def test_duplicates_reports_nothing_in_the_clean_careers(self):
         """The thresholds' calibration: none of the fixture careers holds a project twice."""
+        from appkit import stored_copy
+
         from jsk.graph import named
 
         tests = Path(__file__).parent
         for root in (FIXTURES, tests / "match_fixtures", tests / "claims_fixtures",
                      tests.parent / "src" / "jsk" / "data" / "example"):
             with self.subTest(root=Path(root).name):
-                _, rows = named.duplicates(S.load(root))
+                _, rows = named.duplicates(S.load(stored_copy(root)))
                 self.assertEqual([r["names"] for r in rows],
                                  ["nothing looks like one project twice"])
 
@@ -840,6 +842,7 @@ class Dispatch(Workspace):
         self.assertIn("unknown verb: aply", out)
 
     def test_the_workspace_is_found_from_inside_it(self):
+        self.seed()
         here = os.getcwd()
         os.chdir(self.path("applications"))
         self.addCleanup(os.chdir, here)

@@ -12,15 +12,14 @@ FAIL anywhere; the match as `jsk match` prints it; what the record holds for eve
 and candidate term; the person, for eligibility; the cover's projects with their bullets;
 what those projects hold unconfirmed; and the assessment - the gaps graph and gaps.md,
 derived from the match with gaps.txt folded in when there is one, written on every run.
-Every section has a size cap and says when it was cut. (A workspace not yet loaded into
-career/store/ gets a first section: posting.ttl rewritten in the canonical layout.)
+Every section has a size cap and says when it was cut.
 
 Exit 0 digest printed; 1 a FAIL blocks the match, or the draft could not be written; 2
 called wrong. A gaps.txt the check refuses is reported in the digest, not an exit 1: the
 analyst may be halfway through filling it.
 
 Written after the JumpCloud run (2026-09-26), where the analyst made about ten calls
-between posting.ttl and gaps.md - fmt, check, match, evidence, person, show, show,
+between the posting and gaps.md - fmt, check, match, evidence, person, show, show,
 unconfirmed - and each was a model turn carrying long silent reasoning (53s, 128s). The
 tools took two seconds apiece; the turns took four minutes.
 """
@@ -110,12 +109,7 @@ def prepare(root, app, named_as, budget, today, draft):
     rel = S.file_name(app, store.root)
     here = rel + "/"
 
-    # 1. A posting.ttl laid out as `jsk kb fmt` writes it. The store has no layout, so a
-    # stored workspace has no such step, and the digest no such section.
-    if not store.stored:
-        store = canonical(root, store, app, S.app_graph(rel, "posting"))
-
-    # 2. The check, scoped: this application's findings and every FAIL, since a FAIL
+    # 1. The check, scoped: this application's findings and every FAIL, since a FAIL
     # anywhere may still stop the match.
     mine = [f for f in store.findings if f.severity == "FAIL" or f.file.startswith(here)]
     rep = S.Store(store.root, findings=mine).report()
@@ -133,11 +127,11 @@ def prepare(root, app, named_as, budget, today, draft):
               f"      fix: `jsk posting build {named_as}` writes it from posting.md")
         return 1
 
-    # 3. The match, as `jsk match` prints it.
+    # 2. The match, as `jsk match` prints it.
     r = result(store, post, today, budget, len(store.fails()) - len(blocking))
     section("match", capped(markdown(r).rstrip("\n").split("\n"), "match"))
 
-    # 4. What the record holds for each term the match could not place.
+    # 3. What the record holds for each term the match could not place.
     terms = [q["asked"] for q in r["requirements"] if q["state"] in ("missing", "candidate")]
     if terms:
         cols, rows = named.evidence_for(store, *terms)
@@ -147,12 +141,12 @@ def prepare(root, app, named_as, budget, today, draft):
     else:
         section("evidence - the missing and candidate terms", ["None: nothing is missing."])
 
-    # 5. The person, for eligibility.
+    # 4. The person, for eligibility.
     cols, rows = named.person(store)
     lines = named.table(cols, rows).split("\n")
     section("person", lines[:2] + capped(lines[2:], "person"))
 
-    # 6. The cover's projects, bullets only - what citing them as evidence needs.
+    # 5. The cover's projects, bullets only - what citing them as evidence needs.
     projects = list(r["cover"]["projects"] or [])[:PROJECTS]
     if not projects:
         projects = [row["project"] for row in r["ranking"]
@@ -175,14 +169,14 @@ def prepare(root, app, named_as, budget, today, draft):
     section(f"bullets - {', '.join(projects) or 'no project carries a requirement'}",
             capped(lines, "bullets"))
 
-    # 7. What those projects hold unconfirmed: the questions a draft would otherwise raise.
+    # 6. What those projects hold unconfirmed: the questions a draft would otherwise raise.
     cols, rows = named.unconfirmed(store)
     rows = [row for row in rows if row["entry"] in held]
     lines = named.table(cols, rows).split("\n") if rows else ["None."]
     section("unconfirmed - in those projects", lines[:2] + capped(lines[2:], "unconfirmed")
             if rows else lines)
 
-    # 8. The assessment, derived - with gaps.txt folded in when there is one - and the draft
+    # 7. The assessment, derived - with gaps.txt folded in when there is one - and the draft
     # of gaps.txt when asked for.
     from .gapsbuild import build
     from .gapsderive import derive
@@ -227,36 +221,6 @@ def prepare(root, app, named_as, budget, today, draft):
                 lines.append(f"wrote {target}: {slots} slots to fill")
     section("gaps", lines)
     return 0
-
-
-def canonical(root, store, app, name):
-    """A posting.ttl file rewritten in the canonical layout, as `jsk kb fmt` writes it, and
-    its section of the digest; the store reloaded when the file changed. Only for a
-    workspace not yet loaded into career/store/."""
-    from . import record as R
-    from . import store as S
-    from .writer import WriteError, write
-
-    posting = os.path.join(app, "posting.ttl")
-    parsed = store.parsed.get(name)
-    if parsed is None:
-        said = "does not parse - the check below says why"
-    elif parsed.comments:
-        said = "holds hand comments, so it is left as it is"
-    else:
-        try:
-            text = write(store.graph(name), parsed.kind)
-        except WriteError as e:
-            text = None
-            said = f"cannot be laid out: {e}"
-        else:
-            said = "already canonical"
-        if text is not None and text != parsed.text:
-            R.replace(R.staged(posting, text), posting)
-            said = "rewritten in the canonical layout"
-            store = S.load(root)
-    section("posting.ttl", [f"{name}: {said}"])
-    return store
 
 
 if __name__ == "__main__":

@@ -65,8 +65,9 @@ def verb(values=(), switches=(), lists=()):
 
 
 def find_root(start):
-    """The nearest folder at or above `start` holding career/store/ (or, not yet loaded
-    into one, career/kb.ttl), or None."""
+    """The nearest folder at or above `start` holding career/store/ - or career/kb.ttl, a
+    career from before the store, found so that it can be refused with the import as the
+    fix - or None."""
     here = os.path.abspath(start)
     while True:
         if os.path.isdir(os.path.join(here, "career", "store")) or \
@@ -103,19 +104,13 @@ def show_findings(findings, title):
     show(rep.fails, "FAIL", 25)
 
 
-# Why a record may not be written, and the fix. The file states belong to a workspace not
-# yet loaded into a store: every one of them is fixed by loading it, which validates the
-# files and starts writing to the store instead.
-LOAD = "run `jsk kb load .`: the record moves into career/store/, where jsk writes it"
+# Why a record may not be written, and the fix: the states a stored record can be in
+# other than clean (record.stored_state).
 GUIDE = {
-    "unlogged": ("career/kb.ttl has no log yet", LOAD),
-    "hand-edited": (None, LOAD),
-    "torn": (None, LOAD),
     "out-of-sync": (None, "restore the record from its backup: `jsk kb load .jsk/backup.trig` "
                           "into a new workspace (--root), then use that one"),
     "missing": ("there is no career record here",
                 "run `jsk new`, or `jsk kb load` to import a workspace or a dump"),
-    "unreadable": ("career/kb.ttl or career/log.ttl does not parse", "`jsk kb check` shows where"),
 }
 
 
@@ -166,7 +161,6 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
     stands, and nothing lands between this validating the candidate and writing it."""
     from . import record as R
     from . import store as S
-    from .io import parse_text
     from .writer import write
 
     missed = changed_subjects(store.graph(R.KB), quads) - set(touched) - set(minted)
@@ -177,41 +171,27 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
                       "report it; the record is untouched")
     today = datetime.date.today()
     p = R.prepared(store, quads, today, by, summary, touched, minted, answer)
-    rev, kb_text, log_text = p.revision, p.kb_text, p.log_text
-    if store.stored:
-        after = S.load(root, graphs=p.graphs())
-    else:
-        # A file workspace keeps the text: gofmt's promise, checked every time - what is
-        # written parses back to what was meant.
-        if set(parse_text(kb_text, R.KB).quads) != set(R.stamp(quads, rev, today)):
-            return refuse(["the writer did not reproduce the record it was given - a jsk bug"],
-                          "report it; the record is untouched")
-        after = S.load(root, texts={R.KB: kb_text, R.LOG: log_text})
+    after = S.load(root, graphs=p.graphs())
     broken = new_failures(store, after)
     if broken:
         show_findings(broken, f"REFUSED  the change would leave {len(broken)} failures:")
         print("nothing was written")
         return 1
-    old = write(store.graph(R.KB), "kb") if store.stored else store.parsed[R.KB].text
-    print(diff(old, kb_text), end="")
+    print(diff(write(store.graph(R.KB), "kb"), p.kb_text), end="")
     for label, ids in (("minted", minted), ("touched", touched)):
         if ids:
             print(f"{label:8} {curies(ids)}")
     for note in notes:
         print(f"note     {note}")
     if dry_run:
-        print(f"dry run: r{rev} not written")
+        print(f"dry run: r{p.revision} not written")
         return 0
     try:
-        if store.stored:
-            R.write_graphs(root, p.graphs())
-        else:
-            R.commit(root, kb_text, log_text)
+        R.write_graphs(root, p.graphs())
     except R.RecordError as e:
         print(f"FAIL  {e}\n        fix: {e.fix}")
         return 1
-    print(f"r{rev} written: " + ("career/store/" if store.stored
-                                 else "career/kb.ttl and career/log.ttl"))
+    print(f"r{p.revision} written: career/store/")
     return 0
 
 
@@ -313,7 +293,7 @@ def logged_base(store):
     from . import record as R
 
     st = R.state(store)
-    if st.kind in ("missing", "unreadable", "unlogged") or st.log_revision is None:
+    if st.kind == "missing" or st.log_revision is None:
         message, fix = GUIDE.get(st.kind, (st.detail, "`jsk kb check` says what is wrong"))
         return None, refuse([message or st.detail], fix)
     return st.log_revision, None
@@ -581,16 +561,16 @@ def sent(root, path):
 
 def confirm_summary(path, answer, root):
     """`jsk kb confirm --summary`: the summary confirmed in resume.json, beside the answer
-    and its text's hash. Not logged in log.ttl: a logged write stamps kb.ttl with a new
-    revision, and the summary is not in kb.ttl. resume.json holds the audit trail, and
-    `jsk freeze` hashes it into application.ttl."""
+    and its text's hash. Not logged: a logged write stamps the career with a new revision,
+    and the summary is not in the career. resume.json holds the audit trail, and `jsk
+    freeze` hashes it into the application graph."""
     import json
 
     from ..cli import frozen_refusal
     from ..resume import short
-    from . import record as R
     from .io import read_text
     from .store import inside, rel
+    from .timeline import Unwritable, write_document
 
     code = bad_answer(answer, "write the summary again with what the person said, and ask "
                               "them about the new words")
@@ -622,7 +602,10 @@ def confirm_summary(path, answer, root):
     doc["summary"] = short.confirmed(summary, answer)
     old = read_text(path, "resume.json")
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
-    R.replace(R.staged(path, text), path)
+    try:
+        write_document(path, text)
+    except Unwritable as err:
+        return refuse([str(err)], err.fix)
     print(diff(old, text, rel(path, root)), end="")
     print(f"confirmed the summary in {path}")
     return 0

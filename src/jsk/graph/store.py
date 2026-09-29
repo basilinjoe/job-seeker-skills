@@ -6,9 +6,9 @@ shipped vocabulary is read from its file each time; derived triples go in j:deri
 which is never written; queries run over the union. Loading never raises on bad
 content - it reports, and the caller decides what a FAIL stops.
 
-A workspace still laid out as files (career/kb.ttl, applications/*/*.ttl) loads from
-them: that is the front end of the one-time import (legacy.py, `jsk kb load`), and of
-nothing else once every workspace has a store.
+A workspace still laid out as files (career/kb.ttl, applications/*/*.ttl) is read only
+by the one-time import (legacy.py, `jsk kb load`), which names its files; loaded any other
+way it is refused, with that import as the fix.
 """
 import glob
 import os
@@ -162,13 +162,19 @@ def graph_iri(name):
 
 
 def record_graphs(root):
-    """{name: [Triple]} of the workspace's record, from career/store/ - or None when the
-    workspace has no store yet (it is still laid out as files). A store that will not open
-    is a GraphError naming it, as an unreadable file was: never a traceback."""
-    from . import db
+    """{name: [Triple]} of the workspace's record, from career/store/ - {} in a folder with
+    no record yet (before `jsk new`, or a --root that is not one). A career still laid out
+    as files is a GraphError: jsk no longer reads or writes those files, and answering from
+    them would answer from a record nothing keeps up to date. So is a store that will not
+    open - never a traceback."""
+    from . import db, legacy
 
     if not db.exists(root):
-        return None
+        if legacy.has_files(root):
+            raise GraphError("the career is still career/kb.ttl, and jsk reads it from "
+                             "career/store/ now", "`jsk kb load .` imports the files, once",
+                             "career/kb.ttl")
+        return {}
     try:
         return db.read(root)
     except db.StoreError as e:
@@ -199,12 +205,12 @@ def parsed_graph(name, triples):
 def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=None):
     """Load, derive, validate and close over a workspace.
 
-    The record comes from career/store/ - or, while a workspace has no store, from its
-    files (the import's front end). `graphs` ({name: triples, or None to drop}) stands in
-    for the store's graphs, and `texts` ({name: text}) for one graph as text - a posting
-    build's, or an import's: how a write validates the record it is about to write before
-    writing it. A text wins over a graph of the same name, and both over the store.
-    `files` overrides file discovery, and reads files only: the store is not opened."""
+    The record comes from career/store/ (record_graphs). `graphs` ({name: triples, or None
+    to drop}) stands in for the store's graphs, and `texts` ({name: text}) for one graph as
+    text: how a write validates the record it is about to write before writing it. A text
+    wins over a graph of the same name, and both over the store. `files` reads those files
+    instead and never opens the store - the import's front end (legacy.read_workspace), and
+    `jsk kb load` validating what it imports with the vocabulary alone."""
     import pyoxigraph as ox
 
     from .rules import tier2
@@ -225,7 +231,7 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, texts=None, graphs=Non
         if vocabulary and os.path.isfile(vocabulary):
             items.append((graph_name(vocabulary, store.root), vocabulary))
     else:
-        paths = files if files is not None else workspace_files(root, vocabulary)
+        paths = files
         names = {graph_name(p, store.root) for p in paths}
         items = [(graph_name(p, store.root), p) for p in paths]
         items += [(n, None) for n in sorted(texts, key=load_order) if n not in names]

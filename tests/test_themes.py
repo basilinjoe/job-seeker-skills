@@ -18,14 +18,13 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import CHECK_ATS, CHECK_PROSE, RENDER_RESUME, child_env, run, render_module
-from jsk import paths
+from fixtures import (CHECK_ATS, CHECK_PROSE, RENDER_RESUME, child_env, example_short, run,
+                      render_module)
 from jsk.resume import build
 from test_build import BuildCase, LEAD_TITLE, short
 
 # Every claim in this file is about the text layer, so which resume renders is
 # irrelevant to the assertion and only has to be held constant: the shipped example.
-EXAMPLE = paths.EXAMPLE_SHORT
 LONG_TITLE = (LEAD_TITLE, '    j:title "Member of Technical Staff, Distinguished Grade IV" ;\n'
                           '    j:functionalTitle "Principal Full-Stack Platform Engineer" ;\n')
 
@@ -126,7 +125,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
 
     def render(self, name):
         out = self.tmp / name
-        code, output = run(RENDER_RESUME, EXAMPLE, "--out", out,
+        code, output = run(RENDER_RESUME, example_short(), "--out", out,
                            "--template", name, "--format", "latex", "--pdf")
         self.assertEqual(code, 0, output)
         return next(out.glob("*.pdf"))
@@ -145,7 +144,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         on the name, because a heavy all-caps name is the strongest anchor
         available at the top of a page - and it is the one theme choice a parser
         can see, on the single highest-value field in the document."""
-        plan, _ = build.from_path(EXAMPLE)
+        plan, _ = build.from_path(example_short())
         for name in themes.names():
             rendered = emit_latex.emit(plan, template=name)
             head = rendered.split(r"\begin{document}")[0]
@@ -175,7 +174,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         tempting and most expensive, and they have to come back out of the PDF
         exactly as the builder wrote them.
         """
-        plan, _ = build.from_path(EXAMPLE)
+        plan, _ = build.from_path(example_short())
         for name in themes.names():
             text = self.extract(self.render(name))
             self.assertIn(plan["name"], text, f"{name}: the name is not in the text layer")
@@ -262,7 +261,7 @@ class TheTemplateChoiceIsExplicit(unittest.TestCase):
 
     def test_the_cli_refuses_an_unknown_template(self):
         with tempfile.TemporaryDirectory() as tmp:
-            code, out = run(RENDER_RESUME, EXAMPLE, "--out", tmp,
+            code, out = run(RENDER_RESUME, example_short(), "--out", tmp,
                             "--template", "chartreuse")
             self.assertEqual(code, 2, out)
             self.assertIn("chartreuse", out)

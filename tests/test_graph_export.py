@@ -16,6 +16,7 @@ import unittest
 from pathlib import Path
 
 import appkit
+import storekit
 
 from jsk import cli
 from jsk.graph import export
@@ -288,6 +289,7 @@ class OpenSource(unittest.TestCase):
         text = Path(path).read_text(encoding="utf-8")
         Path(path).write_bytes(text.replace("# == Open source\n",
                                             "# == Open source\n\n" + OPEN_SOURCE).encode())
+        storekit.seed(root)
         with self.assertRaises(export.ExportError) as caught:
             export.short_file(S.load(root), select=["os_widget"])
         self.assertIn("os_widget is open source (https://github.com/test/widget)",
