@@ -345,6 +345,60 @@ class Turn(unittest.TestCase):
         self.assertEqual(sorted(db.read(self.root)), ["g0", "g1", "g2", "g3", "kb"])
 
 
+class TurnBeforeTheStore(unittest.TestCase):
+    """`jsk new` and `jsk kb load` ask whether there is a store, then make one: two at once
+    must not both find none. Each takes its turn with no store yet, and asks inside it."""
+
+    FIRST = """
+        from jsk import kb
+        from jsk.graph import db
+        with db.write_turn(root):
+            print('got', flush=True)
+            time.sleep(1.5)
+            print('scaffold', kb.scaffold(root, 'First')[0], flush=True)
+    """
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root, True)
+
+    def test_the_turn_is_taken_with_no_store_yet(self):
+        with R.turn(self.root):
+            self.assertTrue(db.holds_turn(self.root))
+
+    def behind_a_new(self, *args):
+        """Run `jsk *args` while another process holds the turn and then starts a career
+        here; (its result, the name the store ends up holding)."""
+        first = child(self.FIRST, self.root)
+        self.assertEqual(first.stdout.readline().strip(), "got")
+        second = subprocess.run([sys.executable, "-m", "jsk", *args], env=child_env(),
+                                capture_output=True, text=True, timeout=120)
+        out, err = first.communicate(timeout=60)
+        self.assertIn("scaffold 0", out, err)
+        names = [t.object.value for t in db.read(self.root)[R.KB]
+                 if t.predicate.value.endswith("#name")]
+        return second, names
+
+    def test_a_new_queued_behind_another_is_refused(self):
+        second, names = self.behind_a_new("new", self.root, "--name", "Second")
+        self.assertEqual(second.returncode, 1, second.stdout + second.stderr)
+        self.assertIn("already exists", second.stdout)
+        self.assertIn("waiting for another jsk write", second.stderr)
+        self.assertEqual(names, ["First"])
+
+    def test_a_load_queued_behind_a_new_is_refused(self):
+        import datetime
+
+        from jsk import kb
+        dump = Path(self.root, "other.trig")
+        dump.write_text(db.dump_text(kb.first_write("Second", datetime.date(2026, 9, 29))),
+                        encoding="utf-8")
+        second, names = self.behind_a_new("kb", "load", str(dump), "--root", self.root)
+        self.assertEqual(second.returncode, 1, second.stdout + second.stderr)
+        self.assertIn("already holds a record", second.stdout)
+        self.assertEqual(names, ["First"])
+
+
 class OnlyDbKnowsTheStore(unittest.TestCase):
     """Ruling 13: db.py is the only module that opens the store on disk, and record.py the
     only one that writes it."""

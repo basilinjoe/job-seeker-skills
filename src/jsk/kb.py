@@ -175,21 +175,22 @@ def scaffold(root, name, force=False, today=None):
     from .graph import record as R
 
     store = os.path.normpath(os.path.join(root, STORE))
-    exists = db.exists(root)
-    if not exists and legacy.has_files(root):
-        return 1, [f"REFUSED  {os.path.normpath(os.path.join(root, 'career', 'kb.ttl'))} is a "
-                   "record still laid out as files",
-                   "        fix: `jsk kb load .` in that workspace moves it into career/store/ - "
-                   "nothing is started over",
-                   "nothing was written"]
-    if exists and not force:
-        return 1, [f"REFUSED  already exists: {store}",
-                   "        fix: change it with `jsk kb apply`; or --force to start over from "
-                   "the empty record (logged, the old record kept beside it as a dump, "
-                   "career/kb.r<N>.trig)"]
     lines = []
-    # --force reads the record it replaces: its turn first, so nothing lands in between.
+    # The turn before the question "is there a store?": two `jsk new` at once would both
+    # find none and both write r1. --force reads the record it replaces, likewise.
     with R.turn(root):
+        exists = db.exists(root)
+        if not exists and legacy.has_files(root):
+            return 1, [f"REFUSED  {os.path.normpath(os.path.join(root, 'career', 'kb.ttl'))} "
+                       "is a record still laid out as files",
+                       "        fix: `jsk kb load .` in that workspace moves it into "
+                       "career/store/ - nothing is started over",
+                       "nothing was written"]
+        if exists and not force:
+            return 1, [f"REFUSED  already exists: {store}",
+                       "        fix: change it with `jsk kb apply`; or --force to start over "
+                       "from the empty record (logged, the old record kept beside it as a "
+                       "dump, career/kb.r<N>.trig)"]
         if exists:
             done, refusal = restart(root, name, today)
             if refusal:

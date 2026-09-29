@@ -212,12 +212,16 @@ def turn(root, dry_run=False):
     process's turn (db.write_turn), taken before the command reads the record - so what it
     validates is what it writes over, and a write that queued behind another applies to
     what that one left. Nothing else writes while it is held, so the command reads the
-    store read-only as usual."""
+    store read-only as usual.
+
+    Taken when there is no store yet, too (creating career/ for its lock): `jsk new` and
+    `jsk kb load` ask whether one exists, then create it, and two of them must not both
+    find none. Each asks again inside its turn."""
     import contextlib
 
     from . import db
 
-    if dry_run or not db.exists(root):
+    if dry_run:
         return contextlib.nullcontext()
     return db.write_turn(root)
 
