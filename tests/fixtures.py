@@ -55,6 +55,17 @@ def load_script(name):
     return importlib.import_module(name)
 
 
+def source_path(name):
+    """Where module `name` (dotted, e.g. `jsk.graph.db`) is defined, relative to SCRIPTS.
+
+    A structure test that names a module by its file stops matching the moment the module
+    moves; named by its import path, it follows the move, because the old path is kept as
+    an alias of the moved module until every importer is rewritten.
+    """
+    module = importlib.import_module(name)
+    return Path(str(module.__file__)).resolve().relative_to(SCRIPTS.resolve()).as_posix()
+
+
 def build_text(path, paragraphs=(), trailing=()):
     """Write the extracted-text form of a resume: one paragraph per line.
 

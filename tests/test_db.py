@@ -10,7 +10,7 @@ import time
 import unittest
 from pathlib import Path
 
-from fixtures import SCRIPTS, child_env
+from fixtures import SCRIPTS, child_env, source_path
 
 from jsk.graph import db
 from jsk.graph import record as R
@@ -434,15 +434,16 @@ class OnlyDbKnowsTheStore(unittest.TestCase):
     def violations(self, sources):
         """(module, what it does that only db.py or record.py may) for each source."""
         out = []
+        db, record = source_path("jsk.graph.db"), source_path("jsk.graph.record")
         for name, text in sources:
-            if name == "graph/db.py":
+            if name == db:
                 continue
             if self.OPENS.search(text) or (self.IMPORTS_STORE.search(text)
                                            and self.BARE_OPEN.search(text)):
                 out.append((name, "opens a store on disk"))
             if self.HANDLE.search(text):
                 out.append((name, "reaches the Writer's store"))
-            if name == "graph/record.py":
+            if name == record:
                 continue
             if self.GATE.search(text):
                 out.append((name, "opens the store for itself"))

@@ -45,24 +45,21 @@ GRAPH_KB_FILENAME = "kb.ttl"
 # module can be present and unimportable - a syntax error, a missing dependency of
 # its own, a half-finished editable checkout - and find_spec is what notices.
 MODULES = ["cli", "cliutil", "kb", "paths"]
-# The graph record (docs/superpowers/specs/2026-09-24-graph-core-design.md). None of
-# these imports pyoxigraph at module top, so find_spec answers "is the code here" even on
-# a machine without the engine - the engine is its own check below.
-GRAPH_MODULES = ["graph", "graph.ontology", "graph.io", "graph.writer", "graph.shapes",
-                 "graph.rules", "graph.db", "graph.store", "graph.queries", "graph.match", "graph.record",
-                 "graph.changeset", "graph.edit", "graph.kbcli", "graph.named", "graph.view",
-                 "graph.timeline", "graph.export", "graph.scoring"]
-GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.report",
-                "gates.numbers", "gates.record"]
+# The commands and the packages, never a module inside one. Internal modules move between
+# rings (docs/superpowers/specs/2026-09-30-onion-architecture-design.md), and a list that
+# named them would report a sound install broken after every move. None of these imports
+# pyoxigraph at module top, so find_spec answers "is the code here" even on a machine
+# without the engine - the engine is its own check below.
+GRAPH_MODULES = ["graph", "graph.kbcli", "graph.match", "graph.prepare", "graph.timeline"]
+GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.layout",
+                "gates.letter", "gates.record"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken render package takes all
 # three with it and reporting them separately would name three symptoms of one cause.
 #
 # The builder (resume/) is counted with them: it turns the career and a resume.json into
 # the plan they render, and a render with no builder is as broken as one with no emitter.
-RENDER_MODULES = ["resume", "resume.short", "resume.build", "resume.career",
-                  "render", "render.profiles", "render.tex", "render.themes",
-                  "render.formatting", "render.emit_latex", "render.emit_text",
+RENDER_MODULES = ["resume", "resume.short", "resume.build", "render",
                   "render.render_resume", "render.preview_templates", "render.fit_pages"]
 
 SCHEMA_FILES = ["profile.schema.json"]

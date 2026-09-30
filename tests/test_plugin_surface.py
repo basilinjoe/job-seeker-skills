@@ -9,6 +9,8 @@ import re
 import unittest
 from pathlib import Path
 
+from fixtures import source_path
+
 REPO = Path(__file__).resolve().parent.parent
 PLUGIN = REPO / "plugins" / "jsk"
 SKILL = PLUGIN / "skills" / "jsk"
@@ -686,13 +688,16 @@ class TextIsReadInOnePlace(unittest.TestCase):
     text reads. A module here reads text itself, for the reason given."""
 
     ALLOWED = {
-        "graph/io.py": "read_text itself",
+        "jsk.graph.io": "read_text itself",
         # Deliberately lenient: a gate reads a rendered document to judge it, and a stray
         # byte in what was rendered is a finding in its own right, not a reason to stop.
-        "gates/check_ats.py": "reads a rendered .txt with errors=replace",
-        "gates/check_prose.py": "reads a rendered .tex with errors=replace",
-        "gates/letter.py": "reads a cover letter with errors=replace",
+        "jsk.gates.check_ats": "reads a rendered .txt with errors=replace",
+        "jsk.gates.check_prose": "reads a rendered .tex with errors=replace",
+        "jsk.gates.letter": "reads a cover letter with errors=replace",
     }
+
+    def allowed_paths(self):
+        return {source_path(name) for name in self.ALLOWED}
 
     @staticmethod
     def text_reads(path):
@@ -712,10 +717,11 @@ class TextIsReadInOnePlace(unittest.TestCase):
         return found
 
     def test_no_module_reads_text_itself(self):
+        allowed = self.allowed_paths()
         for path in sorted(SCRIPTS.rglob("*.py")):
             name = path.relative_to(SCRIPTS).as_posix()
             with self.subTest(module=name):
-                if name not in self.ALLOWED:
+                if name not in allowed:
                     self.assertEqual(self.text_reads(path), [],
                                      f"{name} opens a text file itself - use "
                                      "graph.io.read_text, which handles a BOM, CRLF and "
@@ -724,7 +730,7 @@ class TextIsReadInOnePlace(unittest.TestCase):
     def test_every_allowed_module_still_reads_text(self):
         for name in self.ALLOWED:
             with self.subTest(module=name):
-                self.assertTrue(self.text_reads(SCRIPTS / name),
+                self.assertTrue(self.text_reads(SCRIPTS / source_path(name)),
                                 f"{name} no longer reads text itself - take it off ALLOWED")
 
 
