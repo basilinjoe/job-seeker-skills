@@ -22,14 +22,13 @@ FUNCTION_LIMIT = 80
 # (repo-relative path, function name or None for the whole file) -> its length now.
 SIZE_KNOWN = {
     ("src/jsk/adapters/cli/kb.py", None): 1428,
-    ("src/jsk/cli.py", None): 1302,
+    ("src/jsk/cli.py", None): 1049,
     ("tests/test_cli.py", None): 1067,
     ("tests/test_graph_kbcli.py", None): 1193,
     ("tests/test_ship_freeze.py", None): 1343,
     ("src/jsk/adapters/cli/kb.py", "cmd_confirm"): 103,
     ("src/jsk/adapters/cli/kb.py", "cmd_export"): 162,
     ("src/jsk/adapters/cli/kb.py", "cmd_load"): 84,
-    ("src/jsk/cli.py", "cmd_freeze"): 198,
     ("src/jsk/cli.py", "cmd_ship"): 91,
     ("src/jsk/domain/record/edit.py", "apply"): 143,
     ("src/jsk/domain/record/merge.py", "draft"): 101,

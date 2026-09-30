@@ -43,3 +43,19 @@ class ApplicationFiles(Protocol):
             Unwritable: the file is there and could not be removed.
         """
         ...
+
+    def rename_directory(self, old: str, new: str) -> None:
+        """Rename the application directory `old` to `new`.
+
+        Raises:
+            OSError: the rename did not happen.
+        """
+        ...
+
+    def restore_directory(self, moved: str, back: str) -> bool:
+        """Undo rename_directory: rename `moved` back to `back`, never raising.
+
+        Returns:
+            True when it was renamed back, False when the disk refused.
+        """
+        ...

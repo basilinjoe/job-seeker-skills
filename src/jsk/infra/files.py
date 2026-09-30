@@ -177,6 +177,37 @@ def remove_document(path):
     return True
 
 
+def rename_directory(old, new):
+    """Rename the application directory `old` to `new`.
+
+    Args:
+        old: the directory as it is named now.
+        new: the name it takes.
+
+    Raises:
+        OSError: the rename did not happen.
+    """
+    os.rename(old, new)
+
+
+def restore_directory(moved, back):
+    """Undo rename_directory once what the rename was for has failed.
+
+    Args:
+        moved: the directory's name since the rename.
+        back: the name it had before.
+
+    Returns:
+        True when it was renamed back, False when the disk refused - it is then still at
+        `moved`.
+    """
+    try:
+        os.rename(moved, back)
+    except OSError:
+        return False
+    return True
+
+
 def parse(path, root=None):
     """Parse a file on disk; `root` makes the reported name relative to the workspace."""
     file = rel(path, root) if root else str(path).replace("\\", "/")
