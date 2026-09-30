@@ -345,6 +345,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/state.py                 the career and its log in step: revision, state, stamp, entry
     record/store.py                 a loaded workspace: its graphs, findings and engine; the derivations
     record/decisions.py             decisions.txt's format and its parser: header, rows, drops
+    record/rules.py                 tier 2: the rules over the whole workspace, as SPARQL rows
     record/changeset.py             a parsed changeset read, and what it may never say refused
     record/edit.py                  a changeset merged into the career, refused where the career says
     record/pack.py                  a starter pack's draft against the workspace, and its TriG
@@ -361,6 +362,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/boards.py               which job board a URL is on, and its answer as a posting
     posting/html_text.py            a board's or a saved page's HTML as text
     posting/posting_md.py           posting.md as jsk writes it
+    posting/advert.py               an advert's text squashed, and its lines numbered by section
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
     assessment/derive.py            the gap assessment the match already knows, without a model
@@ -375,6 +377,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     clock.py  queries.py            today; the feature reads over a loaded record
     workspace.py                    a workspace as loading it needs it
     outputs.py                      the files a render writes, and its scratch directories
+    advert.py                       an application's posting.md and decisions.txt, as the rules read them
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
@@ -400,6 +403,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/render.py                   `jsk render`: its flags, the render run, what it wrote said
     cli/fit.py                      `jsk fit`: its flags, the fit run, each lever and the verdict said
     cli/preview.py                  `jsk preview`: its flags, every template previewed, the pages said
+    adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded

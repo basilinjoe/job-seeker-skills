@@ -407,7 +407,7 @@ DOCUMENT_ONLY = re.compile(
 
 def bad_answer(answer, denial_fix):
     """The exit code refusing an answer that says nothing, or None."""
-    from ...graph.rules import DENIAL, PLACEHOLDER
+    from ...domain.record.rules import DENIAL, PLACEHOLDER
 
     if DENIAL.fullmatch(answer):
         return refuse([f"{answer!r}: a denial is not a confirmation"], denial_fix)
@@ -475,7 +475,7 @@ PROSE = {"Achievement": "text", "Person": "headline"}
 def stems(text):
     """The content words of `text` - four letters and longer - cut to five, so
     "onboarded" in a quote still meets "onboarding" in the claim."""
-    from ...graph.rules import squash
+    from ...domain.posting.advert import squash
     return {w[:5] for w in WORD.findall(squash(text).lower())}
 
 
@@ -503,7 +503,7 @@ def unquoted_words(quads, iri, quote):
 def quoted_answer(source, quote, root):
     """(answer, None) or (None, exit code): `From <source>: "<quote>"` once the quote is
     checked against the document, word for word as rules.unquoted checks a posting's."""
-    from ...graph.rules import DENIAL, PLACEHOLDER, squash
+    from ...domain.record.rules import DENIAL, PLACEHOLDER, squash
     from ...infra.files import inside, rel
 
     if not os.path.isfile(source) or not inside(source, root):

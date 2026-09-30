@@ -38,7 +38,7 @@ def unearned(summary):
     later edit to the text kept it confirmed: the answer and the text's hash are what
     only `jsk kb confirm --summary` writes, and a changed text drops out of confirmed
     as a changed claim does in the career."""
-    from ...graph.rules import DENIAL, PLACEHOLDER
+    from ..record.rules import DENIAL, PLACEHOLDER
 
     if summary.get("status") != "confirmed" or not isinstance(summary.get("text"), str):
         return []

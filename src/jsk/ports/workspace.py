@@ -40,3 +40,15 @@ class WorkspaceSource(Protocol):
                 the file could not be read at all.
         """
         ...
+
+    def record_state(self, store: Any) -> Any:
+        """Where the career and its log stand with each other, for the rules that watch it.
+
+        Args:
+            store: the domain.record.store.Store being loaded.
+
+        Returns:
+            A domain.record.state.State; for a career still laid out as files, read from
+            whether its files exist.
+        """
+        ...

@@ -296,7 +296,7 @@ def bare_list(store):
     """What `concepts-bare` counts, one row each: a capability nothing labels or places
     matches only its exact id, so a posting's "system design" misses c:systems-design.
     Most-held first - those are the ones a missed match costs most."""
-    from .rules import bare_capabilities
+    from ..domain.record.rules import bare_capabilities
 
     found = bare_capabilities(store)
     held, shown = {}, {}
@@ -380,7 +380,7 @@ def content_words(text):
     stems ("onboarded" meets "onboarding"), less STOP and bare numbers - a year or a
     count shared by two projects is a coincidence, not a sign they are one."""
     from ..domain.record.confirmation import WORD
-    from .rules import squash
+    from ..domain.posting.advert import squash
     out = {}
     for w in WORD.findall(squash(text).lower()):
         if w not in STOP and not w.isdigit():

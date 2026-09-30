@@ -99,6 +99,12 @@ class Workspace:
         """A file on disk, parsed through the engine's codec."""
         return parse(path)
 
+    def record_state(self, store):
+        """Where the career and its log stand, as infra.oxigraph.record.state finds it."""
+        from ..infra.oxigraph.record import state
+
+        return state(store)
+
 
 def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, graphs=None):
     """Load, derive, validate and close over a workspace (application/record/load.py).
@@ -113,7 +119,8 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, graphs=None):
         The loaded Store. Reads career/store/ under shared access, or the files.
     """
     from ..application.record.load import load as load_workspace
+    from ..infra.adverts import Adverts
     from ..infra.oxigraph.engine import OxigraphEngine
 
     return load_workspace(root, vocabulary, files, graphs, source=Workspace(),
-                          new_engine=OxigraphEngine)
+                          new_engine=OxigraphEngine, adverts=Adverts())
