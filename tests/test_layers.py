@@ -56,6 +56,7 @@ KNOWN_EDGES = {
     ("jsk.render.preview_templates", "jsk.adapters.cli.preview"): {"main"},
     ("jsk.gates.check_ats", "jsk.adapters.cli.gates.ats"): {"main"},
     ("jsk.gates.check_prose", "jsk.adapters.cli.gates.prose"): {"main"},
+    ("jsk.gates.layout", "jsk.adapters.cli.gates.layout"): {"main"},
 }
 
 # (module, what it does that its ring forbids).

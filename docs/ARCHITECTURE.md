@@ -384,6 +384,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/result.py                 what a gate returns: its findings, or why it stopped
     gates/ats.py                    the parse gate: a document's text extracted, then judged
     gates/prose.py                  the prose gate: a document's paragraphs read, then judged
+    gates/layout.py                 the layout gate: a PDF's region and budget found, its lines judged
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
@@ -410,6 +411,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/gates/present.py            the count line, findings and verdict every gate prints alike
     cli/gates/ats.py                the parse gate: its flags, the gate run, its verdict said
     cli/gates/prose.py              the prose gate: its flags, the gate run, its verdict said
+    cli/gates/layout.py             the layout gate: its flags, the gate run, its verdict said
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
