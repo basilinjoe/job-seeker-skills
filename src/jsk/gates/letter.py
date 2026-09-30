@@ -92,7 +92,7 @@ def prose_lines(text):
     """(fails, warns): the check_prose rules that hold for a letter. Its third-person,
     opens-on-a-verb, duplicate, long and unquantified bullet rules do not - a letter is
     written in the first person, to someone, in sentences."""
-    from .check_prose import BANNED, ai_tells, dangling_tail, placeholders
+    from ..domain.gates.prose_rules import BANNED, ai_tells, dangling_tail, placeholders
 
     fails = [line("placeholder", "letter", f, "write the words it stands for, or drop them")
              for f in placeholders(text)]

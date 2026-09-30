@@ -334,6 +334,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/confirmation.py          what a confirmation's quote must share with its claim
     gates/numbers.py  report.py     numbers in prose and whether metrics hold them; a gate's findings
     gates/ats_rules.py              the parse gate's rules over extracted text and fonts
+    gates/prose_rules.py            the prose gate's rules over a .tex's or .txt's paragraphs
     resume/constants.py             the provenance floor's ranks and a skills row's length
     ontology.py  record/writer.py   the format, as data; the entry printer (moved from graph/)
     record/career.py                the career graph as the builder, export and match read it
