@@ -49,26 +49,7 @@ from ..domain.gates.layout_rules import paper_name as paper_name
 from ..domain.gates.layout_rules import expected_paper as expected_paper
 from ..domain.gates.layout_rules import is_tofu as is_tofu
 from ..domain.gates.layout_rules import check as check
-
-
-def read(path):
-    """[(page rect, [(text, bbox, fonts)]), ...] and the Type3 fonts. ImportError without
-    pymupdf."""
-    import pymupdf                                 # noqa: PLC0415 - optional dependency
-
-    pages, type3 = [], set()
-    with pymupdf.open(path) as doc:
-        for page in doc:
-            lines = []
-            for block in page.get_text("dict")["blocks"]:
-                for line in block.get("lines", []):
-                    spans = [s for s in line["spans"] if s["text"].strip()]
-                    if spans:
-                        lines.append(("".join(s["text"] for s in line["spans"]).strip(),
-                                      line["bbox"], {s["font"] for s in spans}))
-            pages.append((page.rect, lines))
-            type3.update(f[3] for f in page.get_fonts() if f[2] == "Type3")
-    return pages, sorted(type3)
+from ..infra.pdf import lines as read
 
 
 def arg(argv, flag):

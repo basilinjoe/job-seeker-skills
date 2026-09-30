@@ -51,11 +51,12 @@ def variant_of(pdf_path):
     pymupdf, as read_pdf() does: a variant nobody could read is not the same
     answer as a variant that is not there.
     """
-    import pymupdf                                 # noqa: PLC0415 - optional dependency
+    from ..infra.pdf import keywords as keywords_of
 
     try:
-        with pymupdf.open(pdf_path) as doc:
-            keywords = (doc.metadata or {}).get("keywords") or ""
+        keywords = keywords_of(pdf_path)
+    except ImportError:
+        raise
     except Exception:  # noqa: BLE001 - pymupdf raises its own types on a damaged PDF; no keyword then
         return None
     m = VARIANT_KEYWORD.search(keywords)

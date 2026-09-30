@@ -59,6 +59,51 @@ def measure(pdf_path):
     return pages
 
 
+def keywords(path):
+    """The PDF's keywords metadata; "" when it has none.
+
+    Raises:
+        ImportError: pymupdf is not installed. Anything pymupdf raises on a damaged PDF
+            propagates too.
+    """
+    import pymupdf                                 # noqa: PLC0415 - optional dependency
+
+    with pymupdf.open(path) as doc:
+        return (doc.metadata or {}).get("keywords") or ""
+
+
+def lines(path):
+    """Every line of text the PDF lays out, with where it sits and the fonts it is set in.
+
+    Args:
+        path: the PDF.
+
+    Returns:
+        ([(page rect, [(text, bbox, {font names})])], one per page; the sorted Type3 font
+        names).
+
+    Raises:
+        ImportError: pymupdf is not installed.
+    """
+    import pymupdf                                 # noqa: PLC0415 - optional dependency
+
+    pages, type3 = [], set()
+    with pymupdf.open(path) as doc:
+        for page in doc:
+            found = []
+            # pymupdf's stubs type every get_text() as str; the "dict" form is a dict.
+            layout: dict = page.get_text("dict")  # pyright: ignore[reportAssignmentType]
+            for block in layout["blocks"]:
+                for line in block.get("lines", []):
+                    spans = [s for s in line["spans"] if s["text"].strip()]
+                    if spans:
+                        found.append(("".join(s["text"] for s in line["spans"]).strip(),
+                                      line["bbox"], {s["font"] for s in spans}))
+            pages.append((page.rect, found))
+            type3.update(f[3] for f in page.get_fonts() if f[2] == "Type3")
+    return pages, sorted(type3)
+
+
 def page_count(path):
     """How many pages the PDF has.
 
