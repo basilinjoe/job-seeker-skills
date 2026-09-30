@@ -355,6 +355,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     matching/rank.py  cover.py      the projects scored for a posting; the smallest set carrying it
     matching/nearest.py             the concepts nearest a label, and those an advert line names
     matching/questions.py           the questions a tailoring round asks of a match
+    matching/report.py              a bucket's verdict, a missing metric's question, the FAILs that block
     selection/select.py             the projects, bullets, skills and gaps a resume selects
     posting/errors.py               posting.md's name, and how a posting step refuses
     timeline/errors.py              how a write to an application refuses: sent, locked, refused
@@ -381,7 +382,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
-    tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
+    tailor/match_text.py            the match as markdown; its sections, shared with the gaps draft
+    tailor/match_posting.py         one application's posting matched against the career, as plain data
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
     render/build_plan.py            a resume.json on disk to its render plan
@@ -403,6 +405,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/render.py                   `jsk render`: its flags, the render run, what it wrote said
     cli/fit.py                      `jsk fit`: its flags, the fit run, each lever and the verdict said
     cli/preview.py                  `jsk preview`: its flags, every template previewed, the pages said
+    cli/match.py                    `jsk match`: its flags, the match run and printed, or its assessment built
+    cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)

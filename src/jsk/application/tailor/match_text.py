@@ -1,4 +1,4 @@
-"""The match's sections as markdown lines, shared by `jsk match` and the gaps draft."""
+"""The match as markdown: what `jsk match` prints, and the sections the gaps draft shares."""
 
 
 def number(x):
@@ -54,3 +54,59 @@ def question_line(q):
     return (f"- **{q['kind']}** {q['requirement']}: "
             + ASK[q["kind"]].format(" or ".join(q["detail"]) if q["kind"] == "ambiguous"
                                     else ", ".join(q["detail"])))
+
+
+def markdown(r):
+    """What `jsk match` prints: the match `r` as markdown.
+
+    Args:
+        r: match_posting.result's plain data.
+
+    Returns:
+        The requirements table, the Ranking, the Cover and the Questions, one string.
+    """
+    reqs = r["requirements"]
+    count = {s: sum(q["state"] == s for q in reqs) for s in
+             ("matched", "near", "missing", "ambiguous", "candidate", "implicit")}
+    need = {n: sum(q["necessity"] == n for q in reqs) for n in ("required", "preferred", "implicit")}
+    out = [f"# Match - {r['title']} at {r['company']} ({r['posting']})", "",
+           f"{need['required']} required, {need['preferred']} preferred, {need['implicit']} implicit. "
+           + ", ".join(f"{n} {s}" for s, n in count.items() if n) + "."]
+    n = r["warnings"]["count"]
+    if n:
+        # Named, not waved away: a label-clash or a necessity-wording warning can be exactly
+        # what makes a row below wrong.
+        out.append(f"The workspace has {n} warning{'s' if n > 1 else ''} "
+                   f"({', '.join(r['warnings']['rules'])}); the validator's report lists "
+                   f"{'them' if n > 1 else 'it'}.")
+    if r["failures_elsewhere"]:
+        m = r["failures_elsewhere"]
+        out.append(f"{m} failure{'s' if m > 1 else ''} elsewhere in the workspace: matching those "
+                   f"postings refuses until they are fixed.")
+    out += ["", "## Requirements", "",
+            "Verdict is the most the record supports: gaps.txt may lower it, never raise it.", "",
+            "| Requirement | Need | State | Verdict | Carried by | Evidence |",
+            "|---|---|---|---|---|---|"]
+    for q in reqs:
+        if q["carriers"]:
+            carried = "; ".join(c["project"] + ("" if c["hops"] == 0 else
+                                                f" (via {c['held']}, {c['hops']} hop"
+                                                f"{'s' if c['hops'] > 1 else ''}"
+                                                f"{', implied' if c['implied'] else ''})")
+                                for c in q["carriers"])
+            ev = "; ".join(c["evidence"] for c in q["carriers"])
+        elif q["near"]:
+            carried, ev = "; ".join(f"{n['project']}: {n['why']}" for n in q["near"]), ""
+        elif q["state"] == "ambiguous":
+            carried, ev = " or ".join(q["concepts"]) + "?", ""
+        else:
+            carried, ev = "", ""
+        out.append(f"| {q['asked']} | {q['necessity']} | {q['state']} | {q['verdict'] or '-'} | "
+                   f"{carried} | {ev} |")
+    out += ["", "## Ranking", "", *ranking_lines(r), "", "## Cover", "", *cover_lines(r),
+            "", "## Questions", ""]
+    out += [question_line(q) for q in r["questions"]]
+    if not r["questions"]:
+        out.append("None: every requirement is matched with confirmed evidence, or missing.")
+    return "\n".join(out) + "\n"
+
