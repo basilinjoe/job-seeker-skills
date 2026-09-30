@@ -217,7 +217,9 @@ def evidence_for(store, *terms):
     over a file it would have to find first. A term the record says nothing about gets a
     row saying so, so an absence is an answer and not a reason to look again. A term that
     names a concept shows fewer text hits: its holders are the answer, the text is colour."""
-    from .queries import Requirement, concepts, labels, resolve
+    from ..domain.matching.model import Requirement
+    from .queries import concepts, labels
+    from ..domain.matching.resolve import resolve
 
     index, known, text = labels(store), concepts(store), kb_text(store)
     out = []
@@ -264,7 +266,9 @@ def concept_list(store, near=None):
 
     `near` (`--near <term>`): only the concepts the term names, then the few closest to
     it, closest first - a lookup for one term instead of reading 18 KB for it."""
-    from .queries import Requirement, concepts, labels, nearest, resolve
+    from ..domain.matching.model import Requirement
+    from .queries import concepts, labels, nearest
+    from ..domain.matching.resolve import resolve
 
     names, up, held = {}, {}, {}
     for r in store.select(PRE + "SELECT ?c ?l WHERE { ?c j:label ?l }"):

@@ -347,6 +347,11 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/edit.py                  a changeset merged into the career, refused where the career says
     record/pack.py                  a starter pack's draft against the workspace, and its TriG
     record/merge.py                 two concepts that are one, drafted as a changeset
+    matching/model.py               the match's values: requirement, resolution, match, row, question
+    matching/resolve.py             a requirement resolved to concepts, carried by projects; evidence
+    matching/rank.py  cover.py      the projects scored for a posting; the smallest set carrying it
+    matching/nearest.py             the concepts nearest a label, and those an advert line names
+    matching/questions.py           the questions a tailoring round asks of a match
     posting/errors.py               posting.md's name, and how a posting step refuses
     posting/boards.py               which job board a URL is on, and its answer as a posting
     posting/html_text.py            a board's or a saved page's HTML as text
