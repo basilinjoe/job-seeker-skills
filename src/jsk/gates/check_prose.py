@@ -1,23 +1,12 @@
 #!/usr/bin/env python3
-"""Check a generated resume against the rules in references/writing-rules.md
+"""`python -m jsk.gates.check_prose`: the prose gate's documented entry point.
 
-Usage: jsk check resume.pdf --only prose     (reads the .tex beside it)
-       python -m jsk.gates.check_prose resume.tex
-       python -m jsk.gates.check_prose resume.txt
-
-Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
-No third-party dependencies.
-
-The sibling gate to check_ats.py. That one verifies a document *parses*; this one
-verifies it *reads* - and reports how much of it is quantified, which nothing
-else measures: the record gate checks that a number in a bullet traces to a metric,
-never that any number is there at all. A bullet in the third person - "the platform followed him
-through his promotion" - is not a parsing defect, so check_ats.py passes it with
-0 failures and is right to. Nothing else was checking.
+The command is adapters/cli/gates/prose.py and the gate application/gates/prose.py; this
+module keeps the path, the names callers and tests reach through it, and the readers of a
+.tex and a .txt (Ruling 4 of the onion design).
 """
-import sys, os
+import sys
 
-from ..cliutil import docstring_usage, utf8_stdout, wants_help
 from ..domain.gates.prose_rules import AI_TELLS as AI_TELLS
 from ..domain.gates.prose_rules import AMBIGUOUS_PERSON as AMBIGUOUS_PERSON
 from ..domain.gates.prose_rules import BANNED as BANNED
@@ -68,57 +57,17 @@ def read_txt(path):
 
 
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else argv
-    utf8_stdout()
+    """The gate, as an exit code (adapters.cli.gates.prose.main).
 
-    if wants_help(argv):
-        # Before the path is read: `--help` used to be looked up as a file and
-        # reported "file not found: --help" with the usage-error exit.
-        print(docstring_usage(__doc__))
-        return 0
-    if not argv:
-        print("usage: python -m jsk.gates.check_prose resume.tex | resume.txt")
-        return 2
-    path = argv[0]
-    if not os.path.exists(path):
-        print(f"file not found: {path}")
-        return 2
+    Args:
+        argv: the arguments alone; by default sys.argv's.
 
-    def unreadable(reason):
-        print(f"checking: {os.path.basename(path)}")
-        print("\nFAIL 1   WARN 0")
-        print(f"  FAIL  not a readable document: {reason}")
-        print("\nDO NOT SEND - fix the failures above")
-        return 1
+    Returns:
+        The exit code. Prints the verdict.
+    """
+    from ..adapters.cli.gates.prose import main as prose
 
-    ext = os.path.splitext(path)[1].lower()
-    try:
-        if ext == ".tex":
-            paragraphs = read_tex(path)
-        elif ext in (".txt", ".md"):
-            paragraphs = read_txt(path)
-        else:
-            print(f"unsupported file type {ext!r} - pass the .tex or the .txt variant")
-            return 2
-    except OSError as e:
-        return unreadable(str(e))
-
-    fails, warns, quantified = check(paragraphs)
-    bullets = sum(1 for b, t in paragraphs if b and t.strip())
-
-    counts = f"paragraphs: {len(paragraphs)}   bullets: {bullets}"
-    if quantified is not None and bullets:
-        counts += f"   quantified: {quantified}/{bullets} ({quantified * 100 // bullets}%)"
-    print(f"checking: {os.path.basename(path)}")
-    print(counts)
-    print(f"\nFAIL {len(fails)}   WARN {len(warns)}")
-    for f in fails:
-        print("  FAIL  " + f)
-    for w in warns:
-        print("  warn  " + w)
-    print("\nPASS - prose rules satisfied" if not fails
-          else "\nDO NOT SEND - fix the failures above")
-    return 1 if fails else 0
+    return prose(sys.argv[1:] if argv is None else argv)
 
 
 if __name__ == "__main__":
