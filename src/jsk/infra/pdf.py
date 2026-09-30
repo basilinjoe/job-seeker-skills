@@ -6,6 +6,20 @@ preview goes without its thumbnails.
 """
 
 
+def available():
+    """Whether pymupdf is installed.
+
+    Returns:
+        True when it imports. Imports it, which a test stops by setting
+        sys.modules["pymupdf"] to None.
+    """
+    try:
+        import pymupdf                             # noqa: F401,PLC0415 - optional dependency
+    except ImportError:
+        return False
+    return True
+
+
 def read_pdf(path):
     """Read a PDF's text layer and the fonts it embeds.
 

@@ -51,6 +51,12 @@ KNOWN_EDGES = {
     ("jsk.application.gates.numbers", "jsk.graph.queries"): {"PRE"},
     ("jsk.application.guards", "jsk.graph.timeline"): {"frozen"},
     ("jsk.application.record.load", "jsk.graph.rules"): {"tier2"},
+    ("jsk.domain.resume.short", "jsk.graph.rules"): {"DENIAL", "PLACEHOLDER"},
+    # The documented `python -m` entry points hand over to their adapters until P5
+    # deletes them (Ruling 4).
+    ("jsk.render.render_resume", "jsk.adapters.cli.render"): {"main"},
+    ("jsk.render.fit_pages", "jsk.adapters.cli.fit"): {"main"},
+    ("jsk.render.preview_templates", "jsk.adapters.cli.preview"): {"main"},
 }
 
 # (module, what it does that its ring forbids).

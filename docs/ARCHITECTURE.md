@@ -337,6 +337,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/prose_rules.py            the prose gate's rules over a .tex's or .txt's paragraphs
     gates/layout_rules.py           the layout gate's rules over page sizes, line boxes and fonts
     resume/constants.py             the provenance floor's ranks and a skills row's length
+    resume/plan.py                  the render plan: every content decision, made exactly once
+    resume/short.py                 a resume.json as data: parsed, its shape, its ids, its summary
     ontology.py  record/writer.py   the format, as data; the entry printer (moved from graph/)
     record/career.py                the career graph as the builder, export and match read it
     record/parsed.py                a Turtle or TriG text as parsed: quads, subject lines, comments
@@ -356,17 +358,26 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
+    render/fit_levers.py            the page fitter's levers and floors over a .tex's text; page geometry read
+    render/page_report.py           the line a render says about its pages, against the budget
+    render/targets.py               which files a render writes, and what they are called
   ports/                            what the application needs from outside, as Protocols
     engine.py  record.py  codec.py  the graph engine; the record on disk; Turtle and TriG
     files.py  tex.py  pdf.py        authored texts and application files; the TeX engine; a PDF read
     posting_source.py  profiles.py  a job board's API; the region profiles
     clock.py  queries.py            today; the feature reads over a loaded record
     workspace.py                    a workspace as loading it needs it
+    outputs.py                      the files a render writes, and its scratch directories
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
+    render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
+    render/build_plan.py            a resume.json on disk to its render plan
+    render/render_resume.py         one render: plans built, files written, the PDF compiled and measured
+    render/fit_pages.py             a .tex fitted to its budget: each lever staged, compiled, measured
+    render/preview_templates.py     one resume.json in every template, rendered once each and compiled at once
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root; a document written atomically
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
@@ -376,6 +387,11 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     oxigraph/engine.py              the in-memory engine a loaded record runs on
     tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
     posting_sources.py              a board's JSON over the network; a .docx, .html or text file
+    outputs.py                      a render's files written, its scratch directories, a move
+  adapters/                         the driving side: argv parsed, a use case run, its result printed
+    cli/render.py                   `jsk render`: its flags, the render run, what it wrote said
+    cli/fit.py                      `jsk fit`: its flags, the fit run, each lever and the verdict said
+    cli/preview.py                  `jsk preview`: its flags, every template previewed, the pages said
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded
