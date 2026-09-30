@@ -176,12 +176,12 @@ def result(store, post, today, budget, elsewhere=0):
     """Everything `jsk match` reports, as plain data."""
     from . import queries as Q
     from ..domain.record.shapes import curie
+    from ..infra.oxigraph.queries import OxigraphQueries
 
     matches = Q.match(store, post)
     ranked = Q.rank(store, post, matches, today)
     chosen, uncovered = Q.cover(matches, budget, ranked)
-    head = store.select(Q.PRE + f"""SELECT ?company ?title WHERE {{
-        <{post}> j:company ?company ; j:title ?title }}""")[0]
+    company, title = OxigraphQueries(store).posting_head(post)
     reqs = []
     for m in matches.values():
         carriers = [{"project": curie(p), "held": curie(h), "hops": hops, "implied": imp,
@@ -196,7 +196,7 @@ def result(store, post, today, budget, elsewhere=0):
             "near": [{"project": curie(p), "why": why} for p, why in sorted(m.near.items())],
         })
     return {
-        "posting": curie(post), "company": head["company"].value, "title": head["title"].value,
+        "posting": curie(post), "company": company, "title": title,
         "requirements": reqs,
         "ranking": [{"project": curie(r.project), "score": r.score, "required": list(r.required),
                      "preferred": list(r.preferred)} for r in ranked],

@@ -67,11 +67,11 @@ class Vocabulary:
     """Every label and former label the workspace holds, and the concepts each names."""
 
     def __init__(self, store):
-        from ..graph.queries import PRE
+        from ..infra.oxigraph.queries import OxigraphQueries
 
         self.labels = {}
-        for r in store.select(PRE + "SELECT ?c ?l WHERE { ?c j:label|j:former ?l }"):
-            self.labels.setdefault(r["l"].value, set()).add(r["c"].value)
+        for c, label in OxigraphQueries(store).label_pairs():
+            self.labels.setdefault(label, set()).add(c)
         # Longest first, so ".NET Framework" is read before ".NET" inside it.
         self.patterns = [(label, label_pattern(label))
                          for label in sorted(self.labels, key=lambda s: (-len(s), s))]
@@ -153,10 +153,18 @@ def numbers_lines(store, bullets, today):
 
 
 def current_versions(store, metric):
-    from ..graph.queries import PRE
+    """The versions of `metric` no later one has replaced.
 
-    return sorted(r["v"].value for r in store.select(
-        PRE + f"SELECT ?v WHERE {{ ?v j:of <{metric}> FILTER NOT EXISTS {{ ?v j:validUntil ?u }} }}"))
+    Args:
+        store: a loaded workspace.
+        metric: the metric's iri.
+
+    Returns:
+        The version iris with no j:validUntil, sorted.
+    """
+    from ..infra.oxigraph.queries import OxigraphQueries
+
+    return OxigraphQueries(store).current_versions(metric)
 
 
 def prose(doc, career, bullets):

@@ -164,7 +164,7 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
     from . import decisions as D
     from .changeset import numbers_as_kept
     from .io import GraphError, Missing, Unreadable
-    from .queries import PRE, concepts
+    from ..infra.oxigraph.queries import OxigraphQueries
     from ..domain.record.shapes import tier1
     from .store import app_graph, parsed_graph
     from .timeline import (Frozen, Unwritable, app_graphs, has_record, refuse_if_sent,
@@ -226,9 +226,9 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
                f"fix:  one of {', '.join(O.ENUMS['seniority'])}, or leave it blank")
 
     lines = {x.n: x for x in advert_lines(advert)}
-    retired = {r["c"].value for r in store.select(PRE + "SELECT ?c WHERE { ?c j:retired ?x }")}
-    known = concepts(store) - retired
-    domains = {r["c"].value for r in store.select(PRE + "SELECT ?c WHERE { ?c a j:Domain }")}
+    queries = OxigraphQueries(store)
+    retired, domains = queries.retired_concepts(), queries.domains()
+    known = queries.concepts() - retired
 
     def near(term):
         return (f"`jsk kb query concepts --near \"{term}\"` names the nearest; or write `-` "
@@ -354,10 +354,9 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
 
 def existing_captured(store, post):
     """The day the posting already says it was saved: a rebuild is not a new capture."""
-    from .queries import PRE
+    from ..infra.oxigraph.queries import OxigraphQueries
 
-    found = store.select(PRE + f"SELECT ?d WHERE {{ <{post}> j:captured ?d }}")
-    return found[0]["d"].value if found else None
+    return OxigraphQueries(store).posting_captured(post)
 
 
 def triples(post, stem, head, seniority, domains, captured, reqs):

@@ -82,3 +82,23 @@ class RecordQueries(Protocol):
     def citing_current(self) -> set[str]:
         """The bullets citing a metric that has a current version."""
         ...
+
+    def current_versions(self, metric: str) -> list[str]:
+        """The versions of `metric` with no j:validUntil, sorted."""
+        ...
+
+    def cited_current_versions(self, bullets: list[str]) -> list[str]:
+        """The current version of each metric the bullets (at least one) cite, sorted."""
+        ...
+
+    def posting_head(self, post: str) -> tuple[str, str]:
+        """A posting's (company, title); IndexError when it states none."""
+        ...
+
+    def posting_captured(self, post: str) -> str | None:
+        """The day a posting says it was saved, or None."""
+        ...
+
+    def domains(self) -> set[str]:
+        """Every concept typed a j:Domain."""
+        ...

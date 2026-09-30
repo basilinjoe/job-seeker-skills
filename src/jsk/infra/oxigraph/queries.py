@@ -265,3 +265,67 @@ class OxigraphQueries:
             SELECT DISTINCT ?b WHERE { ?b j:project ?p ; j:cites ?m . ?v j:of ?m .
                                        FILTER NOT EXISTS { ?v j:validUntil ?u } }""")
         return {r["b"].value for r in rows}
+
+    def current_versions(self, metric):
+        """The versions of a metric no later one has replaced.
+
+        Args:
+            metric: the metric's iri.
+
+        Returns:
+            The version iris with no j:validUntil, sorted.
+        """
+        return sorted(r["v"].value for r in self.store.select(
+            PRE + f"SELECT ?v WHERE {{ ?v j:of <{metric}> FILTER NOT EXISTS {{ ?v j:validUntil ?u }} }}"))
+
+    def cited_current_versions(self, bullets):
+        """The current version of each metric the bullets cite - what `jsk kb query stale`
+        compares against when a metric is later revised.
+
+        Args:
+            bullets: achievement iris, at least one.
+
+        Returns:
+            The version iris, sorted.
+        """
+        values = " ".join(f"<{b}>" for b in bullets)
+        rows = self.store.select(PRE + f"""
+            SELECT DISTINCT ?v WHERE {{ VALUES ?b {{ {values} }} ?b j:cites ?m . ?v j:of ?m .
+                                        FILTER NOT EXISTS {{ ?v j:validUntil ?u }} }}""")
+        return sorted(r["v"].value for r in rows)
+
+    def posting_head(self, post):
+        """A posting's company and title.
+
+        Args:
+            post: the posting's iri.
+
+        Returns:
+            (company, title) as the posting graph states them.
+
+        Raises:
+            IndexError: the posting states no company and title.
+        """
+        head = self.store.select(PRE + f"""SELECT ?company ?title WHERE {{
+            <{post}> j:company ?company ; j:title ?title }}""")[0]
+        return head["company"].value, head["title"].value
+
+    def posting_captured(self, post):
+        """The day a posting says it was saved.
+
+        Args:
+            post: the posting's iri.
+
+        Returns:
+            The j:captured value, or None.
+        """
+        found = self.store.select(PRE + f"SELECT ?d WHERE {{ <{post}> j:captured ?d }}")
+        return found[0]["d"].value if found else None
+
+    def domains(self):
+        """Every concept typed a j:Domain.
+
+        Returns:
+            A set of iris.
+        """
+        return {r["c"].value for r in self.store.select(PRE + "SELECT ?c WHERE { ?c a j:Domain }")}

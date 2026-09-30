@@ -24,7 +24,7 @@ SIZE_KNOWN = {
     ("src/jsk/adapters/cli/kb.py", None): 1428,
     ("src/jsk/cli.py", None): 1302,
     ("src/jsk/graph/rules.py", None): 683,
-    ("src/jsk/graph/timeline.py", None): 608,
+    ("src/jsk/graph/timeline.py", None): 604,
     ("tests/test_cli.py", None): 1067,
     ("tests/test_graph_kbcli.py", None): 1193,
     ("tests/test_ship_freeze.py", None): 1343,
