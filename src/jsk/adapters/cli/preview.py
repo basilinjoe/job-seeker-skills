@@ -1,0 +1,138 @@
+"""Render one resume.json in every template, so the choice can be made by looking.
+
+Usage:
+  jsk preview resume.json --out DIR [--region CC]
+                                    [--ats-max] [--only NAME,NAME]
+  python -m jsk.render.preview_templates resume.json --out DIR [the same flags]
+
+Writes DIR/<template>.tex and DIR/<template>.pdf, plus DIR/<template>.png of the
+first page when `pymupdf` is installed. Prints the page count for each, because
+that is the one difference between templates that is not a matter of taste: the
+same resume is one page in a dense template and two in an airy one, and a
+two-page resume where a one-page resume was possible is a decision, not a
+side effect.
+
+Exit 0 = every template rendered.  Exit 1 = at least one did not, or the
+application is frozen.  Exit 2 = usage error, a resume.json that does not load,
+or no TeX engine.
+
+This exists because `--list-templates` can only describe a template, and nobody
+picks a resume design from a sentence. The templates differ in what they
+emphasise, and which emphasis is right depends on the employer - which is a
+judgement the person applying has to make with the pages in front of them.
+
+Nothing here decides anything about the document: application/render/preview_templates.py
+renders each template through the render use case, from the one loaded resume.json and
+region, so the only variable is the look. The extracted text is identical in all of them,
+and `tests/test_themes.py` is what says so. This module parses the flags and prints.
+"""
+import datetime
+import os
+
+from ...cliutil import docstring_usage, wants_help
+from .render import arg
+
+
+def main(argv, *, tex):
+    """`jsk preview`: every template rendered, compiled and listed with its page count.
+
+    Args:
+        argv: the whole argv, the program name first.
+        tex: compiles each template (ports.tex.TexCompiler); the entry point binds its own.
+
+    Returns:
+        The exit code. Prints the report; writes DIR/<template>.{tex,pdf,png}.
+    """
+    if len(argv) < 2 or argv[1].startswith("--"):
+        print(docstring_usage(__doc__))
+        # Asking for help is not calling the command wrong; only a real misuse is.
+        return 0 if wants_help(argv) else 2
+    src = argv[1]
+    if not os.path.exists(src):
+        print(f"file not found: {src}")
+        return 2
+
+    if "--view" in argv:
+        # Before the TeX check: it is a call error on every machine. A resume.json is
+        # one resume, and render_resume.py would refuse --view once per template.
+        print("usage: a resume.json is one resume; drop --view")
+        return 2
+    out_dir = arg(argv, "--out")
+    if not out_dir:
+        print("usage: --out DIR is required - previews are scratch, not deliverables")
+        return 2
+    os.makedirs(out_dir, exist_ok=True)
+
+    from ...application.render.preview_templates import PreviewStopped, preview_templates
+    from ...domain.resume.short import ShortError
+    from ...infra import outputs, pdf, profiles
+    from ...resume import build as B
+
+    try:
+        result = preview_templates(
+            src, out_dir, arg(argv, "--only"), region=arg(argv, "--region"),
+            ats_max="--ats-max" in argv, today=datetime.date.today(), load=B.loaded_resume,
+            profiles=profiles, tex=tex, reader=pdf, outputs=outputs)
+    except ShortError as err:
+        print(f"FAIL  {err}")
+        print(f"fix:  {err.fix}")
+        return 2
+    except PreviewStopped as stop:
+        print(stopped(stop))
+        return stop.code
+    return report(result, src, out_dir)
+
+
+def stopped(stop):
+    """What a preview that could not start prints (PreviewStopped)."""
+    from ...domain.render import themes
+
+    if stop.kind == "frozen":
+        return "\n".join(stop.detail)
+    if stop.kind == "no-engine":
+        return ("NO RENDERER - previews are pages, and there is nothing to make one with.\n"
+                "  Install tectonic, or see preflight.py.")
+    return (f"unknown template(s): {', '.join(stop.detail)}\n"
+            f"  choose from: {', '.join(themes.names())}")
+
+
+def said(template):
+    """What went wrong with a template that did not build, as its render or compile said."""
+    failure = template.failure
+    if failure is None:
+        return template.note
+    from ...application.render.render_resume import RenderStopped
+
+    if isinstance(failure, RenderStopped):
+        return f"FAIL  {failure.detail}"
+    return f"render_resume.py raised {type(failure).__name__}: {failure}"
+
+
+def report(result, src, out_dir):
+    """Print each template's page count and blurb, or its failure, in the order asked.
+
+    Returns:
+        The exit code: 1 when any template did not build.
+    """
+    print(f"previewing {os.path.basename(src)} in {len(result.templates)} templates\n")
+    for t in result.templates:
+        if not t.pdf:
+            tail = (said(t) or "").strip().splitlines()[-3:]
+            print(f"  {t.name:<10} FAILED")
+            for line in tail:
+                print(f"             {line}")
+            continue
+        if t.thumbnail_note:
+            print(f"  note   {t.thumbnail_note}")
+        count = f"{t.pages} page{'s' if t.pages != 1 else ''}" if t.pages else "rendered"
+        print(f"  {t.name:<10} {count:<8} {t.blurb}")
+
+    print(f"\nwrote to {out_dir}")
+    if result.failed:
+        print(f"\nFAILED: {', '.join(result.failed)}")
+        print("  A template that does not build is not a template. Report it rather")
+        print("  than picking another one - the others may be about to break too.")
+        return 1
+    print("\nOpen them side by side and pick one. They say the same words in the")
+    print("same order; what differs is which of those words a reader sees first.")
+    return 0

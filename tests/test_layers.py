@@ -56,6 +56,7 @@ KNOWN_EDGES = {
     # deletes them (Ruling 4).
     ("jsk.render.render_resume", "jsk.adapters.cli.render"): {"main"},
     ("jsk.render.fit_pages", "jsk.adapters.cli.fit"): {"main"},
+    ("jsk.render.preview_templates", "jsk.adapters.cli.preview"): {"main"},
 }
 
 # (module, what it does that its ring forbids).
