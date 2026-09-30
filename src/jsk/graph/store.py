@@ -1,10 +1,9 @@
-"""The workspace in memory: every record graph loaded, types derived, rules run.
+"""Loading a workspace, bound to the store on disk and the in-memory engine.
 
-The record comes out of career/store/ (db.py) into an in-memory store, graph by graph,
-so a finding can say which graph it is in (`kb`, `applications/acme/posting`); the
-shipped vocabulary is read from its file each time; derived triples go in j:derived,
-which is never written; queries run over the union. Loading never raises on bad
-content - it reports, and the caller decides what a FAIL stops.
+The record comes out of career/store/ (infra/oxigraph/db.py) into an engine, graph by
+graph; the shipped vocabulary is read from its file each time. What a load does is
+application/record/load.py's, and the Store it returns is domain/record/store.py's; this
+module supplies the real workspace and engine, and keeps every name its callers use.
 
 A workspace still laid out as files (career/kb.ttl, applications/*/*.ttl) is read only
 by the one-time import (legacy.py, `jsk kb load`), which names its files; loaded any other
@@ -12,22 +11,23 @@ way it is refused, with that import as the fix.
 """
 import glob
 import os
-from dataclasses import dataclass, field
 
-from ..domain import ontology as O
 from ..domain.naming import app_graph as app_graph
-from ..domain.naming import graph_iri, short_name
-from ..infra.files import file_name, graph_name
+from ..domain.naming import graph_iri as graph_iri
+from ..domain.naming import short_name as short_name
+from ..domain.record.parsed import GraphError
+from ..domain.record.store import NARROWS as NARROWS
+from ..domain.record.store import ORDER as ORDER
+from ..domain.record.store import Store as Store
+from ..domain.record.store import derive_types as derive_types
+from ..domain.record.store import load_order as load_order
+from ..domain.record.store import materialise_paths as materialise_paths
+from ..domain.record.store import narrow as narrow
+from ..domain.record.store import parsed_graph as parsed_graph
+from ..infra.files import file_name, graph_name, parse
 from ..infra.files import inside as inside
 from ..infra.files import rel as rel
 from ..infra.files import spelled as spelled
-from ..domain.record.parsed import GraphError
-from ..infra.files import Unreadable, parse
-
-# For the checker alone: importing `typing` costs every command ~3 ms it never uses.
-TYPE_CHECKING = False
-if TYPE_CHECKING:
-    from typing import Any
 
 SHIPPED_VOCABULARY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                   "data", "vocabulary.ttl")
@@ -46,64 +46,6 @@ def workspace_files(root, vocabulary=SHIPPED_VOCABULARY):
     if vocabulary and os.path.isfile(vocabulary):
         found.append(vocabulary)
     return found
-
-
-@dataclass
-class Store:
-    root: str
-    findings: list = field(default_factory=list)
-    parsed: dict = field(default_factory=dict)      # graph name -> Parsed
-    homes: dict = field(default_factory=dict)       # subject iri -> first graph defining it
-    definitions: dict = field(default_factory=dict)  # subject iri -> every graph, load order
-    unmatched: list = field(default_factory=list)   # kb narrowing quads that removed nothing
-    # The record is graphs - out of career/store/, or the candidate a write validates in
-    # their place - not files: so no lines, no comments, and no hash for the log to check.
-    stored: bool = False
-    # The pyoxigraph.Store load() fills; None in a Store built only to report findings.
-    # Any, because pyoxigraph is imported inside the functions that need it, never here.
-    ox: "Any" = None
-
-    def select(self, sparql):
-        """Rows of a SELECT over the union graph, as {variable: term}."""
-        result = self.ox.query(sparql, use_default_graph_as_union=True)
-        names = [var.value for var in result.variables]
-        return [{n: sol[n] for n in names if sol[n] is not None} for sol in result]
-
-    def graph(self, name):
-        """One graph's triples, as loaded: a stored graph's as career/store/ keeps them
-        (numbers by value - `8.4`, never `8.40`), a file's as parsed. Never read back out
-        of the in-memory store, which keeps numbers by value too and would turn a file's
-        `8.40` into `8.4` unreported."""
-        return self.parsed[name].quads
-
-    def file_of(self, iri):
-        """The graph that first defines `iri` - its name, which findings print."""
-        return self.homes.get(iri)
-
-    def line_of(self, iri, file=None):
-        """The line `iri` starts on in a file the import reads; 0 in a stored graph, which has
-        no lines, and a finding at line 0 prints none."""
-        file = file or self.homes.get(iri)
-        return self.parsed[file].lines.get(iri, 0) if file in self.parsed else 0
-
-    def defined(self):
-        return self.homes.keys()
-
-    def fails(self):
-        return [f for f in self.findings if f.severity == "FAIL"]
-
-    def warns(self):
-        return [f for f in self.findings if f.severity == "WARN"]
-
-    def report(self):
-        """The findings as a gates.report.Report, for show() and the gates' output."""
-        from ..domain.gates.report import Report
-
-        rep = Report()
-        # A syntax error first: until that file parses, what follows is provisional.
-        for f in sorted(self.findings, key=lambda f: (f.rule != "syntax", f.file, f.line, f.rule)):
-            (rep.fail if f.severity == "FAIL" else rep.warn)(f.text())
-        return rep
 
 
 def record_graphs(root):
@@ -127,165 +69,51 @@ def record_graphs(root):
         raise GraphError(str(e), e.fix, "career/store/") from None
 
 
-# Graphs in the order the file loader met their files: the career, its log, then each
-# kind of application graph. The first graph defining an id is its home, and a duplicate
-# is reported where it was added - in the application, not in the career it came from.
-ORDER = {"kb": 0, "log": 1, "posting": 2, "application": 3, "gaps": 4}
+class Workspace:
+    """The workspace a load reads: career/store/ for the record, the disk for the rest.
 
+    It implements ports.workspace.WorkspaceSource.
+    """
 
-def load_order(name):
-    return ORDER.get(name.rsplit("/", 1)[-1], len(ORDER)), name
+    def absolute(self, root):
+        """`root` as an absolute path."""
+        return os.path.abspath(root)
 
+    def record_graphs(self, root):
+        """{graph name: triples} out of career/store/, as record_graphs reads them."""
+        return record_graphs(root)
 
-def parsed_graph(name, triples):
-    """A graph out of the store as a Parsed: triples, no text - so no lines and no comments."""
-    import pyoxigraph as ox
+    def is_file(self, path):
+        """Whether `path` is a file there is."""
+        return os.path.isfile(path)
 
-    from ..domain.record.parsed import Parsed
-    from ..domain.ontology import kind_of
+    def graph_name(self, path, root):
+        """The record graph a file holds, as infra.files.graph_name names it."""
+        return graph_name(path, root)
 
-    quads = [ox.Quad(t.subject, t.predicate, t.object) for t in triples]
-    return Parsed(name, kind_of(name), quads, {}, [])
+    def file_name(self, path, root):
+        """How a finding names a file, as infra.files.file_name spells it."""
+        return file_name(path, root)
+
+    def parse(self, path):
+        """A file on disk, parsed through the engine's codec."""
+        return parse(path)
 
 
 def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, graphs=None):
-    """Load, derive, validate and close over a workspace.
+    """Load, derive, validate and close over a workspace (application/record/load.py).
 
-    The record comes from career/store/ (record_graphs). `graphs` ({name: triples, or None
-    to drop}) stands in for the store's graphs: how a write validates the record it is
-    about to write before writing it. `files` reads those files
-    instead and never opens the store - the import's front end (legacy.read_workspace), and
-    `jsk kb load` validating what it imports with the vocabulary alone."""
-    import pyoxigraph as ox
+    Args:
+        root: the workspace root.
+        vocabulary: the shipped vocabulary's file; by default the one that ships.
+        files: None to read career/store/; else the files to read instead.
+        graphs: {name: triples, or None to drop} standing in for the store's graphs.
 
-    from .rules import tier2
-    from ..domain.record.shapes import Finding, tier1
-
-    store = Store(os.path.abspath(root), ox=ox.Store())
-    # Keyed by graph name, whichever a caller passed: `career/kb.ttl` is `kb`.
-    graphs = {short_name(n): t for n, t in (graphs or {}).items()}
-    record = None if files is not None else record_graphs(store.root)
-    # A career handed over as graphs is the record as the store will hold it (`jsk kb
-    # load` validating what it imports), whether or not a store exists yet.
-    stored = record is not None or "kb" in graphs
-    if record is not None:
-        record.update(graphs)
-        names = {n for n in record if record[n] is not None}
-        items: list = [(n, None) for n in sorted(names, key=load_order)]
-        if vocabulary and os.path.isfile(vocabulary):
-            items.append((graph_name(vocabulary, store.root), vocabulary))
-    else:
-        items = [(graph_name(p, store.root), p) for p in files]
-        if graphs:
-            record = dict(graphs)
-            items = [(n, p) for n, p in items if n not in record]
-            items += [(n, None) for n in sorted(record, key=load_order)
-                      if record[n] is not None]
-    derived = ox.NamedNode(O.DERIVED)
-    for name, path in items:
-        try:
-            if record is not None and name in record:
-                parsed = parsed_graph(name, record[name])
-            else:
-                parsed = parse(path)
-        except GraphError as e:
-            detail = str(e).split(": ", 1)[-1]
-            if path:
-                # A file the import reads: the person fixes the file, so it is named.
-                detail = f"{file_name(path, store.root)}: {detail}"
-            store.findings.append(Finding("syntax", "FAIL", name, e.line or 0, "", detail,
-                                          e.fix))
-            continue
-        except Unreadable as e:
-            raise GraphError(str(e), e.fix, name) from None
-        parsed.file = name
-        store.parsed[name] = parsed
-        graph = ox.NamedNode(graph_iri(name))
-        store.ox.extend(ox.Quad(q.subject, q.predicate, q.object, graph) for q in parsed.quads)
-        store.findings += tier1(parsed)
-        for iri in dict.fromkeys(q.subject.value for q in parsed.quads
-                                 if isinstance(q.subject, ox.NamedNode)):
-            store.homes.setdefault(iri, name)
-            store.definitions.setdefault(iri, []).append(name)
-    store.stored = stored
-    narrow(store)
-    derive_types(store, derived)
-    store.findings += tier2(store)
-    materialise_paths(store)
-    return store
-
-
-# career predicate -> the shipped predicates it removes
-NARROWS = {"unlabel": ("label", "former"), "unlink": ("isA", "partOf")}
-
-
-def narrow(store):
-    """The career's `unlabel` and `unlink`, applied to the shipped vocabulary - in memory only.
-
-    A shipped entry can be wrong for one person's field ("Go" is never the language in
-    theirs). The shipped file is not theirs to edit, and a copy of it would stop tracking
-    releases, so the removal is a statement in the career that the loader honours. One that
-    removes nothing is kept in `store.unmatched` for the narrows-nothing rule: a typo
-    there would otherwise change nothing, silently.
+    Returns:
+        The loaded Store. Reads career/store/ under shared access, or the files.
     """
-    import pyoxigraph as ox
+    from ..application.record.load import load as load_workspace
+    from ..infra.oxigraph.engine import OxigraphEngine
 
-    vocab = [ox.NamedNode(graph_iri(f)) for f, p in store.parsed.items() if p.kind == "vocabulary"]
-    for p in store.parsed.values():
-        if p.kind != "kb":
-            continue
-        for q in p.quads:
-            name = q.predicate.value[len(O.J):] if q.predicate.value.startswith(O.J) else None
-            if name not in NARROWS:
-                continue
-            removed = False
-            for g in vocab:
-                for target in NARROWS[name]:
-                    quad = ox.Quad(q.subject, ox.NamedNode(O.J + target), q.object, g)
-                    if quad in store.ox:
-                        store.ox.remove(quad)
-                        removed = True
-            if not removed:
-                store.unmatched.append(q)
-
-
-def derive_types(store, derived):
-    """rdf:type from each k: id's prefix, into j:derived."""
-    import pyoxigraph as ox
-
-    rdf_type = ox.NamedNode(O.RDF_TYPE)
-    quads = []
-    for iri in store.homes:
-        name = O.class_of(iri)
-        if name and name != "Concept":
-            quads.append(ox.Quad(ox.NamedNode(iri), rdf_type, ox.NamedNode(O.J + name), derived))
-    store.ox.extend(quads)
-
-
-def materialise_paths(store):
-    """The counts-as closure within the hop limit, as Path nodes in j:derived.
-
-    One way, narrower to broader: `a isA b` gives a path from a to b, never back. Paths
-    of 0, 1 and 2 hops; `implied` when an implies edge is on it, since an implied match
-    never satisfies a required requirement (P2's rule). Ported from the graph
-    simulation's materialise_paths, S0-S7.
-    """
-    pre = f"PREFIX j: <{O.J}>\nPREFIX c: <{O.C}>\n"
-    kinds = "j:isA, j:partOf, j:implies"
-    # A path's id is minted from its ends and its hop count, so one found twice is one node.
-    pid = ('BIND(IRI(CONCAT("{derived}/path/", MD5(CONCAT(STR(?a), " ", STR(?via), " ", '
-           'STR(?b), " ", STR(?hops))))) AS ?p)').format(derived=O.DERIVED)
-    head = ("INSERT { GRAPH j:derived { ?p a j:Path ; j:from ?a ; j:to ?b ; j:hops ?hops ; "
-            "j:implied ?imp ; j:via ?via } }")
-    for where in (
-        """{ SELECT DISTINCT ?a WHERE { GRAPH ?g { ?a a ?t }
-               FILTER(?g != j:derived && STRSTARTS(STR(?a), STR(c:))) } }
-           BIND(?a AS ?b) BIND(?a AS ?via) BIND(0 AS ?hops) BIND(false AS ?imp)""",
-        f"""GRAPH ?g {{ ?a ?k ?b }} FILTER(?g != j:derived && ?k IN ({kinds}))
-            BIND(?a AS ?via) BIND(1 AS ?hops) BIND(?k = j:implies AS ?imp)""",
-        f"""GRAPH ?g {{ ?a ?k1 ?via }} GRAPH ?h {{ ?via ?k2 ?b }}
-            FILTER(?g != j:derived && ?h != j:derived && ?a != ?b)
-            FILTER(?k1 IN ({kinds}) && ?k2 IN ({kinds}))
-            BIND(2 AS ?hops) BIND(?k1 = j:implies || ?k2 = j:implies AS ?imp)""",
-    ):
-        store.ox.update(f"{pre}{head} WHERE {{ {where} {pid} }}")
+    return load_workspace(root, vocabulary, files, graphs, source=Workspace(),
+                          new_engine=OxigraphEngine)

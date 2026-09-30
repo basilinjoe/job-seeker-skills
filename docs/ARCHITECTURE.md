@@ -341,6 +341,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/career.py                the career graph as the builder, export and match read it
     record/parsed.py                a Turtle or TriG text as parsed: quads, subject lines, comments
     record/state.py                 the career and its log in step: revision, state, stamp, entry
+    record/store.py                 a loaded workspace: its graphs, findings and engine; the derivations
     record/decisions.py             decisions.txt's format and its parser: header, rows, drops
     record/changeset.py             a parsed changeset read, and what it may never say refused
     record/edit.py                  a changeset merged into the career, refused where the career says
@@ -358,16 +359,19 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     files.py  tex.py  pdf.py        authored texts and application files; the TeX engine; a PDF read
     posting_source.py  profiles.py  a job board's API; the region profiles
     clock.py  queries.py            today; the feature reads over a loaded record
+    workspace.py                    a workspace as loading it needs it
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
+    record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
     profiles.py                     the region profiles under data/ (moved from render/)
     oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
     oxigraph/db.py  record.py       the store on disk; the write gate every write goes through
+    oxigraph/engine.py              the in-memory engine a loaded record runs on
     tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
     posting_sources.py              a board's JSON over the network; a .docx, .html or text file
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
