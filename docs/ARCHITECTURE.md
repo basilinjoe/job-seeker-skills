@@ -339,6 +339,9 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/parsed.py                a Turtle or TriG text as parsed: quads, subject lines, comments
     record/state.py                 the career and its log in step: revision, state, stamp, entry
     posting/errors.py               posting.md's name, and how a posting step refuses
+    posting/boards.py               which job board a URL is on, and its answer as a posting
+    posting/html_text.py            a board's or a saved page's HTML as text
+    posting/posting_md.py           posting.md as jsk writes it
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
   ports/                            what the application needs from outside, as Protocols
@@ -355,6 +358,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
     profiles.py                     the region profiles under data/ (moved from render/)
     oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
+    tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
+    posting_sources.py              a board's JSON over the network; a .docx, .html or text file
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded

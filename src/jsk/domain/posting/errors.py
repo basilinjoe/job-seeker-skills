@@ -4,6 +4,10 @@
 # finds it by this name, so the name is said once.
 POSTING = "posting.md"
 
+# The fallback every fetch failure names: a posting jsk cannot read is still one a browser can.
+BROWSER_FIX = ("fix:  fetch it with a browser tool and write posting.md with the Write "
+               "tool - the advertisement verbatim, the URL on its first line")
+
 
 class Refused(Exception):
     """A refusal: its message, then the fix line. `problems` is every (message, fix) it
@@ -30,3 +34,7 @@ class Refused(Exception):
             return cls(*problems[0])
         return cls(f"{len(problems)} problems", "fix:  each problem above has its own fix",
                    problems)
+
+
+class NotOnBoard(Exception):
+    """The board answered, and this posting is not on it."""

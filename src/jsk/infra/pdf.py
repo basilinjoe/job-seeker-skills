@@ -54,7 +54,7 @@ def measure(pdf_path):
                 "top": min((b[1] for b in blocks), default=0.0),
                 "bottom": max((b[3] for b in blocks), default=0.0),
                 "first_text": " ".join((first[4] or "").split())[:60] if first else "",
-                "first_height": (first[3] - first[1]) if first else 0.0,
+                "first_height": (float(first[3]) - float(first[1])) if first else 0.0,
             })
     return pages
 
