@@ -15,6 +15,12 @@ import os
 from dataclasses import dataclass, field
 
 from ..domain import ontology as O
+from ..domain.naming import app_graph as app_graph
+from ..domain.naming import graph_iri, short_name
+from ..infra.files import file_name, graph_name
+from ..infra.files import inside as inside
+from ..infra.files import rel as rel
+from ..infra.files import spelled as spelled
 from .io import GraphError, Unreadable, parse
 
 # For the checker alone: importing `typing` costs every command ~3 ms it never uses.
@@ -97,97 +103,6 @@ class Store:
         for f in sorted(self.findings, key=lambda f: (f.rule != "syntax", f.file, f.line, f.rule)):
             (rep.fail if f.severity == "FAIL" else rep.warn)(f.text())
         return rep
-
-
-def rel(path, root):
-    """`path` relative to `root`, forward slashes - or, on another Windows drive, where
-    relpath raises rather than answering, the absolute path with forward slashes."""
-    try:
-        return os.path.relpath(path, root).replace("\\", "/")
-    except ValueError:
-        return os.path.abspath(path).replace("\\", "/")
-
-
-def inside(path, root):
-    """Is `path` (followed through links) under `root`? False across drives, where
-    commonpath raises."""
-    here, top = (os.path.normcase(os.path.realpath(p)) for p in (path, root))
-    try:
-        return os.path.commonpath([here, top]) == top
-    except ValueError:
-        return False
-
-
-def spelled(folder, name):
-    """`name` as `folder` spells it on disk. Windows and macOS open `ACME` as `acme`, and a
-    graph named by the typed spelling would be another application's: a sent one's posting
-    written again, its sent check looking for a graph that is not there. The typed name is
-    kept when nothing on disk is that same folder under another spelling."""
-    try:
-        names = os.listdir(folder)
-    except OSError:
-        return name
-    if name in names:
-        return name
-    for other in names:
-        if other.casefold() == name.casefold():
-            try:
-                if os.path.samefile(os.path.join(folder, name), os.path.join(folder, other)):
-                    return other
-            except OSError:
-                pass
-    return name
-
-
-def file_name(path, root):
-    """How findings name a file: relative to the workspace, forward slashes, each part
-    spelled as it is on disk (spelled). A file outside it - the shipped vocabulary - is
-    named by its basename, including when it is on another Windows drive."""
-    name = rel(path, root)
-    if name.startswith("../") or os.path.isabs(name):
-        return os.path.basename(path)
-    if name == ".":
-        return name
-    here, parts = os.path.abspath(root), []
-    for part in name.split("/"):
-        parts.append(spelled(here, part))
-        here = os.path.join(here, parts[-1])
-    return "/".join(parts)
-
-
-def graph_name(path, root):
-    """The record graph a file holds, by the name the store gives it and findings use:
-    career/kb.ttl is `kb`, career/log.ttl `log`, applications/<stem>/posting.ttl
-    `applications/<stem>/posting` (and application, gaps), the shipped vocabulary
-    `vocabulary`. Any other path is named as file_name names it."""
-    return short_name(file_name(path, root))
-
-
-def short_name(name):
-    """graph_name for a name already relative to the workspace (`career/kb.ttl`). A graph
-    name comes back as it is, so a caller may pass either."""
-    if name in ("career/kb.ttl", "career/log.ttl"):
-        return name[len("career/"):-len(".ttl")]
-    if os.path.basename(name) == "vocabulary.ttl":
-        return "vocabulary"
-    head, _, tail = name.rpartition("/")
-    if head.startswith("applications/") and head.count("/") == 1 and \
-            tail in ("posting.ttl", "application.ttl", "gaps.ttl"):
-        return name[:-len(".ttl")]
-    return name
-
-
-def app_graph(app, kind):
-    """The graph name of an application's `kind` (posting, application, gaps). `app` is
-    its name relative to the workspace (`applications/<stem>`)."""
-    return f"{app.rstrip('/')}/{kind}"
-
-
-def graph_iri(name):
-    """The named graph a record graph's triples live in, in memory as in career/store/:
-    the same IRI (db.graph_iri), so a query means the same thing over either."""
-    from .db import graph_iri as iri
-    return iri(name)
 
 
 def record_graphs(root):

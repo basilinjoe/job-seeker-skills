@@ -309,7 +309,7 @@ def main(argv):
 
     print(f"view: {first['view']}   profile: {first['profile']}   "
           f"page budget: {first['pages']}   template: {template or themes.DEFAULT}")
-    from ..graph.store import rel
+    from ..infra.files import rel
     for path in written:
         print(f"  wrote  {rel(path, out_dir)}")
     for line in pages:

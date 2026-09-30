@@ -136,7 +136,7 @@ def sha256(text):
 
 def parse(path, root=None):
     """Parse a file on disk; `root` makes the reported name relative to the workspace."""
-    from .store import rel
+    from ..infra.files import rel
 
     file = rel(path, root) if root else str(path).replace("\\", "/")
     try:

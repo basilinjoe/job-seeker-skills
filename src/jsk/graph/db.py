@@ -22,7 +22,8 @@ import sys
 import time
 from contextlib import contextmanager
 
-GRAPH = "tag:jsk,2026:graph/"
+from ..domain.naming import GRAPH, graph_iri, name_of
+
 STORE_DIR = os.path.join("career", "store")
 LOCK_FILE = os.path.join("career", "store.lock")        # the writers' turn
 ACCESS_FILE = os.path.join("career", "store.access")    # readers shared, a writer alone
@@ -55,26 +56,9 @@ def exists(root):
     return os.path.isdir(path(root))
 
 
-def graph_iri(name):
-    """The IRI of the graph named `name`. Percent-encoded: an application folder can hold a
-    space, and an IRI cannot."""
-    from urllib.parse import quote
-    return GRAPH + quote(name, safe="/-._~")
-
-
 def graph_node(name):
     import pyoxigraph as ox
     return ox.NamedNode(graph_iri(name))
-
-
-def name_of(iri):
-    """A graph IRI's short name, or None when it is not a record graph."""
-    from urllib.parse import unquote
-
-    value = getattr(iri, "value", iri)
-    if isinstance(value, str) and value.startswith(GRAPH):
-        return unquote(value[len(GRAPH):])
-    return None
 
 
 def open_reader(root):

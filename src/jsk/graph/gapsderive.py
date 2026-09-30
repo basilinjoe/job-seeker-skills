@@ -168,7 +168,7 @@ def _basis(q):
 def _questions(r):
     """The match's questions in the analyst's order, the unmet required ones first - the
     order the old gaps.md draft gave them, without its list markers or slots."""
-    from .match import question_line
+    from ..application.tailor.match_text import question_line
 
     unmet = [(1, f"**unsatisfied** {q['asked']}: required, and nothing in the record "
                  f"carries it - is there work that shows it?")

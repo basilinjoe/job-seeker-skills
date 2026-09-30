@@ -330,16 +330,19 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     letter.py                       the letter check - a cover letter's length, prose and numbers
   preflight.py                      `jsk doctor`: what this machine can do
   domain/                           the innermost ring: no files, argv, environment or clock
+    naming.py                       a record graph's short name and its IRI, the same in memory and on disk
     record/confirmation.py          what a confirmation's quote must share with its claim
     gates/numbers.py  report.py     numbers in prose and whether metrics hold them; a gate's findings
     resume/constants.py             the provenance floor's ranks and a skills row's length
     ontology.py  record/writer.py   the format, as data; the entry printer (moved from graph/)
     record/career.py                the career graph as the builder, export and match read it
     posting/errors.py               posting.md's name, and how a posting step refuses
+    assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
+    tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root
     pdf.py                          a rendered PDF's text and fonts, through pymupdf

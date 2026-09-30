@@ -36,7 +36,9 @@ ROOT_INFRA = {"jsk.paths"}
 TERMS = {"NamedNode", "Literal", "BlankNode", "Triple", "Quad", "DefaultGraph"}
 DOMAIN_FORBIDDEN_IMPORTS = {"os", "sys", "subprocess", "shutil", "glob", "tempfile",
                             "pathlib", "urllib"}
-DOMAIN_FORBIDDEN_ATTRIBUTES = {"today", "now", "utcnow", "ox"}
+# Quoting a name for an IRI is string work; the rest of urllib is the network.
+DOMAIN_ALLOWED_SUBMODULES = ("urllib.parse",)
+DOMAIN_FORBIDDEN_ATTRIBUTES ={"today", "now", "utcnow", "ox"}
 DOMAIN_FORBIDDEN_NAMES = {"record_graphs"}
 NO_PYOXIGRAPH = {"jsk.domain.ontology", "jsk.domain.matching.scoring"}
 PORT_IMPORTS = {"typing", "dataclasses", "__future__"}
@@ -178,7 +180,8 @@ def forbidden(mods):
             top = target.split(".")[0]
             if top == PACKAGE or not top:
                 continue
-            if ring == "domain" and top in DOMAIN_FORBIDDEN_IMPORTS:
+            if ring == "domain" and top in DOMAIN_FORBIDDEN_IMPORTS and \
+                    not target.startswith(DOMAIN_ALLOWED_SUBMODULES):
                 out.add((name, f"imports {top}"))
             if ring == "domain" and top == "pyoxigraph" and set(names) - TERMS:
                 out.add((name, f"imports pyoxigraph.{sorted(set(names) - TERMS)[0]}"))

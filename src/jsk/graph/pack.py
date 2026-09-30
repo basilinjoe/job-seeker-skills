@@ -50,7 +50,7 @@ def cur(iri):
 
 def classes(store):
     """{concept iri: {class names}} as the career and the vocabulary state them."""
-    from .store import graph_iri
+    from ..domain.naming import graph_iri
 
     homes = {graph_iri(f) for f, p in store.parsed.items() if p.kind in ("kb", "vocabulary")}
     out = defaultdict(set)

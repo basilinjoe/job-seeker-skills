@@ -81,7 +81,7 @@ def event_quads(app, stem, date, kind, channel=None, note=None, due=None, iri=No
 
 def posting_of(store, rel_dir):
     """(posting iri, stem) of the Posting in the application <rel_dir>, or (None, None)."""
-    from .store import app_graph
+    from ..domain.naming import app_graph
 
     parsed = store.parsed.get(app_graph(rel_dir, "posting"))
     if parsed is None:
@@ -113,7 +113,7 @@ def workspace_of_app(app_dir):
     """(workspace root, `applications/<dir>`) for a directory at
     <root>/applications/<dir>, else (None, None). Both named as they are on disk
     (store.spelled): the graph name is the folder's, however the path was typed."""
-    from .store import spelled
+    from ..infra.files import spelled
 
     here = os.path.abspath(app_dir)
     apps = os.path.dirname(here)
@@ -128,7 +128,7 @@ def app_graphs(app_dir, store=None):
     store - {} when it is in no workspace with a store. Read from `store` when it is that
     workspace's, loaded; from the store on disk if not."""
     from . import db
-    from .store import app_graph
+    from ..domain.naming import app_graph
 
     root, rel = workspace_of_app(app_dir)
     if root is None or not db.exists(root):
@@ -243,7 +243,7 @@ def write_app_graphs(app_dir, graphs, store=None):
     assessment come through here; the application graph is `jsk freeze`'s and `jsk
     event`'s, which write to a sent application, and does not."""
     from . import record as R
-    from .store import app_graph
+    from ..domain.naming import app_graph
 
     root, rel = workspace_of_app(app_dir)
     names = {kind: app_graph(rel, kind) for kind in graphs}
@@ -417,7 +417,7 @@ def write_frozen(root, sealed, final):
     to the new name in the same update that writes the application - all three land, or
     none does."""
     from . import record as R
-    from .store import app_graph
+    from ..domain.naming import app_graph
 
     old, new = sealed.rel, workspace_of_app(final)[1]
     graphs = {}

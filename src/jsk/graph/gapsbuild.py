@@ -50,7 +50,7 @@ def raises(said, matched):
     """Would `said` claim more than the match? Against `indeterminate`, a satisfied or a
     partial does; `indeterminate` itself claims nothing; against an implicit row nothing is
     a raise, because the match did not assess it."""
-    from .match import RANK
+    from ..domain.assessment.verdict import RANK
 
     if matched is None or said == "indeterminate":
         return False
@@ -76,7 +76,7 @@ def outcome(o, row, was, rows):
     restating the match FAILed "no reason" beside its "delete the row". Neither changes
     what `fold` writes - both are the match's verdict there - so each warns.
     """
-    from .match import RAISE_FIX
+    from ..domain.assessment.verdict import RAISE_FIX
 
     where = f"gaps.txt line {o.line}"
     if row is None:
@@ -256,7 +256,7 @@ def requirement_rows(a):
 
 def render(r, a, today, lines=(), dropped=()):
     """gaps.md: what the person reads, from the assessment and the match."""
-    from .match import cover_lines, ranking_lines
+    from ..application.tailor.match_text import cover_lines, ranking_lines
 
     out = ["---", "type: Gap Assessment", f"posting: {a.derived.posting}",
            f"assessed: {today.isoformat()}", f"fit: {a.fit}", "---", HEADER, "",
@@ -278,7 +278,7 @@ def previous_verdicts(store, app_rel, stem):
     """{slug: j:matched} from the assessment being replaced - the verdict id's local part
     after `vrd_<stem>_`, which is the requirement's slug."""
     from ..domain import ontology as O
-    from .store import app_graph
+    from ..domain.naming import app_graph
 
     parsed = store.parsed.get(app_graph(app_rel, "gaps"))
     head = f"{O.K}vrd_{stem}_"
@@ -290,7 +290,7 @@ def previous_verdicts(store, app_rel, stem):
 def assessed(store, app_rel):
     """The day the assessment being replaced was made, or None."""
     from ..domain import ontology as O
-    from .store import app_graph
+    from ..domain.naming import app_graph
 
     parsed = store.parsed.get(app_graph(app_rel, "gaps"))
     for q in parsed.quads if parsed else ():

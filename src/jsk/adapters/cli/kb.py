@@ -503,7 +503,7 @@ def quoted_answer(source, quote, root):
     """(answer, None) or (None, exit code): `From <source>: "<quote>"` once the quote is
     checked against the document, word for word as rules.unquoted checks a posting's."""
     from ...graph.rules import DENIAL, PLACEHOLDER, squash
-    from ...graph.store import inside, rel
+    from ...infra.files import inside, rel
 
     if not os.path.isfile(source) or not inside(source, root):
         return None, refuse([f"{source}: not a file inside this workspace"],
@@ -532,7 +532,7 @@ def confirm_summary(path, answer, root):
     from ...application.guards import frozen_refusal
     from ...resume import short
     from ...graph.io import read_text
-    from ...graph.store import inside, rel
+    from ...infra.files import inside, rel
     from ...graph.timeline import Unwritable, write_document
 
     code = bad_answer(answer, "write the summary again with what the person said, and ask "

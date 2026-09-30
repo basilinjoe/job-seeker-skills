@@ -359,7 +359,7 @@ def base_conflicts(store, cs, refuse):
 def referenced(store, after, e, refuse):
     """An entry is deleted only when nothing points at it; otherwise it is retired."""
     from .record import KB
-    from .store import graph_iri
+    from ..domain.naming import graph_iri
 
     if [f for f in store.definitions.get(e.value, []) if f != KB]:
         return      # the shipped vocabulary still defines it: removing the career's part is safe

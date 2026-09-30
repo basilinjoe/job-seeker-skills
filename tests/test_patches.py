@@ -88,36 +88,62 @@ def absolute(importer, is_package, node):
     return ".".join(base + ([node.module] if node.module else []))
 
 
+def in_functions(tree):
+    """The nodes of `tree` that sit inside a function body: one pass, tracking depth."""
+    inside = []
+
+    def visit(node, depth):
+        if depth:
+            inside.append(node)
+        nested = depth + isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
+        for child in ast.iter_child_nodes(node):
+            visit(child, nested)
+
+    visit(tree, 0)
+    return inside
+
+
+_LOOKUPS = {}
+
+
+def lookups(name, path, tree):
+    """{(module, attribute): [where]} for every call-time lookup of a name in `tree`.
+
+    Three kinds count: a bare name loaded inside a function of `name` itself, an
+    attribute of a name bound to a module, and a `from m import a` run inside a
+    function. Built once per tree, since every patch asks about every module.
+    """
+    if id(tree) in _LOOKUPS:
+        return _LOOKUPS[id(tree)]
+    is_package = path.name == "__init__.py"
+    local, out = {}, {}
+    inside = {id(n) for n in in_functions(tree)}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            src = absolute(name, is_package, node)
+            for a in node.names:
+                local[a.asname or a.name] = f"{src}.{a.name}"
+                if id(node) in inside:
+                    out.setdefault((src, a.name), []).append(f"{name}:{node.lineno}")
+        elif isinstance(node, ast.Import):
+            for a in node.names:
+                head = a.name.split(".")[0]
+                local[a.asname or head] = a.name if a.asname else head
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and id(node) in inside:
+            out.setdefault((name, node.id), []).append(f"{name}:{node.lineno}")
+        elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and \
+                node.value.id in local:
+            out.setdefault((local[node.value.id], node.attr), []).append(f"{name}:{node.lineno}")
+    _LOOKUPS[id(tree)] = out
+    return out
+
+
 def readers(module, attr, sources):
-    """The places in `sources` ({dotted name: tree}) that look `attr` up through `module`
-    at call time; empty when a patch of module.attr would reach nothing."""
-    found = []
-    for name, (path, tree) in sources.items():
-        is_package = path.name == "__init__.py"
-        local = {}
-        in_function = set()
-        for fn in ast.walk(tree):
-            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                in_function.update(id(n) for n in ast.walk(fn) if n is not fn)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom):
-                src = absolute(name, is_package, node)
-                for a in node.names:
-                    local[a.asname or a.name] = f"{src}.{a.name}"
-                    if src == module and a.name == attr and id(node) in in_function:
-                        found.append(f"{name}:{node.lineno}")
-            elif isinstance(node, ast.Import):
-                for a in node.names:
-                    local[a.asname or a.name.split(".")[0]] = a.name if a.asname else \
-                        a.name.split(".")[0]
-        for node in ast.walk(tree):
-            if name == module and isinstance(node, ast.Name) and node.id == attr and \
-                    isinstance(node.ctx, ast.Load) and id(node) in in_function:
-                found.append(f"{name}:{node.lineno}")
-            elif isinstance(node, ast.Attribute) and node.attr == attr and \
-                    isinstance(node.value, ast.Name) and local.get(node.value.id) == module:
-                found.append(f"{name}:{node.lineno}")
-    return found
+    """The places in `sources` ({dotted name: (path, tree)}) that look `attr` up through
+    `module` at call time; empty when a patch of module.attr would reach nothing."""
+    return [where for name, (path, tree) in sources.items()
+            for where in lookups(name, path, tree).get((module, attr), [])]
 
 
 def sources():

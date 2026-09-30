@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from ..domain import ontology as O
 from .shapes import FAIL, WARN, Finding, curie
-from .store import graph_iri
+from ..domain.naming import graph_iri
 
 # For the checker alone, as in store.py: `typing` costs a command ~3 ms it never uses.
 TYPE_CHECKING = False

@@ -97,7 +97,7 @@ def posting_stem(app_dir, root, store):
     """The stem of the Posting already in the posting graph - the application points at it - else
     the directory's."""
     if store is not None:
-        from .store import file_name
+        from ..infra.files import file_name
         from .timeline import posting_of
 
         _, stem = posting_of(store, file_name(os.path.abspath(app_dir), root))

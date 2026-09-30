@@ -28,7 +28,7 @@ ASCII_FOLD = {
 def fold_ascii(text):
     if text is None:
         return None
-    out = "".join(ASCII_FOLD.get(ch, ch) for ch in text)
+    out = "".join(ASCII_FOLD[ch] if ch in ASCII_FOLD else ch for ch in text)
     return "".join(ch if ord(ch) < 128 else "?" for ch in out)
 
 

@@ -41,7 +41,7 @@ def draft(store, a, b):
 
     from .pack import classes
     from .record import KB
-    from .store import graph_iri
+    from ..domain.naming import graph_iri
 
     kinds = classes(store)
     problems = []
