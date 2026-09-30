@@ -337,6 +337,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/prose_rules.py            the prose gate's rules over a .tex's or .txt's paragraphs
     gates/layout_rules.py           the layout gate's rules over page sizes, line boxes and fonts
     resume/constants.py             the provenance floor's ranks and a skills row's length
+    resume/plan.py                  the render plan: every content decision, made exactly once
+    resume/short.py                 a resume.json as data: parsed, its shape, its ids, its summary
     ontology.py  record/writer.py   the format, as data; the entry printer (moved from graph/)
     record/career.py                the career graph as the builder, export and match read it
     record/parsed.py                a Turtle or TriG text as parsed: quads, subject lines, comments
@@ -365,6 +367,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/numbers.py                the untraced-number check over a loaded career
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
+    render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
+    render/build_plan.py            a resume.json on disk to its render plan
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
