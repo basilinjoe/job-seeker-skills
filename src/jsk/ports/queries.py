@@ -70,3 +70,15 @@ class RecordQueries(Protocol):
         """{(asked, concept): postings}: what analysts named on the postings but `post`,
         retired concepts left out."""
         ...
+
+    def live_bullets(self) -> dict[str, tuple[str, int, str]]:
+        """{bullet: (project, rank, provenance)} for every live bullet."""
+        ...
+
+    def bullet_shows(self) -> dict[str, set[str]]:
+        """{bullet: the concepts it shows or counts as, without an implies edge}."""
+        ...
+
+    def citing_current(self) -> set[str]:
+        """The bullets citing a metric that has a current version."""
+        ...

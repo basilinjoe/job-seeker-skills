@@ -352,6 +352,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     matching/rank.py  cover.py      the projects scored for a posting; the smallest set carrying it
     matching/nearest.py             the concepts nearest a label, and those an advert line names
     matching/questions.py           the questions a tailoring round asks of a match
+    selection/select.py             the projects, bullets, skills and gaps a resume selects
     posting/errors.py               posting.md's name, and how a posting step refuses
     posting/boards.py               which job board a URL is on, and its answer as a posting
     posting/html_text.py            a board's or a saved page's HTML as text
@@ -478,7 +479,7 @@ directory named after what they have in common.
 | What `jsk new` scaffolds | `src/jsk/kb.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
 | A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `postingbuild.py` and `gapsbuild.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
 | What the analyst may write | `graph/decisions.py` (`decisions.txt`), `graph/assessment.py` (`gaps.txt`) | the checks in `postingbuild.py` and `gapsbuild.py`; `agents/jsk-tailor-analyst.md` |
-| How the career's projects are ranked for a posting | `rank` in `src/jsk/graph/queries.py`; the weights in `src/jsk/graph/scoring.py` | `cover` in the same file, and `select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
+| How the career's projects are ranked for a posting | `rank` in `src/jsk/domain/matching/rank.py`; the weights in `src/jsk/domain/matching/scoring.py` | `cover` in `cover.py` beside it, and `src/jsk/domain/selection/select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
 | What the record gate checks | `src/jsk/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |

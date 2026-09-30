@@ -227,3 +227,41 @@ class OxigraphQueries:
             if r["p"].value != post:
                 out.setdefault((r["a"].value, r["c"].value), set()).add(r["p"].value)
         return out
+
+    def live_bullets(self):
+        """{bullet: (project, rank, provenance)} for every live bullet.
+
+        Returns:
+            rank an int, provenance a name (confirmed, inferred, ...).
+        """
+        rows = self.store.select(PRE + """
+            SELECT ?b ?p ?rank ?pv WHERE { ?b j:project ?p ; j:rank ?rank ; j:provenance ?pv .
+                                           FILTER NOT EXISTS { ?b j:retired ?x } }""")
+        return {r["b"].value: (r["p"].value, int(r["rank"].value), local(r["pv"].value))
+                for r in rows}
+
+    def bullet_shows(self):
+        """{bullet: the concepts it shows or counts as, without an implies edge}.
+
+        Returns:
+            A set of concept iris per bullet that shows one.
+        """
+        rows = self.store.select(PRE + """
+            SELECT ?b ?to WHERE { ?b j:project ?p ; j:shows ?m .
+              GRAPH j:derived { ?x j:from ?m ; j:to ?to ; j:implied false } }""")
+        out = {}
+        for r in rows:
+            out.setdefault(r["b"].value, set()).add(r["to"].value)
+        return out
+
+    def citing_current(self):
+        """Bullets citing a metric that has a current version - the ones export keeps a
+        number for.
+
+        Returns:
+            A set of bullet iris.
+        """
+        rows = self.store.select(PRE + """
+            SELECT DISTINCT ?b WHERE { ?b j:project ?p ; j:cites ?m . ?v j:of ?m .
+                                       FILTER NOT EXISTS { ?v j:validUntil ?u } }""")
+        return {r["b"].value for r in rows}
