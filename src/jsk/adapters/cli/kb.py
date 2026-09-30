@@ -475,7 +475,7 @@ PROSE = {"Achievement": "text", "Person": "headline"}
 def stems(text):
     """The content words of `text` - four letters and longer - cut to five, so
     "onboarded" in a quote still meets "onboarding" in the claim."""
-    from ...graph.rules import squash
+    from ...domain.posting.advert import squash
     return {w[:5] for w in WORD.findall(squash(text).lower())}
 
 

@@ -351,6 +351,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/boards.py               which job board a URL is on, and its answer as a posting
     posting/html_text.py            a board's or a saved page's HTML as text
     posting/posting_md.py           posting.md as jsk writes it
+    posting/advert.py               an advert's text squashed, and its lines numbered by section
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)

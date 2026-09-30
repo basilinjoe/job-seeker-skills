@@ -15,7 +15,7 @@ import re
 
 from ..domain.posting.errors import POSTING, Refused
 from ..domain import ontology as O
-from .rules import FIRST_LINE, REQUIRED_WORDS, advert_lines, squash
+from ..domain.posting.advert import FIRST_LINE, REQUIRED_WORDS, advert_lines, squash
 
 DECISIONS = "decisions.txt"
 SOFT_CAP = 20

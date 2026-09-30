@@ -376,7 +376,7 @@ def content_words(text):
     stems ("onboarded" meets "onboarding"), less STOP and bare numbers - a year or a
     count shared by two projects is a coincidence, not a sign they are one."""
     from ..domain.record.confirmation import WORD
-    from .rules import squash
+    from ..domain.posting.advert import squash
     out = {}
     for w in WORD.findall(squash(text).lower()):
         if w not in STOP and not w.isdigit():
