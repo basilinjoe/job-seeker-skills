@@ -339,6 +339,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/parsed.py                a Turtle or TriG text as parsed: quads, subject lines, comments
     record/state.py                 the career and its log in step: revision, state, stamp, entry
     record/changeset.py             a parsed changeset read, and what it may never say refused
+    record/edit.py                  a changeset merged into the career, refused where the career says
     posting/errors.py               posting.md's name, and how a posting step refuses
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
