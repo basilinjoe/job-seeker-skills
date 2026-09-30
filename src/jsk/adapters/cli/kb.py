@@ -737,7 +737,7 @@ def cmd_view(args, flags, root):
     """
     from ...graph import record as R
     from ...graph import store as S
-    from ...graph.view import render
+    from ...domain.record.view import render
 
     only = flags.get("--section")
     if args:
@@ -992,7 +992,7 @@ def untraced_lines(store, today, bullets=None):
     from ...gates import numbers
     from ...domain.record.career import Career
     from ...graph import record as R
-    from ...graph.shapes import curie
+    from ...domain.record.shapes import curie
 
     career = Career(store.graph(R.KB))
     out = []

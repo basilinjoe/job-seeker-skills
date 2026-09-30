@@ -103,7 +103,7 @@ def prepare(root, app, named_as, budget, today, draft):
     from . import store as S
     from ..domain.record.writer import entry_text, with_children
     from .match import blocks, markdown, posting_in, result
-    from .shapes import curie
+    from ..domain.record.shapes import curie
 
     store = S.load(root)
     rel = S.file_name(app, store.root)

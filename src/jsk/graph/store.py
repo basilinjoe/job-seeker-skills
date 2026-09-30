@@ -157,7 +157,7 @@ def load(root, vocabulary=SHIPPED_VOCABULARY, files=None, graphs=None):
     import pyoxigraph as ox
 
     from .rules import tier2
-    from .shapes import Finding, tier1
+    from ..domain.record.shapes import Finding, tier1
 
     store = Store(os.path.abspath(root), ox=ox.Store())
     # Keyed by graph name, whichever a caller passed: `career/kb.ttl` is `kb`.

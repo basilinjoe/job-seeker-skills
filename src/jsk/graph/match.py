@@ -127,7 +127,7 @@ def faults_in(store, bullets, today):
     """record_faults' entries for `bullets` (iris), in their order: numbers.untraced's
     Faults as the question's data."""
     from ..application.gates import numbers
-    from .shapes import curie
+    from ..domain.record.shapes import curie
 
     return [{"bullet": curie(f.bullet), "numbers": f.numbers,
              "superseded": [{"number": s["number"], "version": curie(s["version"]),
@@ -174,7 +174,7 @@ def verdict(state, carriers):
 def result(store, post, today, budget, elsewhere=0):
     """Everything `jsk match` reports, as plain data."""
     from . import queries as Q
-    from .shapes import curie
+    from ..domain.record.shapes import curie
 
     matches = Q.match(store, post)
     ranked = Q.rank(store, post, matches, today)

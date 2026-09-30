@@ -11,7 +11,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from ..domain import ontology as O
-from .shapes import FAIL, WARN, Finding, curie
+from ..domain.record.shapes import FAIL, WARN, Finding, curie
 from ..domain.naming import graph_iri
 
 # For the checker alone, as in store.py: `typing` costs a command ~3 ms it never uses.

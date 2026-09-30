@@ -1,55 +1,10 @@
-"""Plain text emitter, for portals with paste-in boxes.
+"""The old path of jsk.domain.render.emit_text, kept until every importer names the new one.
 
-Headings are upper-cased because a plain-text file has no other way to signal
-one, and the parser matching on 'EXPERIENCE' is case-insensitive anyway.
+The module object is jsk.domain.render.emit_text itself, so an attribute patched through this
+path is patched where the code looks it up.
 """
+import sys
 
+from ..domain.render import emit_text as _moved
 
-def emit(plan):
-    out = [plan["name"]]
-    out.extend(plan["header_lines"])
-    for section in plan["sections"]:
-        out.append("")
-        if section.get("heading"):
-            out.append(section["heading"].upper())
-        out.extend(_section(section))
-    return "\n".join(out).rstrip() + "\n"
-
-
-def _section(section):
-    kind = section["kind"]
-    if kind == "text":
-        return list(section["paragraphs"])
-    if kind == "lines":
-        return list(section["lines"])
-    if kind == "rows":
-        return [f"{row['label']}: {', '.join(row['items'])}" for row in section["rows"]]
-    if kind == "entries":
-        lines = []
-        for n, entry in enumerate(section["entries"]):
-            if n:
-                lines.append("")
-            if entry.get("org_line"):
-                lines.append(_pair(entry["org_line"], entry.get("org_right")))
-            if any(role.get("bullets") for role in entry["roles"]):
-                # Per role, as emit_latex does: a parser credits a bullet to the
-                # title above it. The engagement's own lines go under its head
-                # line - the employer line, else the first role line.
-                if entry.get("org_line"):
-                    lines.extend(entry["lines"])
-                for n, role in enumerate(entry["roles"]):
-                    lines.append(_pair(role["left"], role.get("right")))
-                    if n == 0 and not entry.get("org_line"):
-                        lines.extend(entry["lines"])
-                    lines.extend(f"- {b}" for b in role["bullets"])
-            else:
-                for role in entry["roles"]:
-                    lines.append(_pair(role["left"], role.get("right")))
-                lines.extend(entry["lines"])
-            lines.extend(f"- {b}" for b in entry["bullets"])
-        return lines
-    return []
-
-
-def _pair(left, right):
-    return f"{left} | {right}" if right else left
+sys.modules[__name__] = _moved

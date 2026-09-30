@@ -165,7 +165,7 @@ def built(app_dir, decisions_path, replace, vocabulary, today):
     from .changeset import numbers_as_kept
     from .io import GraphError, Missing, Unreadable
     from .queries import PRE, concepts
-    from .shapes import tier1
+    from ..domain.record.shapes import tier1
     from .store import app_graph, parsed_graph
     from .timeline import (Frozen, Unwritable, app_graphs, has_record, refuse_if_sent,
                            remove_app_file, workspace_of_app, write_app_graphs)

@@ -17,8 +17,8 @@ from dataclasses import dataclass
 
 from ..domain import ontology as O
 from . import queries as Q
-from .scoring import WEIGHTS, recency_points
-from .shapes import curie
+from ..domain.matching.scoring import WEIGHTS, recency_points
+from ..domain.record.shapes import curie
 
 MOST = 8
 KINDS = ("tag-only", "unconfirmed", "uncovered", "unresolved")

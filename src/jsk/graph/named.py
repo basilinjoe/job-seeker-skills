@@ -107,7 +107,7 @@ def experience_of(store, concept, today=None, held=None):
     """(months, [(project, position, start, end)], notes): the months the roles behind the
     projects holding `concept` cover, overlaps counted once - scoring.experience over the
     graph. A project with no role has no dates, so it counts for nothing, and says so."""
-    from .scoring import experience
+    from ..domain.matching.scoring import experience
 
     today = today or datetime.date.today()
     held = holdings(store) if held is None else held
