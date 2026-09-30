@@ -78,7 +78,7 @@ def read(text, file="changeset.trig"):
     anything else wrong with it."""
     import pyoxigraph as ox
 
-    from .io import parse_text
+    from ..infra.oxigraph.codec import parse_text
 
     parsed = parse_text(text, file, kind="changeset")
     cs, refusals = Changeset(), []
@@ -112,7 +112,7 @@ def numbers_as_kept(quads, refuse):
     read as a changed claim - unconfirmed, and a sent metric given a new version for
     nothing - and an op:delete of `8.40` would delete nothing. A grade whose zeros are the
     point (`3.80`) is a string: j:gradeValue takes one."""
-    from .io import canonical_numbers
+    from ..infra.oxigraph.codec import canonical_numbers
     from ..domain.record.writer import literal
 
     for q, kept in canonical_numbers(quads)[1]:

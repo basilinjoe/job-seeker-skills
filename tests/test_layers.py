@@ -48,7 +48,6 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 # the phase that moves or splits one end of it.
 KNOWN_EDGES = {
     ("jsk.application.gates.numbers", "jsk.graph.queries"): {"PRE"},
-    ("jsk.infra.profiles", "jsk.graph.io"): {"read_text"},
     ("jsk.application.guards", "jsk.graph.timeline"): {"frozen"},
 }
 

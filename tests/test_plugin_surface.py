@@ -688,7 +688,7 @@ class TextIsReadInOnePlace(unittest.TestCase):
     text reads. A module here reads text itself, for the reason given."""
 
     ALLOWED = {
-        "jsk.graph.io": "read_text itself",
+        "jsk.infra.files": "read_text itself",
         # Deliberately lenient: a gate reads a rendered document to judge it, and a stray
         # byte in what was rendered is a finding in its own right, not a reason to stop.
         "jsk.gates.check_ats": "reads a rendered .txt with errors=replace",

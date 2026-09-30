@@ -223,7 +223,7 @@ def store_report(start=None):
                   "           the next write refreshes it; `jsk kb dump` writes one now"]
         return lines, False
     try:
-        from .graph.io import read_text
+        from .infra.files import read_text
         at = R.header_revision(db.parse_dump(read_text(backup, R.BACKUP)).get(R.KB, []))
     except Exception as e:                   # noqa: BLE001 - reported, never a crash
         lines += [f"  gap   backup   {backup} does not read back: {e}"]
@@ -512,7 +512,7 @@ def strict_for(path):
     name = os.path.basename(path)
     if path.lower().endswith(".pdf"):
         from .gates.check_ats import VARIANT_KEYWORD, variant_of   # noqa: PLC0415
-        from .graph.io import Unreadable, read_text                # noqa: PLC0415
+        from .infra.files import Unreadable, read_text  # noqa: PLC0415
         try:
             variant = variant_of(path)
         except ImportError:

@@ -139,7 +139,7 @@ def stored_state(store):
 def career_sha(kb_quads):
     """The career's hash as every log entry's kbSha256 holds it: sha256 of the career as
     the writer lays it out - the text a write's diff shows."""
-    from .io import sha256
+    from ..domain.record.parsed import sha256
     from ..domain.record.writer import write
 
     return sha256(write(kb_quads, "kb"))
@@ -220,7 +220,7 @@ class Prepared:
 def prepared(store, kb_quads, today, by, summary, touched=(), minted=(), answer=None):
     """What a logged write of `kb_quads` would write - the career stamped with the next
     revision, the log with an entry naming what the write touched and minted."""
-    from .io import sha256
+    from ..domain.record.parsed import sha256
     from ..domain.record.writer import write
 
     rev = next_revision(state(store))

@@ -112,6 +112,6 @@ def parse(text):
 def read(path, what=None):
     """Decisions from the file at `path`, named `what` in a refusal. Raises io.Missing when
     there is none, io.Unreadable when it is not UTF-8, DecisionsError on a bad line."""
-    from .io import read_text
+    from ..infra.files import read_text
 
     return parse(read_text(path, what))

@@ -22,7 +22,7 @@ def read_workspace(root):
     import pyoxigraph as ox
 
     from . import store as S
-    from .io import canonical_numbers
+    from ..infra.oxigraph.codec import canonical_numbers
 
     store = S.load(root, files=S.workspace_files(root))
     record, rewrites = {}, []

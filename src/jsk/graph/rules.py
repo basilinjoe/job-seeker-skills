@@ -165,7 +165,7 @@ def unquoted(rows, store):
     """A requirement whose quote is not in the advert beside it, word for word."""
     import os
 
-    from .io import Missing, NotUtf8, Unreadable, read_text
+    from ..infra.files import Missing, NotUtf8, Unreadable, read_text
 
     out, adverts = [], {}
     for r in rows:
@@ -359,7 +359,7 @@ def dropped_lines(folder, advert):
     import os
 
     from .decisions import DecisionsError, read
-    from .io import Unreadable
+    from ..infra.files import Unreadable
 
     try:
         drops = read(os.path.join(folder, "decisions.txt")).drops
@@ -373,7 +373,7 @@ def uncovered(rows, store):
     """An advert line that asks something no requirement of its posting quotes."""
     import os
 
-    from .io import Unreadable, read_text
+    from ..infra.files import Unreadable, read_text
 
     quotes = defaultdict(list)
     for r in rows:

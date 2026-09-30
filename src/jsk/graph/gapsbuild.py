@@ -321,7 +321,8 @@ def build(app_dir, store, r, today, derived=None):
     from . import store as S
     from .gapsderive import derive
     from .gapsdraft import advert, drops
-    from .io import GraphError, Missing, Unreadable, read_text
+    from ..domain.record.parsed import GraphError
+    from ..infra.files import Missing, Unreadable, read_text
     from .timeline import Unwritable, sent_day, write_app_file, write_app_graphs
 
     app_rel = S.file_name(os.path.abspath(app_dir), store.root)

@@ -206,7 +206,7 @@ def cmd_apply(args, flags, root):
     """
     from ...graph import changeset, edit
     from ...graph import store as S
-    from ...graph.io import GraphError
+    from ...domain.record.parsed import GraphError
 
     if len(args) != 1:
         return usage("jsk kb apply takes one changeset")
@@ -420,7 +420,8 @@ def bad_answer(answer, denial_fix):
 
 def document_text(path):
     """(text, None) or (None, (reason, fix)): the words of a document to quote from."""
-    from ...graph.io import NotUtf8, Unreadable, normalise, read_text
+    from ...infra.files import NotUtf8, Unreadable, read_text
+    from ...domain.record.parsed import normalise
 
     ext = os.path.splitext(path)[1].lower()
     if ext in (".docx", ".doc", ".odt", ".rtf"):
@@ -531,7 +532,7 @@ def confirm_summary(path, answer, root):
 
     from ...application.guards import frozen_refusal
     from ...resume import short
-    from ...graph.io import read_text
+    from ...infra.files import read_text
     from ...infra.files import inside, rel
     from ...graph.timeline import Unwritable, write_document
 
@@ -1141,7 +1142,9 @@ def hand_edit(before, src):
     to show it was: so each one is named now, against the shadow copy of the revision the
     log last recorded when there is one."""
     from ...graph import record as R
-    from ...graph.io import Unreadable, parse_text, read_text, sha256
+    from ...infra.files import Unreadable, read_text
+    from ...infra.oxigraph.codec import parse_text
+    from ...domain.record.parsed import sha256
 
     st = R.state(before)
     after = before.graph(R.KB)
@@ -1240,7 +1243,7 @@ def cmd_load(args, flags, root):
     from ...graph import db, legacy
     from ...graph import record as R
     from ...graph import store as S
-    from ...graph.io import Unreadable, read_text
+    from ...infra.files import Unreadable, read_text
 
     if len(args) != 1:
         return usage("jsk kb load takes one workspace folder or one .trig dump")

@@ -97,6 +97,6 @@ def parse(text):
 def read(path):
     """The Overlay in the gaps.txt at `path`. Raises io.Missing, io.Unreadable, or
     AssessmentError on the first bad line."""
-    from .io import read_text
+    from ..infra.files import read_text
 
     return parse(read_text(path, "gaps.txt"))

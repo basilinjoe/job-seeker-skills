@@ -336,6 +336,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     resume/constants.py             the provenance floor's ranks and a skills row's length
     ontology.py  record/writer.py   the format, as data; the entry printer (moved from graph/)
     record/career.py                the career graph as the builder, export and match read it
+    record/parsed.py                a Turtle or TriG text as parsed: quads, subject lines, comments
     posting/errors.py               posting.md's name, and how a posting step refuses
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
@@ -347,6 +348,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     files.py                        the workspace on disk: find_root
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
     profiles.py                     the region profiles under data/ (moved from render/)
+    oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded

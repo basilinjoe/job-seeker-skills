@@ -128,7 +128,8 @@ class Walls:
 
 def read_pack(path):
     """{concept iri: {"class": name, "label": [...], "edges": [(name, iri)]}}."""
-    from .io import parse_text, read_text
+    from ..infra.oxigraph.codec import parse_text
+    from ..infra.files import read_text
 
     name = os.path.basename(path)
     quads = parse_text(read_text(path, name), name, kind="vocabulary").quads

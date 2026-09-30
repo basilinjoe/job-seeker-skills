@@ -74,7 +74,7 @@ def header(name):
 def first_write(name, today):
     """{graph: quads} for a workspace with no career yet: the empty record, r1 by `new`."""
     from .graph import record as R
-    from .graph.io import sha256
+    from .domain.record.parsed import sha256
     from .domain.record.writer import write
 
     kb = R.stamp(header(name), 1, today)
@@ -139,7 +139,7 @@ def restart(root, name, today):
 
 def gitattributes(root):
     """Add whichever of GITATTRIBUTES the workspace's .gitattributes lacks. Never removes."""
-    from .graph.io import Missing, Unreadable, read_text
+    from .infra.files import Missing, Unreadable, read_text
 
     path = os.path.join(root, ".gitattributes")
     try:

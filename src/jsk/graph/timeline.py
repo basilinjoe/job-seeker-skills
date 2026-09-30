@@ -202,7 +202,7 @@ def legacy_submitted(text):
     held-back application, is None too. Only that one line is read, so no YAML parser is
     needed; a frontmatter that never closes raises GraphError, as a file that cannot be
     read."""
-    from .io import GraphError
+    from ..domain.record.parsed import GraphError
 
     lines = text.split("\n")
     if not lines or lines[0].strip() != "---":
@@ -222,7 +222,7 @@ def refuse_if_sent(app_dir, name, store=None, graph=False):
     """Raise Frozen when `name` in `app_dir` must not change: the application was sent,
     or whether it was cannot be read. `graph`: `name` is a graph's (applications/<dir>/
     gaps), not a file in the directory."""
-    from .io import GraphError
+    from ..domain.record.parsed import GraphError
 
     try:
         day = sent_day(app_dir, store)

@@ -2,6 +2,7 @@
 import os
 
 from ..domain.naming import short_name
+from ..domain.record.parsed import GraphError, normalise
 
 
 def find_root(start):
@@ -81,3 +82,51 @@ def graph_name(path, root):
     `applications/<stem>/posting` (and application, gaps), the shipped vocabulary
     `vocabulary`. Any other path is named as file_name names it."""
     return short_name(file_name(path, root))
+
+
+class Unreadable(Exception):
+    """A text file jsk could not read, with the fix. `Missing` and `NotUtf8` say which."""
+
+    def __init__(self, message, fix):
+        super().__init__(message)
+        self.fix = fix
+
+
+class Missing(Unreadable):
+    """No file there - the one failure a caller may treat as "nothing written yet"."""
+
+
+class NotUtf8(Unreadable):
+    """Bytes that are not UTF-8: a Windows editor's cp1252, most often."""
+
+
+def read_text(path, what=None):
+    """A text file a person or an agent wrote, as the writer would write it: UTF-8, no BOM,
+    LF only. `what` names it in the message; the path does when it is not given. Every
+    authored file is read here, so a BOM, a CRLF or a cp1252 save is handled once -
+    tests/test_plugin_surface.py fails on a text read anywhere else."""
+    name = what or str(path)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return normalise(fh.read())
+    except FileNotFoundError:
+        raise Missing(f"{name}: no such file" + (f" at {path}" if what else ""),
+                      "check the path") from None
+    except UnicodeDecodeError as e:
+        raise NotUtf8(f"{name}: not UTF-8 ({e.reason} at byte {e.start})",
+                      "save the file as UTF-8") from None
+    except OSError as e:
+        raise Unreadable(f"{name}: {e.strerror or e}", "check the path and its permissions") \
+            from None
+
+
+def parse(path, root=None):
+    """Parse a file on disk; `root` makes the reported name relative to the workspace."""
+    file = rel(path, root) if root else str(path).replace("\\", "/")
+    try:
+        text = read_text(path, file)
+    except NotUtf8 as e:
+        raise GraphError(str(e), e.fix, file) from None
+    from .oxigraph.codec import parse_text
+
+    return parse_text(text, file)

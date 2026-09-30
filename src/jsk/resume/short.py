@@ -72,7 +72,7 @@ class ShortError(Exception):
 
 def read(path):
     """The file as a dict, or ShortError naming what to do."""
-    from ..graph.io import Missing, Unreadable, read_text
+    from ..infra.files import Missing, Unreadable, read_text
 
     try:
         doc = json.loads(read_text(path))
@@ -115,7 +115,7 @@ def career(root):
     """The workspace at `root`, loaded. A store that will not open is a ShortError with
     its fix, as a file that cannot be read is - never a traceback."""
     from ..graph import store as S
-    from ..graph.io import GraphError
+    from ..domain.record.parsed import GraphError
 
     try:
         return S.load(root)

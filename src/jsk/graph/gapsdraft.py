@@ -22,7 +22,7 @@ def slot(text):
 def advert(path):
     """posting.md's lines, as advert_lines numbers them; none when there is no posting.md.
     io.Unreadable propagates for one that is there and cannot be read."""
-    from .io import Missing, read_text
+    from ..infra.files import Missing, read_text
     from .rules import advert_lines
 
     try:
@@ -36,7 +36,7 @@ def drops(post_dir):
     DecisionsError and io.Unreadable propagate: a file `jsk posting build` would refuse is
     not guessed at."""
     from . import decisions as D
-    from .io import Missing
+    from ..infra.files import Missing
 
     try:
         return D.read(os.path.join(post_dir, "decisions.txt"), "decisions.txt").drops

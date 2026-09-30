@@ -46,7 +46,7 @@ def dir_stem(app_dir):
 
 def read_advert(app_dir):
     """posting.md's text. Raises Refused when there is none, or it is not UTF-8."""
-    from .io import Missing, Unreadable, read_text
+    from ..infra.files import Missing, Unreadable, read_text
 
     path = os.path.join(app_dir, POSTING)
     try:

@@ -252,7 +252,7 @@ def main(argv=None):
         print("  Pass <Name>_Resume.tex, not the PDF it produces.")
         return 2
 
-    from ..graph.io import Unreadable, read_text
+    from ..infra.files import Unreadable, read_text
     try:
         original = read_text(a.tex)
     except Unreadable as e:

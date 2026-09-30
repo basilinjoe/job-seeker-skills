@@ -21,7 +21,8 @@ from ..infra.files import file_name, graph_name
 from ..infra.files import inside as inside
 from ..infra.files import rel as rel
 from ..infra.files import spelled as spelled
-from .io import GraphError, Unreadable, parse
+from ..domain.record.parsed import GraphError
+from ..infra.files import Unreadable, parse
 
 # For the checker alone: importing `typing` costs every command ~3 ms it never uses.
 TYPE_CHECKING = False
@@ -139,7 +140,7 @@ def parsed_graph(name, triples):
     """A graph out of the store as a Parsed: triples, no text - so no lines and no comments."""
     import pyoxigraph as ox
 
-    from .io import Parsed
+    from ..domain.record.parsed import Parsed
     from ..domain.ontology import kind_of
 
     quads = [ox.Quad(t.subject, t.predicate, t.object) for t in triples]
