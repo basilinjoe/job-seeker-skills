@@ -14,7 +14,7 @@ import datetime
 import os
 from dataclasses import dataclass
 
-from .assessment import MARK
+from ..domain.assessment.overlay import MARK
 
 HEADER = "<!-- written by jsk from the assessment - edit gaps.txt, not this -->"
 KEPT = "kept after review"
