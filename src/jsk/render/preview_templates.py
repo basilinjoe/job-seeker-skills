@@ -106,7 +106,7 @@ def main(argv):
     # The file is loaded once, here, before any template: a legacy record, a file outside
     # a workspace or a frozen application fails every template the same way, and five
     # FAILED blocks under "a template that does not build" blamed the templates for it.
-    from ..cli import frozen_refusal
+    from ..application.guards import frozen_refusal
     from ..resume import build as B
     from ..resume.short import ShortError
 

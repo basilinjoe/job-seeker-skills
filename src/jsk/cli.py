@@ -53,7 +53,8 @@ import re
 import sys
 
 from . import __version__
-from .cliutil import parse_flags, utf8_stdout, wants_help
+from .application.guards import frozen_refusal, unloaded_refusal
+from .cliutil import parse_flags, refused, utf8_stdout, wants_help
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
 # this file. Named once, here, and a test holds the docstring to it, so rewording that
@@ -232,30 +233,6 @@ def store_report(start=None):
                                           f" - one write behind the store's r{revision}; the "
                                           "next write refreshes it"))
     return lines, False
-
-
-def unloaded_refusal(root):
-    """[what is wrong, the fix] for a workspace whose career is still career/kb.ttl, with
-    no career/store/ - or None. The record lives in the store now (plan P5): a command
-    that read the files would answer from a record jsk no longer writes, so each refuses
-    until `jsk kb load .` has imported them, once.
-
-    The shipped example (paths.EXAMPLE_WORKSPACE) is no exception: it ships as files,
-    since a store's format is tied to the installed pyoxigraph, and whatever reads it
-    imports it into a store of its own first, as `jsk doctor` does (preflight.verify)."""
-    if root and os.path.isfile(os.path.join(root, "career", "kb.ttl")) and \
-            not os.path.isdir(os.path.join(root, "career", "store")):
-        return [f"{root}: the career is still career/kb.ttl, and jsk reads it from "
-                "career/store/ now",
-                f"fix:  jsk kb load .   - run in {root}, it imports the files once"]
-    return None
-
-
-def refused(refusal):
-    """Print an unloaded_refusal as every command prints it. Returns the exit code."""
-    print("REFUSED - " + refusal[0])
-    print(refusal[1])
-    return 1
 
 
 # Commands that make a record, report on one, or dispatch their own verbs - `jsk kb load`
@@ -823,19 +800,6 @@ def not_rendered(why):
             "exit": None,
             "output": f"UNVERIFIED - {why}, so nothing was rendered and there is no\n"
                       f"  PDF from this run for anyone to read.\n"}
-
-
-def frozen_refusal(*dirs):
-    """Lines refusing a render into, or from, a frozen application - or None. Frozen is
-    what the application's record says (timeline.frozen), not whether a file is there."""
-    from .graph.timeline import frozen
-
-    for d in dirs:
-        path = frozen(d)
-        if path:
-            return [f"frozen: {path} - re-rendering would overwrite what was sent",
-                    "fix:  copy the application to a new dated directory to reuse it"]
-    return None
 
 
 def ship_fit(out_dir, wrote, render_output, pages=None):

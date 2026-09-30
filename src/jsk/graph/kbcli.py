@@ -556,7 +556,7 @@ def confirm_summary(path, answer, root):
     freeze` hashes it into the application graph."""
     import json
 
-    from ..cli import frozen_refusal
+    from ..application.guards import frozen_refusal
     from ..resume import short
     from .io import read_text
     from .store import inside, rel
@@ -1456,7 +1456,8 @@ def main(argv=None):
     if name != "load":
         # `load` is the import itself; every other verb would answer from, or write to, a
         # record jsk no longer keeps.
-        from ..cli import refused, unloaded_refusal
+        from ..application.guards import unloaded_refusal
+        from ..cliutil import refused
         refusal = unloaded_refusal(os.path.abspath(root))
         if refusal:
             return refused(refusal)

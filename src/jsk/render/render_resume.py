@@ -232,7 +232,7 @@ def main(argv):
 
     # Built from the career the file sits in. A legacy URS record is refused here, by
     # short.read, with `jsk kb export` as the fix.
-    from ..cli import frozen_refusal
+    from ..application.guards import frozen_refusal
     from ..resume import build as B
     from ..resume.short import ShortError
 

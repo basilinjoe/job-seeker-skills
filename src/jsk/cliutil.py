@@ -29,6 +29,20 @@ def utf8_stdout() -> None:
         pass                    # a wrapper stream's reconfigure may take other arguments
 
 
+def refused(refusal) -> int:
+    """Print a refusal as every command prints it.
+
+    Args:
+        refusal: [what is wrong, the fix], as application.guards returns it.
+
+    Returns:
+        1, the exit code of a refused command. Writes both lines to stdout.
+    """
+    print("REFUSED - " + refusal[0])
+    print(refusal[1])
+    return 1
+
+
 def wants_help(argv) -> bool:
     """Did the caller actually ask for help, rather than call the thing wrongly?"""
     return any(a in HELP_FLAGS for a in argv)

@@ -42,18 +42,17 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 # (importer, imported) -> the names it imports. Today's outward edges, each to be removed by
 # the phase that moves or splits one end of it.
 KNOWN_EDGES = {
-    ("jsk.graph.kbcli", "jsk.cli"): {"frozen_refusal", "refused", "unloaded_refusal"},
-    ("jsk.render.preview_templates", "jsk.cli"): {"frozen_refusal"},
-    ("jsk.render.render_resume", "jsk.cli"): {"frozen_refusal"},
+    ("jsk.application.guards", "jsk.graph.timeline"): {"frozen"},
 }
 
 # (module, what it does that its ring forbids).
 KNOWN_FORBIDDEN = set()
 
-# Package cycles: (package, package) pairs that import each other, P1's work.
+# Package cycles among the unsorted packages: (package, package) pairs that import each
+# other, P1's work. A ring cannot be in one without an outward edge, which is failed above.
 KNOWN_CYCLES = {
-    ("jsk.cli", "jsk.graph"), ("jsk.cli", "jsk.render"), ("jsk.gates", "jsk.graph"),
-    ("jsk.graph", "jsk.posting"), ("jsk.graph", "jsk.resume"), ("jsk.render", "jsk.resume"),
+    ("jsk.gates", "jsk.graph"), ("jsk.graph", "jsk.posting"), ("jsk.graph", "jsk.resume"),
+    ("jsk.render", "jsk.resume"),
 }
 
 
@@ -204,11 +203,12 @@ def package_of(name):
 
 
 def cycles(edges):
-    """{(a, b)} sorted pairs of top-level packages (or root modules) importing each other."""
+    """{(a, b)} sorted pairs of unsorted top-level packages (or root modules) importing
+    each other."""
     pkg = {}
     for src, dst in edges:
         a, b = package_of(src), package_of(dst)
-        if a != b and a != PACKAGE and b != PACKAGE:
+        if a != b and PACKAGE not in (a, b) and UNSORTED == ring_of(a) == ring_of(b):
             pkg.setdefault(a, set()).add(b)
     return {tuple(sorted((a, b))) for a, bs in pkg.items() for b in bs if a in pkg.get(b, ())}
 
