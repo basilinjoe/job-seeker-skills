@@ -46,12 +46,12 @@ import os
 import re
 import sys
 
-from ...cliutil import docstring_usage, parse_flags, wants_help
-from ...domain.record.confirmation import WORD
-from ...domain.resume.constants import PROVENANCE_RANK
-from ...infra.files import find_root
-from ...domain.record.state import diff, new_failures
-from ...domain.record.writer import entry_text, with_children
+from ....cliutil import docstring_usage, parse_flags, wants_help
+from ....domain.record.confirmation import WORD
+from ....domain.resume.constants import PROVENANCE_RANK
+from ....infra.files import find_root
+from ....domain.record.state import diff, new_failures
+from ....domain.record.writer import entry_text, with_children
 
 VERBS = {}
 # verb -> (flags taking a value, switches, flags taking a list), beside --root, which
@@ -86,8 +86,8 @@ def refuse(lines, fix=None):
 
 
 def show_findings(findings, title):
-    from ...cliutil import show
-    from ...graph import store as S
+    from ....cliutil import show
+    from ....graph import store as S
 
     rep = S.Store("", findings=findings).report()
     print(title)
@@ -107,7 +107,7 @@ GUIDE = {
 def writable(store):
     """None when the record may be written; otherwise the exit code of a refusal. Only a
     clean record is: in a store, anything else means something outside jsk wrote it."""
-    from ...infra.oxigraph import record as R
+    from ....infra.oxigraph import record as R
 
     blocking = [f for f in store.fails() if f.rule not in ("log-sync",)
                 and (not f.file.startswith("applications/") or f.rule == "syntax")]
@@ -123,7 +123,7 @@ def writable(store):
 
 
 def curies(iris):
-    from ...domain.record.writer import curie
+    from ....domain.record.writer import curie
     return ", ".join(curie(i) for i in sorted(iris))
 
 
@@ -133,9 +133,9 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
 
     The command already holds its turn (main takes it), so `store` is the record as it
     stands, and nothing lands between this validating the candidate and writing it."""
-    from ...infra.oxigraph import record as R
-    from ...graph import store as S
-    from ...domain.record.writer import write
+    from ....infra.oxigraph import record as R
+    from ....graph import store as S
+    from ....domain.record.writer import write
 
     missed = changed_subjects(store.graph(R.KB), quads) - set(touched) - set(minted)
     if missed:
@@ -174,7 +174,7 @@ def changed_subjects(before, after):
     the header's revision and day, which every write moves: what a write's log entry must
     name as touched or minted, or a changeset drafted before it would rebase over it
     unrefused (edit.base_conflicts checks ids, and only the ids the log names)."""
-    from ...domain import ontology as O
+    from ....domain import ontology as O
 
     stamp = {(O.K + "kb", O.J + "revision"), (O.K + "kb", O.J + "updated")}
 
@@ -204,9 +204,9 @@ def cmd_apply(args, flags, root):
     new bullet gets its id; a sent metric version gets a successor instead of a change.
     --dry-run prints the diff and writes nothing.
     """
-    from ...graph import changeset, store as S
-    from ...domain.record import edit
-    from ...domain.record.parsed import GraphError
+    from ....graph import changeset, store as S
+    from ....domain.record import edit
+    from ....domain.record.parsed import GraphError
 
     if len(args) != 1:
         return usage("jsk kb apply takes one changeset")
@@ -264,7 +264,7 @@ def draft_out(flags):
 
 def logged_base(store):
     """(the log's revision, None) for op:base, or (None, exit code)."""
-    from ...infra.oxigraph import record as R
+    from ....infra.oxigraph import record as R
 
     st = R.state(store)
     if st.kind == "missing" or st.log_revision is None:
@@ -289,8 +289,8 @@ def cmd_pack(args, flags, root):
     said. Nothing is applied: read it with `jsk kb apply FILE --dry-run`, then apply it.
     The changeset goes to stdout, or --out; what was skipped to stderr, or stdout with --out.
     """
-    from ...graph import pack as P
-    from ...graph import store as S
+    from ....graph import pack as P
+    from ....graph import store as S
 
     out, code = draft_out(flags)
     if code is not None:
@@ -336,9 +336,9 @@ def cmd_merge(args, flags, root):
     Those bullets are printed as the re-confirm list. Nothing is applied: read it with
     `jsk kb apply FILE --dry-run`, then apply it.
     """
-    from ...domain.record import merge as M
-    from ...graph import pack as P
-    from ...graph import store as S
+    from ....domain.record import merge as M
+    from ....graph import pack as P
+    from ....graph import store as S
 
     out, code = draft_out(flags)
     if code is not None:
@@ -377,7 +377,7 @@ def cmd_merge(args, flags, root):
 
 def iri_of(text):
     """k:prj_x, prj_x or c:kafka as an iri."""
-    from ...domain import ontology as O
+    from ....domain import ontology as O
 
     if text.startswith("k:"):
         return O.K + text[2:]
@@ -387,7 +387,7 @@ def iri_of(text):
 
 
 def unknown(iri, store):
-    from ...domain.record.writer import curie
+    from ....domain.record.writer import curie
 
     near = difflib.get_close_matches(iri, list(store.homes), n=1)
     return (f"{curie(iri)} is not in the record",
@@ -407,7 +407,7 @@ DOCUMENT_ONLY = re.compile(
 
 def bad_answer(answer, denial_fix):
     """The exit code refusing an answer that says nothing, or None."""
-    from ...domain.record.rules import DENIAL, PLACEHOLDER
+    from ....domain.record.rules import DENIAL, PLACEHOLDER
 
     if DENIAL.fullmatch(answer):
         return refuse([f"{answer!r}: a denial is not a confirmation"], denial_fix)
@@ -420,14 +420,14 @@ def bad_answer(answer, denial_fix):
 
 def document_text(path):
     """(text, None) or (None, (reason, fix)): the words of a document to quote from."""
-    from ...infra.files import NotUtf8, Unreadable, read_text
-    from ...domain.record.parsed import normalise
+    from ....infra.files import NotUtf8, Unreadable, read_text
+    from ....domain.record.parsed import normalise
 
     ext = os.path.splitext(path)[1].lower()
     if ext in (".docx", ".doc", ".odt", ".rtf"):
         return None, (f"{path}: a {ext} file is not read here", "convert it to .md or .txt first")
     if ext == ".pdf":
-        from ...infra.pdf import read_pdf
+        from ....infra.pdf import read_pdf
         try:
             return normalise(read_pdf(path)[0]), None
         except ImportError:
@@ -442,15 +442,15 @@ def document_text(path):
 
 
 def scaled(numerals):
-    from ...domain.gates.numbers import SCALE
+    from ....domain.gates.numbers import SCALE
     return [value * SCALE.get(suffix, 1) for value, suffix, _ in numerals]
 
 
 def unquoted_numbers(quads, iri, quote):
     """The numerals in an entry's claims the quote does not state - a number rounded or
     made up on the way out of the document."""
-    from ...domain.gates.numbers import numerals
-    from ...domain import ontology as O
+    from ....domain.gates.numbers import numerals
+    from ....domain import ontology as O
 
     said = scaled(numerals(quote))
     # iri is in a career writable() passed, where every subject is a jsk id.
@@ -475,7 +475,7 @@ PROSE = {"Achievement": "text", "Person": "headline"}
 def stems(text):
     """The content words of `text` - four letters and longer - cut to five, so
     "onboarded" in a quote still meets "onboarding" in the claim."""
-    from ...domain.posting.advert import squash
+    from ....domain.posting.advert import squash
     return {w[:5] for w in WORD.findall(squash(text).lower())}
 
 
@@ -484,7 +484,7 @@ def unquoted_words(quads, iri, quote):
     than a fifth of them are missing - a clause the session added on the way out of the
     document ("Brought 42 sites onto one platform, cutting onboarding to two weeks" from
     a document that says only the first half), or a quote about something else."""
-    from ...domain import ontology as O
+    from ....domain import ontology as O
 
     cls = O.class_of(iri)
     pred = PROSE.get(cls) if cls else None
@@ -503,8 +503,8 @@ def unquoted_words(quads, iri, quote):
 def quoted_answer(source, quote, root):
     """(answer, None) or (None, exit code): `From <source>: "<quote>"` once the quote is
     checked against the document, word for word as rules.unquoted checks a posting's."""
-    from ...domain.record.rules import DENIAL, PLACEHOLDER, squash
-    from ...infra.files import inside, rel
+    from ....domain.record.rules import DENIAL, PLACEHOLDER, squash
+    from ....infra.files import inside, rel
 
     if not os.path.isfile(source) or not inside(source, root):
         return None, refuse([f"{source}: not a file inside this workspace"],
@@ -530,11 +530,11 @@ def confirm_summary(path, answer, root):
     freeze` hashes it into the application graph."""
     import json
 
-    from ...application.guards import frozen_refusal
-    from ...resume import short
-    from ...infra.files import read_text
-    from ...infra.files import inside, rel, write_document
-    from ...domain.timeline.errors import Unwritable
+    from ....application.guards import frozen_refusal
+    from ....resume import short
+    from ....infra.files import read_text
+    from ....infra.files import inside, rel, write_document
+    from ....domain.timeline.errors import Unwritable
 
     code = bad_answer(answer, "write the summary again with what the person said, and ask "
                               "them about the new words")
@@ -597,9 +597,9 @@ def cmd_confirm(args, flags, root):
     """
     import pyoxigraph as ox
 
-    from ...domain import ontology as O
-    from ...infra.oxigraph import record as R
-    from ...graph import store as S
+    from ....domain import ontology as O
+    from ....infra.oxigraph import record as R
+    from ....graph import store as S
 
     answer, summary, source, quote = (flags.get(f) for f in
                                       ("--answer", "--summary", "--source", "--quote"))
@@ -647,7 +647,7 @@ def cmd_confirm(args, flags, root):
         elif any(q.subject.value == iri and q.predicate.value == O.J + "retired" for q in quads):
             problems.append((f"{text} is retired", "a retired entry is not confirmed"))
         elif source is not None and (missing := unquoted_numbers(quads, iri, quote)):
-            from ...domain.gates.numbers import quoted
+            from ....domain.gates.numbers import quoted
             problems.append((f"{text} says {quoted(missing)}, which the quote does not",
                              "quote the document's sentence that states it - or, if the "
                              "document does not, ask the person and confirm with --answer"))
@@ -694,10 +694,10 @@ def cmd_show(args, flags, root):
     evidence needs - without the problem, decisions and notes, which run to thousands of
     characters a project.
     """
-    from ...domain import ontology as O
-    from ...infra.oxigraph import record as R
-    from ...graph import store as S
-    from ...domain.record.writer import curie
+    from ....domain import ontology as O
+    from ....infra.oxigraph import record as R
+    from ....graph import store as S
+    from ....domain.record.writer import curie
 
     bullets = "--bullets" in flags
     if not args:
@@ -736,9 +736,9 @@ def cmd_view(args, flags, root):
     correct - stdout only; it is never written to a file, so it cannot drift. Entries not
     confirmed, and retired ones, say so beside their names.
     """
-    from ...infra.oxigraph import record as R
-    from ...graph import store as S
-    from ...domain.record.view import render
+    from ....infra.oxigraph import record as R
+    from ....graph import store as S
+    from ....domain.record.view import render
 
     only = flags.get("--section")
     if args:
@@ -793,12 +793,12 @@ def cmd_export(args, flags, root):
     """
     import json
 
-    from ...domain import ontology as O
-    from ...infra.oxigraph import record as R
-    from ...graph import store as S
-    from ...graph.export import Career, ExportError, chosen, short_file
-    from ...graph.match import COVER, application, blocks, posting_in
-    from ...domain.record.writer import curie
+    from ....domain import ontology as O
+    from ....infra.oxigraph import record as R
+    from ....graph import store as S
+    from ....graph.export import Career, ExportError, chosen, short_file
+    from ....graph.match import COVER, application, blocks, posting_in
+    from ....domain.record.writer import curie
 
     # Said by name rather than as an unknown flag - so they are switches it takes: an
     # agent file or a shell history written before the short file still has them.
@@ -869,7 +869,7 @@ def cmd_export(args, flags, root):
     report = sys.stdout if out else sys.stderr
     try:
         if posting or by_rank:
-            from ...graph import select as SEL
+            from ....graph import select as SEL
             chosen(Career(store.graph(R.KB)), select)      # a bad --select refuses first
             extra = [O.K + t.removeprefix("k:") for t in select or []]
             if by_rank:
@@ -917,7 +917,7 @@ def cmd_export(args, flags, root):
 
 
 def wrote(store, path, text, doc):
-    from ...infra.oxigraph import record as R
+    from ....infra.oxigraph import record as R
 
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
@@ -951,8 +951,8 @@ def cmd_query(args, flags, root):
     """
     import json
 
-    from ...graph import store as S
-    from ...graph.named import QUERIES, table
+    from ....graph import store as S
+    from ....graph.named import QUERIES, table
 
     as_json, near = "--json" in flags, flags.get("--near")
     if not args or args[0] not in QUERIES:
@@ -990,10 +990,10 @@ def untraced_lines(store, today, bullets=None):
     on it (export.gate_failures); the number check is now one function over the graph,
     so it is asked of the bullets directly. The wording is the old record gate's - it is
     what the Everforth and ElevenLabs runs taught people to read here."""
-    from ...gates import numbers
-    from ...domain.record.career import Career
-    from ...infra.oxigraph import record as R
-    from ...domain.record.shapes import curie
+    from ....gates import numbers
+    from ....domain.record.career import Career
+    from ....infra.oxigraph import record as R
+    from ....domain.record.shapes import curie
 
     career = Career(store.graph(R.KB))
     out = []
@@ -1028,9 +1028,9 @@ def cmd_check(args, flags, root):
                     full check printed 40 KB of other applications' warnings to find its
                     own five.
     """
-    from ...cliutil import show
-    from ...infra.oxigraph import record as R
-    from ...graph import store as S
+    from ....cliutil import show
+    from ....infra.oxigraph import record as R
+    from ....graph import store as S
 
     only = flags.get("--only")
     if args:
@@ -1081,8 +1081,8 @@ def cmd_path(args, flags, root):
     rather than worked out. Needs nothing but the folders; exit 1 when there is no
     career/store/ there.
     """
-    from ...infra.oxigraph import db
-    from ...graph import legacy
+    from ....infra.oxigraph import db
+    from ....graph import legacy
 
     if args:
         return usage("jsk kb path takes no arguments")
@@ -1106,13 +1106,13 @@ SHADOW = os.path.join(".jsk", "kb.last.ttl")      # the file workspace's copy of
 
 
 def provenances(quads):
-    from ...domain import ontology as O
+    from ....domain import ontology as O
     return {q.subject.value: q.object.value[len(O.J):] for q in quads
             if q.predicate.value == O.J + "provenance"}
 
 
 def claims(quads, s):
-    from ...domain import ontology as O
+    from ....domain import ontology as O
     names = O.resets(O.class_named(s))
     return {(q.predicate.value, q.object.value) for q in quads
             if q.subject.value == s and q.predicate.value[len(O.J):] in names}
@@ -1121,7 +1121,7 @@ def claims(quads, s):
 def upgrades(before, after):
     """What a hand edit raised: provenance moved up, an entry added as confirmed, or a
     claim changed under a confirmation it no longer earns."""
-    from ...domain.record.writer import curie
+    from ....domain.record.writer import curie
 
     now, was, out = provenances(after), provenances(before), []
     for s, p in sorted(now.items()):
@@ -1142,10 +1142,10 @@ def hand_edit(before, src):
     renders as confirmed with no answer behind it, and after the import no text is left
     to show it was: so each one is named now, against the shadow copy of the revision the
     log last recorded when there is one."""
-    from ...infra.oxigraph import record as R
-    from ...infra.files import Unreadable, read_text
-    from ...infra.oxigraph.codec import parse_text
-    from ...domain.record.parsed import sha256
+    from ....infra.oxigraph import record as R
+    from ....infra.files import Unreadable, read_text
+    from ....infra.oxigraph.codec import parse_text
+    from ....domain.record.parsed import sha256
 
     st = R.state(before)
     after = before.graph(R.KB)
@@ -1175,9 +1175,9 @@ def imported(before, record, rewrites, src):
     the file loader found, and what a hand edit raised, before anything is written."""
     import pyoxigraph as ox
 
-    from ...cliutil import show
-    from ...infra.oxigraph import record as R
-    from ...graph import store as S
+    from ....cliutil import show
+    from ....infra.oxigraph import record as R
+    from ....graph import store as S
 
     warns = before.warns()
     if warns:
@@ -1206,8 +1206,8 @@ def edited_dump(record, name):
     record unlogged - a provenance raised by hand renders as confirmed."""
     import pyoxigraph as ox
 
-    from ...infra.oxigraph import record as R
-    from ...graph.changeset import numbers_as_kept
+    from ....infra.oxigraph import record as R
+    from ....graph.changeset import numbers_as_kept
 
     fix = ("load the dump as `jsk kb dump` wrote it (or .jsk/backup.trig), then change the "
            "record through `jsk kb apply`")
@@ -1241,11 +1241,11 @@ def cmd_load(args, flags, root):
     the rest - are files beside it, not the record: loaded into another workspace, its
     folder is named so it can be copied across.
     """
-    from ...infra.oxigraph import db
-    from ...graph import legacy
-    from ...infra.oxigraph import record as R
-    from ...graph import store as S
-    from ...infra.files import Unreadable, read_text
+    from ....infra.oxigraph import db
+    from ....graph import legacy
+    from ....infra.oxigraph import record as R
+    from ....graph import store as S
+    from ....infra.files import Unreadable, read_text
 
     if len(args) != 1:
         return usage("jsk kb load takes one workspace folder or one .trig dump")
@@ -1322,7 +1322,7 @@ def cmd_dump(args, flags, root):
     write to .jsk/backup.trig as well. Raising pyoxigraph's version is `dump` with the old
     one, then `load` into a new store with the new one.
     """
-    from ...infra.oxigraph import db
+    from ....infra.oxigraph import db
 
     if args:
         return usage("jsk kb dump takes no arguments - --out FILE.trig, or stdout")
@@ -1350,9 +1350,9 @@ def cmd_log(args, flags, root):
     new, ...), its summary, and the ids it minted and touched. --last N, the newest N
     (default 10).
     """
-    from ...domain import ontology as O
-    from ...infra.oxigraph import record as R
-    from ...graph import store as S
+    from ....domain import ontology as O
+    from ....infra.oxigraph import record as R
+    from ....graph import store as S
 
     if args:
         return usage("jsk kb log takes no arguments - --last N")
@@ -1405,8 +1405,8 @@ def main(argv=None):
     if name != "load":
         # `load` is the import itself; every other verb would answer from, or write to, a
         # record jsk no longer keeps.
-        from ...application.guards import unloaded_refusal
-        from ...cliutil import refused
+        from ....application.guards import unloaded_refusal
+        from ....cliutil import refused
         refusal = unloaded_refusal(os.path.abspath(root))
         if refusal:
             return refused(refusal)
@@ -1416,13 +1416,10 @@ def main(argv=None):
         print("FAIL  jsk kb needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
-    from ...infra.oxigraph import record as R
+    from ....infra.oxigraph import record as R
 
     root = os.path.abspath(root)
     # A verb that writes the store takes its turn before it reads it (record.turn).
     with R.turn(root, dry_run=name not in WRITES or "--dry-run" in flags):
         return VERBS[name](rest, flags, root)
 
-
-if __name__ == "__main__":
-    sys.exit(main())
