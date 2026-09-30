@@ -359,6 +359,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/posting_md.py           posting.md as jsk writes it
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
+    assessment/derive.py            the gap assessment the match already knows, without a model
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
   ports/                            what the application needs from outside, as Protocols
     engine.py  record.py  codec.py  the graph engine; the record on disk; Turtle and TriG
