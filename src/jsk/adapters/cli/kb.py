@@ -336,7 +336,7 @@ def cmd_merge(args, flags, root):
     Those bullets are printed as the re-confirm list. Nothing is applied: read it with
     `jsk kb apply FILE --dry-run`, then apply it.
     """
-    from ...graph import merge as M
+    from ...domain.record import merge as M
     from ...graph import pack as P
     from ...graph import store as S
 
