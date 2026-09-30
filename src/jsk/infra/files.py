@@ -1,10 +1,15 @@
-"""The workspace on disk: where it is, and how its files are named as it spells them."""
+"""The workspace on disk: where it is, how its files are named as it spells them, and an
+application's documents written so a reader never sees half of one."""
 import os
+import time
 
 from ..domain.naming import short_name
 from ..domain.record.parsed import GraphError, NotUtf8, normalise
 from ..domain.record.parsed import Missing as Missing
 from ..domain.record.parsed import Unreadable as Unreadable
+from ..domain.timeline.errors import Unwritable
+
+REPLACE_TRIES = 6                                # a Windows lock usually clears in ms
 
 
 def find_root(start):
@@ -104,6 +109,72 @@ def read_text(path, what=None):
     except OSError as e:
         raise Unreadable(f"{name}: {e.strerror or e}", "check the path and its permissions") \
             from None
+
+
+def write_document(path, text, tries=REPLACE_TRIES, wait=0.05):
+    """`text` staged beside `path` as path.tmp, flushed, then renamed over it - the one step
+    the filesystem makes atomic, so a crash leaves the old document or the new one. The
+    rename is retried: on Windows an editor, a sync client or a virus scanner holding the
+    file makes it fail for a moment, and a moment later it succeeds.
+
+    Args:
+        path: the document to replace or create.
+        text: its whole new text, written UTF-8 with LF line ends.
+        tries: how many times the rename is attempted.
+        wait: seconds before the second attempt; each later one waits that much longer.
+
+    Returns:
+        `path`.
+
+    Raises:
+        Unwritable: the file is locked or the disk refused, having written nothing; the
+            staged path.tmp is removed either way.
+    """
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        for n in range(tries):
+            try:
+                os.replace(tmp, path)
+                return path
+            except PermissionError:
+                if n == tries - 1:
+                    raise Unwritable(f"{path}: not written - it is locked by another "
+                                     "program - an editor, a sync client or a virus scanner",
+                                     "close it and run the command again") from None
+                time.sleep(wait * (n + 1))
+    except OSError as e:
+        raise Unwritable(f"{path}: not written - {e.strerror or e}",
+                         "check the folder and its permissions") from None
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    return path
+
+
+def remove_document(path):
+    """Remove the document at `path` if it is there.
+
+    Args:
+        path: the file to remove.
+
+    Returns:
+        True when a file was removed, False when there was none.
+
+    Raises:
+        Unwritable: the file is there and could not be removed.
+    """
+    if not os.path.isfile(path):
+        return False
+    try:
+        os.remove(path)
+    except OSError as e:
+        raise Unwritable(f"{path}: not removed - {e.strerror or e}",
+                         "close whatever holds it and run the command again") from None
+    return True
 
 
 def parse(path, root=None):

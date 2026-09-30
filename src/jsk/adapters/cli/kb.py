@@ -533,8 +533,8 @@ def confirm_summary(path, answer, root):
     from ...application.guards import frozen_refusal
     from ...resume import short
     from ...infra.files import read_text
-    from ...infra.files import inside, rel
-    from ...graph.timeline import Unwritable, write_document
+    from ...infra.files import inside, rel, write_document
+    from ...domain.timeline.errors import Unwritable
 
     code = bad_answer(answer, "write the summary again with what the person said, and ask "
                               "them about the new words")

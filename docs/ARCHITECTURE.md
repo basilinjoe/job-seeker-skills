@@ -348,6 +348,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/pack.py                  a starter pack's draft against the workspace, and its TriG
     record/merge.py                 two concepts that are one, drafted as a changeset
     posting/errors.py               posting.md's name, and how a posting step refuses
+    timeline/errors.py              how a write to an application refuses: sent, locked, refused
     posting/boards.py               which job board a URL is on, and its answer as a posting
     posting/html_text.py            a board's or a saved page's HTML as text
     posting/posting_md.py           posting.md as jsk writes it
@@ -366,7 +367,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
   infra/                            what touches a disk, a process, the network or the engine
-    files.py                        the workspace on disk: find_root
+    files.py                        the workspace on disk: find_root; a document written atomically
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
     profiles.py                     the region profiles under data/ (moved from render/)
     oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them

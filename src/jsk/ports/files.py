@@ -21,10 +21,25 @@ class TextFiles(Protocol):
 class ApplicationFiles(Protocol):
     """An application directory's files, written so a reader never sees half of one."""
 
-    def write_document(self, path: str, text: str) -> None:
+    def write_document(self, path: str, text: str) -> str:
         """Replace `path` with `text` atomically, retrying while another process holds it.
 
+        Returns:
+            `path`.
+
         Raises:
-            OSError: the file could not be replaced after every retry.
+            Unwritable: the file could not be replaced after every retry, or the disk
+                refused; nothing was written.
+        """
+        ...
+
+    def remove_document(self, path: str) -> bool:
+        """Remove `path` if it is there.
+
+        Returns:
+            True when a file was removed, False when there was none.
+
+        Raises:
+            Unwritable: the file is there and could not be removed.
         """
         ...

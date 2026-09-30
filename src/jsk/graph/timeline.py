@@ -31,13 +31,15 @@ import hashlib
 import os
 import re
 import sys
-import time
 
 from ..domain import ontology as O
+from ..domain.timeline.errors import Frozen as Frozen
+from ..domain.timeline.errors import Unwritable as Unwritable
+from ..infra.files import remove_document
+from ..infra.files import write_document as write_document
 
 # An application's record graphs, by kind: in career/store/ as applications/<dir>/<kind>.
 RECORD = ("posting", "application", "gaps")
-REPLACE_TRIES = 6                                # a Windows lock usually clears in ms
 KINDS = O.ENUMS["eventKind"]
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
@@ -147,18 +149,6 @@ def has_record(app_dir, kind, store=None):
     return kind in app_graphs(app_dir, store)
 
 
-class Unwritable(Exception):
-    """A write to an application directory that did not happen. Carries the fix."""
-
-    def __init__(self, message, fix):
-        super().__init__(message)
-        self.fix = fix
-
-
-class Frozen(Unwritable):
-    """Refused because the application is sent."""
-
-
 def frozen(app_dir, store=None):
     """What says `app_dir` was frozen, else None: the application graph's name
     (`applications/<dir>/application`), or a legacy application.md's path."""
@@ -266,50 +256,11 @@ def write_app_file(app_dir, name, text, store=None):
     return write_document(os.path.join(app_dir, name), text)
 
 
-def write_document(path, text, tries=REPLACE_TRIES, wait=0.05):
-    """`text` staged beside `path` as path.tmp, flushed, then renamed over it - the one step
-    the filesystem makes atomic, so a crash leaves the old document or the new one. The
-    rename is retried: on Windows an editor, a sync client or a virus scanner holding the
-    file makes it fail for a moment, and a moment later it succeeds. Raises Unwritable,
-    having written nothing."""
-    tmp = path + ".tmp"
-    try:
-        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(text)
-            fh.flush()
-            os.fsync(fh.fileno())
-        for n in range(tries):
-            try:
-                os.replace(tmp, path)
-                return path
-            except PermissionError:
-                if n == tries - 1:
-                    raise Unwritable(f"{path}: not written - it is locked by another "
-                                     "program - an editor, a sync client or a virus scanner",
-                                     "close it and run the command again") from None
-                time.sleep(wait * (n + 1))
-    except OSError as e:
-        raise Unwritable(f"{path}: not written - {e.strerror or e}",
-                         "check the folder and its permissions") from None
-    finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-    return path
-
-
 def remove_app_file(app_dir, name, store=None):
     """Remove `name` from `app_dir` if it is there - or raise Unwritable (Frozen when the
     application is sent). True when a file was removed."""
     refuse_if_sent(app_dir, name, store)
-    path = os.path.join(app_dir, name)
-    if not os.path.isfile(path):
-        return False
-    try:
-        os.remove(path)
-    except OSError as e:
-        raise Unwritable(f"{path}: not removed - {e.strerror or e}",
-                         "close whatever holds it and run the command again") from None
-    return True
+    return remove_document(os.path.join(app_dir, name))
 
 
 # --- what an application sent --------------------------------------------------------

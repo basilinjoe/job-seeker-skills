@@ -323,7 +323,8 @@ def build(app_dir, store, r, today, derived=None):
     from .gapsdraft import advert, drops
     from ..domain.record.parsed import GraphError
     from ..infra.files import Missing, Unreadable, read_text
-    from .timeline import Unwritable, sent_day, write_app_file, write_app_graphs
+    from ..domain.timeline.errors import Unwritable
+    from .timeline import sent_day, write_app_file, write_app_graphs
 
     app_rel = S.file_name(os.path.abspath(app_dir), store.root)
     gaps = S.app_graph(app_rel, "gaps")
