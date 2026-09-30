@@ -361,6 +361,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting_source.py  profiles.py  a job board's API; the region profiles
     clock.py  queries.py            today; the feature reads over a loaded record
     workspace.py                    a workspace as loading it needs it
+    advert.py                       an application's posting.md and decisions.txt, as the rules read them
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
@@ -375,6 +376,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     oxigraph/engine.py              the in-memory engine a loaded record runs on
     tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
     posting_sources.py              a board's JSON over the network; a .docx, .html or text file
+    adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded

@@ -54,8 +54,20 @@ class Rule:
     sparql: str | None      # SELECT ?focus plus whatever `detail` reads; None: `post` alone
     detail: "Callable[[dict], str]"
     fix: "str | Callable[[dict, Any], str]"          # or (row, store) -> str
-    # (rows, store) -> rows, for what SPARQL says badly
-    post: "Callable[[list, Any], list] | None" = None
+    # (rows, store, Reads) -> rows, for what SPARQL says badly
+    post: "Callable[[list, Any, Reads], list] | None" = None
+
+
+@dataclass(frozen=True)
+class Reads:
+    """What the rules read beyond the loaded graphs, given by whoever runs them.
+
+    adverts is a ports.advert.AdvertSource: an application's posting.md and decisions.txt.
+    record_state is (store) -> domain.record.state.State: where a career still laid out as
+    files stands with its log.
+    """
+    adverts: "Any"
+    record_state: "Callable[[Any], Any]"
 
 
 def v(row, name) -> "Any":
@@ -73,7 +85,7 @@ def dangling_fix(row, store):
     return f"did you mean {curie(near[0])}?" if near else "define it, or point at one that exists"
 
 
-def version_gaps(rows, store):
+def version_gaps(rows, store, reads):
     by = defaultdict(list)
     for r in rows:
         by[v(r, "focus")].append(int(v(r, "v").rsplit(".v", 1)[1]))
@@ -81,7 +93,7 @@ def version_gaps(rows, store):
             for m, n in by.items() if sorted(n) != list(range(1, len(n) + 1))]
 
 
-def label_clashes(rows, store):
+def label_clashes(rows, store, reads):
     by = defaultdict(set)
     for r in rows:
         by[O.norm(v(r, "l"))].add((v(r, "focus"), r["focus"]))
@@ -94,7 +106,7 @@ def label_clashes(rows, store):
     return out
 
 
-def misplaced_postings(rows, store):
+def misplaced_postings(rows, store, reads):
     def folder(g):
         return g.rsplit("/", 1)[0]
     return [r for r in rows if not any(folder(v(r, "g")) == folder(v(x, "h")) for x in rows
@@ -106,7 +118,7 @@ def node(iri):
     return ox.NamedNode(iri)
 
 
-def duplicates(rows, store):
+def duplicates(rows, store, reads):
     """One row per extra graph a k: id is defined in, pointing at that graph: the edit
     that broke the rule is the second definition, not the first. The loader already knows
     where every subject is, so this is a lookup, not a query over every quad."""
@@ -115,17 +127,17 @@ def duplicates(rows, store):
             for file in files[1:]]
 
 
-def untyped(rows, store):
+def untyped(rows, store, reads):
     typed = {v(r, "focus") for r in rows}
     return [{"focus": node(iri)} for iri in store.definitions
             if iri.startswith(O.C) and iri not in typed]
 
 
-def unmatched_narrowing(rows, store):
+def unmatched_narrowing(rows, store, reads):
     return [{"focus": q.subject, "p": q.predicate, "o": q.object} for q in store.unmatched]
 
 
-def reclassed(rows, store):
+def reclassed(rows, store, reads):
     """A concept whose class in the career differs from its shipped class. Reported in kb."""
     kinds = {graph_iri(f): (f, p.kind) for f, p in store.parsed.items()}
     by = defaultdict(lambda: {"kb": set(), "vocabulary": set(), "file": None})
@@ -159,7 +171,7 @@ def bare_capabilities(store):
     return out
 
 
-def bare(rows, store):
+def bare(rows, store, reads):
     """One row for the lot, at k:kb: a finding per concept would bury the rest, and the
     `bare` query already lists them, most-held first."""
     found = bare_capabilities(store)
@@ -168,22 +180,35 @@ def bare(rows, store):
     return [{"focus": node(O.K + "kb"), "file": next(iter(found.values())), "n": len(found)}]
 
 
-def unquoted(rows, store):
-    """A requirement whose quote is not in the advert beside it, word for word."""
-    import os
+def folder_of(file):
+    """The folder a graph's name puts it in: `applications/acme` for
+    `applications/acme/posting`, "" for a name with none."""
+    return file.rpartition("/")[0]
 
-    from ..infra.files import Missing, NotUtf8, Unreadable, read_text
+
+def unquoted(rows, store, reads):
+    """A requirement whose quote is not in the advert beside it, word for word.
+
+    Args:
+        rows: the SELECT's rows, ?focus a requirement and ?q its quote.
+        store: the loaded workspace.
+        reads: the Reads whose adverts supply each posting.md.
+
+    Returns:
+        The rows whose quote fails, each with "why".
+    """
+    from ..domain.record.parsed import Missing, NotUtf8, Unreadable
 
     out, adverts = [], {}
     for r in rows:
         file = store.file_of(v(r, "focus"))
         if not file:
             continue
-        advert = os.path.join(store.root, os.path.dirname(file), "posting.md")
+        advert = folder_of(file)
         if advert not in adverts:
             # (text, None), or (None, why it could not be read) - the finding says which.
             try:
-                adverts[advert] = (squash(read_text(advert)), None)
+                adverts[advert] = (squash(reads.adverts.advert(store.root, advert)), None)
             except Missing:
                 adverts[advert] = (None, "posting.md is missing beside it")
             except NotUtf8:
@@ -200,7 +225,7 @@ def unquoted(rows, store):
     return out
 
 
-def worded_otherwise(rows, store):
+def worded_otherwise(rows, store, reads):
     out = []
     for r in rows:
         quote, need = v(r, "q"), v(r, "n")[len(O.J):]
@@ -211,28 +236,43 @@ def worded_otherwise(rows, store):
     return out
 
 
-def dropped_lines(folder, advert):
+def dropped_lines(adverts, root, folder, advert):
     """The advert lines decisions.txt beside posting.md drops with a reason: answered, not
     skipped, so not uncovered. A decisions.txt that does not parse drops nothing - `jsk
-    posting build` refuses it long before this reads it."""
-    import os
+    posting build` refuses it long before this reads it.
 
-    from .decisions import DecisionsError, read
-    from ..infra.files import Unreadable
+    Args:
+        adverts: the AdvertSource decisions.txt is read through.
+        root: the workspace root.
+        folder: the application's folder, relative to `root`.
+        advert: posting.md's text.
+
+    Returns:
+        {str}: the squashed text of each dropped line.
+    """
+    from ..domain.record.decisions import DecisionsError
+    from ..domain.record.parsed import Unreadable
 
     try:
-        drops = read(os.path.join(folder, "decisions.txt")).drops
+        drops = adverts.decisions(root, folder).drops
     except (Unreadable, DecisionsError):
         return set()
     lines = {x.n: x.text for x in advert_lines(advert)}
     return {lines[d.n] for d in drops if d.n in lines}
 
 
-def uncovered(rows, store):
-    """An advert line that asks something no requirement of its posting quotes."""
-    import os
+def uncovered(rows, store, reads):
+    """An advert line that asks something no requirement of its posting quotes.
 
-    from ..infra.files import Unreadable, read_text
+    Args:
+        rows: the SELECT's rows, ?focus a posting and ?q each quote of it.
+        store: the loaded workspace.
+        reads: the Reads whose adverts supply posting.md and decisions.txt.
+
+    Returns:
+        A row per uncovered line, with the "line".
+    """
+    from ..domain.record.parsed import Unreadable
 
     quotes = defaultdict(list)
     for r in rows:
@@ -244,13 +284,13 @@ def uncovered(rows, store):
         file = store.file_of(post)
         if not file:
             continue
-        folder = os.path.join(store.root, os.path.dirname(file))
+        folder = folder_of(file)
         try:
-            advert = read_text(os.path.join(folder, "posting.md"))
+            advert = reads.adverts.advert(store.root, folder)
         except Unreadable:
             continue                        # quote-verbatim says why it could not be read
         said = [q for q in said if q]
-        dropped = dropped_lines(folder, advert)
+        dropped = dropped_lines(reads.adverts, store.root, folder, advert)
         for line in asked_lines(advert):
             if line in dropped:
                 continue                    # dropped with a reason, which gaps.md shows
@@ -265,11 +305,10 @@ def out_of_step(kinds):
     still laid out as files, which the import reads. A stored record has none of these
     states: every write puts the career and its log entry in one update, and the store
     keeps no text for a hand to edit."""
-    def post(rows, store):
-        from ..infra.oxigraph.record import state
+    def post(rows, store, reads):
         if store.stored:
             return []
-        st = state(store)
+        st = reads.record_state(store)
         return [{"focus": node(O.K + "kb"), "state": st}] if st.kind in kinds else []
     return post
 
@@ -293,7 +332,7 @@ DENIAL = re.compile(r"\s*(no|nope|nah|never|wrong|incorrect|false|not (true|righ
                     r"\s*[.!]?\s*", re.I)
 
 
-def placeholder_answers(rows, store):
+def placeholder_answers(rows, store, reads):
     out = []
     for r in rows:
         answer = v(r, "a")
@@ -302,7 +341,7 @@ def placeholder_answers(rows, store):
     return out
 
 
-def bad_periods(rows, store):
+def bad_periods(rows, store, reads):
     """A role's dates that cannot all be true - what the URS record gate checked of the
     periods copied into it (validate_urs.check_periods), until the resume was built from
     kb.ttl and the copy went (2026-09-25). A year against a month compares the year:
@@ -520,8 +559,25 @@ def term_text(t):
     return curie(t.value) if isinstance(t, ox.NamedNode) else repr(t.value)
 
 
-def tier2(store):
-    """Findings for the whole loaded workspace."""
+def tier2(store, adverts=None, record_state=None):
+    """Findings for the whole loaded workspace.
+
+    Args:
+        store: the loaded workspace, tier 1 already run.
+        adverts: the ports.advert.AdvertSource posting.md and decisions.txt are read
+            through; by default infra.adverts.Adverts, the disk.
+        record_state: (store) -> State for a career still laid out as files; by default
+            infra.oxigraph.record.state.
+
+    Returns:
+        [Finding], rule by rule in RULES' order.
+    """
+    if adverts is None:
+        from ..infra.adverts import Adverts
+        adverts = Adverts()
+    if record_state is None:
+        from ..infra.oxigraph.record import state as record_state
+    reads = Reads(adverts, record_state)
     out = []
     # A file that did not parse hides every id in it, so every reference to one would be
     # `dangling` - each with a confident "did you mean". Until it parses they cannot be
@@ -532,7 +588,7 @@ def tier2(store):
             continue
         rows = store.select(PREFIX + rule.sparql) if rule.sparql else []
         if rule.post:
-            rows = rule.post(rows, store)
+            rows = rule.post(rows, store, reads)
         for row in rows:
             focus = row["focus"].value
             file = row.get("file") or store.file_of(focus) or ""
