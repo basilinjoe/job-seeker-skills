@@ -34,7 +34,6 @@ SIZE_KNOWN = {
     ("src/jsk/cli.py", "cmd_freeze"): 198,
     ("src/jsk/cli.py", "cmd_ship"): 91,
     ("src/jsk/domain/record/shapes.py", "tier1"): 90,
-    ("src/jsk/gates/check_ats.py", "main"): 180,
     ("src/jsk/gates/check_prose.py", "check"): 94,
     ("src/jsk/graph/edit.py", "apply"): 143,
     ("src/jsk/graph/merge.py", "draft"): 101,

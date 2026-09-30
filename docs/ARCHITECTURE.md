@@ -333,6 +333,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     naming.py                       a record graph's short name and its IRI, the same in memory and on disk
     record/confirmation.py          what a confirmation's quote must share with its claim
     gates/numbers.py  report.py     numbers in prose and whether metrics hold them; a gate's findings
+    gates/ats_rules.py              the parse gate's rules over extracted text and fonts
     resume/constants.py             the provenance floor's ranks and a skills row's length
     ontology.py  record/writer.py   the format, as data; the entry printer (moved from graph/)
     record/career.py                the career graph as the builder, export and match read it
