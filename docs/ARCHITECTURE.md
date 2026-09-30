@@ -349,6 +349,12 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/edit.py                  a changeset merged into the career, refused where the career says
     record/pack.py                  a starter pack's draft against the workspace, and its TriG
     record/merge.py                 two concepts that are one, drafted as a changeset
+    matching/model.py               the match's values: requirement, resolution, match, row, question
+    matching/resolve.py             a requirement resolved to concepts, carried by projects; evidence
+    matching/rank.py  cover.py      the projects scored for a posting; the smallest set carrying it
+    matching/nearest.py             the concepts nearest a label, and those an advert line names
+    matching/questions.py           the questions a tailoring round asks of a match
+    selection/select.py             the projects, bullets, skills and gaps a resume selects
     posting/errors.py               posting.md's name, and how a posting step refuses
     timeline/errors.py              how a write to an application refuses: sent, locked, refused
     timeline/events.py              an application's graph and its events as triples; the dates they carry
@@ -357,6 +363,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/posting_md.py           posting.md as jsk writes it
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
+    assessment/derive.py            the gap assessment the match already knows, without a model
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
     render/fit_levers.py            the page fitter's levers and floors over a .tex's text; page geometry read
     render/page_report.py           the line a render says about its pages, against the budget
@@ -385,6 +392,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
     oxigraph/db.py  record.py       the store on disk; the write gate every write goes through
     oxigraph/engine.py              the in-memory engine a loaded record runs on
+    oxigraph/queries.py             the feature reads over a loaded record, as SPARQL
     tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
     posting_sources.py              a board's JSON over the network; a .docx, .html or text file
     outputs.py                      a render's files written, its scratch directories, a move
@@ -490,7 +498,7 @@ directory named after what they have in common.
 | What `jsk new` scaffolds | `src/jsk/kb.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
 | A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `postingbuild.py` and `gapsbuild.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
 | What the analyst may write | `graph/decisions.py` (`decisions.txt`), `graph/assessment.py` (`gaps.txt`) | the checks in `postingbuild.py` and `gapsbuild.py`; `agents/jsk-tailor-analyst.md` |
-| How the career's projects are ranked for a posting | `rank` in `src/jsk/graph/queries.py`; the weights in `src/jsk/graph/scoring.py` | `cover` in the same file, and `select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
+| How the career's projects are ranked for a posting | `rank` in `src/jsk/domain/matching/rank.py`; the weights in `src/jsk/domain/matching/scoring.py` | `cover` in `cover.py` beside it, and `src/jsk/domain/selection/select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
 | What the record gate checks | `src/jsk/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |

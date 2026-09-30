@@ -208,15 +208,11 @@ def remove_app_file(app_dir, name, store=None):
 def sent_versions(store, bullets):
     """The current version of each metric the bullets cite - what `jsk kb query stale`
     compares against when a metric is later revised."""
-    from . import queries as Q
+    from ..infra.oxigraph.queries import OxigraphQueries
 
     if not bullets:
         return []
-    values = " ".join(f"<{b}>" for b in bullets)
-    rows = store.select(Q.PRE + f"""
-        SELECT DISTINCT ?v WHERE {{ VALUES ?b {{ {values} }} ?b j:cites ?m . ?v j:of ?m .
-                                    FILTER NOT EXISTS {{ ?v j:validUntil ?u }} }}""")
-    return sorted(r["v"].value for r in rows)
+    return OxigraphQueries(store).cited_current_versions(bullets)
 
 
 class Sealed:
