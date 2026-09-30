@@ -16,7 +16,7 @@ over several rows (the best path, the evidence level), not a row.
 import itertools
 from dataclasses import dataclass, field
 
-from . import ontology as O
+from ..domain import ontology as O
 from .scoring import SENIORITY, WEIGHTS, recency_points
 from .shapes import curie
 

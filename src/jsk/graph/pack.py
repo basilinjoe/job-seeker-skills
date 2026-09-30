@@ -23,7 +23,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from . import ontology as O
+from ..domain import ontology as O
 
 PACKS = {"capabilities": os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                       "data", "capabilities.ttl")}
@@ -42,7 +42,7 @@ def slug(iri):
 
 
 def cur(iri):
-    from .writer import curie
+    from ..domain.record.writer import curie
     return curie(iri)
 
 
@@ -212,7 +212,7 @@ def trig(base, summary, graphs, entries=(), comments=()):
     iris op:delete removes whole."""
     import pyoxigraph as ox
 
-    from .writer import INDENT, Subjects, block, literal
+    from ..domain.record.writer import INDENT, Subjects, block, literal
 
     out = [f"@prefix {name}: <{ns}> ." for name, ns in O.PREFIXES]
     out += [f"@prefix op: <{O.OP}> .", ""]

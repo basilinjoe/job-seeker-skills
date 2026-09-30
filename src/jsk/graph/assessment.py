@@ -20,7 +20,7 @@ match, or `keep` sits on a flagged row, needs the match, and gapsbuild checks it
 import re
 from dataclasses import dataclass, field
 
-from . import ontology as O
+from ..domain import ontology as O
 
 KEYED = re.compile(r"(fit|eligibility|short|surplus|ask):[ \t]*(.*)")
 ONCE = ("fit", "eligibility")

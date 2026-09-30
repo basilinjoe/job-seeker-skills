@@ -166,7 +166,7 @@ def triples(a, today):
     k:req_<stem>_<slug> - never chosen, so a rebuild writes the same file."""
     import pyoxigraph as ox
 
-    from . import ontology as O
+    from ..domain import ontology as O
 
     def j(name):
         return ox.NamedNode(O.J + name)
@@ -277,7 +277,7 @@ def render(r, a, today, lines=(), dropped=()):
 def previous_verdicts(store, app_rel, stem):
     """{slug: j:matched} from the assessment being replaced - the verdict id's local part
     after `vrd_<stem>_`, which is the requirement's slug."""
-    from . import ontology as O
+    from ..domain import ontology as O
     from .store import app_graph
 
     parsed = store.parsed.get(app_graph(app_rel, "gaps"))
@@ -289,7 +289,7 @@ def previous_verdicts(store, app_rel, stem):
 
 def assessed(store, app_rel):
     """The day the assessment being replaced was made, or None."""
-    from . import ontology as O
+    from ..domain import ontology as O
     from .store import app_graph
 
     parsed = store.parsed.get(app_graph(app_rel, "gaps"))

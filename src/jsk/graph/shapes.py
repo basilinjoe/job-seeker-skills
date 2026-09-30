@@ -11,7 +11,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 
-from . import ontology as O
+from ..domain import ontology as O
 
 FAIL, WARN = "FAIL", "WARN"
 # The tier-1 rule ids, and "syntax" for a file that does not parse. tests/test_graph_shapes.py
@@ -38,7 +38,7 @@ class Finding:
 
 
 def curie(iri):
-    from .writer import curie as c
+    from ..domain.record.writer import curie as c
     return c(iri)
 
 

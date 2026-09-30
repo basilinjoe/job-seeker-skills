@@ -10,7 +10,7 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 
-from . import ontology as O
+from ..domain import ontology as O
 from .shapes import FAIL, WARN, Finding, curie
 from .store import graph_iri
 

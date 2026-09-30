@@ -110,7 +110,7 @@ def _bare(curie):
 
 
 def _iri(curie):
-    from .ontology import C, K
+    from ..domain.ontology import C, K
 
     return (K + curie[2:] if curie.startswith("k:") else C + curie[2:] if curie.startswith("c:")
             else curie)

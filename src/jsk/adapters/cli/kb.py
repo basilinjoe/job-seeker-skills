@@ -48,9 +48,10 @@ import sys
 
 from ...cliutil import docstring_usage, parse_flags, wants_help
 from ...domain.record.confirmation import WORD
+from ...domain.resume.constants import PROVENANCE_RANK
 from ...infra.files import find_root
 from ...graph.record import diff, new_failures
-from ...graph.writer import entry_text, with_children
+from ...domain.record.writer import entry_text, with_children
 
 VERBS = {}
 # verb -> (flags taking a value, switches, flags taking a list), beside --root, which
@@ -122,7 +123,7 @@ def writable(store):
 
 
 def curies(iris):
-    from ...graph.writer import curie
+    from ...domain.record.writer import curie
     return ", ".join(curie(i) for i in sorted(iris))
 
 
@@ -134,7 +135,7 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
     stands, and nothing lands between this validating the candidate and writing it."""
     from ...graph import record as R
     from ...graph import store as S
-    from ...graph.writer import write
+    from ...domain.record.writer import write
 
     missed = changed_subjects(store.graph(R.KB), quads) - set(touched) - set(minted)
     if missed:
@@ -173,7 +174,7 @@ def changed_subjects(before, after):
     the header's revision and day, which every write moves: what a write's log entry must
     name as touched or minted, or a changeset drafted before it would rebase over it
     unrefused (edit.base_conflicts checks ids, and only the ids the log names)."""
-    from ...graph import ontology as O
+    from ...domain import ontology as O
 
     stamp = {(O.K + "kb", O.J + "revision"), (O.K + "kb", O.J + "updated")}
 
@@ -376,7 +377,7 @@ def cmd_merge(args, flags, root):
 
 def iri_of(text):
     """k:prj_x, prj_x or c:kafka as an iri."""
-    from ...graph import ontology as O
+    from ...domain import ontology as O
 
     if text.startswith("k:"):
         return O.K + text[2:]
@@ -386,7 +387,7 @@ def iri_of(text):
 
 
 def unknown(iri, store):
-    from ...graph.writer import curie
+    from ...domain.record.writer import curie
 
     near = difflib.get_close_matches(iri, list(store.homes), n=1)
     return (f"{curie(iri)} is not in the record",
@@ -448,7 +449,7 @@ def unquoted_numbers(quads, iri, quote):
     """The numerals in an entry's claims the quote does not state - a number rounded or
     made up on the way out of the document."""
     from ...domain.gates.numbers import numerals
-    from ...graph import ontology as O
+    from ...domain import ontology as O
 
     said = scaled(numerals(quote))
     # iri is in a career writable() passed, where every subject is a jsk id.
@@ -482,7 +483,7 @@ def unquoted_words(quads, iri, quote):
     than a fifth of them are missing - a clause the session added on the way out of the
     document ("Brought 42 sites onto one platform, cutting onboarding to two weeks" from
     a document that says only the first half), or a quote about something else."""
-    from ...graph import ontology as O
+    from ...domain import ontology as O
 
     cls = O.class_of(iri)
     pred = PROSE.get(cls) if cls else None
@@ -595,7 +596,7 @@ def cmd_confirm(args, flags, root):
     """
     import pyoxigraph as ox
 
-    from ...graph import ontology as O
+    from ...domain import ontology as O
     from ...graph import record as R
     from ...graph import store as S
 
@@ -692,10 +693,10 @@ def cmd_show(args, flags, root):
     evidence needs - without the problem, decisions and notes, which run to thousands of
     characters a project.
     """
-    from ...graph import ontology as O
+    from ...domain import ontology as O
     from ...graph import record as R
     from ...graph import store as S
-    from ...graph.writer import curie
+    from ...domain.record.writer import curie
 
     bullets = "--bullets" in flags
     if not args:
@@ -791,12 +792,12 @@ def cmd_export(args, flags, root):
     """
     import json
 
-    from ...graph import ontology as O
+    from ...domain import ontology as O
     from ...graph import record as R
     from ...graph import store as S
     from ...graph.export import Career, ExportError, chosen, short_file
     from ...graph.match import COVER, application, blocks, posting_in
-    from ...graph.writer import curie
+    from ...domain.record.writer import curie
 
     # Said by name rather than as an unknown flag - so they are switches it takes: an
     # agent file or a shell history written before the short file still has them.
@@ -989,7 +990,7 @@ def untraced_lines(store, today, bullets=None):
     so it is asked of the bullets directly. The wording is the old record gate's - it is
     what the Everforth and ElevenLabs runs taught people to read here."""
     from ...gates import numbers
-    from ...resume.career import Career
+    from ...domain.record.career import Career
     from ...graph import record as R
     from ...graph.shapes import curie
 
@@ -1099,18 +1100,17 @@ def cmd_path(args, flags, root):
     return 0
 
 
-PROVENANCE_RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
 SHADOW = os.path.join(".jsk", "kb.last.ttl")      # the file workspace's copy of its last write
 
 
 def provenances(quads):
-    from ...graph import ontology as O
+    from ...domain import ontology as O
     return {q.subject.value: q.object.value[len(O.J):] for q in quads
             if q.predicate.value == O.J + "provenance"}
 
 
 def claims(quads, s):
-    from ...graph import ontology as O
+    from ...domain import ontology as O
     names = O.resets(O.class_named(s))
     return {(q.predicate.value, q.object.value) for q in quads
             if q.subject.value == s and q.predicate.value[len(O.J):] in names}
@@ -1119,7 +1119,7 @@ def claims(quads, s):
 def upgrades(before, after):
     """What a hand edit raised: provenance moved up, an entry added as confirmed, or a
     claim changed under a confirmation it no longer earns."""
-    from ...graph.writer import curie
+    from ...domain.record.writer import curie
 
     now, was, out = provenances(after), provenances(before), []
     for s, p in sorted(now.items()):
@@ -1345,7 +1345,7 @@ def cmd_log(args, flags, root):
     new, ...), its summary, and the ids it minted and touched. --last N, the newest N
     (default 10).
     """
-    from ...graph import ontology as O
+    from ...domain import ontology as O
     from ...graph import record as R
     from ...graph import store as S
 

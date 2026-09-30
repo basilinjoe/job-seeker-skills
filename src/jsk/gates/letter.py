@@ -160,11 +160,11 @@ def years_lines(store, text, today):
 
 def number_lines(text, doc, store, posting=None, today=None):
     """FAIL lines for each numeral the application cannot stand on - see the docstring."""
-    from ..graph import ontology as O
+    from ..domain import ontology as O
     from ..graph import record as R
     from ..resume import short
-    from ..resume.build import PROVENANCE_RANK          # the floor as the render reads it
-    from ..resume.career import Career
+    from ..domain.resume.constants import PROVENANCE_RANK  # the floor as the render reads it
+    from ..domain.record.career import Career
     from . import numbers
     from .record import career_refusal, curie
 

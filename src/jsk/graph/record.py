@@ -15,7 +15,7 @@ import difflib
 import os
 from dataclasses import dataclass
 
-from . import ontology as O
+from ..domain import ontology as O
 
 KB = "kb"                                        # the graphs, by the names the store uses
 LOG = "log"
@@ -140,7 +140,7 @@ def career_sha(kb_quads):
     """The career's hash as every log entry's kbSha256 holds it: sha256 of the career as
     the writer lays it out - the text a write's diff shows."""
     from .io import sha256
-    from .writer import write
+    from ..domain.record.writer import write
 
     return sha256(write(kb_quads, "kb"))
 
@@ -151,7 +151,7 @@ def unrecorded(kb_quads, log_quads):
     the career carries that hash, so a mismatch is a write from outside jsk, or a dump
     edited before it was loaded. It costs a full write of the career, so only `jsk kb
     check` and `jsk kb load` ask it."""
-    from .writer import WriteError
+    from ..domain.record.writer import WriteError
 
     rev, sha = last_entry(log_quads)
     if rev is None:
@@ -221,7 +221,7 @@ def prepared(store, kb_quads, today, by, summary, touched=(), minted=(), answer=
     """What a logged write of `kb_quads` would write - the career stamped with the next
     revision, the log with an entry naming what the write touched and minted."""
     from .io import sha256
-    from .writer import write
+    from ..domain.record.writer import write
 
     rev = next_revision(state(store))
     kb = stamp(kb_quads, rev, today)

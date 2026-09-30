@@ -52,7 +52,7 @@ KNOWN_FORBIDDEN = set()
 # Package cycles among the unsorted packages: (package, package) pairs that import each
 # other, P1's work. A ring cannot be in one without an outward edge, which is failed above.
 KNOWN_CYCLES = {
-    ("jsk.graph", "jsk.posting"), ("jsk.graph", "jsk.resume"), ("jsk.render", "jsk.resume"),
+    ("jsk.graph", "jsk.posting"), ("jsk.render", "jsk.resume"),
 }
 
 

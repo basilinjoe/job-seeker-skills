@@ -32,7 +32,7 @@ import os
 import sys
 
 from ..cliutil import docstring_usage, wants_help
-from .ontology import ENUMS
+from ..domain.ontology import ENUMS
 
 COVER = 3
 
@@ -64,7 +64,7 @@ def application(arg, command="jsk match"):
 
 def posting_in(store, app):
     """The one Posting the application `app` (its directory) holds, or None."""
-    from . import ontology as O
+    from ..domain import ontology as O
     from . import store as S
 
     name = S.app_graph(S.file_name(app, store.root), "posting")
@@ -105,7 +105,7 @@ def record_faults(store, post, today, budget, ranked=None):
     asked about too, by rank: the ones gaps.md cites and the author reads (`ranked`, `TOP`).
 
     Empty when the workspace has no career: the match stands alone."""
-    from ..resume.career import Career
+    from ..domain.record.career import Career
     from . import record as R
     from . import select as SEL
 

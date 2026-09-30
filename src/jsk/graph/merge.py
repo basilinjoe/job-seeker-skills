@@ -15,7 +15,7 @@ edit.referenced refuses the delete for it. So c:a is deleted when nothing outsid
 names it, and retired, with a reason naming c:b, when a posting still does: the posting
 then reads `retired-referenced`, a WARN that says to re-point it.
 """
-from . import ontology as O
+from ..domain import ontology as O
 from .pack import EDGES, Walls, cur, edges, names, node, slug
 
 

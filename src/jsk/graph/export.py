@@ -15,8 +15,8 @@ import difflib
 import os
 
 from ..paths import SCHEMA_DIR
-from ..resume.career import Career, local
-from . import ontology as O
+from ..domain.record.career import Career, local
+from ..domain import ontology as O
 
 SELECTS = ("Project", "Achievement", "Position")
 
@@ -108,7 +108,7 @@ def capped(career, skills, notes=None):
     of 15-18 where 10 show; the builder dropped the rest with a WARN, and the main thread
     trimmed the file by hand. A skill cut from one row can let the same name show in a
     later one, so the cut runs until no row is over."""
-    from ..resume.build import MAX_SKILLS_PER_ROW
+    from ..domain.resume.constants import MAX_SKILLS_PER_ROW
 
     kept, left = list(skills), {}
     while True:

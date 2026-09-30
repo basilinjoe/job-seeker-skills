@@ -24,7 +24,7 @@ Fields are split on `|`, not whitespace: an `asked` is often several words.
 import re
 from dataclasses import dataclass, field
 
-from . import ontology as O
+from ..domain import ontology as O
 
 HEADER_KEYS = ("company", "title", "url", "seniority", "domain", "captured")
 NEEDS = ("required", "preferred", "implicit")

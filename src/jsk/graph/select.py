@@ -15,7 +15,7 @@ evidence there, on the one path the scorer did not reach.
 import copy
 from dataclasses import dataclass
 
-from . import ontology as O
+from ..domain import ontology as O
 from . import queries as Q
 from .scoring import WEIGHTS, recency_points
 from .shapes import curie
@@ -171,7 +171,7 @@ def skill_order(store, matches):
     the full record. An alias naming only concepts no project holds ranks nothing - an ATS
     reads it as a claim of that experience, and the draft left such aliases out for that
     reason (ElevenLabs, 2026-09-25)."""
-    from ..resume.career import Career
+    from ..domain.record.career import Career
     from . import record as R
     from .named import holdings
 

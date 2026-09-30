@@ -19,7 +19,7 @@ sent - is edit.py's.
 import difflib
 from dataclasses import dataclass, field
 
-from . import ontology as O
+from ..domain import ontology as O
 
 OP = O.OP
 GRAPHS = O.OPS
@@ -58,7 +58,7 @@ class Changeset:
 def curie(iri):
     if iri.startswith(OP):
         return "op:" + iri[len(OP):]
-    from .writer import curie as c
+    from ..domain.record.writer import curie as c
     return c(iri)
 
 
@@ -113,7 +113,7 @@ def numbers_as_kept(quads, refuse):
     nothing - and an op:delete of `8.40` would delete nothing. A grade whose zeros are the
     point (`3.80`) is a string: j:gradeValue takes one."""
     from .io import canonical_numbers
-    from .writer import literal
+    from ..domain.record.writer import literal
 
     for q, kept in canonical_numbers(quads)[1]:
         # The fix as Turtle: the decimal 8.0 is kept as "8", and a bare `8` is an integer.

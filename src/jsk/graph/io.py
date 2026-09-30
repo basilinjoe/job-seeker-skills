@@ -8,7 +8,7 @@ import hashlib
 import re
 from dataclasses import dataclass
 
-from .ontology import C, K, kind_of
+from ..domain.ontology import C, K, kind_of
 
 # A subject line starts in column 0 with a CURIE; a banner is `# == Section`.
 SUBJECT = re.compile(r"^([kc]):([A-Za-z0-9_.\-]+)")

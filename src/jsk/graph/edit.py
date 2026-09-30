@@ -17,7 +17,7 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from . import ontology as O
+from ..domain import ontology as O
 from .changeset import OP, Refusal, Refused, curie
 
 PROVENANCE = O.J + "provenance"

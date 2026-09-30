@@ -174,9 +174,9 @@ def ids(doc, store):
     """FAIL lines for ids the career does not hold as the file uses them: unknown (with
     the near one), retired (with its reason), of another kind, or a bullet whose project
     names no role - it would render under no employer."""
-    from ..graph import ontology as O
+    from ..domain import ontology as O
     from ..graph import record as R
-    from .career import Career
+    from ..domain.record.career import Career
 
     career = Career(store.graph(R.KB))
     known = {iri: c.name for iri, c in career.sub.cls.items()}

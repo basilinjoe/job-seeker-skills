@@ -63,7 +63,7 @@ An application worked through and then held back is still a real application:
 def header(name):
     import pyoxigraph as ox
 
-    from .graph import ontology as O
+    from .domain import ontology as O
 
     kb = ox.NamedNode(O.K + "kb")
     return [ox.Quad(kb, ox.NamedNode(O.J + "format"),
@@ -75,7 +75,7 @@ def first_write(name, today):
     """{graph: quads} for a workspace with no career yet: the empty record, r1 by `new`."""
     from .graph import record as R
     from .graph.io import sha256
-    from .graph.writer import write
+    from .domain.record.writer import write
 
     kb = R.stamp(header(name), 1, today)
     log = R.entry(1, today, "new", f"Created by jsk new for {name}: an empty record.",

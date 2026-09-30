@@ -10,9 +10,9 @@ and a location that two queries answer in half a second.
 """
 import datetime
 
-from . import ontology as O
+from ..domain import ontology as O
 from .queries import PRE, evidence, paths_to
-from .writer import curie
+from ..domain.record.writer import curie
 
 QUERIES = {}
 

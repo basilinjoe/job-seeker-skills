@@ -14,7 +14,7 @@ import glob
 import os
 from dataclasses import dataclass, field
 
-from . import ontology as O
+from ..domain import ontology as O
 from .io import GraphError, Unreadable, parse
 
 # For the checker alone: importing `typing` costs every command ~3 ms it never uses.
@@ -225,7 +225,7 @@ def parsed_graph(name, triples):
     import pyoxigraph as ox
 
     from .io import Parsed
-    from .ontology import kind_of
+    from ..domain.ontology import kind_of
 
     quads = [ox.Quad(t.subject, t.predicate, t.object) for t in triples]
     return Parsed(name, kind_of(name), quads, {}, [])

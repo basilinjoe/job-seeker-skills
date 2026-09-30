@@ -4,7 +4,7 @@ Standard library only, like ontology.py: importing this must not import pyoxigra
 """
 import re
 
-from . import ontology as O
+from ..domain import ontology as O
 
 # Most senior first. The order is the ranking: a project at or above the posting's
 # level earns the seniority point, so a lower index is more senior.

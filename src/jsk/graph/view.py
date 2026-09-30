@@ -5,8 +5,8 @@ and correct it. The store holds no text to open, so this is how it is read - the
 without the syntax, in the writer's section order. It is never written anywhere, so it
 can never drift from the record it shows.
 """
-from . import ontology as O
-from .writer import Subjects, curie, order
+from ..domain import ontology as O
+from ..domain.record.writer import Subjects, curie, order
 
 # The predicate an entry is known by, per class, in the order they are tried.
 TITLES = ("fullName", "name", "title", "subject", "institution", "question", "language",

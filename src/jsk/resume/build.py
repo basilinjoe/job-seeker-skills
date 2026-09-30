@@ -12,13 +12,12 @@ copy: a feature comes back by giving its data a home in the ontology first.
 """
 import datetime
 
-from ..graph import ontology as O
+from ..domain import ontology as O
 from ..graph import record as R
 from ..render import profiles
 from ..render.formatting import fmt_grade, fmt_instant, fmt_period, fold_ascii, period_key
-from .career import CONTACTS, Career, employers, enum, local, number, period
-
-PROVENANCE_RANK = {"confirmed": 3, "inferred": 2, "needs-verification": 1, "disputed": 0}
+from ..domain.resume.constants import MAX_SKILLS_PER_ROW, PROVENANCE_RANK
+from ..domain.record.career import CONTACTS, Career, employers, enum, local, number, period
 
 # .title() would render these as "Ai" / "Api" / "Ml"; a skills row is the most scanned
 # line on a resume and a miscased acronym reads as carelessness.
@@ -49,11 +48,6 @@ COUNTRY = {
 # website go on the second. One line holding all of them wrapped mid-way in every
 # template and left a profile URL orphaned on a line of its own.
 DIRECT_CONTACTS = ("email", "phone")
-
-# A skills row longer than this stops being scanned. The ATS render of the Everforth
-# application filled 45% of page 1 with its skills block while page 2 was half empty;
-# ten names is what a recruiter reads in one pass of a row.
-MAX_SKILLS_PER_ROW = 10
 
 # Kinds of work said beside the employer; employment goes unsaid.
 SAID_KINDS = ("contract", "freelance", "internship", "volunteer")

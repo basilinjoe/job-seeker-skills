@@ -35,7 +35,7 @@ import os
 import re
 import sys
 
-from ..graph import ontology as O
+from ..domain import ontology as O
 from .report import show
 
 MAX_FINDINGS = 25
@@ -89,7 +89,7 @@ class Vocabulary:
 
 
 def curie(iri):
-    from ..graph.writer import curie as c
+    from ..domain.record.writer import curie as c
     return c(iri)
 
 
@@ -233,7 +233,7 @@ def findings(doc, store, today=None):
     a loaded workspace."""
     from ..graph import record as R
     from ..resume import short
-    from ..resume.career import Career
+    from ..domain.record.career import Career
 
     today = today or datetime.date.today()
     if not isinstance(doc, dict):

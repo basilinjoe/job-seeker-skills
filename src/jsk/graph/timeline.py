@@ -33,7 +33,7 @@ import re
 import sys
 import time
 
-from . import ontology as O
+from ..domain import ontology as O
 
 # An application's record graphs, by kind: in career/store/ as applications/<dir>/<kind>.
 RECORD = ("posting", "application", "gaps")
@@ -553,7 +553,7 @@ def added(root, app_dir, kind, date, channel, note, due, today):
     from . import record as R
     from . import store as S
     from .record import diff, new_failures
-    from .writer import curie, write
+    from ..domain.record.writer import curie, write
 
     store = S.load(root)
     rel = S.app_graph(S.file_name(os.path.abspath(app_dir), store.root), "application")
