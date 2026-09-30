@@ -28,7 +28,7 @@ try:
     # 2019. This gate stays runnable where that file is absent - SKILL.md's
     # "installed as SKILL.md alone" case - by dropping the coverage line
     # rather than failing.
-    from .numbers import numerals
+    from ..domain.gates.numbers import numerals
 except ImportError:                                          # pragma: no cover
     numerals = None
 

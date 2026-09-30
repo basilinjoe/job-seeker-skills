@@ -85,7 +85,7 @@ def refuse(lines, fix=None):
 
 
 def show_findings(findings, title):
-    from ...gates.report import show
+    from ...cliutil import show
     from ...graph import store as S
 
     rep = S.Store("", findings=findings).report()
@@ -425,7 +425,7 @@ def document_text(path):
     if ext in (".docx", ".doc", ".odt", ".rtf"):
         return None, (f"{path}: a {ext} file is not read here", "convert it to .md or .txt first")
     if ext == ".pdf":
-        from ...gates.check_ats import read_pdf
+        from ...infra.pdf import read_pdf
         try:
             return normalise(read_pdf(path)[0]), None
         except ImportError:
@@ -440,14 +440,14 @@ def document_text(path):
 
 
 def scaled(numerals):
-    from ...gates.numbers import SCALE
+    from ...domain.gates.numbers import SCALE
     return [value * SCALE.get(suffix, 1) for value, suffix, _ in numerals]
 
 
 def unquoted_numbers(quads, iri, quote):
     """The numerals in an entry's claims the quote does not state - a number rounded or
     made up on the way out of the document."""
-    from ...gates.numbers import numerals
+    from ...domain.gates.numbers import numerals
     from ...graph import ontology as O
 
     said = scaled(numerals(quote))
@@ -645,7 +645,7 @@ def cmd_confirm(args, flags, root):
         elif any(q.subject.value == iri and q.predicate.value == O.J + "retired" for q in quads):
             problems.append((f"{text} is retired", "a retired entry is not confirmed"))
         elif source is not None and (missing := unquoted_numbers(quads, iri, quote)):
-            from ...gates.numbers import quoted
+            from ...domain.gates.numbers import quoted
             problems.append((f"{text} says {quoted(missing)}, which the quote does not",
                              "quote the document's sentence that states it - or, if the "
                              "document does not, ask the person and confirm with --answer"))
@@ -1026,7 +1026,7 @@ def cmd_check(args, flags, root):
                     full check printed 40 KB of other applications' warnings to find its
                     own five.
     """
-    from ...gates.report import show
+    from ...cliutil import show
     from ...graph import record as R
     from ...graph import store as S
 
@@ -1171,7 +1171,7 @@ def imported(before, record, rewrites, src):
     the file loader found, and what a hand edit raised, before anything is written."""
     import pyoxigraph as ox
 
-    from ...gates.report import show
+    from ...cliutil import show
     from ...graph import record as R
     from ...graph import store as S
 

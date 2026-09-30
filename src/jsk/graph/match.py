@@ -124,7 +124,7 @@ def record_faults(store, post, today, budget, ranked=None):
 def faults_in(store, bullets, today):
     """record_faults' entries for `bullets` (iris), in their order: numbers.untraced's
     Faults as the question's data."""
-    from ..gates import numbers
+    from ..application.gates import numbers
     from .shapes import curie
 
     return [{"bullet": curie(f.bullet), "numbers": f.numbers,
@@ -392,7 +392,7 @@ def main(argv=None):
 
 
 def matched(root, app, named, options, today, budget, as_json):
-    from ..gates.report import show
+    from ..cliutil import show
     from . import store as S
 
     store = S.load(root)

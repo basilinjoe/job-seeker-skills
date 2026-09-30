@@ -331,10 +331,13 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   preflight.py                      `jsk doctor`: what this machine can do
   domain/                           the innermost ring: no files, argv, environment or clock
     record/confirmation.py          what a confirmation's quote must share with its claim
+    gates/numbers.py  report.py     numbers in prose and whether metrics hold them; a gate's findings
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
+    gates/numbers.py                the untraced-number check over a loaded career
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root
+    pdf.py                          a rendered PDF's text and fonts, through pymupdf
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded

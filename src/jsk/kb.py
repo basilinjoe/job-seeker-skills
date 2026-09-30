@@ -105,7 +105,7 @@ def restart(root, name, today):
     import contextlib
     import io
 
-    from .gates.report import show
+    from .cliutil import show
     from .graph import db
     from .graph import record as R
     from .graph import store as S

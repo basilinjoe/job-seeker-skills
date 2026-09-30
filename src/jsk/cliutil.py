@@ -129,3 +129,24 @@ def docstring_usage(doc: str | None) -> str:
         if para.lstrip().startswith("Exit "):
             break
     return "\n\n".join(kept).rstrip()
+
+
+def show(items, mark, limit):
+    """Print at most `limit` findings, then the count of what was not listed.
+
+    Truncating a gate's output is only safe while the total is still visible, so
+    the caller prints the real counts in the header and this says how many it left
+    out. The header keeps printing the true totals, so nothing is hidden by the cap.
+
+    Args:
+        items: the finding lines, in order.
+        mark: FAIL or WARN, printed before each.
+        limit: how many to print; 0 or None prints them all.
+
+    Returns:
+        None. Writes to stdout.
+    """
+    for item in items[:limit or len(items)]:
+        print(f"  {mark}  {item}")
+    if limit and len(items) > limit:
+        print(f"  {mark}  ... and {len(items) - limit} more")

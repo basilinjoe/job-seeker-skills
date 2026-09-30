@@ -42,6 +42,7 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 # (importer, imported) -> the names it imports. Today's outward edges, each to be removed by
 # the phase that moves or splits one end of it.
 KNOWN_EDGES = {
+    ("jsk.application.gates.numbers", "jsk.graph.queries"): {"PRE"},
     ("jsk.application.guards", "jsk.graph.timeline"): {"frozen"},
 }
 
@@ -51,8 +52,7 @@ KNOWN_FORBIDDEN = set()
 # Package cycles among the unsorted packages: (package, package) pairs that import each
 # other, P1's work. A ring cannot be in one without an outward edge, which is failed above.
 KNOWN_CYCLES = {
-    ("jsk.gates", "jsk.graph"), ("jsk.graph", "jsk.posting"), ("jsk.graph", "jsk.resume"),
-    ("jsk.render", "jsk.resume"),
+    ("jsk.graph", "jsk.posting"), ("jsk.graph", "jsk.resume"), ("jsk.render", "jsk.resume"),
 }
 
 

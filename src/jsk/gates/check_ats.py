@@ -23,6 +23,7 @@ the extracted text says, and whether a parser can extract it at all.
 import sys, os, re, html, unicodedata
 
 from ..cliutil import docstring_usage, utf8_stdout, wants_help
+from ..infra.pdf import read_pdf
 
 # A heading is short and unpunctuated. Longer than this is prose, whatever it says.
 HEADING_MAX = 40
@@ -98,19 +99,6 @@ def is_heading(text):
     """
     t = text.strip()
     return 0 < len(t) <= HEADING_MAX and not t.endswith((".", "!", "?", ",", ";"))
-
-
-def read_pdf(path):
-    """(text, embedded font names). Raises ImportError without pymupdf."""
-    import pymupdf                                 # noqa: PLC0415 - optional dependency
-
-    pages, fonts = [], set()
-    with pymupdf.open(path) as doc:
-        for page in doc:
-            pages.append(page.get_text())
-            for font in page.get_fonts(full=False):
-                fonts.add(font[3])
-    return "\n".join(pages), sorted(fonts)
 
 
 def read_txt(path):
