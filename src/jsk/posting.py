@@ -55,33 +55,14 @@ import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 
-POSTING = "posting.md"
+from .domain.posting.errors import POSTING, Refused
+
 USAGE = ("usage: jsk posting fetch <url>|<file> <application-dir>\n"
          "       jsk posting extract <application-dir>\n"
          "       jsk posting build <application-dir> [<decisions-file>] [--replace]")
 TIMEOUT = 30
 BROWSER_FIX = ("fix:  fetch it with a browser tool and write posting.md with the Write "
                "tool - the advertisement verbatim, the URL on its first line")
-
-
-class Refused(Exception):
-    """A refusal: its message, then the fix line. `problems` is every (message, fix) it
-    holds - several when `jsk posting build` found more than one, since a build that
-    stopped at the first cost Schneider's run six builds."""
-
-    def __init__(self, message, fix, problems=None):
-        super().__init__(message)
-        self.fix = fix
-        self.problems = problems or [(message, fix)]
-
-    @classmethod
-    def every(cls, problems):
-        """One refusal holding every (message, fix): the problem itself when there is one,
-        else the count, each problem keeping its own fix."""
-        if len(problems) == 1:
-            return cls(*problems[0])
-        return cls(f"{len(problems)} problems", "fix:  each problem above has its own fix",
-                   problems)
 
 
 class NotOnBoard(Exception):

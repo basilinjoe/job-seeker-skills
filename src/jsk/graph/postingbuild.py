@@ -13,7 +13,7 @@ import datetime
 import os
 import re
 
-from ..posting import POSTING, Refused
+from ..domain.posting.errors import POSTING, Refused
 from ..domain import ontology as O
 from .rules import FIRST_LINE, REQUIRED_WORDS, advert_lines, squash
 
