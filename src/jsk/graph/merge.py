@@ -16,7 +16,7 @@ names it, and retired, with a reason naming c:b, when a posting still does: the 
 then reads `retired-referenced`, a WARN that says to re-point it.
 """
 from ..domain import ontology as O
-from .pack import EDGES, Walls, cur, edges, names, node, slug
+from ..domain.record.pack import EDGES, Walls, cur, edges, names, node, slug
 
 
 class Refused(Exception):
@@ -39,7 +39,7 @@ def draft(store, a, b):
     [bullet iris], "notes": [...]} for merging concept iri `a` into `b`. Raises Refused."""
     import pyoxigraph as ox
 
-    from .pack import classes
+    from ..domain.record.pack import classes
     from ..domain.record.state import KB
     from ..domain.naming import graph_iri
 
