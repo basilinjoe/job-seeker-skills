@@ -38,7 +38,7 @@ from concurrent.futures import ThreadPoolExecutor
 from ..cliutil import docstring_usage, wants_help
 from . import render_resume
 from ..domain.render import themes
-from .tex import available_engine, compile_pdf
+from ..infra.tex import available_engine, compile_pdf
 
 
 def arg(argv, flag, default=None):
@@ -53,14 +53,12 @@ def arg(argv, flag, default=None):
 def thumbnail(pdf, png, dpi=110):
     """First page as a PNG. Optional: the PDFs are the deliverable and a
     missing pymupdf costs a convenience, not the preview."""
+    from ..infra.pdf import thumbnail as first_page
+
     try:
-        import pymupdf                              # noqa: PLC0415
+        return first_page(pdf, png, dpi)
     except ImportError:
         return None
-    try:
-        with pymupdf.open(pdf) as doc:
-            doc[0].get_pixmap(dpi=dpi).save(png)
-            return doc.page_count
     except Exception as e:                          # noqa: BLE001 - reported, never fatal
         print(f"  note   could not read {os.path.basename(pdf)}: {e}")
         return None

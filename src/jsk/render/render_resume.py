@@ -32,7 +32,7 @@ import sys
 from ..cliutil import docstring_usage, wants_help
 from ..domain.render import emit_latex, emit_text
 from ..domain.render import themes
-from .tex import compile_pdf
+from ..infra.tex import compile_pdf
 
 # The stem follows the VARIANT. It used to follow the format, so
 # `--format latex --profile ats-maximal` wrote `{name}_Resume.tex` and silently
@@ -121,14 +121,11 @@ def page_count(pdf):
     that script's whole job is the page count, where this one reports it beside the
     budget. Same import guard, different consequence.
     """
+    from ..infra.pdf import page_count as pages_in
+
     try:
-        import pymupdf                              # noqa: PLC0415 - optional dependency
-    except ImportError:
-        return None
-    try:
-        with pymupdf.open(pdf) as doc:
-            return doc.page_count
-    except Exception:                               # noqa: BLE001 - reported, never fatal
+        return pages_in(pdf)
+    except Exception:                               # noqa: BLE001 - ImportError too; never fatal
         return None
 
 

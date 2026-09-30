@@ -33,7 +33,8 @@ import sys
 import tempfile
 
 
-from .tex import available_engine, compile_pdf
+from ..infra.pdf import measure as measure_pdf
+from ..infra.tex import available_engine, compile_pdf
 from ..cliutil import utf8_stdout
 
 MARGIN_FLOOR_IN = 0.5
@@ -148,25 +149,6 @@ def body_font_pt(tex):
 
 
 # --- measurement ----------------------------------------------------------------
-
-def measure_pdf(pdf_path):
-    """[{height, bottom, first_text, first_height}] one entry per page, in points."""
-    import pymupdf                                    # noqa: PLC0415 - optional dependency
-
-    pages = []
-    with pymupdf.open(pdf_path) as doc:
-        for page in doc:
-            blocks = [b for b in page.get_text("blocks") if (b[4] or "").strip()]
-            first = blocks[0] if blocks else None
-            pages.append({
-                "height": page.rect.height,
-                "top": min((b[1] for b in blocks), default=0.0),
-                "bottom": max((b[3] for b in blocks), default=0.0),
-                "first_text": " ".join((first[4] or "").split())[:60] if first else "",
-                "first_height": (first[3] - first[1]) if first else 0.0,
-            })
-    return pages
-
 
 def fill_percent(page):
     h = page["height"] or 1
