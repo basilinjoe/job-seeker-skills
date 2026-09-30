@@ -41,7 +41,8 @@ DOMAIN_ALLOWED_SUBMODULES = ("urllib.parse",)
 DOMAIN_FORBIDDEN_ATTRIBUTES ={"today", "now", "utcnow", "ox"}
 DOMAIN_FORBIDDEN_NAMES = {"record_graphs"}
 NO_PYOXIGRAPH = {"jsk.domain.ontology", "jsk.domain.matching.scoring"}
-PORT_IMPORTS = {"typing", "dataclasses", "__future__"}
+# A port states a shape; the date is the one value type from outside typing it names.
+PORT_IMPORTS = {"typing", "dataclasses", "__future__", "datetime"}
 STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 
 # (importer, imported) -> the names it imports. Today's outward edges, each to be removed by

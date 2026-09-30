@@ -103,7 +103,7 @@ jobs:
       # so every job would check the same thing, each fetching Node to do it.
       - name: Type check
         if: matrix.name == 'without a TeX engine'
-        run: python -m pyright src/jsk/graph src/jsk/domain src/jsk/application src/jsk/infra
+        run: python -m pyright src/jsk/graph src/jsk/domain src/jsk/ports src/jsk/application src/jsk/infra
 
       # `jsk doctor` is what tells a person what this machine can do. If it disagrees
       # with the machine, every gap it reports afterwards is untrustworthy - so it runs

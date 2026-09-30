@@ -341,6 +341,11 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/errors.py               posting.md's name, and how a posting step refuses
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
+  ports/                            what the application needs from outside, as Protocols
+    engine.py  record.py  codec.py  the graph engine; the record on disk; Turtle and TriG
+    files.py  tex.py  pdf.py        authored texts and application files; the TeX engine; a PDF read
+    posting_source.py  profiles.py  a job board's API; the region profiles
+    clock.py  queries.py            today; the feature reads over a loaded record
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
