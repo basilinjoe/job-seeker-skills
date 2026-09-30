@@ -11,6 +11,7 @@ by the one-time import (`jsk kb load`, legacy.py). Two files could not be replac
 atomically together, so for those the states below also tell a hand edit, a torn write and
 a restored file apart: the import refuses each of them before it fills a store.
 """
+import difflib
 import os
 from dataclasses import dataclass
 
@@ -311,3 +312,21 @@ def backup(root, writer):
         os.replace(tmp, os.path.join(root, BACKUP))
     except Exception:       # noqa: BLE001 - whatever it was, the write it follows stands
         pass
+
+
+def key(f):
+    """A finding's identity across two loads: its rule, graph, focus and detail."""
+    return (f.rule, f.file, f.focus, f.detail)
+
+
+def new_failures(before, after):
+    """What a write would break: any FAIL in the career or the vocabulary, and a FAIL
+    anywhere that was not already there - an old application's fault is not this one's."""
+    had = {key(f) for f in before.fails()}
+    return [f for f in after.fails() if not f.file.startswith("applications/") or key(f) not in had]
+
+
+def diff(old, new, name="kb"):
+    """The unified diff from text `old` to `new`, headed a/`name` and b/`name`."""
+    return "".join(difflib.unified_diff(old.splitlines(True), new.splitlines(True),
+                                        f"a/{name}", f"b/{name}"))

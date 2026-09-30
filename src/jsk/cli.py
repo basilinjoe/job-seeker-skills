@@ -197,7 +197,7 @@ def store_report(start=None):
     path inside one, or its career/store/; by default the current directory."""
     from .graph import db
     from .graph import record as R
-    from .graph.kbcli import find_root
+    from .infra.files import find_root
 
     here = start or os.getcwd()
     if os.path.isfile(here):
@@ -243,7 +243,7 @@ NO_RECORD = {"new", "doctor", "kb"}
 def workspace_refusal(sub, rest):
     """unloaded_refusal for the workspace a command runs in - the one around the current
     directory, or around any path it was given - or None."""
-    from .graph.kbcli import find_root
+    from .infra.files import find_root
 
     if sub in NO_RECORD or wants_help(rest):
         return None

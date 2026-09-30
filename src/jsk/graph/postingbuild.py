@@ -85,7 +85,7 @@ def advert_header(advert):
 def workspace(app_dir, vocabulary):
     """(root, store) for the workspace above the application, or (None, None)."""
     from . import store as S
-    from .kbcli import find_root
+    from ..infra.files import find_root
 
     root = find_root(app_dir)
     if root is None:
@@ -153,7 +153,7 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
     Refused, and then
     writes nothing. Runs inside the workspace's turn, taken before anything is read."""
     from . import record as R
-    from .kbcli import find_root
+    from ..infra.files import find_root
 
     root = find_root(app_dir)
     with R.turn(root, dry_run=root is None):

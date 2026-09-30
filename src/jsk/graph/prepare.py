@@ -101,7 +101,7 @@ def prepare(root, app, named_as, budget, today, draft):
     from . import named
     from . import ontology as O
     from . import store as S
-    from .kbcli import entry_text, with_children
+    from .writer import entry_text, with_children
     from .match import blocks, markdown, posting_in, result
     from .shapes import curie
 

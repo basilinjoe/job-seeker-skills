@@ -375,7 +375,7 @@ def content_words(text):
     """{stem: word} over `text`'s content words: kbcli.stems' words and five-letter
     stems ("onboarded" meets "onboarding"), less STOP and bare numbers - a year or a
     count shared by two projects is a coincidence, not a sign they are one."""
-    from .kbcli import WORD
+    from ..domain.record.confirmation import WORD
     from .rules import squash
     out = {}
     for w in WORD.findall(squash(text).lower()):

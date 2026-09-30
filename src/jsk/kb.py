@@ -109,7 +109,7 @@ def restart(root, name, today):
     from .graph import db
     from .graph import record as R
     from .graph import store as S
-    from .graph.kbcli import GUIDE
+    from .adapters.cli.kb import GUIDE
 
     store = S.load(root)
     st = R.state(store)

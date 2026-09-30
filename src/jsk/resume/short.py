@@ -101,7 +101,7 @@ def read(path):
 def workspace(path):
     """The workspace root above the file. Walked up, never worked out: the real one is
     the folder holding career/store/."""
-    from ..graph.kbcli import find_root
+    from ..infra.files import find_root
 
     root = find_root(os.path.dirname(os.path.abspath(path)))
     if root is None:

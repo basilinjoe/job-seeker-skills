@@ -296,3 +296,27 @@ def write(triples, kind):
     while out and out[-1] == "":
         out.pop()
     return "\n".join(out) + "\n"
+
+
+def entry_text(quads, iri):
+    """One entry as the writer lays it out - every part, for the Person's Positioning too."""
+    sub = Subjects(quads)
+    parts = ["main"] + sorted({p.section for p in sub.cls[iri].preds.values() if p.section})
+    return "\n\n".join(b[0] for b in (block(sub, iri, part) for part in parts) if b)
+
+
+def with_children(quads, iri):
+    """The entry and what is read with it: a project's bullets, a metric's versions."""
+    def of(pred):
+        return sorted({q.subject.value for q in quads if q.predicate.value == O.J + pred
+                       and q.object.value == iri})
+    kids = {"Project": sorted(of("project"), key=lambda a: rank(quads, a)),
+            "Metric": sorted(of("of"), key=lambda v: int(v.rsplit(".v", 1)[1]))}
+    cls = O.class_of(iri)
+    return [iri] + (kids.get(cls, []) if cls else [])
+
+
+def rank(quads, iri):
+    """An entry's j:rank among its siblings; one without a rank sorts last."""
+    return next((int(q.object.value) for q in quads if q.subject.value == iri
+                 and q.predicate.value == O.J + "rank"), 1 << 30)

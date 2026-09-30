@@ -380,7 +380,7 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
     triple, and the posting beside it, which the rules read, is there only now.
     `carried_of(store)` is (bullet iris, metric version iris) for what was sent."""
     from . import store as S
-    from .kbcli import new_failures
+    from .record import new_failures
 
     store = S.load(root)
     # Asked again here, inside the turn: another freeze of this application may have
@@ -552,7 +552,7 @@ def add(root, app_dir, kind, date, channel, note, due, today=None):
 def added(root, app_dir, kind, date, channel, note, due, today):
     from . import record as R
     from . import store as S
-    from .kbcli import diff, new_failures
+    from .record import diff, new_failures
     from .writer import curie, write
 
     store = S.load(root)

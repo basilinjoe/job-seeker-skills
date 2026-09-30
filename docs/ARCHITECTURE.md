@@ -329,8 +329,12 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     layout.py                       the layout gate - fonts, tofu, stranded headings, dates, paper
     letter.py                       the letter check - a cover letter's length, prose and numbers
   preflight.py                      `jsk doctor`: what this machine can do
+  domain/                           the innermost ring: no files, argv, environment or clock
+    record/confirmation.py          what a confirmation's quote must share with its claim
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
+  infra/                            what touches a disk, a process, the network or the engine
+    files.py                        the workspace on disk: find_root
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded

@@ -27,7 +27,7 @@ RANK = {ring: i for i, ring in enumerate(RINGS)}
 UNSORTED = "unsorted"
 
 # Adapters that still live at the package root, where their documented paths are.
-ROOT_ADAPTERS = {"jsk.cli", "jsk.__main__", "jsk.preflight", "jsk.mcp"}
+ROOT_ADAPTERS = {"jsk.cli", "jsk.__main__", "jsk.kb", "jsk.preflight", "jsk.mcp"}
 
 # Ruling 2: the pyoxigraph names that carry no I/O.
 TERMS = {"NamedNode", "Literal", "BlankNode", "Triple", "Quad", "DefaultGraph"}
@@ -75,12 +75,25 @@ def ring_of(name):
     return UNSORTED
 
 
+# The line that makes a module an alias of one that moved: its old path is kept for the
+# tests until P6 rewrites their imports, and it is the moved module, not a dependency on it.
+ALIAS = "sys.modules[__name__] = _moved"
+
+
 def modules():
-    """{dotted name: (path, parsed tree)} for every module under src/jsk."""
+    """{dotted name: (path, parsed tree)} for every module under src/jsk but the aliases."""
     out = {}
     for path in sorted(SCRIPTS.rglob("*.py")):
-        out[module_name(path)] = (path, ast.parse(path.read_text(encoding="utf-8")))
+        text = path.read_text(encoding="utf-8")
+        if ALIAS not in text:
+            out[module_name(path)] = (path, ast.parse(text))
     return out
+
+
+def aliases():
+    """The dotted names of the modules left at a moved module's old path."""
+    return {module_name(p) for p in SCRIPTS.rglob("*.py")
+            if ALIAS in p.read_text(encoding="utf-8")}
 
 
 def resolve(importer, is_package, node):
@@ -119,14 +132,19 @@ def imports(name, path, tree, known):
     return found
 
 
-def jsk_edges(mods):
-    """{(importer, imported): {names}} over jsk modules only, self-edges dropped."""
+def jsk_edges(mods, keep=()):
+    """{(importer, imported): {names}} over jsk modules only, self-edges dropped.
+
+    An import of a name not in `mods` is credited to its nearest enclosing package, unless
+    the name is in `keep` - the aliases, which a test needs to see imported.
+    """
     edges = {}
+    known = set(mods) | set(keep)
     for name, (path, tree) in mods.items():
-        for target, names, _ in imports(name, path, tree, mods):
+        for target, names, _ in imports(name, path, tree, known):
             if target == name or not (target == PACKAGE or target.startswith(PACKAGE + ".")):
                 continue
-            while target not in mods and "." in target:
+            while target not in known and "." in target:
                 target = target.rsplit(".", 1)[0]
             edges.setdefault((name, target), set()).update(names)
     return edges
@@ -217,6 +235,11 @@ class DependenciesPointInward(unittest.TestCase):
     MODS = modules()
     EDGES = jsk_edges(MODS)
 
+    def test_no_module_imports_an_old_path(self):
+        old = aliases()
+        through = sorted((src, dst) for src, dst in jsk_edges(self.MODS, old) if dst in old)
+        self.assertEqual(through, [], "import the module where it lives now")
+
     def test_no_edge_points_outward(self):
         bad = {e: n for e, n in outward(self.EDGES).items() if e not in KNOWN_EDGES}
         self.assertEqual(bad, {}, "an import points outward; move one end, or pass the "
@@ -282,6 +305,10 @@ class TheGuardSeesEachWayRound(unittest.TestCase):
         found = domain_calls("jsk.domain.x", self.tree(
             "import pyoxigraph as ox\nox.NamedNode('x')\nox.Store()\n"))
         self.assertEqual({w for _, w in found}, {"reaches pyoxigraph.Store"})
+
+    def test_an_import_of_an_old_path_is_seen(self):
+        mods = {"jsk.x": (SCRIPTS / "x.py", self.tree("from .graph import kbcli\n"))}
+        self.assertIn(("jsk.x", "jsk.graph.kbcli"), jsk_edges(mods, {"jsk.graph.kbcli"}))
 
     def test_a_cycle_is_seen(self):
         edges = {("jsk.graph.a", "jsk.gates.b"): set(), ("jsk.gates.c", "jsk.graph.d"): set()}
