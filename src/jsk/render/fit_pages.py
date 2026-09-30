@@ -26,9 +26,7 @@ Needs a TeX engine and `pymupdf`. Both are external; with either missing this re
 loudly and exits 2, because a page count nobody measured is a page count nobody knows.
 """
 import argparse
-import math
 import os
-import re
 import sys
 import tempfile
 
@@ -37,156 +35,26 @@ from ..infra.pdf import measure as measure_pdf
 from ..infra.tex import available_engine, compile_pdf
 from ..cliutil import utf8_stdout
 
-MARGIN_FLOOR_IN = 0.5
-FONT_FLOOR_PT = 10.0
-
-# The four knobs emit_latex.py promises to keep literal and one per line.
-SECTION_GAP = re.compile(r"(\\setlength\{\\sectiongap\}\{)([\d.]+)pt(\})")
-ENTRY_GAP = re.compile(r"(\\setlength\{\\entrygap\}\{)([\d.]+)pt(\})")
-TOPSEP = re.compile(r"(topsep=)([\d.]+)pt")
-ITEMSEP = re.compile(r"(itemsep=)([\d.]+)pt")
-MARGIN = re.compile(r"(margin=)([\d.]+)(in\])")
-BODY_FONT = re.compile(r"(\\fontsize\{)([\d.]+)pt\}\{([\d.]+)pt(\})")
-
-
-# --- the lever plan -------------------------------------------------------------
-#
-# A state is (spacing, bullet_spacing, margin_inches, font_delta_points). Each step is
-# derived from the ORIGINAL document rather than from the previous step, so repeated
-# rounding cannot drift a value past a floor. `None` means "leave this alone".
-
-def lever_plan():
-    steps = []
-    for f in (0.75, 0.5, 0.25, 0.0):
-        steps.append((f"inter-paragraph spacing x{f:g}", (f, None, None, 0)))
-    base = 0.0
-    for f in (0.5, 0.0):
-        steps.append((f"bullet spacing x{f:g}", (base, f, None, 0)))
-    for inches in (0.7, 0.6, 0.55, MARGIN_FLOOR_IN):
-        steps.append((f"margins {inches:.2f}in", (base, 0.0, inches, 0)))
-    for d in (0.5, 1.0):
-        steps.append((f"body font -{d:g}pt", (base, 0.0, MARGIN_FLOOR_IN, d)))
-    return steps
-
-
-# --- LaTeX transforms -----------------------------------------------------------
-#
-# Each is a pure string -> string, so the floors can be tested without a TeX engine.
-
-def _scale(pattern, tex, factor, groups=3):
-    def fix(m):
-        value = float(m.group(2)) * factor
-        tail = "".join(m.group(i) for i in range(3, groups + 1))
-        return f"{m.group(1)}{value:g}pt{tail}"
-    return pattern.sub(fix, tex)
-
-
-def scale_spacing(tex, factor):
-    """Section and entry gaps. A lever must only ever remove space."""
-    tex = _scale(SECTION_GAP, tex, factor)
-    return _scale(ENTRY_GAP, tex, factor)
-
-
-def scale_bullet_spacing(tex, factor):
-    tex = _scale(TOPSEP, tex, factor, groups=2)
-    return _scale(ITEMSEP, tex, factor, groups=2)
-
-
-def set_margins(tex, inches):
-    """Never below the 0.5in floor, whatever the caller asks for."""
-    inches = max(float(inches), MARGIN_FLOOR_IN)
-    return MARGIN.sub(lambda m: f"{m.group(1)}{inches:g}{m.group(3)}", tex)
-
-
-def shrink_font(tex, delta_pt):
-    """Lower the body size by delta, never below the 10pt floor."""
-    def fix(m):
-        size = max(float(m.group(2)) - float(delta_pt), FONT_FLOOR_PT)
-        return f"{m.group(1)}{size:g}pt}}{{{size * 1.2:g}pt{m.group(4)}"
-    return BODY_FONT.sub(fix, tex)
-
-
-def apply_state(tex, state):
-    spacing, bullet, margin_in, font_delta = state
-    if spacing is not None:
-        tex = scale_spacing(tex, spacing)
-    if bullet is not None:
-        tex = scale_bullet_spacing(tex, bullet)
-    if margin_in is not None:
-        tex = set_margins(tex, margin_in)
-    if font_delta:
-        tex = shrink_font(tex, font_delta)
-    return tex
-
-
-def describe(state):
-    """Every lever a state moves, in plan order, each at the value it sets.
-
-    The plan's labels name only the step that was reached, and each step carries the
-    ones before it: "margins 0.60in" is also no paragraph and no bullet spacing. `jsk
-    ship` prints this line, so what it says it applied is everything it applied."""
-    spacing, bullet, margin_in, font_delta = state
-    moved = []
-    if spacing is not None:
-        moved.append(f"inter-paragraph spacing x{spacing:g}")
-    if bullet is not None:
-        moved.append(f"bullet spacing x{bullet:g}")
-    if margin_in is not None:
-        moved.append(f"margins {margin_in:g}in")
-    if font_delta:
-        moved.append(f"body font -{font_delta:g}pt")
-    return ", ".join(moved)
-
-
-def current_margin_in(tex):
-    m = MARGIN.search(tex)
-    return float(m.group(2)) if m else None
-
-
-def body_font_pt(tex):
-    m = BODY_FONT.search(tex)
-    return float(m.group(2)) if m else None
-
-
-# --- measurement ----------------------------------------------------------------
-
-def fill_percent(page):
-    h = page["height"] or 1
-    return 100.0 * page["bottom"] / h
-
-
-def diagnose(pages, target, bottom_margin_pt):
-    """Why the document spills: what opened the overflow page, and what room was left.
-
-    This is the measurement the issue says was taken last instead of first. A block
-    held together either fits in the remaining space or it does not, and trimming
-    words elsewhere cannot change that unless it frees a whole line.
-    """
-    if len(pages) <= target or target < 1:
-        return None
-    spilled = pages[target]
-    previous = pages[target - 1]
-    free = previous["height"] - bottom_margin_pt - previous["bottom"]
-    return {
-        "text": spilled["first_text"],
-        "needs": spilled["first_height"],
-        "free": max(free, 0.0),
-    }
-
-
-def lines_over(pages, target, margin_pt, line_pt):
-    """About how many body lines the pages past the budget hold, less the room left
-    on the last page inside it. 0 when the document fits.
-
-    The Arrow run (2026-09-29) was told only that it could not fit, and cut three
-    confirmed bullets to make room nobody had measured. A line count says how much
-    evidence the budget costs, which is what the person deciding the cut needs."""
-    if len(pages) <= target or target < 1 or line_pt <= 0:
-        return 0
-    last = pages[target - 1]
-    free = max(last["height"] - margin_pt - last["bottom"], 0.0)
-    spill = sum(max(p["bottom"] - p.get("top", margin_pt), 0.0) for p in pages[target:])
-    return max(math.ceil((spill - free) / line_pt), 1)
+from ..domain.render.fit_levers import BODY_FONT as BODY_FONT
+from ..domain.render.fit_levers import ENTRY_GAP as ENTRY_GAP
+from ..domain.render.fit_levers import FONT_FLOOR_PT as FONT_FLOOR_PT
+from ..domain.render.fit_levers import ITEMSEP as ITEMSEP
+from ..domain.render.fit_levers import MARGIN as MARGIN
+from ..domain.render.fit_levers import MARGIN_FLOOR_IN as MARGIN_FLOOR_IN
+from ..domain.render.fit_levers import SECTION_GAP as SECTION_GAP
+from ..domain.render.fit_levers import TOPSEP as TOPSEP
+from ..domain.render.fit_levers import apply_state as apply_state
+from ..domain.render.fit_levers import body_font_pt as body_font_pt
+from ..domain.render.fit_levers import current_margin_in as current_margin_in
+from ..domain.render.fit_levers import describe as describe
+from ..domain.render.fit_levers import diagnose as diagnose
+from ..domain.render.fit_levers import fill_percent as fill_percent
+from ..domain.render.fit_levers import lever_plan as lever_plan
+from ..domain.render.fit_levers import lines_over as lines_over
+from ..domain.render.fit_levers import scale_bullet_spacing as scale_bullet_spacing
+from ..domain.render.fit_levers import scale_spacing as scale_spacing
+from ..domain.render.fit_levers import set_margins as set_margins
+from ..domain.render.fit_levers import shrink_font as shrink_font
 
 
 # --- reporting ------------------------------------------------------------------
