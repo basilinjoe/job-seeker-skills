@@ -367,6 +367,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
     assessment/derive.py            the gap assessment the match already knows, without a model
+    assessment/fold.py              gaps.txt checked against the derived assessment and folded in; its triples
+    assessment/draft.py             the gaps.txt draft: a slot wherever the analyst's judgement is needed
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
     render/fit_levers.py            the page fitter's levers and floors over a .tex's text; page geometry read
     render/page_report.py           the line a render says about its pages, against the budget
@@ -384,6 +386,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/numbers.py                the untraced-number check over a loaded career
     tailor/match_text.py            the match as markdown; its sections, shared with the gaps draft
     tailor/match_posting.py         one application's posting matched against the career, as plain data
+    tailor/check_gaps.py            gaps.txt checked, the assessment and gaps.md written from the match
+    tailor/draft_gaps.py            the gaps.txt draft: the advert, the drops and the person read, the draft made
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
     render/build_plan.py            a resume.json on disk to its render plan

@@ -47,6 +47,7 @@ def main(argv):
         The exit code: 0 matched, 1 a FAIL blocks it or --gaps found one, 2 called wrong.
         Prints the match; --gaps and --draft-gaps write the assessment and gaps.md.
     """
+    from ...application.tailor.check_gaps import gaps_refusal
     from ...application.tailor.match_posting import application
 
     argv = list(argv)
@@ -159,35 +160,23 @@ def matched(root, app, named, options, opts, as_json):
     return 0
 
 
-def gaps_refusal(app, path, drafting):
-    """Why `path` is not this application's gaps.txt, or None. gaps.md is written by jsk
-    now, and read by nothing: a gaps.md jsk did not write is an older assessment."""
-    if path.endswith(".md"):
-        return (f"FAIL  {path}: gaps.md is written by jsk now; one it did not write is an "
-                f"older assessment, read by people only\n"
-                f"      fix: pass the application's gaps.txt - --draft-gaps drafts one")
-    want = os.path.join(os.path.abspath(app), "gaps.txt")
-    if os.path.normcase(os.path.abspath(path)) != os.path.normcase(want):
-        return (f"FAIL  {path}: not this application's gaps.txt\n"
-                f"      fix: pass {want} - gaps.md is written beside it")
-    if drafting and os.path.exists(path):
-        # The analyst's filled slots are its judgement; a re-run must not wipe them.
-        return (f"FAIL  {path} exists - the draft would overwrite it\n"
-                f"      fix: check it with --gaps, or delete it to draft again")
-    if not drafting and not os.path.isfile(path):
-        return (f"FAIL  {path}: no such file\n"
-                f"      fix: draft it with --draft-gaps, or let `jsk tailor prepare` write "
-                f"the assessment alone")
-    return None
-
-
 def show_build(written, found, label):
-    """Print gapsbuild.build's findings and what it wrote; 1 on any FAIL."""
+    """Print check_gaps.build's findings and what it wrote.
+
+    Args:
+        written: the graphs and files written.
+        found: the (severity, text, fix) findings.
+        label: what the summary line names.
+
+    Returns:
+        1 on any FAIL, else 0.
+    """
+    from ...application.tailor.check_gaps import shown
+
     for severity, text, fix in found:
         print(f"{severity}  {text}\n      fix: {fix}")
     fails = sum(s == "FAIL" for s, _, _ in found)
     if written:
-        from ...graph.gapsbuild import shown
         wrote = " - wrote " + " and ".join(shown(w) for w in written)
     else:
         wrote = " - nothing written" if fails else ""
@@ -197,27 +186,22 @@ def show_build(written, found, label):
 
 def report_gaps(report, app, today):
     """--gaps: check gaps.txt, then write the assessment and gaps.md; 1 on any FAIL."""
-    from ...graph.gapsbuild import build
+    from ...application.tailor.check_gaps import build
+    from ...graph.gapsbuild import Folder
 
-    written, found = build(app, report.store, report.result, today)
+    written, found = build(app, report.store, report.result, today, None, folder=Folder())
     return show_build(written, found, os.path.join(app, "gaps.txt"))
 
 
 def write_draft(report, app, today, path):
     """--draft-gaps: the assessment from the match alone, then gaps.txt drafted over it."""
+    from ...application.tailor.draft_gaps import draft_over_match
     from ...domain.naming import app_graph
-    from ...graph.gapsbuild import build
-    from ...graph.gapsderive import derive
-    from ...graph.gapsdraft import MARK, draft_gaps
+    from ...graph.gapsbuild import Folder
 
-    r, store = report.result, report.store
-    derived = derive(r, store)
-    written, found = build(app, store, r, today, derived)
-    if show_build(written, found, app_graph(report.rel, "gaps")):
+    done = draft_over_match(report, app, today, path, folder=Folder())
+    if show_build(done.written, done.found, app_graph(report.rel, "gaps")):
         return 1
-    text = draft_gaps(derived, store, os.path.join(app, "posting.md"))
-    with open(path, "x", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
-    slots = sum(MARK in line for line in text.split("\n"))
-    print(f"wrote {path}: {len(r['requirements'])} requirements, {slots} slots to fill")
+    print(f"wrote {path}: {len(report.result['requirements'])} requirements, "
+          f"{done.slots} slots to fill")
     return 0

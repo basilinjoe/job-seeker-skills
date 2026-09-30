@@ -1,22 +1,16 @@
-"""The gaps.txt draft `jsk match --draft-gaps` writes: only what needs the analyst's judgement,
-each as a `<!-- jsk: ... -->` slot, with everything else left to the derived assessment.
+"""The gaps.txt draft's old path, and the files it reads: posting.md's lines and
+decisions.txt's drops.
 
-On the three fast-tailor runs the analyst kept the match's verdict on all but seven rows, so
-the draft lists only the rows the review flag fired on; gaps.md shows the rest with their
-evidence, and the analyst lowers one by adding a row. `--gaps` FAILs on any slot left
-unfilled.
-
-gapsbuild renders gaps.md; gapsderive derives the verdicts, the evidence and the questions.
+The draft's text is domain/assessment/draft.py's and the reads around it
+application/tailor/draft_gaps.py's; `draft_gaps` keeps today's signature and hands the use
+case the real folder (graph.gapsbuild.Folder).
 """
-import os
-
-from ..domain.assessment.overlay import MARK
-
-CUT = 80
-
-
-def slot(text):
-    return f"{MARK} {text} -->"
+from ..domain.assessment.draft import CUT as CUT
+from ..domain.assessment.draft import HEAD as HEAD
+from ..domain.assessment.draft import cut as cut
+from ..domain.assessment.draft import one_line as one_line
+from ..domain.assessment.draft import slot as slot
+from ..domain.assessment.overlay import MARK as MARK
 
 
 def advert(path):
@@ -35,6 +29,8 @@ def drops(post_dir):
     """decisions.txt's drops, or none for a posting written before decisions.txt existed.
     DecisionsError and io.Unreadable propagate: a file `jsk posting build` would refuse is
     not guessed at."""
+    import os
+
     from . import decisions as D
     from ..infra.files import Missing
 
@@ -44,65 +40,10 @@ def drops(post_dir):
         return []
 
 
-def cut(text):
-    if len(text) <= CUT:
-        return text
-    return text[:CUT].rsplit(" ", 1)[0].rstrip(",;:") + "…"
-
-
-def eligibility(store, lines):
-    """The person's facts and the advert's eligibility lines, as `#` comments over the slot:
-    what the analyst judges against, kept out of the value it writes."""
-    from .named import person
-
-    _, rows = person(store)
-    facts = [f"#   {r['fact']}: {r['value']}" + (f" ({r['provenance']})" if r["provenance"]
-                                                 else "") for r in rows]
-    elig = [f'#   advert: "{x.text}"' for x in lines if x.elig] or \
-        ["#   advert: nothing it says is about eligibility"]
-    return ["# eligibility is judged against:", *facts, *elig,
-            f"eligibility: {slot('judge eligibility against the facts above')}"]
-
-
-HEAD = [
-    "# gaps.txt - your overlay on the assessment jsk derived from the match.",
-    "# `jsk match <application> --gaps <this file>` checks it, then writes the assessment and gaps.md.",
-    "# A requirement not listed keeps the match's verdict (gaps.md shows each, with its evidence).",
-    "# A row is `slug | verdict | reason`: it lowers a verdict, never raises one.",
-]
-
-
-def dropped(post_dir, lines):
-    """decisions.txt's drops as comments, so the analyst sees what the posting left out."""
-    by_n = {x.n: x.text for x in lines}
-    return [f"# dropped advert line {d.n}: {cut(by_n.get(d.n, '(not in posting.md)'))} - "
-            f"{d.reason}" for d in drops(post_dir)]
-
-
 def draft_gaps(derived, store, advert_path):
     """gaps.txt for the Derived assessment `derived`, with a slot wherever judgement is
-    needed: eligibility, each flagged row, the shortfall, the surplus, a blocking question."""
-    lines = advert(advert_path)
-    # `/`, not `|`, inside the verdict slot: the row itself splits on `|`.
-    review = slot("keep, or lower: partial / unevidenced / unsatisfied")
-    rows = []
-    for row in derived.rows:
-        if row.flags:
-            rows += [f"# {one_line(row.asked)}: {one_line(row.flag_text or ', '.join(row.flags))}",
-                     f"{row.slug} | {review} |", ""]
-    out = [*HEAD, *dropped(os.path.dirname(os.path.abspath(advert_path)), lines), "",
-           f"fit: {derived.fit}", "",
-           *eligibility(store, lines), "",
-           *rows,
-           "short: " + slot("the unmet and partial requirements that matter, most load-bearing "
-                            "first"),
-           f"surplus: {slot('optional - delete this line if there is none')}", "",
-           f"ask: {slot('blocking: an eligibility question, or delete this line')}",
-           *(f"ask: {one_line(q)}" for q in derived.questions),
-           "# reword each ask to be said aloud; add from jsk kb query unconfirmed"]
-    return "\n".join(out) + "\n"
+    needed (application.tailor.draft_gaps.draft_gaps over graph.gapsbuild.Folder)."""
+    from ..application.tailor.draft_gaps import draft_gaps as drafted
+    from .gapsbuild import Folder
 
-
-def one_line(text):
-    """gaps.txt is read a line at a time: a newline inside a value would start a new one."""
-    return " ".join(text.split())
+    return drafted(derived, store, advert_path, folder=Folder())
