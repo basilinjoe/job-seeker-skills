@@ -338,6 +338,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/career.py                the career graph as the builder, export and match read it
     record/parsed.py                a Turtle or TriG text as parsed: quads, subject lines, comments
     record/state.py                 the career and its log in step: revision, state, stamp, entry
+    record/decisions.py             decisions.txt's format and its parser: header, rows, drops
     posting/errors.py               posting.md's name, and how a posting step refuses
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
