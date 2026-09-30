@@ -10,7 +10,7 @@ gapsbuild renders gaps.md; gapsderive derives the verdicts, the evidence and the
 """
 import os
 
-from .assessment import MARK
+from ..domain.assessment.overlay import MARK
 
 CUT = 80
 

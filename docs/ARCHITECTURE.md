@@ -341,6 +341,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/decisions.py             decisions.txt's format and its parser: header, rows, drops
     posting/errors.py               posting.md's name, and how a posting step refuses
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
+    assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
     render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
