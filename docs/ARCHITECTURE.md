@@ -372,6 +372,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
     oxigraph/db.py  record.py       the store on disk; the write gate every write goes through
     oxigraph/engine.py              the in-memory engine a loaded record runs on
+    oxigraph/queries.py             the feature reads over a loaded record, as SPARQL
     tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
     posting_sources.py              a board's JSON over the network; a .docx, .html or text file
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,

@@ -19,9 +19,7 @@ from dataclasses import dataclass, field
 from ..domain import ontology as O
 from ..domain.matching.scoring import SENIORITY, WEIGHTS, recency_points
 from ..domain.record.shapes import curie
-
-PRE = (f"PREFIX j: <{O.J}>\nPREFIX k: <{O.K}>\nPREFIX c: <{O.C}>\n"
-       f"PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n")
+from ..infra.oxigraph.queries import PRE as PRE
 
 
 @dataclass(frozen=True)

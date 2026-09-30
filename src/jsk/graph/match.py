@@ -128,12 +128,13 @@ def faults_in(store, bullets, today):
     Faults as the question's data."""
     from ..application.gates import numbers
     from ..domain.record.shapes import curie
+    from ..infra.oxigraph.queries import OxigraphQueries
 
     return [{"bullet": curie(f.bullet), "numbers": f.numbers,
              "superseded": [{"number": s["number"], "version": curie(s["version"]),
                              "until": s["until"]} for s in f.superseded],
              "cites": [curie(m) for m in f.cites]}
-            for f in numbers.untraced(store, bullets, today)]
+            for f in numbers.untraced(OxigraphQueries(store), bullets, today)]
 
 
 def quoted(numbers):

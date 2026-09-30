@@ -48,7 +48,6 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 # (importer, imported) -> the names it imports. Today's outward edges, each to be removed by
 # the phase that moves or splits one end of it.
 KNOWN_EDGES = {
-    ("jsk.application.gates.numbers", "jsk.graph.queries"): {"PRE"},
     ("jsk.application.guards", "jsk.graph.timeline"): {"frozen"},
     ("jsk.application.record.load", "jsk.graph.rules"): {"tier2"},
 }
