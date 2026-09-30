@@ -374,6 +374,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
     render/build_plan.py            a resume.json on disk to its render plan
     render/render_resume.py         one render: plans built, files written, the PDF compiled and measured
+    render/fit_pages.py             a .tex fitted to its budget: each lever staged, compiled, measured
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
@@ -386,6 +387,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     outputs.py                      a render's files written, its scratch directories, a move
   adapters/                         the driving side: argv parsed, a use case run, its result printed
     cli/render.py                   `jsk render`: its flags, the render run, what it wrote said
+    cli/fit.py                      `jsk fit`: its flags, the fit run, each lever and the verdict said
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded

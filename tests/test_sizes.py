@@ -40,7 +40,6 @@ SIZE_KNOWN = {
     ("src/jsk/graph/prepare.py", "prepare"): 124,
     ("src/jsk/graph/select.py", "select"): 97,
     ("src/jsk/preflight.py", "gather"): 90,
-    ("src/jsk/render/fit_pages.py", "main"): 154,
     ("src/jsk/render/preview_templates.py", "main"): 114,
 }
 

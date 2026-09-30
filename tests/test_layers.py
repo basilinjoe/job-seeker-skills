@@ -55,6 +55,7 @@ KNOWN_EDGES = {
     # The documented `python -m` entry points hand over to their adapters until P5
     # deletes them (Ruling 4).
     ("jsk.render.render_resume", "jsk.adapters.cli.render"): {"main"},
+    ("jsk.render.fit_pages", "jsk.adapters.cli.fit"): {"main"},
 }
 
 # (module, what it does that its ring forbids).
