@@ -40,7 +40,7 @@ def draft(store, a, b):
     import pyoxigraph as ox
 
     from .pack import classes
-    from .record import KB
+    from ..domain.record.state import KB
     from ..domain.naming import graph_iri
 
     kinds = classes(store)

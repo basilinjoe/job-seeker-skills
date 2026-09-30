@@ -50,7 +50,7 @@ from ...cliutil import docstring_usage, parse_flags, wants_help
 from ...domain.record.confirmation import WORD
 from ...domain.resume.constants import PROVENANCE_RANK
 from ...infra.files import find_root
-from ...graph.record import diff, new_failures
+from ...domain.record.state import diff, new_failures
 from ...domain.record.writer import entry_text, with_children
 
 VERBS = {}

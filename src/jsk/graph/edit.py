@@ -73,7 +73,7 @@ def carried_versions(store):
 def log_entries(store):
     """[(revision, {ids touched or minted})] from the log, oldest first. An entry whose
     revision is not an integer is left out: tier 1 FAILs it, and that stops the write."""
-    from .record import LOG, revision_of
+    from ..domain.record.state import LOG, revision_of
 
     if LOG not in store.parsed:
         return []
@@ -89,7 +89,7 @@ def log_entries(store):
 
 def started_over(store):
     """The revisions `jsk new` wrote: r1, and each --force start-over since."""
-    from .record import LOG, revision_of
+    from ..domain.record.state import LOG, revision_of
 
     if LOG not in store.parsed:
         return []
@@ -179,7 +179,7 @@ def apply(store, cs, today):
     """The career `cs` makes, as an Edit. Raises Refused with every reason it cannot."""
     import pyoxigraph as ox
 
-    from .record import KB
+    from ..domain.record.state import KB
 
     refusals = []
 
@@ -358,7 +358,7 @@ def base_conflicts(store, cs, refuse):
 
 def referenced(store, after, e, refuse):
     """An entry is deleted only when nothing points at it; otherwise it is retired."""
-    from .record import KB
+    from ..domain.record.state import KB
     from ..domain.naming import graph_iri
 
     if [f for f in store.definitions.get(e.value, []) if f != KB]:
