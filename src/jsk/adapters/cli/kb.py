@@ -204,8 +204,8 @@ def cmd_apply(args, flags, root):
     new bullet gets its id; a sent metric version gets a successor instead of a change.
     --dry-run prints the diff and writes nothing.
     """
-    from ...graph import changeset, edit
-    from ...graph import store as S
+    from ...graph import changeset, store as S
+    from ...domain.record import edit
     from ...domain.record.parsed import GraphError
 
     if len(args) != 1:
@@ -336,7 +336,7 @@ def cmd_merge(args, flags, root):
     Those bullets are printed as the re-confirm list. Nothing is applied: read it with
     `jsk kb apply FILE --dry-run`, then apply it.
     """
-    from ...graph import merge as M
+    from ...domain.record import merge as M
     from ...graph import pack as P
     from ...graph import store as S
 
