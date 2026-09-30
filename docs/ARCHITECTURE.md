@@ -343,6 +343,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/state.py                 the career and its log in step: revision, state, stamp, entry
     record/store.py                 a loaded workspace: its graphs, findings and engine; the derivations
     record/decisions.py             decisions.txt's format and its parser: header, rows, drops
+    record/rules.py                 tier 2: the rules over the whole workspace, as SPARQL rows
     record/changeset.py             a parsed changeset read, and what it may never say refused
     record/edit.py                  a changeset merged into the career, refused where the career says
     record/pack.py                  a starter pack's draft against the workspace, and its TriG

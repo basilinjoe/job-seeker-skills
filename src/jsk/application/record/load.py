@@ -2,7 +2,8 @@
 
 Loading never raises on bad content - it reports, and the caller decides what a FAIL
 stops. Where the graphs come from and what engine holds them are the caller's to give
-(ports.workspace.WorkspaceSource, ports.engine.GraphEngine): graph/store.py binds the
+(ports.workspace.WorkspaceSource, ports.engine.GraphEngine), and so is where the rules
+read an application's own files from (ports.advert.AdvertSource): graph/store.py binds the
 real ones.
 """
 from ...domain import ontology as O
@@ -12,7 +13,7 @@ from ...domain.record.store import (Store, derive_types, load_order, materialise
                                     parsed_graph)
 
 
-def load(root, vocabulary, files, graphs, *, source, new_engine):
+def load(root, vocabulary, files, graphs, *, source, new_engine, adverts):
     """Load, derive, validate and close over a workspace.
 
     Args:
@@ -26,6 +27,7 @@ def load(root, vocabulary, files, graphs, *, source, new_engine):
             write validates the record it is about to write before writing it.
         source: the workspace (ports.workspace.WorkspaceSource).
         new_engine: makes an empty ports.engine.GraphEngine.
+        adverts: the ports.advert.AdvertSource the rules read posting.md through.
 
     Returns:
         The loaded domain.record.store.Store, its findings every rule's.
@@ -37,7 +39,7 @@ def load(root, vocabulary, files, graphs, *, source, new_engine):
     import pyoxigraph as ox
 
     from ...domain.record.shapes import Finding, tier1
-    from ...graph.rules import tier2
+    from ...domain.record.rules import tier2
 
     store = Store(source.absolute(root), engine=new_engine())
     # Keyed by graph name, whichever a caller passed: `career/kb.ttl` is `kb`.
@@ -88,6 +90,6 @@ def load(root, vocabulary, files, graphs, *, source, new_engine):
     store.stored = stored
     narrow(store)
     derive_types(store, derived)
-    store.findings += tier2(store)
+    store.findings += tier2(store, adverts, source.record_state)
     materialise_paths(store)
     return store

@@ -292,7 +292,7 @@ def bare_list(store):
     """What `concepts-bare` counts, one row each: a capability nothing labels or places
     matches only its exact id, so a posting's "system design" misses c:systems-design.
     Most-held first - those are the ones a missed match costs most."""
-    from .rules import bare_capabilities
+    from ..domain.record.rules import bare_capabilities
 
     found = bare_capabilities(store)
     held, shown = {}, {}

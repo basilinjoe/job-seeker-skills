@@ -50,7 +50,6 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 KNOWN_EDGES = {
     ("jsk.application.gates.numbers", "jsk.graph.queries"): {"PRE"},
     ("jsk.application.guards", "jsk.graph.timeline"): {"frozen"},
-    ("jsk.application.record.load", "jsk.graph.rules"): {"tier2"},
 }
 
 # (module, what it does that its ring forbids).
