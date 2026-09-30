@@ -921,7 +921,7 @@ def cmd_ship(args):
     if template is not None:
         # Checked before anything runs: an unknown template is a call error, and
         # finding it after the record gate would report it as a failed render.
-        from .render import themes                     # noqa: PLC0415 - only when asked
+        from .domain.render import themes                     # noqa: PLC0415 - only when asked
         try:
             themes.get(template)
         except KeyError as exc:

@@ -28,6 +28,9 @@ UNSORTED = "unsorted"
 
 # Adapters that still live at the package root, where their documented paths are.
 ROOT_ADAPTERS = {"jsk.cli", "jsk.__main__", "jsk.kb", "jsk.preflight", "jsk.mcp"}
+# paths.py is where the packaged data is on disk: infra by what it does, kept at the root
+# because the wheel and the sdist are built around it.
+ROOT_INFRA = {"jsk.paths"}
 
 # Ruling 2: the pyoxigraph names that carry no I/O.
 TERMS = {"NamedNode", "Literal", "BlankNode", "Triple", "Quad", "DefaultGraph"}
@@ -43,6 +46,7 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 # the phase that moves or splits one end of it.
 KNOWN_EDGES = {
     ("jsk.application.gates.numbers", "jsk.graph.queries"): {"PRE"},
+    ("jsk.infra.profiles", "jsk.graph.io"): {"read_text"},
     ("jsk.application.guards", "jsk.graph.timeline"): {"frozen"},
 }
 
@@ -51,9 +55,7 @@ KNOWN_FORBIDDEN = set()
 
 # Package cycles among the unsorted packages: (package, package) pairs that import each
 # other, P1's work. A ring cannot be in one without an outward edge, which is failed above.
-KNOWN_CYCLES = {
-    ("jsk.render", "jsk.resume"),
-}
+KNOWN_CYCLES = set()
 
 
 def module_name(path):
@@ -69,6 +71,8 @@ def ring_of(name):
     """The ring `name` (a dotted jsk module) sits in, or UNSORTED."""
     if name in ROOT_ADAPTERS:
         return "adapters"
+    if name in ROOT_INFRA:
+        return "infra"
     parts = name.split(".")
     if len(parts) > 1 and parts[1] in RANK:
         return parts[1]

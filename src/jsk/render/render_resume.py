@@ -30,7 +30,8 @@ import os
 import sys
 
 from ..cliutil import docstring_usage, wants_help
-from . import emit_latex, emit_text, themes
+from . import emit_latex, emit_text
+from ..domain.render import themes
 from .tex import compile_pdf
 
 # The stem follows the VARIANT. It used to follow the format, so

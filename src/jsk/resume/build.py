@@ -14,8 +14,8 @@ import datetime
 
 from ..domain import ontology as O
 from ..graph import record as R
-from ..render import profiles
-from ..render.formatting import fmt_grade, fmt_instant, fmt_period, fold_ascii, period_key
+from ..infra import profiles
+from ..domain.render.formatting import fmt_grade, fmt_instant, fmt_period, fold_ascii, period_key
 from ..domain.resume.constants import MAX_SKILLS_PER_ROW, PROVENANCE_RANK
 from ..domain.record.career import CONTACTS, Career, employers, enum, local, number, period
 

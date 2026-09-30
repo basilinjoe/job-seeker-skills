@@ -24,8 +24,8 @@ fit_pages.py. Keep them literal, one per line, and in point units.
 """
 import re
 
-from . import themes
-from .formatting import LETTER_REGIONS
+from ..domain.render import themes
+from ..domain.render.formatting import LETTER_REGIONS
 
 # Variants build.py folds to ASCII, and which therefore cannot carry a
 # U+2022 bullet in the rendered text layer either.

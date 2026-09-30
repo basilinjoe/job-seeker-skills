@@ -36,7 +36,8 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
 from ..cliutil import docstring_usage, wants_help
-from . import render_resume, themes
+from . import render_resume
+from ..domain.render import themes
 from .tex import available_engine, compile_pdf
 
 

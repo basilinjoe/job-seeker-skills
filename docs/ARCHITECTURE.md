@@ -336,12 +336,14 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     ontology.py  record/writer.py   the format, as data; the entry printer (moved from graph/)
     record/career.py                the career graph as the builder, export and match read it
     posting/errors.py               posting.md's name, and how a posting step refuses
+    render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
+    profiles.py                     the region profiles under data/ (moved from render/)
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded
