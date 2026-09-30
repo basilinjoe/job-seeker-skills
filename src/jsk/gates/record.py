@@ -30,15 +30,12 @@ import re
 import sys
 
 from ..domain import ontology as O
+from ..domain.gates.report import line as line
 
 # "8 years of Kubernetes", "8+ yrs of hands-on K8s", "8 years' experience with Kafka".
 YEARS = re.compile(r"(?<![\d.])(\d{1,2})\+?\s*(?:years?|yrs?)(?:'|’)?\s+"
                    r"(?:of\s+)?(?:(?:hands-on|professional|production|commercial)\s+)?"
                    r"(?:experience\s+(?:in|with)\s+)?", re.I)
-
-
-def line(check, focus, detail, fix):
-    return f"{check} {focus} - {detail}\n        fix: {fix}"
 
 
 # --- the vocabulary in prose --------------------------------------------------------

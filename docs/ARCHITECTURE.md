@@ -336,6 +336,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/ats_rules.py              the parse gate's rules over extracted text and fonts
     gates/prose_rules.py            the prose gate's rules over a .tex's or .txt's paragraphs
     gates/layout_rules.py           the layout gate's rules over page sizes, line boxes and fonts
+    gates/letter_rules.py           the letter check's rules over a letter's words: length, prose, quotes
     resume/constants.py             the provenance floor's ranks and a skills row's length
     resume/plan.py                  the render plan: every content decision, made exactly once
     resume/short.py                 a resume.json as data: parsed, its shape, its ids, its summary
@@ -386,6 +387,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/prose.py                  the prose gate: a document's paragraphs read, then judged
     gates/layout.py                 the layout gate: a PDF's region and budget found, its lines judged
     gates/record.py                 the record gate: a resume.json's career loaded, every finding asked
+    gates/letter.py                 the letter check: its length and prose judged, its numbers traced
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
@@ -414,6 +416,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/gates/prose.py              the prose gate: its flags, the gate run, its verdict said
     cli/gates/layout.py             the layout gate: its flags, the gate run, its verdict said
     cli/gates/record.py             the record gate (`jsk validate`): its flags, the gate run, its verdict
+    cli/gates/letter.py             the letter check: its flags, the check run, its verdict said
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)

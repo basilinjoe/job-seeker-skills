@@ -58,6 +58,7 @@ KNOWN_EDGES = {
     ("jsk.gates.check_prose", "jsk.adapters.cli.gates.prose"): {"main"},
     ("jsk.gates.layout", "jsk.adapters.cli.gates.layout"): {"main"},
     ("jsk.gates.record", "jsk.adapters.cli.gates.record"): {"main"},
+    ("jsk.gates.letter", "jsk.adapters.cli.gates.letter"): {"main"},
 }
 
 # (module, what it does that its ring forbids).
