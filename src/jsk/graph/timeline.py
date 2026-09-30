@@ -27,58 +27,31 @@ Exit 0 added; 1 refused, with why; 2 called wrong.
 """
 import datetime
 import difflib
-import hashlib
 import os
-import re
 import sys
 
 from ..domain import ontology as O
 from ..domain.timeline.errors import Frozen as Frozen
 from ..domain.timeline.errors import Unwritable as Unwritable
+from ..domain.timeline.events import LEGACY as LEGACY
+from ..domain.timeline.events import WEEKDAYS as WEEKDAYS
+from ..domain.timeline.events import application_quads as application_quads
+from ..domain.timeline.events import date_literal as date_literal
+from ..domain.timeline.events import event_iri as event_iri
+from ..domain.timeline.events import event_quads as event_quads
+from ..domain.timeline.events import is_date as is_date
+from ..domain.timeline.events import legacy_submitted as legacy_submitted
+from ..domain.timeline.events import lit as lit
+from ..domain.timeline.events import node as node
+from ..domain.timeline.events import quad as quad
+from ..domain.timeline.events import submitted_day as submitted_day
+from ..domain.timeline.events import when as when
 from ..infra.files import remove_document
 from ..infra.files import write_document as write_document
 
 # An application's record graphs, by kind: in career/store/ as applications/<dir>/<kind>.
 RECORD = ("posting", "application", "gaps")
 KINDS = O.ENUMS["eventKind"]
-WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
-
-
-def node(iri):
-    import pyoxigraph as ox
-    return ox.NamedNode(iri)
-
-
-def lit(value, dtype=None):
-    import pyoxigraph as ox
-    return ox.Literal(value, datatype=ox.NamedNode(O.XSD + dtype)) if dtype else ox.Literal(value)
-
-
-def quad(s, p, o):
-    import pyoxigraph as ox
-    return ox.Quad(node(s), node(O.J + p), o)
-
-
-def date_literal(text):
-    return lit(text, "string") if text == "unknown" else lit(text, "date")
-
-
-def event_iri(stem, date, kind):
-    """k:evt_<stem>_<date>_<kind>: the date's and kind's hyphens as underscores."""
-    return f"{O.K}evt_{stem}_{date.replace('-', '_')}_{kind.replace('-', '_')}"
-
-
-def event_quads(app, stem, date, kind, channel=None, note=None, due=None, iri=None):
-    s = iri or event_iri(stem, date, kind)
-    out = [quad(s, "application", node(app)), quad(s, "date", date_literal(date)),
-           quad(s, "kind", node(O.J + kind))]
-    if channel:
-        out.append(quad(s, "channel", lit(channel)))
-    if note:
-        out.append(quad(s, "note", lit(note)))
-    if due:
-        out.append(quad(s, "due", lit(due, "date")))
-    return s, out
 
 
 def posting_of(store, rel_dir):
@@ -107,8 +80,6 @@ def posting_of(store, rel_dir):
 # The record is the store's application graph and nothing else: `jsk kb load` leaves the
 # .ttl files where they were, and a stray application.ttl there must not freeze, or
 # unfreeze, anything.
-
-LEGACY = "application.md"
 
 
 def workspace_of_app(app_dir):
@@ -158,16 +129,6 @@ def frozen(app_dir, store=None):
     return path if os.path.isfile(path) else None
 
 
-def submitted_day(triples):
-    """The application's j:submitted date, or None (held back: `false`)."""
-    for q in triples:
-        if q.predicate.value == O.J + "submitted" and \
-                getattr(q.object, "datatype", None) is not None and \
-                q.object.datatype.value == O.XSD + "date":
-            return q.object.value
-    return None
-
-
 def sent_day(app_dir, store=None):
     """The day `app_dir` says it was sent - its application record's j:submitted, or a
     legacy application.md's `submitted:` - or None. Raises GraphError when that cannot be
@@ -185,27 +146,6 @@ def sent_day(app_dir, store=None):
         return legacy_submitted(read_text(path, LEGACY))
     except Unreadable as e:
         raise GraphError(str(e), e.fix, os.path.basename(path)) from None
-
-
-def legacy_submitted(text):
-    """The `submitted:` date in an application.md's frontmatter, or None - `false`, a
-    held-back application, is None too. Only that one line is read, so no YAML parser is
-    needed; a frontmatter that never closes raises GraphError, as a file that cannot be
-    read."""
-    from ..domain.record.parsed import GraphError
-
-    lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
-        return None
-    closing = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
-    if closing is None:
-        raise GraphError(f"{LEGACY}'s frontmatter never closes", "end it with a --- line",
-                         LEGACY)
-    for line in lines[1:closing]:
-        m = re.match(r"submitted:\s*[\"']?([^\"'#\s]*)", line)
-        if m:
-            return m.group(1) if is_date(m.group(1)) else None
-    return None
 
 
 def refuse_if_sent(app_dir, name, store=None, graph=False):
@@ -264,27 +204,6 @@ def remove_app_file(app_dir, name, store=None):
 
 
 # --- what an application sent --------------------------------------------------------
-
-def application_quads(stem, posting, view, submitted, channel, documents, record_bytes,
-                      bullets, versions):
-    """The application graph's triples: the application, and its submitted event when it was
-    sent - a held-back one has none, an accurate blank rather than a false green."""
-    app = f"{O.K}app_{stem}"
-    out = [quad(app, "posting", node(posting))]
-    if view:
-        out.append(quad(app, "view", lit(view)))
-    out.append(quad(app, "submitted", lit("false", "boolean") if submitted == "false"
-                    else lit(submitted, "date")))
-    if channel:
-        out.append(quad(app, "channel", lit(channel)))
-    out += [quad(app, "document", lit(d)) for d in documents]
-    out.append(quad(app, "recordSha256", lit(hashlib.sha256(record_bytes).hexdigest())))
-    out += [quad(app, "carried", node(b)) for b in bullets]
-    out += [quad(app, "carriedVersion", node(v)) for v in versions]
-    if submitted != "false":
-        out += event_quads(app, stem, submitted, "submitted", channel)[1]
-    return app, out
-
 
 def sent_versions(store, bullets):
     """The current version of each metric the bullets cite - what `jsk kb query stale`
@@ -396,26 +315,6 @@ def refuse(lines, fix):
     print(f"        fix: {fix}")
     print("nothing was written")
     return 1
-
-
-def is_date(text):
-    try:
-        return datetime.date.fromisoformat(text).isoformat() == text
-    except (TypeError, ValueError):
-        return False
-
-
-def when(text, today):
-    """`2026-09-22 (Tuesday, 4 days ago)`: a date as the person would say it. The model
-    turns "last Tuesday" into a date by arithmetic, which errs silently; the weekday
-    printed back is what it can check against what was said."""
-    if text == "unknown":
-        return text
-    day = datetime.date.fromisoformat(text)
-    n = (day - today).days
-    ago = "today" if n == 0 else "yesterday" if n == -1 else "tomorrow" if n == 1 else \
-        f"{-n} days ago" if n < 0 else f"in {n} days"
-    return f"{text} ({WEEKDAYS[day.weekday()]}, {ago})"   # not %A: that follows the locale
 
 
 def main(argv=None):

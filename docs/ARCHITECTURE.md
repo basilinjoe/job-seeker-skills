@@ -349,6 +349,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/merge.py                 two concepts that are one, drafted as a changeset
     posting/errors.py               posting.md's name, and how a posting step refuses
     timeline/errors.py              how a write to an application refuses: sent, locked, refused
+    timeline/events.py              an application's graph and its events as triples; the dates they carry
     posting/boards.py               which job board a URL is on, and its answer as a posting
     posting/html_text.py            a board's or a saved page's HTML as text
     posting/posting_md.py           posting.md as jsk writes it
