@@ -73,7 +73,7 @@ def header(name):
 
 def first_write(name, today):
     """{graph: quads} for a workspace with no career yet: the empty record, r1 by `new`."""
-    from .graph import record as R
+    from .infra.oxigraph import record as R
     from .domain.record.parsed import sha256
     from .domain.record.writer import write
 
@@ -106,8 +106,8 @@ def restart(root, name, today):
     import io
 
     from .cliutil import show
-    from .graph import db
-    from .graph import record as R
+    from .infra.oxigraph import db
+    from .infra.oxigraph import record as R
     from .graph import store as S
     from .adapters.cli.kb import GUIDE
 
@@ -171,8 +171,9 @@ def scaffold(root, name, force=False, today=None):
         return 1, ["FAIL  jsk new writes the record into a pyoxigraph store, and this Python "
                    "has not got pyoxigraph",
                    f"      fix: {INSTALL}"]
-    from .graph import db, legacy
-    from .graph import record as R
+    from .infra.oxigraph import db
+    from .graph import legacy
+    from .infra.oxigraph import record as R
 
     store = os.path.normpath(os.path.join(root, STORE))
     lines = []

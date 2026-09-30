@@ -360,6 +360,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
     profiles.py                     the region profiles under data/ (moved from render/)
     oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
+    oxigraph/db.py  record.py       the store on disk; the write gate every write goes through
     tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
     posting_sources.py              a board's JSON over the network; a .docx, .html or text file
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,

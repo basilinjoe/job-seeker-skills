@@ -407,7 +407,7 @@ def out_of_step(kinds):
     states: every write puts the career and its log entry in one update, and the store
     keeps no text for a hand to edit."""
     def post(rows, store):
-        from .record import state
+        from ..infra.oxigraph.record import state
         if store.stored:
             return []
         st = state(store)

@@ -102,7 +102,7 @@ def career_refusal(store):
     renders as confirmed - and with no copy of the career left to compare, the log is
     the only thing that would notice. In career/store/ every jsk write lands with its log
     entry, so the two part only when something else wrote the store."""
-    from ..graph import record as R
+    from ..infra.oxigraph import record as R
 
     broken = [f for f in store.fails() if f.rule != "log-sync"
               and not f.file.startswith("applications/")]
@@ -231,7 +231,7 @@ def bracket_lines(texts):
 def findings(doc, store, today=None):
     """(fails, warns): every finding for a short file - a dict, or a path to one - over
     a loaded workspace."""
-    from ..graph import record as R
+    from ..infra.oxigraph import record as R
     from ..resume import short
     from ..domain.record.career import Career
 
@@ -307,7 +307,7 @@ def main(argv):
         print("FAIL  the record gate needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
-    from ..graph import record as R
+    from ..infra.oxigraph import record as R
 
     try:
         store = short.career(root)

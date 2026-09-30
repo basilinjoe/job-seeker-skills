@@ -172,7 +172,7 @@ def skill_order(store, matches):
     reads it as a claim of that experience, and the draft left such aliases out for that
     reason (ElevenLabs, 2026-09-25)."""
     from ..domain.record.career import Career
-    from . import record as R
+    from ..infra.oxigraph import record as R
     from .named import holdings
 
     by_label = Q.labels(store)

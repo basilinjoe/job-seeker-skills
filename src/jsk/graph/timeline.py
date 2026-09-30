@@ -127,7 +127,7 @@ def app_graphs(app_dir, store=None):
     """{kind: triples} of the record graphs the application holds in its workspace's
     store - {} when it is in no workspace with a store. Read from `store` when it is that
     workspace's, loaded; from the store on disk if not."""
-    from . import db
+    from ..infra.oxigraph import db
     from ..domain.naming import app_graph
 
     root, rel = workspace_of_app(app_dir)
@@ -242,7 +242,7 @@ def write_app_graphs(app_dir, graphs, store=None):
     the application is sent. Returns the graph names written. The posting and the
     assessment come through here; the application graph is `jsk freeze`'s and `jsk
     event`'s, which write to a sent application, and does not."""
-    from . import record as R
+    from ..infra.oxigraph import record as R
     from ..domain.naming import app_graph
 
     root, rel = workspace_of_app(app_dir)
@@ -416,7 +416,7 @@ def write_frozen(root, sealed, final):
     A graph is named by its directory, so a rename moves the posting and the assessment
     to the new name in the same update that writes the application - all three land, or
     none does."""
-    from . import record as R
+    from ..infra.oxigraph import record as R
     from ..domain.naming import app_graph
 
     old, new = sealed.rel, workspace_of_app(final)[1]
@@ -543,14 +543,14 @@ def free_iri(store, base, quads):
 def add(root, app_dir, kind, date, channel, note, due, today=None):
     """Add the event, inside this process's turn: taken before the application is read,
     so an event that queued behind another write is added to what that one left."""
-    from . import record as R
+    from ..infra.oxigraph import record as R
 
     with R.turn(root):
         return added(root, app_dir, kind, date, channel, note, due, today)
 
 
 def added(root, app_dir, kind, date, channel, note, due, today):
-    from . import record as R
+    from ..infra.oxigraph import record as R
     from . import store as S
     from ..domain.record.state import diff, new_failures
     from ..domain.record.writer import curie, write

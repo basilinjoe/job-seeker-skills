@@ -145,7 +145,7 @@ def short_file(store, selection=None, select=None, notes=None):
     `pages` is 2, as the URS draft's budget was: the short file's default is the region
     profile's (3 for AU and IN), and an export defaulting to that would have made every
     exported resume a page longer than the same export made the day before."""
-    from . import record as R
+    from ..infra.oxigraph import record as R
 
     career = Career(store.graph(R.KB))
     picked = chosen(career, select)

@@ -175,7 +175,7 @@ def ids(doc, store):
     the near one), retired (with its reason), of another kind, or a bullet whose project
     names no role - it would render under no employer."""
     from ..domain import ontology as O
-    from ..graph import record as R
+    from ..infra.oxigraph import record as R
     from ..domain.record.career import Career
 
     career = Career(store.graph(R.KB))

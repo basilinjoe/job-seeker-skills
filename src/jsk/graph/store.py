@@ -112,7 +112,8 @@ def record_graphs(root):
     as files is a GraphError: jsk no longer reads or writes those files, and answering from
     them would answer from a record nothing keeps up to date. So is a store that will not
     open - never a traceback."""
-    from . import db, legacy
+    from ..infra.oxigraph import db
+    from . import legacy
 
     if not db.exists(root):
         if legacy.has_files(root):

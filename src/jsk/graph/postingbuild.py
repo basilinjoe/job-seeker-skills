@@ -152,7 +152,7 @@ def build(app_dir, decisions_path=None, replace=False, vocabulary=None, today=No
     """(what was written, requirements, warnings): the posting graph's name. Raises
     Refused, and then
     writes nothing. Runs inside the workspace's turn, taken before anything is read."""
-    from . import record as R
+    from ..infra.oxigraph import record as R
     from ..infra.files import find_root
 
     root = find_root(app_dir)

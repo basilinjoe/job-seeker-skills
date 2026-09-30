@@ -90,7 +90,7 @@ def main(argv=None):
         print("FAIL  jsk tailor needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
-    from . import record as R
+    from ..infra.oxigraph import record as R
 
     # It writes the assessment, so it takes its turn before it reads the record.
     with R.turn(root):

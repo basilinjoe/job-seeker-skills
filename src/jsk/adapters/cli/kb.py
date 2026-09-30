@@ -107,7 +107,7 @@ GUIDE = {
 def writable(store):
     """None when the record may be written; otherwise the exit code of a refusal. Only a
     clean record is: in a store, anything else means something outside jsk wrote it."""
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
 
     blocking = [f for f in store.fails() if f.rule not in ("log-sync",)
                 and (not f.file.startswith("applications/") or f.rule == "syntax")]
@@ -133,7 +133,7 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
 
     The command already holds its turn (main takes it), so `store` is the record as it
     stands, and nothing lands between this validating the candidate and writing it."""
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...graph import store as S
     from ...domain.record.writer import write
 
@@ -264,7 +264,7 @@ def draft_out(flags):
 
 def logged_base(store):
     """(the log's revision, None) for op:base, or (None, exit code)."""
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
 
     st = R.state(store)
     if st.kind == "missing" or st.log_revision is None:
@@ -598,7 +598,7 @@ def cmd_confirm(args, flags, root):
     import pyoxigraph as ox
 
     from ...domain import ontology as O
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...graph import store as S
 
     answer, summary, source, quote = (flags.get(f) for f in
@@ -695,7 +695,7 @@ def cmd_show(args, flags, root):
     characters a project.
     """
     from ...domain import ontology as O
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...graph import store as S
     from ...domain.record.writer import curie
 
@@ -736,7 +736,7 @@ def cmd_view(args, flags, root):
     correct - stdout only; it is never written to a file, so it cannot drift. Entries not
     confirmed, and retired ones, say so beside their names.
     """
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...graph import store as S
     from ...domain.record.view import render
 
@@ -794,7 +794,7 @@ def cmd_export(args, flags, root):
     import json
 
     from ...domain import ontology as O
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...graph import store as S
     from ...graph.export import Career, ExportError, chosen, short_file
     from ...graph.match import COVER, application, blocks, posting_in
@@ -917,7 +917,7 @@ def cmd_export(args, flags, root):
 
 
 def wrote(store, path, text, doc):
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
 
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
@@ -992,7 +992,7 @@ def untraced_lines(store, today, bullets=None):
     what the Everforth and ElevenLabs runs taught people to read here."""
     from ...gates import numbers
     from ...domain.record.career import Career
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...domain.record.shapes import curie
 
     career = Career(store.graph(R.KB))
@@ -1029,7 +1029,7 @@ def cmd_check(args, flags, root):
                     own five.
     """
     from ...cliutil import show
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...graph import store as S
 
     only = flags.get("--only")
@@ -1081,7 +1081,8 @@ def cmd_path(args, flags, root):
     rather than worked out. Needs nothing but the folders; exit 1 when there is no
     career/store/ there.
     """
-    from ...graph import db, legacy
+    from ...infra.oxigraph import db
+    from ...graph import legacy
 
     if args:
         return usage("jsk kb path takes no arguments")
@@ -1141,7 +1142,7 @@ def hand_edit(before, src):
     renders as confirmed with no answer behind it, and after the import no text is left
     to show it was: so each one is named now, against the shadow copy of the revision the
     log last recorded when there is one."""
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...infra.files import Unreadable, read_text
     from ...infra.oxigraph.codec import parse_text
     from ...domain.record.parsed import sha256
@@ -1175,7 +1176,7 @@ def imported(before, record, rewrites, src):
     import pyoxigraph as ox
 
     from ...cliutil import show
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...graph import store as S
 
     warns = before.warns()
@@ -1205,7 +1206,7 @@ def edited_dump(record, name):
     record unlogged - a provenance raised by hand renders as confirmed."""
     import pyoxigraph as ox
 
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...graph.changeset import numbers_as_kept
 
     fix = ("load the dump as `jsk kb dump` wrote it (or .jsk/backup.trig), then change the "
@@ -1240,8 +1241,9 @@ def cmd_load(args, flags, root):
     the rest - are files beside it, not the record: loaded into another workspace, its
     folder is named so it can be copied across.
     """
-    from ...graph import db, legacy
-    from ...graph import record as R
+    from ...infra.oxigraph import db
+    from ...graph import legacy
+    from ...infra.oxigraph import record as R
     from ...graph import store as S
     from ...infra.files import Unreadable, read_text
 
@@ -1320,7 +1322,7 @@ def cmd_dump(args, flags, root):
     write to .jsk/backup.trig as well. Raising pyoxigraph's version is `dump` with the old
     one, then `load` into a new store with the new one.
     """
-    from ...graph import db
+    from ...infra.oxigraph import db
 
     if args:
         return usage("jsk kb dump takes no arguments - --out FILE.trig, or stdout")
@@ -1349,7 +1351,7 @@ def cmd_log(args, flags, root):
     (default 10).
     """
     from ...domain import ontology as O
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
     from ...graph import store as S
 
     if args:
@@ -1414,7 +1416,7 @@ def main(argv=None):
         print("FAIL  jsk kb needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
-    from ...graph import record as R
+    from ...infra.oxigraph import record as R
 
     root = os.path.abspath(root)
     # A verb that writes the store takes its turn before it reads it (record.turn).

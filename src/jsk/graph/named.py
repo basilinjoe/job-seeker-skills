@@ -196,7 +196,7 @@ def kb_text(store):
     """(entry, predicate, text, provenance, project) for every string in the career
     on a live entry - what a grep of the file would find, without the retired, and
     without the vocabulary's labels, which the concept match has already answered."""
-    from . import record as R
+    from ..infra.oxigraph import record as R
     from ..domain.naming import graph_iri
     rows = store.select(PRE + f"""SELECT ?s ?p ?o ?pv ?proj WHERE {{
         GRAPH <{graph_iri(R.KB)}> {{ ?s ?p ?o

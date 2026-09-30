@@ -108,7 +108,7 @@ def record_faults(store, post, today, budget, ranked=None):
 
     Empty when the workspace has no career: the match stands alone."""
     from ..domain.record.career import Career
-    from . import record as R
+    from ..infra.oxigraph import record as R
     from . import select as SEL
 
     if R.KB not in store.parsed:
@@ -321,7 +321,7 @@ def main(argv=None):
         print("FAIL  jsk match needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
-    from . import record as R
+    from ..infra.oxigraph import record as R
 
     # --gaps and --draft-gaps write the assessment, so they take their turn before they
     # read: what they validate is what they write over. A plain match only reads.

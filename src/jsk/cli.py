@@ -195,8 +195,8 @@ def store_report(start=None):
     revision, and whether .jsk/backup.trig - the dump every write refreshes, and what
     `jsk kb load` restores from - is there, at which revision. `start` is a workspace, a
     path inside one, or its career/store/; by default the current directory."""
-    from .graph import db
-    from .graph import record as R
+    from .infra.oxigraph import db
+    from .infra.oxigraph import record as R
     from .infra.files import find_root
 
     here = start or os.getcwd()
@@ -1171,7 +1171,7 @@ def cmd_freeze(args):
             "fix: send the letter's .txt beside it, or leave it out with --doc.",
             "nothing was renamed or written.")
 
-    from .graph import record as R                    # noqa: PLC0415 - only when asked
+    from .infra.oxigraph import record as R                    # noqa: PLC0415 - only when asked
 
     # The turn before the record is read: what freeze() validates is what it writes over.
     with R.turn(workspace):
@@ -1196,10 +1196,10 @@ def freeze_write(workspace, app_dir, final, plan, record_bytes, submitted, chann
     """Validate the application's record, rename the directory, write the record. Returns
     what was written, or the exit code of a refusal - each one leaving the directory and
     the record as they were."""
-    from .graph import record as R                    # noqa: PLC0415 - only when asked
+    from .infra.oxigraph import record as R                    # noqa: PLC0415 - only when asked
     from .graph import timeline                       # noqa: PLC0415
 
-    from .graph import db                             # noqa: PLC0415
+    from .infra.oxigraph import db                             # noqa: PLC0415
 
     sealed, problems = timeline.freeze(workspace, app_dir, plan, record_bytes, submitted,
                                        channel, documents)

@@ -455,17 +455,18 @@ class OnlyDbKnowsTheStore(unittest.TestCase):
         self.assertEqual(self.violations(self.sources()), [])
 
     def test_the_guard_sees_each_way_round_it(self):
+        record = source_path("jsk.graph.record")
         planted = [("a.py", "db = ox.Store(path)"), ("b.py", "pyoxigraph.Store.read_only(p)"),
                    ("c.py", "from pyoxigraph import Literal, Store\ns = Store(p)"),
                    ("d.py", "s = db.open_reader(root)"), ("e.py", "db.open_writer(root)"),
                    ("f.py", "with db.writing(root) as w:"), ("g.py", "w._db.update(u)"),
-                   ("h.py", "db.replace_graphs(s, g)"), ("graph/record.py", "w._db")]
+                   ("h.py", "db.replace_graphs(s, g)"), (record, "w._db")]
         self.assertEqual([n for n, _ in self.violations(planted)],
                          ["a.py", "b.py", "c.py", "d.py", "e.py", "f.py", "g.py", "h.py",
-                          "graph/record.py"])
+                          record])
         fine = [("a.py", "s = ox.Store()"), ("b.py", "S.Store(root, findings=f)"),
                 ("c.py", "from pyoxigraph import Store\ns = Store()"),
-                ("graph/record.py", "with db.writing(root) as w:\n db.replace_graphs")]
+                (record, "with db.writing(root) as w:\n db.replace_graphs")]
         self.assertEqual(self.violations(fine), [])
 
 
