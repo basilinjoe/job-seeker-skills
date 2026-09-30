@@ -18,7 +18,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 from ..domain import ontology as O
-from .changeset import OP, Refusal, Refused, curie
+from ..domain.record.changeset import OP, Refusal, Refused, curie
 
 PROVENANCE = O.J + "provenance"
 # A version's number: changing these on a sent version makes a new version instead.
