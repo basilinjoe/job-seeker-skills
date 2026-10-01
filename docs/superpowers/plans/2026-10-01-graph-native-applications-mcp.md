@@ -2,8 +2,44 @@
 
 ## Status (2026-10-02)
 
-In progress on `feat/graph-native-mcp`. P0 done (results below its section); P1 and P2 being
-built.
+Built on `feat/graph-native-mcp`, P0-P7:
+
+- P0 measured (results below its section) - f7ecff2.
+- P1 the render leaves a `.pdf` and a `.tex`; no `gaps.md` - 269e476, 7165507, merged 62d69f3.
+- P2 the ontology and the domain - 5e2d2f8, merged 97c58de.
+- P3a posting, review and assessment use cases - aea72f1, merged 4ae5e1e; P3b the selection
+  and resume by target - 20df7b4, merged 47a7b66.
+- P4 `jsk mcp` - 2afc098, merged b54fd37; the resume tools wired - 2bccf16.
+- P5 freeze, letter, doctor for graph-native applications; the CI package job's retired
+  `jsk new` - a030f25, merged bb997b0.
+- P6 the plugin over the tools, 5.0.0 - 102b09b, merged (after bb997b0); CLAUDE.md - ac96ccc.
+- P7 replay on a scratch copy of the real workspace (both postings, the "no" answering the
+  second, a ship fitted to two pages, a held-back freeze, legacy unchanged), a code review and
+  a prose review; their defects fixed in the commits after ac96ccc.
+
+Not yet done: Verification 3 - a live `/jsk:tailor` in Claude Code with the plugin installed
+from this tree (`install-local`), reading the analyst's transcript for tool calls only.
+
+### Amendments made while building (2026-10-02)
+
+- **Ruling 4:** `ReviewRow`'s reason is `j:shortfall`, not `j:reason` - every class already has
+  `j:reason` for a retirement.
+- **Ruling 9:** there is no `missing` verdict. An absence sets the requirement's match state
+  to `missing` and its verdict to `unsatisfied` (an implicit one stays unassessed). A
+  confirmed "no" on a concept also denies every concept that counts as it (the match's own
+  closure): "never worked in financial services" answers a posting asking for insurance. A
+  narrower "no" never denies a broader concept.
+- **Ruling 8:** `j:Absence` sits in the career's "Open questions" section, not a new one - a
+  new heading would print in every career and change every hash.
+- **Ruling 14:** the read cache keys on the store's files (name, size, mtime) and
+  `.jsk/backup.trig`, plus the server's own write counter - `tests/test_db.py` forbids any
+  module but `db.py` opening the store, so the revision cannot be read separately.
+- **Ruling 21:** the letter check takes a graph-native application through its existing
+  `--record` flag (`--record <stem>`); no `--app` flag was added.
+- **A held-back freeze is frozen too:** every tool refuses an application whose application
+  graph exists, sent or held back, as `ship_target`'s `frozen_refusal` always did.
+- **A selection ships only with a summary.** The strict parse gate wants a summary heading,
+  so the author sets one and the session confirms it before `resume_ship`.
 
 **Spec:** none. This plan and its Rulings are the spec. The decisions are the user's
 (2026-10-01), made in one conversation:
