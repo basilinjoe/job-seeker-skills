@@ -74,7 +74,7 @@ Describe what you want and the skill routes there by itself. Or say it directly:
 | `/jsk:braindump` | You have something to say about your work |
 | `/jsk:resume` | You need a resume — one verified PDF plus plain text |
 | `/jsk:tailor` | You have a specific job posting - a loop that closes the gaps, then writes the resume |
-| `/jsk:ship` | A resume is finished and needs rendering, checking and filing — `jsk ship`, then `jsk freeze` |
+| `/jsk:ship` | A resume is finished and needs rendering, checking and filing — `jsk resume ship`, then `jsk app freeze` |
 | `/jsk:refresh` | Periodic top-up: what changed, what numbers moved |
 | `/jsk:gaps` | Resolve unanswered questions and unverified claims |
 | `/jsk:pipeline` | What to chase this week: what has gone quiet, what is overdue |
@@ -90,7 +90,7 @@ details. Every quarter → `refresh`. Before applying → `gaps`, then `resume`.
 ### Your career folder
 
 ```
-my-career/                  `jsk new ./my-career --name "Your Name"` makes this
+my-career/                  `jsk kb new ./my-career --name "Your Name"` makes this
   career/
     store/                  the record: the career, every change to it, and each application's
                             requirements, assessment and timeline - read and written by jsk only
@@ -111,8 +111,8 @@ One record for the career, and a frozen directory per application. The career ho
 positioning, work rights, vocabulary, organisations, roles, projects, metrics, skills, education,
 certifications, open source and the open questions — in fixed sections, in the order the format
 reference ([kb-format.md](plugins/jsk/skills/jsk/references/kb-format.md)) describes.
-`jsk freeze` records what was sent once the gates pass and names the directory after the day it
-was sent; from then on it is an archive, and `jsk event` adds what came back.
+`jsk app freeze` records what was sent once the gates pass and names the directory after the day
+it was sent; from then on it is an archive, and `jsk app event` adds what came back.
 
 It is a graph - every entry an id, every link between entries by id - because that is what lets a
 program check it on every load, match a posting one way through a vocabulary, keep every version of

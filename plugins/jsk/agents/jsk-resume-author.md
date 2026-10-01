@@ -40,7 +40,7 @@ read only through `jsk kb` — never open anything under `career/`. Write paths 
 slashes: bash drops the backslashes in `cd C:\Projects\…`.
 
 **Read what the posting selects, not the whole career.** `gaps.md` already holds the match's Ranking
-and Cover and what was answered — do not re-run `jsk match`. **Export first** — never write the
+and Cover and what was answered — do not re-run `jsk tailor match`. **Export first** — never write the
 file by hand, never choose the evidence yourself:
 
 ```bash
@@ -110,17 +110,17 @@ concept). Never rewrite the positioning; if it has drifted, say so.
 evidence sits mid-career, **say so, and why.** Do not cut evidence to fit the presentation budget;
 `ats_pages` is its own. When you drop evidence the assessment marked `satisfied` or `partial`,
 **add a `short:` line to `gaps.txt`** naming the requirement and the ids. After either, run `jsk
-match applications/<stem> --gaps <gaps.txt>`, which rewrites `gaps.md`; never edit `gaps.md`.
+tailor match applications/<stem> --gaps <gaps.txt>`, which rewrites `gaps.md`; never edit it.
 
 ## Before you return
 
-`jsk validate applications/<stem>/resume.json` — once, and again only after the file changes. It
+`jsk resume check applications/<stem>/resume.json` — once, and again only if the file changes. It
 must pass: a bullet it FAILs for a number leaves `bullets` and goes back as a question. Do not
 render: that is `/jsk:ship`, where your unconfirmed prose shows as `withheld` warnings.
 
 ## What you return
 
-1. **`jsk validate` output, verbatim**, and the `jsk kb apply` output.
+1. **`jsk resume check` output, verbatim**, and the `jsk kb apply` output.
 2. **Every clause you authored, quoted**, with its source and `ach_` id — withheld until confirmed.
 3. **The `bullets` order, and what you cut.**
 4. **The framing you took**, or the new summary and why; any departure from the recency ratio.

@@ -15,7 +15,7 @@ The builder reads the career and the short `resume.json` once — selection, ord
 filtering, region, ASCII folding, date formatting — into a plan, and the emitters translate that plan
 into markup without deciding anything.
 
-It is also what makes a resume answerable a year later. `jsk freeze` records the bullets that
+It is also what makes a resume answerable a year later. `jsk app freeze` records the bullets that
 rendered and the metric versions they cite, so "what did this application claim, and where did that
 come from" has an answer.
 
@@ -48,7 +48,7 @@ looked at a rendered page, so the render gate did not run — it did not pass.
 
 An unverified resume the person knows about is fine. One they think was checked is not.
 
-So `jsk render --pdf` **exits non-zero** when no PDF came out, and `jsk doctor` reports a missing
+So `jsk resume render --pdf` **exits non-zero** when no PDF came out, and `jsk doctor` reports a missing
 engine as BLOCKED rather than a gap. A warning that does not change the exit code is a warning
 nothing acts on.
 
@@ -68,7 +68,7 @@ done, it shows up as a gap, not as a sentence."*
 ## Why every numeral must trace to a metric
 
 Every numeral in a chosen bullet must appear in the current version of a metric it cites, or `jsk
-validate` fails `resume.json` before anything renders.
+resume check` fails `resume.json` before anything renders.
 
 It catches a bullet being rewritten for flow and the figure quietly moving with it — 30% becoming 40%
 because the sentence scanned better.
@@ -119,7 +119,7 @@ JSON Resume is a JSON container around unstructured prose:
 The career is a graph instead: a bullet carries an id and a provenance and cites a metric version,
 and a promotion is two roles at one employer.
 
-## Why `jsk fit` refuses rather than shrinking further
+## Why `jsk resume fit` refuses rather than shrinking further
 
 It applies density levers in a fixed order — spacing, bullet spacing, margins, font size — and stops
 at the 10pt and 0.5" floors.

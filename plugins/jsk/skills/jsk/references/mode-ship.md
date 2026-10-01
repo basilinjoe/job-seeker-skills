@@ -33,12 +33,12 @@ person. **When in doubt, ATS-maximal.** It is longer by design, so it carries it
 ## 2. Ship
 
 ```bash
-jsk ship applications/<stem>/resume.json --out applications/<stem> [--ats-max] [--template NAME] [--pages N]
+jsk resume ship applications/<stem>/resume.json --out applications/<stem> [--ats-max] [--template NAME] [--pages N]
 ```
 
 One process: the record gate (a failure stops it; nothing renders), then `render --pdf`, the fit if
-it overran (§3), then the parse, prose and layout gates, each step's output verbatim. Exit 0 only if every step passed. Show that
-output. Read the `=== summary` it ends with; the sections above are its evidence. It refuses in a
+it overran (§3), the parse, prose and layout gates, each step's output verbatim; exit 0 only if every step passed. Show
+it. Read the `=== summary` it ends with; the sections above are its evidence. It refuses in a
 frozen application.
 
 **The record gate** fails an id the career lacks or has retired, a bullet whose project has no
@@ -49,21 +49,21 @@ only warn.
 **Unconfirmed prose does not fail anything.** Below the floor (`confirmed`, by default) `inferred`
 content is dropped from the render; the only sign is a `withheld …` line. Every one is confirmed or
 cut before the resume is handed over: confirm it in the career — `jsk kb confirm <ids> --answer
-"…"`, reworded wording first through `jsk kb apply`, never on the strength of the old text — and
+"…"`, new wording first through `jsk kb apply`, never on the strength of the old text — and
 re-ship. The summary: `jsk kb confirm --summary <resume.json> --answer "…"`.
 
 ## 3. Fit, if it overran
 
-**`jsk ship` fits itself**, stopping at the floors (0.5in, 10pt), and gates the fitted render. `fit:
-…, N pages` is done: 0.6in margins are a fit, not a compromise. Never re-run `jsk fit`, `tectonic` or
-`jsk gates` after it.
+**Ship fits itself**, stopping at the floors (0.5in, 10pt), and gates the fitted
+render. `fit: …, N pages` is done: 0.6in margins are a fit, not a compromise. Never re-run
+`jsk resume fit`, `tectonic` or `jsk resume check <dir>` after it.
 
 **Cut evidence only on `over by ~N lines at the floors`**: nothing was changed. Cut about N lines of
 the lowest-ranked bullets from `resume.json`, telling the person why, and re-ship.
 
 ## 4. The render gate
 
-`jsk ship` closes by saying the render gate was not run. The layout gate has measured tofu, the
+Ship closes by saying the render gate was not run. The layout gate has measured tofu, the
 fonts, stranded headings, the date column, the paper and the page count; open the PDF for the rest:
 
 - [ ] It looks right as a whole
@@ -73,27 +73,27 @@ fonts, stranded headings, the date column, the paper and the page count; open th
 
 **`jsk-verifier`** is for a failed gate whose source you cannot see, or a second reading of the
 render gate. Hand it the output directory, the page budget, the `resume.json` path and the workspace; it
-returns each verdict quoted and each defect traced to the id where it is fixed. To re-check one gate
-after one repair, `jsk gates <dir>` or `jsk check <file> --only parse|prose|layout`.
+returns each verdict quoted and each defect traced to the id where it is fixed. To re-check after one
+repair, `jsk resume check <dir>`, or `<file> --only parse|prose|layout` for one gate.
 
 ## 5. Freeze the application
 
 Only once every gate has passed.
 
 ```bash
-jsk freeze applications/<stem> --submitted <yyyy-mm-dd>|false --channel "<Workday portal>" [--doc FILE ...]
+jsk app freeze applications/<stem> --submitted <yyyy-mm-dd>|false --channel "<Workday portal>" [--doc FILE ...]
 ```
 
 It re-runs the gates and refuses on a failure, or if the application is already frozen. It stores
 the application: the posting, date, channel, documents, the `resume.json` hash, the bullets
 that rendered and the metric versions they cite — so `jsk kb query stale` can later name an application
 that sent a number since revised — and a `submitted` event. It renames the directory to the
-submitted date, moving the application's graphs in the store to the new name in the same write,
-and prints the new path — **use that path from here on**, for `jsk event` too. Then:
+submitted date, moving its graphs in the store in the same write,
+and prints the new path — **use that path from here on**, for `jsk app event` too. Then:
 
 - **Stop editing that directory.** `posting.md`, `decisions.txt`, the `gaps.*` files and
   `resume.json` are the archive — it must still say what the application was answering.
-- **Later events are `jsk event <app-dir> <kind> --date …`** (`mode-pipeline.md`), add-only.
+- **Later events are `jsk app event <app-dir> <kind> --date …`** (`mode-pipeline.md`), add-only.
 - `--submitted false` is for an application deliberately held back: no `submitted` event, and that
   is correct. **Never add a `submitted` event to clear a gap.**
 

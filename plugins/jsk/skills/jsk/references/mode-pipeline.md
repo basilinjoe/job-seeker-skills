@@ -7,8 +7,8 @@ first thing `mode-tailor.md` runs, before a posting is written down.
 
 ## Read the board
 
-The board is every frozen application in the store. `jsk freeze` records each one with its
-`submitted` event; everything after that is `jsk event`. **Read the whole board before saying
+The board is every frozen application in the store. `jsk app freeze` records each one with its
+`submitted` event; everything after that is `jsk app event`. **Read the whole board before saying
 anything:**
 
 ```bash
@@ -34,7 +34,7 @@ today, not the table read out. Cap it at about fifteen rows.
 One command per event:
 
 ```bash
-jsk event applications/<dir> screen-scheduled --date 2026-09-11 --channel email --due 2026-09-15 --note "Phone screen, 30 min"
+jsk app event applications/<dir> screen-scheduled --date 2026-09-11 --channel email --due 2026-09-15 --note "Phone screen, 30 min"
 ```
 
 **Add-only**: an event is never edited or removed — a correction is a new `note` event.
@@ -47,7 +47,7 @@ jsk event applications/<dir> screen-scheduled --date 2026-09-11 --channel email 
   board stops nagging about work already done.
 
 An application frozen as `application.md` is from before the graph record. It is still frozen, and
-`jsk event` refuses it: its events are the `# Timeline` table in that file.
+`jsk app event` refuses it: its events are the `# Timeline` table in that file.
 
 ### The event vocabulary
 

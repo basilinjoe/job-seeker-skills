@@ -14,9 +14,9 @@ hold what the career does not.
 ## The shape
 
 ```
-posting.md     the advert, verbatim   ──►  posting      its requirements, each quoting it
-jsk match      requirements × career  ──►  gaps.md      verdicts, shortfalls, the question queue
-answers        jsk kb apply / confirm ──►  resume.json  authored once, confirmed, shipped
+posting.md        the advert, verbatim   ──►  posting      its requirements, each quoting it
+jsk tailor match  requirements × career  ──►  gaps.md      verdicts, shortfalls, the question queue
+answers           jsk kb apply / confirm ──►  resume.json  authored once, confirmed, shipped
 ```
 
 One directory per application; its requirements, assessment and timeline are graphs in the store:
@@ -26,7 +26,7 @@ applications/<yyyy-mm-dd>-<company>-<role>/
   posting.md  decisions.txt  gaps.txt  gaps.md  resume.json  <Name>_<Company>_Resume.{tex,pdf,txt}
 ```
 
-Name it for the day it is being worked on; `jsk freeze` renames it if it is sent later. Commands
+Name it for the day it is worked on; `jsk app freeze` renames it if sent later. Commands
 take the directory (`applications/<stem>`), never a file inside it.
 
 **Two agent passes, and the person in between.** One writes the assessment; one writes the resume
@@ -134,10 +134,10 @@ An answer changes **the career** — never `gaps.md` or `resume.json`, both down
 
 ## 4. Another round only if a verdict moved
 
-Revise the assessment **only when an answer changed what the career holds**. Re-run `jsk match`.
+Revise the assessment **only when an answer changed what the career holds**. Re-run `jsk tailor match`.
 
 **Patch it yourself when every change is a row** — a lowered verdict, an answered `ask:` struck —
-in `gaps.txt`; then `jsk match <app-dir> --gaps <gaps.txt>` rewrites `gaps.md` from the new
+in `gaps.txt`; then `jsk tailor match <app-dir> --gaps <gaps.txt>` rewrites `gaps.md` from the new
 match, and fails a verdict above it. **Send it back only when the fit could change or an answer
 needs a row the assessment lacks**: `SendMessage` to the same agent with what changed.
 
@@ -168,8 +168,8 @@ not have, say so out loud.
 
 ## 6. Ship
 
-Follow `references/mode-ship.md`: `jsk ship`, the render gate, `jsk freeze`. Nothing is frozen that
-failed a gate.
+Follow `references/mode-ship.md`: `jsk resume ship`, the render gate, `jsk app freeze`. A failed gate
+freezes nothing.
 
 ## 7. Tell them where they fall short
 
@@ -184,9 +184,9 @@ If the fit is genuinely poor, say so.
 ## Cover letter, if asked
 
 Under 250 words: best match first, one metric, the gap in a line. Write `applications/<stem>/cover-letter.txt`; show
-`jsk check <it> --only letter --record <resume.json>` passing.
+`jsk letter check <it> --record <resume.json>` passing.
 
 ## Running it inline
 
 Without agents, the procedure and commands are the same: keep the advertisement before you read
-anything out of it, and trust `jsk match` and `jsk validate` over your own reading.
+anything out of it, and trust `jsk tailor match` and `jsk resume check` over your own reading.

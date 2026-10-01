@@ -31,7 +31,7 @@ produces a second file. When unsure what an employer runs, send ATS-maximal.
   changes the characters does: no `\MakeUppercase` on the **name** (an ATS extracts the name by
   heuristic), no letterspacing (`SUMMARY` extracts as `S U M M A R Y`). Uppercase *section headings*
   are fine — headings are matched case-insensitively.
-- **`.pdf`**, from `jsk render --pdf`. Workday, Greenhouse, Lever and Ashby parse PDF text. **If a
+- **`.pdf`**, from `jsk resume render --pdf`. Workday, Greenhouse, Lever and Ashby parse PDF text. **If a
   posting names a format, follow the posting**; a portal that demands `.docx` is one to submit to by
   hand.
 - **A text layer, not a picture of one.** A scan, or a PDF without embedded fonts, extracts as
@@ -83,7 +83,7 @@ when asked for:
 
 ## What the parse gate verifies
 
-`jsk check` reads the `.pdf` (text via `pymupdf`) or the `.txt`. First, that it is readable:
+`jsk resume check` reads the `.pdf` (text via `pymupdf`) or the `.txt`. First, that it is readable:
 
 | Signal | Meaning |
 |---|---|

@@ -305,7 +305,7 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         exporting - 42KB, read whole. The export lists what it chose now, one line a
         bullet, and `kb show` is only for the projects it will reword or write."""
         body = " ".join(self.body("jsk-resume-author.md").split())
-        self.assertIn("do not re-run `jsk match`", body)
+        self.assertIn("do not re-run `jsk tailor match`", body)
         self.assertLess(body.index("**Export first**"), body.index("jsk kb show <prj_ ids>"))
         self.assertIn("`id | text` lines are your survey", body)
         self.assertIn("only for the projects whose bullets you will reword or write", body)
@@ -340,7 +340,7 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         more, and no index is named anywhere: it is leaving with the Markdown. The match
         takes the application directory now that the posting is a graph in the store."""
         analyst = self.body("jsk-tailor-analyst.md")
-        self.assertIn("jsk match applications/<stem> --gaps", analyst)
+        self.assertIn("jsk tailor match applications/<stem> --gaps", analyst)
         self.assertNotIn("posting.ttl", analyst)
         self.assertIn("Read a project before citing it as evidence", analyst)
         self.assertIn("Do not read the whole career", analyst)
@@ -393,7 +393,7 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         neither file restates them - one statement cannot disagree with itself."""
         tailor = (REFS / "mode-tailor.md").read_text(encoding="utf-8")
         self.assertIn("Patch it yourself when every change is a row", tailor)
-        self.assertIn("Re-run `jsk match`", tailor)
+        self.assertIn("Re-run `jsk tailor match`", tailor)
         self.assertNotIn("+3 a required term", tailor)
         self.assertNotIn("×3", self.body("jsk-tailor-analyst.md"))
 

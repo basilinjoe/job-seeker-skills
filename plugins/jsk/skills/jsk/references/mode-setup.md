@@ -86,7 +86,7 @@ exact words"`, each number in the quote — and ask about every clause it quoted
 agents? Do the same inline (`references/kb-format.md` has the shapes).
 
 An older **bundle** (`projects/` and `resume-generation/`) has no migration command: read it whole
-and build the record from it like a resume — `jsk new`, then `jsk-extractor` per bundle file, each
+and build the record from it like a resume — `jsk kb new`, then `jsk-extractor` per bundle file, each
 changeset shown and applied through `jsk kb apply`. A changeset cannot confirm, so it carries
 `j:needs-verification` and `j:disputed` as the bundle held them and everything else lands `inferred`;
 then `jsk kb confirm <every id the bundle held confirmed> --source <bundle file> --quote "…"`.

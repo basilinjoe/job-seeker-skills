@@ -29,23 +29,23 @@ a confirm or a corrected bullet is on the next render with nothing to update her
 | `roles` | no | `pos_` ids to show with no bullet, for chronology |
 | `skills` | no | `skill_` ids in row order; absent, every skill |
 
-`jsk ship --ats-max` overrides `format`, and `jsk render --region` overrides `region`, for one render.
+For one render, `jsk resume ship --ats-max` overrides `format` and `render --region` `region`.
 
 **The summary is the only prose in it.** A reworded bullet goes into the career first
 (`jsk kb apply`) and is named here by its id; an unknown key fails. Once the person confirms the
 summary, `jsk kb confirm --summary <resume.json> --answer "…"` marks it `confirmed` beside their
-answer and the text's hash; a hand-set `confirmed`, or text edited since, fails validate.
+answer and the text's hash; a hand-set `confirmed`, or text edited since, fails.
 
 ```bash
 jsk kb export --from-match applications/<stem> --out applications/<stem>/resume.json
 jsk kb export --ranked --out resume.json      # a general resume; --select <ids> adds
-jsk validate applications/<stem>/resume.json
+jsk resume check applications/<stem>/resume.json
 ```
 
-Export writes over an existing file only with `--replace`. `jsk validate` is the record gate. It fails
+Export writes over an existing file only with `--replace`. `jsk resume check` is the record gate: it fails
 the shape, an id the career does not hold or has retired, a bullet whose project has no role, a
 number in a bullet that no current version of a metric it cites holds, a career that does not
 validate, and one out of sync with its log (written outside jsk: restore it from
 `.jsk/backup.trig`); it warns of labels, "N years of X"
-and brackets. A full URS record (`"urs"` key) from before is refused: write a short one with `jsk kb export`. A
+and brackets. A full URS record (`"urs"` key) is refused: write a short one with `jsk kb export`. A
 frozen application keeps its old file as the archive of what was sent.

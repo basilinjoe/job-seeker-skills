@@ -1,6 +1,6 @@
 ---
 name: jsk-tailor-analyst
-description: Use when a job posting needs turning into something a resume can be tailored against — once per tailoring run. Reads the advertisement, builds its requirements as the posting graph, runs jsk match against the career record, and writes the gap assessment the conversation then works through. Expects the application directory and the workspace; everything else it needs is in its definition. Assesses only; it never interviews, never decides and never writes a resume.
+description: Use when a job posting needs turning into something a resume can be tailored against — once per tailoring run. Reads the advertisement, builds its requirements as the posting graph, runs jsk tailor match against the career record, and writes the gap assessment the conversation then works through. Expects the application directory and the workspace; everything else it needs is in its definition. Assesses only; it never interviews, never decides and never writes a resume.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 color: orange
@@ -112,7 +112,7 @@ mentored, or one cloud from several — and write only what you change in `gaps.
 career, by the conversation. `partial` names its shortfall; `unevidenced` gets a question. Never
 soften `indeterminate` into `unsatisfied`: only one is about the candidate.
 
-Then run `jsk match applications/<stem> --gaps applications/<stem>/gaps.txt`: it
+Then run `jsk tailor match applications/<stem> --gaps applications/<stem>/gaps.txt`: it
 rewrites the gaps graph and `gaps.md`, or on a FAIL (an unfilled slot is one) writes nothing. Fix
 every FAIL before returning.
 
