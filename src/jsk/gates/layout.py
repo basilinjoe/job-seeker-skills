@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`python -m jsk.gates.layout`: the layout gate's documented entry point.
+"""The layout gate's old module path, kept until P6 for its names.
 
 The command is adapters/cli/gates/layout.py and the gate application/gates/layout.py; this
 module keeps the path, the names callers and tests reach through it, and how a record's

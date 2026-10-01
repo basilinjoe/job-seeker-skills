@@ -56,7 +56,7 @@ def store_report(start=None):
     root = find_root(here)
     if root is None:
         return [f"  gap   no workspace at or above {here}",
-                "           `jsk new PATH --name NAME` starts one"], False
+                "           `jsk kb new PATH --name NAME` starts one"], False
     refusal = unloaded_refusal(root)
     if refusal:
         return [f"  FAIL  {refusal[0]}", f"           {refusal[1]}"], True

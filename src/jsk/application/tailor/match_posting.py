@@ -1,7 +1,7 @@
 """Matching an application's posting against the career, through the vocabulary.
 
 The workspace is loaded and checked, the application's one posting found, and its
-requirements joined with the career into `result`'s plain data - the dict `jsk match
+requirements joined with the career into `result`'s plain data - the dict `jsk tailor match
 --json` prints and the tests pin (Ruling 5 of the onion design keeps it a dict). It
 prints nothing: adapters/cli/match.py says what it found, and the gaps builds read it.
 """
@@ -46,13 +46,13 @@ class MatchReport:
     rel: str                    # the application's folder relative to the workspace
 
 
-def application(arg, command="jsk match"):
+def application(arg, command="jsk tailor match"):
     """(workspace root, application directory) for the application `arg` names - its
     directory, applications/<dir> - or (None, [what is wrong, the fix]).
 
     Ruling 11 of the 2026-09-29 plan: the posting is a graph in career/store/ now, not a
     file to point at, so every command takes the application, as `jsk posting build` and
-    `jsk freeze` always did. A path to posting.ttl is how a shell history or an older
+    `jsk app freeze` always did. A path to posting.ttl is how a shell history or an older
     agent file still calls it, so it is refused with the new form.
 
     Args:
@@ -171,7 +171,7 @@ def faults_in(queries, bullets, today):
 
 
 def result(store, queries, post, today, budget, elsewhere, select):
-    """Everything `jsk match` reports, as plain data.
+    """Everything `jsk tailor match` reports, as plain data.
 
     Args:
         store: the loaded workspace.

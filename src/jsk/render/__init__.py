@@ -22,7 +22,7 @@ than assert it.
 and `profiles` loads a market's conventions; the builder uses both.
 
 The three CLIs that drive all of the above live here too - `render_resume`
-(`jsk render`), `preview_templates` (`jsk preview`) and `fit_pages` (`jsk fit`).
+(`jsk resume render`), `preview_templates` (`jsk resume preview`) and `fit_pages` (`jsk resume fit`).
 They sat at the top of the package until it was measured: between this package
 and the rest of it there is exactly one import edge, `profiles` reaching for the
 packaged schema path, and it is lazy. Everything on either side of that line is

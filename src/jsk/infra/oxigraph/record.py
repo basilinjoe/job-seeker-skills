@@ -88,7 +88,7 @@ def turn(root, dry_run=False):
     what that one left. Nothing else writes while it is held, so the command reads the
     store read-only as usual.
 
-    Taken when there is no store yet, too (creating career/ for its lock): `jsk new` and
+    Taken when there is no store yet, too (creating career/ for its lock): `jsk kb new` and
     `jsk kb load` ask whether one exists, then create it, and two of them must not both
     find none. Each asks again inside its turn."""
     import contextlib
@@ -104,7 +104,7 @@ def write_graphs(root, graphs, create=False):
     """Replace `graphs` ({name: triples, or None to drop}) in the store in one update, then
     refresh the backup. Every write to the store comes through here - the only caller of
     db.replace_graphs (tests/test_db.py checks). `create`: the store may not exist yet
-    (`jsk new`, `jsk kb load`)."""
+    (`jsk kb new`, `jsk kb load`)."""
     from . import db
 
     failure, landed = None, False

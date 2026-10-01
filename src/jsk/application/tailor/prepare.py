@@ -1,6 +1,6 @@
 """`jsk tailor prepare`'s digest: everything an assessment reads, gathered in one pass.
 
-The check, scoped to this application plus any FAIL anywhere; the match as `jsk match`
+The check, scoped to this application plus any FAIL anywhere; the match as `jsk tailor match`
 prints it; what the record holds for every missing and candidate term; the person, for
 eligibility; the cover's projects with their bullets; what those projects hold
 unconfirmed; and the assessment - the gaps graph and gaps.md - written on every run, with
@@ -88,7 +88,7 @@ def prepare(root, app, named_as, budget, today, draft, *, load, queries, select,
         return Digest(tuple(sections), f"\n{rel}: holds no posting\n"
                       f"      fix: `jsk posting build {named_as}` writes it from posting.md", 1)
 
-    # 2. The match, as `jsk match` prints it.
+    # 2. The match, as `jsk tailor match` prints it.
     r = result(store, queries(store), post, today, budget, len(store.fails()) - len(blocking),
                select)
     sections.append(("match", capped(markdown(r).rstrip("\n").split("\n"), "match")))
@@ -241,7 +241,7 @@ def drafted(store, derived, app, rel, target, folder):
     if held:
         return [f"no gaps.txt drafted: {held}"]
     if os.path.exists(target):
-        return [f"{target} already exists - left as it is; `jsk match {rel} "
+        return [f"{target} already exists - left as it is; `jsk tailor match {rel} "
                 f"--gaps {target}` checks it and rewrites the assessment and gaps.md"]
     try:
         text = draft_gaps(derived, store, os.path.join(app, "posting.md"), folder=folder)

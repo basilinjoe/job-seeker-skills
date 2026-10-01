@@ -5,7 +5,7 @@ lowered verdict with its reason, a flagged row kept or lowered, eligibility, fit
 prose. Everything else is derived (domain/assessment/derive.py). `build` checks the overlay
 against the match (domain/assessment/fold.py), then writes the assessment as the
 application's gaps graph - part of the record, so SPARQL reaches it - and renders gaps.md
-from the two. Nothing reads gaps.md back. It prints nothing: `jsk match --gaps` and `jsk
+from the two. Nothing reads gaps.md back. It prints nothing: `jsk tailor match --gaps` and `jsk
 tailor prepare` say what it found and wrote.
 
 Both are rebuilt on every run from the career as it stands, so there is no stale copy to

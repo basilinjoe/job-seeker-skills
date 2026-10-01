@@ -10,31 +10,30 @@ for the posting, as ids, and a summary - and carried to a document somebody can 
       jsk kb apply      jsk kb export,               \-> .txt       (paste-in boxes)
                         then ordered
 
-    jsk doctor                  what works on this machine
-    jsk new PATH --name NAME    scaffold career/store/ - the career and its log at r1 -
-                                and applications/
-    jsk kb VERB [...]           the career record: apply, confirm, show, view, query,
-                                export, check
-    jsk match APP               a posting against the career, through the vocabulary
-    jsk validate RESUME         the record gate: is the resume.json sound?
-    jsk render RESUME --out D   one resume.json to a PDF and plain text
-    jsk preview RESUME --out D  the same resume in every template, to pick a look
-    jsk check FILE              the parse gate and the prose gate
-    jsk gates DIR --record R    the record, parse and prose gates over one render
-    jsk fit TEX --target-pages  fit a render to a page budget
-    jsk ship RESUME --out D     validate, render and gate, in one pass
-    jsk freeze APP ...          archive a sent application: its record, in the store
-    jsk event APP KIND          add a screen, an offer, a rejection to one
+    jsk doctor                       what works on this machine
+    jsk kb new PATH --name NAME      scaffold career/store/ - the career and its log at
+                                     r1 - and applications/
+    jsk kb VERB [...]                the career record: apply, confirm, show, view, query,
+                                     export, check
+    jsk tailor match APP             a posting against the career, through the vocabulary
+    jsk resume check RESUME          the record gate: is the resume.json sound?
+    jsk resume render RESUME --out D one resume.json to a PDF and plain text
+    jsk resume preview RESUME --out D  the same resume in every template, to pick a look
+    jsk resume check FILE            the parse gate and the prose gate
+    jsk resume check DIR --record R  the record, parse and prose gates over one render
+    jsk resume fit TEX --target-pages  fit a render to a page budget
+    jsk resume ship RESUME --out D   validate, render and gate, in one pass
+    jsk app freeze APP ...           archive a sent application: its record, in the store
+    jsk app event APP KIND           add a screen, an offer, a rejection to one
 
-`jsk validate` checks a resume.json before anything renders - every id it names is live
+`jsk resume check` checks a resume.json before anything renders - every id it names is live
 in the career, and every number in a bullet it selects traces to a current version of a metric
 the bullet cites, so a number the career has since replaced is caught before it is sent -
 and the render withholds a claim below the file's provenance floor.
 
-The modules are the documented API and are importable individually; each one that has
-a CLI also runs as `python -m jsk.<module>` - `python -m jsk.gates.check_ats`,
-`python -m jsk.render.render_resume`. `cli.py` is a convenience layer over them and never
-the only way in.
+The modules are importable individually. Every command runs through `jsk` (or
+`python -m jsk`, where the console script is not on PATH): `jsk <noun> <verb>`, the noun
+what you work on, the verb what you do to it.
 
 One dependency is required: `pyoxigraph`, the engine that stores, validates and queries
 the career. Everything else is optional and imported at the point of use rather than here:

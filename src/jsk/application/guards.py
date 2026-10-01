@@ -1,7 +1,7 @@
 """The refusals several commands share, returned as lines and never printed.
 
-A command that refuses says why in the same words wherever it runs: `jsk render`,
-`jsk preview`, `jsk ship` and `jsk kb confirm` all turn a frozen application away, and every
+A command that refuses says why in the same words wherever it runs: `jsk resume render`,
+`jsk resume preview`, `jsk resume ship` and `jsk kb confirm` all turn a frozen application away, and every
 command that reads the record turns away a workspace still laid out as files. The wording
 lives here once; each adapter prints it.
 """
@@ -64,7 +64,7 @@ FROZEN = (".posting.json", ".gaps.json")
 def record_refusal(target):
     """Why `target` is not a record the record gate can read, or None if it is.
 
-    Shared by `jsk validate` and `jsk ship`, so that the two commands that start at a
+    Shared by `jsk resume check` and `jsk resume ship`, so that the two commands that start at a
     record turn the same wrong file away in the same words.
 
     Args:

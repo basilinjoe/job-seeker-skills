@@ -1,4 +1,4 @@
-"""`jsk fit`: its flags parsed, the fit run (application/render/fit_pages.py), the result said.
+"""`jsk resume fit`: its flags parsed, the fit run (application/render/fit_pages.py), the result said.
 
 render/fit_pages.py is the documented entry point and holds the usage text; this prints
 exactly what it printed when the fit and its report were one function.
@@ -30,9 +30,9 @@ CODES = {"no-baseline": 2, "fits": 0, "dry-run": 1, "broke": 2, "floor": 1, "fit
 
 def parse(argv):
     """The flags, parsed; argparse exits 2 on a bad call and 0 after --help."""
-    # prog pinned: `jsk fit` calls this in process, where sys.argv[0] is jsk's own.
+    # prog pinned: `jsk resume fit` calls this in process, where sys.argv[0] is jsk's.
     ap = argparse.ArgumentParser(
-        prog="fit_pages.py",
+        prog="jsk resume fit",
         description="Fit a rendered resume to a page budget without breaching the "
                     "10pt / 0.5in floors.")
     ap.add_argument("tex", help="the .tex the deliverable PDF is compiled from")
@@ -64,7 +64,7 @@ def refused(a):
 
 
 def main(argv=None, *, tex):
-    """`jsk fit`: fit a rendered .tex to its page budget and say how.
+    """`jsk resume fit`: fit a rendered .tex to its page budget and say how.
 
     Args:
         argv: the arguments after the program name; None reads sys.argv.
@@ -77,7 +77,7 @@ def main(argv=None, *, tex):
 
 
 def fitted(argv, *, tex):
-    """`jsk fit` with how it went: `jsk ship` reads the levers off it.
+    """`jsk resume fit` with how it went: `jsk resume ship` reads the levers off it.
 
     Args:
         argv: the arguments after the program name; None reads sys.argv.
@@ -188,5 +188,5 @@ def report_fitted(r):
           f"margins {r.margin_in:g}in (floor {MARGIN_FLOOR_IN:g}in)")
     print(f"wrote: {r.out}")
     print(f"\nPASS - fits {r.target} pages")
-    print("Recompile that .tex and re-run check_ats.py on the new PDF, then look at "
+    print("Recompile that .tex and re-run jsk resume check on the new PDF, then look at "
           "the render: fitting changes layout, and layout is what the render gate checks.")

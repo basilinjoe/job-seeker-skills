@@ -1,6 +1,6 @@
 """The one line a render says about its pages: what was produced, against the budget.
 
-`jsk render` prints it under each PDF and `jsk gates` reprints it over a render it did not
+`jsk resume render` prints it under each PDF and `jsk resume check` reprints it over a render it did not
 make, so the two cannot describe one measurement in different words.
 """
 
@@ -30,7 +30,7 @@ def page_report(name, count, budget, fill=None):
                 f"pip install pymupdf to have this checked")
     measured = f"{count} page{'' if count == 1 else 's'} against a budget of {budget}"
     if count > budget:
-        return f"  pages  {name}: {measured} - OVER BUDGET, run fit_pages.py"
+        return f"  pages  {name}: {measured} - OVER BUDGET, run jsk resume fit"
     if count > 1 and fill is not None and fill < LAST_PAGE_FLOOR:
         return (f"  pages  {name}: {measured} - page {count} is {fill:.0f}% full: add the "
                 f"evidence the budget allows, or fit it to {count - 1} "

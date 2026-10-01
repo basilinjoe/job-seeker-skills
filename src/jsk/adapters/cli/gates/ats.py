@@ -1,8 +1,7 @@
 """Check a generated resume against the rules in references/ats-rules.md
 
-Usage: jsk check resume.pdf --only parse [--strict]
-       python -m jsk.gates.check_ats resume.pdf [--strict]
-       python -m jsk.gates.check_ats resume.txt [--strict]
+Usage: jsk resume check resume.pdf --only parse [--strict]
+       jsk resume check resume.txt --only parse [--strict]
        --strict  also enforce ATS-maximal rules (ASCII only, employer per role)
 
 Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
@@ -26,7 +25,7 @@ from . import present
 
 
 def gate(args):
-    """The parse gate over the arguments alone, as `jsk gates` runs it.
+    """The parse gate over the arguments alone, as `jsk resume check` runs it.
 
     Args:
         args: the document, then --strict when asked for.
@@ -47,7 +46,7 @@ def gate(args):
         print(docstring_usage(__doc__))
         return 0, None
     if not args:
-        print("usage: python -m jsk.gates.check_ats resume.pdf | resume.txt [--strict]")
+        print("usage: jsk resume check resume.pdf | resume.txt --only parse [--strict]")
         return 2, None
     path = args[0]
     strict = "--strict" in args
@@ -96,7 +95,7 @@ def report(result):
 
 
 def main(argv):
-    """`python -m jsk.gates.check_ats`, as an exit code.
+    """The parse gate (`jsk resume check --only parse`), as an exit code.
 
     Args:
         argv: the arguments alone, as check_prose.py takes them.

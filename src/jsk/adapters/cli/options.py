@@ -1,6 +1,6 @@
 """The flags the tailoring commands share: `--cover N` and `--today YYYY-MM-DD`, parsed once.
 
-`jsk match`, `jsk tailor prepare` and `jsk kb export --from-match` each parsed them, with
+`jsk tailor match`, `jsk tailor prepare` and `jsk kb export --from-match` each parsed them, with
 the same messages, three times over. The clock is read here, once, and only when no
 --today was given (Ruling 9 of the onion design).
 """

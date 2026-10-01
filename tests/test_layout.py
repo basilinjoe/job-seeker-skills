@@ -223,7 +223,7 @@ class PageCount(LayoutCase):
         path = pdf(self.tmp / "r.pdf", [column(CLEAN_RESUME), column(["More."])])
         code, out = self.gate(path, "--region", "AU", "--pages", "1")
         self.assertEqual(code, 0, out)
-        self.assertIn("2 pages of a budget of 1 (reported; jsk fit owns that verdict)", out)
+        self.assertIn("2 pages of a budget of 1 (reported; jsk resume fit owns that verdict)", out)
 
 
 @unittest.skipUnless(has_pymupdf(), "needs pymupdf to build the PDF")

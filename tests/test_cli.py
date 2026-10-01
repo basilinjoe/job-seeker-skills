@@ -239,7 +239,7 @@ class Check(unittest.TestCase):
         prose result must not read as a finished resume."""
         code, out = run(JSK, "resume", "check", self.document())
         del code
-        self.assertIn("jsk validate", out)
+        self.assertIn("jsk resume check <record>.json", out)
         self.assertIn("PDF", out)
 
     def test_strict_reaches_the_parse_gate(self):
@@ -699,7 +699,7 @@ class InProcessDispatch(unittest.TestCase):
         the program name in fit_pages.py's usage line."""
         code, out = run(JSK, "resume", "fit", "--help")
         self.assertEqual(code, 0, out)
-        self.assertIn("usage: fit_pages.py", out)
+        self.assertIn("usage: jsk resume fit", out)
 
     def test_a_script_that_raises_is_reported_not_propagated(self):
         fake = mock.Mock(main=mock.Mock(side_effect=RuntimeError("boom")))
@@ -707,7 +707,7 @@ class InProcessDispatch(unittest.TestCase):
             code, out = in_process("resume", "render", "x.json")
         self.assertEqual(code, 2, out)
         self.assertIn("render_resume.py raised RuntimeError: boom", out)
-        # `python render_resume.py` stops at its first relative import; the module runs.        self.assertIn("python -m jsk.render.render_resume x.json", out)
+        self.assertIn("jsk resume render x.json", out)
 
 
 class PreviewInProcess(unittest.TestCase):
@@ -880,7 +880,7 @@ class Match(unittest.TestCase):
         code, out = run(JSK, "tailor", "match", self.CONTOSO / "posting.ttl")
         self.assertEqual(code, 2, out)
         self.assertIn("takes the application now, not its posting.ttl", out)
-        self.assertIn(f"fix:  jsk match {self.CONTOSO}", out)
+        self.assertIn(f"fix:  jsk tailor match {self.CONTOSO}", out)
 
     def test_gaps_txt_that_raises_a_verdict_fails(self):
         """--gaps checks the analyst's gaps.txt against the match: .NET is carried only by

@@ -27,7 +27,7 @@ def occupied(root, *, db):
     """
     if db.exists(root) and any(db.read(root).values()):
         raise Refused([f"{os.path.join(root, db.STORE_DIR)} already holds a record"],
-                      "load into a new workspace (`jsk new` elsewhere is not needed - an "
+                      "load into a new workspace (`jsk kb new` elsewhere is not needed - an "
                       "empty folder with --root will do)")
 
 

@@ -13,7 +13,7 @@ CUT = 80
 
 HEAD = [
     "# gaps.txt - your overlay on the assessment jsk derived from the match.",
-    "# `jsk match <application> --gaps <this file>` checks it, then writes the assessment and gaps.md.",
+    "# `jsk tailor match <application> --gaps <this file>` checks it, then writes the assessment and gaps.md.",
     "# A requirement not listed keeps the match's verdict (gaps.md shows each, with its evidence).",
     "# A row is `slug | verdict | reason`: it lowers a verdict, never raises one.",
 ]

@@ -1,6 +1,6 @@
-"""An application's record: what `jsk freeze` writes, and `jsk event` adds to.
+"""An application's record: what `jsk app freeze` writes, and `jsk app event` adds to.
 
-Usage: jsk event <app-dir> <kind> --date YYYY-MM-DD|unknown [--channel TEXT] [--note TEXT]
+Usage: jsk app event <app-dir> <kind> --date YYYY-MM-DD|unknown [--channel TEXT] [--note TEXT]
                  [--due YYYY-MM-DD] [--today YYYY-MM-DD]
 
   <kind>   one of the pipeline vocabulary: submitted, acknowledged, screen-scheduled,
@@ -25,7 +25,7 @@ weekday; a --date after today is a WARN, since nothing has happened yet on it.
 
 Exit 0 added; 1 refused, with why; 2 called wrong.
 
-`jsk event` is this module's main; the event is added by application/timeline/add_event.py.
+`jsk app event` is this module's main; the event is added by application/timeline/add_event.py.
 """
 import datetime
 import difflib
@@ -48,7 +48,7 @@ def usage(message):
         2, the exit code of a call made wrong.
     """
     print(message)
-    print("usage: jsk event <app-dir> <kind> --date YYYY-MM-DD|unknown [--channel TEXT] "
+    print("usage: jsk app event <app-dir> <kind> --date YYYY-MM-DD|unknown [--channel TEXT] "
           "[--note TEXT] [--due YYYY-MM-DD] [--today YYYY-MM-DD]")
     return 2
 
@@ -71,7 +71,7 @@ def refuse(lines, fix):
 
 
 def main(argv=None):
-    """`jsk event`: add one event to a frozen application's record.
+    """`jsk app event`: add one event to a frozen application's record.
 
     Args:
         argv: the arguments after `event`; sys.argv's when None.
@@ -93,7 +93,7 @@ def main(argv=None):
         return usage(problem)
     positional, flags = parsed
     if len(positional) != 2:
-        return usage("jsk event takes an application directory and a kind")
+        return usage("jsk app event takes an application directory and a kind")
     app_dir, kind = positional[0].rstrip("/\\") or positional[0], positional[1]
     if kind not in KINDS:
         near = difflib.get_close_matches(kind, KINDS, n=1, cutoff=0.5)
@@ -120,7 +120,7 @@ def main(argv=None):
     try:
         import pyoxigraph  # noqa: F401
     except ImportError:
-        print("FAIL  jsk event needs pyoxigraph, and this Python has not got it - "
+        print("FAIL  jsk app event needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
     if not timeline.has_record(app_dir, "application"):
@@ -128,7 +128,7 @@ def main(argv=None):
             return refuse([f"{app_dir} was frozen as application.md, which this command does "
                            f"not write"], "append the row to its # Timeline table by hand")
         return refuse([f"{app_dir} holds no application record"],
-                      "an application gets one when it is frozen: `jsk freeze`")
+                      "an application gets one when it is frozen: `jsk app freeze`")
     return add(timeline.workspace_of_app(app_dir)[0], app_dir, kind, date,
                flags.get("--channel"), flags.get("--note"), due,
                datetime.date.fromisoformat(today))

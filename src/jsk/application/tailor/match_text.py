@@ -1,4 +1,4 @@
-"""The match as markdown: what `jsk match` prints, and the sections the gaps draft shares."""
+"""The match as markdown: what `jsk tailor match` prints, and the sections the gaps draft shares."""
 
 
 def number(x):
@@ -57,7 +57,7 @@ def question_line(q):
 
 
 def markdown(r):
-    """What `jsk match` prints: the match `r` as markdown.
+    """What `jsk tailor match` prints: the match `r` as markdown.
 
     Args:
         r: match_posting.result's plain data.

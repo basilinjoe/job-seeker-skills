@@ -205,7 +205,7 @@ class Command(Workspace):
                          {"resume": 2, "pages": 2,
                           "bullets": ["ach_identity_sso", "ach_identity_events"]})
         self.assertIn("2 bullets", out)
-        self.assertIn("jsk validate", out)
+        self.assertIn("jsk resume check", out)
 
     def test_out_lists_each_bullet_chosen_by_its_first_100_characters(self):
         """The author read 42KB of `kb show --bullets` over 16 projects to learn what the

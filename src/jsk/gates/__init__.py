@@ -1,7 +1,7 @@
 """The four mechanical gates, and the one that is not mechanical.
 
 A resume passes five gates before anybody sends it. Four of them are here and run as
-`jsk gates <out-dir>`, each one's output printed verbatim:
+`jsk resume check <out-dir>`, each one's output printed verbatim:
 
     record gate   record.py          is the short resume.json sound, and does every
                                      number in a bullet it selects trace to a current
@@ -18,13 +18,13 @@ A resume passes five gates before anybody sends it. Four of them are here and ru
                                      reading page images was asked to see.
 
 **The fifth gate is a person opening the PDF and reading every page, and nothing in
-this package can run it.** `jsk gates` closes by saying so rather than exiting 0 and
+this package can run it.** `jsk resume check` closes by saying so rather than exiting 0 and
 letting a caller infer that a resume has been checked. That is the whole reason the
 other four are worth having: a gate that overstates what it covers teaches people to
 stop reading the ones that do not.
 
-Every module here exposes `main(argv)` and runs as `python -m jsk.gates.<name>`,
-because `jsk gates` calls all four in one interpreter rather than spawning five - and
+Every module here exposes `main(argv)`,
+because `jsk resume check` calls all four in one interpreter rather than spawning five - and
 a gate that raised where it should have returned a verdict would take the others
 down with it. `cli.call_gate` is where that is contained.
 

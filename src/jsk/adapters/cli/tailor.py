@@ -8,7 +8,7 @@ Usage: jsk tailor prepare <applications/<dir>> [--draft-gaps] [--cover N] [--tod
   --today       the date recency is measured from (default: today)
 
 One process, one digest, in this order: the check, scoped to this application plus any
-FAIL anywhere; the match as `jsk match` prints it; what the record holds for every missing
+FAIL anywhere; the match as `jsk tailor match` prints it; what the record holds for every missing
 and candidate term; the person, for eligibility; the cover's projects with their bullets;
 what those projects hold unconfirmed; and the assessment - the gaps graph and gaps.md,
 derived from the match with gaps.txt folded in when there is one, written on every run.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`python -m jsk.gates.check_prose`: the prose gate's documented entry point.
+"""The prose gate's old module path, kept until P6 for its names.
 
 The command is adapters/cli/gates/prose.py and the gate application/gates/prose.py; this
 module keeps the path, the names callers and tests reach through it, and the readers of a

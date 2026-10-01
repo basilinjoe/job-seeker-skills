@@ -68,7 +68,7 @@ def open_reader(root):
 
     if not exists(root):
         raise NoStore(f"no career/store/ in {root}",
-                      "run `jsk new`, or `jsk kb load` to import a workspace or a dump")
+                      "run `jsk kb new`, or `jsk kb load` to import a workspace or a dump")
     try:
         return ox.Store.read_only(path(root))
     except (OSError, RuntimeError) as e:
@@ -92,7 +92,7 @@ def open_writer(root, wait=LOCK_WAIT, create=False):
 
     if not create and not exists(root):
         raise NoStore(f"no career/store/ in {root}",
-                      "run `jsk new`, or `jsk kb load` to import a workspace or a dump")
+                      "run `jsk kb new`, or `jsk kb load` to import a workspace or a dump")
     deadline = time.monotonic() + wait
     delay = 0.05
     while True:

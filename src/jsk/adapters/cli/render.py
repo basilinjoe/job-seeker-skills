@@ -1,8 +1,7 @@
 """Render a short resume.json into a .tex (and PDF), or plain text.
 
 Usage:
-  jsk render <resume.json> --out DIR [options]
-  python -m jsk.render.render_resume <resume.json> --out DIR [options]
+  jsk resume render <resume.json> --out DIR [options]
 
   --format F         latex | txt | all             (default: all)
   --region CC        override the file's region profile, e.g. AU, IN, AE
@@ -109,7 +108,7 @@ def refused(argv):
 
 
 def main(argv, *, tex, company_of):
-    """`jsk render`: render one resume.json and say what was written.
+    """`jsk resume render`: render one resume.json and say what was written.
 
     Args:
         argv: the whole argv, the program name first.
@@ -123,7 +122,7 @@ def main(argv, *, tex, company_of):
 
 
 def rendered(argv, *, tex, company_of):
-    """`jsk render` with what it rendered: `jsk ship` reads the files and pages off it.
+    """`jsk resume render` with what it rendered: `jsk resume ship` reads the files and pages off it.
 
     Args:
         argv: the whole argv, the program name first.

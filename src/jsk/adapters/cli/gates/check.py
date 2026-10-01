@@ -1,7 +1,7 @@
-"""`jsk validate`, `jsk check` and `jsk gates`: the gates' commands, and how their steps print.
+"""The three things `jsk resume check` does, by target, and how their steps print.
 
-`jsk validate` is the record gate over one resume.json, `jsk check` the two document gates
-over one render (or one gate, with --only), and `jsk gates` all four over a render's
+cmd_validate is the record gate over one resume.json, cmd_check the two document gates
+over one render (or one gate, with --only), and cmd_gates all four over a render's
 directory (application/gates/run_gates.py) with the render gate said out loud after them.
 Each gate runs in this interpreter through its own adapter, contained the way
 cli.call_gate contains a module: a gate that raised is reported as its own failure and
@@ -19,7 +19,7 @@ from ....application.gates.run_gates import RENDERED as RENDERED
 from ....application.gates.run_gates import rendered_documents as rendered_documents
 from ....cliutil import parse_flags, utf8_stdout, wants_help
 
-# The gates jsk check runs, in order. Both always run: a document that fails the parse
+# The gates jsk resume check runs, in order. Both always run: a document that fails the parse
 # gate can still have prose findings worth seeing in the same pass.
 #
 # They no longer read the same file. check_ats.py reads what is actually sent - the
@@ -34,14 +34,14 @@ CHECK_GATES = [
 
 # The gate `--only` reaches that the default pass never runs, its arguments passed through
 # unchanged. The layout gate reads the render, but only the PDF - a default pass over a .txt
-# would report it SKIPPED. `jsk gates` and `jsk ship` run it; here it is asked for by name.
+# would report it SKIPPED. `jsk resume check` and `jsk resume ship` run it; here it is asked for by name.
 CHECK_ALONE = {"layout": "layout.py"}
 
-CHECK_USAGE = "usage: jsk check <resume.pdf> [--strict] [--only parse|prose|layout]"
+CHECK_USAGE = "usage: jsk resume check <resume.pdf> [--strict] [--only parse|prose|layout]"
 
-VALIDATE_USAGE = "usage: jsk validate <resume.json> [--strict] [--max-findings N]"
+VALIDATE_USAGE = "usage: jsk resume check <resume.json> [--strict] [--max-findings N]"
 
-GATES_USAGE = ("usage: jsk gates <out-dir> [--record <resume.json>] "
+GATES_USAGE = ("usage: jsk resume check <out-dir> [--record <resume.json>] "
                "[--pages N] [--json] [--max-findings N]")
 
 GATES_VALUE_FLAGS = ("--record", "--pages", "--max-findings")
@@ -139,7 +139,7 @@ def through(script, args):
 
 
 def cmd_validate(args):
-    """`jsk validate`: the record gate, over one short resume.json.
+    """`jsk resume check`: the record gate, over one short resume.json.
 
     Args:
         args: the arguments after the command.
@@ -166,7 +166,7 @@ def only_gate(args):
     """(the gate --only names or None, the arguments without it, exit code or None).
 
     Args:
-        args: `jsk check`'s arguments; not changed.
+        args: `jsk resume check`'s arguments; not changed.
 
     Returns:
         The exit code is 2, after printing why, when --only has no value or names no gate.
@@ -239,14 +239,14 @@ def cmd_check(args):
         else:
             print(f"The {ran} passed. Three gates did not run:")
             # Padded to the same column as the two fixed lines below it.
-            print(f"  {'jsk check ' + os.path.basename(target):<30} the other document gate")
-        print("  jsk validate <record>.json     before rendering")
+            print(f"  {'jsk resume check ' + os.path.basename(target):<30} the other document gate")
+        print("  jsk resume check <record>.json before rendering")
         print("  open the PDF and read it       nobody else can do this one")
     return worst
 
 
 def parse_gates(args):
-    """`jsk gates`'s arguments, as cliutil.parse_flags reads them."""
+    """`jsk resume check`'s arguments, as cliutil.parse_flags reads them."""
     return parse_flags(args, GATES_VALUE_FLAGS)
 
 
@@ -268,7 +268,7 @@ def parse_pages(pages):
 
 
 def gates_call(args):
-    """(out_dir, record, pages, limit, json) for `jsk gates`, or an exit code.
+    """(out_dir, record, pages, limit, json) for `jsk resume check`, or an exit code.
 
     Args:
         args: the arguments after the command.
@@ -298,7 +298,7 @@ def gates_call(args):
     out_dir = positional[0]
     if not os.path.isdir(out_dir):
         print(f"not a directory: {out_dir}")
-        print("fix:  pass the directory render_resume.py --out wrote to")
+        print("fix:  pass the directory jsk resume render --out wrote to")
         return 2
 
     # A record that was named and is wrong is a call error; one that was neither
@@ -330,7 +330,7 @@ def gates_call(args):
 def cmd_gates(args):
     """The record, parse, prose and layout gates over one rendered resume, in one process.
 
-    `jsk check` covers two of them; this covers four, and every render the directory
+    cmd_check covers two of them; this covers four, and every render the directory
     holds. What it does not cover is the render gate - see
     run_gates.render_section() for why that is stated rather than silently omitted.
 
@@ -414,9 +414,9 @@ def measure(pdf):
 
 
 def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only=None):
-    """Every `jsk gates` step over one directory, the render gate last, as Shown dicts.
+    """Every `jsk resume check` step over one directory, the render gate last, as Shown dicts.
 
-    `jsk ship` and `jsk freeze` call this too (application.gates.run_gates.run_gates says
+    `jsk resume ship` and `jsk app freeze` call this too (application.gates.run_gates.run_gates says
     why), and print and serialise what it returns beside steps of their own.
 
     Returns:
@@ -506,7 +506,7 @@ def summary(results):
         command = result["command"] or ""
         if result["gate"] in ("parse gate", "prose gate", "layout gate") and command:
             parts.append(command.split()[1] if len(command.split()) > 1 else command)
-        # The render's measurement, or - under `jsk gates`, which renders nothing -
+        # The render's measurement, or - under `jsk resume check`, which renders nothing -
         # the render gate's under --pages. Never both: ship's --pages is a second
         # budget for the same count.
         if result["gate"] == "render" or (result["gate"] == "render gate"

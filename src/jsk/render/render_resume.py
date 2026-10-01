@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`jsk render` and `python -m jsk.render.render_resume`: the documented entry point.
+"""`jsk resume render`'s old module path: where its ports are bound until P6.
 
 The command is adapters/cli/render.py and the render application/render/render_resume.py;
 this module keeps the path, the names callers and tests reach through it, and the TeX
@@ -72,7 +72,7 @@ def last_page_fill(pdf):
 
 
 def main(argv):
-    """`jsk render` (adapters.cli.render.main), with this module's TeX engine."""
+    """`jsk resume render` (adapters.cli.render.main), with this module's TeX engine."""
     from ..adapters.cli.render import main as render
 
     return render(argv, tex=Tex(), company_of=company_of)

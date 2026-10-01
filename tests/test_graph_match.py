@@ -516,8 +516,8 @@ class GapsFlags(unittest.TestCase):
     def test_a_posting_ttl_path_is_refused_with_the_application_form(self):
         code, out = self.main(app=self.app / "posting.ttl")
         self.assertEqual(code, 2, out)
-        self.assertIn("jsk match takes the application now, not its posting.ttl", out)
-        self.assertIn(f"fix:  jsk match {self.app}", out)
+        self.assertIn("jsk tailor match takes the application now, not its posting.ttl", out)
+        self.assertIn(f"fix:  jsk tailor match {self.app}", out)
 
     def test_a_folder_that_is_not_an_application_is_refused(self):
         code, out = self.main(app=Path(self.tmp) / "career")

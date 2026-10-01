@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`python -m jsk.gates.check_ats`: the parse gate's documented entry point.
+"""The parse gate's old module path, kept until P6 for its names.
 
 The command is adapters/cli/gates/ats.py and the gate application/gates/ats.py; this
 module keeps the path, the names callers and tests reach through it, and the .txt reader

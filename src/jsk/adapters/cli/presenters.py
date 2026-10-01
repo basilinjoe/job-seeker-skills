@@ -7,7 +7,7 @@ GUIDE = {
     "out-of-sync": (None, "restore the record from its backup: `jsk kb load .jsk/backup.trig` "
                           "into a new workspace (--root), then use that one"),
     "missing": ("there is no career record here",
-                "run `jsk new`, or `jsk kb load` to import a workspace or a dump"),
+                "run `jsk kb new`, or `jsk kb load` to import a workspace or a dump"),
 }
 
 

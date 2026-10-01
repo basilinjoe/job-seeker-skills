@@ -1,4 +1,4 @@
-"""`jsk new`: a career workspace scaffolded - the record, its log, and a place to file
+"""`jsk kb new`: a career workspace scaffolded - the record, its log, and a place to file
 applications - or an existing record started over from the empty one, logged.
 
 It writes through the same gate every `jsk kb` write uses (record.write_graphs), inside
@@ -30,14 +30,14 @@ the day it was sent. Each holds the whole of that application:
 | `<Name>_<Company>_Resume.{tex,pdf,txt}` | the files actually sent |
 
 What the posting asks for, and what was sent - the bullets and metric versions it
-carried, and every event since (`jsk event`) - are kept in the record, career/store/,
+carried, and every event since (`jsk app event`) - are kept in the record, career/store/,
 beside the career.
 
 **Everything in here is frozen at submission.** The career keeps moving; an application
 that pointed at a moving record could not answer what it was answering.
 
 An application worked through and then held back is still a real application:
-`jsk freeze <dir> --submitted false`.
+`jsk app freeze <dir> --submitted false`.
 """
 
 
@@ -114,7 +114,7 @@ def first_write(name, today):
     from ...domain.record.writer import write
 
     kb = stamp(header(name), 1, today)
-    log = entry(1, today, "new", f"Created by jsk new for {name}: an empty record.",
+    log = entry(1, today, "new", f"Created by jsk kb new for {name}: an empty record.",
                 sha256(write(kb, "kb")))
     return {KB: kb, LOG: log}
 
@@ -168,7 +168,7 @@ def restart(root, name, today, *, load, record, db):
         raise Unclean(st)
     kept = kept_name(root, st.kb_revision)
     p = record.prepared(store, header(name), today, "new",
-                        f"Started over by jsk new --force for {name}: the career replaced by the "
+                        f"Started over by jsk kb new --force for {name}: the career replaced by the "
                         f"empty record. r{st.kb_revision}, the last of the old record, is kept as "
                         f"{kept}.")
     after = load(root, graphs=p.graphs())
@@ -236,7 +236,7 @@ class Scaffolded:
 def written(root, name, force, today, *, load, record, db, legacy, disk):
     """The record written inside the writer's turn: (graphs' revision, kept path or None).
 
-    The turn before the question "is there a store?": two `jsk new` at once would both
+    The turn before the question "is there a store?": two `jsk kb new` at once would both
     find none and both write r1. --force reads the record it replaces, likewise.
     """
     store = os.path.normpath(os.path.join(root, STORE))

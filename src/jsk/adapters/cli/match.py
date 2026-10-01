@@ -1,6 +1,6 @@
-"""jsk match - a posting's requirements joined with the career, through the vocabulary.
+"""jsk tailor match - a posting's requirements joined with the career, through the vocabulary.
 
-Usage: jsk match <applications/<dir>> [--cover N] [--json] [--today YYYY-MM-DD]
+Usage: jsk tailor match <applications/<dir>> [--cover N] [--json] [--today YYYY-MM-DD]
                  [--gaps <gaps.txt> | --draft-gaps <gaps.txt>]
 
   --cover N         the most projects the cover may use (default 3)
@@ -33,15 +33,15 @@ import os
 from ...cliutil import docstring_usage, wants_help
 from .options import BadOption, take_values, tailor_options
 
-USAGE = ("usage: jsk match <applications/<dir>> [--cover N] [--json] "
+USAGE = ("usage: jsk tailor match <applications/<dir>> [--cover N] [--json] "
          "[--today YYYY-MM-DD] [--gaps <gaps.txt> | --draft-gaps <gaps.txt>]")
 
 
 def main(argv):
-    """`jsk match`: one application's posting matched, printed, or its assessment built.
+    """`jsk tailor match`: one application's posting matched, printed, or its assessment built.
 
     Args:
-        argv: the arguments after `jsk match`.
+        argv: the arguments after `jsk tailor match`.
 
     Returns:
         The exit code: 0 matched, 1 a FAIL blocks it or --gaps found one, 2 called wrong.
@@ -83,7 +83,7 @@ def main(argv):
     try:
         import pyoxigraph  # noqa: F401
     except ImportError:
-        print("FAIL  jsk match needs pyoxigraph, and this Python has not got it - "
+        print("FAIL  jsk tailor match needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
     from ...infra.oxigraph import record as R

@@ -1,4 +1,4 @@
-"""`jsk posting` and `python -m jsk.posting`: the documented entry point.
+"""`jsk posting`'s old module path: where its ports are bound until P6.
 
 The command is adapters/cli/posting.py and the fetch application/posting/fetch.py; this
 module keeps the path, the names callers and tests reach through it, and the board's API

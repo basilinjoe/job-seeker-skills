@@ -2,11 +2,11 @@
 under each and their order, the order of the skills, and the gaps the selection cannot close.
 
 docs/superpowers/specs/2026-09-25-export-from-match-design.md. These are the rules the resume
-author applied by hand from `jsk match` and a table in its prose; here the same posting always
+author applied by hand from `jsk tailor match` and a table in its prose; here the same posting always
 selects the same evidence, and the author is left the words.
 
 A tag is not evidence, and here that decides the cover too: a project carries a requirement
-only when a live, confirmed bullet shows it. `jsk match` still reports tags - they are leads
+only when a live, confirmed bullet shows it. `jsk tailor match` still reports tags - they are leads
 for the conversation - so the filtering happens here, on a copy of its matches.
 
 `ranked` is the same with no posting, for a general rebuild: without it the model ranked the

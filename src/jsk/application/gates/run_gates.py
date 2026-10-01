@@ -1,4 +1,4 @@
-"""`jsk gates` as a use case: the record, parse, prose and layout gates over one render.
+"""`jsk resume check` as a use case: the record, parse, prose and layout gates over one render.
 
 The same gates jsk-verifier.md runs, in its order - record, parse, prose, layout - and the
 render gate after them, which nothing here can run and which is said out loud instead.
@@ -38,7 +38,7 @@ DEFAULT_RECORD = "resume.json"
 
 @dataclass(frozen=True)
 class GateStep:
-    """One step of `jsk gates`: which gate, how it was called, and what it said."""
+    """One step of `jsk resume check`: which gate, how it was called, and what it said."""
 
     gate: str
     command: str | None
@@ -47,8 +47,8 @@ class GateStep:
     output: str                 # everything the gate printed, verbatim
     counts: tuple | None = None     # (failures or None, warnings) from its count line
     pages: tuple = ()               # (PDF name, pages, budget) for each PDF measured
-    withheld: tuple = ()            # `jsk ship`'s render: each id held below the floor
-    fitted: str | None = None       # `jsk ship`'s fit: what it came to, as its line says it
+    withheld: tuple = ()            # `jsk resume ship`'s render: each id held below the floor
+    fitted: str | None = None       # `jsk resume ship`'s fit: what it came to, as its line says it
 
 
 def step(gate, command, code, output, outcome=None):
@@ -74,7 +74,7 @@ def step(gate, command, code, output, outcome=None):
 
 
 def skipped_gate(gate, command, why):
-    """A gate that had nothing to read. Same wording as `jsk check`, deliberately.
+    """A gate that had nothing to read. Same wording as `jsk resume check`, deliberately.
 
     Args:
         gate: its label.
@@ -93,7 +93,7 @@ def rendered_documents(out_dir, extensions, only=None):
     """The files a render left in `out_dir` that one gate reads, in a fixed order.
 
     `only` narrows it to named paths. A directory keeps every earlier render, so
-    `jsk ship --ats-max` after a default ship left both PDFs beside each other, and
+    `jsk resume ship --ats-max` after a default ship left both PDFs beside each other, and
     gating the directory failed a run on a file it never made.
 
     Args:
@@ -145,7 +145,7 @@ def render_section(out_dir, pages, only=None, *, measure):
     Every other line of output here is a checker's. This one is not, and it is the
     reason the command can be trusted: a resume whose parse and prose gates passed
     has still been read by nobody. `mode-ship.md` calls this the gate nobody else
-    can run, and a `jsk gates` that exited 0 without saying so would teach every
+    can run, and a `jsk resume check` that exited 0 without saying so would teach every
     caller that the render gate is decorative - which is exactly the lesson
     render_resume.py's UNVERIFIED exit was added to unteach.
 
@@ -194,13 +194,13 @@ def render_section(out_dir, pages, only=None, *, measure):
 
 def run_gates(out_dir, record, pages=None, limit=None, record_gate=True, only=None, *,
               run, strict, measure):
-    """Every `jsk gates` step over one directory, the render gate last.
+    """Every `jsk resume check` step over one directory, the render gate last.
 
-    `jsk ship` and `jsk freeze` run these gates rather than a second copy of them:
+    `jsk resume ship` and `jsk app freeze` run these gates rather than a second copy of them:
     three commands that each decided what "the mechanical gates" meant would be three
     chances to disagree about it.
 
-    `record_gate=False` is for `jsk ship`, which has just run that gate on the same file
+    `record_gate=False` is for `jsk resume ship`, which has just run that gate on the same file
     and stopped had it failed. The record gate reads the career itself, so there is no
     claims gate beside it: the claims gate joined a copy of the career with the career,
     and the copy went with the URS record (2026-09-25).

@@ -1,4 +1,4 @@
-"""`jsk tailor prepare` and `python -m jsk.graph.prepare`: the documented entry point.
+"""`jsk tailor prepare`'s old module path: where its ports are bound until P6.
 
 The command is adapters/cli/tailor.py and the digest application/tailor/prepare.py; this
 module keeps the path, the names tests reach through it - CAP among them, the very dict the

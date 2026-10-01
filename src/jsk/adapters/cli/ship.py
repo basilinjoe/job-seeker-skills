@@ -1,8 +1,8 @@
-"""`jsk ship`: its flags and refusals, the ship run (application/ship.py), every step said.
+"""`jsk resume ship`: its flags and refusals, the ship run (application/ship.py), every step said.
 
-Each step's output is what its own command prints - the record gate's, `jsk render`'s,
-`jsk fit`'s, each gate's - captured as it runs, and the summary and --json are what
-`jsk gates` prints over its steps.
+Each step's output is what its own command prints - the record gate's, `jsk resume render`'s,
+`jsk resume fit`'s, each gate's - captured as it runs, and the summary and --json are what
+`jsk resume check` prints over its steps.
 """
 import contextlib
 import importlib
@@ -12,7 +12,7 @@ import os
 
 from ...cliutil import parse_flags, wants_help
 
-SHIP_USAGE = ("usage: jsk ship <resume.json> --out DIR [--ats-max] "
+SHIP_USAGE = ("usage: jsk resume ship <resume.json> --out DIR [--ats-max] "
               "[--template N] [--pages N] [--no-fit] [--json]")
 
 SHIP_VALUE_FLAGS = ("--out", "--template", "--pages")
@@ -118,7 +118,7 @@ def held(script, call, args):
 
 
 def render(args):
-    """`jsk render` over `args`, with render/render_resume.py's TeX engine.
+    """`jsk resume render` over `args`, with render/render_resume.py's TeX engine.
 
     Returns:
         (exit code, its output, the RenderResult or None).
@@ -130,7 +130,7 @@ def render(args):
 
 
 def fit(args):
-    """`jsk fit` over `args`, with render/fit_pages.py's TeX engine.
+    """`jsk resume fit` over `args`, with render/fit_pages.py's TeX engine.
 
     Returns:
         (exit code, its output, the FitResult or None).
@@ -141,7 +141,7 @@ def fit(args):
 
 
 def main(args):
-    """`jsk ship`: record gate, render, fit, mechanical gates - one process.
+    """`jsk resume ship`: record gate, render, fit, mechanical gates - one process.
 
     Args:
         args: the arguments after `ship`.

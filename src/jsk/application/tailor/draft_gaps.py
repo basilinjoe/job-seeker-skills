@@ -1,4 +1,4 @@
-"""The gaps.txt draft `jsk match --draft-gaps` and `jsk tailor prepare --draft-gaps` write:
+"""The gaps.txt draft `jsk tailor match --draft-gaps` and `jsk tailor prepare --draft-gaps` write:
 the advert, the drops and the person read, the draft built (domain/assessment/draft.py),
 and - for --draft-gaps - the assessment written from the match alone first. It prints
 nothing; the commands say what was written.
@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Drafted:
-    """What `jsk match --draft-gaps` did: the assessment's build, and the draft if written."""
+    """What `jsk tailor match --draft-gaps` did: the assessment's build, and the draft if written."""
 
     written: list               # the gaps graph and gaps.md, as check_gaps.build names them
     found: list                 # check_gaps.build's (severity, text, fix) findings

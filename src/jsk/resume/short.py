@@ -8,7 +8,7 @@ is what `ids` checks.
 
 The file's own checks are domain/resume/short.py and the loading
 application/render/load_resume.py; this module binds them to the disk and the store, and
-keeps `python -m jsk.resume.short`.
+keeps the check behind it, main().
 """
 from ..application.render.load_resume import career_of, read_short, workspace_of
 from ..cliutil import utf8_stdout
@@ -53,13 +53,13 @@ def career(root):
 
 
 def main(argv):
-    """`python -m jsk.resume.short <resume.json>`: shape and ids, PASS or FAIL.
+    """The short file's own check of one resume.json: shape and ids, PASS or FAIL.
 
     doctor spawns it over the example workspace: the record gate (jsk.gates.record)
     replaces it there once it lands, and this stays the check with no gate behind it."""
     args = argv[1:]
     if len(args) != 1 or args[0].startswith("-"):
-        print("usage: python -m jsk.resume.short <resume.json>")
+        print("usage: jsk resume check <resume.json>")
         return 2
     path = args[0]
     utf8_stdout()

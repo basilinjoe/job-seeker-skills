@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The letter check's number check, and `python -m jsk.gates.letter`, its entry point.
+"""The letter check's number check, at the gate's old module path.
 
 The command is adapters/cli/gates/letter.py, the check application/gates/letter.py and its
 rules over the words domain/gates/letter_rules.py; this module keeps the path, the letter's
@@ -92,7 +92,7 @@ def number_lines(text, doc, store, posting=None, today=None):
     if unsound:
         return [line("record-unsound", "resume.json",
                      f"it does not pass the record gate ({len(unsound)} failures), so no number "
-                     "can be traced through it", "run `jsk validate` on it and fix that first")]
+                     "can be traced through it", "run `jsk resume check` on it and fix that first")]
     career = Career(store.graph(R.KB))
     floor = PROVENANCE_RANK.get(doc.get("floor", "confirmed"), 3)
 

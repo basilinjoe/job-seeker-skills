@@ -1,6 +1,6 @@
-"""An application's record graphs: what `jsk freeze` writes, and `jsk event` adds to.
+"""An application's record graphs: what `jsk app freeze` writes, and `jsk app event` adds to.
 
-`jsk event` and `python -m jsk.graph.timeline` are adapters/cli/event.py, and the event is
+`jsk app event` is adapters/cli/event.py, and the event is
 added by application/timeline/add_event.py. This module keeps the path (Ruling 4 of the
 onion design), the record's reads and writes, and event_quads, which a test patches here.
 """
@@ -46,7 +46,7 @@ def posting_of(store, rel_dir):
 
 # --- what a sent application keeps ---------------------------------------------------
 #
-# Two tests, both here so that no command writes its own. `frozen`: `jsk freeze` has run,
+# Two tests, both here so that no command writes its own. `frozen`: `jsk app freeze` has run,
 # so the documents and resume.json in the directory are what went out - a render or a
 # confirm must not touch them. `sent_day`: the application's record holds the day it was
 # sent, so the posting it answered and the assessment of it are what they said then. A
@@ -146,7 +146,7 @@ def write_app_graphs(app_dir, graphs, store=None):
     """Replace the application's `graphs` ({kind: triples, or None to drop it}) in its
     workspace's store, in one update - or raise Unwritable, writing nothing: Frozen when
     the application is sent. Returns the graph names written. The posting and the
-    assessment come through here; the application graph is `jsk freeze`'s and `jsk
+    assessment come through here; the application graph is `jsk app freeze`'s and `jsk
     event`'s, which write to a sent application, and does not."""
     from ..infra.oxigraph import record as R
     from ..domain.naming import app_graph
@@ -226,11 +226,11 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
 
     store = S.load(root)
     # Asked again here, inside the turn: another freeze of this application may have
-    # landed since `jsk freeze` asked, while this one waited.
+    # landed since `jsk app freeze` asked, while this one waited.
     held = frozen(app_dir, store)
     if held:
         return None, [f"{held} already exists. A frozen application is never re-frozen.",
-                      "Later events are `jsk event`, one each."]
+                      "Later events are `jsk app event`, one each."]
     rel = S.file_name(os.path.abspath(app_dir), store.root)
     posting, stem = posting_of(store, rel)
     if posting is None:
@@ -272,10 +272,10 @@ def write_frozen(root, sealed, final):
     return app_graph(new, "application")
 
 
-# --- jsk event -----------------------------------------------------------------------
+# --- jsk app event -----------------------------------------------------------------------
 
 def main(argv=None):
-    """`jsk event` (adapters.cli.event.main).
+    """`jsk app event` (adapters.cli.event.main).
 
     Args:
         argv: the arguments after `event`; sys.argv's when None.

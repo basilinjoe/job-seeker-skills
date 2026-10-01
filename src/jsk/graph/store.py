@@ -50,7 +50,7 @@ def workspace_files(root, vocabulary=SHIPPED_VOCABULARY):
 
 def record_graphs(root):
     """{name: [Triple]} of the workspace's record, from career/store/ - {} in a folder with
-    no record yet (before `jsk new`, or a --root that is not one). A career still laid out
+    no record yet (before `jsk kb new`, or a --root that is not one). A career still laid out
     as files is a GraphError: jsk no longer reads or writes those files, and answering from
     them would answer from a record nothing keeps up to date. So is a store that will not
     open - never a traceback."""

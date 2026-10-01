@@ -2,10 +2,9 @@
 """Report what this machine can actually do, and what each gap disables.
 
 Usage: jsk doctor [--quick] [--kb PATH] [--json]
-       python -m jsk.preflight [--verify] [--kb PATH] [--json]
-       --quick    (jsk doctor) check the toolchain without the end-to-end render
-       --verify   (python -m) render the shipped example end to end and run every gate;
-                  `jsk doctor` does this unless given --quick
+       python -m jsk doctor [the same flags], where `jsk` is not on PATH
+       --quick    check the toolchain without the end-to-end render, which it runs
+                  otherwise: the shipped example rendered, and every gate over it
        --kb       check a specific career/store/ (or its workspace) rather than searching
        --json     machine-readable output
 
@@ -231,7 +230,7 @@ def gather(kb_arg=None):
         f"TeX engine ({engine})" if engine else "TeX engine", bool(engine), key="tex",
         disables="no PDF at all. The PDF is the only rendered deliverable, so "
                  "without an engine there is nothing to send, nothing to check "
-                 "and nothing to measure - render_resume.py --pdf reports "
+                 "and nothing to measure - jsk resume render --pdf reports "
                  "UNVERIFIED and exits non-zero",
         detail=path or ""))
 
@@ -245,15 +244,15 @@ def gather(kb_arg=None):
                  "and the page budget are both unverifiable"))
 
     # REQUIRED: the career is in career/store/, which only it opens. Every render builds from
-    # it, `jsk ship` runs the record gate against it before it renders, and `jsk kb` and
-    # `jsk match` start there, so a machine without the engine cannot
+    # it, `jsk resume ship` runs the record gate against it before it renders, and `jsk kb` and
+    # `jsk tailor match` start there, so a machine without the engine cannot
     # produce a resume from the career at all. It is a dependency of jsk-resume, so a
     # missing one means the install skipped dependencies. find_spec, not an import -
     # this module stays standard-library only.
     checks.append(Check(
         "pyoxigraph", importlib.util.find_spec("pyoxigraph") is not None, key="pyoxigraph",
         disables="cannot open, read or validate the graph record (career/store/): `jsk kb`, "
-                 "`jsk match` and every render and record gate cannot start"))
+                 "`jsk tailor match` and every render and record gate cannot start"))
 
     kb, problem = resolve_kb(kb_arg)
     if kb and is_store(kb):
@@ -270,7 +269,7 @@ def gather(kb_arg=None):
     else:
         checks.append(Check(
             "knowledge base", False,
-            disables="nothing to render from yet - `jsk new PATH --name NAME` creates "
+            disables="nothing to render from yet - `jsk kb new PATH --name NAME` creates "
                      "career/store/"))
 
     return checks, kb
@@ -315,7 +314,7 @@ def resolve_kb(kb_arg=None):
 # would be telling someone their toolchain works when it does not.
 #
 # pyoxigraph is required for the same reason: the career is in its store, and every render
-# and the record gate `jsk ship` runs read it.
+# and the record gate `jsk resume ship` runs read it.
 REQUIRED = {"Python", "modules", "renderer package", "gates package", "graph record package",
             "profile schema", "TeX engine", "pymupdf", "pyoxigraph"}
 
@@ -355,7 +354,7 @@ def verify(tmp):
         return steps
     # The file the render reads, not the old example.resume.json: validating a URS record
     # the render no longer touched passed a check on the wrong file. The record gate, as
-    # `jsk ship` runs it: shape, ids and every number traced in the example career.
+    # `jsk resume ship` runs it: shape, ids and every number traced in the example career.
     run("validate the example resume", ["resume", "check", short])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the builder works and nothing about whether anything can be sent.
@@ -455,5 +454,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    print("python -m jsk.preflight was retired: it is jsk doctor now (python -m jsk doctor)")
+    print(f"python -m {__package__}.preflight was retired: it is jsk doctor now "
+          f"(python -m {__package__} doctor)")
     sys.exit(2)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`jsk preview` and `python -m jsk.render.preview_templates`: the documented entry point.
+"""`jsk resume preview`'s old module path: where its ports are bound until P6.
 
 The command is adapters/cli/preview.py and the preview application/render/
 preview_templates.py; this module keeps the path, and the TeX engine as `compile_pdf`
@@ -27,7 +27,7 @@ class Tex:
 
 
 def main(argv):
-    """`jsk preview` (adapters.cli.preview.main), with this module's TeX engine."""
+    """`jsk resume preview` (adapters.cli.preview.main), with this module's TeX engine."""
     from ..adapters.cli.preview import main as preview
 
     return preview(argv, tex=Tex())

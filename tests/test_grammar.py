@@ -5,15 +5,18 @@ Every row of the ruling's mapping table is a test here: the old command exits 2 
 the new one, with the call's own arguments, and the new one runs. Every noun-verb pair
 answers --help from a process of its own, the way an agent first meets it.
 """
+import ast
 import contextlib
 import io
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import CLEAN_RESUME, build_text, child_env, example_short
+from fixtures import (CLEAN_RESUME, REPO_ROOT, SCRIPTS, build_text, child_env,
+                      example_short)
 
 from jsk.adapters.cli import main as M
 
@@ -239,6 +242,79 @@ class TheModulePathsAreRetired(unittest.TestCase):
         self.assertEqual(proc.returncode, 1, out)
         self.assertIn("FAIL  pyoxigraph", out)
         self.assertNotIn("Traceback", out)
+
+
+RETIRED_NAME = re.compile(
+    r"\bjsk (new|match|validate|check|gates|render|preview|fit|ship|freeze|event)\b"
+    r"|python -m jsk\.\w")
+
+# Where the prose teaches commands. Off until the skills and docs move to the new names (P5
+# step 5); then CHECK_DOCS goes to True and this test holds them to it.
+DOC_ROOTS = ("plugins", "README.md", "docs/*.md")
+CHECK_DOCS = False
+
+
+def taught_in_strings(path):
+    """[(line, the string)] for each string constant in a module that names a retired command.
+
+    Args:
+        path: a .py file.
+
+    Returns:
+        The offending strings, docstrings and f-string parts included; comments are not
+        strings, so they are not read.
+    """
+    tree = ast.parse(Path(path).read_text(encoding="utf-8"))
+    return [(node.lineno, node.value) for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+            and RETIRED_NAME.search(node.value)]
+
+
+def taught_in_docs(root):
+    """[(file, line)] for each line of the prose under `root` that names a retired command.
+
+    Args:
+        root: the repository root.
+
+    Returns:
+        The offending lines; docs/superpowers/ is history and is not read.
+    """
+    found = []
+    for pattern in DOC_ROOTS:
+        paths = root.glob(pattern) if "*" in pattern else [root / pattern]
+        for path in (p for p in paths if p.exists()):
+            files = path.rglob("*.md") if path.is_dir() else [path]
+            for f in files:
+                for line in f.read_text(encoding="utf-8").splitlines():
+                    if RETIRED_NAME.search(line):
+                        found.append((f.relative_to(root).as_posix(), line.strip()))
+    return found
+
+
+class RetiredNamesAreNotTaught(unittest.TestCase):
+    def test_no_string_in_src_names_a_retired_command(self):
+        found = {}
+        for path in sorted(SCRIPTS.rglob("*.py")):
+            hits = taught_in_strings(path)
+            if hits:
+                found[path.relative_to(SCRIPTS).as_posix()] = hits
+        self.assertEqual(found, {})
+
+    def test_a_planted_one_is_caught(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            planted = Path(tmp) / "planted.py"
+            planted.write_text('HINT = "fix:  jsk validate resume.json"\n', encoding="utf-8")
+            self.assertEqual(taught_in_strings(planted),
+                             [(1, "fix:  jsk validate resume.json")])
+            skill = Path(tmp) / "plugins" / "SKILL.md"
+            skill.parent.mkdir()
+            skill.write_text("Run `jsk validate` first.\n", encoding="utf-8")
+            self.assertEqual(taught_in_docs(Path(tmp)),
+                             [("plugins/SKILL.md", "Run `jsk validate` first.")])
+
+    @unittest.skipUnless(CHECK_DOCS, "the skills and docs move to the new names in P5 step 5")
+    def test_no_doc_names_a_retired_command(self):
+        self.assertEqual(taught_in_docs(REPO_ROOT), [])
 
 
 class EveryVerbAnswersHelp(unittest.TestCase):

@@ -21,12 +21,12 @@ def cmd_export(args, flags, root, today):
     Retired entries never come. With none of --select, --from-match or --ranked, the
     whole career.
 
-    --from-match chooses the bullets from `jsk match` of the application (its directory,
+    --from-match chooses the bullets from `jsk tailor match` of the application (its directory,
     applications/<dir>): the projects that carry the posting with confirmed evidence,
     their bullets by what they show, the skills the posting asks for first - each skills
     row cut to the most a row renders, and a NOTE naming what each cut left out. What it
     cannot close prints as GAP lines - tag-only, unconfirmed, uncovered, unresolved - for
-    gaps.md. --select adds to it; --cover and --today are jsk match's.
+    gaps.md. --select adds to it; --cover and --today are jsk tailor match's.
 
     --ranked is the same with no posting, for a general rebuild: the projects by strength
     and recency, their confirmed bullets by the same bands, a bullet citing a current
@@ -131,7 +131,7 @@ def exported(root, flags, select, today, budget):
                              shorts=shorts, selector=selector, posting_in=posting_in)
         if chosen is not None:
             # The gaps first: when nothing is selected they are the reason, and a refusal
-            # printed without them would leave the author to run jsk match to find out why.
+            # printed without them would leave the author to run jsk tailor match to find out why.
             said(chosen, report)
         doc = E.short(store, chosen, select, today, shorts=shorts, queries=OxigraphQueries(store))
     except Unclean as err:
@@ -159,7 +159,7 @@ def exported(root, flags, select, today, budget):
     for b, words in written.bullets:
         print(f"{b} | {words}")
     print("next: order `bullets`, add a `summary` and set `pages` or `format` if this posting "
-          "wants them, then `jsk validate` it - a reworded bullet goes into the career "
+          "wants them, then `jsk resume check` it - a reworded bullet goes into the career "
           "(`jsk kb apply`), then export again with --replace")
     return 0
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""`python -m jsk.kb` and `jsk new`: the documented entry point, handed over to
-adapters/cli/kb/new.py until P5 makes it `jsk kb new` (Ruling 4).
+"""`jsk kb new`'s old module path, kept until P6 (Ruling 4) for the names
+adapters/cli/kb/new.py and the tests reach through it.
 
 The scaffold itself is application/record/scaffold.py; the names callers and tests use
 stay importable here.

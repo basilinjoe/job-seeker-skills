@@ -1,7 +1,6 @@
 """The letter check: a cover letter, against the resume.json it goes out beside.
 
-Usage: jsk check <cover-letter.txt|.md> --only letter --record <resume.json>
-       python -m jsk.gates.letter <cover-letter.txt|.md> [--record <resume.json>]
+Usage: jsk letter check <cover-letter.txt|.md> --record <resume.json>
        --record R    the application's resume.json; without it the number check is
                      SKIPPED, and a gate that did not run is a failure
 
@@ -106,7 +105,7 @@ def report(result):
 
 
 def main(argv):
-    """`python -m jsk.gates.letter` and `jsk check --only letter`, as an exit code.
+    """`jsk letter check`, as an exit code.
 
     Args:
         argv: the arguments alone.

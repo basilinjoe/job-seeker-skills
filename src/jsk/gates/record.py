@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The record gate's checks, and `python -m jsk.gates.record`, its documented entry point.
+"""The record gate's checks, at its old module path.
 
 The command is adapters/cli/gates/record.py and the gate application/gates/record.py; this
 module keeps the path, the checks the gate asks of a short resume.json over its career, and

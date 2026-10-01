@@ -153,7 +153,7 @@ def without_only_letter(args):
     """`args` less `--only letter`, or None when they do not ask for the letter gate.
 
     Args:
-        args: the arguments after `jsk check`.
+        args: the arguments after the retired `check`.
 
     Returns:
         The other arguments, in order, or None.

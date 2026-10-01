@@ -1,4 +1,4 @@
-"""`jsk match` and `python -m jsk.graph.match`: the documented entry point.
+"""`jsk tailor match`'s old module path: where its ports are bound until P6.
 
 The command is adapters/cli/match.py and the match application/tailor/match_posting.py;
 this module keeps the path and every name callers and tests reach through it, each with
@@ -50,7 +50,7 @@ def faults_in(store, bullets, today):
 
 
 def result(store, post, today, budget, elsewhere=0):
-    """Everything `jsk match` reports, as plain data (application.tailor.match_posting.result
+    """Everything `jsk tailor match` reports, as plain data (application.tailor.match_posting.result
     over the engine's queries and graph.select)."""
     from ..application.tailor.match_posting import result as matched
     from ..infra.oxigraph.queries import OxigraphQueries
@@ -60,7 +60,7 @@ def result(store, post, today, budget, elsewhere=0):
 
 
 def main(argv=None):
-    """`jsk match` (adapters.cli.match.main), over sys.argv when no argv is given."""
+    """`jsk tailor match` (adapters.cli.match.main), over sys.argv when no argv is given."""
     from ..adapters.cli.match import main as match
 
     return match(list(sys.argv[1:] if argv is None else argv))

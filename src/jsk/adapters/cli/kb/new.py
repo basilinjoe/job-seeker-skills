@@ -1,7 +1,6 @@
 """Scaffold a career workspace: the graph record, its log, and a place to file applications.
 
-Usage: jsk new <path> --name "Their Name" [--force]
-       python -m jsk.kb <path> --name "Their Name" [--force]
+Usage: jsk kb new <path> --name "Their Name" [--force]
        <path>     the workspace folder to create; career/ goes inside it
        --name     the person's full name; the record's header says whose it is
        --force    start an existing record over from the empty one, logged, the old
@@ -63,7 +62,7 @@ def scaffold(root, name, force=False, today=None):
         today: the day the log entry is dated; the clock's today when None.
 
     Returns:
-        The exit code and the lines `jsk new` prints. Writes the workspace.
+        The exit code and the lines `jsk kb new` prints. Writes the workspace.
     """
     from ....application.record import scaffold as N
     from ....application.record.refusals import Failing, Unclean
@@ -97,7 +96,7 @@ def scaffold(root, name, force=False, today=None):
 
 def no_engine():
     """The lines refusing a Python without pyoxigraph."""
-    return ["FAIL  jsk new writes the record into a pyoxigraph store, and this Python "
+    return ["FAIL  jsk kb new writes the record into a pyoxigraph store, and this Python "
             "has not got pyoxigraph",
             f"      fix: {INSTALL}"]
 
@@ -157,7 +156,7 @@ def attributes(done):
 
 
 def main(argv=None):
-    """`jsk new`: parse the path, --name and --force, scaffold, print what was done.
+    """`jsk kb new`: parse the path, --name and --force, scaffold, print what was done.
 
     Args:
         argv: the arguments after `new`; by default sys.argv's.
@@ -184,7 +183,7 @@ def main(argv=None):
         del argv[at:at + 2]
 
     if len(argv) != 1:
-        print("usage: jsk new <path> --name \"Their Name\"")
+        print("usage: jsk kb new <path> --name \"Their Name\"")
         return 2
     if not name or not name.strip():
         print("--name is required")

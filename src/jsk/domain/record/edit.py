@@ -125,7 +125,7 @@ def log_entries(store):
 
 
 def started_over(store):
-    """The revisions `jsk new` wrote: r1, and each --force start-over since."""
+    """The revisions `jsk kb new` wrote: r1, and each --force start-over since."""
     from .state import LOG, revision_of
 
     if LOG not in store.parsed:
@@ -401,11 +401,11 @@ def base_conflicts(store, cs, refuse):
         refuse(None, f"op:base r{cs.base} is ahead of the log, which ends at r{last}",
                "draft against the record as it is: `jsk kb show` the entries again")
         return
-    # `jsk new --force` replaced the whole career and logs no ids: a changeset drafted
+    # `jsk kb new --force` replaced the whole career and logs no ids: a changeset drafted
     # before it was drafted against a record that is gone, whatever it names.
     restart = max(started_over(store), default=None)
     if restart is not None and restart > cs.base:
-        refuse(None, f"the career was started over at r{restart} (`jsk new --force`), after "
+        refuse(None, f"the career was started over at r{restart} (`jsk kb new --force`), after "
                      f"this changeset's op:base r{cs.base}",
                "draft it again against the record as it is now: `jsk kb show` what it names")
         return

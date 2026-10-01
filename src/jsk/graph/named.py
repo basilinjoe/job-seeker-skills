@@ -3,7 +3,7 @@
 Each returns (columns, rows), rows as dicts, so the same answer prints as a table or as
 JSON. A query is here because an agent would otherwise work it out by reading the whole
 file - which is the reading the graph exists to save. `experience` and `pipeline` came
-with the claims gate and `jsk event` (P5); the roadmap's `inconsistent` and `demand` are
+with the claims gate and `jsk app event` (P5); the roadmap's `inconsistent` and `demand` are
 not here yet. `evidence` and `person` replaced the tailor analyst's grep of kb.ttl: on the
 Taskrabbit run it spent five of its seven minutes on some forty greps and reads for terms
 and a location that two queries answer in half a second.

@@ -457,7 +457,7 @@ class ShipUsage(ShipCase):
     def test_an_unknown_flag_is_a_call_error(self):
         code, out = self.ship("--recheck")
         self.assertEqual(code, 2, out)
-        self.assertIn("usage: jsk ship", out)
+        self.assertIn("usage: jsk resume ship", out)
 
     def test_the_knowledge_base_is_refused_as_validate_refuses_it(self):
         kb = self.tmp / "user-knowledgebase.md"
@@ -703,7 +703,7 @@ class FreezeGraph(GraphCase):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         self.assertEqual([appkit.facts(self.root, g) for g in ("kb", "log")], before)
-        self.assertIn("jsk event", out)
+        self.assertIn("jsk app event", out)
 
     def test_held_back_has_no_submitted_event(self):
         code, out = self.freeze(submitted="false")
@@ -742,7 +742,7 @@ class FreezeGraph(GraphCase):
         a file nothing writes now. Later events are `jsk event`."""
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
-        self.assertIn("jsk event", out)
+        self.assertIn("jsk app event", out)
         self.assertNotIn("log.md", out)
 
 
@@ -1213,7 +1213,7 @@ class Event(GraphCase):
                              "--date", "2026-09-27")
         self.assertEqual(code, 1, out)
         self.assertIn("holds no application record", out)
-        self.assertIn("jsk freeze", out)
+        self.assertIn("jsk app freeze", out)
 
     def test_a_directory_outside_applications_is_a_call_error(self):
         code, out = self.jsk("app", "event", self.root / "career", "note", "--date", "2026-09-27")

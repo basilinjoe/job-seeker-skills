@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Fit a rendered resume to a page budget by applying density levers in a fixed order.
 
-Usage: jsk fit resume.tex [--target-pages 2] [--dry-run] [-o out.tex] [--in-place]
-       python -m jsk.render.fit_pages resume.tex [the same flags]
+Usage: jsk resume fit resume.tex [--target-pages 2] [--dry-run] [-o out.tex] [--in-place]
 
 Measures geometry FIRST, then applies levers, cheapest-looking first, stopping at the
 floors `references/ats-rules.md` sets rather than crossing them:
@@ -72,7 +71,7 @@ class Tex:
 
 
 def main(argv=None):
-    """`jsk fit` (adapters.cli.fit.main), with this module's TeX engine."""
+    """`jsk resume fit` (adapters.cli.fit.main), with this module's TeX engine."""
     from ..adapters.cli.fit import main as fit
 
     return fit(argv, tex=Tex())

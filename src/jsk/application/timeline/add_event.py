@@ -114,7 +114,7 @@ def add_event(root, app_dir, kind, date, channel, note, due, today, *, load, nam
     app = next((q.subject.value for q in parsed.quads
                 if O.class_of(q.subject.value) == "Application"), None)
     if app is None:
-        raise EventRefused([f"{rel} holds no application"], "`jsk freeze` writes one")
+        raise EventRefused([f"{rel} holds no application"], "`jsk app freeze` writes one")
     stem = app[len(O.K) + len("app_"):]
     iri, quads = event_quads(app, stem, date, kind, channel, note, due)
     iri, same = free_iri(store, iri, quads)

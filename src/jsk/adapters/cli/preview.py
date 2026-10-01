@@ -1,9 +1,8 @@
 """Render one resume.json in every template, so the choice can be made by looking.
 
 Usage:
-  jsk preview resume.json --out DIR [--region CC]
+  jsk resume preview resume.json --out DIR [--region CC]
                                     [--ats-max] [--only NAME,NAME]
-  python -m jsk.render.preview_templates resume.json --out DIR [the same flags]
 
 Writes DIR/<template>.tex and DIR/<template>.pdf, plus DIR/<template>.png of the
 first page when `pymupdf` is installed. Prints the page count for each, because
@@ -34,7 +33,7 @@ from .render import arg
 
 
 def main(argv, *, tex):
-    """`jsk preview`: every template rendered, compiled and listed with its page count.
+    """`jsk resume preview`: every template rendered, compiled and listed with its page count.
 
     Args:
         argv: the whole argv, the program name first.

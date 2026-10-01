@@ -5,7 +5,7 @@ the directory renamed to the day it was sent, the archive written, and nothing i
 directory edited again. This does the first two and refuses whenever the third is already
 true or the documents would not survive their gates. It writes the application's record -
 what was sent, and the bullets and metric versions it carried - and later events go in with
-`jsk event`.
+`jsk app event`.
 
 Four steps, each the adapter's to call in turn: check (the record it would freeze), plan
 (the documents and the name), gate (every document through a gate) and write (inside the
@@ -106,7 +106,7 @@ def check(app_dir, *, record, build):
     held = record.frozen(app_dir)
     if held:
         later = ("It was frozen as Markdown before the career was a graph."
-                 if held.endswith(APPLICATION) else "Later events are `jsk event`, one each.")
+                 if held.endswith(APPLICATION) else "Later events are `jsk app event`, one each.")
         raise FreezeRefused(f"{held} already exists. A frozen application is never re-frozen.",
                             later)
 

@@ -242,7 +242,7 @@ def requirements(d):
             d.refuse(f"{d.at(row.line)}: slug {row.slug!r} is used on line {slugs[row.slug]} "
                      f"too", "fix:  one slug per requirement")
         slugs.setdefault(row.slug, row.line)
-        # `jsk match --gaps` pairs gaps.md's rows to requirements by this, so two with one
+        # `jsk tailor match --gaps` pairs gaps.md's rows to requirements by this, so two with one
         # `asked` could never pair and would warn on even a perfect draft.
         term = O.norm(row.asked)
         if term in asked:

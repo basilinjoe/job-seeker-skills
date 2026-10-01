@@ -1,7 +1,7 @@
 """Shared help-text and flag handling for the hand-rolled entry points.
 
 These entry points hand-write their usage, and they used to print one paragraph
-of the module docstring and return 2 - so `jsk render --help` named none of the
+of the module docstring and return 2 - so `jsk resume render --help` named none of the
 flags SKILL.md tells a reader to look up there, and a caller checking exit codes
 saw "called wrong" for asking a question.
 

@@ -1,7 +1,6 @@
 """The record gate: a short resume.json, and the career bullets it selects.
 
-Usage: jsk validate <resume.json> [--strict] [--max-findings N]
-       python -m jsk.gates.record <resume.json> [--strict] [--max-findings N]
+Usage: jsk resume check <resume.json> [--strict] [--max-findings N]
        --strict            treat warnings as failures
        --max-findings N    print at most N failures and N warnings (default 25;
                            0 prints every one)
@@ -49,7 +48,7 @@ def parse(argv):
 
 
 def gate(args):
-    """The record gate over the arguments alone, as `jsk gates` runs it.
+    """The record gate over the arguments alone, as `jsk resume check` runs it.
 
     Args:
         args: the resume.json, then --strict and --max-findings N.
@@ -114,7 +113,7 @@ def report(result, limit):
 
 
 def main(argv):
-    """`python -m jsk.gates.record` and `jsk validate`, as an exit code.
+    """The record gate (`jsk resume check <resume.json>`), as an exit code.
 
     Args:
         argv: the whole argv, the program name first.

@@ -1,7 +1,7 @@
-"""`jsk freeze`: its flags, the application frozen, its gates and what was written said.
+"""`jsk app freeze`: its flags, the application frozen, its gates and what was written said.
 
 Archives one application directory: renames it to its day and writes its record. Never
-touches the career or its log. `jsk event` records what happens to the application
+touches the career or its log. `jsk app event` records what happens to the application
 afterwards; this command only freezes what was sent. The freeze itself is
 application/timeline/freeze.py.
 """
@@ -10,7 +10,7 @@ import os
 
 from ...cliutil import parse_flags, wants_help
 
-FREEZE_USAGE = ("usage: jsk freeze <app-dir> --submitted YYYY-MM-DD|false "
+FREEZE_USAGE = ("usage: jsk app freeze <app-dir> --submitted YYYY-MM-DD|false "
                 "--channel TEXT [--doc FILE ...]")
 GRAPH_STORE = os.path.join("career", "store")
 
@@ -66,12 +66,12 @@ class Applications:
 class Gates:
     """jsk.cli's gate plumbing, as application.timeline.freeze.gate runs it.
 
-    Looked up in jsk.cli at each call, so `jsk freeze`, `jsk gates` and `jsk ship` run one
+    Looked up in jsk.cli at each call, so `jsk app freeze`, `jsk resume check` and `jsk resume ship` run one
     set of gates and not three copies of it.
     """
 
     def run(self, app_dir, record, only):
-        """Every `jsk gates` result over the documents `only`, the render gate last."""
+        """Every `jsk resume check` result over the documents `only`, the render gate last."""
         from ... import cli
 
         return cli.gate_results(app_dir, record, only=only)
@@ -164,7 +164,7 @@ def called(args):
 
 
 def main(args):
-    """`jsk freeze`: archive one application directory, once every gate has passed.
+    """`jsk app freeze`: archive one application directory, once every gate has passed.
 
     Args:
         args: the arguments after `freeze`.
@@ -225,6 +225,6 @@ def froze(result):
     print()
     print("Frozen on the mechanical gates. The render gate is a person's: freezing")
     print("assumes somebody opened the PDF and read it. Nothing in this directory is")
-    print("edited again; later events are `jsk event <dir> <kind> --date ...`, and")
+    print("edited again; later events are `jsk app event <dir> <kind> --date ...`, and")
     print("`jsk kb query pipeline` gives each application's stage.")
     return 0
