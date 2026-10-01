@@ -74,8 +74,9 @@ adapters, and `paths.py` counts as infra.
 
 **The render plan is the narrow waist.** `domain/resume/plan.py` builds the plan once from the career plus a short
 `resume.json`. That file holds bullet ids in order and settings, never a bullet's words. `domain/render/emit_latex.py`
-and `emit_text.py` turn the finished plan into markup and decide nothing, which is why the PDF and the `.txt` cannot
-disagree. Content selection goes in `plan.py`, never in an emitter.
+and `emit_text.py` turn the finished plan into markup and decide nothing, which is why the PDF and the text the gates
+read cannot disagree. No `.txt` is written: the gates read `emit_text.emit(plan)` in memory. Content selection goes
+in `plan.py`, never in an emitter.
 
 **A model writes only decisions; code writes every graph.** In the tailoring pipeline
 (`jsk posting fetch/extract/build` → `jsk tailor prepare` → `jsk tailor match`), the analyst agent writes exactly two

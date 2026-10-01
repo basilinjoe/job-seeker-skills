@@ -13,8 +13,7 @@ For reading the career and drafting a changeset. The record is named graphs in o
   applications/<yyyy-mm-dd>-<company>-<role>/
     posting.md               the advertisement, verbatim - nothing else
     decisions.txt            the analyst's requirements, for jsk posting build
-    gaps.txt                 what the analyst changes in the assessment
-    gaps.md                  the assessment, derived from the match - jsk writes it
+    gaps.txt                 what the analyst changes in the assessment (jsk prints it)
     resume.json              the bullets and settings this submission rendered from
 ```
 

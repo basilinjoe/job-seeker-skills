@@ -1,6 +1,6 @@
 ---
 name: jsk-resume-author
-description: Use once a tailoring run's questions have been answered and a resume is to be written for a specific posting. Puts the bullets the posting earns into the career, exports the short resume.json for that application - the bullets chosen, in order, and its settings - and writes the summary retuned for this posting. Expects the application directory (posting.md, gaps.md), the workspace holding career/store/, and the skill directory. Authors prose; everything it writes arrives marked inferred and must be confirmed with the person before it can render.
+description: Use once a tailoring run's questions have been answered and a resume is to be written for a specific posting. Puts the bullets the posting earns into the career, exports the short resume.json for that application - the bullets chosen, in order, and its settings - and writes the summary retuned for this posting. Expects the application directory (posting.md), the assessment as jsk tailor match printed it, the workspace holding career/store/, and the skill directory. Authors prose; everything it writes arrives marked inferred and must be confirmed with the person before it can render.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 color: blue
@@ -39,8 +39,8 @@ never search for rules, references or examples with `find`, `ls` or Glob, nor fo
 read only through `jsk kb` — never open anything under `career/`. Write paths with forward
 slashes: bash drops the backslashes in `cd C:\Projects\…`.
 
-**Read what the posting selects, not the whole career.** `gaps.md` already holds the match's Ranking
-and Cover and what was answered — do not re-run `jsk tailor match`. **Export first** — never write the
+**Read what the posting selects, not the whole career.** The assessment the caller hands you holds
+the match's Ranking and Cover and what was answered — do not re-run `jsk tailor match`. **Export first** — never write the
 file by hand, never choose the evidence yourself:
 
 ```bash
@@ -111,7 +111,7 @@ concept). Never rewrite the positioning; if it has drifted, say so.
 evidence sits mid-career, **say so, and why.** Do not cut evidence to fit the presentation budget;
 `ats_pages` is its own. When you drop evidence the assessment marked `satisfied` or `partial`,
 **add a `short:` line to `gaps.txt`** naming the requirement and the ids. After either, run `jsk
-tailor match applications/<stem> --gaps <gaps.txt>`, which rewrites `gaps.md`; never edit it.
+tailor match applications/<stem> --gaps <gaps.txt>`, which rewrites and prints the assessment.
 
 ## Before you return
 

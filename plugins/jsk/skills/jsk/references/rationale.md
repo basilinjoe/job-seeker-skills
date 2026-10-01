@@ -19,8 +19,9 @@ It is also what makes a resume answerable a year later. `jsk app freeze` records
 rendered and the metric versions they cite, so "what did this application claim, and where did that
 come from" has an answer.
 
-**How to say it to someone:** *"If I build the PDF and the plain-text copy separately, they agree
-today and disagree in a month. Building both from one career means they can't."*
+**How to say it to someone:** *"If I build the PDF and the text the checks read separately, they
+agree today and disagree in a month. Building both from one career means they can't."* That is why
+there is no plain-text file: the gates read the plan's own text, in memory, and nothing can drift.
 
 ## Why five gates and not one
 

@@ -10,8 +10,6 @@ well and parse poorly; naming the employer on every role line parses perfectly a
 | **Presentation** | Humans — referrals, direct email, interviews |
 | **ATS-maximal** | Portals — Workday, Taleo, SuccessFactors, Naukri, agencies |
 
-Plus a **plain-text** file for portals with paste-in boxes.
-
 Either variant ships as **one PDF**: `--ats-max` chooses which variant that PDF holds and never
 produces a second file. When unsure what an employer runs, send ATS-maximal.
 
@@ -86,7 +84,8 @@ when asked for:
 
 ## What the parse gate verifies
 
-`jsk resume check` reads the `.pdf` (text via `pymupdf`) or the `.txt`. First, that it is readable:
+`jsk resume check` reads the `.pdf` (text via `pymupdf`), and the plain text `resume.json`'s plan
+emits, in memory, `--strict`. First, that it is readable:
 
 | Signal | Meaning |
 |---|---|
@@ -101,8 +100,7 @@ Then on extracted text:
 - No `[...]` span and no stray `[` anywhere.
 - Bullet markers are `•` or `-`; a decorative glyph fails.
 - At least four `Mon YYYY` dates; arrow glyphs absent — warn normally, fail under `--strict`.
-- A PDF extracts its bullets in the order of the `.txt` beside it; out of order fails, as a column
-  would.
+- A PDF extracts its bullets in the plain text's order; out of order fails, as a column would.
 
 Under `--strict` additionally: no non-ASCII at all (fails), plain hyphens in date ranges (fails),
 and role lines that appear not to name an employer (warns — the heuristic is too rough to block on).

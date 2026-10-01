@@ -15,7 +15,7 @@ hold what the career does not.
 
 ```
 posting.md        the advert, verbatim   ──►  posting      its requirements, each quoting it
-jsk tailor match  requirements × career  ──►  gaps.md      verdicts, shortfalls, the question queue
+jsk tailor match  requirements × career  ──►  assessment   verdicts, shortfalls, the question queue
 answers           jsk kb apply / confirm ──►  resume.json  authored once, confirmed, shipped
 ```
 
@@ -23,7 +23,7 @@ One directory per application; its requirements, assessment and timeline are gra
 
 ```
 applications/<yyyy-mm-dd>-<company>-<role>/
-  posting.md  decisions.txt  gaps.txt  gaps.md  resume.json  <Name>_<Company>_Resume.{tex,pdf,txt}
+  posting.md  decisions.txt  gaps.txt  resume.json  <Name>_<Company>_Resume.{tex,pdf}
 ```
 
 Name it for the day it is worked on; `jsk app freeze` renames it if sent later. Commands
@@ -78,11 +78,11 @@ Send `jsk-tailor-analyst` the application directory and the workspace, both abso
 path` printed them. Add the
 posting facts worth flagging, then stop: **its definition holds the procedure and the return, so
 do not send the skill directory or ask for a report.** It decides the requirements, `jsk posting
-build` stores them, and `jsk tailor prepare` derives `gaps.md` and drafts the `gaps.txt` it fills in.
-It never touches the career.
+build` stores them, and `jsk tailor prepare` derives the assessment and drafts the `gaps.txt` it
+fills in. It never touches the career.
 
-It returns three lines: the fit, what is blocking, and the path to `gaps.md`. **Read `gaps.md` and
-show them the assessment whole**, not a summary of it and not a rewrite, leading with the blocking
+It returns the fit, what is blocking, and the assessment as `jsk tailor match` printed it. **Show
+them the assessment whole**, not a summary of it and not a rewrite, leading with the blocking
 line when there is one. **Author nothing yet** when: the ranking is close between projects with
 materially different ownership verbs, a top-ranked project carries unconfirmed content,
 eligibility fails, or the role may not be worth applying to at all. That holds the resume back; it
@@ -91,7 +91,7 @@ step 3 in the same turn.** Printing the questions as text and ending the turn is
 
 ## 3. Ask the whole queue at once
 
-**Ask with `AskUserQuestion`**, the questions from `gaps.md` in its order: four a call, a longer
+**Ask with `AskUserQuestion`**, the assessment's questions in its order: four a call, a longer
 queue several calls in the same turn.
 
 - **A blocking question goes alone, first.** If the answer ends it ("I can't do Pacific hours"),
@@ -111,7 +111,7 @@ numbered, ask for a bulk reply, and that is the one time the turn ends on the qu
 
 ### Answers go into the career
 
-An answer changes **the career** — never `gaps.md` or `resume.json`, both downstream of it.
+An answer changes **the career** — never the assessment or `resume.json`, both downstream of it.
 
 - **A round's corrections and new facts are one changeset**, one `jsk kb apply`, after
   `jsk kb show <ids>` for the `op:base`. A corrected claim comes back `inferred`; confirm it next.
@@ -137,8 +137,8 @@ An answer changes **the career** — never `gaps.md` or `resume.json`, both down
 Revise the assessment **only when an answer changed what the career holds**. Re-run `jsk tailor match`.
 
 **Patch it yourself when every change is a row** — a lowered verdict, an answered `ask:` struck —
-in `gaps.txt`; then `jsk tailor match <app-dir> --gaps <gaps.txt>` rewrites `gaps.md` from the new
-match, and fails a verdict above it. **Send it back only when the fit could change or an answer
+in `gaps.txt`; then `jsk tailor match <app-dir> --gaps <gaps.txt>` rewrites and prints the
+assessment from the new match, and fails a verdict above it. **Send it back only when the fit could change or an answer
 needs a row the assessment lacks**: `SendMessage` to the same agent with what changed.
 
 The loop ends when they skip, when nothing is left worth asking, when a round produces no new
@@ -151,6 +151,7 @@ ended it.**
 the prompt names:**
 
 - the application directory, the workspace and the skill directory — absolute, forward slashes;
+- the assessment, as the last `jsk tailor match --gaps` printed it;
 - the rule files, absolute: `<skill>/references/writing-rules.md`, `ats-rules.md`, and the
   `## Structure rules for rendering` section of `mode-resume.md` (its line number), each replaced
   by `rules/<name>.md` beside `career/` where one exists (one `ls`).
