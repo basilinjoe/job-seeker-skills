@@ -57,6 +57,7 @@ def gate(argv):
     if problem:
         print(problem)
         return 2, None
+    assert path is not None, "parse names the letter whenever it reports no problem"
     if not os.path.exists(path):
         print(f"file not found: {path}")
         return 2, None

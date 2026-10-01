@@ -91,7 +91,7 @@ def contained(script, args, capture=True):
         (exit code, output, outcome): the outcome is what the gate returned - a
         GateResult, the GateStopped it stopped with, or None.
     """
-    name = f"{__package__.split('.')[0]}.gates.{script[:-3]}"
+    name = f"{__name__.split('.')[0]}.gates.{script[:-3]}"
     try:
         module = importlib.import_module(f"{__package__}.{ADAPTERS[script]}")
     except ImportError as exc:

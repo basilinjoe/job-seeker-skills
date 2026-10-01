@@ -35,7 +35,7 @@ def parse(argv):
     if parsed is None:
         if problem.kind == "missing":
             return None, strict, limit, not_a_number.format(None)
-        return None, strict, limit, f"{problem}\n{__doc__.split(chr(10) * 2)[1]}"
+        return None, strict, limit, f"{problem}\n{(__doc__ or '').split(chr(10) * 2)[1]}"
     positional, flags = parsed
     if "--max-findings" in flags:
         raw = flags["--max-findings"]
@@ -44,7 +44,7 @@ def parse(argv):
         limit = int(raw) or None
     strict = "--strict" in flags
     if len(positional) != 1:
-        return None, strict, limit, __doc__.split("\n\n")[1]
+        return None, strict, limit, (__doc__ or "").split("\n\n")[1]
     return positional[0], strict, limit, None
 
 
@@ -59,7 +59,7 @@ def gate(args):
         or the file was wrong). Prints the verdict; loads the workspace.
     """
     if wants_help(args):
-        print(__doc__.split("\n\n")[1])
+        print((__doc__ or "").split("\n\n")[1])
         return 0, None
     path, strict, limit, problem = parse(args)
     if problem:
