@@ -53,7 +53,7 @@ from ....domain.record.writer import curies
 from ....domain.resume.constants import PROVENANCE_RANK
 from ....infra.files import find_root
 from ..presenters import GUIDE, refuse, show_findings, usage
-from . import load, read
+from . import export, load, read
 
 # The verbs that can write the career: each runs inside its turn (record.turn).
 WRITES = {"apply", "confirm", "load"}
@@ -607,189 +607,6 @@ def cmd_confirm(args, flags, root, today):
                         touched=set(todo) | set(asked), answer=answer, today=today)
 
 
-def cmd_export(args, flags, root, today):
-    """jsk kb export [--select <id>...] [--from-match <app-dir> [--cover N] | --ranked]
-                     [--today YYYY-MM-DD] [--out resume.json [--replace]]
-
-    The short resume.json an application starts from: the bullets it shows, in order,
-    and its settings - `"resume": 2`, the region when a profile ships for the person's
-    country, `"pages": 2`. Nothing the career holds is copied: the render reads the
-    words, numbers and dates from the career as it stands, so a changeset applied or a
-    bullet confirmed afterwards is in the next ship with nothing to update.
-
-    --select names what to show: prj_ brings a project and its bullets, ach_ one bullet
-    (and narrows its project to the bullets named), pos_ a role shown with no bullet.
-    Retired entries never come. With none of --select, --from-match or --ranked, the
-    whole career.
-
-    --from-match chooses the bullets from `jsk match` of the application (its directory,
-    applications/<dir>): the projects that carry the posting with confirmed evidence,
-    their bullets by what they show, the skills the posting asks for first - each skills
-    row cut to the most a row renders, and a NOTE naming what each cut left out. What it
-    cannot close prints as GAP lines - tag-only, unconfirmed, uncovered, unresolved - for
-    gaps.md. --select adds to it; --cover and --today are jsk match's.
-
-    --ranked is the same with no posting, for a general rebuild: the projects by strength
-    and recency, their confirmed bullets by the same bands, a bullet citing a current
-    number first. The scorer chooses rather than the model, as it does for a posting.
-    --select adds to it.
-
-    --out writes the file, and then each chosen bullet as `id | its first 100 characters`
-    - what a survey of the projects would have read, one line a bullet. It never writes
-    over an existing file unless --replace is given: a re-export after a changeset is
-    the file the career now selects. Without --out the file is printed.
-
-    A number in a chosen bullet that no current metric version holds is printed as a
-    WARN: it is in the career, not in anything authored, so it is a question for the
-    person before any word is retuned.
-
-    --urs and --refresh are gone with the full record: the short file is the one format,
-    and there is nothing in it to refresh.
-    """
-    import json
-
-    from ....domain import ontology as O
-    from ....infra.oxigraph import record as R
-    from ....graph import store as S
-    from ....graph.export import Career, ExportError, chosen, short_file
-    from ....graph.match import COVER, application, blocks, posting_in
-    from ....domain.record.writer import curie
-
-    # Said by name rather than as an unknown flag - so they are switches it takes: an
-    # agent file or a shell history written before the short file still has them.
-    if "--urs" in flags:
-        return usage("--urs is gone: export writes the short resume.json, the one format "
-                     "there is - drop --urs")
-    if "--refresh" in flags:
-        return usage("--refresh is gone: a short resume.json holds ids, and every render "
-                     "builds from the career as it stands, so there is nothing to refresh")
-    out, posting, cover_text, today_text = (flags.get(f) for f in
-                                            ("--out", "--from-match", "--cover", "--today"))
-    by_rank = "--ranked" in flags
-    select = None
-    if "--select" in flags:
-        select = [i for token in flags["--select"] for i in token.split(",") if i]
-        if not select:
-            return usage("--select needs one or more ids")
-    if args:
-        return usage("jsk kb export [--select <id>...] [--from-match <app-dir> | --ranked] "
-                     "[--out resume.json] - the short resume.json is the one format it writes")
-    if posting and by_rank:
-        return usage("--ranked is the selection with no posting, --from-match the one for a "
-                     "posting - give one")
-    if cover_text and not posting:
-        return usage("--cover goes with --from-match")
-    if today_text and not (posting or by_rank):
-        return usage("--today goes with --from-match or --ranked")
-    if "--replace" in flags and not out:
-        return usage("--replace goes with --out: it lets the export write over that file")
-    budget = COVER
-    try:
-        if today_text:
-            today = datetime.date.fromisoformat(today_text)
-        if cover_text:
-            budget = int(cover_text)
-    except ValueError:
-        return usage("--cover takes a whole number and --today a YYYY-MM-DD date")
-    if budget < 1:
-        return usage("--cover takes a whole number of at least 1")
-    app = None
-    if posting:
-        home, app = application(posting, "jsk kb export --from-match")
-        if home is None:
-            print("\n".join(app))
-            return 2
-        if os.path.normcase(os.path.realpath(home)) != os.path.normcase(os.path.realpath(root)):
-            return usage(f"{posting}: not an application of this workspace ({root})")
-    store = S.load(root)
-    if R.KB not in store.parsed:
-        st = R.state(store)
-        return refuse([GUIDE[st.kind][0] or st.detail], GUIDE[st.kind][1])
-    # The career always; with --from-match, the application's own directory too, as jsk
-    # match.
-    here = S.file_name(app, store.root) + "/" if posting else None
-    blocking = [f for f in store.fails() if f.rule != "log-sync"
-                and (not f.file.startswith("applications/") or (here and blocks(f, here)))]
-    if blocking:
-        where = "the career and the posting have" if posting else "the career has"
-        show_findings(blocking, f"REFUSED  {where} {len(blocking)} failures - "
-                                "a resume would carry them:")
-        return 1
-    if out and os.path.exists(out) and "--replace" not in flags:
-        return refuse([f"{out} exists - export writes a new resume.json, never over one "
-                       "unless told to"],
-                      "edit it, or pass --replace to export it again - it holds only ids and "
-                      "settings, and the career is read afresh at every render")
-    selection, notes = None, []
-    report = sys.stdout if out else sys.stderr
-    try:
-        if posting or by_rank:
-            from ....graph import select as SEL
-            chosen(Career(store.graph(R.KB)), select)      # a bad --select refuses first
-            extra = [O.K + t.removeprefix("k:") for t in select or []]
-            if by_rank:
-                selection = SEL.ranked(store, today, extra)
-            else:
-                post = posting_in(store, app)
-                if post is None:
-                    return refuse([f"{posting} holds no posting"],
-                                  f"`jsk posting build {posting}` writes it from posting.md")
-                selection = SEL.select(store, post, today, budget, extra)
-        if selection is not None:
-            # The gaps first: when nothing is selected they are the reason, and a refusal
-            # printed without them would leave the author to run jsk match to find out why.
-            for p in selection.projects:
-                if not selection.bullets.get(p):
-                    print(f"NOTE  {curie(p)} has no confirmed bullet, so it comes with none - "
-                          "name the bullet with --select, or confirm one", file=report)
-            for gap in selection.gaps:
-                print(gap.line(), file=report)
-        doc = short_file(store, selection=selection, select=select, notes=notes)
-    except ExportError as err:
-        return refuse([str(err)], err.fix)
-    for note in notes:
-        print(note, file=report)
-    faults = untraced_lines(store, today, [O.K + b for b in doc["bullets"]])
-    if faults:
-        print(f"WARN  {len(faults)} check(s) fail on the chosen bullets as the career holds "
-              "them - a question for the person, answered in the career (`jsk kb apply`) "
-              "before any word is retuned:", file=report)
-        for line in faults:
-            print(f"        {line}", file=report)
-    text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
-    if not out:
-        sys.stdout.write(text)
-        return 0
-    wrote(store, out, text, doc)
-    career = Career(store.graph(R.KB))
-    for b in doc["bullets"]:
-        words = " ".join((career.get(O.K + b, "text") or "").split())
-        print(f"{b} | {words[:100]}")
-    print("next: order `bullets`, add a `summary` and set `pages` or `format` if this posting "
-          "wants them, then `jsk validate` it - a reworded bullet goes into the career "
-          "(`jsk kb apply`), then export again with --replace")
-    return 0
-
-
-def untraced_lines(store, today, bullets):
-    """application.record.check.untraced_lines over the store's own queries."""
-    from ....application.record.check import untraced_lines as lines
-    from ....infra.oxigraph.queries import OxigraphQueries
-
-    return lines(store, OxigraphQueries(store), today, bullets)
-
-
-def wrote(store, path, text, doc):
-    from ....infra.oxigraph import record as R
-
-    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-    with open(path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
-    st = R.state(store)
-    at = f" at r{st.log_revision}" if st.log_revision else ""
-    print(f"wrote {path}: {len(doc['bullets'])} bullets chosen from the career{at}")
-
-
 SHADOW = os.path.join(".jsk", "kb.last.ttl")      # the file workspace's copy of its last write
 
 
@@ -1008,7 +825,7 @@ TABLE = {
     "confirm": (cmd_confirm, ("--answer", "--summary", "--source", "--quote"), (), ()),
     "show": (read.cmd_show, (), ("--bullets",), ()),
     "view": (read.cmd_view, ("--section",), (), ()),
-    "export": (cmd_export, ("--out", "--from-match", "--cover", "--today"),
+    "export": (export.cmd_export, ("--out", "--from-match", "--cover", "--today"),
                ("--ranked", "--replace", "--urs", "--refresh"), ("--select",)),
     "query": (read.cmd_query, (), ("--json",), ("--near",)),
     "check": (read.cmd_check, ("--only",), (), ()),

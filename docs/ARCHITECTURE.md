@@ -382,6 +382,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
+    tailor/export.py                `jsk kb export`: the bullets a resume.json shows chosen, the file written
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     record/refusals.py              how a use case over the record refuses: the errors the CLI prints
     record/read.py                  `jsk kb show`, `view` and `log`: entries by id, the career, the log
@@ -412,6 +413,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/kb/__init__.py              `jsk kb`: the verb table, its flags, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
     cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG
+    cli/kb/export.py                `jsk kb export`: its flags, the choice's notes and gaps, the file
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
