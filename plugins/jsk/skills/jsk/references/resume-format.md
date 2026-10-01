@@ -1,8 +1,13 @@
-# resume.json
+# A selection (resume.json's keys)
 
 One resume: what was chosen for one posting, and nothing the career holds. Names, dates,
 employers, bullet text and metrics come from the career every time the resume is built, so
 a confirm or a corrected bullet is on the next render with nothing to update here.
+
+A selection is a graph in the store — an application's (`<stem>`) or a general resume's
+(`resumes/<name>`). `resume_select` makes it, `resume_update` changes it key by key, and
+`app_show(target, "selection")` shows it as this dict. An application made from files holds the
+same keys as a `resume.json`.
 
 ```json
 {
@@ -25,31 +30,26 @@ a confirm or a corrected bullet is on the next render with nothing to update her
 | `region` | no | a two-letter code: `au`, `ae`, `in` pick their profile, any other (`us`, `xx`) the default one; it also sets the paper. Default the person's country |
 | `pages`, `ats_pages` | no | page budgets; `ats_pages` for the ATS-maximal variant |
 | `floor` | no | provenance floor, default `confirmed`: a bullet or summary below it is withheld, with a warning |
-| `summary` | no | `{text, status}`, `status` `inferred`; `jsk kb confirm --summary` adds `answer` and `text_sha256`. Absent, the career's positioning |
-| `headline` | no | `{text, status}` like `summary`: the posting's exact title, under the name; `jsk kb confirm --headline` confirms it. Below the floor or absent, the career's headline |
+| `summary` | no | `{text, status}`, `status` `inferred`; confirming adds `answer` and `text_sha256`. Absent, the career's positioning |
+| `headline` | no | `{text, status}` like `summary`: the posting's exact title, under the name, confirmed the same way. Below the floor or absent, the career's headline |
 | `names` | no | `{skill_id: name}`: the skill shown under one of its `j:alias`, the posting's spelling of it. Anything but its name or an alias fails |
 | `roles` | no | `pos_` ids to show with no bullet, for chronology |
 | `skills` | no | `skill_` ids in row order; absent, every skill |
 
-For one render, `jsk resume ship --ats-max` overrides `format` and `render --region` `region`.
+For one render, `resume_ship`'s `ats_max` overrides `format`.
 
 **The summary and the headline are the only prose in it.** A reworded bullet goes into the career first
-(`jsk kb apply`) and is named here by its id; an unknown key fails. Once the person confirms the
-summary, `jsk kb confirm --summary <resume.json> --answer "…"` marks it `confirmed` beside their
-answer and the text's hash; a hand-set `confirmed`, or text edited since, fails. The headline is
-confirmed the same way with `--headline`: `jsk kb export --from-match` sets it to the posting's
-title, and the person says whether they stand behind it.
+(`career_apply`, as `jsk kb apply`) and is named here by its id; an unknown key fails.
+`resume_update` takes `summary` and `headline` as text, and new text arrives `inferred`. Once the
+person confirms it, `career_confirm(target, block="summary", answer="…")` (`jsk kb confirm
+--summary <stem>|<resume.json>`) marks it `confirmed` beside their answer and the text's hash; a
+hand-set `confirmed`, or text changed since, fails. The headline likewise, `block="headline"`:
+`resume_select` with `from_match` sets it to the posting's title, and the person says whether they
+stand behind it.
 
-```bash
-jsk kb export --from-match applications/<stem> --out applications/<stem>/resume.json
-jsk kb export --ranked --out resume.json      # a general resume; --select <ids> adds
-jsk resume check applications/<stem>/resume.json
-```
-
-Export writes over an existing file only with `--replace`. `jsk resume check` is the record gate: it fails
-the shape, an id the career does not hold or has retired, a bullet whose project has no role, a
-number in a bullet that no current version of a metric it cites holds, a career that does not
-validate, and one out of sync with its log (written outside jsk: restore it from
-`.jsk/backup.trig`); it warns of labels, "N years of X"
-and brackets. A full URS record (`"urs"` key) is refused: write a short one with `jsk kb export`. A
-frozen application keeps its old file as the archive of what was sent.
+`jsk resume check <stem>|resumes/<name>|<resume.json>` is the record gate: it fails the shape, an
+id the career does not hold or has retired, a bullet whose project has no role, a number in a
+bullet that no current version of a metric it cites holds, a career that does not validate, and
+one out of sync with its log (written outside jsk: restore it from `.jsk/backup.trig`); it warns
+of labels, "N years of X" and brackets. A full URS record (`"urs"` key) is refused: write a short
+one with `jsk kb export`. A frozen application keeps its selection as the archive of what was sent.

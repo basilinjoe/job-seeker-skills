@@ -35,6 +35,8 @@ and a TeX distribution can be several gigabytes.
 - **`pymupdf` is required** — the parse gate reads the PDF through it and the fitter measures pages
   through it. One `pip install`.
 - **`pyoxigraph`** comes with the package; without it the career can be neither changed nor matched.
+- **The `mcp` extra is required for the agents** — every one works through the `jsk mcp` tools the
+  plugin starts: `pip install 'jsk-resume[mcp]'`, then restart Claude Code.
 
 Re-run the doctor after any install.
 
@@ -79,15 +81,15 @@ then read it critically and note:
 - Detail worth keeping that will not fit the current resume
 
 Send `jsk-extractor` the workspace, the document (`sources/prior-resume.md`) and the skill
-directory: it extracts roles, employers, dates, projects and metrics into one changeset and dry-runs
-it. Show them the diff, then `jsk kb apply` it. It lands `inferred`; then run the confirm lines the
+directory: it extracts roles, employers, dates, projects and metrics into one changeset and
+previews it. Show them the diff, then apply the changeset it returns (`career_apply`). It lands `inferred`; then run the confirm lines the
 agent proposed for what the document states — `jsk kb confirm <ids> --source <file> --quote "its
 exact words"`, each number in the quote — and ask about every clause it quoted as its own. No
 agents? Do the same inline (`references/kb-format.md` has the shapes).
 
 An older **bundle** (`projects/` and `resume-generation/`) has no migration command: read it whole
 and build the record from it like a resume — `jsk kb new`, then `jsk-extractor` per bundle file, each
-changeset shown and applied through `jsk kb apply`. A changeset cannot confirm, so it carries
+changeset shown and applied through `career_apply`. A changeset cannot confirm, so it carries
 `j:needs-verification` and `j:disputed` as the bundle held them and everything else lands `inferred`;
 then `jsk kb confirm <every id the bundle held confirmed> --source <bundle file> --quote "…"`.
 Keep the bundle until they confirm the record is complete.
@@ -100,8 +102,9 @@ through their most significant projects.
 
 ## Phase 4: Prove it, on their data
 
-1. Export a thin `resume.json` in the workspace from whatever the career now holds —
-   `references/mode-resume.md` for the procedure. The point is that the path works, not that the
+1. Select a thin general resume from whatever the career now holds —
+   `resume_select(target="resumes/general", mode="ranked")`; `references/mode-resume.md` for the
+   procedure. The point is that the path works, not that the
    resume is finished.
 2. Choose the region profile that matches where they are applying, and **say why**: India expects
    three pages, academic grades and a declaration block, Australia and the Gulf a work-rights line,
@@ -110,7 +113,7 @@ through their most significant projects.
 3. Validate, render and gate in one run, and show every step's output:
 
 ```bash
-jsk resume ship resume.json --out . --pages 2
+jsk resume ship resumes/general --pages 2
 ```
 
 If the PDF step reports the resume **unverified**, say so plainly.

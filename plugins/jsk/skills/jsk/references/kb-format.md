@@ -7,14 +7,11 @@ For reading the career and drafting a changeset. The record is named graphs in o
 ```
 <workspace>/
   career/store/              the record: graphs kb (the career), log (every change),
-                             applications/<stem>/posting, .../application, .../gaps
+                             applications/<stem>/posting, review, gaps, resume, application;
+                             resumes/<name>/resume
   .jsk/backup.trig           the whole record as TriG, after every write
-  changes/                   changesets you draft, for jsk kb apply
-  applications/<yyyy-mm-dd>-<company>-<role>/
-    posting.md               the advertisement, verbatim - nothing else
-    decisions.txt            the analyst's requirements, for jsk posting build
-    gaps.txt                 what the analyst changes in the assessment (jsk prints it)
-    resume.json              the bullets and settings this submission rendered from
+  applications/<stem>/       the .pdf and .tex a render left (one made from files also holds
+                             posting.md, decisions.txt, gaps.txt, resume.json)
 ```
 
 ## Sections
@@ -122,7 +119,7 @@ Without pyoxigraph, draft the changeset into a file and say it waits for `jsk kb
 
 ## The posting graph
 
-`jsk posting build` writes it from `decisions.txt`; `jsk kb show k:post_<stem>` prints it:
+`posting_decide` writes it (from files, `jsk posting build`); `jsk kb show k:post_<stem>` prints it:
 
 ```turtle
 k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;

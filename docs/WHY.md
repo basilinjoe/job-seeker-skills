@@ -20,10 +20,12 @@ outlives any single tool, this one included, is the dump.
 The career is a graph - every organisation, role, project, bullet, metric and question is a node
 with an id, and every "this bullet is about that project" or "this number is that metric" is an
 edge. Every record is a named graph in one Oxigraph store (RocksDB on disk) at `career/store/`:
-`kb` for the career, `log` for its history, and `applications/<stem>/posting`, `.../application`
-and `.../gaps` for each application. Documents stay files beside them - the advert as
-`posting.md`, the analyst's `decisions.txt` and `gaps.txt`, `resume.json` and the renders (the
-derived assessment is printed, never written to a file) - because they are documents, not the record.
+`kb` for the career, `log` for its history, and for each application `applications/<stem>/`'s
+`posting` (the advert as numbered lines, and its requirements), `review`, `gaps`, `resume` (the
+selection) and, once sent, `application`. The only files beside them are what was rendered and sent
+- the PDF and the `.tex` - because those are documents, not the record. An application made before
+5.0.0 keeps its `posting.md`, `decisions.txt`, `gaps.txt` and `resume.json`, and the commands that
+made it still work it.
 
 You read the career with `jsk kb view`, which prints it as Markdown in the order the knowledge base
 always had: Identity, Positioning, Work authorization and languages, Vocabulary, Organisations,
@@ -282,6 +284,27 @@ whole reason the working is printed rather than the ranking asserted.
 
 It reports what each project *failed* to match, and tells you where you fall short instead of
 flattering you. Being flattered costs interviews.
+
+## Agents work through typed tools, and their grants are the boundary
+
+Since 5.0.0 the plugin's agents reach the record through `jsk mcp`, an MCP server the plugin starts,
+instead of writing text files for the CLI to read and running `jsk` in a shell.
+
+**Typed batches.** The analyst used to write `decisions.txt` and `gaps.txt` in a format of their own,
+then run a command that parsed them and named every problem. Now it sends the same decisions as JSON
+fields - a requirement row `{n, slug, asked, concepts}`, a drop `{n, reason}`, a verdict lowered with
+its reason - in one call, and each row is checked against the stored advert line or the derived match
+before anything is written. There is no format to get wrong, no shell quoting of an advert's
+apostrophes, and no file left behind that disagrees with the graph. A model still writes only
+decisions; code still writes every triple.
+
+**Grants as boundaries.** Each agent's definition names the tools it may call, one by one. The
+analyst holds the posting and assessment tools and nothing that writes the career, so "never touch
+the career" stopped being only a sentence it was asked to obey: it has no way to. The author holds
+`career_apply`, which writes only `inferred`, and no agent holds `career_confirm`, because a
+confirmation carries the person's own words and only the conversation with them can supply those.
+The grants hold because Claude Code holds a subagent to an explicit tool list (measured, 2026-10-02);
+a wildcard or an omitted list would hand every agent every tool, which is why the tests forbid both.
 
 ## Two variants, because readability and parsing conflict
 

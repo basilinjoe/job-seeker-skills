@@ -1097,9 +1097,14 @@ is held between calls. Reads share one loaded record until the store on disk mov
 
 `app` is an application's stem (`applications/<stem>`); `target` is a stem or `resumes/<name>`.
 The tools refuse an application made from files, naming the file verb that still works on it;
-the file verbs refuse a graph-native one, naming the tool. `resume_select`, `resume_update`,
-`resume_ship` and the selection branch of `career_confirm` answer `not built yet` until the
-selection's use cases land.
+the file verbs refuse a graph-native one, naming the tool.
+
+The plugin (5.0.0) starts this server as `jsk`, so Claude Code names each tool
+`mcp__plugin_jsk_jsk__<tool>`. Each agent's `tools:` lists the ones it may call by name: the analyst
+the career reads, `app_show`, `posting_*` and `assessment_*`; the author the career reads,
+`career_preview`, `career_apply`, `app_show`, `resume_select` and `resume_update`; the extractor
+the career reads and `career_preview`. No agent holds `career_confirm`: only the main session,
+which talks to the person, confirms.
 
 What stays a command only: `jsk kb new`, `jsk doctor`, `jsk app freeze`, `jsk app event`,
 `jsk letter check`, `jsk kb dump` and `load`, and `jsk resume check`, `render`, `preview` and

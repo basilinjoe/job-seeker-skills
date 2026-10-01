@@ -7,10 +7,13 @@ From nothing to a verified resume. Ten minutes, most of it spent talking about y
 The toolchain is a Python package, and the skill drives it:
 
 ```
-pip install 'jsk-resume[all]'
+pip install 'jsk-resume[all,mcp]'
 ```
 
-Then the plugin:
+The `mcp` extra is what the plugin needs (`pip install 'jsk-resume[mcp]'` adds it to an existing
+install): since 5.0.0 the plugin starts `jsk mcp`, and its agents read and write your record through
+that server's tools rather than through files. Restart Claude Code after installing it. Then the
+plugin:
 
 ```
 /plugin marketplace add basilinjoe/job-seeker-skills
@@ -86,14 +89,19 @@ answers and what it does not, and asks you about the gaps — then writes the re
 You can skip out of it at any round and take the record as it stands. It tells you where you fall
 short against that posting either way, because being flattered costs interviews.
 
-`/jsk:ship` is the end of that loop, and it is two commands:
+Since 5.0.0 an application lives in your record, not in files: the posting's lines, what it asks
+for, the analyst's review, the assessment and the bullets chosen for it are all stored there, and
+its folder under `applications/` holds only the PDF and `.tex` it rendered. A "no" you give ("never
+used Kafka") is recorded too, so the next posting that asks gets your answer without asking you.
+
+`/jsk:ship` is the end of that loop, and it is two steps:
 
 ```bash
-jsk resume ship applications/<stem>/resume.json --out applications/<stem>
+jsk resume ship <stem>               # what the skill's resume_ship tool runs
 jsk app freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
 ```
 
-`jsk resume ship` checks `resume.json` against your career first - every id live, every number traced to
+`jsk resume ship` checks the chosen bullets against your career first - every id live, every number traced to
 a current metric - and renders nothing if that fails, then renders the PDF and checks it and its plain text, printing every
 verdict. It reports the page count but leaves the last check to you: open the PDF and read every
 page. `jsk app freeze` refuses until the checks pass, then records in your record what was sent,
@@ -109,7 +117,9 @@ jsk kb query pipeline            # every application's stage, and how long since
 
 ## The same, by hand
 
-The skill runs all of this for you. Underneath, from nothing to a sent application:
+The skill runs all of this for you, through `jsk mcp`'s tools. Underneath, the commands still work
+an application made from files (`posting.md`, `decisions.txt`, `resume.json`), from nothing to a
+sent one:
 
 ```bash
 jsk kb new ./my-career --name "Your Name"     # career/store/: an empty career and its log, at r1

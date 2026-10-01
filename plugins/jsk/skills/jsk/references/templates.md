@@ -2,7 +2,8 @@
 
 Five visual templates for the rendered PDF. `jsk resume render --template NAME` picks one;
 `jsk resume render --list-templates` prints them; `jsk resume preview <resume.json> --out DIR` renders all five from
-one `resume.json`, with page counts, so the choice is made by looking.
+one `resume.json`, with page counts, so the choice is made by looking. A selection in the store is
+compared by shipping it with each `template` in turn.
 
 **A template changes how the resume looks and nothing else.** All content decisions are made before
 a template is consulted, and all five extract to the same text in the same order

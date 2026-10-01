@@ -19,22 +19,29 @@ Interview someone once; regenerate resumes, tailored variants and interview brie
 **The knowledge base is the source of truth. A resume is one rendering of it.**
 
 ```
-career/store/ + resume.json  ->  .tex -> .pdf   (the deliverable)
-  jsk kb apply   jsk kb export
+career/store/ + a selection  ->  .tex -> .pdf   (the deliverable)
+  career_apply   resume_select
 ```
 
-**Never hand-author a `.tex`.** Export `resume.json`, validate it, render every format from it —
-two hand-built documents stop agreeing the moment one is edited.
+**Never hand-author a `.tex`.** Select, validate, render every format from the selection — two
+hand-built documents stop agreeing the moment one is edited.
 
 | Thing | Is | Written by |
 |---|---|---|
-| `career/store/` | the career, its history, each application's requirements, assessment and timeline | `jsk` only |
-| `applications/<stem>/posting.md` · `decisions.txt` | the advert verbatim · its requirements | you · `jsk-tailor-analyst` |
-| `applications/<stem>/gaps.txt` | the analyst's changes to the assessment `jsk tailor match` prints | `jsk-tailor-analyst` |
-| `applications/<stem>/resume.json` | the bullets chosen for this posting, by id | `jsk-resume-author` |
+| `career/store/` | the career and its history; each application's advert, requirements, review, assessment, selection and timeline | `jsk` only |
+| `applications/<stem>/` | what was rendered: the `.pdf` and the `.tex` | `resume_ship` |
 
+An application made from files (`posting.md`, `decisions.txt`, `gaps.txt`, `resume.json`) keeps
+them, and the commands still work it; the tools refuse it.
 `applications/` is the directory beside `career/` — resolve it to an absolute path, never the
 working directory.
+
+## The `jsk` tools
+
+The plugin starts `jsk mcp` (`pip install 'jsk-resume[mcp]'`). Its tools —
+`mcp__plugin_jsk_jsk__` + `career_*`, `app_*`, `posting_*`, `assessment_*`, `resume_*` — take JSON
+and answer `ok` and findings, each with its fix. Prefer a tool to its command. `career_confirm`
+carries the person's words: only you call it, never an agent.
 
 ## Modes
 
@@ -83,9 +90,7 @@ changeset to a file for later.
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk kb new <path> --name "Name"` | an empty `career/store/` and `applications/` |
 | `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|path\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
-| `jsk posting fetch <url>\|<file> <app-dir>` | a job board's posting, or a `.docx`/`.html`/`.txt`, as `posting.md` |
-| `jsk tailor match <app-dir>` | requirements matched through the vocabulary, ranked, questions |
-| `jsk tailor prepare <app-dir> [--draft-gaps]` | the match and all an assessment reads, one digest |
+| `jsk posting fetch`, `jsk tailor match\|prepare` | an application made from files: `posting.md`, its match |
 | `jsk resume check <resume.json>\|<stem>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
 | `jsk resume render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex` and PDF |
 | `jsk resume preview <resume.json> --out DIR` | every template, with page counts |
@@ -103,10 +108,10 @@ PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
 
 | Agent | Hand it | Get back |
 |---|---|---|
-| `jsk-tailor-analyst` | app directory, workspace | the requirements, the match, the assessment and questions |
-| `jsk-resume-author` | posting, gaps, workspace | `resume.json`, every authored clause quoted |
+| `jsk-tailor-analyst` | the app's stem | the requirements, the match, the assessment and questions |
+| `jsk-resume-author` | stem, assessment, skill directory | the selection, every authored clause quoted |
 | `jsk-kb-auditor` | workspace | what is missing, as a prioritised question queue |
-| `jsk-extractor` | workspace, a braindump or document in `sources/` | a dry-run changeset, its inferred clauses quoted |
+| `jsk-extractor` | workspace, a braindump or document in `sources/` | a previewed changeset, its inferred clauses quoted |
 | `jsk-verifier` | a **failed** gate, or the render gate to read | each verdict verbatim, and the id to repair |
 
 **They never interview**: confirming claims, choosing between close projects and telling someone
@@ -119,7 +124,7 @@ where they fall short stay with you and the person. Their output does not reach 
 
 | Gate | Question | How |
 |---|---|---|
-| **Record** | shaped right, every id live, every number traced to a metric? | `jsk resume check` on the `.json` |
+| **Record** | shaped right, every id live, every number traced to a metric? | `jsk resume check` on the `<stem>` or `.json` |
 | **Parse** | will an ATS read it? | `jsk resume check` on the PDF; on the directory, its text `--strict` too |
 | **Prose** | does it obey the writing rules? | `jsk resume check --only prose` on the `.tex` |
 | **Layout** | tofu, fonts, stranded headings, dates, paper? | `jsk resume check --only layout` on the PDF |
@@ -127,7 +132,7 @@ where they fall short stay with you and the person. Their output does not reach 
 
 `jsk resume check <dir>` (or `ship`) runs all but the last. **Show the output**; fix and re-run, never explain
 a failure away. The render gate is half yours: only the person can confirm it is true — until they
-have, the resume is unverified. Repair a defect in the career or `resume.json` and re-render; never the PDF.
+have, the resume is unverified. Repair a defect in the career or the selection and re-render; never the PDF.
 
 ## Provenance
 

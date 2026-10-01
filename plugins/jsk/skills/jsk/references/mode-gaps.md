@@ -9,8 +9,8 @@ Turn unverified and unquantified material into confirmed facts.
 | `/jsk:gaps` — a record audit | the career, no posting in view | record quality: unconfirmed claims, missing metrics, illegible titles, unexplored territory |
 | A tailoring round — see `mode-tailor.md` | a posting **and** the career | both, ranked together: what this posting wants that the record cannot answer, alongside the record-quality problems that would reach *this* resume |
 
-Both write the same Markdown assessment (`agents/jsk-tailor-analyst.md` has the format). This file is
-the record audit's conversation.
+A tailoring round's assessment is a graph the analyst reviews through the tools; the audit's is
+`audit.gaps.md`. This file is the record audit's conversation.
 
 Why it matters: a vague resume gets screened out ("improved system performance" vs "cut p95 latency
 62%"), and an inflated one collapses under questioning — `inferred` content is dangerous because it
@@ -26,6 +26,7 @@ For a quick look without spawning anything, the queue is two queries:
 ```bash
 jsk kb query unconfirmed      # every entry not confirmed, with its open question
 jsk kb query open             # every question not yet answered
+jsk kb query absences         # each "no" they gave; a due one is asked again
 ```
 
 They cannot miss one, and cannot judge one — that is what the auditor is for.
@@ -87,12 +88,19 @@ awards, process changes, cost savings, and work that prevented a problem rather 
 
 ## Record and close
 
-Each answer is one of three commands:
+Each answer is one of four moves (each command has its tool: `career_confirm`, `career_apply`,
+`career_show`):
 
 - **Confirmed as it stands**: `jsk kb confirm <id> --answer "their words"`. It answers the open
   questions about that entry too.
 - **Corrected, or a new number or title**: a changeset through `jsk kb apply` (`jsk kb show <id>`
   first for the `op:base`). It comes back `inferred`; confirm it with the answer they just gave.
+- **A "no"** — they have never done the thing ("never used Kafka"): `op:add { k:abs_kafka
+  j:concept c:kafka ; j:said "<today>"^^xsd:date ; j:answer "their words" . }` (with
+  `@prefix xsd: <http://www.w3.org/2001/XMLSchema#>`), then confirm it with the same words.
+  Confirmed, it answers every posting that asks only that, with no question, for a year; then it
+  is due (`jsk kb query absences`) and asked again. A project that holds the concept is a WARN:
+  one of the two is stale.
 - **Unavailable**: soften the claim in a changeset, or `op:retire` it with a `j:reason` — a real
   outcome, never a question left pending forever.
 

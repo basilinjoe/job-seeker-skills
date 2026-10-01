@@ -10,6 +10,7 @@ import unittest
 from pathlib import Path
 
 from fixtures import source_path
+from test_agent_grants import MCP, granted
 
 REPO = Path(__file__).resolve().parent.parent
 PLUGIN = REPO / "plugins" / "jsk"
@@ -141,10 +142,10 @@ class AgentFrontmatter(unittest.TestCase):
         only as good as the sentence stating it. So the sentence is asserted.
 
         The graph record has a write command again, `jsk kb apply`, and it cannot
-        confirm anything - but the analyst still holds Bash, so it could run apply. The
-        career is in career/store/ now, so Write can no longer reach it; apply still can.
-        The analyst's boundary is absolute: through jsk it writes the posting and the
-        assessment and never the career.
+        confirm anything. While the analyst held Bash it could run apply; since 5.0.0 it
+        works through the `jsk mcp` tools and holds none that writes the career, so the
+        sentence is also true by construction (AgentGrants pins the grant). The sentence
+        stays asserted: a grant widened later must still meet the rule in writing.
         """
         body = (PLUGIN / "agents" / "jsk-tailor-analyst.md").read_text(encoding="utf-8")
         self.assertIn("**Never touch the career**", " ".join(body.split()))
@@ -160,7 +161,8 @@ class AgentFrontmatter(unittest.TestCase):
         claims gate that watched for one went with the URS record.
 
         That is enforcement rather than instruction, which is why the author may run
-        apply and the analyst's rule has to be a sentence.
+        apply and the analyst's rule has to be a sentence. Since 5.0.0 it applies through
+        `career_apply`, the tool form of `jsk kb apply`, and the body names both.
         """
         body = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
         self.assertIn("`j:inferred`", body)
@@ -168,20 +170,27 @@ class AgentFrontmatter(unittest.TestCase):
         self.assertIn("Leave `floor` at its default, `confirmed`", " ".join(body.split()))
         self.assertNotIn("provenance_floor", body)
 
-    def test_the_extractor_stops_at_the_dry_run(self):
+    def test_the_extractor_stops_at_the_preview(self):
         """The extractor turns a person's own account into a changeset - the riskiest
         writing in the skill, so it runs pinned to a model rather than on whatever the
-        session has. It may dry-run and nothing more: the person must see what lands
-        before it lands, and the agent never talks to them. It holds Write for its one
-        changeset file and no Edit, like the auditor; the stop is a sentence, asserted."""
+        session has. It may preview and nothing more: the person must see what lands
+        before it lands, and the agent never talks to them.
+
+        Changed on purpose in 5.0.0: it held Write for one changeset file under changes/
+        and Bash for `jsk kb apply <file> --dry-run`. It passes the changeset's text to
+        `career_preview` now and returns it whole, so it holds neither - and no
+        `career_apply`, which is the stop made a grant. The stop is still a sentence,
+        asserted."""
         fm = frontmatter(PLUGIN / "agents" / "jsk-extractor.md")
         self.assertEqual(fm["model"], "sonnet")
-        self.assertIn("Write", fm["tools"])
-        self.assertNotIn("Edit", fm["tools"])
+        tools = granted(fm)
+        for denied in ("Write", "Edit", "Bash", MCP + "career_apply", MCP + "career_confirm"):
+            with self.subTest(denied=denied):
+                self.assertNotIn(denied, tools)
+        self.assertIn(MCP + "career_preview", tools)
         body = " ".join((PLUGIN / "agents" / "jsk-extractor.md").read_text(
             encoding="utf-8").split())
-        self.assertIn("You run `jsk kb apply <file> --dry-run` and nothing else that writes.",
-                      body)
+        self.assertIn("You run `career_preview` and nothing that writes.", body)
         self.assertIn("Leave provenance out.", body)
         self.assertIn("Never invent a number.", body)
 
@@ -213,13 +222,6 @@ class AgentFrontmatter(unittest.TestCase):
         for path in self.agents():
             with self.subTest(agent=path.name):
                 self.assertEqual(frontmatter(path).get("model"), "sonnet")
-
-    def test_both_authoring_agents_keep_bash(self):
-        """Bash is how the record gate is run at all, and both are told to run it."""
-        for name in ("jsk-tailor-analyst", "jsk-resume-author"):
-            tools = frontmatter(PLUGIN / "agents" / f"{name}.md")["tools"]
-            with self.subTest(agent=name):
-                self.assertIn("Bash", tools)
 
 
 class TheSectionsAndTheFormatAgree(unittest.TestCase):
