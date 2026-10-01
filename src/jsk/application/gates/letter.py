@@ -15,8 +15,12 @@ in a looser paragraph, so it is asked the same question:
   WARN  check_prose's "cut on sight" phrases; a sentence stopping on "to"/"with"/...
 
 A numeral inside quotation marks that posting.md (beside resume.json) holds verbatim is
-the posting's words, not a claim, and is skipped. Whether each sentence is true of the
-career is not provable without reading it as a person would, so it is not attempted.
+the posting's words, not a claim, and is skipped. A graph-native application's record is its
+selection's ref (application/render/selection.py), and its advert is the lines its posting
+graph holds, read from the store already loaded (P5 of
+docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md, 2026-10-02). Whether
+each sentence is true of the career is not provable without reading it as a person would,
+so it is not attempted.
 
 The rules over the words are domain/gates/letter_rules.py's; the number check reads the
 career through `queries` (ports.queries.RecordQueries). This reads the letter, loads the
@@ -30,6 +34,7 @@ from ...domain import ontology as O
 from ...domain.gates.letter_rules import body, length_lines, prose_lines, unquote_posting
 from ...domain.gates.report import line
 from ...domain.record.writer import curie
+from ..render.selection import shown_name
 from .result import GateResult, GateStopped
 
 
@@ -38,7 +43,7 @@ class LetterResult(GateResult):
     """The letter check's verdict, with what its heading reports."""
 
     name: str
-    against: str        # the resume.json's name, or why there was none
+    against: str        # the resume.json's name, a selection's graph, or why there was none
     words: int          # in the body, as the limit counts them
 
 
@@ -48,8 +53,8 @@ def check_letter(path, record, *, read, read_short, workspace, has_engine, caree
 
     Args:
         path: the letter, a .txt or .md; it exists.
-        record: the application's resume.json, or None - which fails the number check
-            as SKIPPED.
+        record: the application's resume.json, a graph-native application's ref, or
+            None - which fails the number check as SKIPPED.
         read: path -> a text file's contents, normalised (infra.documents.read_letter).
         read_short: path -> the resume.json as a dict (compose.resume.read).
         workspace: path -> the workspace root around it (compose.resume.workspace).
@@ -84,12 +89,32 @@ def check_letter(path, record, *, read, read_short, workspace, has_engine, caree
         if not has_engine():
             raise GateStopped("no-engine", None, 1)
         store = career(root)
-        beside = os.path.join(os.path.dirname(os.path.abspath(record)), "posting.md")
-        posting = read(beside) if os.path.exists(beside) else None
+        posting = advert(record, store, read)
         fails += number_lines(body(text), doc, store, posting, today)
-        against = os.path.basename(record)
+        against = shown_name(record)
     return LetterResult(fails=tuple(fails), warns=tuple(warns), name=os.path.basename(path),
                         against=against, words=words)
+
+
+def advert(record, store, read):
+    """The advert the letter may quote: a graph-native application's stored lines, one to a
+    line, or the posting.md beside a resume.json; None when there is neither.
+
+    Args:
+        record: the resume.json, or a target's ref.
+        store: its workspace, loaded.
+        read: path -> a text file's contents (infra.documents.read_letter).
+    """
+    from ...domain.posting.lines import from_triples
+    from ..render.selection import parse_ref
+
+    found = parse_ref(record)
+    if found is not None:
+        parsed = store.parsed.get(f"{found[1]}/posting")
+        lines = from_triples(parsed.quads)[0] if parsed is not None else []
+        return "\n".join(line.text for line in lines) or None
+    beside = os.path.join(os.path.dirname(os.path.abspath(record)), "posting.md")
+    return read(beside) if os.path.exists(beside) else None
 
 
 def years_lines(store, text, today, queries):

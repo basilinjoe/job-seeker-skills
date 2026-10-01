@@ -84,6 +84,12 @@ is present but failed its own gates — that is a bug in the skill, not in your 
 Gaps are reported by what they *disable*, not by package name. Runs on a bare Python: a preflight
 that needs installing first is not a preflight.
 
+One line is neither a check nor a gap: whether the `mcp` extra is importable. It is marked `ok`
+when it is, and `info` when it is not, with what that costs (`jsk mcp` cannot start) and its
+install line, `pip install 'jsk-resume[mcp]'`. It never changes
+the verdict or the exit code: the CLI does all of its work without the extra. `--json` lists it
+under `extras`, apart from `checks`.
+
 Without `--kb` it searches three directories down for a workspace, and dot folders (`.jsk/`,
 `.git/`) are never searched. For the one it finds it reports the store: present, readable, its
 revision, and whether `.jsk/backup.trig` exists and at which revision. A `career/kb.ttl` with no
@@ -936,13 +942,21 @@ step in `steps[]` in the shape `jsk resume check --json` gives a directory, the 
 
 ## `jsk letter`
 
-A cover letter, beside the `resume.json` it goes out with.
+A cover letter, beside the `resume.json` it goes out with - or, for a graph-native application,
+beside the selection the store holds.
 
 ### `jsk letter check`
 
 ```bash
 jsk letter check applications/<dir>/cover-letter.txt --record applications/<dir>/resume.json
+jsk letter check applications/<stem>/cover-letter.txt --record <stem>   # a graph-native application
 ```
+
+`--record` takes the `resume.json`, or a graph-native application's name (`<stem>` or
+`applications/<stem>`, or its directory once a render has made it). For the name, the record is the
+selection the store holds (`applications/<stem>/resume`) and the advert is the posting graph's
+stored lines - there is no `posting.md` - so the number check and the quotation rule below read
+those instead of files. A name with no selection stored exits 2, naming the `resume_select` tool.
 
 The **letter check** — a cover letter (`.txt` or `.md`) against the resume it goes out beside. No
 `jsk resume check` runs it: it checks another document, not the render.
@@ -954,8 +968,8 @@ The **letter check** — a cover letter (`.txt` or `.md`) against the resume it 
   above its floor). Else it fails as `number-unconfirmed` when only a withheld or unconfirmed bullet
   states it, `number-superseded` when only a replaced version of a cited metric holds it, and
   `number-untraced` otherwise. "N years of X" is asked of the roles behind X, as the record gate
-  does. A numeral inside quotation marks that `posting.md` beside `resume.json` holds verbatim is
-  the posting's words and is skipped. Without `--record` the number check is SKIPPED, and fails.
+  does. A numeral inside quotation marks that `posting.md` beside `resume.json` holds verbatim -
+  or, graph-native, one of the stored advert lines - is the posting's words and is skipped. Without `--record` the number check is SKIPPED, and fails.
 - **Prose.** From the prose gate: placeholders, a sentence that stops before its object, the
   cut-on-sight phrases (a warning). Its own: enthusiasm padding — "passionate", "excited",
   "thrilled" — fails. The prose gate's resume-only rules do not apply: a letter is written in the
@@ -1001,12 +1015,24 @@ one - and `jsk kb query stale` names every application that sent the old. The gr
 with the whole record before anything is renamed or written, and goes in through the same write
 gate as every other write. It adds no log entry: the log is the career's history, and the career
 itself is never touched. A graph is named by its directory, so when the directory is renamed its
-posting and assessment graphs move to the new name in the same update that writes the
-application graph - all three land, or none does and the directory is renamed back.
+posting, assessment, review and selection graphs - whichever it holds - move to the new name in
+the same update that writes the application graph - all of them land, or none does and the
+directory is renamed back.
 
 The documents are the `--doc` files, or every `.pdf` and every `.txt` letter in the
 directory - the PDFs and the letters; a render writes no `.txt`, and the `<Name>_Resume_ATS.txt` an
 earlier one left is not listed. The final path is printed.
+
+A **graph-native application** (its posting graph holds the advert's lines) has no `resume.json`,
+and one beside it is never read. Its record is the selection the store holds,
+`applications/<dir>/resume`: `recordSha256` is the SHA-256 of that selection's canonical text
+(`json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`, UTF-8), and
+`carried` is the plan built from it, as `jsk resume ship <stem>` built the render. The gates run
+against the selection, a letter's with `--record <stem>`. The rename moves all five of its graphs -
+`posting`, `review`, `gaps`, `resume` and the new `application` - in one update. After it, the
+`resume_update`, `posting_decide` and every other writing tool refuse it as sent, and `jsk resume
+ship <stem>` refuses the frozen directory. With no selection stored it refuses: `no resume stored
+for <dir>`, naming the `resume_select` tool.
 
 It refuses — exit 1, saying why, with nothing renamed and nothing written — when:
 
@@ -1015,6 +1041,7 @@ It refuses — exit 1, saying why, with nothing renamed and nothing written — 
   never re-frozen; later events are `jsk app event`.
 - **any mechanical gate fails.** It runs what `jsk resume check <app-dir> --record <app-dir>/resume.json`
   runs - the record gate first - in process, and prints it. A failing document is never frozen.
+- a graph-native application has no selection stored (`no resume stored for <dir>`).
 - no posting graph was built for it, there is nothing to list as documents, the renamed directory
   would land on one that already exists, or the application graph it would write does not validate.
 
