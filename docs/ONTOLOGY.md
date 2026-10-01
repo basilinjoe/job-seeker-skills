@@ -1155,9 +1155,9 @@ SELECT naming `?focus`, and an optional post-processing step.
 | `inferred-unasked` | WARN | An inferred or needs-verification entry with no open question about it |
 | `retired-referenced` | WARN | A live entry points at a retired one (history references are exempt) |
 | `answered-before-asked` | FAIL | A question answered before it was asked |
-| `quote-verbatim` | FAIL | A requirement's quote is empty, missing from `posting.md`, or `posting.md` is absent |
+| `quote-verbatim` | FAIL | A requirement's quote is empty or missing from the advert: a graph-native posting's stored `AdvertLine`s, or for an application made from files `posting.md` (FAIL too when it is absent) |
 | `necessity-wording` | WARN | A quote says "must" but is marked preferred, or says "nice to have" but is marked required |
-| `advert-uncovered` | WARN | A requirement-like line in the advert that no requirement quotes and `decisions.txt` has not dropped. Eligibility lines are exempt, since they belong in `gaps.md`. |
+| `advert-uncovered` | WARN | A requirement-like line in the advert that no requirement quotes and the posting has not dropped (in `decisions.txt`, for one made from files). Eligibility lines are exempt, since they belong in the review's eligibility. |
 | `application-posting` | FAIL | An application points at another application's posting |
 | `event-before-submit` | WARN | An event dated before its application was submitted |
 | `answer-placeholder` | WARN | A confirm whose answer is empty, a placeholder, or a denial |

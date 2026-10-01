@@ -14,14 +14,15 @@ per verb. `jsk` is the only door: the `python -m jsk.<module>` paths of earlier 
 retired, and each one prints the command that replaced it and exits 2.
 
 **The career is in `career/store/`**, the graph record: named graphs in one Oxigraph store -
-`kb`, `log`, and each application's `posting`, `application` and `gaps` - read and written only
-through `jsk`, and validated on every run. `jsk kb` changes it (through changesets) and reads it
-back, `jsk tailor match` ranks it against a posting, `jsk app freeze` and `jsk app event` record
-what was sent and what came back. Documents - `posting.md`, `decisions.txt`, `gaps.txt`,
-`resume.json`, the renders - stay files in `applications/<dir>/`. A resume is built from it and a
-short `resume.json` - the bullets chosen for one posting, by id, and its settings - which `jsk kb
-export` writes and `jsk resume check` checks against the career. The rendering half carries that
-to a document somebody can send.
+`kb`, `log`, and each application's `posting`, `review`, `gaps`, `resume` and `application` -
+read and written only through `jsk`, and validated on every run. `jsk kb` changes it (through
+changesets) and reads it back, `jsk tailor match` ranks it against a posting, `jsk app freeze` and
+`jsk app event` record what was sent and what came back. The renders are files in
+`applications/<dir>/`. A resume is built from the career and a selection - the bullets chosen for
+one posting, by id, and its settings: the `resume` graph, written by `jsk mcp`'s `resume_select`.
+An application made from files also keeps its documents there - `posting.md`, `decisions.txt`,
+`gaps.txt`, and a short `resume.json` that `jsk kb export` writes and `jsk resume check` checks
+against the career. The rendering half carries either to a document somebody can send.
 
 ## The whole surface
 

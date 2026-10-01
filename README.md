@@ -98,7 +98,8 @@ my-career/                  `jsk kb new ./my-career --name "Your Name"` makes th
                             read and written by jsk only
   applications/
     2026-09-08-acme-platform-engineer/
-      Priya_Raman_Resume.{tex,pdf}    what was sent, and nothing else
+      Priya_Raman_Resume.{tex,pdf}    what was rendered and sent
+      cover-letter.txt                a cover letter, if one was written
   .jsk/backup.trig          the whole record as text, refreshed after every change; .jsk/ is
                             git-ignored, so if git is your backup, commit a `jsk kb dump` too
   .gitattributes            `career/store/** binary`, so git never rewrites the store's files
@@ -106,8 +107,8 @@ my-career/                  `jsk kb new ./my-career --name "Your Name"` makes th
 
 **New in 5.0.0.** An application lives in the store: the advert as numbered lines, its
 requirements, the analyst's review, the assessment and the resume's selection are graphs the
-agents reach through `jsk mcp`'s tools, and the application's directory holds only the rendered
-`.pdf` and `.tex`. A "no" you give ("never used Kafka") is kept, so the next posting does not ask it
+agents reach through `jsk mcp`'s tools, and the application's directory holds only the renders
+(`.pdf`, `.tex`) and any cover letter. A "no" you give ("never used Kafka") is kept, so the next posting does not ask it
 again for a year. Applications made before 5.0.0 keep their `posting.md`, `decisions.txt`,
 `gaps.txt` and `resume.json`, and the commands still work them.
 

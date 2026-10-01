@@ -91,7 +91,7 @@ short against that posting either way, because being flattered costs interviews.
 
 Since 5.0.0 an application lives in your record, not in files: the posting's lines, what it asks
 for, the analyst's review, the assessment and the bullets chosen for it are all stored there, and
-its folder under `applications/` holds only the PDF and `.tex` it rendered. A "no" you give ("never
+its folder under `applications/` holds only the PDF and `.tex` it rendered and any cover letter. A "no" you give ("never
 used Kafka") is recorded too, so the next posting that asks gets your answer without asking you.
 
 `/jsk:ship` is the end of that loop, and it is two steps:
@@ -127,8 +127,11 @@ cd my-career
 jsk kb apply braindump.trig --dry-run         # what a changeset would change
 jsk kb apply braindump.trig                   # ... written and logged, as r2
 jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms to 200, from Grafana."
+jsk posting fetch <url> applications/<stem>   # the advert, as posting.md
+jsk posting extract applications/<stem>       # its lines, numbered: write decisions.txt from them
 jsk posting build applications/<stem>         # the requirements, from decisions.txt
-jsk tailor match applications/<stem>          # the posting against the career, with the paths
+jsk tailor prepare applications/<stem> --draft-gaps   # the match, and gaps.txt drafted to fill in
+jsk tailor match applications/<stem> --gaps applications/<stem>/gaps.txt   # checked, the assessment
 jsk kb export --from-match applications/<stem> --out applications/<stem>/resume.json
 jsk resume ship applications/<stem>/resume.json --out applications/<stem>
 jsk app freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
@@ -136,8 +139,10 @@ jsk app event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15 
 ```
 
 A changeset is a small TriG file; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new
-workspace as it stands. `decisions.txt` (what the posting asks for) and `resume.json` (the bullets
-chosen for that application, by id) are what the tailoring step writes.
+workspace as it stands. In an application made from files, `decisions.txt` (what the posting asks
+for), `gaps.txt` (the verdicts lowered and the questions) and `resume.json` (the bullets chosen,
+by id) are what the tailoring step writes. Through the tools it writes none of them: the posting,
+review, assessment and selection are graphs in the store.
 
 Already have a workspace from before the store, with `career/kb.ttl`? Run `jsk kb load .` in it,
 once. It checks the files as before, lists every number it rewrites, and imports them; the files

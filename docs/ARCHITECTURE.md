@@ -89,7 +89,7 @@ requirement as `missing` with no question (Rulings 8-9).
 
 The grants are the boundary (Ruling 19): the analyst holds the posting and assessment tools and
 no tool that writes the career; the author holds `career_apply` (which writes only `j:inferred`)
-and the selection tools; no agent holds `career_confirm`. `tests/test_plugin_surface.py`'s
+and the selection tools; no agent holds `career_confirm`. `tests/test_agent_grants.py`'s
 `AgentGrants` pins each grant.
 
 An application made from files keeps the file pipeline below, unchanged; the file verbs refuse a
@@ -121,9 +121,10 @@ nothing read one back.
 The graphs are `applications/<stem>/posting` and `applications/<stem>/gaps` in `career/store/`;
 the text files sit in the application directory `D`. Every command takes `D`, never a file in it.
 
-`decisions.txt` ([`domain/record/decisions.py`](../src/jsk/domain/record/decisions.py)) and
-`gaps.txt` ([`domain/assessment/overlay.py`](../src/jsk/domain/assessment/overlay.py)) are the only two files the analyst
-writes. Each holds only what code cannot know: which concept an advert means, and a verdict that
+For an application made from files, `decisions.txt`
+([`domain/record/decisions.py`](../src/jsk/domain/record/decisions.py)) and `gaps.txt`
+([`domain/assessment/overlay.py`](../src/jsk/domain/assessment/overlay.py)) are the only two files
+the analyst writes; for a graph-native one it writes no file, only tool calls. Each holds only what code cannot know: which concept an advert means, and a verdict that
 the triples read too generously. The rest is derived. The cost argument is measured: writing
 the posting's Turtle by hand cost one run 26.5k output tokens, most of them ids and quotes copied
 character by character, which are exactly what the checks then police. Both overlays are
@@ -288,7 +289,7 @@ eighteen (Ruling 19 of `docs/superpowers/plans/2026-10-01-graph-native-applicati
 | `jsk-resume-author` | Read; the career reads, `career_preview`, `career_apply`, `app_show`, `resume_select`, `resume_update` | Write, Edit, Bash and the review — it is the one that writes prose |
 
 No agent holds `career_confirm`: it carries the person's words, and only the main session talks to
-the person. `tests/test_plugin_surface.py`'s `AgentGrants` pins every row.
+the person. `tests/test_agent_grants.py`'s `AgentGrants` pins every row.
 
 **For the two authoring agents the anti-invention guarantee is a grant and a gate.**
 
@@ -668,7 +669,7 @@ and the runners into `application/gates/`, with the career's reads bound in
 | How the career's projects are ranked for a posting | `rank` in `src/jsk/domain/matching/rank.py`; the weights in `src/jsk/domain/matching/scoring.py` | `cover` in `cover.py` beside it, and `src/jsk/domain/selection/select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
 | What the record gate checks | `src/jsk/application/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
-| What an agent may do | `plugins/jsk/agents/<name>.md`: its body, and its `tools:` naming each tool in full (`mcp__plugin_jsk_jsk__<tool>`), never the wildcard | the delegation note in every mode that calls it, the Agents table in `SKILL.md`, the agent table above; `AgentGrants` in `tests/test_plugin_surface.py` |
+| What an agent may do | `plugins/jsk/agents/<name>.md`: its body, and its `tools:` naming each tool in full (`mcp__plugin_jsk_jsk__<tool>`), never the wildcard | the delegation note in every mode that calls it, the Agents table in `SKILL.md`, the agent table above; `AgentGrants` in `tests/test_agent_grants.py` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
 | Where a new module goes, or what a ring may import | its path under `src/jsk/<ring>/`; the ring rules and `ROOT_ADAPTERS` / `ROOT_INFRA` in `tests/test_layers.py` | "What is a ring" above; a line in the repo layout, or `tests/test_plugin_surface.py` fails |
 | What a use case needs from outside | a Protocol in `src/jsk/ports/`, its implementation in `src/jsk/infra/` | bound to the use case in `src/jsk/adapters/cli/compose/`, the one composition root; a test passes a fake |

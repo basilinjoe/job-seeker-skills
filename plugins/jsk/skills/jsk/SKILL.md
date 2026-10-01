@@ -64,18 +64,18 @@ different things.
 1. **Run `jsk --version`**. Not found → `python3 -m jsk` (`python` or `py -3` on Windows). Neither →
    say so and stop.
 2. **Find the knowledge base** — `jsk doctor`, or search for `career/store/`. A `career/kb.ttl`
-   with no store is a record from before it: `jsk kb load .`, once. Sessions share no state; never assume one exists. None → setup, unless they asked for something deliverable: deliver
-   it first, then offer to capture it.
+   with no store is a record from before it: `jsk kb load .`, once. Sessions share no state.
+   None → setup, unless they asked for something deliverable: deliver it, then offer to capture it.
 3. **`rules/writing-rules.md`, `ats-rules.md`, `structure-rules.md`** beside `career/` override
    their defaults.
 
 ## Changing the career
 
-**One rule: change it with `jsk kb apply <changeset.trig>`**, a small TriG file of `op:add`,
-`op:set` and `op:retire`; `--dry-run` shows the diff. Read with `jsk kb show <ids>` (it prints the
-`op:base`), `jsk kb view`, `jsk kb query` or `jsk kb log`, and before adding anything: people re-tell
-one project months apart in different words. **Confirm only with `jsk kb confirm <id> --answer
-"their words"`.** Every refusal names its fix. `references/kb-format.md` has the format, for a
+**One rule: `career_apply`, or change it with `jsk kb apply <changeset.trig>`**: a TriG changeset
+of `op:add`, `op:set`, `op:retire`; `career_preview` (`--dry-run`) shows the diff. Read with
+`career_show(ids)` (it gives the `op:base`), `career_view`, `career_query`, `career_log`, before
+adding anything: people re-tell one project months apart in other words. **Confirm through
+`career_confirm`. Confirm only with `jsk kb confirm <id> --answer "their words"` in a shell.** `references/kb-format.md` has the format, for a
 changeset you are unsure of.
 
 **Never open anything under `career/`** — only `jsk` reads the store. No pyoxigraph → draft the
@@ -152,8 +152,8 @@ wrote it), or `needs-verification`.
 - **Say why**, flag every inference, and offer options with a recommendation.
 - **Tell them where they fall short.** Being flattered costs interviews.
 
-Keep `resume.json` inside the workspace, where it finds the career it is built from; copy only the
-rendered files to an outputs folder (Cowork). Tell them the path.
+A file-made application: Keep `resume.json` inside the workspace, where it finds its career. Copy
+only rendered files to an outputs folder (Cowork). Tell them the path.
 
 ## References, on demand
 
