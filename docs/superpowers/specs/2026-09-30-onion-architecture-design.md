@@ -825,8 +825,15 @@ it, `module.name` elsewhere, or a `from module import name` run inside a functio
 **Rings and rules (Ruling 7).**
 - The domain may import `urllib.parse`: quoting a graph name for an IRI is string work.
 - A port may import `datetime`: the Clock names a date.
-- The cycle check runs over the unsorted packages only, because a ring cannot sit in a cycle
-  without an outward edge, which is failed on its own.
+- Until P6, the cycle check ran over the unsorted packages only, because a ring cannot sit in a
+  cycle without an outward edge, which is failed on its own. Once every module sat in a ring,
+  P6 deleted the check and KNOWN_CYCLES rather than keep an empty set: the outward-edge check
+  already fails a cycle between rings. Five cycles between subpackages of a single ring remain
+  and are not guarded: adapters.cli and jsk.cli, application.gates and application.record,
+  domain.record and domain.resume, infra.files and infra.oxigraph, infra.legacy_import and
+  infra.workspace.
+- The test split kept flat file names (`test_kb_write.py`, not `tests/kb/`), because
+  test_patches reads only `tests/*.py` and a subdirectory's patches would have gone unchecked.
 
 **More ports than Ruling 1 listed.** WorkspaceSource (what a load reads), AdvertSource (the
 tier-2 rules' posting.md and decisions.txt), RenderOutputs (a render's files and scratch
@@ -841,7 +848,9 @@ because a test that patches the render's compile_pdf must not patch the fit's.
 
 **The clock (Ruling 9).** No Clock implementation was written. Each adapter calls
 `datetime.date.today()` once, at the edge, and passes the day down. A one-method infra class
-would have added nothing.
+would have added nothing. `today` also came off `untraced` and off every helper that only
+passed it on, `record.check.check` among them. The record queries that need a date are
+marked `dated=True` and take it from the kb adapter.
 
 **P5's grammar (Ruling 10).**
 - `resume check` decides by target kind as follows:
