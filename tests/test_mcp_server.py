@@ -86,11 +86,6 @@ class Served(unittest.TestCase):
     def graph(self, kind, stem=STEM):
         return appkit.triples(self.root, f"applications/{stem}/{kind}")
 
-    def pending(self, name):
-        from jsk.adapters.mcp.server import Tools
-
-        return Tools(self.session).pending("", name)
-
 
 class Listed(Served):
     def test_the_server_registers_ruling_18s_eighteen_tools(self):
@@ -171,25 +166,6 @@ class Career(Served):
         self.assertTrue(done["written"], done)
         self.assertIn("k:ach_data_ingestion", done["touched"])
         self.assertFalse(self.call("career_confirm", answer="I did")["ok"], "no ids, no target")
-
-
-class Pending(Served):
-    """P3b's tools are registered now and answer "not built yet" until it merges."""
-
-    CALLS = (("resume_select", "selection_select", {"target": STEM, "mode": "from_match"}),
-             ("resume_update", "selection_update", {"target": STEM, "pages": 2}),
-             ("resume_ship", "ship_target", {"target": STEM}),
-             ("career_confirm", "confirm_summary", {"target": STEM, "block": "summary",
-                                                    "answer": "That is how I put it."}))
-
-    def test_a_tool_whose_use_case_is_not_built_says_so_as_a_finding(self):
-        for tool, name, args in self.CALLS:
-            if self.pending(name) is not None:
-                continue                    # wired: its own tests cover it
-            with self.subTest(tool=tool):
-                got = self.call(tool, **args)
-                self.assertEqual(fails(got), ["not built yet"])
-                self.assertTrue(got["findings"][0]["fix"])
 
 
 class Flow(Served):
@@ -276,6 +252,77 @@ class Flow(Served):
     def test_an_application_with_no_posting_is_told_to_capture_one(self):
         got = self.call("posting_complete", app="nobody-yet")
         self.assertIn("posting_capture", got["findings"][0]["fix"])
+
+
+class Resume(Served):
+    """The author's and the main session's calls over a selection: select, update, confirm,
+    read and ship, every one a tool, over an application the analyst has finished."""
+
+    def setUp(self):
+        import shipkit
+        from jsk.adapters.cli.compose import native
+        from jsk.adapters.mcp import server, session
+
+        super().setUp()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        # The parse gate reads contact details and a summary off the render; the bare
+        # claims fixture has neither, so a clean ship needs them.
+        self.root, _ = careerkit.workspace(Path(tmp.name) / "ws", edits=[shipkit.CONTACTED])
+        self.session = session.Session(root=self.root)
+        self.server = server.build(self.session)
+        native.capture(self.root, STEM, text=ADVERT, today=TODAY)
+        native.decide(self.root, STEM, rows=ROWS, drops=DROPS, today=TODAY)
+        native.complete_posting(self.root, STEM, today=TODAY)
+        native.derive_assessment(self.root, STEM, today=TODAY)
+        native.complete_review(self.root, STEM, today=TODAY)
+
+    def shipped(self, **compile_args):
+        import shipkit
+        from jsk.adapters.cli.compose import render
+
+        with mock.patch.object(render, "compile_pdf", shipkit.fake_compile(**compile_args)):
+            return self.call("resume_ship", target=STEM, fit=False)
+
+    def test_select_update_confirm_and_read_go_through_the_tools(self):
+        selected = self.call("resume_select", target=STEM, mode="from_match")
+        self.assertTrue(selected["ok"], selected)
+        self.assertTrue(selected["doc"]["bullets"])
+        updated = self.call("resume_update", target=STEM, headline="Platform Engineer")
+        self.assertTrue(updated["ok"], updated)
+        # A headline the author wrote is the author's until the person stands behind it.
+        self.assertEqual(updated["doc"]["headline"]["status"], "inferred")
+        confirmed = self.call("career_confirm", target=STEM, block="headline",
+                              answer="It is the title I hold.")
+        self.assertEqual((confirmed["ok"], confirmed["changed"]), (True, True), confirmed)
+        shown = self.call("app_show", app=STEM, part="selection")
+        self.assertEqual(shown["selection"]["doc"]["headline"]["status"], "confirmed")
+
+    def test_an_unknown_bullet_is_a_finding_and_the_selection_is_unchanged(self):
+        self.call("resume_select", target=STEM, mode="from_match")
+        before = self.call("app_show", app=STEM, part="selection")["selection"]["doc"]
+        got = self.call("resume_update", target=STEM, bullets=["ach_never_written"])
+        self.assertFalse(got["ok"])
+        self.assertTrue(fails(got))
+        after = self.call("app_show", app=STEM, part="selection")["selection"]["doc"]
+        self.assertEqual(after, before)
+
+    def test_a_ship_leaves_only_the_pdf_and_the_tex(self):
+        self.call("resume_select", target=STEM, mode="from_match")
+        got = self.shipped()
+        steps = {s["gate"]: s for s in got["steps"]}
+        self.assertEqual(steps["render"]["status"], "PASS", steps["render"]["output"])
+        app = Path(self.root) / "applications" / STEM
+        self.assertEqual(sorted(p.suffix for p in app.iterdir()), [".pdf", ".tex"])
+
+    def test_a_ship_that_does_not_pass_is_not_ok(self):
+        # A ship exits 1 when its compile produces nothing; ok must say so without the
+        # caller reading every step's output.
+        self.call("resume_select", target=STEM, mode="from_match")
+        got = self.shipped(fail=True)
+        self.assertEqual(got["exit"], 1, got)
+        self.assertFalse(got["ok"])
+        self.assertTrue(fails(got))
 
 
 class Faults(Served):

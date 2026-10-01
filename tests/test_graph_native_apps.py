@@ -251,6 +251,28 @@ class Flow(Workspace):
         done = native.complete_review(self.root, STEM, today=TODAY)
         self.assertEqual((fails(done.findings), done.state), ([], "complete"))
 
+    def test_complete_refuses_a_flag_the_review_has_not_answered(self):
+        # The advert names two platforms where the evidence names one: the match says
+        # satisfied, and the flag asks the analyst whether that reads too generously.
+        listed = "Container platforms (AKS, Nomad)"
+        self.capture(text=ADVERT.replace("Deep, hands-on Kubernetes experience", listed))
+        rows = [dict(ROWS[0], asked=listed), *ROWS[1:]]
+        self.assertEqual(fails(native.decide(self.root, STEM, rows=rows, drops=DROPS,
+                                             today=TODAY).findings), [])
+        native.complete_posting(self.root, STEM, today=TODAY)
+        derived = native.derive_assessment(self.root, STEM, today=TODAY)
+        flagged = {r["slug"]: r["flags"] for r in derived.rows}
+        self.assertEqual(list(flagged["kubernetes"]), ["listed-names"])
+
+        done = native.complete_review(self.root, STEM, today=TODAY)
+        self.assertTrue(fails(done.findings), "an unanswered flag cannot complete")
+        self.assertNotEqual(done.state, "complete")
+
+        native.review(self.root, STEM, verdicts=[{"slug": "kubernetes", "verdict": "keep"}],
+                      today=TODAY)
+        done = native.complete_review(self.root, STEM, today=TODAY)
+        self.assertEqual((fails(done.findings), done.state), ([], "complete"))
+
     def test_the_review_survives_a_rederivation_and_a_redecide(self):
         self.decided()
         native.review(self.root, STEM, verdicts=[{"slug": "kubernetes", "verdict": "partial",

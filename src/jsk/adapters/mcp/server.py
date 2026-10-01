@@ -18,15 +18,9 @@ stderr: a stray print anywhere below would otherwise corrupt the session's next 
 
 Long reads page (`offset`, `limit`) and stay under ~10k tokens by default: Claude Code
 warns at 10k and saves a result past 25k to a file (P0 results, item 5).
-
-Three tools and one branch of career_confirm wrap P3b's use cases (the selection and the
-ship), which are not merged yet. They are registered with their final schemas and look up
-their compose functions by name at each call (PENDING); until those exist they answer
-"not built yet" as a FAIL finding.
 """
 import contextlib
 import dataclasses
-import importlib
 import sys
 import traceback
 from typing import Any, Literal
@@ -48,10 +42,7 @@ RANKING = 10
 
 # Where P3b's compose functions are looked for, in order, by name: native.py holds P3a's
 # wrappers, and a module of the selection's own is the other likely home.
-PENDING = ("native", "selection")
-
-# The parts app_show reads. `selection` is P3b's; until application/tailor/show.py knows
-# it, asking for it is answered as not built yet.
+# The parts app_show reads, in the order the analyst needs them.
 PARTS = Literal["posting", "lines", "requirements", "review", "assessment", "selection"]
 
 
@@ -177,26 +168,6 @@ class Tools:
         finally:
             if writes:
                 self.session.wrote()
-
-    def pending(self, tool, name):
-        """P3b's compose function `name`, or None while it is not built."""
-        for module in PENDING:
-            try:
-                found = importlib.import_module(f"..cli.compose.{module}", __package__)
-            except ImportError:
-                continue
-            fn = getattr(found, name, None)
-            if callable(fn):
-                return fn
-        return None
-
-    @staticmethod
-    def not_built(tool):
-        """The answer a P3b tool gives until its use case is merged."""
-        return failed(("FAIL", "not built yet",
-                       f"{tool} arrives with the selection's use cases (P3b of the plan); "
-                       "until then the file path's `jsk kb export` and `jsk resume ship` do "
-                       "its work"))
 
 
 def page(text, offset, limit):
@@ -325,10 +296,10 @@ def career_writes(srv, tools):
                     return failed(("FAIL", "a selection's block is confirmed alone: target, "
                                            "block and the person's answer, no ids",
                                    "pass target, block and answer"))
-                fn = tools.pending("career_confirm", "confirm_summary")
-                if fn is None:
-                    return Tools.not_built("career_confirm (target, block)")
-                return result(**fields(fn(root, target, block, answer, today=today)))
+                from ..cli.compose import selection
+
+                done = selection.confirm(root, target, block, answer)
+                return result(changed=done.new is not None, before=done.old, after=done.new)
             if not ids or (answer is None and source is None):
                 return failed(("FAIL", "confirm takes ids and the person's answer, or a "
                                        "source and its quote",
@@ -353,10 +324,6 @@ def applications(srv, tools):
     @tool("One part of a graph-native application as JSON. lines pages by offset and limit.")
     def app_show(app: str, part: PARTS, offset: int = 0, limit: int = LINES_PAGE) -> dict:
         def run(root, today):
-            from ...application.tailor.show import PARTS as KNOWN
-
-            if part == "selection" and part not in KNOWN:
-                return Tools.not_built("app_show (selection)")
             got = native.show(root, app, part, today=today, ports=ports())
             if part == "lines":
                 start = max(0, offset)
@@ -457,7 +424,7 @@ def assessments(srv, tools):
 
 
 def resumes(srv, tools):
-    """resume_select, resume_update and resume_ship: P3b's, looked up at each call."""
+    """resume_select, resume_update and resume_ship, over compose.selection."""
     tool = described(srv)
 
     @tool("Choose a resume's bullets and store the selection. target: an application's stem "
@@ -465,10 +432,10 @@ def resumes(srv, tools):
     def resume_select(target: str, mode: Literal["from_match", "ranked"],
                       replace: bool = False) -> dict:
         def run(root, today):
-            fn = tools.pending("resume_select", "selection_select")
-            if fn is None:
-                return Tools.not_built("resume_select")
-            return result(**fields(fn(root, target, mode, replace=replace, today=today)))
+            from ..cli.compose import selection
+
+            return result(**fields(selection.select(root, target, mode=mode, replace=replace,
+                                                    today=today)))
         return tools.call("resume_select", run, writes=True)
 
     @tool("Change a stored selection. A changed summary or headline text drops back to "
@@ -486,10 +453,9 @@ def resumes(srv, tools):
                                    ("headline", headline)) if v is not None}
 
         def run(root, today):
-            fn = tools.pending("resume_update", "selection_update")
-            if fn is None:
-                return Tools.not_built("resume_update")
-            return result(**fields(fn(root, target, today=today, **given)))
+            from ..cli.compose import selection
+
+            return result(**fields(selection.update(root, target, today=today, **given)))
         return tools.call("resume_update", run, writes=True)
 
     @tool("Record gate, render, fit and every gate, into the application's directory; each "
@@ -497,11 +463,18 @@ def resumes(srv, tools):
     def resume_ship(target: str, ats_max: bool = False, template: str | None = None,
                     pages: int | None = None, fit: bool = True) -> dict:
         def run(root, today):
-            fn = tools.pending("resume_ship", "ship_target")
-            if fn is None:
-                return Tools.not_built("resume_ship")
-            return result(**fields(fn(root, target, ats_max=ats_max, template=template,
-                                     pages=pages, fit=fit, today=today)))
+            from ..cli.compose import selection
+
+            shipped = fields(selection.ship_target(root, target, ats_max=ats_max,
+                                                   template=template, pages=pages, fit=fit,
+                                                   today=today))
+            # A ship that exits 1 is not ok: each step that failed is a FAIL finding, so the
+            # caller need not read every step's output to know.
+            found = [("FAIL", f"{s['gate']}: {s['status']}", "its output is in steps")
+                     for s in shipped["steps"] if s["status"] in ("FAIL", "ERROR")]
+            if shipped["exit"] and not found:
+                found = [("FAIL", "the ship did not pass", "every step's output is in steps")]
+            return result(found, **shipped)
         return tools.call("resume_ship", run, writes=True)
 
 
