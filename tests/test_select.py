@@ -13,7 +13,7 @@ from pathlib import Path
 import appkit
 
 from jsk import cli
-from jsk.graph import export
+from jsk.adapters.cli.compose import tailor
 from jsk.domain import ontology as O
 from jsk.graph import select as SEL
 from jsk.graph import store as S
@@ -232,7 +232,7 @@ class Pick(unittest.TestCase):
 class Exported(unittest.TestCase):
     def setUp(self):
         self.store = load(workspace(self))
-        self.doc = export.short_file(self.store, selection=SEL.select(self.store, POST, TODAY, 3))
+        self.doc = tailor.short_file(self.store, selection=SEL.select(self.store, POST, TODAY, 3))
 
     def test_the_selected_bullets_in_the_selection_s_order(self):
         self.assertEqual(self.doc["bullets"],
@@ -248,7 +248,7 @@ class Exported(unittest.TestCase):
 
     def test_byte_identical(self):
         store = load(self.store.root)
-        again = export.short_file(store, selection=SEL.select(store, POST, TODAY, 3))
+        again = tailor.short_file(store, selection=SEL.select(store, POST, TODAY, 3))
         self.assertEqual(json.dumps(again), json.dumps(self.doc))
 
 
@@ -271,7 +271,7 @@ class Capped(unittest.TestCase):
         career_plus(root, TOOLS)                   # Platforms: Kubernetes and these 14
         self.store = load(root)
         self.notes = []
-        self.doc = export.short_file(self.store, selection=SEL.select(self.store, POST, TODAY, 3),
+        self.doc = tailor.short_file(self.store, selection=SEL.select(self.store, POST, TODAY, 3),
                                      notes=self.notes)
 
     def test_a_row_of_15_exports_10_the_asked_ones_first(self):
@@ -298,7 +298,7 @@ class Capped(unittest.TestCase):
         self.assertEqual(len(cut(uncut)), 1)                      # what it was before
 
     def test_the_ranked_export_names_no_skills_to_cut(self):
-        self.assertNotIn("skills", export.short_file(self.store,
+        self.assertNotIn("skills", tailor.short_file(self.store,
                                                      selection=SEL.ranked(self.store, TODAY)))
 
 
@@ -371,9 +371,9 @@ class Ranked(unittest.TestCase):
 
     def test_deterministic(self):
         store = load(self.root)
-        first = export.short_file(store, selection=SEL.ranked(store, TODAY))
+        first = tailor.short_file(store, selection=SEL.ranked(store, TODAY))
         store = load(self.root)
-        self.assertEqual(json.dumps(export.short_file(store, selection=SEL.ranked(store, TODAY))),
+        self.assertEqual(json.dumps(tailor.short_file(store, selection=SEL.ranked(store, TODAY))),
                          json.dumps(first))
 
     def test_score_allocates_and_chronology_orders(self):
@@ -386,7 +386,7 @@ class Ranked(unittest.TestCase):
                        .replace("j:strength 5 ; j:recency 2026", "j:strength 1 ; j:recency 2026")
                        .encode())
         store = load(self.root)
-        doc = export.short_file(store, selection=SEL.ranked(store, TODAY))
+        doc = tailor.short_file(store, selection=SEL.ranked(store, TODAY))
         self.assertEqual(doc["bullets"][0], "ach_game_players")
         self.assertEqual(doc["bullets"][-2:], ["ach_events_latency", "ach_events_team"])  # 5th
         self.assertEqual(short.shape(doc), [])

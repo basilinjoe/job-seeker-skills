@@ -19,7 +19,9 @@ import appkit
 import storekit
 
 from jsk import cli
-from jsk.graph import export
+from jsk.adapters.cli.compose import tailor
+from jsk.application.tailor import export
+from jsk.domain.record import career
 from jsk.graph import store as S
 from jsk.resume import short
 
@@ -50,13 +52,13 @@ class Chosen(unittest.TestCase):
 
     def test_an_id_not_in_the_career_is_refused(self):
         with self.assertRaises(export.ExportError) as caught:
-            export.short_file(store(), select=["prj_evnts"])
+            tailor.short_file(store(), select=["prj_evnts"])
         self.assertIn("prj_evnts", str(caught.exception))
         self.assertIn("prj_events", caught.exception.fix)
 
     def test_an_id_that_selects_nothing_is_refused(self):
         with self.assertRaises(export.ExportError) as caught:
-            export.short_file(store(), select=["met_latency"])
+            tailor.short_file(store(), select=["met_latency"])
         self.assertIn("met_latency", str(caught.exception))
 
 
@@ -79,11 +81,11 @@ class Retired(unittest.TestCase):
         self.store = stored(self.root, text[:start] + RETIRED.strip() + "\n\n" + text[end:])
 
     def test_a_retired_bullet_is_left_out(self):
-        self.assertNotIn("ach_events_terraform", export.short_file(self.store)["bullets"])
+        self.assertNotIn("ach_events_terraform", tailor.short_file(self.store)["bullets"])
 
     def test_selecting_a_retired_bullet_is_refused(self):
         with self.assertRaises(export.ExportError) as caught:
-            export.short_file(self.store, select=["ach_events_terraform"])
+            tailor.short_file(self.store, select=["ach_events_terraform"])
         self.assertIn("retired", str(caught.exception))
 
     def retire(self, iri):
@@ -97,7 +99,7 @@ class Retired(unittest.TestCase):
         with no word said - and a sole pick fell to "the selection holds no bullet"."""
         self.retire("k:prj_identity")
         with self.assertRaises(export.ExportError) as caught:
-            export.short_file(self.store, select=["ach_events_team", "ach_identity_sso"])
+            tailor.short_file(self.store, select=["ach_events_team", "ach_identity_sso"])
         self.assertIn("ach_identity_sso", str(caught.exception))
         self.assertIn("prj_identity", str(caught.exception))
         self.assertIn("retired", str(caught.exception))
@@ -107,7 +109,7 @@ class Retired(unittest.TestCase):
         self.retire("k:pos_meridian_engineer")
         for pick in ("ach_identity_sso", "prj_identity"):
             with self.subTest(pick), self.assertRaises(export.ExportError) as caught:
-                export.short_file(self.store, select=[pick])
+                tailor.short_file(self.store, select=[pick])
             self.assertIn("pos_meridian_engineer", str(caught.exception))
 
 
@@ -133,7 +135,7 @@ class ShortFile(unittest.TestCase):
     """export.short_file: what an application chose, as ids - the career stays in kb.ttl."""
 
     def test_the_whole_career_is_every_bullet_with_a_role(self):
-        doc = export.short_file(store())
+        doc = tailor.short_file(store())
         self.assertEqual(doc["resume"], 2)
         self.assertEqual(doc["pages"], 2)
         self.assertEqual(doc["bullets"], [
@@ -146,14 +148,14 @@ class ShortFile(unittest.TestCase):
         self.assertEqual(short.ids(doc, store()), [])
 
     def test_select_narrows_to_projects_bullets_and_roles(self):
-        doc = export.short_file(store(), select=["prj_identity", "ach_events_team",
+        doc = tailor.short_file(store(), select=["prj_identity", "ach_events_team",
                                                  "pos_pixel_developer"])
         self.assertEqual(doc["bullets"], ["ach_events_team", "ach_identity_sso",
                                           "ach_identity_events"])
         self.assertEqual(doc["roles"], ["pos_pixel_developer"])
 
     def test_a_bullet_named_narrows_its_project(self):
-        doc = export.short_file(store(), select=["prj_events", "ach_events_terraform"])
+        doc = tailor.short_file(store(), select=["prj_events", "ach_events_terraform"])
         self.assertEqual(doc["bullets"], ["ach_events_terraform"])
 
     def test_the_selection_s_order_and_skills_are_kept(self):
@@ -164,7 +166,7 @@ class ShortFile(unittest.TestCase):
                         {O.K + "prj_identity": [O.K + "ach_identity_events"],
                          O.K + "prj_events": [O.K + "ach_events_team", O.K + "ach_events_latency"]},
                         [O.K + "skill_kubernetes", O.K + "skill_dotnet"], [])
-        doc = export.short_file(store(), selection=sel, select=["pos_pixel_developer"])
+        doc = tailor.short_file(store(), selection=sel, select=["pos_pixel_developer"])
         self.assertEqual(doc["bullets"], ["ach_identity_events", "ach_events_team",
                                           "ach_events_latency"])
         self.assertEqual(doc["skills"], ["skill_kubernetes", "skill_dotnet"])
@@ -176,11 +178,11 @@ class ShortFile(unittest.TestCase):
         text = (FIXTURES / "career" / "kb.ttl").read_text(encoding="utf-8")
         s = stored(root, text.replace('j:headline "Platform Engineer" ;',
                                       'j:headline "Platform Engineer" ; j:country "AU" ;', 1))
-        self.assertEqual(export.short_file(s)["region"], "au")
+        self.assertEqual(tailor.short_file(s)["region"], "au")
 
     def test_a_bad_select_is_refused(self):
         with self.assertRaises(export.ExportError):
-            export.short_file(store(), select=["prj_evnts"])
+            tailor.short_file(store(), select=["prj_evnts"])
 
 
 class Command(Workspace):
@@ -219,7 +221,7 @@ class Command(Workspace):
         from jsk.domain import ontology as O
         from jsk.infra.oxigraph import record as R
 
-        text = export.Career(store().graph(R.KB)).get(O.K + "ach_events_latency", "text")
+        text = career.Career(store().graph(R.KB)).get(O.K + "ach_events_latency", "text")
         self.assertIn(f"ach_events_latency | {text[:100]}", lines)
         self.assertTrue(all(len(line.split(" | ", 1)[1]) <= 100 for line in lines))
         after = out.index("wrote ")
@@ -321,7 +323,7 @@ class OpenSource(unittest.TestCase):
                                             "# == Open source\n\n" + OPEN_SOURCE).encode())
         storekit.seed(root)
         with self.assertRaises(export.ExportError) as caught:
-            export.short_file(S.load(root), select=["os_widget"])
+            tailor.short_file(S.load(root), select=["os_widget"])
         self.assertIn("os_widget is open source (https://github.com/test/widget)",
                       str(caught.exception))
         self.assertIn("contacts carry their github profile", caught.exception.fix)

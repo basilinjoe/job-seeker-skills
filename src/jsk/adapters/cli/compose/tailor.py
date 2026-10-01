@@ -6,6 +6,28 @@ here reads the record or the disk at import.
 """
 
 
+def short_file(store, selection=None, select=None, notes=None):
+    """The short resume.json for a selection (application.tailor.export.short_file), the
+    region profiles that ship read from data/.
+
+    Args:
+        store: a loaded workspace.
+        selection: the Selection for a posting or by rank, or None.
+        select: the ids --select named, or None.
+        notes: a list the NOTE lines are appended to, or None.
+
+    Returns:
+        The short file as a dict.
+
+    Raises:
+        ExportError: a `select` it cannot honour, or a selection holding no bullet.
+    """
+    from ....application.tailor.export import short_file as formed
+    from ....infra.profiles import ships
+
+    return formed(store, selection, select, notes, ships=ships)
+
+
 class Reads:
     """The named reads the digest shows, and their table (application/tailor/prepare.py's
     `reads`): application.record.queries over the engine's feature reads."""

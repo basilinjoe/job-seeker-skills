@@ -303,7 +303,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     changeset.py  kbcli.py          a changeset read; the old path of `jsk kb`, naming it
     pack.py                         `jsk kb pack`'s starter packs on disk
     queries.py  match.py            the vocabulary, `jsk tailor match`
-    select.py  export.py            what a match selects; `jsk kb export` writes the short file
+    select.py                       what a match selects
     decisions.py  postingbuild.py   decisions.txt; `jsk posting extract` and `build` -> the posting graph
     prepare.py                      `jsk tailor prepare` - one digest for the assessment
     gapsderive.py  gapsdraft.py     the assessment derived from the match; the gaps.txt draft
@@ -402,7 +402,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/letter.py                 the letter check: its length and prose judged, its numbers traced
     gates/run_gates.py              `jsk resume check DIR`: the four gates over a render, the render gate said last
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
-    tailor/export.py                `jsk kb export`: the bullets a resume.json shows chosen, the file written
+    tailor/export.py                `jsk kb export`: the bullets a resume.json shows chosen, the short file formed and written
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     record/refusals.py              how a use case over the record refuses: the errors the CLI prints
     record/read.py                  `jsk kb show`, `view` and `log`: entries by id, the career, the log
@@ -458,7 +458,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
     cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
     cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
-    cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads
+    cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads, the short file
     cli/kb/__init__.py              `jsk kb`: the verb table, its flags, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
     cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG

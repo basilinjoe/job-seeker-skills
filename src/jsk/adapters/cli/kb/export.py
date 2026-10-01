@@ -107,10 +107,10 @@ def exported(root, flags, select, today, budget):
 
     from ....application.record.refusals import Failing, Refused, Unclean
     from ....application.tailor import export as E
-    from ....graph import export as shorts
     from ....graph import select as selector
     from ....graph import store as S
     from ....graph.match import application, blocks, posting_in
+    from ....infra import profiles
     from ....infra.oxigraph import record as R
     from ....infra.oxigraph.queries import OxigraphQueries
 
@@ -128,12 +128,13 @@ def exported(root, flags, select, today, budget):
         store = E.opened(root, app, posting, out, "--replace" in flags, load=S.load,
                          state=R.state, file_name=S.file_name, blocks=blocks)
         chosen = E.selection(store, app, posting, select, "--ranked" in flags, today, budget,
-                             shorts=shorts, selector=selector, posting_in=posting_in)
+                             selector=selector, posting_in=posting_in)
         if chosen is not None:
             # The gaps first: when nothing is selected they are the reason, and a refusal
             # printed without them would leave the author to run jsk tailor match to find out why.
             said(chosen, report)
-        doc = E.short(store, chosen, select, today, shorts=shorts, queries=OxigraphQueries(store))
+        doc = E.short(store, chosen, select, today, ships=profiles.ships,
+                      queries=OxigraphQueries(store))
     except Unclean as err:
         return unclean(err.state)
     except Failing as err:

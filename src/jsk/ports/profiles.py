@@ -16,3 +16,7 @@ class Profiles(Protocol):
             The profile as a dict. Reads one JSON file.
         """
         ...
+
+    def ships(self, code: str) -> bool:
+        """Whether a profile ships for the lowercased region code `code`."""
+        ...

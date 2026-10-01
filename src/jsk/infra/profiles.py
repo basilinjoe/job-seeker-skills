@@ -24,6 +24,18 @@ def schema_dir(start=None):
     return SCHEMA_DIR
 
 
+def ships(code):
+    """Whether a region profile ships for `code`.
+
+    Args:
+        code: a lowercased region code, e.g. `au`.
+
+    Returns:
+        True when data/schema/profiles/<code>.json is there. Reads whether the file exists.
+    """
+    return os.path.exists(os.path.join(schema_dir(), "profiles", f"{code}.json"))
+
+
 def load(ref, base=None):
     """Load a profile by id (`urs:profile:au/1`), region code (`AU`) or path; the
     default profile for anything that names none that ships."""
