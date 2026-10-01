@@ -9,10 +9,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **jq** is installed — use for processing JSON objects in shell workflows.
 
 ## Code navigation
-- A Python LSP (pyright) is available through the `LSP` tool. It is deferred: load it with ToolSearch
-  (`select:LSP`) at the start of any task that navigates or refactors Python.
-- Use `goToDefinition`, `findReferences` and `incomingCalls` to trace symbols, size a refactor, and follow
-  imports across the rings. Use `rg` for text, strings, docs and non-Python files.
+- A Python LSP (pyright) is available through the `LSP` tool. It is deferred, so the schema is not loaded
+  until you ask: run ToolSearch `select:LSP` as the first step of any task that touches Python under `src/`
+  or `tests/`.
+- Before you rename, move, delete, or change the signature of a Python symbol, run `findReferences` on it.
+  `rg` misses re-exports (`from .x import y as y`), lazy imports inside functions, and attribute calls.
+- To answer "where is this defined" or "who calls this", use `goToDefinition` or `incomingCalls`,
+  not `rg`. Keep `rg` for text, strings, docs and non-Python files.
+- When you hand Python navigation to a subagent, tell it in the prompt to load `LSP` first.
+  A subagent does not inherit the tools this session has loaded.
 
 ## What this repo is
 

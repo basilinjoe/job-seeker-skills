@@ -96,10 +96,10 @@ jobs:
       - name: Lint
         run: python -m ruff check src tests
 
-      # The graph package - the record's reader, checks and writer - in pyright's `basic`
-      # mode, which it passes clean. A false positive is ignored on its own line with the
-      # guarantee stated beside it, so a finding here is a new problem, as with the lint.
-      # The rest of src is not held to it yet. One job: pythonVersion is pinned to 3.10,
+      # The five rings - domain, ports, application, infra, adapters - in pyright's `basic`
+      # mode. A false positive is ignored on its own line with the guarantee stated beside
+      # it, so a finding here is a new problem, as with the lint. The root modules and the
+      # tests are not held to it yet. One job: pythonVersion is pinned to 3.10,
       # so every job would check the same thing, each fetching Node to do it.
       - name: Type check
         if: matrix.name == 'without a TeX engine'

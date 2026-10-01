@@ -122,8 +122,9 @@ ignore = [
 
 [tool.pyright]
 # For the language server Claude Code runs through the pyright-lsp plugin, and a gate on
-# src/jsk/graph: CI runs `python -m pyright src/jsk/graph` after the lint, at `basic`,
-# which it passes clean. The rest of src and the tests are not held to it yet. It
+# the five rings: CI runs `python -m pyright src/jsk/domain src/jsk/ports
+# src/jsk/application src/jsk/infra src/jsk/adapters` after the lint, at `basic`. The
+# root modules and the tests are indexed for navigation but not held to it. It
 # resolves imports against the .venv that `uv sync --extra dev` builds, so `jsk`,
 # pyoxigraph and pytest are found rather than reported; CI has no .venv, says so, and
 # falls back to the python on PATH, where pip installed them.
