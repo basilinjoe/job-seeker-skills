@@ -248,10 +248,9 @@ RETIRED_NAME = re.compile(
     r"\bjsk (new|match|validate|check|gates|render|preview|fit|ship|freeze|event)\b"
     r"|python -m jsk\.\w")
 
-# Where the prose teaches commands. Off until the skills and docs move to the new names (P5
-# step 5); then CHECK_DOCS goes to True and this test holds them to it.
+# Where the prose teaches commands: an agent runs what the skill tells it to, and a retired
+# name there is a step that exits 2.
 DOC_ROOTS = ("plugins", "README.md", "docs/*.md")
-CHECK_DOCS = False
 
 
 def taught_in_strings(path):
@@ -312,7 +311,6 @@ class RetiredNamesAreNotTaught(unittest.TestCase):
             self.assertEqual(taught_in_docs(Path(tmp)),
                              [("plugins/SKILL.md", "Run `jsk validate` first.")])
 
-    @unittest.skipUnless(CHECK_DOCS, "the skills and docs move to the new names in P5 step 5")
     def test_no_doc_names_a_retired_command(self):
         self.assertEqual(taught_in_docs(REPO_ROOT), [])
 
