@@ -9,7 +9,8 @@ import unittest
 from pathlib import Path
 
 from jsk.domain import ontology as O
-from jsk.graph import timeline
+from jsk.adapters.cli.compose import timeline
+from jsk.domain.timeline import errors
 
 PFX = "".join(f"@prefix {n}: <{ns}> .\n" for n, ns in O.PREFIXES)
 
@@ -43,7 +44,7 @@ class Frozen(unittest.TestCase):
                                                  encoding="utf-8")
         self.assertTrue(timeline.frozen(self.app))
         self.assertEqual(timeline.sent_day(self.app), "2026-04-02")
-        with self.assertRaises(timeline.Frozen):
+        with self.assertRaises(errors.Frozen):
             timeline.write_app_file(self.app, "gaps.ttl", "rebuilt\n")
 
     def test_a_held_back_application_md_is_frozen_but_not_sent(self):
@@ -64,7 +65,7 @@ class Frozen(unittest.TestCase):
     def test_an_application_md_that_never_closes_refuses(self):
         (self.app / "application.md").write_text("---\nsubmitted: 2026-04-02\n",
                                                  encoding="utf-8")
-        with self.assertRaises(timeline.Frozen) as cm:
+        with self.assertRaises(errors.Frozen) as cm:
             timeline.write_app_file(self.app, "gaps.ttl", "rebuilt\n")
         self.assertIn("whether it was sent is unknown", str(cm.exception))
 
@@ -93,11 +94,11 @@ class StoredFrozen(unittest.TestCase):
         import appkit
         before = appkit.graphs(self.root)
         for kind in ("posting", "gaps"):
-            with self.subTest(kind=kind), self.assertRaises(timeline.Frozen) as cm:
+            with self.subTest(kind=kind), self.assertRaises(errors.Frozen) as cm:
                 timeline.write_app_graphs(self.app, {kind: None})
             self.assertIn(f"{self.APP}/{kind}: the application was sent on 2026-09-10",
                           str(cm.exception))
-        with self.assertRaises(timeline.Frozen):
+        with self.assertRaises(errors.Frozen):
             timeline.write_app_file(self.app, "gaps.md", "rebuilt\n")
         self.assertEqual(appkit.graphs(self.root).keys(), before.keys())
 

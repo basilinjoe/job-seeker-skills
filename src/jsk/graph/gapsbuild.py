@@ -33,7 +33,7 @@ from ..domain.assessment.overlay import MARK as MARK
 
 class Folder:
     """An application's folder and its record, as the assessment and the gaps.txt draft
-    read and write them: the files on disk, the store through graph.timeline's writers."""
+    read and write them: the files on disk, the store through application/timeline/records.py's writers."""
 
     def name_of(self, path, root):
         """`path` as findings name it (infra.files.file_name)."""
@@ -42,14 +42,15 @@ class Folder:
         return file_name(path, root)
 
     def sent_day(self, app_dir, store):
-        """The day the application was sent, or None (graph.timeline.sent_day).
+        """The day the application was sent, or None (application.timeline.records.sent_day).
 
         Raises:
             GraphError: whether it was sent cannot be read.
         """
-        from .timeline import sent_day
+        from ..application.timeline.records import sent_day
+        from ..infra.oxigraph.applications import StoredApplications
 
-        return sent_day(app_dir, store)
+        return sent_day(app_dir, store, records=StoredApplications())
 
     def derive(self, r, store):
         """The Derived assessment for the match `r` (graph.gapsderive.derive)."""
@@ -86,24 +87,26 @@ class Folder:
         return person(store)
 
     def write_graphs(self, app_dir, graphs, store):
-        """Replace the application's graphs in one update (graph.timeline.write_app_graphs).
+        """Replace the application's graphs in one update (records.write_app_graphs).
 
         Raises:
             Unwritable: nothing was written; Frozen when the application is sent.
         """
-        from .timeline import write_app_graphs
+        from ..application.timeline.records import write_app_graphs
+        from ..infra.oxigraph.applications import StoredApplications
 
-        return write_app_graphs(app_dir, graphs, store)
+        return write_app_graphs(app_dir, graphs, store, records=StoredApplications())
 
     def write_file(self, app_dir, name, text, store):
-        """Write the document `name` in the folder (graph.timeline.write_app_file).
+        """Write the document `name` in the folder (records.write_app_file).
 
         Raises:
             Unwritable: nothing was written; Frozen when the application is sent.
         """
-        from .timeline import write_app_file
+        from ..application.timeline.records import write_app_file
+        from ..infra.oxigraph.applications import StoredApplications
 
-        return write_app_file(app_dir, name, text, store)
+        return write_app_file(app_dir, name, text, store, records=StoredApplications())
 
     def create(self, path, text):
         """Write `text` to a new file at `path`, failing if one is there.

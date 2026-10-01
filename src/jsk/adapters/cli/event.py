@@ -81,7 +81,8 @@ def main(argv=None):
         --today's default; writes the application graph.
     """
     from ...cliutil import parse_flags, wants_help
-    from ...graph import timeline
+    from ...infra.files import workspace_of_app
+    from .compose import timeline
 
     args = list(sys.argv[1:] if argv is None else argv)
     if wants_help(args):
@@ -112,7 +113,7 @@ def main(argv=None):
         return usage(f"--today needs YYYY-MM-DD, got {today!r}")
     if not os.path.isdir(app_dir):
         return usage(f"not a directory: {app_dir}")
-    if timeline.workspace_of_app(app_dir)[0] is None:
+    if workspace_of_app(app_dir)[0] is None:
         # An application's graph is named applications/<dir>/application, so an event
         # written anywhere else would be one no query ever reads.
         return usage(f"{app_dir} is not in an applications/ folder - pass "
@@ -129,7 +130,7 @@ def main(argv=None):
                            f"not write"], "append the row to its # Timeline table by hand")
         return refuse([f"{app_dir} holds no application record"],
                       "an application gets one when it is frozen: `jsk app freeze`")
-    return add(timeline.workspace_of_app(app_dir)[0], app_dir, kind, date,
+    return add(workspace_of_app(app_dir)[0], app_dir, kind, date,
                flags.get("--channel"), flags.get("--note"), due,
                datetime.date.fromisoformat(today))
 
@@ -147,8 +148,8 @@ def add(root, app_dir, kind, date, channel, note, due, today):
         The exit code: 0 added, 1 refused or failed after the write.
     """
     from ...application.timeline.add_event import EventLanded, EventRefused, add_event
+    from ...domain.timeline import events
     from ...graph import store as S
-    from ...graph import timeline
     from ...infra.files import file_name
     from ...infra.oxigraph import record as R
 
@@ -156,7 +157,7 @@ def add(root, app_dir, kind, date, channel, note, due, today):
         with R.turn(root):
             result = add_event(root, app_dir, kind, date, channel, note, due, today,
                                load=S.load, name_of=file_name,
-                               event_quads=timeline.event_quads, write_graphs=R.write_graphs)
+                               event_quads=events.event_quads, write_graphs=R.write_graphs)
     except EventRefused as e:
         return refuse(e.lines, e.fix)
     except EventLanded as e:

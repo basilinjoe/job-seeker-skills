@@ -146,10 +146,11 @@ def rendered(argv, *, tex, company_of):
     from ...domain.resume.short import ShortError
     from ...infra import outputs, pdf, profiles
     from ...resume import build as B
+    from .compose.timeline import frozen
 
     try:
         result = render_resume(
-            src, out_dir, load=B.loaded_resume, fmt=arg(argv, "--format", "all"),
+            src, out_dir, load=B.loaded_resume, frozen=frozen, fmt=arg(argv, "--format", "all"),
             region=arg(argv, "--region"),
             profile="ats-maximal" if "--ats-max" in argv else arg(argv, "--profile"),
             template=arg(argv, "--template"), want_pdf="--pdf" in argv,

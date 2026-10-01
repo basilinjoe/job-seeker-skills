@@ -362,11 +362,11 @@ class Build(Workspace):
 
     def test_an_application_is_named_as_its_folder_is(self):
         from jsk.graph import store as S
-        from jsk.graph import timeline
+        from jsk.infra import files
         other = self.root / "APPLICATIONS" / STEM.upper()
         if not other.is_dir():
             self.skipTest("a case-sensitive filesystem: another case is another folder")
-        self.assertEqual(timeline.workspace_of_app(other)[1], f"applications/{STEM}")
+        self.assertEqual(files.workspace_of_app(other)[1], f"applications/{STEM}")
         self.assertEqual(S.file_name(str(other), str(self.root)), f"applications/{STEM}")
 
     def test_a_stray_application_ttl_file_does_not_freeze_a_stored_application(self):

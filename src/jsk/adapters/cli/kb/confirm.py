@@ -65,9 +65,10 @@ def confirm_summary(path, answer, root):
     from ....domain.record.state import diff
     from ....infra import files
     from ....resume import short
+    from ..compose.timeline import frozen
 
     try:
-        done = confirmed(path, answer, root, files=files, short=short.read)
+        done = confirmed(path, answer, root, files=files, short=short.read, frozen=frozen)
     except Refused as err:
         return refused(err)
     if done.new is None:

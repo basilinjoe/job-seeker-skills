@@ -30,6 +30,7 @@ def called(args):
     """
     from ...application.guards import (VIEW_GONE, frozen_refusal, record_refusal,
                                        view_refusal)
+    from .compose.timeline import frozen
     from .gates.check import parse_pages
 
     if wants_help(args):
@@ -59,7 +60,8 @@ def called(args):
     # Before anything renders (Review Focus 5): the render writes over the PDF and .txt
     # that the application's record says were sent, and the archive would then describe
     # files it no longer holds.
-    refusal = frozen_refusal(flags["--out"], os.path.dirname(os.path.abspath(record)))
+    refusal = frozen_refusal(flags["--out"], os.path.dirname(os.path.abspath(record)),
+                             frozen=frozen)
     if refusal:
         print("\n".join(refusal))
         return 1

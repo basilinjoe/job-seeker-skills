@@ -32,21 +32,20 @@ def unloaded_refusal(root):
     return None
 
 
-def frozen_refusal(*dirs):
+def frozen_refusal(*dirs, frozen):
     """Refuse a render into, or from, a frozen application.
 
-    Frozen is what the application's record says (timeline.frozen), not whether a file
-    is there.
+    Frozen is what the application's record says (application.timeline.records.frozen),
+    not whether a file is there.
 
     Args:
         *dirs: the directories the command would write into or read from.
+        frozen: (directory) -> what says it was frozen, or None (compose.timeline.frozen).
 
     Returns:
         [what is wrong, the fix] for the first frozen directory, or None. Opens the
         record read-only to ask.
     """
-    from ..graph.timeline import frozen
-
     for d in dirs:
         path = frozen(d)
         if path:

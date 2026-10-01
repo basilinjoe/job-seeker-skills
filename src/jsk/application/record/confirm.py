@@ -225,7 +225,7 @@ class SummaryConfirmed:
     new: str | None
 
 
-def confirm_summary(path, answer, root, *, files, short):
+def confirm_summary(path, answer, root, *, files, short, frozen):
     """`jsk kb confirm --summary`: the summary confirmed in resume.json, beside the answer
     and its text's hash. Not logged: a logged write stamps the career with a new revision,
     and the summary is not in the career. resume.json holds the audit trail, and `jsk
@@ -237,6 +237,7 @@ def confirm_summary(path, answer, root, *, files, short):
         root: the workspace.
         files: the workspace's files (infra.files): inside, read_text, write_document.
         short: reads a resume.json (resume.short.read).
+        frozen: what says a directory was frozen, or None (compose.timeline.frozen).
 
     Returns:
         SummaryConfirmed. Writes resume.json.
@@ -255,7 +256,7 @@ def confirm_summary(path, answer, root, *, files, short):
                          "them about the new words")
     if not files.inside(path, root):
         raise Refused([f"{path}: not inside this workspace"], "pass the application's resume.json")
-    if frozen_refusal(os.path.dirname(os.path.abspath(path))):
+    if frozen_refusal(os.path.dirname(os.path.abspath(path)), frozen=frozen):
         raise Refused([f"{path}: frozen - the record holds its application as it was sent"],
                       "copy the application to a new dated directory to reuse it")
     try:

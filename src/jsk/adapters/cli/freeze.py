@@ -31,7 +31,7 @@ def freeze_refusal(*lines):
 
 
 class Applications:
-    """An application's record graphs, as graph.timeline keeps them, looked up at each call.
+    """An application's record graphs, as compose.timeline binds them, looked up at each call.
 
     A test patches timeline.write_frozen, so the freeze is handed this rather than the
     functions themselves: the patch is then what the freeze writes with.
@@ -39,26 +39,26 @@ class Applications:
 
     def frozen(self, app_dir):
         """What says `app_dir` was frozen, else None (timeline.frozen)."""
-        from ...graph import timeline
+        from .compose import timeline
 
         return timeline.frozen(app_dir)
 
     def has_record(self, app_dir, kind):
         """Whether the application holds its `kind` graph (timeline.has_record)."""
-        from ...graph import timeline
+        from .compose import timeline
 
         return timeline.has_record(app_dir, kind)
 
     def freeze(self, root, app_dir, plan, short_bytes, submitted, channel, documents):
         """(Sealed, None) or (None, the lines saying why not) (timeline.freeze)."""
-        from ...graph import timeline
+        from .compose import timeline
 
         return timeline.freeze(root, app_dir, plan, short_bytes, submitted, channel,
                                documents)
 
     def write_frozen(self, root, sealed, final):
         """Write what freeze() validated; the graph's name (timeline.write_frozen)."""
-        from ...graph import timeline
+        from .compose import timeline
 
         return timeline.write_frozen(root, sealed, final)
 

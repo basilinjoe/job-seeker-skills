@@ -66,12 +66,13 @@ def main(argv, *, tex):
     from ...domain.resume.short import ShortError
     from ...infra import outputs, pdf, profiles
     from ...resume import build as B
+    from .compose.timeline import frozen
 
     try:
         result = preview_templates(
             src, out_dir, arg(argv, "--only"), region=arg(argv, "--region"),
             ats_max="--ats-max" in argv, today=datetime.date.today(), load=B.loaded_resume,
-            profiles=profiles, tex=tex, reader=pdf, outputs=outputs)
+            profiles=profiles, tex=tex, reader=pdf, outputs=outputs, frozen=frozen)
     except ShortError as err:
         print(f"FAIL  {err}")
         print(f"fix:  {err.fix}")

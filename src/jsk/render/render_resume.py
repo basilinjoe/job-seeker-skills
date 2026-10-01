@@ -41,7 +41,7 @@ def company_of(record_path, store=None):
     stopping the render."""
     from ..graph import store as S
     from ..graph.queries import PRE
-    from ..graph.timeline import workspace_of_app
+    from ..infra.files import workspace_of_app
 
     root, rel = workspace_of_app(os.path.dirname(os.path.abspath(record_path)))
     if root is None:

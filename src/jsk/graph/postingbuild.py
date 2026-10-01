@@ -26,7 +26,7 @@ from ..domain.posting.errors import Refused as Refused
 
 class PostingFolder:
     """An application's folder and its workspace, as extract and build read and write them:
-    the files on disk, the store loaded and written through graph.timeline."""
+    the files on disk, the store loaded and written through application/timeline/records.py."""
 
     def read_text(self, path, what=None):
         """An authored file's text (infra.files.read_text).
@@ -92,43 +92,47 @@ class PostingFolder:
 
     def posting_of(self, store, rel):
         """(posting iri, stem) in the application `rel`, or (None, None)."""
-        from .timeline import posting_of
+        from ..application.timeline.records import posting_of
 
         return posting_of(store, rel)
 
     def workspace_of_app(self, app_dir):
         """(workspace root, `applications/<dir>`), or (None, None)."""
-        from .timeline import workspace_of_app
+        from ..infra.files import workspace_of_app
 
         return workspace_of_app(app_dir)
 
     def refuse_if_sent(self, app_dir, name):
         """Raise Frozen when the graph `name` must not change: the application was sent."""
-        from .timeline import refuse_if_sent
+        from ..application.timeline.records import refuse_if_sent
+        from ..infra.oxigraph.applications import StoredApplications
 
-        refuse_if_sent(app_dir, name, graph=True)
+        refuse_if_sent(app_dir, name, graph=True, records=StoredApplications())
 
     def has_record(self, app_dir, kind):
         """Whether the application holds its `kind` graph."""
-        from .timeline import has_record
+        from ..application.timeline.records import has_record
+        from ..infra.oxigraph.applications import StoredApplications
 
-        return has_record(app_dir, kind)
+        return has_record(app_dir, kind, records=StoredApplications())
 
     def app_graphs(self, app_dir, store):
         """{kind: triples} of the graphs the application holds."""
-        from .timeline import app_graphs
+        from ..application.timeline.records import app_graphs
+        from ..infra.oxigraph.applications import StoredApplications
 
-        return app_graphs(app_dir, store)
+        return app_graphs(app_dir, store, records=StoredApplications())
 
     def write_graphs(self, app_dir, graphs, store):
-        """Replace the application's graphs in one update (graph.timeline.write_app_graphs).
+        """Replace the application's graphs in one update (records.write_app_graphs).
 
         Raises:
             Unwritable: nothing was written.
         """
-        from .timeline import write_app_graphs
+        from ..application.timeline.records import write_app_graphs
+        from ..infra.oxigraph.applications import StoredApplications
 
-        return write_app_graphs(app_dir, graphs, store)
+        return write_app_graphs(app_dir, graphs, store, records=StoredApplications())
 
     def remove_file(self, app_dir, name, store):
         """Remove `name` from the folder if it is there; True when one was removed.
@@ -136,9 +140,10 @@ class PostingFolder:
         Raises:
             Unwritable: it is there and could not be removed.
         """
-        from .timeline import remove_app_file
+        from ..application.timeline.records import remove_app_file
+        from ..infra.oxigraph.applications import StoredApplications
 
-        return remove_app_file(app_dir, name, store)
+        return remove_app_file(app_dir, name, store, records=StoredApplications())
 
 
 def read_advert(app_dir):

@@ -308,7 +308,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     prepare.py                      `jsk tailor prepare` - one digest for the assessment
     gapsderive.py  gapsdraft.py     the assessment derived from the match; the gaps.txt draft
     assessment.py  gapsbuild.py     gaps.txt read; checked, folded in, the gaps graph and gaps.md written
-    timeline.py                     the application graph and `jsk app event`
+    timeline.py                     the old path of `jsk app event`, naming it
   resume/                           career + resume.json -> the render plan
     short.py                        the short file: read, shape, ids, its workspace
     career.py                       the career graph as the builder, export and match read it
@@ -382,6 +382,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     workspace.py                    a workspace as loading it needs it
     outputs.py                      the files a render writes, and its scratch directories
     advert.py                       an application's posting.md and decisions.txt, as the rules read them
+    applications.py                 an application's folder and its record graphs in the store
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     gates/numbers.py                the untraced-number check over a loaded career
@@ -422,6 +423,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     render/fit_pages.py             a .tex fitted to its budget: each lever staged, compiled, measured
     render/preview_templates.py     one resume.json in every template, rendered once each and compiled at once
     timeline/freeze.py              an application frozen: checked, planned, gated, renamed to its day, written
+    timeline/records.py             an application's record graphs: frozen, sent, written; the freeze sealed
     timeline/add_event.py           one event added to an application's record: minted, validated, written
     ship.py                         `jsk resume ship`: the record gate, render, fit and gates, stopping at a failure
   infra/                            what touches a disk, a process, the network or the engine
@@ -432,6 +434,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     profiles.py                     the region profiles under data/ (moved from render/)
     oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
     oxigraph/db.py  record.py       the store on disk; the write gate every write goes through
+    oxigraph/applications.py        an application's folder and its graphs in career/store/, read and written
     oxigraph/engine.py              the in-memory engine a loaded record runs on
     oxigraph/queries.py             the feature reads over a loaded record, as SPARQL
     tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
@@ -454,6 +457,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/posting.py                  `jsk posting`: fetch, extract or build run, what it wrote said
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
     cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
+    cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
     cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads
     cli/kb/__init__.py              `jsk kb`: the verb table, its flags, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`

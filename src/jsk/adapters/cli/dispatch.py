@@ -37,13 +37,13 @@ SUBPACKAGE = {
     "layout.py": "gates",
     "match.py": "graph",
     "prepare.py": "graph",
-    "timeline.py": "graph",
 }
 
 # The scripts that are their adapter now: the documented name kept, the module named whole,
 # since the adapter is called for the noun it serves and not for the old file.
 ADAPTERS = {
     "kbcli.py": "adapters.cli.kb",
+    "timeline.py": "adapters.cli.event",
 }
 
 # The command each script answers to, for the hint that says how to run one by hand.

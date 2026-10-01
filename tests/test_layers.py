@@ -48,13 +48,11 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 # (importer, imported) -> the names it imports. Today's outward edges, each to be removed by
 # the phase that moves or splits one end of it.
 KNOWN_EDGES = {
-    ("jsk.application.guards", "jsk.graph.timeline"): {"frozen"},
     # The documented `python -m` entry points hand over to their adapters until P5
     # deletes them (Ruling 4).
     ("jsk.render.render_resume", "jsk.adapters.cli.render"): {"main"},
     ("jsk.render.fit_pages", "jsk.adapters.cli.fit"): {"main"},
     ("jsk.render.preview_templates", "jsk.adapters.cli.preview"): {"main"},
-    ("jsk.graph.timeline", "jsk.adapters.cli.event"): {"main"},
     ("jsk.graph.match", "jsk.adapters.cli.match"): {"main"},
     ("jsk.graph.prepare", "jsk.adapters.cli.tailor"): {"main"},
     ("jsk.posting", "jsk.adapters.cli.posting"): {"main"},

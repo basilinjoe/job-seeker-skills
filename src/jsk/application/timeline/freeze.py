@@ -91,7 +91,7 @@ def check(app_dir, *, record, build):
 
     Args:
         app_dir: the application directory.
-        record: the application's record graphs (graph.timeline): `frozen` and `has_record`.
+        record: the application's record graphs (compose.timeline): `frozen` and `has_record`.
         build: the builder over a resume.json's path, returning (plan, anything).
 
     Returns:
@@ -287,7 +287,7 @@ def write(workspace, planned, submitted, channel, *, record, files, store_errors
         planned: the FreezePlan, gated.
         submitted: YYYY-MM-DD or "false".
         channel: where it was sent.
-        record: the application's record graphs (graph.timeline): `freeze` validates the
+        record: the application's record graphs (compose.timeline): `freeze` validates the
             application graph and `write_frozen` writes it.
         files: renames the directory (ports.files.ApplicationFiles).
         store_errors: what else the store raises for a write that did not happen.

@@ -655,7 +655,7 @@ class FreezeGraph(GraphCase):
     def test_a_store_error_while_writing_renames_the_folder_back(self):
         from unittest import mock
 
-        from jsk.graph import timeline; from jsk.infra.oxigraph import db
+        from jsk.adapters.cli.compose import timeline; from jsk.infra.oxigraph import db
 
         def unopenable(*_args):
             raise db.StoreError("career/store/ could not be opened", "`jsk doctor` checks it")
@@ -1190,7 +1190,7 @@ class Event(GraphCase):
         """The workspace is loaded with the event in it before the file is replaced. The
         flags are checked first, so reaching this takes an event the command itself got
         wrong - which is what the check is for."""
-        from jsk.graph import timeline
+        from jsk.domain.timeline import events as timeline
 
         real = timeline.event_quads
 

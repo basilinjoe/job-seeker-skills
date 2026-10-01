@@ -56,7 +56,7 @@ class PreviewResult:
 
 
 def preview_templates(src, out_dir, only, *, region, ats_max, today, load, profiles, tex,
-                      reader, outputs):
+                      reader, outputs, frozen):
     """Render the resume.json at `src` in each template, into `out_dir`.
 
     The file is loaded once, here, before any template: a legacy record, a file outside
@@ -75,6 +75,7 @@ def preview_templates(src, out_dir, only, *, region, ats_max, today, load, profi
         tex: compiles each template (ports.tex.TexCompiler).
         reader: makes each first-page thumbnail (ports.pdf.PdfInspector).
         outputs: stages and moves the files (ports.outputs.RenderOutputs).
+        frozen: what says a directory was frozen, or None (compose.timeline.frozen).
 
     Returns:
         A PreviewResult. Writes each template's .tex, .pdf and .png into `out_dir`.
@@ -85,7 +86,7 @@ def preview_templates(src, out_dir, only, *, region, ats_max, today, load, profi
     """
     from ..guards import frozen_refusal
 
-    refusal = frozen_refusal(out_dir, os.path.dirname(os.path.abspath(src)))
+    refusal = frozen_refusal(out_dir, os.path.dirname(os.path.abspath(src)), frozen=frozen)
     if refusal:
         raise PreviewStopped("frozen", refusal, 1)
     loaded = load(src)

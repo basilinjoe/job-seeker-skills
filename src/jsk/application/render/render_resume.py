@@ -126,7 +126,7 @@ def basename_for(plan_for, company_of, src, store):
     return f"{base}_{safe_name(company)}" if company else base
 
 
-def render_resume(src, out_dir, *, load, **options):
+def render_resume(src, out_dir, *, load, frozen, **options):
     """Render the resume.json at `src` into `out_dir`.
 
     A frozen application's resume.json builds from today's career, so a render into or
@@ -137,6 +137,7 @@ def render_resume(src, out_dir, *, load, **options):
         src: the resume.json.
         out_dir: where the files go; it exists.
         load: loads and checks the resume.json (load_resume bound to its ports).
+        frozen: what says a directory was frozen, or None (compose.timeline.frozen).
         **options: render_loaded's keyword arguments.
 
     Returns:
@@ -148,7 +149,7 @@ def render_resume(src, out_dir, *, load, **options):
     """
     from ..guards import frozen_refusal
 
-    refusal = frozen_refusal(out_dir, os.path.dirname(os.path.abspath(src)))
+    refusal = frozen_refusal(out_dir, os.path.dirname(os.path.abspath(src)), frozen=frozen)
     if refusal:
         raise RenderStopped("frozen", refusal, 1)
     return render_loaded(load(src), src, out_dir, **options)

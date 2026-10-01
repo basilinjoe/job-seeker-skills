@@ -67,6 +67,24 @@ def spelled(folder, name):
     return name
 
 
+def workspace_of_app(app_dir):
+    """Where an application directory sits: its workspace and its name there, both as they
+    are on disk (spelled) - the graph name is the folder's, however the path was typed.
+
+    Args:
+        app_dir: a directory, expected at <root>/applications/<dir>.
+
+    Returns:
+        (workspace root, `applications/<dir>`), else (None, None). Lists the folders above it.
+    """
+    here = os.path.abspath(app_dir)
+    apps = os.path.dirname(here)
+    root = os.path.dirname(apps)
+    if spelled(root, os.path.basename(apps)) != "applications":
+        return None, None
+    return root, "applications/" + spelled(apps, os.path.basename(here))
+
+
 def file_name(path, root):
     """How findings name a file: relative to the workspace, forward slashes, each part
     spelled as it is on disk (spelled). A file outside it - the shipped vocabulary - is
