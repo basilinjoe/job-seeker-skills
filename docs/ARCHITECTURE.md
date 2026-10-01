@@ -364,6 +364,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/html_text.py            a board's or a saved page's HTML as text
     posting/posting_md.py           posting.md as jsk writes it
     posting/advert.py               an advert's text squashed, and its lines numbered by section
+    posting/decide.py               decisions.txt's name, a title's seniority hint, posting.md's header, the posting's triples
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
     assessment/derive.py            the gap assessment the match already knows, without a model
@@ -389,6 +390,9 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     tailor/check_gaps.py            gaps.txt checked, the assessment and gaps.md written from the match
     tailor/draft_gaps.py            the gaps.txt draft: the advert, the drops and the person read, the draft made
     tailor/prepare.py               the tailoring digest: the check, the match, the evidence, the assessment written
+    posting/fetch.py                an advert from a job board or a file, written as posting.md
+    posting/extract.py              the decisions.txt header and the advert's lines, numbered, for the analyst
+    posting/build.py                decisions.txt checked against the advert and written as the posting graph
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
     render/build_plan.py            a resume.json on disk to its render plan
@@ -413,6 +417,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/match.py                    `jsk match`: its flags, the match run and printed, or its assessment built
     cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
     cli/tailor.py                   `jsk tailor prepare`: its flags, the digest run and printed section by section
+    cli/posting.py                  `jsk posting`: fetch, extract or build run, what it wrote said
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
