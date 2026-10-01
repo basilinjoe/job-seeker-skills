@@ -151,9 +151,15 @@ def fold(derived, overlay, previous=None):
                       tuple(overlay.ask) or derived.questions)
 
 
-def triples(a, today):
+def triples(a, today, native=False):
     """The assessment graph's triples. Ids are derived: k:gap_<stem>, and k:vrd_<stem>_<slug> for
-    k:req_<stem>_<slug> - never chosen, so a rebuild writes the same file."""
+    k:req_<stem>_<slug> - never chosen, so a rebuild writes the same file.
+
+    `native` is a graph-native application's (Ruling 5 of
+    docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md): each question is
+    its own j:Ask, k:ask_<stem>_<i>, pointing at the requirement it is about and carrying
+    that requirement's concepts, in place of the one j:questions text. A file-built
+    application's graph is written as it always was."""
     import pyoxigraph as ox
 
     from .. import ontology as O
@@ -173,9 +179,11 @@ def triples(a, today):
     if a.eligibility:
         out.append(ox.Triple(gap, j("eligibility"), ox.Literal(a.eligibility)))
     for pred, items in (("fallsShort", a.short), ("surplus", a.surplus),
-                        ("questions", a.questions)):
+                        ("questions", () if native else a.questions)):
         if items:
             out.append(ox.Triple(gap, j(pred), ox.Literal("\n".join(items))))
+    if native:
+        out += asks(a, gap, j, k)
     for v in a.verdicts:
         row = v.row
         s = ox.NamedNode(f"{O.K}vrd_{d.stem}_{row.slug}")
@@ -188,6 +196,43 @@ def triples(a, today):
         out += [ox.Triple(s, j("evidence"), k(p)) for p in row.evidence]
         if v.shortfall:
             out.append(ox.Triple(s, j("shortfall"), ox.Literal(v.shortfall)))
+    return out
+
+
+def asks(a, gap, j, k):
+    """The j:Ask triples for the assessment's questions, in order.
+
+    A question the match derived knows its requirement (Derived.asks); one the analyst
+    wrote in its place names none, and is asked as written.
+
+    Args:
+        a: the Assessment.
+        gap: the assessment's node.
+        j: name -> the j: predicate or individual.
+        k: "k:x" curie -> its node.
+
+    Returns:
+        [Triple].
+    """
+    import pyoxigraph as ox
+
+    from .. import ontology as O
+
+    d = a.derived
+    about = dict(d.asks)
+    concepts = {row.id: row.concepts for row in d.rows}
+    out = []
+    for i, question in enumerate(a.questions, 1):
+        s = ox.NamedNode(f"{O.K}ask_{d.stem}_{i}")
+        out += [ox.Triple(s, j("assessment"), gap),
+                ox.Triple(s, j("position"),
+                          ox.Literal(str(i), datatype=ox.NamedNode(O.XSD + "integer"))),
+                ox.Triple(s, j("question"), ox.Literal(question))]
+        req = about.get(question)
+        if req:
+            out.append(ox.Triple(s, j("requirement"), k(req)))
+            out += [ox.Triple(s, j("concept"), ox.NamedNode(O.C + c.split(":", 1)[1]))
+                    for c in concepts.get(req, ())]
     return out
 
 

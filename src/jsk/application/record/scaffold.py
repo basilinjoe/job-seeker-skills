@@ -280,8 +280,8 @@ def scaffold(root, name, force, today, *, load, record, db, legacy, files, disk)
         disk: writes the scaffold's files: create_text, write_text, append_text, makedirs.
 
     Returns:
-        Scaffolded. Writes career/store/, the kept dump, applications/README.md and
-        .gitattributes.
+        Scaffolded. Writes career/store/, the kept dump, applications/README.md, an empty
+        resumes/ and .gitattributes.
 
     Raises:
         NoEngine, LaidOutAsFiles, Exists, Unclean, Failing, NotKept, Unwritten: nothing
@@ -300,5 +300,8 @@ def scaffold(root, name, force, today, *, load, record, db, legacy, files, disk)
         disk.makedirs(apps)
         disk.write_text(readme, APPLICATIONS_README)
         wrote = readme
+    # Where a general resume renders: its selection is the graph resumes/<name>/resume
+    # (Ruling 10 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md).
+    disk.makedirs(os.path.join(root, "resumes"))
     return Scaffolded(os.path.normpath(os.path.join(root, STORE)), rev, kept, wrote,
                       gitattributes(root, files=files, disk=disk))

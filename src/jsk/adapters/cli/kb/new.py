@@ -15,6 +15,7 @@ It writes:
                     and its log, k:rev_1 `j:by j:new` - so `jsk kb apply` works on it
                     straight away
   applications/     with a README saying what each application directory holds
+  resumes/          where a general resume, one answering no posting, renders
   .gitattributes    `career/store/** binary`, so git never rewrites the store's line ends
 
 Written through the same gate every `jsk kb` write uses (record.write_graphs): one

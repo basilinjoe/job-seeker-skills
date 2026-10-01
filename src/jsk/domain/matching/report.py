@@ -77,5 +77,7 @@ def blocks(finding, here):
     Returns:
         True when the finding stops the match.
     """
-    return (finding.rule == "syntax" or not finding.file.startswith("applications/")
-            or finding.file.startswith(here))
+    from ..naming import is_own
+
+    # A general resume's selection is no posting's either (resumes/<name>/resume).
+    return finding.rule == "syntax" or not is_own(finding.file) or finding.file.startswith(here)

@@ -22,7 +22,13 @@ from ...domain.timeline.errors import Frozen, Unwritable
 from ...domain.timeline.events import LEGACY, application_quads, legacy_submitted, submitted_day
 
 # An application's record graphs, by kind: in career/store/ as applications/<dir>/<kind>.
-RECORD = ("posting", "application", "gaps")
+# `review` and `resume` are a graph-native application's (Ruling 10 of
+# docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md): the analyst's
+# review and the selection, which a sent application keeps as it keeps its posting.
+RECORD = ("posting", "application", "gaps", "review", "resume")
+# What a rename at freeze carries to the new name with the application graph: every kind
+# but that one, which freeze writes itself.
+MOVED = tuple(kind for kind in RECORD if kind != "application")
 
 
 def posting_of(store, rel_dir):
@@ -254,7 +260,7 @@ class Sealed:
         Args:
             rel: the application's name in the store, `applications/<dir>`, before a rename.
             quads: the application graph.
-            moves: {kind: triples} of the posting and gaps graphs a rename carries over.
+            moves: {kind: triples} of the graphs a rename carries over (MOVED).
         """
         self.rel, self.quads, self.moves = rel, quads, moves
 
@@ -338,15 +344,16 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
     if broken:
         return None, (["the application record it would write does not validate:"]
                       + [f.text() for f in broken])
-    moves = {kind: store.graph(app_graph(rel, kind)) for kind in ("posting", "gaps")
+    moves = {kind: store.graph(app_graph(rel, kind)) for kind in MOVED
              if app_graph(rel, kind) in store.parsed}
     return Sealed(rel, quads, moves), None
 
 
 def write_frozen(root, sealed, final, *, records):
     """Write what freeze() validated, once the directory is at `final`. A graph is named by
-    its directory, so a rename moves the posting and the assessment to the new name in the
-    same update that writes the application - all three land, or none does.
+    its directory, so a rename moves the posting, the assessment, the review and the
+    selection to the new name in the same update that writes the application - all of them
+    land, or none does.
 
     Args:
         root: the workspace root.

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 # Graphs in the order the file loader met their files: the career, its log, then each
 # kind of application graph. The first graph defining an id is its home, and a duplicate
 # is reported where it was added - in the application, not in the career it came from.
-ORDER = {"kb": 0, "log": 1, "posting": 2, "application": 3, "gaps": 4}
+ORDER = {"kb": 0, "log": 1, "posting": 2, "application": 3, "gaps": 4, "review": 5, "resume": 6}
 
 # career predicate -> the shipped predicates it removes
 NARROWS = {"unlabel": ("label", "former"), "unlink": ("isA", "partOf")}

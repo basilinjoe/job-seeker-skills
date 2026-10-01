@@ -215,6 +215,19 @@ def asked_lines(advert):
     Returns:
         [str]: each qualification of four words or more that is not eligibility.
     """
-    return [x.text for x in advert_lines(advert)
+    return asked_of(advert_lines(advert))
+
+
+def asked_of(lines):
+    """asked_lines over lines already numbered - posting.md's, or a graph-native posting's
+    stored ones (domain/posting/lines.py), so both are read back by one rule.
+
+    Args:
+        lines: [AdvertLine].
+
+    Returns:
+        [str]: each qualification of four words or more that is not eligibility.
+    """
+    return [x.text for x in lines
             if x.section == "qualification" and len(x.text.split()) >= 4 and not x.elig]
 

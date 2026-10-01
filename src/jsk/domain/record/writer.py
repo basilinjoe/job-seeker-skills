@@ -220,8 +220,8 @@ def order(sub, section):
                                           lambda s: g(s, "end") or g(s, "start"))]
     if section == "Certifications":
         return [(s, "main") for s in desc(sub.of("Credential"), lambda s: g(s, "issued"))]
-    if section == "Open questions":
-        return [(s, "main") for s in sorted(sub.of("Question"), key=lambda s: (g(s, "asked", ""), s))]
+    if section in NUMBERED:
+        return numbered(sub, section)
     if section == "Timeline":
         return [(s, "main") for s in sorted(
             sub.of("Event"), key=lambda s: (g(s, "date") == "unknown", g(s, "date", ""), s))]
@@ -230,6 +230,28 @@ def order(sub, section):
                                             key=lambda s: (int(g(s, "revision", 0)), s))]
     names = [c.name for c in O.CLASSES if c.section == section]
     return [(s, "main") for name in names for s in sub.of(name)]
+
+
+# Sections whose subjects are written by a day or a number, not by their ids - where
+# line_x_10 would sort before line_x_2 - with the class each holds.
+NUMBERED = {"Open questions": ("Question", "Absence"), "Advert lines": ("AdvertLine",),
+            "Picks": ("Pick",), "Items": ("ReviewItem",), "Questions": ("Ask",)}
+
+
+def numbered(sub, section):
+    """order() for a NUMBERED section: the questions by the day they were asked, then the
+    noes by the day they were said (Ruling 8 of
+    docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md); an advert's lines
+    by number; picks, items and asks by kind and position."""
+    g = sub.get
+
+    def key(s):
+        name = sub.cls[s].name
+        if name in ("Question", "Absence"):
+            return (g(s, "asked" if name == "Question" else "said", ""), s)
+        return (g(s, "kind", ""), int(g(s, "n", 0) if name == "AdvertLine"
+                                      else g(s, "position", 0)), s)
+    return [(s, "main") for name in NUMBERED[section] for s in sorted(sub.of(name), key=key)]
 
 
 def version_number(v):

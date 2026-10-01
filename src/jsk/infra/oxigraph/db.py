@@ -1,8 +1,11 @@
 """The record on disk: one Oxigraph store (RocksDB) per workspace, at career/store/.
 
 This is the only module that knows the record is RocksDB. Every record is a named graph -
-`kb`, `log`, `applications/<stem>/posting`, `.../application`, `.../gaps` - and nothing
-else opens the store on disk or updates it (tests/test_db.py fails if anything does).
+`kb`, `log`, `applications/<stem>/posting`, `.../application`, `.../gaps`, `.../review`,
+`.../resume`, and a general resume's `resumes/<name>/resume` (domain.naming.resume_graph) -
+and nothing else opens the store on disk or updates it (tests/test_db.py fails if anything
+does). A graph's name is opaque here: dump and load carry every name under the record's
+IRI, so a new kind of graph needs nothing of this module.
 
 Two OS locks, both blocking, both released with the file handle when a process dies:
 

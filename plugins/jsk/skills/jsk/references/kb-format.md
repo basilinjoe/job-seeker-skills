@@ -64,6 +64,7 @@ Concepts are `c:<words-with-dashes>`. A bullet's id is minted by apply.
 | `cred_` | Credential | Certifications | `name` `issuer` `issued`? `expires`? `credentialState` `url`? |
 | `os_` | OpenSource | Open source | `name` `url` `role` |
 | `q_` | Question | Open questions | `about`+ (`k:kb`: the whole career) `question` `asked` `answered`? |
+| `abs_` | Absence (a "no") | Open questions | `concept` `said` `answer` (their words) |
 
 Every entry may carry `retired` (with a `reason`) and `note`* - free text for anything the
 ontology has no field for. Enums are `j:` words (`j:ongoing`, `j:measured`); dates are
@@ -135,8 +136,9 @@ k:req_acme_platform_k8s j:posting k:post_acme_platform ;
     j:quote "Deep, hands-on K8s experience in production" .
 ```
 
-A posting holds `company` `title` `url`? `seniority`? `domain`* `captured` `advert`; a requirement
-`posting` `asked` `necessity` `concept`* `quote`. `asked` is the advert's term; `quote` its words,
-verbatim from `posting.md`; `necessity` is `required`, `preferred` or `implicit`; `concept` when
-`jsk tailor match` calls the term ambiguous or unknown, one per alternative ("AWS/GCP/Azure") - any one
-satisfies.
+A posting holds `company` `title` `url`? `seniority`? `domain`* `captured` `advert`? `state`?; a
+requirement `posting` `asked` `necessity` `concept`* `quote` `line`?; an advert line (`line_`)
+`posting` `n` `section` `text` `optional`? `eligibility`? `dropped`?. `asked` is the advert's
+term; `quote` its words, verbatim from `posting.md` (or its `line`); `necessity` is `required`,
+`preferred` or `implicit`; `concept` when `jsk tailor match` calls the term ambiguous or unknown,
+one per alternative ("AWS/GCP/Azure") - any one satisfies.

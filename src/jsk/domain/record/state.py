@@ -184,8 +184,10 @@ def key(f):
 def new_failures(before, after):
     """What a write would break: any FAIL in the career or the vocabulary, and a FAIL
     anywhere that was not already there - an old application's fault is not this one's."""
+    from ..naming import is_own
+
     had = {key(f) for f in before.fails()}
-    return [f for f in after.fails() if not f.file.startswith("applications/") or key(f) not in had]
+    return [f for f in after.fails() if not is_own(f.file) or key(f) not in had]
 
 
 def diff(old, new, name="kb"):

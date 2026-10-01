@@ -4,7 +4,8 @@ References across graphs, metric versions, the vocabulary's edges, applications 
 postings. Each rule is one row - id, severity, a SELECT naming ?focus, and a fix - so
 adding one is adding a row, and tests/test_graph_rules.py proves each one fires.
 
-The texts beside an application's graphs (posting.md, decisions.txt) and the state of a
+The texts beside an application's graphs (posting.md, decisions.txt; advert_rules.py reads
+them, and a graph-native posting's stored lines in their place) and the state of a
 career still laid out as files are read through what tier2 is given: adapters/cli/compose/record.py binds
 the disk.
 """
@@ -16,7 +17,8 @@ from dataclasses import dataclass
 from .. import ontology as O
 from .shapes import FAIL, WARN, Finding, curie
 from ..naming import graph_iri
-from ..posting.advert import OPTIONAL_WORDS, REQUIRED_WORDS, advert_lines, asked_lines, squash
+from ..posting.advert import squash
+from .advert_rules import uncovered, unquoted, worded_otherwise
 
 # For the checker alone, as in store.py: `typing` costs a command ~3 ms it never uses.
 TYPE_CHECKING = False
@@ -162,124 +164,21 @@ def bare(rows, store, reads):
     return [{"focus": node(O.K + "kb"), "file": next(iter(found.values())), "n": len(found)}]
 
 
-def folder_of(file):
-    """The folder a graph's name puts it in: `applications/acme` for
-    `applications/acme/posting`, "" for a name with none."""
-    return file.rpartition("/")[0]
+def not_the_line(rows, store, reads):
+    """A requirement whose quote is not its line's text - typography, whitespace and
+    emphasis aside, as quote-verbatim reads it. Ruling 2: the quote is kept beside j:line so
+    a requirement still reads alone, and this keeps the two from parting."""
+    return [r for r in rows if squash(v(r, "q")) != squash(v(r, "t"))]
 
 
-def unquoted(rows, store, reads):
-    """A requirement whose quote is not in the advert beside it, word for word.
-
-    Args:
-        rows: the SELECT's rows, ?focus a requirement and ?q its quote.
-        store: the loaded workspace.
-        reads: the Reads whose adverts supply each posting.md.
-
-    Returns:
-        The rows whose quote fails, each with "why".
-    """
-    from .parsed import Missing, NotUtf8, Unreadable
-
-    out, adverts = [], {}
+def contradicted(rows, store, reads):
+    """One row per absence a live project contradicts, naming the first project and how
+    many hold it: a row per project would report one no several times."""
+    by = {}
     for r in rows:
-        file = store.file_of(v(r, "focus"))
-        if not file:
-            continue
-        advert = folder_of(file)
-        if advert not in adverts:
-            # (text, None), or (None, why it could not be read) - the finding says which.
-            try:
-                adverts[advert] = (squash(reads.adverts.advert(store.root, advert)), None)
-            except Missing:
-                adverts[advert] = (None, "posting.md is missing beside it")
-            except NotUtf8:
-                adverts[advert] = (None, "posting.md beside it is not UTF-8 - save it as UTF-8")
-            except Unreadable as e:
-                adverts[advert] = (None, f"posting.md beside it could not be read: {e}")
-        text, unread = adverts[advert]
-        if not squash(v(r, "q")):
-            out.append({**r, "why": "the quote is empty"})     # "" is in every advert
-        elif unread:
-            out.append({**r, "why": unread})
-        elif squash(v(r, "q")) not in text:
-            out.append({**r, "why": "posting.md does not say it"})
-    return out
-
-
-def worded_otherwise(rows, store, reads):
-    out = []
-    for r in rows:
-        quote, need = v(r, "q"), v(r, "n")[len(O.J):]
-        if need == "required" and (said := OPTIONAL_WORDS.search(quote)):
-            out.append({**r, "said": said.group(0), "need": need})
-        elif need in ("preferred", "implicit") and (said := REQUIRED_WORDS.search(quote)):
-            out.append({**r, "said": said.group(0), "need": need})
-    return out
-
-
-def dropped_lines(adverts, root, folder, advert):
-    """The advert lines decisions.txt beside posting.md drops with a reason: answered, not
-    skipped, so not uncovered. A decisions.txt that does not parse drops nothing - `jsk
-    posting build` refuses it long before this reads it.
-
-    Args:
-        adverts: the AdvertSource decisions.txt is read through.
-        root: the workspace root.
-        folder: the application's folder, relative to `root`.
-        advert: posting.md's text.
-
-    Returns:
-        {str}: the squashed text of each dropped line.
-    """
-    from .decisions import DecisionsError
-    from .parsed import Unreadable
-
-    try:
-        drops = adverts.decisions(root, folder).drops
-    except (Unreadable, DecisionsError):
-        return set()
-    lines = {x.n: x.text for x in advert_lines(advert)}
-    return {lines[d.n] for d in drops if d.n in lines}
-
-
-def uncovered(rows, store, reads):
-    """An advert line that asks something no requirement of its posting quotes.
-
-    Args:
-        rows: the SELECT's rows, ?focus a posting and ?q each quote of it.
-        store: the loaded workspace.
-        reads: the Reads whose adverts supply posting.md and decisions.txt.
-
-    Returns:
-        A row per uncovered line, with the "line".
-    """
-    from .parsed import Unreadable
-
-    quotes = defaultdict(list)
-    for r in rows:
-        # Stripped as the line is below: a quote ending in its line's full stop is not
-        # in the line once the line has lost it.
-        quotes[v(r, "focus")].append(squash(v(r, "q") or "").casefold().rstrip(".;, "))
-    out = []
-    for post, said in quotes.items():
-        file = store.file_of(post)
-        if not file:
-            continue
-        folder = folder_of(file)
-        try:
-            advert = reads.adverts.advert(store.root, folder)
-        except Unreadable:
-            continue                        # quote-verbatim says why it could not be read
-        said = [q for q in said if q]
-        dropped = dropped_lines(reads.adverts, store.root, folder, advert)
-        for line in asked_lines(advert):
-            if line in dropped:
-                continue                    # dropped with a reason, which gaps.md shows
-            low = line.casefold().rstrip(".;, ")
-            if not any(q in low or low in q for q in said):
-                out.append({"focus": node(post), "line": line})
-    return out
+        by.setdefault(v(r, "focus"), (r, set()))[1].add(v(r, "proj"))
+    return [{**r, "proj": sorted(projects)[0], "more": len(projects) - 1}
+            for r, projects in by.values()]
 
 
 def out_of_step(kinds):
@@ -503,7 +402,8 @@ RULES = [
          "see `jsk kb query bare`; label the most-held first, or adopt "
          "`jsk kb pack capabilities`", bare),
     Rule("quote-verbatim", FAIL,
-         """SELECT ?focus ?q WHERE { ?focus a j:Requirement ; j:quote ?q }""",
+         """SELECT ?focus ?q ?p WHERE { ?focus a j:Requirement ; j:quote ?q
+              OPTIONAL { ?focus j:posting ?p } }""",
          lambda r: f"its quote {v(r, 'q')[:50]!r} - {r['why']}",
          "quote the advert's own words, from posting.md; a requirement it does not state is "
          "invented", unquoted),
@@ -520,6 +420,29 @@ RULES = [
          "write a requirement quoting it in the posting, or - if it is eligibility (work "
          "rights, clearance, location) - it belongs in gaps.md's # Eligibility and can stay "
          "unquoted", uncovered),
+    Rule("quote-is-line", FAIL,
+         """SELECT ?focus ?q ?t ?n WHERE { ?focus a j:Requirement ; j:quote ?q ; j:line ?l .
+              ?l j:text ?t ; j:n ?n }""",
+         lambda r: f"its quote {v(r, 'q')[:50]!r} is not the text of line {v(r, 'n')}, "
+                   "which it points at",
+         "the quote is the line's own words: quote the line whole, or point j:line at the "
+         "line that says it", not_the_line),
+    # Ruling 8: a person's no against a project that holds what it denies. Not a FAIL: one
+    # of the two is stale, and only the person can say which.
+    Rule("absence-contradicted", WARN,
+         # What holdings.py calls held: tagged, a domain, or shown by a live bullet that is
+         # not disputed - closed upward without implies, which never satisfies.
+         """SELECT DISTINCT ?focus ?c ?proj WHERE { ?focus a j:Absence ; j:concept ?c
+              FILTER NOT EXISTS { ?focus j:retired ?r }
+              ?proj a j:Project FILTER NOT EXISTS { ?proj j:retired ?x }
+              { ?proj j:uses ?h } UNION { ?proj j:domain ?h }
+              UNION { ?b j:project ?proj ; j:shows ?h FILTER NOT EXISTS { ?b j:retired ?y }
+                      FILTER NOT EXISTS { ?b j:provenance j:disputed } }
+              ?h (j:isA|j:partOf)* ?c }""",
+         lambda r: f"says no to {curie(v(r, 'c'))}, which {curie(r['proj'])} holds"
+                   + (f" (and {r['more']} more)" if r["more"] else ""),
+         "ask the person again: retire the absence, or the project's claim to it",
+         contradicted),
     Rule("log-sync", FAIL, None,
          lambda r: r["state"].detail, log_sync_fix, out_of_step(("torn", "out-of-sync"))),
     Rule("hand-edited", WARN, None,

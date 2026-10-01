@@ -100,6 +100,12 @@ k:kb   k:person              the two singletons
 | `met_` | Metric | `gap_` | Assessment |
 | `met_x.vN` | MetricVersion | `vrd_` | Verdict |
 | `skill_` | Skill | `rev_` | LogEntry |
+| `abs_` | Absence | `line_` | AdvertLine |
+| `ask_` | Ask | `rvw_` | Review |
+| `rvr_` | ReviewRow | `rvi_` | ReviewItem |
+| `sel_` | Selection | `pck_` | Pick |
+
+`rvw_`, not `rev_`: a log entry has that prefix, and a prefix names one class.
 
 ## 3. Graph kinds
 
@@ -112,7 +118,10 @@ career/store/
   log                                    kind log
   applications/<dir>/posting             kind posting
   applications/<dir>/gaps                kind gaps
+  applications/<dir>/review              kind review       (graph-native applications)
+  applications/<dir>/resume              kind resume       (graph-native applications)
   applications/<dir>/application         kind application
+  resumes/<name>/resume                  kind resume       (a general resume's selection)
 <package>/jsk/data/vocabulary.ttl        kind vocabulary (shipped, read-only, loaded each run, never stored)
 *.trig                                   a changeset or a dump: input, never stored as a file
 ```
@@ -121,8 +130,10 @@ career/store/
 |---|---|---|---|
 | `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `jsk kb apply`, `confirm`, `new`, `load` |
 | `log` | none | Log | Every write to the career, in the same update (`apply`, `confirm`, `new`), and the one-time import's one entry (`load`). `jsk app freeze`, `jsk app event` and the posting and gaps builds add none |
-| `posting` | Posting | Posting · Requirements | `jsk posting build`, from the analyst's `decisions.txt` |
-| `gaps` | Assessment | Assessment · Verdicts | `jsk tailor prepare` / `jsk tailor match --gaps`, derived from the match plus the analyst's `gaps.txt` |
+| `posting` | Posting | Posting · Requirements · Advert lines | `jsk posting build`, from the analyst's `decisions.txt`; a graph-native posting's lines and rows, a row at a time |
+| `gaps` | Assessment | Assessment · Verdicts · Questions | `jsk tailor prepare` / `jsk tailor match --gaps`, derived from the match plus the analyst's `gaps.txt` (or the review graph) |
+| `review` | Review | Review · Rows · Items | the analyst's review of a graph-native application: what `gaps.txt` holds for a file-built one |
+| `resume` | Selection | Selection · Picks | a graph-native application's selection, or a general resume's: what `resume.json` holds for a file-built one |
 | `application` | Application | Application · Timeline | `jsk app freeze`, `jsk app event` |
 | `vocabulary` | none | Vocabulary | Shipped with the package |
 
@@ -153,6 +164,14 @@ classDiagram
     class Application
     class Event
     class LogEntry
+    class Absence
+    class AdvertLine
+    class Ask
+    class Review
+    class ReviewRow
+    class ReviewItem
+    class Selection
+    class Pick
 
     Position --> Organisation : organisation
     Project --> Position : position
@@ -177,6 +196,18 @@ classDiagram
     Application --> Achievement : carried
     Application --> MetricVersion : carriedVersion
     Event --> Application : application
+
+    Absence ..> Concept : concept
+    AdvertLine --> Posting : posting
+    Requirement --> AdvertLine : line
+    Ask --> Assessment : assessment
+    Ask --> Requirement : requirement
+    Review --> Posting : posting
+    ReviewRow --> Review : review
+    ReviewRow --> Requirement : requirement
+    ReviewItem --> Review : review
+    Pick --> Selection : selection
+    Pick --> Achievement : item
 ```
 
 The diagram leaves out three references that may point at any id: `Question about`,
@@ -493,11 +524,35 @@ A question stays open until it has `answered`. Any entry left `inferred` or
 `needs-verification` should have an open question about it (`inferred-unasked`), and `jsk kb
 apply` opens one automatically when it lowers an entry's provenance.
 
+#### Absence
+
+A person's "no": a concept they say they do not hold ("never used Kafka"). It is a claim like
+any other, so it arrives `inferred` through a changeset and counts only once confirmed with the
+person's answer.
+
+id `k:abs_<concept-slug>` · section Open questions · provenance yes
+
+| Predicate | Object | Card. | Resets | Meaning |
+|---|---|---|---|---|
+| `j:concept` | → concept | 1 | yes | what the person said they have not done |
+| `j:said` | xsd:date | 1 | yes | the day they said it |
+| `j:answer` | xsd:string (long) | 1 | yes | their words |
+
+A confirmed absence that has not lapsed answers the match: a requirement whose every concept a
+standing absence denies is `missing`, its basis "said on <date>: <answer>", and asks no
+question - so the same no is never asked twice. A requirement listing alternatives is settled
+only when every alternative is denied. An absence lapses 365 days after `said`
+(`LAPSE_DAYS` in `domain/record/absence.py`, computed, never stored); a lapsed one is ignored
+by the match and is due to be asked again. A live project that holds what an absence denies
+is a WARN (`absence-contradicted`): one of the two is stale. Absences sit under Open
+questions, after the questions, because a new section would change the hash of every career.
+
 ### 5.2 The market: `posting` and `gaps`
 
 #### Posting
 
-A job advertisement. The advert's own text sits next to it, verbatim, in `posting.md`.
+A job advertisement. A file-built posting's text sits next to it, verbatim, in `posting.md`; a
+graph-native posting's is its `AdvertLine`s, and it has no `posting.md`.
 
 id `k:post_<slug>` · graph posting · section Posting · provenance no
 
@@ -509,7 +564,29 @@ id `k:post_<slug>` · graph posting · section Posting · provenance no
 | `j:seniority` | enum `seniority` | 0..1 |  | the level it asks for |
 | `j:domain` | → concept (Domain) | 0..n |  | its domains |
 | `j:captured` | xsd:date | 1 |  | the day it was saved |
-| `j:advert` | xsd:string, exactly `posting.md` | 1 |  | the verbatim advert beside it |
+| `j:advert` | xsd:string, exactly `posting.md` | 0..1 |  | the verbatim advert beside it; absent on a graph-native posting |
+| `j:state` | enum `progress` | 0..1 |  | `draft` while it is decided a row at a time, then `complete`; absent on a file-built posting, which is complete |
+
+A posting is graph-native when its graph holds `AdvertLine`s. `quote-verbatim` and
+`advert-uncovered` read those lines instead of `posting.md`, and skip a `draft` posting, which
+may be half-decided.
+
+#### AdvertLine
+
+One line of an advert a requirement could quote, as `advert_lines` numbers it. Concepts are not
+stored on a line: they depend on the vocabulary, which changes, so they are found on read.
+
+id `k:line_<stem>_<n>` · graph posting · section Advert lines · provenance no
+
+| Predicate | Object | Card. | Resets | Meaning |
+|---|---|---|---|---|
+| `j:posting` | → Posting | 1 |  | the posting it is a line of |
+| `j:n` | xsd:integer 1.. | 1 |  | its number, from 1, in the advert's order |
+| `j:section` | enum `advertSection` | 1 |  | qualification, responsibility or other |
+| `j:text` | xsd:string (long) | 1 |  | the line, squashed: what a requirement quotes |
+| `j:optional` | xsd:boolean | 0..1 |  | under an optional heading, or worded optionally |
+| `j:eligibility` | xsd:boolean | 0..1 |  | eligibility's words: never a requirement |
+| `j:dropped` | xsd:string | 0..1 |  | the analyst's reason for leaving it out |
 
 #### Requirement
 
@@ -524,8 +601,10 @@ id `k:req_<slug>` · graph posting · section Requirements · provenance no
 | `j:necessity` | enum `necessity` | 1 |  | required, preferred or implicit |
 | `j:concept` | → concept | 0..n |  | the concepts meant, any one of which satisfies it: one when the label is ambiguous, several when the advert lists alternatives |
 | `j:quote` | xsd:string (long) | 1 |  | the advert's own words |
+| `j:line` | → AdvertLine | 0..1 |  | the advert line it quotes, on a graph-native posting |
 
-`quote` must appear in `posting.md` word for word (`quote-verbatim`). The comparison ignores
+On a graph-native posting `quote` is its `line`'s text, and a requirement whose quote differs
+from it FAILs (`quote-is-line`). `quote` must appear in `posting.md` word for word (`quote-verbatim`). The comparison ignores
 typography, whitespace and Markdown emphasis. A requirement is resolved to concepts through
 `asked` unless `concept` is given (§11). Leave `concept` out when `asked` resolves on its own.
 State it when the term is ambiguous, unknown, or lists alternatives ("AWS/GCP/Azure").
@@ -545,7 +624,7 @@ id `k:gap_<stem>` · graph gaps · section Assessment · provenance no
 | `j:eligibility` | xsd:string | 0..1 |  | the analyst's eligibility judgement |
 | `j:fallsShort` | xsd:string (long) | 0..1 |  | where it falls short, most load-bearing first; one item a line |
 | `j:surplus` | xsd:string (long) | 0..1 |  | surplus worth knowing about; one item a line |
-| `j:questions` | xsd:string (long) | 0..1 |  | the questions to ask, in order; one a line |
+| `j:questions` | xsd:string (long) | 0..1 |  | the questions to ask, in order; one a line. A file-built application's only: a graph-native one has `Ask`s |
 
 The default `fit` is `poor` when any required requirement is `unsatisfied`, `strong` when every
 required requirement is `satisfied`, and `partial` otherwise.
@@ -571,6 +650,117 @@ id `k:vrd_<stem>_<slug>` · graph gaps · section Verdicts · provenance no
 When the two differ, `shortfall` says why. The one flag, `listed-names`, fires on a satisfied
 requirement whose quote names specific things (for example "Pinecone, Milvus") that none of
 the confirmed evidence bullets mentions.
+
+#### Ask
+
+One question a graph-native assessment asks, in place of the `questions` text. The concepts
+are copied from its requirement, so the questions about a concept are found without a join.
+
+id `k:ask_<stem>_<i>` · graph gaps · section Questions · provenance no
+
+| Predicate | Object | Card. | Resets | Meaning |
+|---|---|---|---|---|
+| `j:assessment` | → Assessment | 1 |  | the assessment asking |
+| `j:position` | xsd:integer 1.. | 1 |  | its place in the order, from 1 |
+| `j:question` | xsd:string (long) | 1 |  | the question, ready to ask aloud |
+| `j:requirement` | → Requirement | 0..1 |  | the requirement it is about; none for a missing metric or a question the analyst wrote |
+| `j:concept` | → concept | 0..n |  | that requirement's concepts |
+
+A requirement a standing absence answers is asked nothing, so it has no `Ask`.
+
+### 5.2a The review and the selection: `review` and `resume`
+
+A graph-native application keeps in the store what a file-built one keeps in `gaps.txt` and
+`resume.json`. Both kinds are per application (`applications/<dir>/review`,
+`applications/<dir>/resume`) and move with it when it is frozen; a general resume's selection
+is `resumes/<name>/resume`.
+
+#### Review
+
+The analyst's review of a posting's assessment. It survives what the gaps graph does not - a
+re-derivation, a posting rebuild - and reads back as the same overlay `gaps.txt` parses to.
+
+id `k:rvw_<stem>` · graph review · section Review · provenance no
+
+| Predicate | Object | Card. | Resets | Meaning |
+|---|---|---|---|---|
+| `j:posting` | → Posting | 1 |  | the posting reviewed |
+| `j:fit` | enum `fit` | 0..1 |  | the analyst's fit, when it is not the match's |
+| `j:state` | enum `progress` | 0..1 |  | draft or complete |
+| `j:eligibility` | xsd:string | 0..1 |  | the analyst's eligibility judgement |
+
+#### ReviewRow
+
+One `gaps.txt` row: a flagged verdict kept, or a verdict lowered with its reason.
+
+id `k:rvr_<stem>_<slug>` · graph review · section Rows · provenance no
+
+| Predicate | Object | Card. | Resets | Meaning |
+|---|---|---|---|---|
+| `j:review` | → Review | 1 |  | the review |
+| `j:requirement` | → Requirement | 1 |  | the requirement it answers |
+| `j:verdict` | enum `reviewVerdict` | 1 |  | `keep`, or the verdict it lowers to |
+| `j:shortfall` | xsd:string | 0..1 |  | why it was lowered: the verdict's `shortfall` |
+
+The reason is `shortfall`, not `reason`: every class has `reason`, for a retirement.
+
+#### ReviewItem
+
+One `short:`, `surplus:` or `ask:` line, in order.
+
+id `k:rvi_<stem>_<kind>_<i>` · graph review · section Items · provenance no
+
+| Predicate | Object | Card. | Resets | Meaning |
+|---|---|---|---|---|
+| `j:review` | → Review | 1 |  | the review |
+| `j:kind` | enum `reviewItem` | 1 |  | short, surplus or ask |
+| `j:position` | xsd:integer 1.. | 1 |  | its place among its kind, from 1 |
+| `j:text` | xsd:string (long) | 1 |  | what it says |
+| `j:about` | → Requirement | 0..1 |  | the requirement it is about |
+
+#### Selection
+
+A resume's selection and settings: `resume.json` as triples. Its keys stay the interchange
+format, and `selection.doc_of` gives the same dict back for `plan.build` to render.
+
+id `k:sel_app_<stem>` or `k:sel_cv_<name>` · graph resume · section Selection · provenance no
+
+| Predicate | Object | Card. | Resets | Meaning |
+|---|---|---|---|---|
+| `j:format` | xsd:string `presentation\|ats-maximal` | 0..1 |  | `format` |
+| `j:region` | xsd:string `[A-Za-z]{2}` | 0..1 |  | `region` |
+| `j:pages` | xsd:integer 1.. | 0..1 |  | `pages` |
+| `j:atsPages` | xsd:integer 1.. | 0..1 |  | `ats_pages` |
+| `j:floor` | xsd:string, a provenance's name | 0..1 |  | `floor` |
+| `j:summaryText` | xsd:string (long) | 0..1 |  | `summary.text` |
+| `j:summaryStatus` | xsd:string `confirmed\|inferred` | 0..1 |  | `summary.status` |
+| `j:summaryAnswer` | xsd:string (long) | 0..1 |  | `summary.answer` |
+| `j:summarySha` | xsd:string `[0-9a-f]{12}` | 0..1 |  | `summary.text_sha256` |
+| `j:headlineText` | xsd:string | 0..1 |  | `headline.text` |
+| `j:headlineStatus` | xsd:string `confirmed\|inferred` | 0..1 |  | `headline.status` |
+| `j:headlineAnswer` | xsd:string (long) | 0..1 |  | `headline.answer` |
+| `j:headlineSha` | xsd:string `[0-9a-f]{12}` | 0..1 |  | `headline.text_sha256` |
+
+A selection with every setting at its default carries a `j:note`, so the graph still holds it.
+A frozen graph-native application's `recordSha256` is the SHA-256 of
+`json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False)` encoded UTF-8,
+where `doc` is the selection's dict (`selection.canonical`).
+
+#### Pick
+
+One entry a selection lists.
+
+id `k:pck_<app_stem | cv_name>_<list>_<i>` · graph resume · section Picks · provenance no
+
+| Predicate | Object | Card. | Resets | Meaning |
+|---|---|---|---|---|
+| `j:selection` | → Selection | 1 |  | the selection |
+| `j:item` | → Achievement, Position or Skill | 1 |  | the entry picked |
+| `j:position` | xsd:integer 1.. | 1 |  | its place in its list, from 1 |
+| `j:alias` | xsd:string | 0..1 |  | the name a skill renders under: `resume.json`'s `names` |
+
+`<list>` is `bullets`, `roles` or `skills`, or `names` for a skill renamed but not listed. An
+empty list is no list: the render reads both the same.
 
 ### 5.3 The history: `application` and `log`
 
@@ -665,6 +855,10 @@ first.
 | `flag` | Verdict | `listed-names` |
 | `eventKind` | Event.kind | `submitted` · `acknowledged` · `screen-scheduled` · `screen-done` · `interview-scheduled` · `interview-done` · `onsite-scheduled` · `onsite-done` · `offer` · `offer-accepted` · `rejected` · `withdrawn` · `no-response` · `offer-declined` · `follow-up-sent` · `note` · `referral` · `recruiter-contact` |
 | `logBy` | LogEntry.by | `apply` · `confirm` · `new` · `load` - and on entries from before the store, `adopt` · `migrate` · `fmt`, commands that no longer exist |
+| `progress` | Posting.state, Review.state | `draft` · `complete` |
+| `advertSection` | AdvertLine.section | `qualification` · `responsibility` · `other` |
+| `reviewVerdict` | ReviewRow.verdict | `keep` · `satisfied` · `partial` · `unevidenced` · `unsatisfied` · `indeterminate` |
+| `reviewItem` | ReviewItem.kind | `short` · `surplus` · `ask` |
 
 Notes on a few values:
 

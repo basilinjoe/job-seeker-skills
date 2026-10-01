@@ -83,6 +83,13 @@ class FromNothing(Scaffold):
         self.assertEqual(list(Path(self.root).rglob("*.ttl")), [])      # no file is the record
         self.assertFalse(self.path("user-knowledgebase.md").exists())
 
+    def test_it_makes_a_place_for_general_resumes(self):
+        # Ruling 10 of the graph-native plan: a general resume's selection is the graph
+        # resumes/<name>/resume, and its render lands in resumes/<name>/.
+        code, out = self.new()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(self.path("resumes").is_dir(), out)
+
     def test_the_record_loads_clean_at_r1_with_no_finding(self):
         self.new()
         store = S.load(self.root)
