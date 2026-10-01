@@ -152,6 +152,19 @@ ENUMS = {
     # kept for the r1 entries `jsk migrate` wrote before it was removed. `load` is the
     # one-time import of a workspace laid out as files: its entry hashes what it imported.
     "logBy": ("apply", "confirm", "adopt", "migrate", "fmt", "new", "load"),
+    # A graph-native posting or review is drafted a row at a time, and complete once its
+    # checks hold (docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md,
+    # Rulings 3 and 4). Not `state`: that is a role's, and its values mean something else.
+    "progress": ("draft", "complete"),
+    # advert.AdvertLine's sections, in advert_lines' words. `offered` is never stored: what a
+    # benefits heading lists is not a line a requirement could quote.
+    "advertSection": ("qualification", "responsibility", "other"),
+    # gaps.txt's row verdicts as the review graph keeps them: `keep` answers a flag, and the
+    # rest are `verdict`'s, in its order.
+    "reviewVerdict": ("keep", "satisfied", "partial", "unevidenced", "unsatisfied",
+                      "indeterminate"),
+    # gaps.txt's repeated keyed lines, as the review graph's ordered items.
+    "reviewItem": ("short", "surplus", "ask"),
 }
 
 ANY = ("*",)
@@ -296,6 +309,16 @@ CLASSES = (
         (Pred("asked", DATE, "1", "when it was raised"),
          Pred("answered", DATE, "?", "when it was answered")),
     ), "the gap queue"),
+    # Ruling 8: a "no" is a claim like any other - inferred until the person confirms it, and
+    # lapsed 365 days after it was said (domain/record/absence.py). Under Open questions, a
+    # section every career already prints: a new banner would change every career's hash,
+    # and `jsk kb check` would call every store written outside jsk.
+    Class("Absence", "abs", ("kb",), "Open questions", (
+        (Pred("concept", Concept(), "1", "what the person said they have not done",
+              claim=True),
+         Pred("said", DATE, "1", "the day they said it", claim=True)),
+        (Pred("answer", TEXT, "1", "their words", claim=True),),
+    ), "a person's no: a concept they say they do not hold", claims=True),
     # --- applications/<dir>/posting ---------------------------------------------------
     Class("Posting", "post", ("posting",), "Posting", (
         (Pred("company", STR, "1", "the employer advertising"),
@@ -304,8 +327,22 @@ CLASSES = (
         (Pred("seniority", Enum("seniority"), "?", "the level it asks for"),
          Pred("domain", Concept(("Domain",)), "*", "its domains")),
         (Pred("captured", DATE, "1", "the day it was saved"),
-         Pred("advert", Lit(("string",), r"posting\.md"), "1", "the verbatim advert beside it")),
+         Pred("advert", Lit(("string",), r"posting\.md"), "?",
+              "the verbatim advert beside it; absent when its lines are in the graph"),
+         Pred("state", Enum("progress"), "?", "draft or complete; absent on a posting built "
+                                                "from files, which is complete")),
     ), "a job advertisement"),
+    # Ruling 1: the advert as lines, as advert_lines numbers them. No concepts: they follow
+    # the vocabulary, which changes, so they are found when the lines are read.
+    Class("AdvertLine", "line", ("posting",), "Advert lines", (
+        (Pred("posting", Ref(("Posting",)), "1", "the posting it is a line of"),
+         Pred("n", Lit(("integer",), lo=1), "1", "its number, from 1, in the advert's order"),
+         Pred("section", Enum("advertSection"), "1", "qualification, responsibility or other")),
+        (Pred("text", TEXT, "1", "the line, squashed: what a requirement quotes"),),
+        (Pred("optional", BOOL, "?", "under an optional heading, or worded optionally"),
+         Pred("eligibility", BOOL, "?", "eligibility's words: never a requirement")),
+        (Pred("dropped", STR, "?", "the analyst's reason for leaving it out"),),
+    ), "one line of an advert"),
     Class("Requirement", "req", ("posting",), "Requirements", (
         (Pred("posting", Ref(("Posting",)), "1", "the posting asking"),),
         (Pred("asked", STR, "1", "the term as the advert wrote it"),
@@ -314,6 +351,7 @@ CLASSES = (
                                           "the label is ambiguous, several when the advert "
                                           "lists alternatives")),
         (Pred("quote", TEXT, "1", "the advert's own words"),),
+        (Pred("line", Ref(("AdvertLine",)), "?", "the advert line it quotes"),),
     ), "one thing a posting asks for"),
     # --- applications/<dir>/application -----------------------------------------------
     Class("Application", "app", ("application",), "Application", (
@@ -325,7 +363,9 @@ CLASSES = (
          Pred("channel", STR, "?", "how it was sent")),
         (Pred("document", STR, "*", "a file that was sent"),),
         (Pred("recordSha256", SHA256, "?", "the frozen resume.json's hash - the short "
-                                                   "file's own; the words are the documents"),),
+                                                   "file's own; the words are the documents. "
+                                                   "For a selection in the graph, SHA-256 of "
+                                                   "selection.canonical (Ruling 7)"),),
         (Pred("carried", Ref(("Achievement",)), "*", "bullets it sent"),),
         (Pred("carriedVersion", Ref(("MetricVersion",)), "*", "metric versions it sent"),),
     ), "a submission"),
@@ -359,6 +399,69 @@ CLASSES = (
         (Pred("basis", STR, "1", "why the match says what it says"),),
         (Pred("shortfall", STR, "?", "the analyst's reason for lowering it"),),
     ), "one requirement's verdict"),
+    # Ruling 5: the questions as nodes, each with the concepts it is about copied from its
+    # requirement, so "what have I been asked about Kafka" needs no join. Replaces
+    # j:questions for a graph-native application only.
+    Class("Ask", "ask", ("gaps",), "Questions", (
+        (Pred("assessment", Ref(("Assessment",)), "1", "the assessment asking"),
+         Pred("position", Lit(("integer",), lo=1), "1", "its place in the order, from 1")),
+        (Pred("question", TEXT, "1", "the question, ready to ask aloud"),),
+        (Pred("requirement", Ref(("Requirement",)), "?", "the requirement it is about"),
+         Pred("concept", Concept(), "*", "that requirement's concepts")),
+    ), "one question the assessment asks"),
+    # --- applications/<dir>/review: the analyst's overlay, kept between runs -------------
+    # Ruling 4: what gaps.txt held, as triples. It outlives the gaps graph, which a
+    # re-derivation rewrites.
+    Class("Review", "rvw", ("review",), "Review", (
+        (Pred("posting", Ref(("Posting",)), "1", "the posting reviewed"),
+         Pred("fit", Enum("fit"), "?", "the analyst's fit, when it is not the match's"),
+         Pred("state", Enum("progress"), "?", "draft or complete")),
+        (Pred("eligibility", STR, "?", "the analyst's eligibility judgement"),),
+    ), "the analyst's review of a posting's assessment"),
+    Class("ReviewRow", "rvr", ("review",), "Rows", (
+        (Pred("review", Ref(("Review",)), "1", "the review"),
+         Pred("requirement", Ref(("Requirement",)), "1", "the requirement it answers")),
+        (Pred("verdict", Enum("reviewVerdict"), "1", "keep, or the verdict it lowers to"),
+         # Not j:reason, which every class has for a retirement. It becomes the verdict's
+         # j:shortfall, so it is named the same.
+         Pred("shortfall", STR, "?", "why it was lowered")),
+    ), "one gaps.txt row"),
+    Class("ReviewItem", "rvi", ("review",), "Items", (
+        (Pred("review", Ref(("Review",)), "1", "the review"),
+         Pred("kind", Enum("reviewItem"), "1", "short, surplus or ask"),
+         Pred("position", Lit(("integer",), lo=1), "1", "its place among its kind, from 1")),
+        (Pred("text", TEXT, "1", "what it says"),),
+        (Pred("about", Ref(("Requirement",)), "?", "the requirement it is about"),),
+    ), "one short, surplus or ask line"),
+    # --- applications/<dir>/resume and resumes/<name>/resume: a selection --------------
+    # Ruling 6: resume.json as triples. Its keys stay the interchange format: doc_of gives
+    # the same dict back (domain/resume/selection.py).
+    Class("Selection", "sel", ("resume",), "Selection", (
+        (Pred("format", Lit(("string",), r"presentation|ats-maximal"), "?", "the format"),
+         Pred("region", Lit(("string",), r"[A-Za-z]{2}"), "?", "the region's profile"),
+         Pred("pages", Lit(("integer",), lo=1), "?", "the page budget"),
+         Pred("atsPages", Lit(("integer",), lo=1), "?", "the ats-maximal page budget"),
+         Pred("floor", Lit(("string",), r"confirmed|inferred|needs-verification|disputed"), "?",
+              "the lowest provenance that renders")),
+        (Pred("summaryText", TEXT, "?", "the summary"),),
+        (Pred("summaryStatus", Lit(("string",), r"confirmed|inferred"), "?",
+              "confirmed or inferred"),
+         Pred("summaryAnswer", TEXT, "?", "the person's words confirming it"),
+         Pred("summarySha", Lit(("string",), r"[0-9a-f]{12}"), "?",
+              "the confirmed text's hash, as short.digest gives it")),
+        (Pred("headlineText", TEXT, "?", "the headline"),),
+        (Pred("headlineStatus", Lit(("string",), r"confirmed|inferred"), "?",
+              "confirmed or inferred"),
+         Pred("headlineAnswer", TEXT, "?", "the person's words confirming it"),
+         Pred("headlineSha", Lit(("string",), r"[0-9a-f]{12}"), "?",
+              "the confirmed text's hash, as short.digest gives it")),
+    ), "a resume's selection and settings"),
+    Class("Pick", "pck", ("resume",), "Picks", (
+        (Pred("selection", Ref(("Selection",)), "1", "the selection"),
+         Pred("item", Ref(("Achievement", "Position", "Skill")), "1", "the entry picked"),
+         Pred("position", Lit(("integer",), lo=1), "1", "its place in its list, from 1")),
+        (Pred("alias", STR, "?", "the name a skill renders under: resume.json's names"),),
+    ), "one entry a selection lists"),
     # --- log: the career's history -----------------------------------------------------
     Class("LogEntry", "rev", ("log",), "Log", (
         (Pred("revision", Lit(("integer",), lo=1), "1", "counts up from 1"),
@@ -381,16 +484,19 @@ SECTIONS = {
            "Organisations", "Roles", "Projects", "Metrics", "Skills", "Education",
            "Certifications", "Open source", "Open questions"),
     "vocabulary": ("Vocabulary",),
-    "posting": ("Posting", "Requirements"),
+    "posting": ("Posting", "Requirements", "Advert lines"),
     "application": ("Application", "Timeline"),
-    "gaps": ("Assessment", "Verdicts"),
+    "gaps": ("Assessment", "Verdicts", "Questions"),
+    "review": ("Review", "Rows", "Items"),
+    "resume": ("Selection", "Picks"),
     "log": ("Log",),
 }
 # The career prints every banner, empty or not: the structure is the contract.
 ALL_BANNERS = {"kb"}
 
 # The class each file kind holds exactly one of: what makes the file that kind of file.
-HEADS = {"kb": "KB", "posting": "Posting", "application": "Application", "gaps": "Assessment"}
+HEADS = {"kb": "KB", "posting": "Posting", "application": "Application", "gaps": "Assessment",
+         "review": "Review", "resume": "Selection"}
 
 # The file names are the import's: a workspace from before the store (infra/legacy_import.py).
 FILE_KINDS = {"kb.ttl": "kb", "log.ttl": "log", "posting.ttl": "posting",
@@ -398,7 +504,9 @@ FILE_KINDS = {"kb.ttl": "kb", "log.ttl": "log", "posting.ttl": "posting",
               "vocabulary.ttl": "vocabulary",
               # ... and as the store names the graph each file became
               "kb": "kb", "log": "log", "posting": "posting", "application": "application",
-              "gaps": "gaps", "vocabulary": "vocabulary"}
+              "gaps": "gaps", "vocabulary": "vocabulary",
+              # ... and the two kinds that were never files (Ruling 10)
+              "review": "review", "resume": "resume"}
 
 SLUG = r"[a-z0-9]+(?:_[a-z0-9]+)*"
 ID = re.compile(rf"(?P<prefix>[a-z]+)_(?P<slug>{SLUG})(?:\.v(?P<version>[1-9][0-9]*))?")

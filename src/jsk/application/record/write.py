@@ -30,8 +30,10 @@ def writable(store, state):
         Failing: the career has FAILs (an application's count only when it will not
             parse). Unclean: the record is not clean.
     """
+    from ...domain.naming import is_own
+
     blocking = [f for f in store.fails() if f.rule not in ("log-sync",)
-                and (not f.file.startswith("applications/") or f.rule == "syntax")]
+                and (not is_own(f.file) or f.rule == "syntax")]
     if blocking:
         raise Failing(blocking, f"REFUSED  the career has {len(blocking)} failures - fix them first:")
     st = state(store)

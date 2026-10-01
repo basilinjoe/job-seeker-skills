@@ -14,9 +14,10 @@ import re
 from dataclasses import dataclass
 
 from ...domain import ontology as O
-from ...domain.posting.advert import REQUIRED_WORDS, advert_lines, squash
+from ...domain.posting.advert import advert_lines
 from ...domain.posting.decide import DECISIONS, SOFT_CAP, default_need
 from ...domain.posting.errors import Refused
+from ...domain.posting.rows import Rows, coverage
 from .extract import posting_stem, read_advert, workspace
 
 
@@ -226,50 +227,36 @@ def requirements(d):
         [(slug, asked, need, concept iris, quote)], in the rows' order.
     """
     known, retired, domains = concepts_of(d)
-    lines = d.lines
-    used, slugs, asked, reqs = set(), {}, {}, []
+    # The row checks are domain/posting/rows.py's, which a graph-native posting's rows go
+    # through too: one implementation, so the two paths cannot disagree on a row.
+    rows = Rows(d.lines, at=d.at, refetch=f"fix:  re-run `jsk posting extract {d.app_dir}`")
+    reqs = []
     for row in d.dec.rows:
-        line = lines.get(row.n)
+        noted(d, rows.row(row.line, row.n, row.slug, row.asked))
+        line = d.lines.get(row.n)
         if line is None:
-            d.refuse(f"{d.at(row.line)}: line {row.n} is not one extract printed "
-                     f"(1-{len(lines)})", f"fix:  re-run `jsk posting extract {d.app_dir}`")
             continue
-        used.add(row.n)         # answered, even when wrongly: not also "neither used"
-        if squash(row.asked).casefold() not in line.text.casefold():
-            d.refuse(f"{d.at(row.line)}: {row.asked!r} is not in line {row.n}: {line.text!r}",
-                     "fix:  write `asked` as the line writes it, or use the line that says it")
-        if row.slug in slugs:
-            d.refuse(f"{d.at(row.line)}: slug {row.slug!r} is used on line {slugs[row.slug]} "
-                     f"too", "fix:  one slug per requirement")
-        slugs.setdefault(row.slug, row.line)
-        # `jsk tailor match --gaps` pairs gaps.md's rows to requirements by this, so two with one
-        # `asked` could never pair and would warn on even a perfect draft.
-        term = O.norm(row.asked)
-        if term in asked:
-            d.refuse(f"{d.at(asked[term])} and line {row.line}: two requirements ask "
-                     f"{row.asked!r}",
-                     "fix:  merge them into one requirement, or name each as the advert writes it")
-        asked.setdefault(term, row.line)
         iris = [iri for c in row.concepts
                 if (iri := concept(d, c, d.at(row.line), known, retired, domains))]
         need = row.need or default_need(line)
-        if need == "required" and line.section == "responsibility" \
-                and not REQUIRED_WORDS.search(line.text):
-            d.warnings.append(f"{d.at(row.line)}: {row.slug} makes responsibility line "
-                              f"{row.n} required, and the line does not say so")
+        noted(d, rows.necessity(row.line, row.n, row.slug, need))
         reqs.append((row.slug, row.asked, need, iris, line.text))
     for drop in d.dec.drops:
-        if drop.n not in lines:
-            d.refuse(f"{d.at(drop.line)}: line {drop.n} is not one extract printed "
-                     f"(1-{len(lines)})", f"fix:  re-run `jsk posting extract {d.app_dir}`")
-        used.add(drop.n)
-    missing = [x.n for x in lines.values()
-               if x.section == "qualification" and not x.elig and x.n not in used]
+        noted(d, rows.drop(drop.line, drop.n))
+    missing = rows.uncovered()
     if missing:
-        d.refuse(f"{d.path}: advert line{'s' if len(missing) > 1 else ''} "
-                 f"{', '.join(map(str, missing))} neither used nor dropped",
-                 "fix:  a row for what it asks, or `n | - | <reason>`")
+        noted(d, [coverage(missing, d.path)])
     return reqs
+
+
+def noted(d, findings):
+    """Each of rows.py's findings noted on the Decided: a FAIL as a problem, a WARN as a
+    warning (its message alone, as build always printed it)."""
+    for severity, message, fix in findings:
+        if severity == "FAIL":
+            d.refuse(message, fix)
+        else:
+            d.warnings.append(message)
 
 
 def checked(d, built_triples, rel, folder):

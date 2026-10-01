@@ -208,9 +208,10 @@ def validated(root, record, *, load, vocabulary):
     Raises:
         Failing: the career would load with FAILs.
     """
+    from ...domain.naming import is_own
+
     after = load(root, files=[vocabulary], graphs=record)
-    blocking = [f for f in after.fails()
-                if not f.file.startswith("applications/") or f.rule == "syntax"]
+    blocking = [f for f in after.fails() if not is_own(f.file) or f.rule == "syntax"]
     if blocking:
         raise Failing(blocking, f"REFUSED  the record would load with {len(blocking)} failures:")
     return after

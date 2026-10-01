@@ -69,17 +69,29 @@ def default_need(line):
     return "required" if REQUIRED_WORDS.search(line.text) else "implicit"
 
 
-def triples(post, stem, head, seniority, domains, captured, reqs):
-    """The posting graph's triples: the Posting, then each requirement.
+def triples(post, stem, head, seniority, domains, captured, reqs, *, lines=None, drops=None,
+            state=None):
+    """The posting graph's triples: the Posting, then each requirement - and, for a
+    graph-native posting, the advert's lines.
+
+    Called without `lines`, it writes what `jsk posting build` always wrote, triple for
+    triple: a posting built from files keeps its advert in posting.md and its drops in
+    decisions.txt. With `lines` it writes Rulings 1-3 of
+    docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md: the lines with
+    their drops, each requirement's `j:line`, the posting's `j:state`, and no `j:advert`.
 
     Args:
         post: the posting's iri.
-        stem: its stem, which the requirements' ids carry.
+        stem: its stem, which the requirements' and lines' ids carry.
         head: decisions.txt's header (company, title, url).
         seniority: the level, or empty.
         domains: the domains' iris.
         captured: the day the advert was saved, ISO.
-        reqs: (slug, asked, need, concept iris, quote) per requirement.
+        reqs: (slug, asked, need, concept iris, quote) per requirement; with `lines`,
+            (slug, asked, need, concept iris, quote, line number).
+        lines: [advert.AdvertLine], or None for a posting built from files.
+        drops: {n: reason} for the lines left out; only with `lines`.
+        state: draft or complete; only with `lines`.
 
     Returns:
         [Triple].
@@ -87,6 +99,8 @@ def triples(post, stem, head, seniority, domains, captured, reqs):
     import pyoxigraph as ox
 
     from .. import ontology as O
+    from .lines import line_id
+    from .lines import triples as line_triples
 
     def j(name):
         return ox.NamedNode(O.J + name)
@@ -94,16 +108,23 @@ def triples(post, stem, head, seniority, domains, captured, reqs):
     s = ox.NamedNode(post)
     out = [ox.Triple(s, j("company"), ox.Literal(head["company"])),
            ox.Triple(s, j("title"), ox.Literal(head["title"])),
-           ox.Triple(s, j("captured"), ox.Literal(captured, datatype=ox.NamedNode(O.XSD + "date"))),
-           ox.Triple(s, j("advert"), ox.Literal(POSTING))]
+           ox.Triple(s, j("captured"), ox.Literal(captured, datatype=ox.NamedNode(O.XSD + "date")))]
+    if lines is None:
+        out.append(ox.Triple(s, j("advert"), ox.Literal(POSTING)))
+    elif state:
+        out.append(ox.Triple(s, j("state"), j(state)))
     if head.get("url"):
         out.append(ox.Triple(s, j("url"), ox.Literal(head["url"])))
     if seniority:
         out.append(ox.Triple(s, j("seniority"), j(seniority)))
     out += [ox.Triple(s, j("domain"), ox.NamedNode(c)) for c in domains]
-    for slug, asked, need, iris, quote in reqs:
+    for slug, asked, need, iris, quote, *at in reqs:
         r = ox.NamedNode(f"{O.K}req_{stem}_{slug}")
         out += [ox.Triple(r, j("posting"), s), ox.Triple(r, j("asked"), ox.Literal(asked)),
                 ox.Triple(r, j("necessity"), j(need)), ox.Triple(r, j("quote"), ox.Literal(quote))]
         out += [ox.Triple(r, j("concept"), ox.NamedNode(c)) for c in iris]
+        if lines is not None and at:
+            out.append(ox.Triple(r, j("line"), ox.NamedNode(O.K + line_id(stem, at[0]))))
+    if lines is not None:
+        out += line_triples(post, stem, lines, drops)
     return out

@@ -28,6 +28,13 @@ FILE_ONLY = {"log-sync", "hand-edited"}
 mutated = functools.partial(shapes_tests.mutated, stored=True)
 assert_fires = functools.partial(shapes_tests.assert_fires, stored=True)
 
+# One stored advert line for the fixture posting, which makes it graph-native (Ruling 11
+# of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md).
+NATIVE_LINE = ('\nk:line_acme_platform_engineer_1 j:posting k:post_acme_platform_engineer ; '
+               'j:n 1 ; j:section j:qualification ; j:text "Kafka in production." .\n')
+KAFKA_NO = ('\nk:abs_kafka j:concept c:kafka ; j:said "2026-09-01"^^xsd:date ; '
+            'j:answer "Never used Kafka." ; j:provenance j:confirmed .\n')
+
 # rule: (file, old text, new text, focus id, the fix contains). old=None appends new.
 MUTATIONS = {
     "dangling": (KB_FILE, "j:cites k:met_team ;", "j:cites k:met_teem ;",
@@ -110,11 +117,18 @@ MUTATIONS = {
                                 'and two left."', 'j:answer "yes"', "k:rev_2", "in their words"),
     "period": (KB_FILE, 'j:start "2016-08" ; j:end "2020-01"', 'j:start "2016-08" ; j:end "2015-01"',
                "k:pos_northbridge_architect", "the dates"),
+    # The eda requirement pointed at a stored line that says something else.
+    "quote-is-line": (POSTING_FILE, None, NATIVE_LINE + "k:req_acme_platform_engineer_eda "
+                      "j:line k:line_acme_platform_engineer_1 .\n",
+                      "k:req_acme_platform_engineer_eda", "quote the line whole"),
+    # A confirmed no to Kafka, which k:prj_clinical_events is tagged with.
+    "absence-contradicted": (KB_FILE, None, KAFKA_NO, "k:abs_kafka",
+                             "retire the absence, or the project's claim"),
 }
 
 WARNS = {"version-gap", "headline-cited", "label-clash", "inferred-unasked",
          "retired-referenced", "event-before-submit", "necessity-wording", "hand-edited",
-         "answer-placeholder", "advert-uncovered", "concepts-bare"}
+         "answer-placeholder", "advert-uncovered", "concepts-bare", "absence-contradicted"}
 
 
 @one_test_each(list(MUTATIONS), "test_{}_fires_at_the_right_place", "fires")
@@ -423,6 +437,112 @@ class AdvertCoverage(unittest.TestCase):
         [said] = self.uncovered(self.BRING, self.BRING + "- Must have " + "very " * 30 + "much.\n")
         self.assertLess(len(said), 120)
         self.assertIn("…", said)
+
+
+class GraphNativeAdvert(unittest.TestCase):
+    """quote-verbatim and advert-uncovered on a graph-native posting read the stored lines,
+    not posting.md, and leave a draft alone (Rulings 2 and 3 of
+    docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md)."""
+
+    STEM = "acme_platform_engineer"
+
+    def load(self, reqs, drops=None, state="complete"):
+        """The fixture workspace with its posting replaced by a graph-native one built from
+        posting.md's lines - and posting.md removed, so nothing can read it."""
+        from appkit import put
+        from jsk.domain.posting.advert import advert_lines
+        from jsk.domain.posting.decide import triples
+        from jsk.domain import ontology as O
+        from jsk.domain.record.writer import write
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
+        advert = tmp / ADVERT
+        lines = advert_lines(advert.read_text(encoding="utf-8"))
+        seed(tmp)
+        advert.unlink()
+        built = triples(O.K + "post_" + self.STEM, self.STEM,
+                        {"company": "Acme Health", "title": "Platform Engineer"}, "", [],
+                        "2026-09-08", reqs, lines=lines, drops=drops, state=state)
+        put(tmp, POSTING, write(built, "posting"), prefixes=False)
+        return load(tmp)
+
+    def setUp(self):
+        from jsk.domain.posting.advert import advert_lines
+
+        found = advert_lines((FIXTURES / ADVERT).read_text(encoding="utf-8"))
+        self.k8s, self.eda = (next(x.n for x in found if x.text.startswith(words))
+                              for words in ("Deep, hands-on K8s", "Event-driven systems"))
+        self.text = {x.n: x.text for x in found}
+
+    def req(self, slug, n, quote=None):
+        """A requirement row quoting line `n` - its text, unless `quote` says otherwise."""
+        return (slug, slug, "required", [], self.text[n] if quote is None else quote, n)
+
+    def findings(self, store, *names):
+        return [f.text() for f in store.findings if f.rule in names]
+
+    def test_every_quote_a_line_and_every_ask_answered_is_clean_without_posting_md(self):
+        s = self.load([self.req("k8s", self.k8s), self.req("eda", self.eda)])
+        self.assertEqual(self.findings(s, "quote-verbatim", "advert-uncovered", "quote-is-line"),
+                         [])
+        self.assertEqual([f.text() for f in s.fails()], [])
+
+    def test_a_quote_no_line_says_is_invented(self):
+        s = self.load([self.req("k8s", self.k8s, quote="Ten years of K8s"),
+                       self.req("eda", self.eda)])
+        [said] = self.findings(s, "quote-verbatim")
+        self.assertIn("no line of the advert says it", said)
+        # The quote parts from its line too, and that is named on its own.
+        self.assertEqual(len(self.findings(s, "quote-is-line")), 1)
+
+    def test_an_unanswered_qualification_line_is_uncovered_and_a_dropped_one_is_not(self):
+        reqs = [self.req("k8s", self.k8s)]
+        [said] = [f.detail for f in self.load(reqs).findings if f.rule == "advert-uncovered"]
+        self.assertIn("Event-driven systems a plus.", said)
+        dropped = self.load(reqs, drops={self.eda: "not this role"})
+        self.assertEqual(self.findings(dropped, "advert-uncovered"), [])
+
+    def test_a_draft_is_not_judged(self):
+        s = self.load([self.req("k8s", self.k8s, quote="Ten years of K8s")], state="draft")
+        self.assertEqual(self.findings(s, "quote-verbatim", "advert-uncovered"), [])
+
+    def test_a_posting_built_from_files_is_written_as_it_always_was(self):
+        # Rulings 1-3 are additions: without lines, decide.triples writes j:advert and no
+        # state, line or AdvertLine - the triples every file-built posting already holds.
+        from jsk.domain.posting.decide import triples
+        from jsk.domain import ontology as O
+
+        built = triples(O.K + "post_x", "x", {"company": "A", "title": "B"}, "", [],
+                        "2026-09-08", [("k8s", "K8s", "required", [], "K8s in prod")])
+        preds = {t.predicate.value[len(O.J):] for t in built}
+        self.assertEqual(preds, {"company", "title", "captured", "advert", "posting", "asked",
+                                 "necessity", "quote"})
+
+
+class AbsenceContradicted(unittest.TestCase):
+    """absence-contradicted: a no against what a live project holds - one of the two is
+    stale, and only the person can say which (Ruling 8)."""
+
+    def fired(self, absence):
+        s, _ = mutated((KB_FILE, None, absence))
+        return [f for f in s.findings if f.rule == "absence-contradicted"]
+
+    def test_a_no_to_a_broader_concept_a_project_holds_through_isa(self):
+        # c:kafka isA c:event-driven-architecture: a Kafka project holds EDA too.
+        [f] = self.fired(KAFKA_NO.replace("c:kafka", "c:event-driven-architecture")
+                         .replace("abs_kafka", "abs_event_driven_architecture"))
+        self.assertIn("k:prj_clinical_events", f.detail)
+
+    def test_a_retired_no_contradicts_nothing(self):
+        self.assertEqual(self.fired(KAFKA_NO.replace(
+            "j:provenance j:confirmed", 'j:provenance j:confirmed ; j:retired '
+            '"2026-09-20"^^xsd:date ; j:reason "they learnt it"')), [])
+
+    def test_a_no_nothing_holds_is_quiet(self):
+        self.assertEqual(self.fired(KAFKA_NO.replace("c:kafka", "c:healthcare-x")
+                                    + '\nc:healthcare-x a j:Technology .\n'), [])
 
 
 if __name__ == "__main__":

@@ -32,6 +32,7 @@ class Row:
     basis: str              # why the match says what it says, one sentence
     flags: tuple            # ("listed-names",) when the review flag fires, else ()
     flag_text: str | None   # what the flag found: "names Pinecone, Milvus; the evidence never does"
+    concepts: tuple = ()    # "c:x" curies the requirement resolved to: what its j:Ask copies
 
 
 @dataclass(frozen=True)
@@ -41,9 +42,12 @@ class Derived:
     rows: tuple             # Row, in the match's requirement order
     fit: str                # fit_default: strong | partial | poor
     questions: tuple        # str, ready to ask, in the analyst's order; no list markers
+    # (question, the requirement's "k:req_..." or None) for each of `questions`: what a
+    # graph-native assessment's j:Ask points at (fold.triples).
+    asks: tuple = ()
 
 
-def derive(r, queries, ask):
+def derive(r, queries, ask, absences=(), today=None):
     """Derived for the match result `r` over the career `queries` reads.
 
     Args:
@@ -51,20 +55,71 @@ def derive(r, queries, ask):
         queries: a RecordQueries over the workspace the match ran on.
         ask: a match question (a dict of match.result's) -> its markdown list item, as
             application.tailor.match_text.question_line writes it.
+        absences: the career's [domain.record.absence.Absence]. Those the person confirmed
+            and that have not lapsed by `today` answer a requirement whose every concept
+            they deny (Ruling 9).
+        today: the day an absence's lapse is measured against; needed with `absences`.
 
     Returns:
         Derived: a row per requirement, the fit, and the questions in the analyst's order.
     """
     stem = r["posting"].removeprefix("k:post_")
+    r, said = answered(r, absences, today)
     rows = []
     for q in r["requirements"]:
         flag_text = listed_names(q, _texts(queries, q)) if q["verdict"] == "satisfied" else None
         rows.append(Row(id=q["id"], slug=slug_of(q["id"], stem),
                         asked=q["asked"], necessity=q["necessity"], state=q["state"],
-                        matched=q["verdict"], evidence=_evidence(q), basis=_basis(q),
-                        flags=(FLAG,) if flag_text else (), flag_text=flag_text))
+                        matched=q["verdict"], evidence=_evidence(q),
+                        basis=said.get(q["id"]) or _basis(q),
+                        flags=(FLAG,) if flag_text else (), flag_text=flag_text,
+                        concepts=tuple(q["concepts"])))
+    asks = _questions(r, ask, settled=said)
     return Derived(posting=r["posting"], stem=stem, rows=tuple(rows), fit=fit_default(r),
-                   questions=tuple(_questions(r, ask)))
+                   questions=tuple(text for text, _ in asks), asks=tuple(asks))
+
+
+def answered(r, absences, today):
+    """(the match result with what the person has already said no to settled, {requirement
+    id: its basis}).
+
+    Ruling 9: a requirement every one of whose concepts a standing absence denies is
+    `missing` - nothing in the record holds it, by the person's own word - with no carriers
+    and no question, so the same no is never asked twice. A requirement listing
+    alternatives is settled only when every alternative is denied: one denied leaves the
+    others to ask about. An implicit requirement stays unassessed; only its question goes.
+
+    Args:
+        r: match.result's plain data.
+        absences: [domain.record.absence.Absence].
+        today: the day lapses are measured against.
+
+    Returns:
+        (r, or a copy with the settled requirements and questions changed; {id: basis}).
+    """
+    from ..record.absence import standing
+
+    if not absences:
+        return r, {}
+    denied = standing(absences, today)
+    said, asked = {}, set()
+    reqs = []
+    for q in r["requirements"]:
+        concepts = [_iri(c) for c in q["concepts"]]
+        if concepts and all(c in denied for c in concepts):
+            nos = dict.fromkeys(f"said on {denied[c].said.isoformat()}: {denied[c].answer}"
+                                for c in concepts)
+            said[q["id"]] = " / ".join(nos)
+            asked.add(q["asked"])
+            q = {**q, "state": "missing", "carriers": [], "near": [],
+                 "verdict": None if q["necessity"] == "implicit" else "unsatisfied"}
+        reqs.append(q)
+    if not said:
+        return r, {}
+    # A match question names its requirement by `asked` (matching/questions.py), which
+    # build keeps unique within a posting.
+    questions = [x for x in r["questions"] if x.get("requirement") not in asked]
+    return {**r, "requirements": reqs, "questions": questions}, said
 
 
 def slug_of(req, stem):
@@ -174,13 +229,22 @@ def _basis(q):
     raise ValueError(f"no basis for the match's bucket {state!r}")
 
 
-def _questions(r, ask):
+def _questions(r, ask, settled=()):
     """The match's questions in the analyst's order, the unmet required ones first - the
     order the old gaps.md draft gave them, without its list markers or slots. `ask` writes
-    one question as a list item."""
+    one question as a list item. Each comes with the requirement it is about, or None (a
+    missing metric is a bullet's); `settled` names the requirements an absence answered,
+    which are asked nothing.
+
+    Returns:
+        [(question, "k:req_..." or None)].
+    """
+    by_asked = {q["asked"]: q["id"] for q in r["requirements"]}
     unmet = [(1, f"**unsatisfied** {q['asked']}: required, and nothing in the record "
-                 f"carries it - is there work that shows it?")
+                 f"carries it - is there work that shows it?", q["id"])
              for q in r["requirements"]
-             if q["necessity"] == "required" and q["verdict"] == "unsatisfied"]
-    asked = [(ORDER[q["kind"]], ask(q).removeprefix("- ")) for q in r["questions"]]
-    return [line for _, line in sorted(unmet + asked, key=lambda x: x[0])]
+             if q["necessity"] == "required" and q["verdict"] == "unsatisfied"
+             and q["id"] not in settled]
+    asked = [(ORDER[q["kind"]], ask(q).removeprefix("- "), by_asked.get(q.get("requirement")))
+             for q in r["questions"]]
+    return [(line, req) for _, line, req in sorted(unmet + asked, key=lambda x: x[0])]

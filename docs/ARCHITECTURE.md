@@ -300,6 +300,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/merge.py                 two concepts that are one, drafted as a changeset
     record/pack.py                  a starter pack's draft against the workspace, and its TriG
     record/parsed.py                a Turtle or TriG text as parsed: quads, subject lines, comments
+    record/absence.py               a person's no: when it lapses, which ones stand, which are due
+    record/advert_rules.py          tier 2's reads of an advert: posting.md and decisions.txt, or the stored lines
     record/provenance.py            what a hand edit of the career raised, named for the import
     record/rules.py                 tier 2: the rules over the whole workspace, as SPARQL rows
     record/shapes.py                tier 1: the rules generated from the ontology, and their findings
@@ -321,17 +323,21 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     assessment/derive.py            the gap assessment the match already knows, without a model
     assessment/fold.py              gaps.txt checked against the derived assessment and folded in; its triples
     assessment/draft.py             the gaps.txt draft: a slot wherever the analyst's judgement is needed
+    assessment/review.py            the analyst's overlay as the review graph's triples, and back
     posting/errors.py               posting.md's name, and how a posting step refuses
     posting/boards.py               which job board a URL is on, and its answer as a posting
     posting/html_text.py            a board's or a saved page's HTML as text
     posting/posting_md.py           posting.md as jsk writes it
     posting/advert.py               an advert's text squashed, and its lines numbered by section
     posting/decide.py               decisions.txt's name, a title's seniority hint, posting.md's header, the posting's triples
+    posting/lines.py                an advert's lines as the posting graph stores them, and back
+    posting/rows.py                 a posting's requirement rows and drops checked one at a time against its lines
     timeline/errors.py              how a write to an application refuses: sent, locked, refused
     timeline/events.py              an application's graph and its events as triples; the dates they carry
     resume/constants.py             the provenance floor's ranks and a skills row's length
     resume/plan.py                  the render plan: every content decision, made exactly once
     resume/short.py                 a resume.json as data: parsed, its shape, its ids, its summary
+    resume/selection.py             a resume.json dict as the resume graph's triples, and back; its canonical hash
     render/formatting.py            how one value reads: dates, grades, quantities, the fold to ASCII
     render/themes.py                appearance only: palette, typeface, rhythm
     render/emit_latex.py            the plan as LaTeX, for the PDF a person reads
