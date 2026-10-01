@@ -176,6 +176,19 @@ jobs:
           # No TeX engine here, so BLOCKED (exit 1) is the expected verdict; a crash is not.
           if [ "$code" -gt 1 ]; then exit "$code"; fi
 
+      - name: jsk mcp without the extra names the install line
+        working-directory: ${{ runner.temp }}
+        run: |
+          # The wheel above was installed without extras: the server must refuse, exit 2,
+          # and say how to install it - never fail on an import (Ruling 13).
+          set +e
+          said=$(wheelenv/bin/jsk mcp 2>&1 < /dev/null)
+          code=$?
+          set -e
+          echo "$said"
+          test "$code" -eq 2
+          test "$said" = "the MCP server needs the mcp extra: pip install 'jsk-resume[mcp]'"
+
       - name: The suite, from the unpacked sdist
         working-directory: ${{ runner.temp }}
         run: |

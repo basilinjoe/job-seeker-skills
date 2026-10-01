@@ -478,5 +478,37 @@ class TheMainThreadBudget(unittest.TestCase):
             6300)
 
 
+class TheToolDefinitions(unittest.TestCase):
+    """`jsk mcp`'s eighteen tool definitions ride in every session that loads the plugin, as
+    SKILL.md does, before anyone has asked for a tool (tool search defers them, but a
+    session that searches reads them all). Counted as `tools/list` hands them to the client:
+    name, description and input schema, as JSON."""
+
+    def test_the_eighteen_definitions_stay_small(self):
+        import asyncio
+        import importlib.util
+        import json
+
+        if importlib.util.find_spec("mcp") is None:
+            self.skipTest("the mcp extra is not installed")
+        import fixtures  # noqa: F401 - puts src/ on the path
+        from mcp.shared.memory import create_connected_server_and_client_session as connect
+
+        from jsk.adapters.mcp import server, session
+
+        async def listed():
+            async with connect(server.build(session.Session(root=str(REPO)))._mcp_server) as c:
+                return (await c.list_tools()).tools
+
+        tools = asyncio.run(listed())
+        size = sum(len(json.dumps({"name": t.name, "description": t.description,
+                                   "inputSchema": t.inputSchema})) for t in tools) // 4
+        self.assertEqual(len(tools), 18)
+        # 3350 when P4 landed (2026-10-02). Measured: 3,047 - under the plan's 4500 guess,
+        # with the batch rows' docstrings in the schema as descriptions: the fields of a
+        # requirement row are what an agent would otherwise get wrong on its first call.
+        self.assertLess(size, 3350)
+
+
 if __name__ == "__main__":
     unittest.main()

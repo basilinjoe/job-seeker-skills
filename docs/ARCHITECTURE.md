@@ -446,7 +446,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     oxigraph/queries.py             the feature reads over a loaded record, as SPARQL
     oxigraph/applications.py        an application's folder and its graphs in career/store/, read and written
   adapters/                         ring 5, outermost: argv parsed, the real ports bound, a use case run, its result printed
-    cli/main.py                     the dispatcher: seven nouns, each verb run in process, the retired names
+    cli/main.py                     the dispatcher: eight nouns, each verb run in process, the retired names
     cli/dispatch.py                 a verb's adapter found (ADAPTERS) and its main() called, contained
     cli/cliutil.py                  one contract for --help and flags across the commands; a finding list printed
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
@@ -492,6 +492,11 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/gates.py            the gates' career reads and its log's state bound; a resume.json's region and budget
     cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
     cli/compose/native.py           a graph-native application's use cases bound, each write in its own turn
+    cli/compose/career.py           the kb verbs' reads and logged writes as values, unprinted: what the MCP tools return
+    mcp/__init__.py                 `jsk mcp`: stdlib only, so a plain install names the missing extra and exits 2
+    mcp/server.py                   the eighteen MCP tools: each a compose call, its result JSON, a refusal its findings
+    mcp/schemas.py                  the batch rows the tools take (requirement, drop, verdict, ask), typed for the schema
+    mcp/session.py                  the served workspace, the read cache keyed on the store's files, the clock per call
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded

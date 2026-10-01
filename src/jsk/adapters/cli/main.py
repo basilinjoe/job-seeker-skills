@@ -21,6 +21,8 @@
     jsk letter check LETTER --record R   a cover letter's length, prose and numbers
     jsk app freeze APP --submitted DATE|false --channel TEXT   archive a sent application
       ... event APP KIND --date DATE      add a screen, an offer, a rejection to one
+    jsk mcp                     serve the career and its applications to an agent as MCP
+                                tools, over stdio (the mcp extra)
 
 `jsk <noun> --help` lists a noun's verbs, and `jsk <noun> <verb> --help` its flags.
 
@@ -82,6 +84,14 @@ def doctor(args):
     return cmd_doctor(args)
 
 
+def mcp(args):
+    """`jsk mcp` (adapters.mcp.main): stdlib-only until it serves, so a plain install says
+    the extra is missing instead of failing an import."""
+    from ..mcp import main as serve
+
+    return serve(args)
+
+
 # noun -> verb -> what runs it: a documented script name, run in process through the module
 # that binds its ports (dispatch.run_in_process), or a handler taking the arguments after the
 # verb. What each one does is said once, in the docstring above, which `jsk --help` prints.
@@ -94,6 +104,7 @@ NOUNS = {
                "preview": "preview_templates.py", "fit": "fit_pages.py", "ship": resume_ship},
     "letter": {"check": letter_check},
     "app": {"event": "timeline.py", "freeze": app_freeze},
+    "mcp": {},
 }
 
 # The scripts that dispatch their own verbs, so they are handed the verb with its arguments.
@@ -252,6 +263,8 @@ def main(argv):
     noun, rest = args[0], args[1:]
     if noun == "doctor":
         return doctor(rest)
+    if noun == "mcp":
+        return mcp(rest)
     if noun in NOUNS:
         verbs = NOUNS[noun]
         verb = rest[0] if rest else None
