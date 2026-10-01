@@ -319,6 +319,39 @@ def is_required(check):
     return any(check.name.startswith(r) for r in REQUIRED)
 
 
+# What an extra adds and what its absence costs. An extra is never a gap: the CLI does all
+# of its work without one, so a machine without it is as READY as one with it, and the line
+# only says what this install can also do. `mcp` is the SDK `jsk mcp` serves the graph to
+# agents through (P5 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md).
+EXTRAS = {"mcp": ("mcp extra (`jsk mcp`)",
+                  "not installed: `jsk mcp` cannot start, and the agents' graph tools with it. "
+                  "The CLI works without it - pip install 'jsk-resume[mcp]' adds it")}
+
+
+def extras():
+    """[(name, importable, what its absence costs)] for each optional extra. find_spec,
+    not an import: this module stays standard-library only, and the SDK is not loaded to
+    answer whether it is there."""
+    out = []
+    for module, (name, absent) in EXTRAS.items():
+        try:
+            found = importlib.util.find_spec(module) is not None
+        except (ImportError, ValueError):
+            # A half-installed package can raise from find_spec; it is not importable.
+            found = False
+        out.append((name, found, absent))
+    return out
+
+
+def print_extras(found):
+    """Each extra on its own line: `ok` when importable, else `info` and what is lost -
+    never FAIL or gap, so no verdict below changes."""
+    for name, ok, absent in found:
+        print(f"  {'ok  ' if ok else 'info'}  {name}")
+        if not ok:
+            print(f"           {absent}")
+
+
 def verify(tmp):
     """Render the shipped example and run every gate that can run here."""
     steps = []
@@ -393,6 +426,7 @@ def main(argv):
             return 2
 
     checks, kb = gather(kb_arg)
+    found = extras()
     blocked = [c for c in checks if not c.ok and is_required(c)]
     degraded = [c for c in checks if not c.ok and not is_required(c)]
 
@@ -408,6 +442,7 @@ def main(argv):
             "checks": [{"name": c.name, "ok": c.ok, "required": is_required(c),
                         "disables": c.disables} for c in checks],
             "verify": [{"step": s[0], "ok": s[1]} for s in steps],
+            "extras": [{"name": n, "ok": ok, "disables": d} for n, ok, d in found],
         }, indent=2))
         return 1 if blocked or any(not s[1] for s in steps) else 0
 
@@ -421,6 +456,7 @@ def main(argv):
             print(f"           {c.detail}")
         if not c.ok and c.disables:
             print(f"           {c.disables}")
+    print_extras(found)
 
     # Only the gaps something can be installed for. The knowledge base is a gap with
     # no `key` and no install line, so it used to print this heading over nothing -

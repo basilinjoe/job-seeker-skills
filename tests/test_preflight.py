@@ -399,5 +399,52 @@ class TheGraphRecord(unittest.TestCase):
         self.assertEqual(preflight.MIN_PYTHON, (3, 10))
 
 
+class TheMcpExtra(unittest.TestCase):
+    """P5 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md: doctor says
+    whether the `mcp` extra is importable, and its absence is information, never a FAIL or
+    a gap - the CLI does all of its work without it."""
+
+    def doctor(self, *args, mcp=True):
+        import contextlib
+        import importlib.util
+        import io
+        from unittest import mock
+
+        real = importlib.util.find_spec
+
+        def find_spec(name, *rest):
+            return None if name == "mcp" and not mcp else real(name, *rest)
+
+        buf = io.StringIO()
+        with mock.patch.object(preflight.importlib.util, "find_spec", find_spec), \
+                contextlib.redirect_stdout(buf):
+            code = preflight.main(["--quick", *args])
+        return code, buf.getvalue()
+
+    def test_an_installed_extra_is_an_ok_line(self):
+        code, out = self.doctor(mcp=True)
+        self.assertIn("  ok    mcp extra (`jsk mcp`)", out)
+
+    def test_a_missing_extra_is_an_info_line_and_changes_no_verdict(self):
+        with_it, said_with = self.doctor(mcp=True)
+        without, said_without = self.doctor(mcp=False)
+        self.assertIn("  info  mcp extra (`jsk mcp`)", said_without)
+        self.assertIn("pip install 'jsk-resume[mcp]'", said_without)
+        # The same exit and the same verdict line: a missing extra is no gap.
+        self.assertEqual(with_it, without)
+        verdict = [line for line in said_with.splitlines()
+                   if line.startswith(("READY", "BLOCKED", "BROKEN"))]
+        self.assertEqual(verdict, [line for line in said_without.splitlines()
+                                   if line.startswith(("READY", "BLOCKED", "BROKEN"))])
+        self.assertNotIn("FAIL  mcp", said_without)
+        self.assertNotIn("gap   mcp", said_without)
+
+    def test_the_json_report_lists_it_apart_from_the_checks(self):
+        code, out = self.doctor("--json", mcp=False)
+        report = json.loads(out)
+        self.assertEqual(report["extras"][0]["ok"], False)
+        self.assertFalse([c for c in report["checks"] if c["name"].startswith("mcp")])
+
+
 if __name__ == "__main__":
     unittest.main()

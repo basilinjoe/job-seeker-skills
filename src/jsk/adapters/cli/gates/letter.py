@@ -1,7 +1,9 @@
-"""The letter check: a cover letter, against the resume.json it goes out beside.
+"""The letter check: a cover letter, against the resume it goes out beside.
 
-Usage: jsk letter check <cover-letter.txt|.md> --record <resume.json>
-       --record R    the application's resume.json; without it the number check is
+Usage: jsk letter check <cover-letter.txt|.md> --record <resume.json|app>
+       --record R    the application's resume.json, or a graph-native application's
+                     name (<stem> or applications/<stem>), whose stored selection and
+                     advert lines stand in for it; without it the number check is
                      SKIPPED, and a gate that did not run is a failure
 
 Exit 0 = fit to send. Exit 1 = do not send this letter. Exit 2 = usage, or a
@@ -21,8 +23,8 @@ def parse(argv):
         argv: the arguments alone.
 
     Returns:
-        (letter, record, problem): the letter, --record's value or None, and what was
-        wrong with the call, or None.
+        (letter, record, problem): the letter, --record's value - a graph-native
+        application's as its ref - or None, and what was wrong with the call, or None.
     """
     no_value = "--record needs a value\nfix:  --record applications/<dir>/resume.json"
     parsed, problem = parse_flags(argv, ("--record",), ())
@@ -33,6 +35,14 @@ def parse(argv):
     record = flags.get("--record")
     if record == "":
         return None, None, no_value
+    if record is not None:
+        # A graph-native application keeps no resume.json (Ruling 11 of
+        # docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md): its name, or
+        # its directory once a render made one, goes in --record and reads as the target's
+        # ref, which every reader of a record already takes. A file keeps the file path.
+        from ..compose.selection import ref_for
+
+        record = ref_for(record, dirs=True) or record
     if len(positional) != 1:
         return None, None, docstring_usage(__doc__)
     return positional[0], record, None

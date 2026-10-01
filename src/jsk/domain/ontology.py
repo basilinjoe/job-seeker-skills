@@ -364,8 +364,10 @@ CLASSES = (
         (Pred("document", STR, "*", "a file that was sent"),),
         (Pred("recordSha256", SHA256, "?", "the frozen resume.json's hash - the short "
                                                    "file's own; the words are the documents. "
-                                                   "For a selection in the graph, SHA-256 of "
-                                                   "selection.canonical (Ruling 7)"),),
+                                                   "For a graph-native application, which "
+                                                   "keeps none, SHA-256 of its stored "
+                                                   "selection's selection.canonical text, "
+                                                   "UTF-8 (Ruling 7)"),),
         (Pred("carried", Ref(("Achievement",)), "*", "bullets it sent"),),
         (Pred("carriedVersion", Ref(("MetricVersion",)), "*", "metric versions it sent"),),
     ), "a submission"),

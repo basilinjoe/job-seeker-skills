@@ -1,6 +1,7 @@
 """`jsk app freeze`: its flags, the application frozen, its gates and what was written said.
 
-Archives one application directory: renames it to its day and writes its record. Never
+Archives one application directory: renames it to its day and writes its record - a
+graph-native application's from the selection the store holds, not a resume.json. Never
 touches the career or its log. `jsk app event` records what happens to the application
 afterwards; this command only freezes what was sent. The freeze itself is
 application/timeline/freeze.py.
@@ -49,6 +50,21 @@ class Applications:
 
         return timeline.has_record(app_dir, kind)
 
+    def selection(self, app_dir):
+        """None for an application made from files; for a graph-native one (its posting
+        graph holds the advert's lines, Ruling 11), its ref and its stored selection as
+        resume.json's dict, or None in the dict's place when it stores none."""
+        from ...application.posting.native import native_graphs
+        from ...application.render.selection import REF
+        from ...domain.resume.selection import doc_of
+        from .compose import timeline
+
+        graphs = timeline.app_graphs(app_dir)
+        if not native_graphs(graphs):
+            return None
+        ref = os.path.join(os.path.abspath(app_dir), REF)
+        return ref, (doc_of(graphs["resume"]) if graphs.get("resume") else None)
+
     def freeze(self, root, app_dir, plan, short_bytes, submitted, channel, documents):
         """(Sealed, None) or (None, the lines saying why not) (timeline.freeze)."""
         from .compose import timeline
@@ -84,12 +100,16 @@ class Gates:
         return cli.rendered_documents(app_dir, extensions, only)
 
     def letter(self, path, record, name):
-        """The letter gate's result over `path`, against the application's resume.json."""
+        """The letter gate's result over `path`, against the application's resume.json or,
+        graph-native, its selection's ref."""
         from ... import cli
         from ...application.gates.run_gates import step
+        from ...application.render.selection import parse_ref
         from .gates.check import Shown, contained
 
-        return Shown(step("letter gate", f"letter.py {name} --record {cli.DEFAULT_RECORD}",
+        found = parse_ref(record)
+        against = found[1].split("/", 1)[1] if found else cli.DEFAULT_RECORD
+        return Shown(step("letter gate", f"letter.py {name} --record {against}",
                           *contained("letter.py", [path, "--record", record])))
 
     def failed(self, results):

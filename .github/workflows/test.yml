@@ -167,7 +167,8 @@ jobs:
           python -m venv wheelenv
           wheelenv/bin/pip install dist/*.whl
           wheelenv/bin/jsk --version
-          wheelenv/bin/jsk new ws --name "Package Check"
+          # `jsk new` was retired for `jsk kb new` and exits 2, which `set -e` stopped on.
+          wheelenv/bin/jsk kb new ws --name "Package Check"
           wheelenv/bin/jsk kb check --root ws
           set +e
           wheelenv/bin/jsk doctor --quick

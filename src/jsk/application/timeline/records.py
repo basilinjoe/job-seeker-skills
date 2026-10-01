@@ -273,13 +273,16 @@ def freeze(root, app_dir, plan, short_bytes, submitted, channel, documents, *, l
     `plan` is what the builder rendered: its `sent` names the bullets that cleared the
     floor, so a bullet the file lists but the render withheld is not claimed as sent. No
     copy of the words is kept - the PDF and .tex beside it are what went out - so
-    the short file's own hash is what `recordSha256` pins.
+    the short file's own hash is what `recordSha256` pins. A graph-native application has
+    no file: its bytes are the stored selection's canonical text (Ruling 7 of
+    docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md).
 
     Args:
         root: the workspace root.
         app_dir: the application directory.
         plan: the render plan; its `sent` names the bullets sent.
-        short_bytes: the short resume.json as it is on disk.
+        short_bytes: the short resume.json as it is on disk, or the selection's
+            canonical text, UTF-8.
         submitted: the day it was sent, or `false`.
         channel: where it was sent.
         documents: the documents that went out.

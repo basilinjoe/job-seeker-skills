@@ -5,7 +5,9 @@ the directory renamed to the day it was sent, the archive written, and nothing i
 directory edited again. This does the first two and refuses whenever the third is already
 true or the documents would not survive their gates. It writes the application's record -
 what was sent, and the bullets and metric versions it carried - and later events go in with
-`jsk app event`.
+`jsk app event`. A graph-native application (Ruling 11 of
+docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md) has no resume.json: its
+record is the selection the store holds, hashed as Ruling 7 says (P5, 2026-10-02).
 
 Four steps, each the adapter's to call in turn: check (the record it would freeze), plan
 (the documents and the name), gate (every document through a gate) and write (inside the
@@ -52,10 +54,11 @@ class FreezeLanded(Exception):
 
 @dataclass(frozen=True)
 class Checked:
-    """The application's resume.json, as check() read it and the builder planned it."""
+    """The application's record, as check() read it and the builder planned it: its
+    resume.json, or a graph-native application's stored selection."""
 
-    record: str                 # its path
-    record_bytes: bytes         # what the record's hash pins
+    record: str                 # its path, or the selection's ref
+    record_bytes: bytes         # what the record's hash pins: the file, or canonical()'s text
     plan: dict                  # the builder's plan: its `sent` names the bullets rendered
 
 
@@ -94,15 +97,17 @@ def check(app_dir, *, record, build):
 
     Args:
         app_dir: the application directory.
-        record: the application's record graphs (compose.timeline): `frozen` and `has_record`.
-        build: the builder over a resume.json's path, returning (plan, anything).
+        record: the application's record graphs (adapters/cli/freeze.py's Applications):
+            `frozen`, `has_record`, and `selection` - None for an application made from
+            files, else (its ref, its stored selection or None).
+        build: the builder over a resume.json's path or a ref, returning (plan, anything).
 
     Returns:
-        A Checked. Reads the directory's resume.json and the store.
+        A Checked. Reads the directory's resume.json, or the stored selection, and the store.
 
     Raises:
-        FreezeRefused: frozen already, no posting, or a resume.json that will not read or
-            build.
+        FreezeRefused: frozen already, no posting, a resume.json that will not read or
+            build, or a graph-native application with no selection stored.
     """
     # Frozen is what the record says: its application graph. An application.md is one
     # frozen before the career was a graph, and is as frozen as one.
@@ -119,6 +124,9 @@ def check(app_dir, *, record, build):
                             "the application's record names the posting it answered: "
                             f"`jsk posting build {app_dir}` writes it from posting.md.")
 
+    native = record.selection(app_dir)
+    if native is not None:
+        return selected(app_dir, native, build)
     path = os.path.join(app_dir, RECORD)
     try:
         with open(path, "rb") as fh:
@@ -136,6 +144,43 @@ def check(app_dir, *, record, build):
         raise FreezeRefused(str(exc), f"fix: {exc.fix}",
                             "nothing was renamed or written.") from None
     return Checked(path, record_bytes, plan)
+
+
+def selected(app_dir, native, build):
+    """A graph-native application's record: its stored selection, read and planned.
+
+    Ruling 11 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md: such
+    an application keeps no resume.json, and one beside it is never read. What the hash pins
+    is the selection as `canonical` writes it (Ruling 7), and what was sent is the plan built
+    from the selection through its ref, as the record gate and the render build it.
+
+    Args:
+        app_dir: the application directory.
+        native: (the target's ref, the selection as resume.json's dict, or None when the
+            application stores none) - Applications.selection.
+        build: the builder over a record path or a ref, returning (plan, anything).
+
+    Returns:
+        A Checked whose `record` is the ref.
+
+    Raises:
+        FreezeRefused: no selection stored, or one that will not build.
+    """
+    from ...domain.resume.selection import canonical
+
+    ref, doc = native
+    if doc is None:
+        stem = os.path.basename(os.path.abspath(app_dir))
+        raise FreezeRefused(f"no resume stored for {stem}",
+                            f"fix: the `resume_select` tool (`jsk mcp`) chooses one for {stem}, "
+                            f"and `jsk resume ship {stem}` renders it.",
+                            "nothing was renamed or written.")
+    try:
+        plan, _ = build(ref)
+    except ShortError as exc:
+        raise FreezeRefused(str(exc), f"fix: {exc.fix}",
+                            "nothing was renamed or written.") from None
+    return Checked(ref, canonical(doc).encode("utf-8"), plan)
 
 
 def plan(app_dir, submitted, named, checked, *, spelled):

@@ -777,7 +777,7 @@ id `k:app_<slug>` · graph application · section Application · provenance no
 | `j:submitted` | xsd:date, or xsd:boolean `false` | 1 |  | the day it was sent, or false when held back |
 | `j:channel` | xsd:string | 0..1 |  | how it was sent |
 | `j:document` | xsd:string | 0..n |  | a file that was sent |
-| `j:recordSha256` | xsd:string `[0-9a-f]{64}` | 0..1 |  | the frozen resume.json's hash |
+| `j:recordSha256` | xsd:string `[0-9a-f]{64}` | 0..1 |  | the frozen resume.json's hash; for a graph-native application, the SHA-256 of its stored selection's canonical text (Ruling 7) |
 | `j:carried` | → Achievement | 0..n |  | bullets it sent |
 | `j:carriedVersion` | → MetricVersion | 0..n |  | metric versions it sent |
 
