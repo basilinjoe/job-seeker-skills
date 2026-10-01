@@ -15,11 +15,15 @@ Both write the gaps graph in the same update as the review, folded with it (chec
 `native_*`), so the assessment a caller reads next is the one the review made; a
 re-derivation reads the review back and writes the same.
 
+An ask may name the requirement it is about (`{question, about}`); the review keeps it as
+the item's j:about, so the question's j:Ask carries that requirement and its concepts.
+
 The FAILs: a slug not lowercase words; a verdict that is neither `keep` nor a verdict; a fit
-that is none; and every fold.check FAIL - a slug that is no requirement, a verdict above the
-match's, a lowered verdict with no reason, and at `complete` a flag left unanswered. Each
-use case refuses (Refused) an application made from files, one with no posting or a draft
-one, a sent application, and a FAIL that stops the match. It prints nothing.
+that is none; an ask about a slug that is no requirement; and every fold.check FAIL - a slug
+that is no requirement, a verdict above the match's, a lowered verdict with no reason, and
+at `complete` a flag left unanswered. Each use case refuses (Refused) an application made
+from files, one with no posting or a draft one, a frozen application (sent or held back),
+and a FAIL that stops the match. It prints nothing.
 """
 import re
 from dataclasses import dataclass
@@ -53,7 +57,8 @@ def review(root, stem, *, fit=None, eligibility=None, verdicts=(), short=None,
             verdict, or empty to clear the slug's row.
         short: where it falls short, one item each, replacing the review's; None leaves it.
         surplus: likewise for surplus worth knowing.
-        asks: likewise for the questions, which then replace the match's.
+        asks: likewise for the questions, which then replace the match's: each its text,
+            or {question, about} with `about` the slug of the requirement it asks about.
         today: the day the match runs and the assessment is dated.
         ports: the bound ports (compose.native.Ports).
 
@@ -61,7 +66,7 @@ def review(root, stem, *, fit=None, eligibility=None, verdicts=(), short=None,
         The Reviewed; with a FAIL among its findings nothing was written.
 
     Raises:
-        Refused: a legacy application, no posting, a draft one, a sent application, or a
+        Refused: a legacy application, no posting, a draft one, a frozen application, or a
             FAIL that stops the match.
     """
     from ...domain.assessment.overlay import Row
@@ -92,14 +97,47 @@ def review(root, stem, *, fit=None, eligibility=None, verdicts=(), short=None,
                                   "verdict", f"keep, or one of {', '.join(O.ENUMS['verdict'])}"))
         else:
             rows[slug] = Row(0, slug, verdict, reason)
-    for kind, items in (("short", short), ("surplus", surplus), ("ask", asks)):
+    for kind, items in (("short", short), ("surplus", surplus)):
         if items is not None:
             setattr(overlay, kind, [str(x).strip() for x in items if str(x).strip()])
+    if asks is not None:
+        overlay.ask, overlay.about = asked(asks, set(N.stored(store, app).reqs), found)
     overlay.rows = [Row(n, slug, row.verdict, row.reason)
                     for n, (slug, row) in enumerate(sorted(rows.items()), 1)]
     if N.fails(found):
         return Reviewed(None, prior, None, N.clean(found), ())
     return folded(app, store, overlay, "draft", found, today, ports, prior)
+
+
+def asked(asks, slugs, found):
+    """(the questions, {question: slug}) for a batch of asks, each a question's text or
+    {question, about} with `about` a requirement's slug; an `about` naming no requirement of
+    the posting is a FAIL appended to `found`.
+
+    Args:
+        asks: the batch.
+        slugs: the posting's requirement slugs.
+        found: the findings, appended to.
+    """
+    questions, about = [], {}
+    for i, a in enumerate(asks, 1):
+        if isinstance(a, str):
+            text, slug = a.strip(), ""
+        else:
+            text = str(N.field(a, "question") or "").strip()
+            slug = str(N.field(a, "about") or "").strip()
+        if not text:
+            continue
+        questions.append(text)
+        if not slug:
+            continue
+        if slug not in slugs:
+            found.append(("FAIL", f"asks[{i}]: about {slug!r} is not a requirement of this "
+                                  "posting", "the requirement's slug, as app_show names it - "
+                          + ", ".join(sorted(slugs))[:200]))
+        else:
+            about[text] = slug
+    return questions, about
 
 
 def complete(root, stem, *, today, ports):
@@ -136,7 +174,7 @@ def opened(root, stem, ports):
     app = N.app_of(root, stem)
     store = N.loaded(app, ports)
     N.native(store, app, ports, posting="complete")
-    N.refuse_if_sent(app, store, ports)
+    N.refuse_if_frozen(app, store, ports)
     return app, store
 
 

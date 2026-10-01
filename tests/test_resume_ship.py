@@ -404,10 +404,10 @@ class ShipFrozen(ShortCase):
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
             return self.jsk("resume", "ship", *args)
 
-    def frozen(self):
+    def frozen(self, submitted='"false"^^xsd:boolean'):
         appkit.put(self.root, self.graph(self.app, "application"),
                    'k:app_contoso_platform j:posting k:post_contoso_platform ; '
-                   'j:submitted "false"^^xsd:boolean .\n')
+                   f'j:submitted {submitted} .\n')
 
     def test_it_refuses_to_render_into_a_frozen_directory(self):
         self.frozen()
@@ -415,11 +415,20 @@ class ShipFrozen(ShortCase):
         code, out = self.ship(self.short, "--out", self.app)
         self.assertEqual(code, 1, out)
         self.assertIn(f"frozen: {self.graph(self.app, 'application')}", out)
-        self.assertIn("re-rendering would overwrite what was sent", out)
+        # Held back, so nothing was sent: the refusal says what was frozen. It said "what
+        # was sent" of every freeze until 2026-10-02.
+        self.assertIn("re-rendering would overwrite what was frozen (held back, not sent)", out)
         self.assertIn("fix:", out)
         self.assertIn("new dated directory", out)
         self.assertNotIn("--- ", out)                       # no step ran
         self.assertEqual((self.app / "Jane_Doe_Resume.pdf").read_bytes(), before)
+
+    def test_a_sent_application_is_refused_as_sent(self):
+        self.frozen('"2026-09-20"^^xsd:date')
+        code, out = self.ship(self.short, "--out", self.app)
+        self.assertEqual(code, 1, out)
+        self.assertIn("re-rendering would overwrite what was sent", out)
+        self.assertIn("new dated directory", out)
 
     def test_a_stray_application_ttl_file_freezes_nothing_in_a_stored_workspace(self):
         """`jsk kb load` leaves the old files where they were; the store alone says."""

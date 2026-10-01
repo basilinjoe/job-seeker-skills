@@ -34,8 +34,12 @@ class Refusal:
     detail: str
     fix: str
 
+    def line(self):
+        """What is refused, without its fix: the focus, then the detail."""
+        return f"{self.focus + ' - ' if self.focus else ''}{self.detail}"
+
     def text(self):
-        return f"{self.focus + ' - ' if self.focus else ''}{self.detail}\n        fix: {self.fix}"
+        return f"{self.line()}\n        fix: {self.fix}"
 
 
 class Refused(Exception):

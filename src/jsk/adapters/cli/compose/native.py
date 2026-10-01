@@ -76,12 +76,6 @@ class Ports:
 
         return derive(r, store, today)
 
-    def folder(self):
-        """The application's folder and record as check_gaps.build writes them (compose.tailor.Folder)."""
-        from .tailor import Folder
-
-        return Folder()
-
 
 def capture(root, stem, *, url=None, text=None, company=None, title=None, captured=None,
             replace=False, today, get=None):

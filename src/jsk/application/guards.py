@@ -32,25 +32,43 @@ def unloaded_refusal(root):
     return None
 
 
-def frozen_refusal(*dirs, frozen):
+def frozen_refusal(*dirs, frozen, sent=None, native=False):
     """Refuse a render into, or from, a frozen application.
 
     Frozen is what the application's record says (application.timeline.records.frozen),
-    not whether a file is there.
+    not whether a file is there. A held-back freeze (`--submitted false`) is frozen too,
+    but nothing was sent: with `sent` the refusal says which it is. A graph-native
+    application is reused by capturing its posting again under a new stem, since the
+    tools' caller has no shell to copy a directory with (`native`).
 
     Args:
         *dirs: the directories the command would write into or read from.
         frozen: (directory) -> what says it was frozen, or None (compose.timeline.frozen).
+        sent: (directory) -> the day it was sent, or None when held back
+            (compose.timeline.sent_day); None says "sent" of every freeze, as before.
+        native: the application is graph-native (Ruling 11 of
+            docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md).
 
     Returns:
         [what is wrong, the fix] for the first frozen directory, or None. Opens the
         record read-only to ask.
     """
+    from ..domain.record.parsed import GraphError
+
     for d in dirs:
         path = frozen(d)
-        if path:
-            return [f"frozen: {path} - re-rendering would overwrite what was sent",
-                    "fix:  copy the application to a new dated directory to reuse it"]
+        if not path:
+            continue
+        try:
+            held_back = sent is not None and not sent(d)
+        except GraphError:
+            held_back = False           # unreadable: say the stronger thing
+        what = ("re-rendering would overwrite what was frozen (held back, not sent)"
+                if held_back else "re-rendering would overwrite what was sent")
+        reuse = ("fix:  capture the posting again under a new stem (`posting_capture`) to "
+                 "reuse it" if native else
+                 "fix:  copy the application to a new dated directory to reuse it")
+        return [f"frozen: {path} - {what}", reuse]
     return None
 
 

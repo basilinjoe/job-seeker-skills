@@ -24,8 +24,18 @@ SUMMARY_KEYS = ("text", "status", "answer", "text_sha256")
 PROSE = ("summary", "headline")
 
 
-def confirm_hint(key):
-    """How a `key` block ("summary" or "headline") is confirmed, as the findings say it."""
+def confirm_hint(key, target=None):
+    """How a `key` block ("summary" or "headline") is confirmed, as the findings say it.
+
+    Args:
+        key: the block.
+        target: a graph-native selection's name (`<stem>` or `resumes/<name>`), whose
+            block is confirmed through the `career_confirm` tool, not a resume.json;
+            None for a file. The caller says which: nothing here can tell.
+    """
+    if target is not None:
+        return (f'confirm it with `career_confirm` (target "{target}", block "{key}") and '
+                "the person's own answer")
     return f'confirm it with `jsk kb confirm --{key} <resume.json> --answer "their words"`'
 
 
@@ -44,7 +54,7 @@ def confirmed(summary, answer):
     return out
 
 
-def unearned(summary, key="summary"):
+def unearned(summary, key="summary", target=None):
     """Why a `"status": "confirmed"` summary (or headline) has not earned it - [] when it has.
 
     Flipping the status by hand confirmed a summary with no answer and no audit, and a
@@ -55,7 +65,7 @@ def unearned(summary, key="summary"):
 
     if summary.get("status") != "confirmed" or not isinstance(summary.get("text"), str):
         return []
-    hint = confirm_hint(key)
+    hint = confirm_hint(key, target)
     answer = summary.get("answer")
     if not isinstance(answer, str) or PLACEHOLDER.fullmatch(answer) or DENIAL.fullmatch(answer):
         return [f"{key} is confirmed but records no answer from the person - {hint}"]
@@ -113,8 +123,9 @@ def parse(text, path):
     return doc
 
 
-def shape(doc):
-    """FAIL lines for the file's own shape. Empty is clean."""
+def shape(doc, target=None):
+    """FAIL lines for the file's own shape. Empty is clean. `target` names a graph-native
+    selection, so a confirmation's hint names the tool (confirm_hint)."""
     out = []
     for key in sorted(k for k in doc if k not in KEYS):
         out.append(f"unknown key {key!r} - a resume.json holds only "
@@ -160,7 +171,7 @@ def shape(doc):
             out.append(f"{block} status must be one of {', '.join(STATUSES)}")
         for key in sorted(set(summary) - set(SUMMARY_KEYS)):
             out.append(f"{block}: unknown key {key!r}")
-        out += unearned(summary, block)
+        out += unearned(summary, block, target)
     names = doc.get("names")
     if isinstance(names, dict):
         for ident, name in names.items():

@@ -26,6 +26,10 @@ from ...domain.assessment.fold import standing
 from .match_text import cover_lines, ranking_lines
 
 HEADER = "<!-- written by jsk from the assessment - edit gaps.txt, not this -->"
+# A graph-native assessment has no gaps.txt to edit: its overlay is the review graph,
+# changed through the tool (Ruling 4 of the graph-native plan).
+NATIVE_HEADER = ("<!-- rendered by jsk from the gaps graph - change the review with "
+                 "assessment_review, not this -->")
 KEPT = "kept after review"
 UNREVIEWED = "flagged, not yet reviewed"
 
@@ -95,7 +99,7 @@ def requirement_rows(a):
     return out
 
 
-def render(r, a, today, lines=(), dropped=()):
+def render(r, a, today, lines=(), dropped=(), native=False):
     """The assessment as the person reads it, from the assessment and the match - printed by
     `jsk tailor match --gaps`/`--draft-gaps` and `jsk tailor prepare`, never written to a file.
 
@@ -105,14 +109,18 @@ def render(r, a, today, lines=(), dropped=()):
         today: the day it is dated.
         lines: posting.md's numbered lines.
         dropped: decisions.txt's drops.
+        native: a graph-native assessment, whose header names the review tool.
 
     Returns:
         The assessment's text.
     """
     out = ["---", "type: Gap Assessment", f"posting: {a.derived.posting}",
-           f"assessed: {today.isoformat()}", f"fit: {a.fit}", "---", HEADER, "",
+           f"assessed: {today.isoformat()}", f"fit: {a.fit}", "---",
+           NATIVE_HEADER if native else HEADER, "",
            "# Eligibility", "",
-           a.eligibility or "Not judged: gaps.txt has no `eligibility:` line.", "",
+           a.eligibility or ("Not judged: the review gives no eligibility (`assessment_review`)."
+                             if native else "Not judged: gaps.txt has no `eligibility:` line."),
+           "",
            "# Requirements", "", *requirement_rows(a), "",
            "# Ranking", "", *ranking_lines(r), "", *cover_lines(r), "",
            "# Where this falls short", "", *falls_short(a), ""]
@@ -319,4 +327,4 @@ def native_build(app_dir, store, app_rel, r, derived, today, folder):
     lines, drops = lines_of(store, O.K + derived.posting.removeprefix("k:"))
     # Drop's first field is decisions.txt's line number; a stored drop has none.
     dropped = [Drop(0, n, why) for n, why in sorted(drops.items())]
-    return written, found, render(r, a, today, lines, dropped)
+    return written, found, render(r, a, today, lines, dropped, native=True)

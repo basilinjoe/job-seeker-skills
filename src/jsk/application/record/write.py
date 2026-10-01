@@ -12,7 +12,7 @@ from typing import Any
 
 from ...domain.record.state import KB, Prepared, diff, new_failures
 from ...domain.record.writer import curies
-from .refusals import Failing, Refused, Unclean
+from .refusals import Failing, Problems, Refused, Unclean
 
 
 def writable(store, state):
@@ -170,7 +170,8 @@ def apply(store, text, name, today, *, read_changeset):
         Applied, or None when the record already says all of it.
 
     Raises:
-        Refused: the changeset does not parse, or the career refuses it.
+        Refused: the changeset does not parse. Problems: the career refuses it, each
+            refusal with its own fix.
     """
     from ...domain.record import edit
     from ...domain.record.changeset import Refused as ChangesetRefused
@@ -182,7 +183,10 @@ def apply(store, text, name, today, *, read_changeset):
     except GraphError as err:
         raise Refused([str(err)], err.fix) from None
     except ChangesetRefused as err:
-        raise Refused([r.text() for r in err.refusals]) from None
+        # Each refusal keeps its own fix as a field: folded into the line, an MCP caller got
+        # the fix inside the finding's text and none beside it (2026-10-02). The CLI prints
+        # Problems as it printed the folded lines, byte for byte (presenters.refuse_each).
+        raise Problems([(r.line(), r.fix) for r in err.refusals]) from None
     if not e.touched and not e.minted:
         return None
     summary = cs.summary or (f"Applied {name}: {len(e.minted)} added, "

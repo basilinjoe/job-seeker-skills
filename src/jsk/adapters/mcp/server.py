@@ -21,6 +21,7 @@ warns at 10k and saves a result past 25k to a file (P0 results, item 5).
 """
 import contextlib
 import dataclasses
+import json
 import sys
 import traceback
 from typing import Any, Literal
@@ -36,6 +37,10 @@ VIEW_PAGE = 30000
 # Advert lines one app_show page carries. A line with its concepts and flags runs to some
 # 300 characters as JSON; 80 of them is about 6k tokens, and most adverts fit in one page.
 LINES_PAGE = 80
+# Rows one career_query page carries. `demand` over a real workspace ran to 182 rows and
+# 16k characters (the end-to-end replay, 2026-10-02); 50 rows of any query is a few
+# thousand tokens, and `total` says when there is more.
+QUERY_PAGE = 50
 # How many projects of the match's ranking assessment_derive returns: the cover uses at
 # most three (application/posting/native.COVER), and the rest is for the reviewer's eye.
 RANKING = 10
@@ -235,16 +240,20 @@ def career_reads(srv, tools):
                               for e in shown.entries if not e.missing])
         return tools.call("career_show", run)
 
-    @tool("A named query (as `jsk kb query`): rows as JSON. args: its arguments; for "
-          "concepts, terms to find the nearest concepts to.")
-    def career_query(name: str, args: list[str] | None = None) -> dict:
+    @tool("A named query (as `jsk kb query`): rows as JSON, paged by offset and limit. args: "
+          "its arguments; for concepts, terms to find the nearest concepts to.")
+    def career_query(name: str, args: list[str] | None = None, offset: int = 0,
+                     limit: int = QUERY_PAGE) -> dict:
         def run(root, today):
             got = career.query(root, name, args or (), today=today, load=load)
             if isinstance(got, dict):
                 return result(near={t: {"columns": list(c), "rows": plain(r)}
                                     for t, (c, r) in got.items()})
             columns, rows = got
-            return result(columns=list(columns), rows=plain(rows))
+            start = max(0, offset)
+            end = start + max(1, limit)
+            return result(columns=list(columns), rows=plain(list(rows)[start:end]),
+                          total=len(rows), next=end if end < len(rows) else None)
         return tools.call("career_query", run)
 
     @tool("The record's history, newest first.")
@@ -299,7 +308,13 @@ def career_writes(srv, tools):
                 from ..cli.compose import selection
 
                 done = selection.confirm(root, target, block, answer)
-                return result(changed=done.new is not None, before=done.old, after=done.new)
+                # The block alone: the whole selection before and after ran to ~8k
+                # characters for one confirmed line (2026-10-02).
+                if done.new is None:
+                    return result(changed=False, block=None)
+                said = json.loads(done.new).get(block) or {}
+                return result(changed=True,
+                              block={k: said.get(k) for k in ("text", "status", "answer")})
             if not ids or (answer is None and source is None):
                 return failed(("FAIL", "confirm takes ids and the person's answer, or a "
                                        "source and its quote",
@@ -403,14 +418,11 @@ def assessments(srv, tools):
                           short: list[str] | None = None, surplus: list[str] | None = None,
                           asks: list[Ask] | None = None) -> dict:
         def run(root, today):
-            warned = [("WARN", f"asks[{i}]: `about` is not kept by the review yet; the "
-                               "question is stored without it", None)
-                      for i, a in enumerate(asks or (), 1) if a.get("about")]
             done = native.review(root, app, fit=fit, eligibility=eligibility,
                                  verdicts=verdicts or (), short=short, surplus=surplus,
-                                 asks=None if asks is None else [a["question"] for a in asks],
+                                 asks=None if asks is None else [dict(a) for a in asks],
                                  today=today)
-            return result(list(done.findings) + warned, target=done.target, state=done.state,
+            return result(done.findings, target=done.target, state=done.state,
                           fit=done.fit, written=list(done.written))
         return tools.call("assessment_review", run, writes=True)
 

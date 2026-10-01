@@ -141,7 +141,8 @@ def apply_changeset(root, text, *, dry_run=False, today, name="changeset.trig"):
 
     Raises:
         Failing, Unclean: the record may not be written. Refused: the changeset does not
-            parse, or the career refuses it. RecordError: the store refused the write.
+            parse. Problems: the career refuses it, each refusal with its fix. RecordError:
+            the store refused the write.
     """
     from ....application.record import write as W
     from .record import load, read_changeset

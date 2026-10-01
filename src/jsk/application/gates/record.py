@@ -59,7 +59,8 @@ def record_gate(path, *, strict, read, workspace, has_engine, career, findings, 
         workspace: path -> the workspace root around it (compose.resume.workspace).
         has_engine: () -> whether the graph engine can be imported.
         career: root -> the loaded workspace (compose.resume.career).
-        findings: (doc, store, today) -> (fails, warns) (compose.gates.findings).
+        findings: (doc, store, today, target) -> (fails, warns) (compose.gates.findings);
+            target names a graph-native selection, or is None for a file.
         state: store -> the career and its log's State (infra.oxigraph.record.state).
         today: the date the years claims are measured to.
 
@@ -73,7 +74,7 @@ def record_gate(path, *, strict, read, workspace, has_engine, career, findings, 
         GateStopped: "no-engine" (exit 1) when the graph engine is not installed.
     """
     from ...domain.resume.short import ShortError
-    from ..render.selection import file_refusal, parse_ref, shown_name
+    from ..render.selection import file_refusal, parse_ref, shown_name, target_name
 
     doc = read(path)
     root = workspace(path)
@@ -83,7 +84,7 @@ def record_gate(path, *, strict, read, workspace, has_engine, career, findings, 
     refused = file_refusal(path, root, store) if parse_ref(path) is None else None
     if refused:
         raise ShortError(*refused)
-    fails, warns = findings(doc, store, today)
+    fails, warns = findings(doc, store, today, target_name(path))
     if strict:
         fails, warns = fails + warns, []
     return RecordResult(fails=tuple(fails), warns=tuple(warns), name=shown_name(path),
@@ -324,7 +325,7 @@ def bracket_lines(texts):
             for where, text in texts if where != "headline" and ("[" in text or "]" in text)]
 
 
-def findings(doc, store, today, *, queries, state):
+def findings(doc, store, today, *, queries, state, target=None):
     """Every finding for a short file over a loaded workspace.
 
     Args:
@@ -333,6 +334,8 @@ def findings(doc, store, today, *, queries, state):
         today: the date the years claims are measured to.
         queries: a RecordQueries over `store`.
         state: store -> the career and its log's State (infra.oxigraph.record.state).
+        target: the graph-native selection's name (`<stem>`), so a hint names the tool;
+            None for a resume.json.
 
     Returns:
         (fails, warns): the FAIL and WARN lines. Runs the store's SELECTs.
@@ -344,7 +347,7 @@ def findings(doc, store, today, *, queries, state):
     refusal = career_refusal(store, state)
     if refusal:
         return [refusal], []
-    fails = short.shape(doc)
+    fails = short.shape(doc, target)
     if fails:
         # Until the shape is right the ids may not be lists of ids at all.
         return fails, []

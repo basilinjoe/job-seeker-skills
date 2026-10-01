@@ -20,11 +20,11 @@ The FAILs `decide` can return: a line that is not the advert's; an `asked` its l
 not say; a slug not lowercase words, or used twice; two requirements asking one term; a
 necessity that is none; a concept the workspace does not know, or retired; a domain that is
 not a Domain; a header field that is not one; a line both dropped and quoted; a drop with
-no reason. Its WARNs: a slug to remove that is not there; a responsibility made required
+no reason; a slug to remove that is not there. Its WARNs: a responsibility made required
 that its line does not call required; more requirements than the soft cap. `complete` adds
 the coverage FAIL and whatever the workspace's rules find in the posting. Each use case
-refuses (raises Refused) an application made from files, one with no posting, and a sent
-one. Nothing here prints.
+refuses (raises Refused) an application made from files, one with no posting, and a frozen
+one, sent or held back. Nothing here prints.
 """
 import datetime
 import re
@@ -66,14 +66,14 @@ def decide(root, stem, header=None, rows=(), drops=(), remove=(), *, today, port
         The Decided; with a FAIL among its findings nothing was written.
 
     Raises:
-        Refused: a legacy application, no posting, or a sent one.
+        Refused: a legacy application, no posting, or a frozen one.
     """
     from ...domain.posting.decide import SOFT_CAP
 
     app = N.app_of(root, stem)
     store = N.loaded(app, ports)
     s = N.native(store, app, ports)
-    N.refuse_if_sent(app, store, ports)
+    N.refuse_if_frozen(app, store, ports)
     queries = ports.queries(store)
     known = queries.concepts() - queries.retired_concepts()
     retired, domains = queries.retired_concepts(), queries.domains()
@@ -83,7 +83,11 @@ def decide(root, stem, header=None, rows=(), drops=(), remove=(), *, today, port
         if slug in s.reqs:
             gone.add(slug)
         else:
-            found.append(("WARN", f"remove: no requirement {slug!r} to remove", None))
+            # A FAIL, not a WARN: a mistyped slug otherwise wrote the posting back as a
+            # draft with nothing removed, and a completed posting lost its state for a typo
+            # (the end-to-end replay, 2026-10-02).
+            found.append(("FAIL", f"remove: no requirement {slug!r} to remove",
+                          "fix:  the slug as app_show requirements names it"))
     kept = {slug: row for slug, row in s.reqs.items() if slug not in gone}
     batch, new_drops = [], {}
     for i, row in enumerate(rows or (), 1):
@@ -136,14 +140,14 @@ def complete(root, stem, *, today, ports):
         The Decided; with a FAIL among its findings nothing was written.
 
     Raises:
-        Refused: a legacy application, no posting, or a sent one.
+        Refused: a legacy application, no posting, or a frozen one.
     """
     from ...domain.posting.rows import coverage, uncovered
 
     app = N.app_of(root, stem)
     store = N.loaded(app, ports)
     s = N.native(store, app, ports)
-    N.refuse_if_sent(app, store, ports)
+    N.refuse_if_frozen(app, store, ports)
     used = {row[4] for row in s.reqs.values()} | set(s.drops)
     missing = uncovered({x.n: x for x in s.lines}, used)
     if missing:
@@ -314,9 +318,9 @@ def checked(s, kept, batch, drops):
 
 
 def pruned_review(store, app, slugs):
-    """The review graph less its rows about requirements no longer in `slugs`, and back to
-    draft - it reviewed requirements that have changed - or None when there is no review, or
-    it is a draft with no such row.
+    """The review graph less its rows (and its asks' j:about) on requirements no longer in
+    `slugs`, and back to draft - it reviewed requirements that have changed - or None when
+    there is no review, or it is a draft with no such row.
 
     Args:
         store: the loaded workspace.
@@ -331,9 +335,12 @@ def pruned_review(store, app, slugs):
     quads = store.graph(name)
     overlay = overlay_of(quads)
     keep = [row for row in overlay.rows if row.slug in slugs]
+    # An ask about a removed requirement keeps its question and loses its j:about, which
+    # would point at nothing.
+    about = {q: slug for q, slug in overlay.about.items() if slug in slugs}
     done = any(q.predicate.value == O.J + "state" and q.object.value == O.J + "complete"
                for q in quads)
-    if len(keep) == len(overlay.rows) and not done:
+    if len(keep) == len(overlay.rows) and len(about) == len(overlay.about) and not done:
         return None
-    overlay.rows = keep
+    overlay.rows, overlay.about = keep, about
     return triples(overlay, app.ids, "draft")

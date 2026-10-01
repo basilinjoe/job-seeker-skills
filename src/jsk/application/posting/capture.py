@@ -12,7 +12,7 @@ It creates no directory and writes no file: the directory is the first render's 
 `text`, or both); an advert whose company or title neither the board, its header nor the
 arguments give; a posting already captured, unless `replace`, which drops the review and
 the assessment with it, since they answered another advert; an application made from files
-(Ruling 11); a sent application. It prints nothing.
+(Ruling 11); a frozen application, sent or held back. It prints nothing.
 """
 from dataclasses import dataclass
 
@@ -70,7 +70,7 @@ def capture(root, stem, *, url=None, text=None, company=None, title=None, captur
     found = N.kind(store, app, ports.is_file)
     if found == "legacy":
         raise N.legacy_refusal(app)
-    N.refuse_if_sent(app, store, ports)
+    N.refuse_if_frozen(app, store, ports)
     if found == "native" and not replace:
         raise Refused(f"{app.graph('posting')} already holds its advert",
                       "fix:  pass replace to capture it again - its requirements, review "

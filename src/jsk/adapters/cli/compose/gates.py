@@ -41,7 +41,7 @@ def facts(store):
     return read(OxigraphQueries(store))
 
 
-def findings(doc, store, today=None):
+def findings(doc, store, today=None, target=None):
     """(fails, warns): every finding for a short file - a dict, or a path to one - over a
     loaded workspace (application.gates.record.findings).
 
@@ -49,6 +49,7 @@ def findings(doc, store, today=None):
         doc: the resume.json, as a dict or its path.
         store: a loaded workspace.
         today: the date the years claims are measured to; by default today.
+        target: a graph-native selection's name, or None for a file.
 
     Returns:
         The FAIL and WARN lines. Reads the file when given its path.
@@ -64,7 +65,8 @@ def findings(doc, store, today=None):
     today = today or datetime.date.today()
     if not isinstance(doc, dict):
         doc = read(doc)
-    return found(doc, store, today, queries=OxigraphQueries(store), state=R.state)
+    return found(doc, store, today, queries=OxigraphQueries(store), state=R.state,
+                 target=target)
 
 
 def number_lines(text, doc, store, posting=None, today=None):

@@ -57,8 +57,8 @@ class Verdict(TypedDict):
 
 
 class Ask(TypedDict):
-    """A question for the person, replacing the match's. `about` names the requirement's
-    slug; the review graph does not keep it yet, and the tool says so when it is given."""
+    """A question for the person, replacing the match's. `about`: the slug of the
+    requirement it asks about, so the question carries its concepts."""
 
     question: str
     about: NotRequired[str]

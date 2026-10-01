@@ -6,7 +6,8 @@ Each structure a model's decisions become - the advert's lines, a posting's rows
 analyst's review, the selection, a person's no - has one function to triples and one back,
 and the round trip is the rule: what the graph holds is what was decided, nothing lost and
 nothing added. The row checks are `jsk posting build`'s, one row at a time, each refusal
-planted. A no answers a requirement only when confirmed and live (Rulings 8 and 9). And the
+planted. A no answers a requirement only when confirmed and live (Rulings 8 and 9), and
+answers one asking for anything that counts as its concept, never anything broader. And the
 two new graph kinds load, validate and move with their application like the others.
 """
 import datetime
@@ -148,8 +149,13 @@ class Review(unittest.TestCase):
                                 Row(2, "k8s", "keep")],
                           short=["vector databases | the products the advert names", "Go"],
                           surplus=["clinical domain"],
-                          ask=["Have you used Pinecone?", "Which cloud?"])
+                          ask=["Have you used Pinecone?", "Which cloud?"],
+                          about={"Which cloud?": "cloud"})
         self.assertEqual(review.overlay_of(review.triples(overlay, "acme", "draft")), overlay)
+        # The ask's requirement is the item's j:about (Ruling 4).
+        abouts = [t.object.value for t in review.triples(overlay, "acme")
+                  if t.predicate.value == O.J + "about"]
+        self.assertEqual(abouts, [O.K + "req_acme_cloud"])
 
     def test_an_empty_review_is_an_empty_overlay(self):
         self.assertEqual(review.overlay_of(review.triples(Overlay(), "acme")), Overlay())
@@ -278,6 +284,61 @@ class DeriveWithAbsences(unittest.TestCase):
         self.assertEqual(self.row(d, "cloud").basis,
                          "said on 2026-09-01: No AWS. / said on 2026-09-01: No GCP.")
         self.assertNotIn("**ambiguous** AWS or GCP", d.questions)
+
+
+def layered():
+    """A match result asking for EKS (which counts as Kubernetes), for Kubernetes itself,
+    and for EKS or GKE - any of them."""
+    def req(slug, concepts):
+        return {"id": f"k:req_acme_{slug}", "asked": slug.upper(), "necessity": "required",
+                "state": "missing", "verdict": "unsatisfied", "concepts": concepts,
+                "carriers": [], "near": []}
+    return {"posting": "k:post_acme", "questions": [], "requirements": [
+        req("eks", ["c:eks"]), req("k8s", ["c:kubernetes"]), req("managed", ["c:eks", "c:gke"])]}
+
+
+# The vocabulary's own: EKS and GKE are each a Kubernetes (data/vocabulary.ttl).
+COUNTS_AS = {O.C + "eks": {O.C + "kubernetes"}, O.C + "gke": {O.C + "kubernetes"}}
+
+
+class NarrowerDenied(unittest.TestCase):
+    """Ruling 9's amendment (2026-10-02): a no to X also denies whatever counts as X, by
+    the match's own closure - never the reverse."""
+
+    def derived(self, *absences):
+        return derive(layered(), None, ask, absences=list(absences), today=TODAY,
+                      counts_as=lambda c: COUNTS_AS.get(c, set()))
+
+    def basis(self, d, slug):
+        return next(r for r in d.rows if r.slug == slug).basis
+
+    def test_a_no_to_a_concept_covers_one_that_counts_as_it(self):
+        d = self.derived(no("kubernetes", answer="Never run Kubernetes."))
+        self.assertEqual(self.basis(d, "eks"), "said on 2026-09-01: Never run Kubernetes.")
+        # Every alternative counts as Kubernetes, so the any-of is settled too.
+        self.assertEqual(self.basis(d, "managed"), "said on 2026-09-01: Never run Kubernetes.")
+
+    def test_a_no_to_a_narrower_concept_does_not_cover_a_broader_one(self):
+        d = self.derived(no("eks", answer="No EKS."))
+        self.assertEqual(self.basis(d, "eks"), "said on 2026-09-01: No EKS.")
+        self.assertEqual(self.basis(d, "k8s"), "nothing in the record holds c:kubernetes")
+
+    def test_any_of_is_still_settled_only_when_every_alternative_is_denied(self):
+        d = self.derived(no("eks"))
+        self.assertEqual(self.basis(d, "managed"), "nothing in the record holds c:eks, c:gke")
+        d = self.derived(no("eks", answer="No EKS."), no("gke", answer="No GKE."))
+        self.assertEqual(self.basis(d, "managed"),
+                         "said on 2026-09-01: No EKS. / said on 2026-09-01: No GKE.")
+
+    def test_the_store_closure_says_eks_counts_as_kubernetes(self):
+        from jsk.adapters.cli.compose import record
+        from jsk.infra.oxigraph.queries import OxigraphQueries
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root, _ = careerkit.workspace(Path(tmp) / "ws")
+            queries = OxigraphQueries(record.load(root))
+            self.assertIn(O.C + "kubernetes", queries.counts_as(O.C + "eks"))
+            self.assertNotIn(O.C + "eks", queries.counts_as(O.C + "kubernetes"))
 
 
 class Asks(unittest.TestCase):

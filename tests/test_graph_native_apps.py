@@ -9,6 +9,12 @@ once - and survives a re-derivation and a re-decide (Ruling 4); a confirmed "no"
 requirement and is never asked (Ruling 9); a sent application refuses every change; and an
 application is graph-native or legacy, never both, each side refusing the other by name
 (Ruling 11). Then the queries across applications, over a two-application workspace.
+
+From the 2026-10-02 review and replay: a derived gaps graph is validated before it is
+written (Ruling 14); a slug to remove that is not there is a FAIL; an ask keeps the
+requirement it is about, so it counts in `repeated`; a no covers what counts as its
+concept; app_list names a file-built posting `built`; and `jsk tailor match` on an
+application with no directory yet names the tool.
 """
 import contextlib
 import datetime
@@ -190,6 +196,16 @@ class Decide(Workspace):
         self.decide(drops=DROPS)
         self.assertEqual(native.complete_posting(self.root, STEM, today=TODAY).state, "complete")
 
+    def test_a_slug_to_remove_that_is_not_there_fails_and_writes_nothing(self):
+        # A WARN let a typo write the posting back as a draft with nothing removed
+        # (2026-10-02): a completed posting lost its state for a misspelt slug.
+        self.decide(rows=ROWS, drops=DROPS)
+        native.complete_posting(self.root, STEM, today=TODAY)
+        done = self.refused("remove: no requirement 'no_such_slug' to remove",
+                            remove=["no_such_slug"])
+        self.assertEqual(done.state, "complete")
+        self.assertEqual(self.show("posting")["state"], "complete")
+
     def test_a_completed_posting_decided_again_is_a_draft(self):
         self.decide(rows=ROWS, drops=DROPS)
         native.complete_posting(self.root, STEM, today=TODAY)
@@ -235,6 +251,30 @@ class Flow(Workspace):
         self.assertIn("| Kubernetes | required | partial (match: satisfied) |", shown["markdown"])
         self.assertEqual(self.show("review")["state"], "complete")
         self.assertFalse(self.app.exists(), "no posting.md, gaps.txt or gaps.md anywhere")
+
+    def test_a_derivation_whose_gaps_graph_breaks_a_rule_is_refused_with_nothing_written(self):
+        """Ruling 14: the gaps graph is validated with the workspace before it is written,
+        as every other graph-native write is. assessment_derive wrote it unchecked through
+        check_gaps.build until 2026-10-02."""
+        import pyoxigraph as ox
+        from unittest import mock
+
+        from jsk.application.tailor import check_gaps
+
+        made = check_gaps.native_triples
+
+        def broken(store, app_rel, a, today):
+            # A question with no assessment, position or words: a cardinality FAIL.
+            stray = ox.NamedNode(f"{O.K}ask_{IDS}_99")
+            return made(store, app_rel, a, today) + [
+                ox.Triple(stray, ox.NamedNode(O.J + "concept"), ox.NamedNode(O.C + "rust"))]
+
+        self.decided()
+        with mock.patch.object(check_gaps, "native_triples", broken):
+            a = native.derive_assessment(self.root, STEM, today=TODAY)
+        self.assertTrue(any("does not validate" in t for t in fails(a.findings)), a.findings)
+        self.assertEqual(a.written, ())
+        self.assertIsNone(self.graph("gaps"), "nothing was written")
 
     def test_a_review_before_the_posting_is_complete_is_refused(self):
         self.capture()
@@ -330,6 +370,70 @@ class Absence(Workspace):
         self.assertNotIn(O.C + "rust", {t.object.value for t in asks})
 
 
+class AskedAbout(Workspace):
+    """Ruling 4: an ask names the requirement it is about, the review keeps it as the
+    item's j:about, and the question's j:Ask carries that requirement and its concepts -
+    so two applications asking about one concept show in `repeated`. Until 2026-10-02 the
+    `about` was dropped, with a WARN."""
+
+    OTHER = "initech-platform"
+
+    def asked(self, stem, about="kubernetes"):
+        return native.review(self.root, stem, asks=[
+            {"question": "Has the Kubernetes work run on bare metal?", "about": about}],
+            today=TODAY)
+
+    def test_an_ask_about_a_requirement_counts_in_repeated_across_two_applications(self):
+        from jsk.adapters.cli.compose import record
+        from jsk.application.record.insights import repeated
+
+        for stem in (STEM, self.OTHER):
+            self.decided(stem)
+            done = self.asked(stem)
+            self.assertEqual(done.findings, (), done.findings)
+        self.assertEqual(self.show("review")["asks"],
+                         [{"question": "Has the Kubernetes work run on bare metal?",
+                           "about": "kubernetes"}])
+        [q] = self.show("assessment")["questions"]
+        self.assertEqual((q["requirement"], q["concepts"]), ("kubernetes", ["c:kubernetes"]))
+        rows = {r["concept"]: r for r in repeated(record.load(self.root))[1]}
+        self.assertEqual(rows["c:kubernetes"]["applications"], 2)
+
+    def test_an_ask_about_no_requirement_fails_and_writes_nothing(self):
+        self.decided()
+        done = self.asked(STEM, about="no_such_slug")
+        self.assertEqual(fails(done.findings),
+                         ["asks[1]: about 'no_such_slug' is not a requirement of this posting"])
+        self.assertIsNone(self.graph("review"))
+
+    def test_removing_the_requirement_keeps_the_question_and_drops_its_about(self):
+        self.decided()
+        self.asked(STEM)
+        done = native.decide(self.root, STEM, remove=["kubernetes"],
+                             drops=[{"n": K8S, "reason": "not asked of this resume"}],
+                             today=TODAY)
+        self.assertEqual(fails(done.findings), [])
+        self.assertEqual(self.show("review")["asks"],
+                         [{"question": "Has the Kubernetes work run on bare metal?",
+                           "about": None}])
+
+
+class NarrowerAbsence(Workspace):
+    """Ruling 9's amendment: a confirmed no to Kubernetes answers a requirement for EKS,
+    which counts as Kubernetes, through the store's closure."""
+
+    EDITS = ((OPEN, OPEN + '\nk:abs_kubernetes j:concept c:kubernetes ; j:said '
+              '"2026-09-01"^^xsd:date ; j:answer "Never run Kubernetes." ; '
+              'j:provenance j:confirmed .\n'),)
+
+    def test_a_no_to_kubernetes_answers_a_requirement_for_eks(self):
+        self.decided(rows=[{**ROWS[0], "concepts": ["c:eks"]}, *ROWS[1:]])
+        a = native.derive_assessment(self.root, STEM, today=TODAY)
+        k8s = {r["slug"]: r for r in a.rows}["kubernetes"]
+        self.assertEqual((k8s["verdict"], k8s["basis"]),
+                         ("unsatisfied", "said on 2026-09-01: Never run Kubernetes."))
+
+
 class Legacy(Workspace):
     """Ruling 11: no application is both; each side refuses the other by name."""
 
@@ -393,7 +497,21 @@ class Legacy(Workspace):
         self.capture()
         apps = {a["app"]: a for a in native.list_apps(self.root, today=TODAY)["applications"]}
         self.assertEqual((apps[STEM]["kind"], apps[STEM]["posting"]), ("native", "draft"))
-        self.assertEqual(apps["contoso-platform"]["kind"], "legacy")
+        # Made from files, its posting built: `posting: null` read as "no posting yet"
+        # (the end-to-end replay, 2026-10-02).
+        self.assertEqual((apps["contoso-platform"]["kind"], apps["contoso-platform"]["posting"]),
+                         ("files", "built"))
+
+    def test_tailor_match_on_a_graph_native_application_with_no_directory_names_the_tool(self):
+        from jsk.adapters.cli import match
+
+        self.capture()
+        self.assertFalse(self.app.exists())
+        code, out = self.run_cli(match.main, [str(self.app)])
+        self.assertEqual(code, 1, out)
+        self.assertIn("is graph-native", out)
+        self.assertIn("`assessment_derive`", out)
+        self.assertNotIn("posting.md", out)
 
 
 OTHER = ADVERT.replace("Acme Health", "Globex").replace("Kubernetes", "Kafka Streams")

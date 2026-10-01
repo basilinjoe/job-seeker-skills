@@ -53,7 +53,7 @@ def page_text(text):
     return " ".join((fold_ascii(text) or "").split()).casefold()
 
 
-def judge(text, title, requirements):
+def judge(text, title, requirements, target=None):
     """Every terms-gate rule over one rendered page.
 
     Args:
@@ -61,6 +61,9 @@ def judge(text, title, requirements):
         title: the posting's j:title.
         requirements: [(asked, necessity, other names)] - the term as the advert wrote it,
             required, preferred or implicit, and the labels of the concepts it resolves to.
+        target: a graph-native application's stem, whose headline and review are changed
+            through the MCP tools, not resume.json and gaps.txt; None for files. The caller
+            says which - a rule here cannot tell.
 
     Returns:
         (counts, report): counts is {necessity: (on the page, asked)} for the searched
@@ -68,10 +71,17 @@ def judge(text, title, requirements):
     """
     page = page_text(text)
     report = Report()
+    if target is not None:
+        headline = (f"set the headline with `resume_update` and confirm it with the person "
+                    f'(`career_confirm`, target "{target}", block "headline")')
+        gap = f'a short item in the review (`assessment_review` short, on "{target}")'
+    else:
+        headline = ("set `headline` in resume.json and confirm it with the person "
+                    "(`jsk kb confirm --headline`)")
+        gap = "a short: line in gaps.txt"
     if title and not occurrences(title, page):
         report.warn(f"the posting's title {title!r} is not on the page - a recruiter's search "
-                    "by title will not find it; set `headline` in resume.json and confirm it "
-                    "with the person (`jsk kb confirm --headline`)")
+                    f"by title will not find it; {headline}")
     counts = {n: [0, 0] for n in SEARCHED}
     missing_preferred = []
     seen = set()
@@ -95,7 +105,7 @@ def judge(text, title, requirements):
         elif necessity == "required":
             report.warn(f"required {asked!r} is not on the page - a search for it will not "
                         "find this resume; if the person has it, the evidence belongs in a "
-                        "bullet, and if not, it is a gap - a short: line in gaps.txt")
+                        f"bullet, and if not, it is a gap - {gap}")
         else:
             missing_preferred.append(asked)
     if missing_preferred:

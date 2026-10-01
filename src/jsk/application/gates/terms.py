@@ -37,10 +37,12 @@ def check_terms(text, name, record, *, terms):
     Returns:
         A TermsResult.
     """
+    from ..render.selection import target_name
+
     found = terms(record)
     if found is None:
         return TermsResult(fails=(), warns=(), name=name, posting=None, counts={})
     title, requirements = found
-    counts, report = judge(text, title, requirements)
+    counts, report = judge(text, title, requirements, target_name(record))
     return TermsResult(fails=tuple(report.fails), warns=tuple(report.warns), name=name,
                        posting=title, counts=counts)

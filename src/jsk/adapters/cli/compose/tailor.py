@@ -69,7 +69,9 @@ def derive(r, store, today=None):
     from ....infra.oxigraph.queries import OxigraphQueries
 
     absences = of_triples(store.graph(KB)) if today is not None and KB in store.parsed else []
-    return derived(r, OxigraphQueries(store), question_line, absences=absences, today=today)
+    queries = OxigraphQueries(store)
+    return derived(r, queries, question_line, absences=absences, today=today,
+                   counts_as=queries.counts_as)
 
 
 def advert(path):

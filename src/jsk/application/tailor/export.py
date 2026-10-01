@@ -353,7 +353,7 @@ class Short:
     faults: tuple               # untraced_lines over the chosen bullets
 
 
-def retuned(doc, career, title, requirements, notes):
+def retuned(doc, career, title, requirements, notes, target=None):
     """`doc` with the posting's own strings where the career holds them under another:
     the advertised title as an inferred headline, and a skill the posting asks for by one
     of its aliases shown under that alias (`names`).
@@ -371,6 +371,8 @@ def retuned(doc, career, title, requirements, notes):
         requirements: the posting's requirements (ports.queries.RecordQueries.requirements),
             required first is the order they are tried in.
         notes: the list a NOTE line per change is appended to.
+        target: a graph-native selection's name, so the note names `career_confirm`;
+            None for a resume.json.
 
     Returns:
         `doc`.
@@ -379,9 +381,11 @@ def retuned(doc, career, title, requirements, notes):
     held = (career.get(me, "headline") or "").strip()
     if title and title.strip().casefold() != held.casefold():
         doc["headline"] = {"text": title.strip(), "status": "inferred"}
+        confirm = (f'`career_confirm` (target "{target}", block "headline")' if target
+                   else "`jsk kb confirm --headline <resume.json>`")
         notes.append(f"NOTE  headline is the posting's title {title.strip()!r}, inferred - ask "
-                     "the person whether it is a title they stand behind, then `jsk kb confirm "
-                     "--headline <resume.json>`; until then the career's headline renders")
+                     f"the person whether it is a title they stand behind, then {confirm}; "
+                     "until then the career's headline renders")
     skills = [O.K + s for s in doc.get("skills") or []] or sorted(career.live("Skill"))
     asked = [r.asked.strip() for r in sorted(
         requirements, key=lambda r: r.necessity != "required")]
@@ -403,7 +407,7 @@ def retuned(doc, career, title, requirements, notes):
     return doc
 
 
-def short(store, chosen, select, today, *, ships, queries, post=None):
+def short(store, chosen, select, today, *, ships, queries, post=None, target=None):
     """The short resume.json for `chosen` (or `select`, or the whole career).
 
     Args:
@@ -415,6 +419,8 @@ def short(store, chosen, select, today, *, ships, queries, post=None):
         queries: the RecordQueries over the store.
         post: the posting's iri with --from-match, whose title and wording the file is
             retuned to (retuned), or None.
+        target: the graph-native selection it is for (`<stem>`), whose notes name the
+            tool that confirms a block; None for a resume.json.
 
     Returns:
         Short.
@@ -429,7 +435,7 @@ def short(store, chosen, select, today, *, ships, queries, post=None):
         raise Refused([str(err)], err.fix) from None
     if post is not None:
         retuned(doc, Career(store.graph(KB)), queries.posting_head(post)[1],
-                queries.requirements(post), notes)
+                queries.requirements(post), notes, target)
     faults = untraced_lines(store, queries, [O.K + b for b in doc["bullets"]])
     return Short(doc, tuple(notes), tuple(faults))
 

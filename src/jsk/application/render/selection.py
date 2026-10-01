@@ -23,8 +23,8 @@ resume.json path used to go, so `jsk resume ship` runs every step on a target wi
 step knowing (`load_resume` and adapters/cli/compose/resume.py read it as the graph).
 
 It refuses an application made from files, one with no posting, a draft posting for
-`from_match`, a sent application, an existing selection unless `replace`, and a
-`from_match` for a general resume. `update`'s FAILs are short.shape's and short.ids' -
+`from_match`, a frozen application (sent or held back), an existing selection unless
+`replace`, and a `from_match` for a general resume. `update`'s FAILs are short.shape's and short.ids' -
 an unknown key or id, a retired one, a bullet under no role, a bad setting - and nothing
 is written when one fires. Nothing here prints.
 """
@@ -72,6 +72,11 @@ class Target:
     def ref(self):
         """The path the render, the record gate and the gates pass for it (REF)."""
         return os.path.join(self.out_dir, REF)
+
+    @property
+    def named(self):
+        """How the tools name it: the stem, or `resumes/<name>`."""
+        return self.rel.removeprefix("applications/")
 
     @property
     def sel_id(self):
@@ -133,6 +138,14 @@ def parse_ref(path):
     return os.path.dirname(os.path.dirname(here)), f"{kind}/{os.path.basename(here)}"
 
 
+def target_name(path):
+    """The name the tools give the target whose ref `path` is - `<stem>` or
+    `resumes/<name>` - or None for a file: what a finding's fix names, so a graph-native
+    selection is never told to edit a resume.json (short.confirm_hint)."""
+    found = parse_ref(path)
+    return found[1].removeprefix("applications/") if found else None
+
+
 def shown_name(path):
     """How a finding names a record: a ref by its graph, a file by its basename."""
     found = parse_ref(path)
@@ -153,12 +166,13 @@ def loaded(root, ports):
 
 def checked(store, t, ports, *, posting=None, writing=False):
     """Refuse what no selection use case may touch: an application made from files, one
-    with no posting (or in the wrong state), and - when `writing` - a sent one."""
+    with no posting (or in the wrong state), and - when `writing` - a frozen one, sent or
+    held back."""
     if t.app is None:
         return
     N.native(store, t.app, ports, posting=posting)
     if writing:
-        N.refuse_if_sent(t.app, store, ports)
+        N.refuse_if_frozen(t.app, store, ports)
 
 
 def stored(store, t):
@@ -259,11 +273,12 @@ def write(t, store, doc, ports):
     return [t.graph], []
 
 
-def doc_faults(doc, store):
-    """short.shape's FAILs, then - when the shape holds - short.ids', as findings."""
+def doc_faults(doc, store, t):
+    """short.shape's FAILs, then - when the shape holds - short.ids', as findings; a hint
+    names the tool and the Target `t`, never a resume.json."""
     from ...domain.resume.short import ids, shape
 
-    found = shape(doc) or ids(doc, store)
+    found = shape(doc, t.named) or ids(doc, store)
     return [("FAIL", text, "fix:  correct it and send the update again") for text in found]
 
 
@@ -285,7 +300,7 @@ def select(root, target, *, mode, replace=False, today, ports):
 
     Raises:
         Refused: an unknown mode, `from_match` for a general resume, a legacy application,
-            no posting or a draft one, a sent application, an existing selection without
+            no posting or a draft one, a frozen application, an existing selection without
             `replace`, or no career.
     """
     from ...domain.matching.report import blocks
@@ -319,7 +334,7 @@ def select(root, target, *, mode, replace=False, today, ports):
               else ports.ranked(store, today))
     try:
         made = short(store, chosen, None, today, ships=ports.ships,
-                     queries=ports.queries(store), post=post)
+                     queries=ports.queries(store), post=post, target=t.named)
     except Unexported as e:
         return Selected(None, {}, tuple(("FAIL", line, f"fix:  {e.fix}") for line in e.lines),
                         gaps=tuple(g.line() for g in chosen.gaps))
@@ -328,7 +343,7 @@ def select(root, target, *, mode, replace=False, today, ports):
     warns = tuple(("WARN", f"a chosen bullet's number the career cannot back: {line}",
                    "fix:  ask the person, and answer it in the career (`career_apply`) "
                    "before any word is retuned") for line in made.faults)
-    fails = doc_faults(made.doc, store)
+    fails = doc_faults(made.doc, store, t)
     if fails:
         return Selected(None, made.doc, tuple(fails) + warns, notes, gaps)
     written, fails = write(t, store, made.doc, ports)
@@ -394,7 +409,7 @@ def update(root, target, *, bullets=None, roles=None, skills=None, names=None, f
         changed (target None, no findings).
 
     Raises:
-        Refused: a legacy application, no posting, a sent application, or no selection.
+        Refused: a legacy application, no posting, a frozen application, or no selection.
     """
     t = target_of(root, target)
     store = loaded(root, ports)
@@ -404,7 +419,7 @@ def update(root, target, *, bullets=None, roles=None, skills=None, names=None, f
                   settings={"format": format, "region": region, "pages": pages,
                             "ats_pages": ats_pages, "floor": floor},
                   prose={"summary": summary, "headline": headline})
-    fails = doc_faults(doc, store)
+    fails = doc_faults(doc, store, t)
     if fails:
         return Selected(None, doc, tuple(fails))
     if S.canonical(doc) == S.canonical(before):
@@ -430,7 +445,7 @@ def confirm(root, target, key, answer, *, ports):
         was confirmed already.
 
     Raises:
-        Refused: a legacy application, no posting, a sent one, no selection, no such
+        Refused: a legacy application, no posting, a frozen one, no selection, no such
             block, a malformed one, or a write that did not validate.
     """
     from ...domain.resume import short as shape_of
@@ -444,9 +459,9 @@ def confirm(root, target, key, answer, *, ports):
         raise Refused(f"{t.graph} has no {key} to confirm",
                       f"fix:  write one with the `resume_update` tool ({key}), then read it "
                       "to the person")
-    earned = shape_of.unearned(block, key)
+    earned = shape_of.unearned(block, key, t.named)
     faults = [f for f in shape_of.shape({"resume": shape_of.VERSION, "bullets": ["ach_"],
-                                         key: block}) if f not in earned]
+                                         key: block}, t.named) if f not in earned]
     if faults:
         raise Refused.every([(f"{t.graph}: {f}", f"fix:  correct the {key} with the "
                               "`resume_update` tool") for f in faults])

@@ -49,6 +49,10 @@ class Overlay:
     short: list = field(default_factory=list)
     surplus: list = field(default_factory=list)
     ask: list = field(default_factory=list)
+    # {question: the requirement's slug} for an ask about one requirement. gaps.txt cannot
+    # say it; the review graph keeps it as the item's j:about (Ruling 4), so the question's
+    # j:Ask carries the requirement and its concepts and counts in `repeated`.
+    about: dict = field(default_factory=dict)
 
 
 def parse(text):

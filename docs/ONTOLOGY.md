@@ -540,8 +540,10 @@ id `k:abs_<concept-slug>` · section Open questions · provenance yes
 
 A confirmed absence that has not lapsed answers the match: a requirement whose every concept a
 standing absence denies is `missing`, its basis "said on <date>: <answer>", and asks no
-question - so the same no is never asked twice. A requirement listing alternatives is settled
-only when every alternative is denied. An absence lapses 365 days after `said`
+question - so the same no is never asked twice. An absence on a concept also denies every
+concept that counts as it (the match's own closure, no implies edge): a no to financial services
+answers insurance, never the reverse. A requirement listing alternatives is settled only when
+every alternative is denied. An absence lapses 365 days after `said`
 (`LAPSE_DAYS` in `domain/record/absence.py`, computed, never stored); a lapsed one is ignored
 by the match and is due to be asked again. A live project that holds what an absence denies
 is a WARN (`absence-contradicted`): one of the two is stale. Absences sit under Open

@@ -152,7 +152,7 @@ def review(store, app):
             "verdicts": [{"slug": r.slug, "verdict": r.verdict, "reason": r.reason or None}
                          for r in overlay.rows],
             "short": list(overlay.short), "surplus": list(overlay.surplus),
-            "asks": list(overlay.ask)}
+            "asks": [{"question": q, "about": overlay.about.get(q)} for q in overlay.ask]}
 
 
 def assessment(store, app, s, today, ports):
@@ -238,7 +238,7 @@ def markdown(store, app, s, assessed, today, ports):
                       + "; ".join(text for sev, text, _ in found if sev == "FAIL"),
                       f"fix:  the `assessment_review` tool ({app.stem})")
     return render(r, a, datetime.date.fromisoformat(assessed), s.lines,
-                  [Drop(n, why) for n, why in sorted(s.drops.items())])
+                  [Drop(n, why) for n, why in sorted(s.drops.items())], native=True)
 
 
 def list_apps(root, *, today, ports):
@@ -251,8 +251,9 @@ def list_apps(root, *, today, ports):
 
     Returns:
         {applications: [{app, kind, posting, review, assessed, submitted, stage, since}],
-        resumes: [{name, graph}]}. `kind` is native, legacy, or None for no posting;
-        `posting` the posting's state - legacy ones have none, and are complete.
+        resumes: [{name, graph}]}. `kind` is native, files (made from posting.md and
+        decisions.txt), or None for no posting; `posting` the posting's state - draft or
+        complete, `built` for one made from files, None for none.
 
     Raises:
         Refused: there is no store at `root`.
@@ -285,8 +286,12 @@ def list_apps(root, *, today, ports):
                 if q.predicate.value == O.J + "state":
                     review_state = q.object.value.removeprefix(O.J)
         stage = stages.get(rel, {})
+        if quads is not None and not native:
+            # Built from posting.md and decisions.txt: complete by construction, though its
+            # graph holds no j:state (Ruling 3). `null` read as "no posting" (2026-10-02).
+            state = state or "built"
         out.append({"app": rel.split("/", 1)[1],
-                    "kind": "native" if native else "legacy" if quads is not None else None,
+                    "kind": "native" if native else "files" if quads is not None else None,
                     "posting": state, "review": review_state,
                     "assessed": f"{rel}/gaps" in store.parsed,
                     "submitted": stage.get("submitted"), "stage": stage.get("stage") or None,

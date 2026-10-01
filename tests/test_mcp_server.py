@@ -10,7 +10,10 @@ workspace says how to make one (Ruling 15); an exception inside a use case is on
 the next call still works; the read cache sees a CLI write made in another process
 (Ruling 14); a tool write waits for a CLI writer's turn, then lands, holding nothing
 between calls; the server answers over stdio as `python -m jsk mcp`; and a plain install
-says the extra is missing, exits 2, and names the install line (Ruling 13).
+says the extra is missing, exits 2, and names the install line (Ruling 13). From the
+2026-10-02 review: career_query pages its rows with a total, a refused changeset gives each
+refusal its own fix, an ask's `about` is kept, and career_confirm on a selection returns
+the confirmed block alone.
 
 Calls go through the SDK's in-memory client session (P0 results, item 6), so what is
 tested is what an agent receives: the JSON text of each result.
@@ -137,6 +140,26 @@ class Career(Served):
                 self.assertFalse(refused["ok"])
                 self.assertTrue(refused["findings"][0]["fix"])
 
+    def test_career_query_pages_its_rows_and_says_how_many_there_are(self):
+        whole = self.call("career_query", name="person", limit=10 ** 6)
+        self.assertGreater(whole["total"], 2)
+        self.assertEqual((len(whole["rows"]), whole["next"]), (whole["total"], None))
+        first = self.call("career_query", name="person", limit=2)
+        self.assertEqual((first["rows"], first["total"], first["next"]),
+                         (whole["rows"][:2], whole["total"], 2))
+        rest = self.call("career_query", name="person", offset=2, limit=10 ** 6)
+        self.assertEqual(first["rows"] + rest["rows"], whole["rows"])
+
+    def test_a_refused_changeset_gives_each_refusal_its_own_fix(self):
+        refused = self.call("career_apply",
+                            changeset=PFX + 'op:set { k:prj_nowhere j:name "x" . }\n')
+        self.assertFalse(refused["ok"])
+        [found] = refused["findings"]
+        # The fix was folded into the text with no fix beside it (2026-10-02).
+        self.assertEqual((found["text"], found["fix"]),
+                         ("k:prj_nowhere - op:set on an entry that does not exist",
+                          "op:add it instead"))
+
     def test_preview_writes_nothing_and_apply_writes_and_logs(self):
         before = appkit.facts(self.root, "kb")
         preview = self.call("career_preview", changeset=RENAME)
@@ -195,8 +218,9 @@ class Flow(Served):
                                         "reason": "AKS only"}], short=["Rust"],
                              asks=[{"question": "Have you written Rust?", "about": "rust"}])
         self.assertTrue(reviewed["ok"], reviewed)
-        # `about` has no place in the review graph yet; dropping it silently would lie.
-        self.assertEqual([f["severity"] for f in reviewed["findings"]], ["WARN"])
+        # `about` is kept now (the review item's j:about), so there is nothing to warn of;
+        # until 2026-10-02 it was dropped with a WARN.
+        self.assertEqual(reviewed["findings"], [])
         self.assertEqual(self.call("assessment_complete", app=STEM)["state"], "complete")
 
         parts = {part: self.call("app_show", app=STEM, part=part)
@@ -209,6 +233,11 @@ class Flow(Served):
         assessment = parts["assessment"]["assessment"]
         self.assertEqual((assessment["fit"], assessment["short"]), ("partial", ["Rust"]))
         self.assertIn("| Kubernetes | required | partial", assessment["markdown"])
+        self.assertEqual([(q["requirement"], q["concepts"]) for q in assessment["questions"]],
+                         [("rust", ["c:rust"])])
+        # A graph-native assessment has no gaps.txt: its header names the review tool.
+        self.assertIn("assessment_review", assessment["markdown"])
+        self.assertNotIn("gaps.txt", assessment["markdown"])
 
         listed = {a["app"]: a for a in self.call("app_list")["applications"]}
         self.assertEqual((listed[STEM]["kind"], listed[STEM]["posting"],
@@ -295,6 +324,11 @@ class Resume(Served):
         confirmed = self.call("career_confirm", target=STEM, block="headline",
                               answer="It is the title I hold.")
         self.assertEqual((confirmed["ok"], confirmed["changed"]), (True, True), confirmed)
+        # The confirmed block alone, not the selection before and after (~8k characters).
+        self.assertEqual(confirmed["block"], {"text": "Platform Engineer", "status": "confirmed",
+                                              "answer": "It is the title I hold."})
+        self.assertNotIn("before", confirmed)
+        self.assertNotIn("after", confirmed)
         shown = self.call("app_show", app=STEM, part="selection")
         self.assertEqual(shown["selection"]["doc"]["headline"]["status"], "confirmed")
 

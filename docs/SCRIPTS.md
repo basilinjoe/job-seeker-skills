@@ -921,8 +921,9 @@ verbatim under its own `---` heading the way `jsk resume check` prints it over a
    the fitted render.
 
 It refuses before any of them, exit 1, in a frozen application - the store holds an application
-graph for the `resume.json`'s directory or `--out` - because re-rendering would overwrite what was sent; copy the
-application to a new dated directory to reuse it.
+graph for the `resume.json`'s directory or `--out` - because re-rendering would overwrite what was sent (or, for
+one held back with `--submitted false`, what was frozen); copy the application to a new dated directory to reuse
+it. A graph-native application's fix names capturing its posting again under a new stem (`posting_capture`).
 
 It closes with the same render-gate section `jsk resume check` on a directory does: **nobody has read the PDF**, and the
 command says so rather than exiting 0 over it. When it stopped early that section says nothing was
@@ -1031,8 +1032,10 @@ and one beside it is never read. Its record is the selection the store holds,
 against the selection, a letter's with `--record <stem>`. The rename moves all five of its graphs -
 `posting`, `review`, `gaps`, `resume` and the new `application` - in one update. After it, the
 `resume_update`, `posting_decide` and every other writing tool refuse it as sent, and `jsk resume
-ship <stem>` refuses the frozen directory. With no selection stored it refuses: `no resume stored
-for <dir>`, naming the `resume_select` tool.
+ship <stem>` refuses the frozen directory. A held-back freeze (`--submitted false`) is refused
+alike, the refusal saying it was frozen, not sent, and naming `posting_capture` under a new stem
+as the way to reuse it. With no selection stored it refuses: `no resume stored for <dir>`, naming
+the `resume_select` tool.
 
 It refuses — exit 1, saying why, with nothing renamed and nothing written — when:
 
@@ -1105,18 +1108,18 @@ is held between calls. Reads share one loaded record until the store on disk mov
 |---|---|---|
 | `career_view(section?, offset?, limit?)` | the career as Markdown, paged (`next`) | `jsk kb view` |
 | `career_show(ids, bullets?)` | entries as Turtle, with the revision for `op:base` | `jsk kb show` |
-| `career_query(name, args?)` | any named query, rows as JSON; `concepts` with terms finds the nearest | `jsk kb query` |
+| `career_query(name, args?, offset?, limit?)` | any named query, rows as JSON, 50 a page with `total` and `next`; `concepts` with terms finds the nearest | `jsk kb query` |
 | `career_log(last?)` | the history, newest first | `jsk kb log` |
 | `career_preview(changeset)` | a TriG changeset dry-run: the diff, findings; nothing written | `jsk kb apply --dry-run` |
 | `career_apply(changeset)` | apply it: validated, written, logged; new claims arrive inferred | `jsk kb apply` |
-| `career_confirm(ids?, target?, block?, answer?, source?, quote?)` | confirm entries with the person's answer or a document's quote; or a selection's summary or headline | `jsk kb confirm` |
-| `app_list()` | every application and general resume: kind, posting and review state, stage | `jsk kb query pipeline` |
+| `career_confirm(ids?, target?, block?, answer?, source?, quote?)` | confirm entries with the person's answer or a document's quote; or a selection's summary or headline, returning that block alone | `jsk kb confirm` |
+| `app_list()` | every application and general resume: kind (`native` or `files`), posting state (`draft`, `complete`, or `built` from files), review state, stage | `jsk kb query pipeline` |
 | `app_show(app, part, offset?, limit?)` | `posting`, `lines` (paged), `requirements`, `review`, `assessment`, `selection` | the graphs |
 | `posting_capture(app, url? \| text?, company?, title?, captured?, replace?)` | an advert fetched or pasted, stored as a draft posting's lines | `jsk posting fetch` |
-| `posting_decide(app, header?, requirements?, drops?, remove?)` | requirement rows and drops upserted, each checked against its line | `jsk posting build`'s checks |
+| `posting_decide(app, header?, requirements?, drops?, remove?)` | requirement rows and drops upserted, each checked against its line; a slug to remove that is not there is a FAIL | `jsk posting build`'s checks |
 | `posting_complete(app)` | every qualification line used or dropped, the rules clean; `complete` | build's coverage check |
 | `assessment_derive(app)` | match, fold the stored review, write the assessment; rows, fit, questions | `jsk tailor match` |
-| `assessment_review(app, fit?, eligibility?, verdicts?, short?, surplus?, asks?)` | the review upserted, each verdict checked against the match | `--gaps` |
+| `assessment_review(app, fit?, eligibility?, verdicts?, short?, surplus?, asks?)` | the review upserted, each verdict checked against the match; an ask's `about` (a requirement's slug) is kept, so its question carries that requirement's concepts | `--gaps` |
 | `assessment_complete(app)` | every flag answered, no FAIL; the review `complete` | |
 | `resume_select(target, mode, replace?)` | `from_match` or `ranked`; the selection stored | `jsk kb export` |
 | `resume_update(target, bullets?, roles?, skills?, names?, format?, region?, pages?, ats_pages?, floor?, summary?, headline?)` | the selection changed; a changed summary or headline drops to inferred | `resume.json` edits |

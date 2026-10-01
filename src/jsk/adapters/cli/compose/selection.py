@@ -219,11 +219,11 @@ def ship_target(root, target, *, ats_max=False, template=None, pages=None, fit=T
     from .. import ship as cli
     from ..gates.check import contained, measure, strict_for
     from . import render as bound
-    from .timeline import frozen
+    from .timeline import frozen, sent_day
 
     t = target_of(root, target)
     read(root, target)
-    refusal = frozen_refusal(t.out_dir, frozen=frozen)
+    refusal = frozen_refusal(t.out_dir, frozen=frozen, sent=sent_day, native=t.app is not None)
     if refusal:
         raise Refused(refusal[0], refusal[1])
     if template is not None:
