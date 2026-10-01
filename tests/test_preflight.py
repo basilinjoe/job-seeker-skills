@@ -369,7 +369,7 @@ class SetupIsWiredUp(unittest.TestCase):
         fenced = self.fenced(self.mode)
         named = set(re.findall(r"^jsk ([a-z]+)", fenced, re.M))
         self.assertTrue(named, "the setup command invokes no jsk subcommand")
-        known = set(cli.HANDLERS) | set(cli.SIMPLE)
+        known = set(cli.NOUNS)
         unknown = sorted(n for n in named if n not in known)
         self.assertEqual(unknown, [], f"setup.md names unknown subcommands: {unknown}")
 

@@ -81,20 +81,19 @@ changeset to a file for later.
 | Command | Does |
 |---|---|
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
-| `jsk new <path> --name "Name"` | an empty `career/store/` and `applications/` |
+| `jsk kb new <path> --name "Name"` | an empty `career/store/` and `applications/` |
 | `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|path\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
 | `jsk posting fetch <url>\|<file> <app-dir>` | a job board's posting, or a `.docx`/`.html`/`.txt`, as `posting.md` |
-| `jsk match <app-dir>` | requirements matched through the vocabulary, ranked, questions |
+| `jsk tailor match <app-dir>` | requirements matched through the vocabulary, ranked, questions |
 | `jsk tailor prepare <app-dir> [--draft-gaps]` | the match and all an assessment reads, one digest |
-| `jsk validate <resume.json>` | the record gate |
-| `jsk render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
-| `jsk preview <resume.json> --out DIR` | every template, with page counts |
-| `jsk check <file> [--strict] [--only parse\|prose]` | the parse and prose gates on one file |
-| `jsk gates <out-dir> [--record R] [--pages N]` | record, parse, prose, layout gates |
-| `jsk ship <resume.json> --out DIR [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
-| `jsk fit <resume.tex> --target-pages 2` | fits the render to a page budget |
-| `jsk freeze <app-dir> --submitted DATE\|false --channel TEXT` | records what was sent, if the gates pass |
-| `jsk event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |
+| `jsk resume check <resume.json>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
+| `jsk resume render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
+| `jsk resume preview <resume.json> --out DIR` | every template, with page counts |
+| `jsk resume ship <resume.json> --out DIR [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
+| `jsk resume fit <resume.tex> --target-pages 2` | fits the render to a page budget |
+| `jsk letter check <letter> --record R` | a cover letter's words and numbers |
+| `jsk app freeze <app-dir> --submitted DATE\|false --channel TEXT` | records what was sent, if the gates pass |
+| `jsk app event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |
 
 Exit codes: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are required — the
 PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
@@ -119,13 +118,13 @@ where they fall short stay with you and the person. Their output does not reach 
 
 | Gate | Question | How |
 |---|---|---|
-| **Record** | shaped right, every id live, every number traced to a metric? | `jsk validate` |
-| **Parse** | will an ATS read it? | `jsk check` on the PDF; `--strict` on the `.txt` |
-| **Prose** | does it obey the writing rules? | `jsk check --only prose` on the `.tex` |
-| **Layout** | tofu, fonts, stranded headings, dates, paper? | `jsk check --only layout` on the PDF |
+| **Record** | shaped right, every id live, every number traced to a metric? | `jsk resume check` on the `.json` |
+| **Parse** | will an ATS read it? | `jsk resume check` on the PDF; `--strict` on the `.txt` |
+| **Prose** | does it obey the writing rules? | `jsk resume check --only prose` on the `.tex` |
+| **Layout** | tofu, fonts, stranded headings, dates, paper? | `jsk resume check --only layout` on the PDF |
 | **Render** | does it look right, and is it true? | open every page of the PDF |
 
-`jsk gates` (or `jsk ship`) runs all but the last. **Show the output**; fix and re-run, never explain
+`jsk resume check <dir>` (or `ship`) runs all but the last. **Show the output**; fix and re-run, never explain
 a failure away. The render gate is half yours: only the person can confirm it is true — until they
 have, the resume is unverified. Repair a defect in the career or `resume.json` and re-render; never the PDF.
 

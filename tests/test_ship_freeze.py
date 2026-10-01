@@ -83,7 +83,7 @@ class ShipCase(unittest.TestCase):
         """cli.main() in this interpreter, with the TeX compile faked."""
         from jsk import cli
         from jsk.render import render_resume
-        args = ["jsk", "ship", str(self.record), "--out", str(self.out)]
+        args = ["jsk", "resume", "ship", str(self.record), "--out", str(self.out)]
         buf = io.StringIO()
         with mock.patch.object(render_resume, "compile_pdf",
                                compile_pdf or fake_compile()), \
@@ -289,7 +289,7 @@ class ShipSummary(ShipCase):
     def test_jsk_gates_ends_with_it_too(self):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
-        code, out = run(JSK, "gates", self.out, "--record", self.record)
+        code, out = run(JSK, "resume", "check", self.out, "--record", self.record)
         self.assertEqual(code, 0, out)
         lines = self.summary(out)
         self.assertEqual([self.step(line) for line in lines[:-1]], self.headings(out), out)
@@ -345,7 +345,7 @@ class ShipFits(ShipCase):
         from jsk import cli
         from jsk.render import fit_pages, render_resume
         self.fake = fake = margin_compile(fits_at)
-        args = ["jsk", "ship", str(self.record), "--out", str(self.out)]
+        args = ["jsk", "resume", "ship", str(self.record), "--out", str(self.out)]
         buf = io.StringIO()
         with mock.patch.object(render_resume, "compile_pdf", fake), \
                 mock.patch.object(fit_pages, "compile_pdf", fake), \
@@ -445,7 +445,7 @@ class ShipUsage(ShipCase):
         self.assertNotIn("--- record gate", out)
 
     def test_the_out_directory_is_required(self):
-        code, out = run(JSK, "ship", self.record)
+        code, out = run(JSK, "resume", "ship", self.record)
         self.assertEqual(code, 2, out)
         self.assertIn("--out is required", out)
 
@@ -462,7 +462,7 @@ class ShipUsage(ShipCase):
     def test_the_knowledge_base_is_refused_as_validate_refuses_it(self):
         kb = self.tmp / "user-knowledgebase.md"
         kb.write_text("# Career knowledge base", encoding="utf-8")
-        code, out = run(JSK, "ship", kb, "--out", self.out)
+        code, out = run(JSK, "resume", "ship", kb, "--out", self.out)
         self.assertEqual(code, 2, out)
         self.assertIn("pass resume.json", out)
 
@@ -532,7 +532,7 @@ class GraphCase(unittest.TestCase):
         return code, buf.getvalue()
 
     def freeze(self, *args, submitted="2026-09-24", channel="Workday portal"):
-        return self.jsk("freeze", self.app, "--submitted", submitted, "--channel", channel,
+        return self.jsk("app", "freeze", self.app, "--submitted", submitted, "--channel", channel,
                         *args)
 
     @property
@@ -966,7 +966,7 @@ class FreezeMarkdownWorkspace(GraphCase):
 
 class FreezeUsage(GraphCase):
     def test_submitted_is_required(self):
-        code, out = self.jsk("freeze", self.app, "--channel", "email")
+        code, out = self.jsk("app", "freeze", self.app, "--channel", "email")
         self.assertEqual(code, 2, out)
         self.assertIn("--submitted is required", out)
 
@@ -977,12 +977,12 @@ class FreezeUsage(GraphCase):
                 self.assertEqual(code, 2, out)
 
     def test_channel_is_required(self):
-        code, out = self.jsk("freeze", self.app, "--submitted", "false")
+        code, out = self.jsk("app", "freeze", self.app, "--submitted", "false")
         self.assertEqual(code, 2, out)
         self.assertIn("--channel is required", out)
 
     def test_a_directory_that_does_not_exist_is_a_call_error(self):
-        code, out = run(JSK, "freeze", self.root / "nowhere", "--submitted", "false",
+        code, out = run(JSK, "app", "freeze", self.root / "nowhere", "--submitted", "false",
                         "--channel", "email")
         self.assertEqual(code, 2, out)
         self.assertIn("fix:", out)
@@ -1021,7 +1021,7 @@ class ShipGraph(GraphCase):
 
         out_dir = self.root / "out"
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
-            return self.jsk("ship", self.app / "resume.json", "--out", out_dir)
+            return self.jsk("resume", "ship", self.app / "resume.json", "--out", out_dir)
 
     def test_a_clean_record_ships_through_the_record_gate(self):
         code, out = self.ship()
@@ -1042,7 +1042,7 @@ class ShipGraph(GraphCase):
 
 class Gates(GraphCase):
     def test_jsk_gates_runs_the_record_gate_and_no_claims_gate(self):
-        code, out = self.jsk("gates", self.app)
+        code, out = self.jsk("resume", "check", self.app)
         heads = [line[4:].split(":")[0] for line in out.splitlines() if line.startswith("--- ")]
         self.assertEqual(heads[0], "record gate", out)
         self.assertNotIn("claims gate", heads)
@@ -1056,7 +1056,7 @@ class Event(GraphCase):
         self.assertEqual(code, 0, out)
 
     def event(self, *args):
-        return self.jsk("event", self.sent, *args)
+        return self.jsk("app", "event", self.sent, *args)
 
     @property
     def record(self):
@@ -1205,18 +1205,18 @@ class Event(GraphCase):
         self.assertEqual(self.record, before)
 
     def test_an_unfrozen_application_has_no_record_to_add_to(self):
-        code, out = self.jsk("event", self.root / "applications" / "elsewhere-x", "note",
+        code, out = self.jsk("app", "event", self.root / "applications" / "elsewhere-x", "note",
                              "--date", "2026-09-27")
         self.assertEqual(code, 2, out)
         (self.root / "applications" / "elsewhere-x").mkdir()
-        code, out = self.jsk("event", self.root / "applications" / "elsewhere-x", "note",
+        code, out = self.jsk("app", "event", self.root / "applications" / "elsewhere-x", "note",
                              "--date", "2026-09-27")
         self.assertEqual(code, 1, out)
         self.assertIn("holds no application record", out)
         self.assertIn("jsk freeze", out)
 
     def test_a_directory_outside_applications_is_a_call_error(self):
-        code, out = self.jsk("event", self.root / "career", "note", "--date", "2026-09-27")
+        code, out = self.jsk("app", "event", self.root / "career", "note", "--date", "2026-09-27")
         self.assertEqual(code, 2, out)
         self.assertIn("not in an applications/ folder", out)
 
@@ -1224,7 +1224,7 @@ class Event(GraphCase):
         md = self.root / "applications" / "old"
         md.mkdir()
         (md / "application.md").write_text("---\n---\n", encoding="utf-8")
-        code, out = self.jsk("event", md, "note", "--date", "2026-09-27")
+        code, out = self.jsk("app", "event", md, "note", "--date", "2026-09-27")
         self.assertEqual(code, 1, out)
         self.assertIn("# Timeline", out)
 
@@ -1295,7 +1295,7 @@ class ShipFrozen(ShortCase):
         from jsk.render import render_resume
 
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
-            return self.jsk("ship", *args)
+            return self.jsk("resume", "ship", *args)
 
     def frozen(self):
         appkit.put(self.root, self.graph(self.app, "application"),

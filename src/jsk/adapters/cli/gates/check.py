@@ -353,6 +353,7 @@ def cmd_gates(args):
     return worst
 
 
+
 class Shown(dict):
     """A step as --json prints it - gate, command, status, exit, output - with the counts,
     page measurements, withheld lines and fit the summary restates kept beside it rather

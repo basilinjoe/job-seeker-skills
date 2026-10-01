@@ -190,14 +190,13 @@ class Files(LetterCase):
     def test_a_missing_letter_is_called_wrong(self):
         self.assertEqual(run("nowhere.txt")[0], 2)
 
-    def test_jsk_check_only_letter_runs_it(self):
+    def test_jsk_letter_check_runs_it(self):
         record = self.workspace()
         target = Path(record).with_name("cover-letter.txt")
         target.write_text(CLEAN, encoding="utf-8")
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "check", str(target), "--only", "letter",
-                             "--record", record])
+            code = cli.main(["jsk", "letter", "check", str(target), "--record", record])
         self.assertEqual(code, 0, out.getvalue())
         self.assertIn("PASS - fit to send", out.getvalue())
 

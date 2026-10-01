@@ -291,7 +291,7 @@ docs/                               this directory - human-facing documentation
 src/jsk/                            THE CLI. one installed package, `jsk` on the command line
   __init__.py                       __version__
   __main__.py                       `python -m jsk`, the same entry point as `jsk`
-  cli.py                            the dispatcher: fifteen subcommands, each run in process
+  cli.py                            the `jsk` console script's module: hands over to adapters/cli/main.py
   cliutil.py                        one contract for --help across the hand-rolled entry points
   paths.py                          where the packaged schema lives - stated once
   kb.py                             `jsk new` - hands over to adapters/cli/kb/new.py (the documented path)
@@ -435,6 +435,10 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting_sources.py              a board's JSON over the network; a .docx, .html or text file
     outputs.py                      a render's files written, its scratch directories, a move
   adapters/                         the driving side: argv parsed, a use case run, its result printed
+    cli/main.py                     the dispatcher: seven nouns, each verb run in process, the retired names
+    cli/dispatch.py                 a verb's module found and its main() called, contained
+    cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
+    cli/resume.py                   `jsk resume check`: the gates its target calls for, by its kind
     cli/render.py                   `jsk render`: its flags, the render run, what it wrote said
     cli/fit.py                      `jsk fit`: its flags, the fit run, each lever and the verdict said
     cli/preview.py                  `jsk preview`: its flags, every template previewed, the pages said

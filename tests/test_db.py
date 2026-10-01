@@ -395,7 +395,7 @@ class TurnBeforeTheStore(unittest.TestCase):
         return second, names
 
     def test_a_new_queued_behind_another_is_refused(self):
-        second, names = self.behind_a_new("new", self.root, "--name", "Second")
+        second, names = self.behind_a_new("kb", "new", self.root, "--name", "Second")
         self.assertEqual(second.returncode, 1, second.stdout + second.stderr)
         self.assertIn("already exists", second.stdout)
         self.assertIn("waiting for another jsk write", second.stderr)

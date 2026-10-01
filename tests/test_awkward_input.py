@@ -232,7 +232,7 @@ class MatchGaps(Forms):
     def test_match_gaps_reads_gaps_txt(self):
         found = self.check(
             GAPS_TXT, match_workspace, lambda r: r / CONTOSO / "gaps.txt",
-            lambda r: ["match", r / CONTOSO, "--gaps", r / CONTOSO / "gaps.txt",
+            lambda r: ["tailor", "match", r / CONTOSO, "--gaps", r / CONTOSO / "gaps.txt",
                        "--today", "2026-09-24"], "gaps.txt")
         written = found[PLAIN][2]
         self.assertIn("applications/contoso/gaps", graphs(found[PLAIN]))

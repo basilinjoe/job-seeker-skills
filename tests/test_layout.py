@@ -250,7 +250,7 @@ class CheckOnlyLayout(LayoutCase):
     def test_jsk_check_runs_it_by_name_from_a_sibling(self):
         path = pdf(self.tmp / "Jane_Resume.pdf", [column(CLEAN_RESUME)])
         (self.tmp / "Jane_Resume.tex").write_text("", encoding="utf-8")
-        code, out = run(CLI, "check", Path(path).with_suffix(".tex"), "--only", "layout",
+        code, out = run(CLI, "resume", "check", Path(path).with_suffix(".tex"), "--only", "layout",
                         "--region", "AU")
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - the layout holds", out)

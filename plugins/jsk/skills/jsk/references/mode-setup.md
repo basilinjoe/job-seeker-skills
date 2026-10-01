@@ -53,7 +53,7 @@ Otherwise ask two things:
 2. **Do they have an existing resume?** It is the fastest skeleton available.
 
 ```bash
-jsk new <path> --name "Their Name"
+jsk kb new <path> --name "Their Name"
 ```
 
 That creates `career/store/`, holding an empty career and its log at revision 1, and
@@ -110,7 +110,7 @@ through their most significant projects.
 3. Validate, render and gate in one run, and show every step's output:
 
 ```bash
-jsk ship resume.json --out . --pages 2
+jsk resume ship resume.json --out . --pages 2
 ```
 
 If the PDF step reports the resume **unverified**, say so plainly.

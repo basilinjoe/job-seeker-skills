@@ -43,7 +43,7 @@ class Scaffold(unittest.TestCase):
     def new(self, *args):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "new", self.root, "--name", "Priya Raman", *args])
+            code = cli.main(["jsk", "kb", "new", self.root, "--name", "Priya Raman", *args])
         return code, out.getvalue()
 
     def kb(self, *args):
@@ -137,7 +137,7 @@ class FromNothing(Scaffold):
     def test_a_name_is_required(self):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "new", self.root])
+            code = cli.main(["jsk", "kb", "new", self.root])
         self.assertEqual(code, 2)
         self.assertIn("--name is required", out.getvalue())
         self.assertFalse(db.exists(self.root))

@@ -358,13 +358,13 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
                     self.assertNotIn(verb, text)
 
     def test_every_kb_verb_the_plugin_names_is_one_jsk_kb_has(self):
-        """`jsk kb <verb>` named anywhere in the plugin is a verb kbcli registers."""
-        from jsk.graph import kbcli
+        """`jsk kb <verb>` named anywhere in the plugin is a verb `jsk kb` dispatches."""
+        from jsk.adapters.cli.main import NOUNS
 
         for name, text in self.plugin_texts().items():
             for verb in set(re.findall(r"jsk kb ([a-z]+)", text)):
                 with self.subTest(file=name, verb=verb):
-                    self.assertIn(verb, kbcli.VERBS)
+                    self.assertIn(verb, NOUNS["kb"])
 
     def test_the_skill_names_the_read_verbs_and_the_load(self):
         """The kb row of SKILL.md's table, and the reads its one rule names: what an
@@ -601,14 +601,12 @@ class DocumentedSurface(unittest.TestCase):
     # of date: it reads as though the command does not exist.
 
     def subcommands(self):
-        """Every subcommand `jsk` answers to, read off its two dispatch tables."""
-        text = (SCRIPTS / "cli.py").read_text(encoding="utf-8")
-        found = set()
-        for table in ("SIMPLE", "HANDLERS"):
-            block = re.search(rf"^{table} = \{{(.*?)^\}}", text, re.M | re.S)
-            self.assertIsNotNone(block, f"cli.py: no {table} table found")
-            found |= set(re.findall(r'^    "([a-z]+)":', block.group(1), re.M))
-        self.assertTrue(found, "cli.py declares no subcommands")
+        """Every noun `jsk` answers to, read off its noun table."""
+        text = (SCRIPTS / "adapters" / "cli" / "main.py").read_text(encoding="utf-8")
+        block = re.search(r"^NOUNS = \{(.*?)^\}", text, re.M | re.S)
+        self.assertIsNotNone(block, "adapters/cli/main.py: no NOUNS table found")
+        found = set(re.findall(r'^    "([a-z]+)":', block.group(1), re.M))
+        self.assertTrue(found, "adapters/cli/main.py declares no nouns")
         return found
 
     def test_the_help_text_lists_every_subcommand(self):
@@ -620,12 +618,13 @@ class DocumentedSurface(unittest.TestCase):
         not how densely the menu is packed.
         """
         listed = set()
-        for group in re.findall(r"^    jsk ([a-z|]+)", (SCRIPTS / "cli.py").read_text(
-                encoding="utf-8"), re.M):
+        for group in re.findall(r"^    jsk ([a-z|]+)", (SCRIPTS / "adapters" / "cli" /
+                                                       "main.py").read_text(encoding="utf-8"),
+                                re.M):
             listed |= set(group.split("|"))
         missing = sorted(self.subcommands() - listed)
         self.assertEqual(missing, [],
-                         f"cli.py's own help text does not list: {missing}")
+                         f"adapters/cli/main.py's own help text does not list: {missing}")
 
     def test_the_scripts_page_lists_every_subcommand(self):
         """docs/SCRIPTS.md opens with the whole menu, for a person running these by
@@ -673,10 +672,10 @@ class ArchitectureNamesTheCode(unittest.TestCase):
 
     def test_the_subcommand_count_is_the_dispatchers(self):
         count = len(DocumentedSurface.subcommands(self))
-        said = re.search(r"cli\.py\s+the dispatcher: (\w+) subcommands", self.TEXT)
+        said = re.search(r"cli/main\.py\s+the dispatcher: (\w+) nouns", self.TEXT)
         self.assertIsNotNone(said, "docs/ARCHITECTURE.md no longer counts the subcommands")
         self.assertEqual(said.group(1), self.WORDS[count],
-                         f"cli.py dispatches {count} subcommands")
+                         f"adapters/cli/main.py dispatches {count} nouns")
 
 
 class TextIsReadInOnePlace(unittest.TestCase):

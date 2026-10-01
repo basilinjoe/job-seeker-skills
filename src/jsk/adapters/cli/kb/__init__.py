@@ -2,6 +2,8 @@
 
 Usage: jsk kb <verb> [arguments] [--root DIR]
 
+  new <path> --name "Name" [--force]   scaffold a workspace: career/store/ at r1, and
+                                       applications/ (no --root: the path is the workspace)
   apply <changeset.trig> [--dry-run]   merge a changeset into the career; prints the diff
   confirm <id>... --answer "..."       confirm entries with the person's answer, logged;
           <id>... --source F --quote "..."  or with a document's own words;

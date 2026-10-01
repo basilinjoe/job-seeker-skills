@@ -22,22 +22,22 @@ checks against the career. The rendering half carries that to a document somebod
 
 ```bash
 jsk doctor                       # what works on this machine
-jsk new ./my-career --name "Your Name"     # career/store/ with the career and its log, at r1
+jsk kb new ./my-career --name "Your Name"  # career/store/ with the career and its log, at r1
 jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
 jsk posting fetch <url> applications/<dir>   # an Ashby, Greenhouse or Lever posting, as posting.md
-jsk match applications/<dir>     # a posting against the career, through the vocabulary
+jsk tailor match applications/<dir>  # a posting against the career, through the vocabulary
 jsk tailor prepare applications/<dir> --draft-gaps   # the match and everything an assessment reads
-jsk validate resume.json         # the record gate
+jsk resume check resume.json    # the record gate
 jsk kb export --from-match applications/<dir> --out applications/<dir>/resume.json
-jsk render resume.json --out . --pdf
-jsk check resume.pdf             # both document gates, one pass
-jsk check cover-letter.txt --only letter --record resume.json   # a cover letter's words and numbers
-jsk gates .                      # record, parse, prose and layout gates
-jsk fit resume.tex --target-pages 2
-jsk preview resume.json --out ./looks
-jsk ship resume.json --out .      # validate, render, gate
-jsk freeze applications/<dir> --submitted 2026-09-08 --channel "Workday portal"
-jsk event applications/<dir> screen-scheduled --date 2026-09-15   # what happened next
+jsk resume render resume.json --out . --pdf
+jsk resume check resume.pdf     # both document gates, one pass
+jsk letter check cover-letter.txt --record resume.json   # a cover letter's words and numbers
+jsk resume check .              # record, parse, prose and layout gates
+jsk resume fit resume.tex --target-pages 2
+jsk resume preview resume.json --out ./looks
+jsk resume ship resume.json --out .   # validate, render, gate
+jsk app freeze applications/<dir> --submitted 2026-09-08 --channel "Workday portal"
+jsk app event applications/<dir> screen-scheduled --date 2026-09-15   # what happened next
 ```
 
 Each subcommand calls the module documented below it, in the same interpreter, with the same

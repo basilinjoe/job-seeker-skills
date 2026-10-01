@@ -24,8 +24,7 @@ RECORD_GATE = "jsk.gates.record"
 GOOD = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team", "ach_identity_sso"]}
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
-SUBCOMMANDS = ["doctor", "new", "match", "kb", "validate", "render", "preview",
-               "check", "gates", "fit", "ship", "freeze", "event", "posting", "tailor"]
+SUBCOMMANDS = ["doctor", "kb", "posting", "tailor", "resume", "letter", "app"]
 
 
 class Usage(unittest.TestCase):
@@ -49,17 +48,17 @@ class Usage(unittest.TestCase):
         """The cut was a literal buried in usage(); it is a named constant now, and the
         docstring is held to it so that rewording the last paragraph cannot silently
         print it as help."""
-        from jsk import cli
-        self.assertIn(cli.HELP_ENDS_BEFORE, cli.__doc__)
+        from jsk.adapters.cli import main
+        self.assertIn(main.HELP_ENDS_BEFORE, main.__doc__)
         code, out = run(JSK, "--help")
         self.assertEqual(code, 0, out)
         self.assertNotIn("markdown-it-py", out)
-        self.assertIn("python -m jsk.gates.check_ats", out)
+        self.assertIn("jsk resume check", out)
 
     def test_bare_invocation_is_help(self):
         code, out = run(JSK)
         self.assertEqual(code, 2, out)
-        self.assertIn("jsk check", out)
+        self.assertIn("jsk resume check", out)
 
     def test_every_subcommand_answers_help_the_same_way(self):
         """One contract across the surface, whichever kind of command you reached.
@@ -78,7 +77,7 @@ class Usage(unittest.TestCase):
         """`jsk render --help` printed the two-line invocation and stopped, so the
         flags SKILL.md sends a reader here to look up were documented nowhere the
         command itself would show them."""
-        code, out = run(JSK, "render", "--help")
+        code, out = run(JSK, "resume", "render", "--help")
         self.assertEqual(code, 0, out)
         for flag in ("--pdf", "--ats-max", "--template"):
             self.assertIn(flag, out)
@@ -89,10 +88,10 @@ class Usage(unittest.TestCase):
         read as a broken install."""
         code, out = run(JSK, "index", "user-knowledgebase.md")
         self.assertEqual(code, 2, out)
-        for pointer in ("jsk match", "jsk kb view"):
+        for pointer in ("jsk tailor match", "jsk kb view"):
             self.assertIn(pointer, out)
         from jsk import cli
-        self.assertNotIn("index", cli.SIMPLE)
+        self.assertNotIn("index", cli.NOUNS)
 
     def test_jsk_migrate_is_retired_and_says_what_replaced_it(self):
         """It moved a user-knowledgebase.md to career/kb.ttl. The Markdown format is not
@@ -100,10 +99,10 @@ class Usage(unittest.TestCase):
         code, out = run(JSK, "migrate", "user-knowledgebase.md")
         self.assertEqual(code, 2, out)
         self.assertIn("jsk migrate was retired", out)
-        for pointer in ("jsk new", "jsk kb export"):
+        for pointer in ("jsk kb new", "jsk kb export"):
             self.assertIn(pointer, out)
         from jsk import cli
-        self.assertNotIn("migrate", cli.SIMPLE)
+        self.assertNotIn("migrate", cli.NOUNS)
 
     def test_unknown_subcommand_names_the_real_ones(self):
         code, out = run(JSK, "frobnicate")
@@ -128,7 +127,7 @@ class ValidateRouting(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def test_json_routes_to_the_record_validator(self):
-        code, out = run(JSK, "validate", example_short())
+        code, out = run(JSK, "resume", "check", example_short())
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)
 
@@ -137,44 +136,44 @@ class ValidateRouting(unittest.TestCase):
         "level 2 confirmed"; placed first, its value was taken for the file."""
         for argv in ([example_short(), "--level", "2"], ["--level", "2", example_short()]):
             with self.subTest(argv=argv):
-                code, out = run(JSK, "validate", *argv)
+                code, out = run(JSK, "resume", "check", *argv)
                 self.assertEqual(code, 2, out)
                 self.assertIn("--level", out)
 
     def test_flags_are_forwarded_unchanged(self):
         """--strict is the underlying script's flag; the dispatcher must not eat it."""
-        code, out = run(JSK, "validate", example_short(), "--strict")
+        code, out = run(JSK, "resume", "check", example_short(), "--strict")
         self.assertIn("checking:", out)
         # The script's own refusal, naming the flag: it reached the record gate
         # rather than being dropped on the way.
-        code2, out2 = run(JSK, "validate", example_short(), "--nonsense-flag")
+        code2, out2 = run(JSK, "resume", "check", example_short(), "--nonsense-flag")
         self.assertEqual(code2, 2, out2)
         self.assertIn("unknown flag: --nonsense-flag", out2)
 
     def test_missing_target_is_a_usage_error(self):
-        code, out = run(JSK, "validate", self.tmp / "nope.json")
+        code, out = run(JSK, "resume", "check", self.tmp / "nope.json")
         self.assertEqual(code, 2, out)
         self.assertIn("file not found", out)
 
     def test_unvalidatable_target_says_what_it_wanted(self):
-        stray = self.tmp / "notes.txt"
+        stray = self.tmp / "notes.json"
         stray.write_text("not a record", encoding="utf-8")
-        code, out = run(JSK, "validate", stray)
+        code, out = run(JSK, "resume", "check", stray)
         self.assertEqual(code, 2, out)
         self.assertIn("fix:", out)
 
-    def test_a_directory_is_refused_and_names_the_file_to_pass(self):
-        """The old call. Failing on a JSONDecodeError would tell somebody their
-        record is malformed when what happened is that the format went away."""
-        code, out = run(JSK, "validate", self.tmp)
-        self.assertEqual(code, 2, out)
-        self.assertIn("no bundle format", out)
+    def test_a_directory_is_a_render_s_directory(self):
+        """`jsk resume check` picks its gates from its target: a directory gets all four
+        (today's `jsk gates`), and an empty one says that none of them ran."""
+        code, out = run(JSK, "resume", "check", self.tmp)
+        self.assertEqual(code, 1, out)
+        self.assertIn("--- record gate", out)
         self.assertIn("resume.json", out)
 
     def test_the_knowledge_base_is_refused_and_says_what_is_checked_instead(self):
         kb = self.tmp / "user-knowledgebase.md"
         kb.write_text("# Career knowledge base", encoding="utf-8")
-        code, out = run(JSK, "validate", kb)
+        code, out = run(JSK, "resume", "check", kb)
         self.assertEqual(code, 2, out)
         self.assertIn("resume.json", out)
         # The career is the record `jsk kb check` validates, not a Markdown file.
@@ -184,13 +183,13 @@ class ValidateRouting(unittest.TestCase):
     def test_the_graph_record_is_refused_and_pointed_at_kb_check(self):
         kb = self.tmp / "kb.ttl"
         kb.write_text("k:kb j:format 3 .", encoding="utf-8")
-        code, out = run(JSK, "validate", kb)
+        code, out = run(JSK, "resume", "check", kb)
         self.assertEqual(code, 2, out)
         self.assertIn("jsk kb check", out)
         self.assertIn("resume.json", out)
 
     def test_validate_with_no_target(self):
-        code, out = run(JSK, "validate")
+        code, out = run(JSK, "resume", "check")
         self.assertEqual(code, 2, out)
         self.assertIn("usage:", out)
 
@@ -213,44 +212,44 @@ class Check(unittest.TestCase):
                           CLEAN_RESUME if paragraphs is None else paragraphs)
 
     def test_clean_resume_passes_both_gates(self):
-        code, out = run(JSK, "check", self.document())
+        code, out = run(JSK, "resume", "check", self.document())
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to send", out)
         self.assertIn("PASS - prose rules satisfied", out)
 
     def test_both_gates_are_labelled(self):
-        code, out = run(JSK, "check", self.document())
+        code, out = run(JSK, "resume", "check", self.document())
         del code
         self.assertIn("parse gate", out)
         self.assertIn("prose gate", out)
 
     def test_a_failing_gate_propagates_its_exit_code(self):
         bad = self.document(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
-        code, out = run(JSK, "check", bad)
+        code, out = run(JSK, "resume", "check", bad)
         self.assertEqual(code, 1, out)
         self.assertIn("DO NOT SEND", out)
 
     def test_the_second_gate_still_runs_after_the_first_fails(self):
         bad = self.document(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
-        code, out = run(JSK, "check", bad)
+        code, out = run(JSK, "resume", "check", bad)
         del code
         self.assertIn("prose gate", out)
 
     def test_passing_both_does_not_imply_the_other_two_gates(self):
         """SKILL.md: "passing one says nothing about the others". A clean parse and
         prose result must not read as a finished resume."""
-        code, out = run(JSK, "check", self.document())
+        code, out = run(JSK, "resume", "check", self.document())
         del code
         self.assertIn("jsk validate", out)
         self.assertIn("PDF", out)
 
     def test_strict_reaches_the_parse_gate(self):
-        code, out = run(JSK, "check", self.document(), "--strict")
+        code, out = run(JSK, "resume", "check", self.document(), "--strict")
         del code
         self.assertIn("--strict", out)
 
     def test_check_with_no_target(self):
-        code, out = run(JSK, "check")
+        code, out = run(JSK, "resume", "check")
         self.assertEqual(code, 2, out)
         self.assertIn("usage:", out)
 
@@ -274,19 +273,19 @@ class CheckOnly(unittest.TestCase):
                           CLEAN_RESUME if paragraphs is None else paragraphs)
 
     def test_only_prose_does_not_run_the_parse_gate(self):
-        code, out = run(JSK, "check", self.document(), "--only", "prose")
+        code, out = run(JSK, "resume", "check", self.document(), "--only", "prose")
         self.assertEqual(code, 0, out)
         self.assertIn("prose gate", out)
         self.assertNotIn("parse gate", out)
 
     def test_only_parse_does_not_run_the_prose_gate(self):
-        code, out = run(JSK, "check", self.document(), "--only", "parse")
+        code, out = run(JSK, "resume", "check", self.document(), "--only", "parse")
         del code
         self.assertIn("parse gate", out)
         self.assertNotIn("prose gate", out)
 
     def test_only_parse_still_forwards_strict(self):
-        code, out = run(JSK, "check", self.document(), "--only", "parse", "--strict")
+        code, out = run(JSK, "resume", "check", self.document(), "--only", "parse", "--strict")
         del code
         self.assertIn("--strict", out)
 
@@ -294,27 +293,27 @@ class CheckOnly(unittest.TestCase):
         """The load-bearing assertion. `jsk check` closes with "Both document gates
         passed", and printing that after running one would be the false green the
         wording exists to prevent."""
-        code, out = run(JSK, "check", self.document(), "--only", "prose")
+        code, out = run(JSK, "resume", "check", self.document(), "--only", "prose")
         self.assertEqual(code, 0, out)
         self.assertNotIn("Both document gates passed", out)
         self.assertIn("Three gates did not run", out)
         self.assertIn("the other document gate", out)
 
     def test_an_unknown_gate_is_refused_by_name(self):
-        code, out = run(JSK, "check", self.document(), "--only", "bogus")
+        code, out = run(JSK, "resume", "check", self.document(), "--only", "bogus")
         self.assertEqual(code, 2, out)
         self.assertIn("bogus", out)
         self.assertIn("parse, prose", out)
 
     def test_only_with_no_value_is_refused(self):
-        code, out = run(JSK, "check", self.document(), "--only")
+        code, out = run(JSK, "resume", "check", self.document(), "--only")
         self.assertEqual(code, 2, out)
         self.assertIn("--only needs a value", out)
 
     def test_the_flag_may_precede_the_file(self):
         """`--only prose resume.txt` has to work: the target is found after the flag
         and its value are removed, not by position in the raw argv."""
-        code, out = run(JSK, "check", "--only", "prose", self.document())
+        code, out = run(JSK, "resume", "check", "--only", "prose", self.document())
         self.assertEqual(code, 0, out)
         self.assertIn("prose gate", out)
 
@@ -379,7 +378,7 @@ class GatesCase(unittest.TestCase):
             encoding="utf-8")
 
     def gates(self, *args):
-        return run(JSK, "gates", self.out, *args)
+        return run(JSK, "resume", "check", self.out, *args)
 
 
 class GatesAgreement(GatesCase):
@@ -587,12 +586,12 @@ class GatesUsage(GatesCase):
         self.assertIn("a resume.json is one resume", out)
 
     def test_the_help_no_longer_offers_a_view(self):
-        code, out = run(JSK, "gates", "--help")
+        code, out = run(JSK, "resume", "check", "--help")
         self.assertEqual(code, 0, out)
         self.assertNotIn("--view", out)
 
     def test_an_out_directory_that_does_not_exist_is_a_call_error(self):
-        code, out = run(JSK, "gates", self.tmp / "nowhere")
+        code, out = run(JSK, "resume", "check", self.tmp / "nowhere")
         self.assertEqual(code, 2, out)
         self.assertIn("fix:", out)
 
@@ -602,7 +601,7 @@ class GatesUsage(GatesCase):
         self.assertIn("usage:", out)
 
     def test_a_flag_left_without_its_value_is_a_call_error(self):
-        code, out = run(JSK, "gates", self.out, "--pages")
+        code, out = run(JSK, "resume", "check", self.out, "--pages")
         self.assertEqual(code, 2, out)
         self.assertIn("needs a value", out)
 
@@ -665,13 +664,13 @@ class InProcessDispatch(unittest.TestCase):
     def test_check_spawns_no_child(self):
         doc = build_text(self.tmp / "resume.txt", CLEAN_RESUME)
         with mock.patch("subprocess.Popen", side_effect=AssertionError("spawned")):
-            code, out = in_process("check", doc)
+            code, out = in_process("resume", "check", doc)
         self.assertEqual(code, 0, out)
 
     def test_each_heading_is_above_the_output_it_introduces(self):
         """The ordering a child interpreter needed a flush for. A heading printed
         after its gate's output would put every verdict under the wrong section."""
-        code, out = run(JSK, "check", build_text(self.tmp / "resume.txt", CLEAN_RESUME))
+        code, out = run(JSK, "resume", "check", build_text(self.tmp / "resume.txt", CLEAN_RESUME))
         self.assertEqual(code, 0, out)
         parse = out.index("--- parse gate")
         prose = out.index("--- prose gate")
@@ -682,7 +681,7 @@ class InProcessDispatch(unittest.TestCase):
     def test_a_failing_gate_keeps_its_exit_code_in_process(self):
         bad = build_text(self.tmp / "resume.txt",
                          resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
-        code, out = in_process("check", bad)
+        code, out = in_process("resume", "check", bad)
         self.assertEqual(code, 1, out)
         self.assertIn("DO NOT SEND", out)
 
@@ -699,14 +698,14 @@ class InProcessDispatch(unittest.TestCase):
     def test_fit_help_still_names_its_own_program(self):
         """In process, sys.argv[0] is jsk's, and argparse would have printed that as
         the program name in fit_pages.py's usage line."""
-        code, out = run(JSK, "fit", "--help")
+        code, out = run(JSK, "resume", "fit", "--help")
         self.assertEqual(code, 0, out)
         self.assertIn("usage: fit_pages.py", out)
 
     def test_a_script_that_raises_is_reported_not_propagated(self):
         fake = mock.Mock(main=mock.Mock(side_effect=RuntimeError("boom")))
         with mock.patch("importlib.import_module", return_value=fake):
-            code, out = in_process("render", "x.json")
+            code, out = in_process("resume", "render", "x.json")
         self.assertEqual(code, 2, out)
         self.assertIn("render_resume.py raised RuntimeError: boom", out)
         # `python render_resume.py` stops at its first relative import; the module runs.        self.assertIn("python -m jsk.render.render_resume x.json", out)
@@ -731,7 +730,7 @@ class PreviewInProcess(unittest.TestCase):
                                return_value="fake"), \
                 mock.patch.object(preview_templates, "compile_pdf", compile_pdf), \
                 mock.patch("subprocess.Popen", side_effect=AssertionError("spawned")):
-            return in_process("preview", self.record, "--out", self.out)
+            return in_process("resume", "preview", self.record, "--out", self.out)
 
     def test_the_report_is_in_template_order_whatever_finishes_first(self):
         """The first template is made the slowest to compile. A report that followed
@@ -816,7 +815,7 @@ class Match(unittest.TestCase):
         cls._tmp.cleanup()
 
     def test_it_prints_the_four_sections(self):
-        code, out = run(JSK, "match", self.CONTOSO, "--today", "2026-09-24")
+        code, out = run(JSK, "tailor", "match", self.CONTOSO, "--today", "2026-09-24")
         self.assertEqual(code, 0, out)
         for heading in ("# Match - Platform Engineer at Contoso (k:post_contoso)",
                         "## Requirements", "## Ranking", "## Cover", "## Questions"):
@@ -825,7 +824,7 @@ class Match(unittest.TestCase):
                       "(via c:aks, 1 hop) |", out)
 
     def test_json_is_the_same_result_structured(self):
-        code, out = run(JSK, "match", self.CONTOSO, "--json", "--today", "2026-09-24")
+        code, out = run(JSK, "tailor", "match", self.CONTOSO, "--json", "--today", "2026-09-24")
         self.assertEqual(code, 0, out)
         r = json.loads(out)
         self.assertEqual(r["posting"], "k:post_contoso")
@@ -838,7 +837,7 @@ class Match(unittest.TestCase):
                           encoding="utf-8")
         with tempfile.TemporaryDirectory() as tmp:
             root = match_workspace(tmp, broken)
-            code, out = run(JSK, "match", root / "applications" / "contoso")
+            code, out = run(JSK, "tailor", "match", root / "applications" / "contoso")
         self.assertEqual(code, 1, out)
         self.assertIn("fix them before matching", out)
         self.assertIn("c:akss: nothing defines it", out)
@@ -851,19 +850,19 @@ class Match(unittest.TestCase):
             root = match_workspace(tmp)
             md = root / "applications" / "fabrikam" / "posting.md"
             md.write_text("Senior Developer at Fabrikam\n", encoding="utf-8")
-            code, out = run(JSK, "match", root / "applications" / "contoso")
+            code, out = run(JSK, "tailor", "match", root / "applications" / "contoso")
             self.assertEqual(code, 0, out)
             self.assertIn("4 failures elsewhere in the workspace", out)
-            code, out = run(JSK, "match", root / "applications" / "fabrikam")
+            code, out = run(JSK, "tailor", "match", root / "applications" / "fabrikam")
             self.assertEqual(code, 1, out)
 
     def test_the_warnings_are_named_not_waved_away(self):
-        code, out = run(JSK, "match", self.CONTOSO, "--today", "2026-09-24")
+        code, out = run(JSK, "tailor", "match", self.CONTOSO, "--today", "2026-09-24")
         self.assertIn("1 warning (label-clash)", out)
         self.assertNotIn("none changes the match", out)
 
     def test_an_implied_carrier_says_so(self):
-        code, out = run(JSK, "match", self.FIX / "applications" / "northwind",
+        code, out = run(JSK, "tailor", "match", self.FIX / "applications" / "northwind",
                         "--today", "2026-09-24")
         self.assertIn("k:prj_events (via c:kafka, 1 hop, implied)", out)
 
@@ -879,7 +878,7 @@ class Match(unittest.TestCase):
 
     def test_the_posting_ttl_form_is_refused_with_the_new_one(self):
         """Ruling 11: the posting is a graph now, not a file to point at."""
-        code, out = run(JSK, "match", self.CONTOSO / "posting.ttl")
+        code, out = run(JSK, "tailor", "match", self.CONTOSO / "posting.ttl")
         self.assertEqual(code, 2, out)
         self.assertIn("takes the application now, not its posting.ttl", out)
         self.assertIn(f"fix:  jsk match {self.CONTOSO}", out)
@@ -891,7 +890,7 @@ class Match(unittest.TestCase):
             app = match_workspace(tmp) / "applications" / "contoso"
             gaps = app / "gaps.txt"
             gaps.write_text("dotnet | satisfied | it is on the projects\n", encoding="utf-8")
-            args = (JSK, "match", app, "--gaps", gaps, "--today", "2026-09-24")
+            args = (JSK, "tailor", "match", app, "--gaps", gaps, "--today", "2026-09-24")
             code, out = run(*args)
             self.assertEqual(code, 1, out)
             self.assertIn("FAIL  gaps.txt line 1: dotnet: satisfied, above the match's "
@@ -904,9 +903,9 @@ class Match(unittest.TestCase):
             self.assertIn("0 FAIL, 0 WARN - wrote applications/contoso/gaps and gaps.md", out)
 
     def test_outside_the_layout_is_a_usage_error(self):
-        code, out = run(JSK, "match", self.FIX / "career")
+        code, out = run(JSK, "tailor", "match", self.FIX / "career")
         self.assertEqual(code, 2, out)
-        code, out = run(JSK, "match", self.CONTOSO, "--cover", "none")
+        code, out = run(JSK, "tailor", "match", self.CONTOSO, "--cover", "none")
         self.assertEqual(code, 2, out)
 
 
@@ -928,7 +927,7 @@ class UnloadedWorkspace(unittest.TestCase):
         return code, buf.getvalue()
 
     def test_a_command_given_a_path_in_it_is_refused_with_kb_load(self):
-        for args in (("match", self.root / "applications" / "contoso"),
+        for args in (("tailor", "match", self.root / "applications" / "contoso"),
                      ("tailor", "prepare", self.root / "applications" / "contoso"),
                      ("posting", "build", self.root / "applications" / "contoso")):
             with self.subTest(args=args[0]):
@@ -951,7 +950,7 @@ class UnloadedWorkspace(unittest.TestCase):
         here = os.getcwd()
         try:
             os.chdir(self.root / "applications")
-            code, out = self.jsk("validate", "resume.json")
+            code, out = self.jsk("resume", "check", "resume.json")
         finally:
             os.chdir(here)
         self.assertEqual(code, 1, out)
@@ -961,7 +960,7 @@ class UnloadedWorkspace(unittest.TestCase):
         from appkit import seed
         seed(self.root)
         (self.root / "career" / "kb.ttl").write_text("# left by kb load\n", encoding="utf-8")
-        code, out = self.jsk("match", self.root / "applications" / "contoso")
+        code, out = self.jsk("tailor", "match", self.root / "applications" / "contoso")
         self.assertEqual(code, 0, out)
 
     def test_the_helper_the_kb_verbs_call(self):

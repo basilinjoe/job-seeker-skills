@@ -859,10 +859,10 @@ class Dispatch(Workspace):
         self.assertEqual(code, 0)
         self.assertIn("apply <changeset.trig>", out)
         verbs = re.findall(r"^  (\w+)", out, re.M)
-        self.assertEqual(verbs, ["apply", "confirm", "show", "view", "query", "pack", "merge",
-                                 "export", "check", "path", "load", "dump", "log"])
+        self.assertEqual(verbs, ["new", "apply", "confirm", "show", "view", "query", "pack",
+                                 "merge", "export", "check", "path", "load", "dump", "log"])
         from jsk.graph import kbcli
-        self.assertEqual(sorted(kbcli.VERBS), sorted(verbs))
+        self.assertEqual(sorted([*kbcli.VERBS, "new"]), sorted(verbs))
 
     def test_a_verb_s_help(self):
         code, out = self.kb("apply", "--help")
