@@ -45,16 +45,13 @@ pyoxigraph for the graph record, and pymupdf to read a PDF.
 import contextlib
 import importlib
 import io
-import json
 import os
-import re
 import sys
 
 from . import __version__
 from .adapters.cli.gates.check import CHECK_GATES as CHECK_GATES
 from .adapters.cli.gates.check import DEFAULT_RECORD as DEFAULT_RECORD
 from .adapters.cli.gates.check import DOC_GATES as DOC_GATES
-from .adapters.cli.gates.check import PAGES as PAGES
 from .adapters.cli.gates.check import cmd_check as cmd_check
 from .adapters.cli.gates.check import cmd_gates as cmd_gates
 from .adapters.cli.gates.check import cmd_validate as cmd_validate
@@ -69,7 +66,7 @@ from .application.guards import frozen_refusal as frozen_refusal
 from .application.guards import record_refusal as record_refusal
 from .application.guards import unloaded_refusal as unloaded_refusal
 from .application.guards import view_refusal as view_refusal
-from .cliutil import parse_flags, refused, utf8_stdout, wants_help
+from .cliutil import refused, utf8_stdout, wants_help
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
 # this file. Named once, here, and a test holds the docstring to it, so rewording that
@@ -277,192 +274,18 @@ def call_gate(script, args, argv0=None, capture=True):
     return (code if isinstance(code, int) else 0), buf.getvalue()
 
 
-# --- jsk ship -------------------------------------------------------------------
-#
-# The three commands mode-ship.md used to have an agent run by hand - validate, render
-# with --pdf, gates - in one process and in that order, each stopping the next. A
-# record that fails its gate is never rendered: rendering it would produce a PDF that
-# looks sendable and is not.
-SHIP_USAGE = ("usage: jsk ship <resume.json> --out DIR [--ats-max] "
-              "[--template N] [--pages N] [--no-fit] [--json]")
-
-SHIP_VALUE_FLAGS = ("--out", "--template", "--pages")
-
-
-def not_rendered(why):
-    """The render gate's entry when ship stopped before there was anything to read.
-
-    render_section() would look in the output directory, and a PDF left there by an
-    earlier run would be named as the thing to read - a document this run never made.
-    """
-    return {"gate": "render gate", "command": None, "status": "UNVERIFIED",
-            "exit": None,
-            "output": f"UNVERIFIED - {why}, so nothing was rendered and there is no\n"
-                      f"  PDF from this run for anyone to read.\n"}
-
-
-def ship_fit(out_dir, wrote, render_output, pages=None):
-    """The fit step: each PDF the render put over its budget, fitted. [] when none is.
-
-    The Arrow run (2026-09-29) spent 3 minutes and 13 turns here by hand: `jsk fit`
-    three times, three confirmed bullets cut, then `mv`, `tectonic` and `jsk gates`.
-    The first fit had already reached 2 pages at 0.6in margins, inside the 0.5in floor.
-
-    fit_pages.py is deterministic and writes one file, `<stem>-fitted.tex`, and only
-    when the levers reached the budget inside the floors. That file is moved over the
-    render's .tex and compiled by the function the render compiled with, so the PDF
-    the gates then read is built the way the render built it. At the floors, nothing is
-    written and the unfitted render is kept: cutting evidence is the author's call. The
-    page count stays reported and not failed, as the render reports it - so the step's
-    exit is None then, and the verdict is what it was before ship fitted anything.
-
-    The budget is ship's --pages when given, else the render's own, which is
-    `ats_pages` under --ats-max: the one the render's page line was measured against.
-    """
-    from .render import render_resume              # noqa: PLC0415 - only when asked
-
-    measured = {name: (int(count), int(budget))
-                for name, count, budget in PAGES.findall(render_output)}
-    results = []
-    for pdf in (p for p in wrote if p.lower().endswith(".pdf")):
-        name = os.path.basename(pdf)
-        tex = os.path.splitext(pdf)[0] + ".tex"
-        if name not in measured or not os.path.isfile(tex):
-            continue                              # unmeasured: nothing to fit against
-        count, budget = measured[name][0], pages or measured[name][1]
-        if count <= budget:
-            continue
-        fitted = os.path.splitext(tex)[0] + "-fitted.tex"
-        with contextlib.suppress(FileNotFoundError):
-            os.remove(fitted)                    # an earlier fit's is not this one's
-        fit_args = [tex, "--target-pages", str(budget)]
-        command = " ".join(["fit_pages.py", os.path.basename(tex)] + fit_args[1:])
-        code, output = call_gate("fit_pages.py", fit_args)
-        output += "" if output.endswith("\n") else "\n"
-        if code == 1:
-            results.append({"gate": "fit", "command": command, "status": "OVER BUDGET",
-                            "exit": None,
-                            "output": output + "\nkept the unfitted render; nothing was "
-                                               "cut - that is the author's call, with a "
-                                               "reason\n"})
-            continue
-        if code != 0 or not os.path.isfile(fitted):
-            # Exit 0 with nothing written is a fitter that measured the render inside the
-            # budget the render measured it over. Two counts of one document disagreeing
-            # is a broken toolchain, and neither count can be trusted.
-            results.append(gate_result("fit", command, code if code else 2, output + (
-                "" if code else f"FAIL  fit_pages.py found {os.path.basename(tex)} inside "
-                                f"{budget} pages; the render counted {count}\n")))
-            continue
-        levers = re.findall(r"^  levers: (.+?)\s*$", output, re.M)
-        os.replace(fitted, tex)
-        built, note = render_resume.compile_pdf(tex, out_dir)
-        if not built:
-            results.append(gate_result("fit", command, 2, output + (
-                f"\nRENDER FAILED - {os.path.basename(tex)} was fitted and did not "
-                f"recompile:\n  {note}\n")))
-            continue
-        now = render_resume.page_count(built)
-        results.append(gate_result("fit", command, 0, output + (
-            f"\nmoved {os.path.basename(fitted)} over {os.path.basename(tex)} and "
-            f"recompiled it ({note}); the gates below read the fitted render.\n"
-            f"fit: {levers[-1] if levers else 'levers applied'}, "
-            f"{now if now is not None else 'unmeasured'} "
-            f"page{'' if now == 1 else 's'}\n")))
-    return results
-
-
 def cmd_ship(args):
-    """Record gate, render, fit, mechanical gates - one process, stopping at a failure.
+    """`jsk ship` (adapters.cli.ship.main).
 
-    Every step is an existing function: the record gate is what `jsk validate`
-    runs, the render is render_resume.py's main(), the fit is fit_pages.py's main()
-    (ship_fit), and the gates are gate_results(), so none of their verdicts is
-    restated here. A legacy URS record is turned away by the record gate itself, with
-    `jsk kb export` as the fix, before anything renders.
+    Args:
+        args: the arguments after `ship`.
+
+    Returns:
+        The exit code.
     """
-    if wants_help(args):
-        print(SHIP_USAGE)
-        return 0
-    if view_refusal(args):
-        print("\n".join(VIEW_GONE))
-        return 2
-    parsed, problem = parse_flags(args, SHIP_VALUE_FLAGS, ("--json", "--ats-max", "--no-fit"))
-    if problem:
-        print(problem)
-        print(SHIP_USAGE)
-        return 2
-    positional, flags = parsed
-    if len(positional) != 1:
-        print(SHIP_USAGE)
-        return 2
-    record = positional[0]
-    refusal = record_refusal(record)
-    if refusal:
-        print("\n".join(refusal))
-        return 2
-    if not flags.get("--out"):
-        print("--out is required")
-        print("fix:  --out names the directory to render into - the application's own")
-        return 2
-    # Before anything renders (Review Focus 5): the render writes over the PDF and .txt
-    # that the application's record says were sent, and the archive would then describe files it
-    # no longer holds.
-    refusal = frozen_refusal(flags["--out"], os.path.dirname(os.path.abspath(record)))
-    if refusal:
-        print("\n".join(refusal))
-        return 1
-    pages, problem = parse_pages(flags.get("--pages"))
-    if problem:
-        print("\n".join(problem))
-        return 2
-    template = flags.get("--template")
-    if template is not None:
-        # Checked before anything runs: an unknown template is a call error, and
-        # finding it after the record gate would report it as a failed render.
-        from .domain.render import themes                     # noqa: PLC0415 - only when asked
-        try:
-            themes.get(template)
-        except KeyError as exc:
-            print(f"usage: {exc.args[0]}")
-            return 2
-    out_dir = flags["--out"]
+    from .adapters.cli.ship import main as ship     # noqa: PLC0415 - only when asked
 
-    results = []
-    code, output = call_gate("record.py", [record])
-    results.append(gate_result("record gate", f"record.py {record}", code, output))
-    if code != 0:
-        # A number the career replaced renders as a sendable PDF with that number in it.
-        results.append(not_rendered("the record gate did not pass"))
-    else:
-        render_args = [record, "--out", out_dir, "--pdf"]
-        render_args += ["--ats-max"] if flags.get("--ats-max") else []
-        render_args += ["--template", template] if template else []
-        code, output = call_gate("render_resume.py", render_args)
-        results.append(gate_result("render", " ".join(["render_resume.py"] + render_args),
-                                   code, output))
-        if code != 0:
-            results.append(not_rendered("the render did not finish"))
-        else:
-            # The render names each file it wrote; those, and nothing an earlier
-            # ship left in the same directory, are what this ship gates.
-            wrote = [os.path.join(out_dir, rel)
-                     for rel in re.findall(r"^  wrote  (.+?)\s*$", output, re.M)]
-            if not flags.get("--no-fit"):
-                # Before the gates, so that what they read is what is sent.
-                results.extend(ship_fit(out_dir, wrote, output, pages))
-            results.extend(gate_results(out_dir, record, pages, record_gate=False,
-                                        only=wrote))
-
-    # 0 or 1 only. A step's own exit 2 - an ERROR from a gate that raised, or a render
-    # refusing a file - is a failure of this ship, not a mistake in how it was called.
-    worst = 1 if worst_exit(results) else 0
-    if flags.get("--json"):
-        print(json.dumps({"record": record, "out_dir": out_dir,
-                          "exit": worst, "steps": results}, indent=2))
-        return worst
-    print_results(f"ship: {record} -> {out_dir}", results)
-    return worst
+    return ship(args)
 
 
 def cmd_freeze(args):

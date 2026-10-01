@@ -24,3 +24,7 @@ class RenderOutputs(Protocol):
     def replace(self, src: str, dst: str) -> None:
         """Move `src` over `dst`."""
         ...
+
+    def discard(self, path: str) -> None:
+        """Remove `path`; nothing when it is not there."""
+        ...

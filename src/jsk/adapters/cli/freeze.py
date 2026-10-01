@@ -86,10 +86,11 @@ class Gates:
     def letter(self, path, record, name):
         """The letter gate's result over `path`, against the application's resume.json."""
         from ... import cli
+        from ...application.gates.run_gates import step
+        from .gates.check import Shown, contained
 
-        code, output = cli.call_gate("letter.py", [path, "--record", record])
-        return cli.gate_result("letter gate", f"letter.py {name} --record {cli.DEFAULT_RECORD}",
-                               code, output)
+        return Shown(step("letter gate", f"letter.py {name} --record {cli.DEFAULT_RECORD}",
+                          *contained("letter.py", [path, "--record", record])))
 
     def failed(self, results):
         """Whether any result is not a pass."""

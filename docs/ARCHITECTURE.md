@@ -422,6 +422,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     render/preview_templates.py     one resume.json in every template, rendered once each and compiled at once
     timeline/freeze.py              an application frozen: checked, planned, gated, renamed to its day, written
     timeline/add_event.py           one event added to an application's record: minted, validated, written
+    ship.py                         `jsk ship`: the record gate, render, fit and gates, stopping at a failure
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root; a document written atomically
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
@@ -438,6 +439,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/fit.py                      `jsk fit`: its flags, the fit run, each lever and the verdict said
     cli/preview.py                  `jsk preview`: its flags, every template previewed, the pages said
     cli/freeze.py                   `jsk freeze`: its flags, the freeze run, its gates and what it wrote said
+    cli/ship.py                     `jsk ship`: its flags and refusals, each step captured, the summary
     cli/event.py                    `jsk event`: its flags, the clock read once, the event added and its dates said
     cli/match.py                    `jsk match`: its flags, the match run and printed, or its assessment built
     cli/options.py                  --cover and --today, which the tailoring commands share, parsed once

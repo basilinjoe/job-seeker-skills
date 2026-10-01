@@ -119,11 +119,26 @@ def main(argv, *, tex, company_of):
     Returns:
         The exit code. Prints the report; writes the render.
     """
+    return rendered(argv, tex=tex, company_of=company_of)[0]
+
+
+def rendered(argv, *, tex, company_of):
+    """`jsk render` with what it rendered: `jsk ship` reads the files and pages off it.
+
+    Args:
+        argv: the whole argv, the program name first.
+        tex: compiles the .tex (ports.tex.TexCompiler).
+        company_of: (src, store) -> the posting's employer or None.
+
+    Returns:
+        (exit code, the RenderResult, or None when the render stopped or never ran).
+        Prints the report; writes the render.
+    """
     if "--list-templates" in argv:
-        return list_templates()
+        return list_templates(), None
     code = refused(argv)
     if code is not None:
-        return code
+        return code, None
     src, out_dir = argv[1], arg(argv, "--out", ".")
 
     # Built from the career the file sits in. A legacy URS record is refused by the load,
@@ -144,11 +159,11 @@ def main(argv, *, tex, company_of):
     except ShortError as err:
         print(f"FAIL  {err}")
         print(f"fix:  {err.fix}")
-        return 2
+        return 2, None
     except RenderStopped as stop:
         print(stopped(stop))
-        return stop.code
-    return report(result, out_dir)
+        return stop.code, None
+    return report(result, out_dir), result
 
 
 def stopped(stop):

@@ -24,7 +24,6 @@ SIZE_KNOWN = {
     ("tests/test_cli.py", None): 1067,
     ("tests/test_graph_kbcli.py", None): 1193,
     ("tests/test_ship_freeze.py", None): 1343,
-    ("src/jsk/cli.py", "cmd_ship"): 91,
     ("src/jsk/domain/record/edit.py", "apply"): 143,
     ("src/jsk/domain/record/merge.py", "draft"): 101,
     ("src/jsk/domain/record/shapes.py", "tier1"): 90,
