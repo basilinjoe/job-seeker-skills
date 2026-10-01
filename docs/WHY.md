@@ -60,9 +60,9 @@ parsed from its files took 580 ms on the same machine; `tests/test_graph_budget.
 seconds, so there is no reason to check less than everything.
 
 **Every write goes through one gate.** `jsk kb apply`, `confirm`, `pack` and `merge` changesets,
-`jsk posting build`, `jsk freeze` and `jsk event` all end in the same function: it writes every
+`jsk posting build`, `jsk app freeze` and `jsk app event` all end in the same function: it writes every
 graph the change touches in one update - all of them or none - and refreshes `.jsk/backup.trig`.
-Every write to the career gets a log entry, in the same update; `jsk freeze`, `jsk event` and the
+Every write to the career gets a log entry, in the same update; `jsk app freeze`, `jsk app event` and the
 posting and gaps builds write only an application's graphs and add none, because the log is the
 career's history; the one-time import adds one entry of its own (`by load`). A writing command
 takes the writer's turn (`career/store.lock`) before it reads the record, so what it validates is
@@ -131,7 +131,7 @@ are real still:
 - **A syntax.** Turtle is not Markdown. `k:prj_x j:name "..." ;` is learnable in a sitting, but it
   is punctuation a changeset has to get right, and a missing `;` is a parse error. In Turtle the same
   career was about 1.17 times its tokens in Markdown (measured on the P0 sample). Agents
-  read by id - `jsk kb show`, `jsk match` - and never the whole record.
+  read by id - `jsk kb show`, `jsk tailor match` - and never the whole record.
 - **A write path.** Nobody edits the career directly; a *changeset* goes to `jsk kb apply`, which
   merges it, validates the result and logs it. That is a command, a format, a log (`jsk kb log`)
   and a set of refusals to learn - exactly the kind of layer this project once removed.
@@ -161,7 +161,7 @@ cannot hold by itself. A simulation of twelve scenarios over the graph
   a number since replaced.
 - **A record gate that joins by id.** A `resume.json` names career bullets by id, so "is every
   bullet one the career holds, live, under a project with a role, with numbers from the metric's
-  current version" is a join, run inside `jsk validate`, `jsk ship` and `jsk freeze`. The
+  current version" is a join, run inside `jsk resume check`, `jsk resume ship` and `jsk app freeze`. The
   simulation's seven planted defects were all caught - by the claims gate this replaced, when
   `resume.json` was still a full copy of the career and wording could drift from it. The file
   holds no bullet's words now: one reworded for a posting is reworded in the career, where `jsk kb
@@ -209,7 +209,7 @@ never read it - they read the render plan - so the copy went (2026-09-25): the c
 file build the plan directly, and a bullet confirmed or corrected in the career is on the next
 render with nothing to update.
 
-It is also what makes a resume answerable a year later. `jsk freeze` records in the application's graph
+It is also what makes a resume answerable a year later. `jsk app freeze` records in the application's graph
 which bullets rendered and which metric versions they cite, beside the PDF and plain text that were
 sent, so "what did this application claim, and where did that come from" has an answer.
 
@@ -229,12 +229,12 @@ third is why the prose gate exists at all.
 
 | Gate | Question | How |
 |---|---|---|
-| Record | Does `resume.json` name only live career entries, and does every number in a chosen bullet trace to a current metric? | `jsk validate`, before anything renders |
-| Parse | Will an ATS read this without mangling it? | `jsk check --only parse`, on the PDF |
-| Prose | Does it obey the writing rules? | `jsk check --only prose`, on the `.tex` |
+| Record | Does `resume.json` name only live career entries, and does every number in a chosen bullet trace to a current metric? | `jsk resume check` on the `resume.json`, before anything renders |
+| Parse | Will an ATS read this without mangling it? | `jsk resume check --only parse`, on the PDF |
+| Prose | Does it obey the writing rules? | `jsk resume check --only prose`, on the `.tex` |
 | Render | Does it *look* right, and is it *true*? | Open the PDF and read every page |
 
-`jsk ship` runs the first three in one process — the record gate first, and nothing renders if it
+`jsk resume ship` runs the first three in one process — the record gate first, and nothing renders if it
 fails — and exits 0 only if all of them passed. It then says, in its own
 output, that the render gate has not been run, because no command can run it. A tool that exited
 green without saying so would teach everyone who used it that the fourth gate is decorative.
@@ -262,7 +262,7 @@ the career, or the record gate fails before anything renders. A number the caree
 fails as superseded, and one no metric holds fails as untraced. It is the check that catches a
 rewritten bullet quietly inflating a figure - and the one a model must not "fix" by changing the
 number: on the ElevenLabs run "300-400 candidates" became "300-800" to match an unrelated metric.
-An untraced number is a question for the person. `jsk kb check` and `jsk match` run the same check
+An untraced number is a question for the person. `jsk kb check` and `jsk tailor match` run the same check
 over the career's bullets, so the question is asked before a resume is written.
 
 ## Tailoring cannot invent, structurally
@@ -272,7 +272,7 @@ bullet's words. The record gate fails an id the career does not hold, so a posti
 evidence for produces nothing to point at rather than a plausible new bullet.
 
 A posting's requirements are built into its posting graph, each with the advert's own words as a
-quote that is checked, verbatim, against `posting.md`. `jsk match` joins them with the
+quote that is checked, verbatim, against `posting.md`. `jsk tailor match` joins them with the
 career through the vocabulary and **shows the path behind every match** - which project holds the
 concept, through which edge, how many hops, and whether a confirmed bullet shows it or only the
 project's tags say so. A score nobody can recompute would be worse than no score, and that is the
@@ -324,7 +324,7 @@ version, and a promotion is two roles at one employer.
 
 ## Fitting a page budget without lying about it
 
-`jsk fit` renders the document, measures which block spilled and how much room the page actually
+`jsk resume fit` renders the document, measures which block spilled and how much room the page actually
 had, then applies density levers in a fixed order — spacing, bullet spacing, margins, font size —
 stopping at the 10pt and 0.5" floors instead of crossing them. If two pages are unreachable without a
 breach it exits non-zero and says so, because the remedy then is to cut evidence, not to shrink type.

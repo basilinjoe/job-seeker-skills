@@ -120,10 +120,10 @@ career/store/
 | Kind | Head class (exactly one) | Sections, in order | Written by |
 |---|---|---|---|
 | `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `jsk kb apply`, `confirm`, `new`, `load` |
-| `log` | none | Log | Every write to the career, in the same update (`apply`, `confirm`, `new`), and the one-time import's one entry (`load`). `jsk freeze`, `jsk event` and the posting and gaps builds add none |
+| `log` | none | Log | Every write to the career, in the same update (`apply`, `confirm`, `new`), and the one-time import's one entry (`load`). `jsk app freeze`, `jsk app event` and the posting and gaps builds add none |
 | `posting` | Posting | Posting · Requirements | `jsk posting build`, from the analyst's `decisions.txt` |
-| `gaps` | Assessment | Assessment · Verdicts | `jsk tailor prepare` / `jsk match --gaps`, derived from the match plus the analyst's `gaps.txt` |
-| `application` | Application | Application · Timeline | `jsk freeze`, `jsk event` |
+| `gaps` | Assessment | Assessment · Verdicts | `jsk tailor prepare` / `jsk tailor match --gaps`, derived from the match plus the analyst's `gaps.txt` |
+| `application` | Application | Application · Timeline | `jsk app freeze`, `jsk app event` |
 | `vocabulary` | none | Vocabulary | Shipped with the package |
 
 Sections are how `jsk kb view` groups the career, in this order, and how `jsk kb show` orders
@@ -385,7 +385,7 @@ id `k:ach_<slug>` (never positional) · section Projects · provenance yes
 | `j:shows` | → concept | 0..n | yes | what it is evidence of |
 
 Every number in `text` must match a current version of a metric the bullet `cites`. The record
-gate checks this at render time, and `jsk match` asks about any bullet that fails it.
+gate checks this at render time, and `jsk tailor match` asks about any bullet that fails it.
 
 #### Metric
 
@@ -576,7 +576,7 @@ the confirmed evidence bullets mentions.
 
 #### Application
 
-A submission. `jsk freeze` writes it, and after that it is never edited.
+A submission. `jsk app freeze` writes it, and after that it is never edited.
 
 id `k:app_<slug>` · graph application · section Application · provenance no
 
@@ -596,7 +596,7 @@ career has moved on. They are also why a sent metric version is never edited (§
 
 #### Event
 
-Something that happened to an application. `jsk event` appends these.
+Something that happened to an application. `jsk app event` appends these.
 
 id `k:evt_<slug>` · graph application · section Timeline · provenance no
 
@@ -676,7 +676,7 @@ Notes on a few values:
 - **`qualifier`** keeps how a number was stated: "50+ tenants" is not the same claim as "50
   tenants". `jsk` renders `at-least` as `15+`, `about` as `~12`, `under` as `<1` and `over` as
   `>5`. On a range, the qualifier applies to the top: `300-800+`.
-- **`logBy` `new`** marks the first revision written by `jsk new`, or by a `--force` start-over.
+- **`logBy` `new`** marks the first revision written by `jsk kb new`, or by a `--force` start-over.
   A changeset whose `op:base` is older than the newest `new` entry is refused: it was drafted
   against the career that was started over.
 - **`logBy` `load`** marks the one entry the one-time import (`jsk kb load` of a workspace laid
@@ -851,7 +851,7 @@ out explicitly (`FILTER(?g != j:derived)`).
 
 ## 11. Matching: requirements, evidence, verdicts
 
-`jsk match` joins one posting's requirements to the career through the vocabulary. The steps
+`jsk tailor match` joins one posting's requirements to the career through the vocabulary. The steps
 below are its semantics. Code: [`queries.py`](../src/jsk/graph/queries.py),
 [`match.py`](../src/jsk/graph/match.py), [`gapsderive.py`](../src/jsk/graph/gapsderive.py).
 
@@ -1000,7 +1000,7 @@ graphs:
 `op:changeset op:base N ; op:summary "…"` names the revision the changeset was drafted against.
 If anything the changeset names has changed since that revision, it is refused, naming the ids; a
 later write that touched none of them does not stop it, and it applies to the record as it now
-is. One drafted before a `jsk new --force` start-over is refused whatever it names: the career
+is. One drafted before a `jsk kb new --force` start-over is refused whatever it names: the career
 it was drafted against is gone. Apply validates the result before writing it, writes it to the
 store in one update with its log entry, and refreshes `.jsk/backup.trig`. A changeset is input, never storage. It also
 does four things the changeset did not ask for (§8, §9): it resets provenance on changed claims,
@@ -1013,7 +1013,7 @@ example.
 
 The `log` graph holds one `LogEntry` per write to the career, numbered `k:rev_1`, `k:rev_2`, and
 so on, and the career's header records the revision it is at: `apply`, `confirm` and `new` each
-add one, and the one-time import adds one of its own (`by load`). `jsk freeze`, `jsk event` and
+add one, and the one-time import adds one of its own (`by load`). `jsk app freeze`, `jsk app event` and
 the posting and gaps builds write only an application's graphs and add none. `jsk kb log [--last
 N]` prints it, newest first. Every write puts the change, the new revision and its entry in **one
 update** of the store, so the two cannot disagree. A writing command takes its turn before it
@@ -1025,7 +1025,7 @@ left, once it finishes; there is no retry, and a changeset whose ids that write 
 |---|---|
 | clean | the career's revision is the log's last. `jsk kb check` also asks that the career is what the newest entry hashed (`kbSha256`), and FAILs one written outside jsk |
 | out-of-sync | they differ: something outside jsk wrote the store - `jsk kb load .jsk/backup.trig` into a new workspace restores the last write jsk made |
-| missing | no career yet - no `career/store/`, or an empty one: `jsk new`, or `jsk kb load` to import a workspace or a dump |
+| missing | no career yet - no `career/store/`, or an empty one: `jsk kb new`, or `jsk kb load` to import a workspace or a dump |
 
 A workspace still laid out as `.ttl` files is none of these: every command but `jsk kb load`
 refuses it, naming `jsk kb load .`.

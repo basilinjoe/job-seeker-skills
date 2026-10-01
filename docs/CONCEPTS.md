@@ -71,9 +71,9 @@ says 200 ms; a later measurement becomes `v2` rather than overwriting it.
 the files actually sent. Beside them in the store are its graphs: what it asks for (`posting`),
 the assessment (`gaps`), and once sent, `application` - what was sent, the bullets that rendered
 and the metric versions they cite, and a timeline of what came back. Commands take the directory.
-*Why it matters:* it is frozen once the application goes out — `jsk freeze` refuses until the gates
+*Why it matters:* it is frozen once the application goes out — `jsk app freeze` refuses until the gates
 pass, records the application and names the directory after the day it was sent; after that
-`jsk event` adds what happened next, and nothing is edited. The career keeps moving, and an
+`jsk app event` adds what happened next, and nothing is edited. The career keeps moving, and an
 application that pointed at a moving source could not answer what it was answering.
 
 ## The rendering
@@ -96,7 +96,7 @@ postgraduate qualification". Flattened one way it scores a master's holder as un
 the other, a bare degree passes. Both are wrong, so the boolean structure is modelled.
 
 **Assessment** — the join between a posting and your record, written to be read aloud: one verdict per
-requirement, the evidence behind it, and how far short it falls on a *named* axis. `jsk match`
+requirement, the evidence behind it, and how far short it falls on a *named* axis. `jsk tailor match`
 computes the join - which project holds each requirement, through which vocabulary edge - and the
 assessment is derived from it: the gaps graph and `gaps.md`, written by code, with the analyst's
 `gaps.txt` holding only what the join cannot know - a verdict lowered, and why.
@@ -124,20 +124,20 @@ different question:
 
 | Gate | Asks |
 |---|---|
-| Record | Does `resume.json` name only live career entries, and does every number in a chosen bullet trace to a current metric? (`jsk validate`) |
+| Record | Does `resume.json` name only live career entries, and does every number in a chosen bullet trace to a current metric? (`jsk resume check resume.json`) |
 | Parse | Will an ATS read this without mangling it? |
 | Prose | Does the writing obey the rules? |
 | Render | Does it *look* right, and is it *true*? |
 
 *Why it matters:* passing one says nothing about the others. A checker verifies that a document
 parses, not that it is correct — see [WHY.md](WHY.md) for the three real resumes that prove it.
-`jsk ship` runs the first three in one pass; the render gate is always a person reading the PDF.
+`jsk resume ship` runs the first three in one pass; the render gate is always a person reading the PDF.
 
-**Record gate** — `jsk validate`, over `resume.json` and the career bullets it selects: the file's
+**Record gate** — `jsk resume check` on a `resume.json`, over it and the career bullets it selects: the file's
 shape; an id the career does not hold, has retired, or a bullet whose project has no role; a number
 no current version of a metric the bullet cites holds; a career that does not validate; and a
 career out of sync with its log - written outside jsk, restored from `.jsk/backup.trig`. It runs
-first inside `jsk gates`, `jsk ship` and `jsk freeze`.
+first inside `jsk resume check` on a directory, `jsk resume ship` and `jsk app freeze`.
 
 **Unverified** — what a resume is called until somebody has read every rendered page, and what it
 stays when no PDF renderer was available to produce one.

@@ -89,21 +89,21 @@ short against that posting either way, because being flattered costs interviews.
 `/jsk:ship` is the end of that loop, and it is two commands:
 
 ```bash
-jsk ship applications/<stem>/resume.json --out applications/<stem>
-jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
+jsk resume ship applications/<stem>/resume.json --out applications/<stem>
+jsk app freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
 ```
 
-`jsk ship` checks `resume.json` against your career first - every id live, every number traced to
+`jsk resume ship` checks `resume.json` against your career first - every id live, every number traced to
 a current metric - and renders nothing if that fails, then renders the PDF and checks it and the plain text, printing every
 verdict. It reports the page count but leaves the last check to you: open the PDF and read every
-page. `jsk freeze` refuses until the checks pass, then records in your record what was sent,
+page. `jsk app freeze` refuses until the checks pass, then records in your record what was sent,
 when, and which bullets rendered and the metric versions they cite, and names the directory after the
 submission date. Use `--submitted false` for an application you worked through and decided not to
 send. When something comes back, `/jsk:pipeline` records it - against the directory's new name,
-which `jsk freeze` prints:
+which `jsk app freeze` prints:
 
 ```bash
-jsk event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15
+jsk app event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15
 jsk kb query pipeline            # every application's stage, and how long since
 ```
 
@@ -112,17 +112,17 @@ jsk kb query pipeline            # every application's stage, and how long since
 The skill runs all of this for you. Underneath, from nothing to a sent application:
 
 ```bash
-jsk new ./my-career --name "Your Name"        # career/store/: an empty career and its log, at r1
+jsk kb new ./my-career --name "Your Name"     # career/store/: an empty career and its log, at r1
 cd my-career
 jsk kb apply braindump.trig --dry-run         # what a changeset would change
 jsk kb apply braindump.trig                   # ... written and logged, as r2
 jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms to 200, from Grafana."
 jsk posting build applications/<stem>         # the requirements, from decisions.txt
-jsk match applications/<stem>                 # the posting against the career, with the paths
+jsk tailor match applications/<stem>          # the posting against the career, with the paths
 jsk kb export --from-match applications/<stem> --out applications/<stem>/resume.json
-jsk ship applications/<stem>/resume.json --out applications/<stem>
-jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
-jsk event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15   # freeze renamed it
+jsk resume ship applications/<stem>/resume.json --out applications/<stem>
+jsk app freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
+jsk app event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15   # freeze renamed it
 ```
 
 A changeset is a small TriG file; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new
