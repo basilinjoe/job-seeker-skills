@@ -12,6 +12,7 @@ import unittest
 
 import appkit
 import careerkit
+from careerkit import MERIDIAN, short
 from jsk.adapters.cli.compose import resume
 from jsk.domain.render import emit_latex, emit_text
 
@@ -29,12 +30,6 @@ LEAD_ENDED = 'j:start "2023-01" ; j:end "2026-06" ; j:state j:ended ;'
 LEAD_ONGOING = 'j:start "2023-01" ; j:state j:ongoing ;'
 LEAD_TITLE = '    j:title "Lead Engineer" ;\n'
 
-MERIDIAN = ["ach_events_latency", "ach_events_team", "ach_identity_sso"]
-EVERYTHING = MERIDIAN + ["ach_data_ingestion", "ach_portal_frontend", "ach_game_players"]
-
-
-def short(bullets=MERIDIAN, **keys):
-    return {"resume": 2, "bullets": list(bullets), **keys}
 
 
 class BuildCase(unittest.TestCase):

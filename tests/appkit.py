@@ -5,6 +5,7 @@ The store has no files to open, so a test that used to read or hand-write postin
 application.ttl or gaps.ttl reads and writes the graph instead - read-only through
 db.read, written through record.write_graphs as every jsk write is.
 """
+import fixtures  # noqa: F401 - puts this checkout's src/ first on sys.path
 from jsk.infra.oxigraph import db
 from jsk.infra.oxigraph import record as R
 from jsk.infra.oxigraph.codec import parse_text

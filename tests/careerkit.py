@@ -10,10 +10,19 @@ import json
 import shutil
 from pathlib import Path
 
+import fixtures  # noqa: F401 - puts this checkout's src/ first on sys.path
 from jsk.adapters.cli.compose import record
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
 APP = Path("applications") / "contoso-platform"
+
+# The fixture's Meridian bullets, the selection most tests render.
+MERIDIAN = ["ach_events_latency", "ach_events_team", "ach_identity_sso"]
+
+
+def short(bullets=MERIDIAN, **keys):
+    """A resume.json: `bullets` in order, and any other keys as given."""
+    return {"resume": 2, "bullets": list(bullets), **keys}
 
 # ach_events_terraform, retired - an edit for workspace(edits=[RETIRE]).
 RETIRE = ('    j:text "Wrote the platform\'s Terraform." ;\n    j:shows c:terraform ;\n',

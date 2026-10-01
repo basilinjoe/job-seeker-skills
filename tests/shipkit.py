@@ -16,13 +16,11 @@ from unittest import mock
 
 import appkit
 import careerkit
+from careerkit import MERIDIAN
 from fixtures import CLEAN_RESUME, build_pdf, build_text
 
 
 BAD = "Scaled the platform to [NUMBER] tenants."
-
-
-MERIDIAN = ["ach_events_latency", "ach_events_team", "ach_identity_sso"]
 
 
 # The summary is what the strict parse gate finds a summary heading by.

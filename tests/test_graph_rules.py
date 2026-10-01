@@ -13,6 +13,7 @@ import unittest
 from pathlib import Path
 
 import test_graph_shapes as shapes_tests
+from fixtures import one_test_each
 from storekit import seed
 from test_graph_shapes import APPLICATION_FILE, FIXTURES, KB, KB_FILE, POSTING, POSTING_FILE, load
 
@@ -116,14 +117,13 @@ WARNS = {"version-gap", "headline-cited", "label-clash", "inferred-unasked",
          "answer-placeholder", "advert-uncovered", "concepts-bare"}
 
 
+@one_test_each(list(MUTATIONS), "test_{}_fires_at_the_right_place", "fires")
 class EveryRuleFires(unittest.TestCase):
     def test_every_rule_has_a_mutation(self):
         self.assertEqual({r.id for r in rules.RULES}, set(MUTATIONS))
 
-    def test_each_mutation_fires_its_rule_at_the_right_place(self):
-        for rule, mutation in MUTATIONS.items():
-            with self.subTest(rule=rule):
-                shapes_tests.assert_fires(self, rule, mutation, stored=rule not in FILE_ONLY)
+    def fires(self, rule):
+        shapes_tests.assert_fires(self, rule, MUTATIONS[rule], stored=rule not in FILE_ONLY)
 
     def test_severity(self):
         for r in rules.RULES:

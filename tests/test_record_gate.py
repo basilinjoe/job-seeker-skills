@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 import careerkit
+from careerkit import MERIDIAN, short
 from jsk.adapters.cli.compose import gates
 from jsk.domain.gates import numbers
 from jsk.domain import ontology as O
@@ -23,7 +24,6 @@ from jsk.infra import tex
 
 TODAY = datetime.date(2026, 9, 24)
 K = O.K
-MERIDIAN = ["ach_events_latency", "ach_events_team", "ach_identity_sso"]
 CLEAN_SUMMARY = {"text": "Platform engineer with 5 years of Kubernetes, building event "
                          "platforms that other teams build on.", "status": "confirmed",
                  "answer": "Yes - that is how I describe what I do.",
@@ -34,10 +34,6 @@ TEAM = "Led a team of 6 engineers."
 SSO = "Moved 40 applications to Entra ID single sign-on."
 TERRAFORM = "Wrote the platform's Terraform."
 EVENTS = "Published sign-in events to Kafka."
-
-
-def short(bullets=MERIDIAN, **keys):
-    return {"resume": 2, "bullets": list(bullets), **keys}
 
 
 class GateCase(unittest.TestCase):
@@ -460,8 +456,8 @@ class Gates(GateCase):
 
 
 class ExperienceQuery(unittest.TestCase):
-    """What the years check measures against, from test_claims.py: the roles behind the
-    projects holding a concept, an overlap counted once - 61 months of Kubernetes, so the
+    """What the years check measures against: the roles behind the projects holding a
+    concept, an overlap counted once - 61 months of Kubernetes, so the
     clean summary's "5 years" passes and S8's "8 years" warns."""
 
     def test_kb_query_experience_counts_overlaps_once(self):

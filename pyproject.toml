@@ -73,7 +73,10 @@ testpaths = ["tests"]
 # run it while working. It is not in addopts because pytest-xdist is a dev extra:
 # putting it here makes every bare checkout fail on an unrecognised flag, and the
 # suite has to keep running on a plain interpreter.
-addopts = "-q"
+# `-p no:asyncio`: the suite has no async code, and a pytest-asyncio installed globally
+# warns about its unset loop scope on every run and in every xdist worker. Blocking a
+# plugin that is not installed is a no-op.
+addopts = "-q -p no:asyncio"
 
 [tool.ruff]
 line-length = 100

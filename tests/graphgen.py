@@ -7,6 +7,7 @@ import random
 
 import pyoxigraph as ox
 
+import fixtures  # noqa: F401 - puts this checkout's src/ first on sys.path
 from jsk.domain import ontology as O
 
 NASTY = ['"', '""', '"""', '""""', '\\', '\\"', "\n", "\n\n", "\t", "→", "é", "#", "'", "'''",

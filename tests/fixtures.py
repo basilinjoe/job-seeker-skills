@@ -32,7 +32,6 @@ FIT_PAGES = f"{PACKAGE}.domain.render.fit_levers"
 
 # The commands the tests drive, as the argv of `python -m jsk ...`: `jsk` is the only door
 # (Ruling 10 of the onion design), so a module above is imported, never run.
-JSK_CLI = (PACKAGE,)
 PARSE_GATE = (PACKAGE, "resume", "check", "--only", "parse")
 PROSE_GATE = (PACKAGE, "resume", "check", "--only", "prose")
 RECORD_GATE = (PACKAGE, "resume", "check")
@@ -225,7 +224,6 @@ def write_awkward(path, text, form):
 # of it is the code and the schema. test_plugin_surface.py reads the skill, the tests
 # below read the package.
 PLUGIN = REPO_ROOT / "plugins" / "jsk"
-SCHEMA_DIR = SRC / PACKAGE / "data" / "schema"
 RENDER_RESUME = f"{PACKAGE}.adapters.cli.render"
 CHECK_PROSE = f"{PACKAGE}.domain.gates.prose_rules"
 PREFLIGHT = f"{PACKAGE}.preflight"
@@ -255,6 +253,36 @@ def example_short():
     return _EXAMPLE[0]
 
 
+_EXAMPLE_PDFS = {}
+
+
+def example_pdf(template, *flags):
+    """example_short() rendered to a PDF in `template`, with extra render `flags` such as
+    "--ats-max". The theme, layout and parse tests all read the same renders, and a TeX run
+    is seconds: each is made once per test process, only read, and removed at exit."""
+    key = (template, *flags)
+    if key not in _EXAMPLE_PDFS:
+        import atexit
+        import tempfile
+
+        out = Path(tempfile.mkdtemp())
+        atexit.register(shutil.rmtree, out, True)
+        code, output = run(RENDER, example_short(), "--out", out, "--template", template,
+                           "--format", "latex", "--pdf", *flags)
+        assert code == 0, output
+        _EXAMPLE_PDFS[key] = next(out.glob("*.pdf"))
+    return _EXAMPLE_PDFS[key]
+
+
+def has_pymupdf():
+    """Whether pymupdf imports: the tests that read a PDF back skip without it."""
+    try:
+        import pymupdf  # noqa: F401,PLC0415
+        return True
+    except ImportError:
+        return False
+
+
 def render_module(name):
     """Import a module the renderer itself uses, named under the package: `infra.tex`,
     `domain.render.themes`, `domain.render.emit_latex`.
@@ -264,3 +292,23 @@ def render_module(name):
     if not name.startswith(PACKAGE + "."):
         name = f"{PACKAGE}.{name}"
     return importlib.import_module(name)
+
+
+def one_test_each(cases, name, template):
+    """A class decorator: one test method per case, each calling the class's method
+    `template(self, case)`. `cases` is {key: case} or keys alone; `name` formats a key into
+    the method name, as "test_{}_is_caught".
+
+    A loop of slow cases inside one method runs on one worker however many `-n auto`
+    starts, and it set the suite's wall clock: nine mutation runs of twenty seconds each,
+    in a row. A method per case spreads them, and a failure names its case in the test id.
+    """
+    import re
+
+    def decorate(cls):
+        for key, case in (cases.items() if isinstance(cases, dict) else ((k, k) for k in cases)):
+            method = name.format(re.sub(r"\W+", "_", str(key).lower()).strip("_"))
+            assert not hasattr(cls, method), f"two cases make {method}"
+            setattr(cls, method, lambda self, case=case: getattr(self, template)(case))
+        return cls
+    return decorate

@@ -18,8 +18,8 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import (PARSE_GATE, PROSE_GATE, RENDER, child_env,
-                      example_short, render_module, run)
+from fixtures import (PARSE_GATE, PROSE_GATE, RENDER, child_env, example_pdf,
+                      example_short, has_pymupdf, render_module, run)
 from jsk.adapters.cli.compose import resume
 from test_build import BuildCase, LEAD_TITLE, short
 
@@ -33,14 +33,6 @@ themes = render_module("domain.render.themes")
 tex = render_module("infra.tex")
 
 ENGINE = tex.available_engine()
-
-
-def has_pymupdf():
-    try:
-        import pymupdf  # noqa: F401,PLC0415
-        return True
-    except ImportError:
-        return False
 
 
 # --- contrast ------------------------------------------------------------------
@@ -124,11 +116,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def render(self, name):
-        out = self.tmp / name
-        code, output = run(RENDER, example_short(), "--out", out,
-                           "--template", name, "--format", "latex", "--pdf")
-        self.assertEqual(code, 0, output)
-        return next(out.glob("*.pdf"))
+        return example_pdf(name)
 
     def extract(self, pdf):
         import pymupdf

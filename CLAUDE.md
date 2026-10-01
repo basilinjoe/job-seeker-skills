@@ -25,7 +25,7 @@ the files that have to move together. Read it before you change behaviour.
 
 ```bash
 uv sync --extra dev                        # or: pip install -e '.[dev]'
-python -m pytest tests -n auto             # full suite in parallel (~2 min; TeX dominates)
+python -m pytest tests -n auto             # full suite in parallel (~5-6 min on 6 cores; CPU-bound: store writes, TeX, subprocesses)
 python -m pytest tests/test_themes.py -q   # one file
 python -m pytest tests/test_build.py -q -k <name>   # one test
 python -m unittest discover -s tests       # same suite with no pytest

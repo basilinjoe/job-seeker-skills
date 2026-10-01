@@ -43,7 +43,6 @@ POSTING_FILE = "applications/acme-platform-engineer/posting.ttl"
 APPLICATION_FILE = "applications/acme-platform-engineer/application.ttl"
 KB = "kb"
 POSTING = "applications/acme-platform-engineer/posting"
-APPLICATION = "applications/acme-platform-engineer/application"
 
 # rule: (file, old text, new text, focus id, the fix contains). old=None appends new.
 MUTATIONS = {

@@ -14,22 +14,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from fixtures import (CLEAN_RESUME, CLI, RENDER, example_short, render_module,
-                      run)
+from fixtures import (CLEAN_RESUME, CLI, example_pdf, example_short, has_pymupdf,
+                      one_test_each, render_module, run)
 from jsk.domain.gates import layout_rules
 from jsk.adapters.cli.gates import layout
 
 tex = render_module("infra.tex")
 themes = render_module("domain.render.themes")
 LAYOUT = ("jsk", "resume", "check", "--only", "layout")
-
-
-def has_pymupdf():
-    try:
-        import pymupdf  # noqa: F401,PLC0415
-        return True
-    except ImportError:
-        return False
 
 
 def pdf(path, pages, width=595.28, height=841.89):
@@ -69,49 +61,28 @@ class LayoutCase(unittest.TestCase):
 
 @unittest.skipUnless(tex.available_engine() and has_pymupdf(),
                      "needs a TeX engine and pymupdf")
+@one_test_each({name + "".join(flags): (name, flags) for name in themes.names()
+                for flags in ((), ("--ats-max",))},
+               "test_{}_passes_against_its_record_in_its_declared_families", "passes")
 class EveryShippedTemplatePasses(unittest.TestCase):
-    """No false failures on our own output. circuit (Heros body, Adventor heads) and
-    atrium (Pagella body, Heros heads) each embed two families by design, which is why
-    the family rule follows the templates' declared pairs rather than "one family"."""
+    """No false failures on our own output: every template, in both variants. circuit
+    (Heros body, Adventor heads) and atrium (Pagella body, Heros heads) each embed two
+    families by design, which is why the family rule follows the templates' declared pairs
+    rather than "one family"."""
 
-    @classmethod
-    def setUpClass(cls):
-        cls._tmp = tempfile.TemporaryDirectory()
-        cls.tmp = Path(cls._tmp.name)
-        cls.pdfs = {}
-        for name in themes.names():
-            for variant in ((), ("--ats-max",)):
-                out = cls.tmp / (name + "".join(variant))
-                code, output = run(RENDER, example_short(), "--out", out, "--template",
-                                   name, "--format", "latex", "--pdf", *variant)
-                assert code == 0, output
-                cls.pdfs[out.name] = next(out.glob("*.pdf"))
-
-    @classmethod
-    def tearDownClass(cls):
-        cls._tmp.cleanup()
-
-    def test_every_template_and_variant_passes_against_its_record(self):
-        for name, path in self.pdfs.items():
-            with self.subTest(template=name):
-                code, out = run(LAYOUT, path, "--record", example_short())
-                self.assertEqual(code, 0, f"{name}:\n{out}")
-                self.assertIn("region: AU", out)
-                self.assertIn("paper: A4", out)
-
-    def test_the_two_family_templates_are_the_ones_that_declare_two(self):
-        for name, path in self.pdfs.items():
-            _, out = run(LAYOUT, path)
-            faces = out.split("families: ")[1].splitlines()[0].split(", ")
-            theme = themes.get(name.replace("--ats-max", ""))
-            self.assertEqual(len(faces), 1 + (theme["body"] != theme["head"]), f"{name}:\n{out}")
+    def passes(self, case):
+        name, flags = case
+        path = example_pdf(name, *flags)
+        code, out = run(LAYOUT, path, "--record", example_short())
+        self.assertEqual(code, 0, out)
+        self.assertIn("region: AU", out)
+        self.assertIn("paper: A4", out)
+        faces = out.split("families: ")[1].splitlines()[0].split(", ")
+        theme = themes.get(name)
+        self.assertEqual(len(faces), 1 + (theme["body"] != theme["head"]), out)
 
     def test_a_us_render_is_letter_and_fails_against_an_au_record(self):
-        out_dir = self.tmp / "us"
-        code, output = run(RENDER, example_short(), "--out", out_dir, "--format", "latex",
-                           "--pdf", "--region", "US")
-        self.assertEqual(code, 0, output)
-        path = next(out_dir.glob("*.pdf"))
+        path = example_pdf(themes.DEFAULT, "--region", "US")
         code, out = run(LAYOUT, path, "--region", "US")
         self.assertEqual(code, 0, out)
         code, out = run(LAYOUT, path, "--record", example_short())

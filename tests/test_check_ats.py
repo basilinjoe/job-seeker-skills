@@ -9,10 +9,11 @@ import unittest
 from pathlib import Path
 
 from fixtures import (CHECK_ATS, CLEAN_RESUME, PARSE_GATE, RENDER, build_pdf,
-                      build_text, example_short, load_script, render_module, resume_with,
-                      run)
+                      build_text, example_pdf, example_short, load_script, one_test_each,
+                      render_module, resume_with, run)
 
 tex = render_module("infra.tex")
+themes = render_module("domain.render.themes")
 
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
@@ -329,19 +330,17 @@ class SplitWords(CheckATSCase):
         code, out = self.check(resume_with(self.SPLIT))
         self.assertPasses(out, code)
 
-    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
-    def test_no_template_splits_a_word(self):
-        """Every theme, in both variants, with a record long enough to wrap."""
-        themes = render_module("domain.render.themes")
-        for name in themes.names():
-            for flags in ((), ("--ats-max",)):
-                with self.subTest(template=name, flags=flags):
-                    out_dir = self.tmp / f"{name}{''.join(flags)}"
-                    code, out = run(RENDER, example_short(), "--out", out_dir, "--template", name,
-                                    "--format", "latex", "--pdf", *flags)
-                    self.assertEqual(code, 0, out)
-                    code, out = run(PARSE_GATE, next(out_dir.glob("*.pdf")))
-                    self.assertNotIn("split across a line end", out)
+
+@unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
+@one_test_each({name + "".join(flags): (name, flags) for name in themes.names()
+                for flags in ((), ("--ats-max",))}, "test_{}_splits_no_word", "splits_none")
+class NoTemplateSplitsAWord(unittest.TestCase):
+    """Every theme, in both variants, with a record long enough to wrap."""
+
+    def splits_none(self, case):
+        name, flags = case
+        _, out = run(PARSE_GATE, example_pdf(name, *flags))
+        self.assertNotIn("split across a line end", out)
 
 
 class TheVariantIsInTheMetadata(CheckATSCase):

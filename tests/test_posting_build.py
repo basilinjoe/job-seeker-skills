@@ -17,7 +17,6 @@ from pathlib import Path
 from unittest import mock
 
 import appkit
-import fixtures  # noqa: F401 - puts the worktree's src first on sys.path
 from appkit import seed
 
 from jsk.domain.posting import errors

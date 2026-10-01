@@ -16,6 +16,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from fixtures import one_test_each
+
 TESTS = Path(__file__).parent
 SRC = TESTS.parent / "src"
 
@@ -73,8 +75,9 @@ def run(mutation=None):
         tmp = Path(tmp)
         shutil.copytree(SRC, tmp / "src", ignore=shutil.ignore_patterns("__pycache__"))
         (tmp / "tests").mkdir()
-        # appkit and storekit seed the store GapsFlags runs against.
-        for helper in ("test_graph_match.py", "appkit.py", "storekit.py"):
+        # appkit and storekit seed the store GapsFlags runs against; fixtures, which they
+        # import first, puts the copy's src/ on the path.
+        for helper in ("test_graph_match.py", "appkit.py", "storekit.py", "fixtures.py"):
             shutil.copy(TESTS / helper, tmp / "tests")
         shutil.copytree(TESTS / "match_fixtures", tmp / "tests" / "match_fixtures")
         for file, old, new in ([mutation] if isinstance(mutation, tuple) else mutation or []):
@@ -95,16 +98,19 @@ def run(mutation=None):
         return done.returncode, done.stdout[-2000:]
 
 
+@one_test_each(list(MUTATIONS), "test_{}_is_caught", "caught")
 class EveryMutationIsCaught(unittest.TestCase):
     def test_the_control_passes(self):
         code, out = run()
         self.assertEqual(code, 0, out)
 
-    def test_each_mutation_fails_the_scenarios(self):
-        for name, mutation in MUTATIONS.items():
-            with self.subTest(mutation=name):
-                code, out = run(mutation)
-                self.assertEqual(code, 1, f"{name} was not caught:\n{out}")
+    def caught(self, name):
+        code, out = run(MUTATIONS[name])
+        self.assertEqual(code, 1, f"{name} was not caught:\n{out}")
+        # Caught by an assertion, not by an error: a sandbox missing a helper exits 1 too,
+        # and for a while every mutation here "was caught" by a ModuleNotFoundError.
+        self.assertIn("\nFAILED ", out, f"{name} broke the harness, not a scenario:\n{out}")
+        self.assertNotIn("\nERROR ", out, f"{name} broke the harness, not a scenario:\n{out}")
 
 
 if __name__ == "__main__":

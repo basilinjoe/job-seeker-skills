@@ -15,6 +15,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import fixtures  # noqa: F401 - puts this checkout's src/ first on sys.path
 from jsk.infra import legacy_import as legacy
 from jsk.infra.oxigraph import record as R
 
@@ -34,13 +35,71 @@ def seed(root, keep_files=False):
     the store's graphs by name. A file that does not parse is not seeded - a test of
     unparseable text is a test of input (a changeset, a posting build), not of the store."""
     root = str(root)
-    _, record, _ = legacy.read_workspace(root)
-    R.write_graphs(root, record, create=True)
-    rehash(root)
+    seeded = _SEEDED.get(_tree_key(root))
+    if seeded is None:
+        seeded = _seed_template(root)
+    if seeded is None:
+        # Seeding this tree raised: seed it in place, so the test sees the error and
+        # whatever the failed write left, as before there was a cache.
+        _, record, _ = legacy.read_workspace(root)
+        R.write_graphs(root, record, create=True)
+        rehash(root)
+    else:
+        template, made, record = seeded
+        for rel in made:
+            os.makedirs(os.path.dirname(os.path.join(root, rel)), exist_ok=True)
+            shutil.copyfile(os.path.join(template, rel), os.path.join(root, rel))
+        record = {name: None if g is None else list(g) for name, g in record.items()}
     if not keep_files:
         for f in record_files(root):
             os.remove(f)
     return record
+
+
+# A store is two writes and a read - a third of a second each time, and the suite seeded
+# the same few fixtures some five hundred times a run. So each distinct tree is seeded
+# once per test process, in a template, and a later seed of the same bytes copies the
+# files that seeding made. A closed RocksDB directory is plain files; its copy opens.
+_SEEDED = {}
+
+
+def _digests(root):
+    """{relative path: sha256 of its bytes} for every file under `root`."""
+    import hashlib
+
+    found = {}
+    for d, _, names in os.walk(root):
+        for name in names:
+            path = os.path.join(d, name)
+            with open(path, "rb") as f:
+                found[os.path.relpath(path, root)] = hashlib.sha256(f.read()).hexdigest()
+    return found
+
+
+def _tree_key(root):
+    return repr(sorted((rel.replace(os.sep, "/"), sha) for rel, sha in _digests(root).items()))
+
+
+def _seed_template(root):
+    """(template dir, the files seeding made or changed in it, the record), cached under
+    the tree's key; None if seeding the tree raises."""
+    import atexit
+
+    key = _tree_key(root)
+    template = tempfile.mkdtemp()
+    atexit.register(shutil.rmtree, template, True)
+    shutil.copytree(root, template, dirs_exist_ok=True)
+    before = _digests(template)
+    try:
+        _, record, _ = legacy.read_workspace(template)
+        R.write_graphs(template, record, create=True)
+        rehash(template)
+    except Exception:  # noqa: BLE001
+        # Whatever seeding raises is the test's business, and seed() repeats it in place.
+        return None
+    made = sorted(rel for rel, sha in _digests(template).items() if before.get(rel) != sha)
+    _SEEDED[key] = seeded = (template, made, record)
+    return seeded
 
 
 def rehash(root):
