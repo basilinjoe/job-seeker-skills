@@ -40,68 +40,23 @@ entry change in one update - both, or neither - and the diff is printed.
 Exit 0 done (or nothing to do), 1 refused, 2 called wrong.
 """
 import datetime
-import difflib
 import inspect
 import os
 import re
 import sys
 
+from ....application.record.read import iri_of, unknown
 from ....cliutil import docstring_usage, parse_flags, wants_help
 from ....domain.record.confirmation import WORD
+from ....domain.record.state import diff, new_failures
+from ....domain.record.writer import curies
 from ....domain.resume.constants import PROVENANCE_RANK
 from ....infra.files import find_root
-from ....domain.record.state import diff, new_failures
-from ....domain.record.writer import entry_text, with_children
+from ..presenters import GUIDE, refuse, show_findings, usage
+from . import load, read
 
-VERBS = {}
-# verb -> (flags taking a value, switches, flags taking a list), beside --root, which
-# every verb takes. main parses them, so an unknown flag is refused by name.
-FLAGS = {}
 # The verbs that can write the career: each runs inside its turn (record.turn).
 WRITES = {"apply", "confirm", "load"}
-
-
-def verb(values=(), switches=(), lists=()):
-    def register(fn):
-        name = fn.__name__.removeprefix("cmd_")
-        VERBS[name], FLAGS[name] = fn, (values, switches, lists)
-        return fn
-    return register
-
-
-def usage(message):
-    print(message)
-    print("usage: jsk kb <verb> [arguments] [--root DIR] - `jsk kb --help` lists the verbs")
-    return 2
-
-
-def refuse(lines, fix=None):
-    """Print why nothing was written. Returns the exit code."""
-    for line in lines:
-        print(f"REFUSED  {line}")
-    if fix:
-        print(f"        fix: {fix}")
-    print("nothing was written")
-    return 1
-
-
-def show_findings(findings, title):
-    from ....cliutil import show
-    from ....graph import store as S
-
-    rep = S.Store("", findings=findings).report()
-    print(title)
-    show(rep.fails, "FAIL", 25)
-
-
-# Why a record may not be written, and the fix: the states a stored record can be in
-# other than clean (record.stored_state).
-GUIDE = {
-    "out-of-sync": (None, "restore the record from its backup: `jsk kb load .jsk/backup.trig` "
-                          "into a new workspace (--root), then use that one"),
-    "missing": ("there is no career record here",
-                "run `jsk new`, or `jsk kb load` to import a workspace or a dump"),
-}
 
 
 def writable(store):
@@ -122,13 +77,8 @@ def writable(store):
     return None
 
 
-def curies(iris):
-    from ....domain.record.writer import curie
-    return ", ".join(curie(i) for i in sorted(iris))
-
-
 def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=None,
-                 dry_run=False, notes=()):
+                 dry_run=False, notes=(), *, today):
     """Stamp, validate, print and - unless a dry run - write. Returns the exit code.
 
     The command already holds its turn (main takes it), so `store` is the record as it
@@ -143,7 +93,6 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
         # let a changeset drafted before this write overwrite it unrefused.
         return refuse([f"this write changes {curies(missed)} without logging it - a jsk bug"],
                       "report it; the record is untouched")
-    today = datetime.date.today()
     p = R.prepared(store, quads, today, by, summary, touched, minted, answer)
     after = S.load(root, graphs=p.graphs())
     broken = new_failures(store, after)
@@ -195,8 +144,7 @@ def changeset_text(path):
     return raw.decode("utf-8-sig")
 
 
-@verb(switches=("--dry-run",))
-def cmd_apply(args, flags, root):
+def cmd_apply(args, flags, root, today):
     """jsk kb apply <changeset.trig> [--dry-run]
 
     Merges a changeset (op:add, op:set, op:retire, op:delete; see docs/SCRIPTS.md) into
@@ -227,7 +175,7 @@ def cmd_apply(args, flags, root):
                       "save it as UTF-8 - in PowerShell, `Set-Content -Encoding utf8`")
     try:
         cs = changeset.read(text, os.path.basename(path))
-        e = edit.apply(store, cs, datetime.date.today())
+        e = edit.apply(store, cs, today)
     except GraphError as err:
         return refuse([str(err)], err.fix)
     except changeset.Refused as err:
@@ -238,7 +186,7 @@ def cmd_apply(args, flags, root):
     summary = cs.summary or (f"Applied {os.path.basename(path)}: {len(e.minted)} added, "
                              f"{len(e.touched)} changed.")
     return write_logged(store, root, e.quads, "apply", summary, e.touched, e.minted,
-                        dry_run="--dry-run" in flags, notes=e.notes)
+                        dry_run="--dry-run" in flags, notes=e.notes, today=today)
 
 
 def drafted(text, out, what):
@@ -273,8 +221,7 @@ def logged_base(store):
     return st.log_revision, None
 
 
-@verb(values=("--out",))
-def cmd_pack(args, flags, root):
+def cmd_pack(args, flags, root, today):
     """jsk kb pack capabilities [--out FILE.trig]
 
     Drafts a changeset adopting the capability starter pack (data/capabilities.ttl):
@@ -316,8 +263,7 @@ def cmd_pack(args, flags, root):
     return drafted(text, out, what)
 
 
-@verb(values=("--out", "--into"))
-def cmd_merge(args, flags, root):
+def cmd_merge(args, flags, root, today):
     """jsk kb merge c:a --into c:b [--out FILE.trig]
 
     Drafts a changeset making two concepts one. Every career triple pointing at c:a -
@@ -373,25 +319,6 @@ def cmd_merge(args, flags, root):
                   {"delete": m["delete"], "add": m["add"], "retire": m["retire"]},
                   entries=m["entries"], comments=[f"jsk kb merge {curies([a])} --into {curies([b])}"])
     return drafted(text, out, M.summary(a, b, m))
-
-
-def iri_of(text):
-    """k:prj_x, prj_x or c:kafka as an iri."""
-    from ....domain import ontology as O
-
-    if text.startswith("k:"):
-        return O.K + text[2:]
-    if text.startswith("c:"):
-        return O.C + text[2:]
-    return O.K + text
-
-
-def unknown(iri, store):
-    from ....domain.record.writer import curie
-
-    near = difflib.get_close_matches(iri, list(store.homes), n=1)
-    return (f"{curie(iri)} is not in the record",
-            f"did you mean {curie(near[0])}?" if near else "check the id: `jsk kb view` lists them")
 
 
 # An answer that is only a document's name: "From prior-resume.pdf" confirmed whatever
@@ -575,8 +502,7 @@ def confirm_summary(path, answer, root):
     return 0
 
 
-@verb(values=("--answer", "--summary", "--source", "--quote"))
-def cmd_confirm(args, flags, root):
+def cmd_confirm(args, flags, root, today):
     """jsk kb confirm <id>... --answer "what the person said"
        jsk kb confirm <id>... --source <file> --quote "the document's words"
        jsk kb confirm --summary <resume.json> --answer "what the person said"
@@ -675,84 +601,13 @@ def cmd_confirm(args, flags, root):
         return 0
     quads = [q for q in quads if not (q.subject.value in todo and q.predicate == prov)]
     quads += [ox.Quad(ox.NamedNode(i), prov, confirmed) for i in todo]
-    quads += [ox.Quad(ox.NamedNode(q), answered, R.literal(datetime.date.today().isoformat(), "date"))
+    quads += [ox.Quad(ox.NamedNode(q), answered, R.literal(today.isoformat(), "date"))
               for q in asked]
     return write_logged(store, root, quads, "confirm", f"Confirmed {curies(ids)}.",
-                        touched=set(todo) | set(asked), answer=answer)
+                        touched=set(todo) | set(asked), answer=answer, today=today)
 
 
-@verb(switches=("--bullets",))
-def cmd_show(args, flags, root):
-    """jsk kb show <id>... [--bullets]
-
-    The entries as Turtle, each under the name of the graph that holds it (`kb`, the
-    shipped `vocabulary`, an application's): a project with its bullets, a metric with its
-    versions - the shape a changeset is drafted in. The first line is the revision to put
-    in a changeset's op:base, so a change drafted from what was shown is checked against it.
-
-    --bullets prints a project as its name and its bullets only - what citing it as
-    evidence needs - without the problem, decisions and notes, which run to thousands of
-    characters a project.
-    """
-    from ....domain import ontology as O
-    from ....infra.oxigraph import record as R
-    from ....graph import store as S
-    from ....domain.record.writer import curie
-
-    bullets = "--bullets" in flags
-    if not args:
-        return usage("jsk kb show takes one or more ids")
-    store = S.load(root)
-    st = R.state(store)
-    print(f"# r{st.log_revision} - op:base {st.log_revision}" if st.log_revision else
-          "# not logged yet - `jsk kb check` says why")
-    code = 0
-    for text in args:
-        iri = iri_of(text)
-        files = [f for f in store.definitions.get(iri, []) if f in store.parsed]
-        if not files:
-            detail, fix = unknown(iri, store)
-            print(f"\nREFUSED  {detail}\n        fix: {fix}")
-            code = 1
-            continue
-        for f in files:
-            quads = store.graph(f)
-            print(f"\n# {f}")
-            shown = with_children(quads, iri)
-            if bullets and O.class_of(iri) == "Project":
-                name = next((q.object.value for q in quads if q.subject.value == iri
-                             and q.predicate.value == O.J + "name"), "")
-                print(f"# {curie(iri)} - {name}")
-                shown = shown[1:]
-            print("\n\n".join(entry_text(quads, i) for i in shown))
-    return code
-
-
-@verb(values=("--section",))
-def cmd_view(args, flags, root):
-    """jsk kb view [--section NAME]
-
-    The whole career as Markdown, in the career's section order, to read end to end and
-    correct - stdout only; it is never written to a file, so it cannot drift. Entries not
-    confirmed, and retired ones, say so beside their names.
-    """
-    from ....infra.oxigraph import record as R
-    from ....graph import store as S
-    from ....domain.record.view import render
-
-    only = flags.get("--section")
-    if args:
-        return usage("jsk kb view takes only --section NAME")
-    store = S.load(root)
-    if R.KB not in store.parsed:
-        return refuse([GUIDE[R.state(store).kind][0]], GUIDE[R.state(store).kind][1])
-    print(render(store.graph(R.KB), only), end="")
-    return 0
-
-
-@verb(values=("--out", "--from-match", "--cover", "--today"),
-      switches=("--ranked", "--replace", "--urs", "--refresh"), lists=("--select",))
-def cmd_export(args, flags, root):
+def cmd_export(args, flags, root, today):
     """jsk kb export [--select <id>...] [--from-match <app-dir> [--cover N] | --ranked]
                      [--today YYYY-MM-DD] [--out resume.json [--replace]]
 
@@ -828,7 +683,7 @@ def cmd_export(args, flags, root):
         return usage("--today goes with --from-match or --ranked")
     if "--replace" in flags and not out:
         return usage("--replace goes with --out: it lets the export write over that file")
-    today, budget = datetime.date.today(), COVER
+    budget = COVER
     try:
         if today_text:
             today = datetime.date.fromisoformat(today_text)
@@ -916,6 +771,14 @@ def cmd_export(args, flags, root):
     return 0
 
 
+def untraced_lines(store, today, bullets):
+    """application.record.check.untraced_lines over the store's own queries."""
+    from ....application.record.check import untraced_lines as lines
+    from ....infra.oxigraph.queries import OxigraphQueries
+
+    return lines(store, OxigraphQueries(store), today, bullets)
+
+
 def wrote(store, path, text, doc):
     from ....infra.oxigraph import record as R
 
@@ -925,181 +788,6 @@ def wrote(store, path, text, doc):
     st = R.state(store)
     at = f" at r{st.log_revision}" if st.log_revision else ""
     print(f"wrote {path}: {len(doc['bullets'])} bullets chosen from the career{at}")
-
-
-@verb(switches=("--json",), lists=("--near",))
-def cmd_query(args, flags, root):
-    """jsk kb query <name> [arguments] [--json]
-
-      open                questions not yet answered, oldest first
-      unconfirmed         live entries not confirmed, with the question open about each
-      holds <concept>     projects holding a concept, or one that counts as it
-      stale               applications that sent a metric version since replaced
-      experience <concept>  months the roles behind the projects holding it cover
-      pipeline            each application's stage: its latest event, and how long ago
-      evidence <term>...  per term: projects holding its concept, then entries whose text
-                          names it (whole words; an all-capitals term matches as written)
-      person              location, work mode, rights to work, and the roles held now
-      similar <words>...  the live projects closest to the words (a name, technologies,
-                          a sentence), best five, each with the words and concepts shared
-      duplicates          pairs of live projects that look like one project told twice
-      concepts [--near <term>...]  the vocabulary; with --near, per term, only what it
-                          names and the few concepts closest to it - one table each,
-                          `== <term>` above it (quote a term of several words)
-
-    A table by default; --json for the same rows, structured.
-    """
-    import json
-
-    from ....graph import store as S
-    from ....graph.named import QUERIES, table
-
-    as_json, near = "--json" in flags, flags.get("--near")
-    if not args or args[0] not in QUERIES:
-        return usage(f"jsk kb query takes one of: {', '.join(QUERIES)}")
-    name, rest = args[0], args[1:]
-    want, _, fn = QUERIES[name]
-    if want.endswith("...") and not rest or not want.endswith("...") and len(rest) != len(want.split()):
-        return usage(f"jsk kb query {name} {want}".rstrip())
-    if near is not None and name != "concepts":
-        return usage("--near is for `jsk kb query concepts --near <term>...` only")
-    if near is None:
-        columns, rows = fn(S.load(root), *rest)
-        print(json.dumps(rows, indent=2, ensure_ascii=False) if as_json else table(columns, rows))
-        return 0
-    if not near:
-        return usage("jsk kb query concepts --near <term>... - one or more terms")
-    # Several terms from one load: the analyst ran this 21 times in a shell loop, 15-25 s.
-    store = S.load(root)
-    found = {term: fn(store, near=term) for term in near}
-    if as_json:
-        print(json.dumps({t: rows for t, (_, rows) in found.items()}, indent=2,
-                         ensure_ascii=False))
-    else:
-        print("\n\n".join(f"== {t}\n{table(columns, rows)}" for t, (columns, rows) in found.items()))
-    return 0
-
-
-def untraced_lines(store, today, bullets=None):
-    """numbers.untraced over `bullets` (iris; every live bullet when None), a line each:
-    what the record gate would refuse in any resume selecting the bullet. Export asks it
-    of the bullets it chose - on the Everforth run the author found four of these one
-    gate at a time, three changesets deep.
-
-    This exported the whole career as a URS record and ran the record and claims gates
-    on it (export.gate_failures); the number check is now one function over the graph,
-    so it is asked of the bullets directly. The wording is the old record gate's - it is
-    what the Everforth and ElevenLabs runs taught people to read here."""
-    from ....gates import numbers
-    from ....domain.record.career import Career
-    from ....infra.oxigraph import record as R
-    from ....domain.record.shapes import curie
-
-    career = Career(store.graph(R.KB))
-    out = []
-    chosen = sorted(career.live("Achievement")) if bullets is None else bullets
-    for f in numbers.untraced(store, chosen, today):
-        if f.numbers:
-            one = len(f.numbers) == 1
-            out.append(f"{curie(f.bullet)} - {numbers.quoted(f.numbers)} "
-                       f"{'appears' if one else 'appear'} "
-                       "in the text but in no metric it cites ("
-                       + (", ".join(curie(m) for m in f.cites) or "it cites none") + ")")
-        for s in f.superseded:
-            out.append(f"{curie(f.bullet)} - '{s['number']}' is {curie(s['version'])}'s number, "
-                       f"replaced on {s['until']}")
-    return out
-
-
-@verb(values=("--only",))
-def cmd_check(args, flags, root):
-    """jsk kb check [--only <path>]
-
-    Validates the whole workspace - every rule, every graph - and says where the career
-    and its log stand. Exit 1 on any FAIL; a WARN is printed and passes.
-
-    It also asks the record gate's number check of every live bullet: a bullet it
-    refuses fails every resume that selects it, so it is warned of here, once, rather
-    than found by each resume run.
-
-    --only <graph or path>  the findings in that graph or under that application (`kb`,
-                    `applications/acme`, or the application's folder), plus every FAIL
-                    anywhere, since a FAIL still stops `jsk match`. The JumpCloud run's
-                    full check printed 40 KB of other applications' warnings to find its
-                    own five.
-    """
-    from ....cliutil import show
-    from ....infra.oxigraph import record as R
-    from ....graph import store as S
-
-    only = flags.get("--only")
-    if args:
-        return usage("jsk kb check takes no arguments but --only <path>")
-    store = S.load(root)
-    if only is not None:
-        here = os.path.abspath(only)
-        only = (S.graph_name(here, store.root) if os.path.exists(here)
-                else only.replace("\\", "/")).rstrip("/")
-
-    def within(name):
-        return only is None or name == only or name.startswith(only + "/")
-
-    rep = S.Store(store.root, findings=[f for f in store.findings
-                                        if f.severity == "FAIL" or within(f.file)]).report()
-    if not rep.fails and R.KB in store.parsed and within(R.KB):
-        for line in untraced_lines(store, datetime.date.today()):
-            rep.warn(f"a record selecting it fails a gate: {line}\n        fix: record the "
-                     "number as a metric version and cite it (j:cites), or correct the words, "
-                     "with `jsk kb apply` - every application selecting it pays this otherwise")
-    st = R.state(store)
-    # The one check of the career's hash: only jsk writes the store, and every write it
-    # makes to the career logs the hash - so a mismatch is a write from outside. It costs a
-    # full write of the career, so check asks it and a plain load does not.
-    if st.kind == "clean" and R.unrecorded(store.graph(R.KB), store.graph(R.LOG)):
-        rep.fail(f"kb - the career is not what its log last recorded - written outside jsk "
-                 f"(r{st.log_revision})\n        fix: restore it from .jsk/backup.trig "
-                 "(`jsk kb load .jsk/backup.trig` into a new workspace, --root), or `jsk kb "
-                 "dump` to see what it holds")
-    print(f"record   {st.kind}" + (f" at r{st.log_revision}" if st.log_revision else "")
-          + (f" - {st.detail}" if st.detail else ""))
-    print(f"{len(rep.fails)} FAIL, {len(rep.warns)} WARN")
-    show(rep.fails, "FAIL", 0)
-    show(rep.warns, "WARN", 0)
-    return 1 if rep.fails else 0
-
-
-@verb()
-def cmd_path(args, flags, root):
-    """jsk kb path [--root DIR]
-
-    Prints where the record is, as absolute paths: the workspace, career/store/ and
-    applications/. Run it from anywhere inside the workspace - an application directory
-    will do. The store is not a file to read: `jsk kb view`, `show` and `log` read it.
-
-    The workspace is the folder holding career/. A workspace that is itself named
-    `career` puts the store at career/career/store/, which is why the path is printed
-    rather than worked out. Needs nothing but the folders; exit 1 when there is no
-    career/store/ there.
-    """
-    from ....infra.oxigraph import db
-    from ....graph import legacy
-
-    if args:
-        return usage("jsk kb path takes no arguments")
-    store = db.path(root)
-    if not db.exists(root):
-        print(f"no career/store/ under {root}")
-        if legacy.has_files(root):
-            print("        fix: this workspace is still laid out as .ttl files - "
-                  "`jsk kb load .` moves the record into career/store/")
-        elif os.path.isdir(os.path.join(root, "store")) or \
-                os.path.isfile(os.path.join(root, "kb.ttl")):
-            print(f"        fix: that folder is career/ itself - the workspace is {os.path.dirname(root)}")
-        return 1
-    print(f"workspace     {root}")
-    print(f"store         {store}")
-    print(f"applications  {os.path.join(root, 'applications')}")
-    return 0
 
 
 SHADOW = os.path.join(".jsk", "kb.last.ttl")      # the file workspace's copy of its last write
@@ -1168,7 +856,7 @@ def hand_edit(before, src):
     return lines, {q.subject.value for q in set(was) ^ set(after)}
 
 
-def imported(before, record, rewrites, src):
+def imported(before, record, rewrites, src, today):
     """The files' record with the import's own log entry: the career stamped at the next
     revision, and an entry `by load` holding its hash - so the store's newest entry hashes
     its career, as every jsk write leaves it, and a dump of it loads back. Prints the WARNs
@@ -1189,7 +877,6 @@ def imported(before, record, rewrites, src):
         for line in lines:
             print(line)
         touched |= changed
-    today = datetime.date.today()
     rev = R.next_revision(R.state(before))
     kb = R.stamp([ox.Quad(t.subject, t.predicate, t.object) for t in record[R.KB]], rev, today)
     summary = (f"Imported from the files by jsk kb load: {len(record)} graphs, "
@@ -1226,8 +913,7 @@ def edited_dump(record, name):
     return None
 
 
-@verb()
-def cmd_load(args, flags, root):
+def cmd_load(args, flags, root, today):
     """jsk kb load <workspace folder | dump.trig>
 
     Fills this workspace's empty career/store/ - once. From a workspace still laid out as
@@ -1264,7 +950,7 @@ def cmd_load(args, flags, root):
                                           "- fix them in the files first:")
             print("nothing was written")
             return 1
-        record = imported(before, record, rewrites, src)
+        record = imported(before, record, rewrites, src, today)
     elif src.endswith(".trig") and os.path.isfile(src):
         try:
             record = db.parse_dump(read_text(src, os.path.basename(src)))
@@ -1313,69 +999,26 @@ def cmd_load(args, flags, root):
     return 0
 
 
-@verb(values=("--out",))
-def cmd_dump(args, flags, root):
-    """jsk kb dump [--out FILE.trig]
-
-    The whole record - the career, its log, every application's graphs - as TriG, to
-    stdout or FILE: a backup, and what `jsk kb load` reads back. jsk writes one after every
-    write to .jsk/backup.trig as well. Raising pyoxigraph's version is `dump` with the old
-    one, then `load` into a new store with the new one.
-    """
-    from ....infra.oxigraph import db
-
-    if args:
-        return usage("jsk kb dump takes no arguments - --out FILE.trig, or stdout")
-    out = flags.get("--out")
-    if out is not None and not out.endswith(".trig"):
-        return usage(f"{out}: a dump is a .trig file")
-    try:
-        text = db.dump_text(db.read(root))
-    except db.StoreError as e:
-        return refuse([str(e)], e.fix)
-    if out is None:
-        sys.stdout.write(text)
-        return 0
-    with open(out, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
-    print(f"wrote {out}")
-    return 0
-
-
-@verb(values=("--last",))
-def cmd_log(args, flags, root):
-    """jsk kb log [--last N]
-
-    The record's history, newest first: each revision's date, what made it (apply, confirm,
-    new, ...), its summary, and the ids it minted and touched. --last N, the newest N
-    (default 10).
-    """
-    from ....domain import ontology as O
-    from ....infra.oxigraph import record as R
-    from ....graph import store as S
-
-    if args:
-        return usage("jsk kb log takes no arguments - --last N")
-    last = flags.get("--last", "10")
-    if not last.isdigit() or int(last) < 1:
-        return usage(f"--last {last}: a count, 1 or more")
-    store = S.load(root)
-    if R.LOG not in store.parsed:
-        return refuse(["the record has no log"], "`jsk kb check` says what is wrong")
-    entries = {}
-    for q in store.graph(R.LOG):
-        if O.class_of(q.subject.value) == "LogEntry":
-            entries.setdefault(q.subject.value, {}).setdefault(
-                q.predicate.value[len(O.J):], []).append(q.object.value)
-    rows = sorted(entries.values(), key=lambda e: -int(R.integer(e.get("revision", ["0"])[0]) or 0))
-    for e in rows[:int(last)]:
-        by = e.get("by", ["?"])[0].rsplit("#", 1)[-1].rsplit("/", 1)[-1]
-        print(f"r{e.get('revision', ['?'])[0]}  {e.get('date', ['?'])[0]}  {by:8} "
-              f"{e.get('summary', [''])[0]}")
-        for label in ("minted", "touched"):
-            if e.get(label):
-                print(f"    {label:8} {curies(e[label])}")
-    return 0
+# verb -> (its handler, flags taking a value, switches, flags taking a list), beside --root,
+# which every verb takes. main parses them, so an unknown flag is refused by name.
+TABLE = {
+    "apply": (cmd_apply, (), ("--dry-run",), ()),
+    "pack": (cmd_pack, ("--out",), (), ()),
+    "merge": (cmd_merge, ("--out", "--into"), (), ()),
+    "confirm": (cmd_confirm, ("--answer", "--summary", "--source", "--quote"), (), ()),
+    "show": (read.cmd_show, (), ("--bullets",), ()),
+    "view": (read.cmd_view, ("--section",), (), ()),
+    "export": (cmd_export, ("--out", "--from-match", "--cover", "--today"),
+               ("--ranked", "--replace", "--urs", "--refresh"), ("--select",)),
+    "query": (read.cmd_query, (), ("--json",), ("--near",)),
+    "check": (read.cmd_check, ("--only",), (), ()),
+    "path": (read.cmd_path, (), (), ()),
+    "load": (cmd_load, (), (), ()),
+    "dump": (load.cmd_dump, ("--out",), (), ()),
+    "log": (read.cmd_log, ("--last",), (), ()),
+}
+VERBS = {name: row[0] for name, row in TABLE.items()}
+FLAGS = {name: row[1:] for name, row in TABLE.items()}
 
 
 def main(argv=None):
@@ -1397,11 +1040,12 @@ def main(argv=None):
         return usage(problem)
     rest, flags = parsed
     root = flags.pop("--root", None) or find_root(os.getcwd())
+    today = datetime.date.today()
     if root is None or not os.path.isdir(root):
         return usage("no workspace here: run it inside one, or pass --root DIR "
                      "(the folder holding career/)")
     if name == "path":
-        return cmd_path(rest, flags, os.path.abspath(root))
+        return read.cmd_path(rest, flags, os.path.abspath(root), today)
     if name != "load":
         # `load` is the import itself; every other verb would answer from, or write to, a
         # record jsk no longer keeps.
@@ -1421,5 +1065,5 @@ def main(argv=None):
     root = os.path.abspath(root)
     # A verb that writes the store takes its turn before it reads it (record.turn).
     with R.turn(root, dry_run=name not in WRITES or "--dry-run" in flags):
-        return VERBS[name](rest, flags, root)
+        return VERBS[name](rest, flags, root, today)
 

@@ -109,7 +109,7 @@ def restart(root, name, today):
     from .infra.oxigraph import db
     from .infra.oxigraph import record as R
     from .graph import store as S
-    from .adapters.cli.kb import GUIDE
+    from .adapters.cli.presenters import GUIDE
 
     store = S.load(root)
     st = R.state(store)

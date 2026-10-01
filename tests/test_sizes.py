@@ -21,7 +21,7 @@ FUNCTION_LIMIT = 80
 
 # (repo-relative path, function name or None for the whole file) -> its length now.
 SIZE_KNOWN = {
-    ("src/jsk/adapters/cli/kb/__init__.py", None): 1425,
+    ("src/jsk/adapters/cli/kb/__init__.py", None): 1069,
     ("src/jsk/cli.py", None): 1302,
     ("tests/test_cli.py", None): 1067,
     ("tests/test_graph_kbcli.py", None): 1193,
