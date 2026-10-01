@@ -1,7 +1,10 @@
-"""Plain text emitter, for portals with paste-in boxes.
+"""Plain text emitter: the plan as a paste-in box receives it.
 
-Headings are upper-cased because a plain-text file has no other way to signal
-one, and the parser matching on 'EXPERIENCE' is case-insensitive anyway.
+No file is written from it (Ruling 23 of the graph-native plan): the parse gate's strict
+pass, its reading-order rule and the terms gate read this string in memory.
+
+Headings are upper-cased because plain text has no other way to signal one, and the
+parser matching on 'EXPERIENCE' is case-insensitive anyway.
 """
 
 

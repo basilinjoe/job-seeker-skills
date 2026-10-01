@@ -187,7 +187,7 @@ def write_app_graphs(app_dir, graphs, store=None, *, records):
 
 
 def write_app_file(app_dir, name, text, store=None, *, records):
-    """Write the document `name` (gaps.md) in `app_dir`. The record's graphs go through
+    """Write the document `name` in `app_dir`. The record's graphs go through
     write_app_graphs.
 
     Args:
@@ -266,7 +266,7 @@ def freeze(root, app_dir, plan, short_bytes, submitted, channel, documents, *, l
 
     `plan` is what the builder rendered: its `sent` names the bullets that cleared the
     floor, so a bullet the file lists but the render withheld is not claimed as sent. No
-    copy of the words is kept - the PDF, .txt and .tex beside it are what went out - so
+    copy of the words is kept - the PDF and .tex beside it are what went out - so
     the short file's own hash is what `recordSha256` pins.
 
     Args:

@@ -205,9 +205,9 @@ class Folder:
 
 
 def build(app_dir, store, r, today, derived=None):
-    """Write the assessment - the gaps graph and gaps.md - for the match `r` of the posting
-    in `app_dir` (application.tailor.check_gaps.build over this module's Folder). The
-    caller holds its turn (record.turn) and loaded `store` inside it.
+    """Write the assessment - the gaps graph - for the match `r` of the posting in `app_dir`
+    (application.tailor.check_gaps.build over this module's Folder). The caller holds its
+    turn (record.turn) and loaded `store` inside it.
 
     Args:
         app_dir: the application directory.
@@ -217,7 +217,8 @@ def build(app_dir, store, r, today, derived=None):
         derived: the Derived assessment when the caller has it, else None.
 
     Returns:
-        (what was written, the findings). On a FAIL nothing is written.
+        (what was written, the findings, the assessment rendered or None). On a FAIL
+        nothing is written.
     """
     from ....application.tailor.check_gaps import build as built
 

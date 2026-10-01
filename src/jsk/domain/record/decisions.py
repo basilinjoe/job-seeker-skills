@@ -16,7 +16,7 @@ posting graph. The model writes only this; code writes the triples.
 
 `n` is the line number `jsk posting extract` printed. A requirement row has four or five
 fields; `need` may be left off or blank to take the default for the line's section. A drop
-has three: the line number, `-`, and the reason, which reaches the person in gaps.md. The
+has three: the line number, `-`, and the reason, which reaches the person in the assessment. The
 header is `key: value` lines before the first row; `#` starts a comment line.
 
 Fields are split on `|`, not whitespace: an `asked` is often several words.
@@ -47,7 +47,7 @@ class Row:
 
 @dataclass(frozen=True)
 class Drop:
-    """An advert line decisions.txt leaves out, with the reason gaps.md gives."""
+    """An advert line decisions.txt leaves out, with the reason the assessment gives."""
 
     line: int
     n: int

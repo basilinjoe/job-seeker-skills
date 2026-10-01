@@ -8,13 +8,17 @@
 # that is the name a recruiter reads on the file they were sent. --ats-max switches
 # which variant the one PDF holds and never adds a second, so the two cannot collide;
 # the gates tell them apart by the jsk-variant keyword in the PDF's own metadata
-# (check_ats.variant_of), not by the name. The .txt keeps its suffix: it is pasted into
-# a box, never attached.
+# (check_ats.variant_of), not by the name.
+#
+# There is no plain-text file any more (Ruling 23 of the graph-native plan): the gates read
+# emit_text.emit over the plaintext variant's plan in memory, the same plan as the .tex.
 STEMS = {
     "presentation": "{name}_Resume",
     "ats-maximal": "{name}_Resume",
-    "plaintext": "{name}_Resume_ATS",
 }
+
+# The variant whose emitted text the gates read: ASCII-folded whatever the PDF holds.
+TEXT_VARIANT = "plaintext"
 
 
 def select_targets(fmt, profile):
@@ -26,23 +30,17 @@ def select_targets(fmt, profile):
     render quietly gave you a presentation one.
 
     --ats-max switches the variant the PDF holds; it never adds a second PDF.
-    The plain text rides along either way - it is the paste-in-box artefact and
-    it is ASCII-folded whatever the PDF holds.
 
     Args:
-        fmt: latex | txt | all; any other kind is passed through for the caller to refuse.
+        fmt: latex | all; any other kind is passed through for the caller to refuse.
         profile: the variant, or None for presentation.
 
     Returns:
         The rows, in the order they are rendered.
     """
     variant = profile or "presentation"
-    if fmt != "all":
-        return [(variant, fmt, STEMS.get(variant, "{name}_Resume"))]
-    return [
-        (variant, "latex", STEMS.get(variant, "{name}_Resume")),
-        ("plaintext", "txt", STEMS["plaintext"]),
-    ]
+    kind = "latex" if fmt == "all" else fmt
+    return [(variant, kind, STEMS.get(variant, "{name}_Resume"))]
 
 
 def safe_name(text):

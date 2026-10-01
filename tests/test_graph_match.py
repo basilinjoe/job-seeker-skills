@@ -481,8 +481,8 @@ class Verdicts(unittest.TestCase):
 
 
 class GapsFlags(unittest.TestCase):
-    """`jsk match APP --gaps` / `--draft-gaps`: gaps.txt checked, the assessment and gaps.md
-    written. The rules themselves are tests/test_gaps_build.py's."""
+    """`jsk match APP --gaps` / `--draft-gaps`: gaps.txt checked, the assessment written and
+    printed - no gaps.md. The rules themselves are tests/test_gaps_build.py's."""
 
     GAPS = "applications/contoso/gaps"
 
@@ -528,27 +528,35 @@ class GapsFlags(unittest.TestCase):
         self.assertIn("not an application", out)
 
     def test_draft_writes_the_derived_assessment_then_gaps_txt(self):
+        import appkit
+
         code, out = self.main("--draft-gaps", self.txt)
         self.assertEqual(code, 0, out)
-        self.assertIn(f"0 FAIL, 0 WARN - wrote {self.GAPS} and gaps.md", out)
+        self.assertIn(f"0 FAIL, 0 WARN - wrote {self.GAPS}\n", out)
         self.assertIn(f"wrote {self.txt}: 10 requirements, 4 slots to fill", out)
+        # Printed after those lines, never written: no gaps.md (Ruling 24 of the plan).
+        self.assertIn("type: Gap Assessment", out.split("slots to fill", 1)[1])
         self.assertTrue(self.assessed())
         self.assertFalse((self.app / "gaps.ttl").exists())
-        # The draft's slots are a FAIL, and a FAIL writes nothing.
-        before = (self.app / "gaps.md").read_bytes()
+        self.assertFalse((self.app / "gaps.md").exists())
+        # The draft's slots are a FAIL, and a FAIL writes nothing - and prints no assessment.
+        before = appkit.facts(self.tmp, self.GAPS)
         code, out = self.main("--gaps", self.txt)
         self.assertEqual(code, 1)
         self.assertIn("4 FAIL, 0 WARN - nothing written", out)
-        self.assertEqual((self.app / "gaps.md").read_bytes(), before)
+        self.assertNotIn("type: Gap Assessment", out)
+        self.assertEqual(appkit.facts(self.tmp, self.GAPS), before)
 
-    def test_a_filled_gaps_txt_writes_both(self):
+    def test_a_filled_gaps_txt_writes_the_graph_and_prints_the_assessment(self):
         self.txt.write_text("fit: partial\neligibility: meets it\n"
                             "k8s | partial | one AKS cluster\n", encoding="utf-8")
         code, out = self.main("--gaps", self.txt)
-        self.assertEqual((code, out.splitlines()[-1]),
-                         (0, f"{self.txt}: 0 FAIL, 0 WARN - wrote {self.GAPS} and gaps.md"))
-        self.assertIn("partial (match: satisfied)",
-                      (self.app / "gaps.md").read_text(encoding="utf-8"))
+        verdict = f"{self.txt}: 0 FAIL, 0 WARN - wrote {self.GAPS}"
+        self.assertEqual(code, 0, out)
+        self.assertIn(verdict + "\n", out)
+        # The assessment comes after the verdict line: lines added, none reworded.
+        self.assertIn("partial (match: satisfied)", out.split(verdict, 1)[1])
+        self.assertFalse((self.app / "gaps.md").exists())
 
     def test_a_raised_verdict_fails_and_writes_nothing(self):
         """.NET is carried only by tags: `satisfied` is a claim the record does not make."""
@@ -571,7 +579,7 @@ class GapsFlags(unittest.TestCase):
     def test_a_gaps_md_is_refused(self):
         code, out = self.main("--gaps", self.app / "gaps.md")
         self.assertEqual(code, 1)
-        self.assertIn("gaps.md is written by jsk now", out)
+        self.assertIn("gaps.md is an older assessment", out)
 
     def test_another_directory_or_no_file_is_refused(self):
         code, out = self.main("--gaps", Path(self.tmp) / "gaps.txt")

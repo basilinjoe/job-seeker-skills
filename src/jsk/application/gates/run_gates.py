@@ -5,9 +5,11 @@ terms gate when the record's directory holds a posting, and the render gate afte
 which nothing here can run and which is said out loud instead.
 
 It is file-driven rather than a fixed list of five commands, because the render profile
-decides which files exist: every render writes <name>_Resume.{tex,pdf} beside
-<name>_Resume_ATS.txt, and --ats-max changes which variant that one PDF holds -
-strict_for() reads which from the PDF, not the name.
+decides which files exist: every render writes <name>_Resume.{tex,pdf}, and --ats-max
+changes which variant that one PDF holds - strict_for() reads which from the PDF, not the
+name. There is no .txt (Ruling 23 of the graph-native plan): the plain text is emitted in
+memory from the record's plan, and the parse gate judges it --strict, holds each PDF to its
+reading order, and the terms gate reads it.
 
 Each step comes back as a GateStep holding the gate's own output and the counts and page
 measurements the summary restates, as fields: the summary used to read them back out of
@@ -21,8 +23,8 @@ from ...domain.render.page_report import page_report
 from .result import GateResult, GateStopped
 
 DOC_GATES = [
-    ("parse gate", "check_ats.py", (".pdf", ".txt")),
-    ("prose gate", "check_prose.py", (".tex", ".txt")),
+    ("parse gate", "check_ats.py", (".pdf",)),
+    ("prose gate", "check_prose.py", (".tex",)),
 ]
 
 # The glob jsk-verifier.md already tells the agent to use when a file name is not
@@ -119,8 +121,9 @@ def strict_for(path, *, pdf_variant, tex_variant):
     A PDF says which variant it holds in its own metadata (jsk-variant:), because the
     ATS PDF no longer carries `_ATS` in its name - that was the name a recruiter read on
     the file. A PDF whose engine wrote no metadata falls back to the .tex it was
-    compiled from, whose hypersetup line carries the same keyword; one rendered before
-    the marker existed, and every .txt, still go by the name.
+    compiled from, whose hypersetup line carries the same keyword. The name decides
+    nothing: the plain text, the one stream always held to the ATS-maximal rules, is
+    emitted in memory and judged --strict by the run (run_gates), not by a suffix.
 
     Args:
         path: the document.
@@ -131,13 +134,12 @@ def strict_for(path, *, pdf_variant, tex_variant):
     Returns:
         True for the ATS-maximal variant.
     """
-    if path.lower().endswith(".pdf"):
-        variant = pdf_variant(path)
-        if variant is None:
-            variant = tex_variant(os.path.splitext(path)[0] + ".tex")
-        if variant is not None:
-            return variant == "ats-maximal"
-    return "_ATS" in os.path.basename(path)
+    if not path.lower().endswith(".pdf"):
+        return False
+    variant = pdf_variant(path)
+    if variant is None:
+        variant = tex_variant(os.path.splitext(path)[0] + ".tex")
+    return variant == "ats-maximal"
 
 
 def render_section(out_dir, pages, only=None, *, measure):
@@ -193,31 +195,47 @@ def render_section(out_dir, pages, only=None, *, measure):
                     pages=tuple(measured))
 
 
-def terms_steps(out_dir, record, only, *, run):
-    """The terms gate over each .txt render, or nothing for a record with no posting.
+def terms_steps(record, *, run):
+    """The terms gate over the render's plain text, or nothing for a record with no posting.
 
-    Over the .txt alone: every variant renders the same words, and the .txt is the one
-    stream with no layout between them and a search. A record with no posting beside it -
-    a general resume - has nothing to cover, and the step is left out rather than
-    reported as a pass that measured nothing.
+    Over the plain text alone, emitted in memory from the record's plan: every variant
+    renders the same words, and it is the one stream with no layout between them and a
+    search. A record with no posting beside it - a general resume - has nothing to cover,
+    and the step is left out rather than reported as a pass that measured nothing.
 
     Args:
-        out_dir: the render's directory.
         record: the resume.json, whose directory says which posting it answers.
-        only: the documents to gate (rendered_documents), or None.
         run: (script, args) -> (exit code, output, outcome), as run_gates takes it.
 
     Returns:
-        The GateSteps, one a .txt.
+        The GateSteps: one, or none.
     """
-    steps = []
-    for path in rendered_documents(out_dir, (".txt",), only):
-        code, output, outcome = run("terms.py", [path, "--record", record])
-        if code == 0 and getattr(outcome, "posting", "") is None:
-            continue
-        steps.append(step("terms gate", f"terms.py {os.path.basename(path)}",
-                          code, output, outcome))
-    return steps
+    code, output, outcome = run("terms.py", ["--record", record])
+    if code == 0 and getattr(outcome, "posting", "") is None:
+        return []
+    return [step("terms gate", f"terms.py --record {os.path.basename(record)}",
+                 code, output, outcome)]
+
+
+def text_step(record, *, run):
+    """The parse gate over the render's plain text, emitted in memory, held --strict.
+
+    It is what a paste-in box receives, ASCII-folded whatever the PDF holds, so it is
+    always held to the ATS-maximal rules: by the run, not by `_ATS` in a file name.
+
+    Args:
+        record: the resume.json, or None.
+        run: (script, args) -> (exit code, output, outcome), as run_gates takes it.
+
+    Returns:
+        The GateStep; SKIPPED when there is no record to emit the text from.
+    """
+    if record is None:
+        return skipped_gate("parse gate", "check_ats.py",
+                            "no record to emit the plain text from; pass --record "
+                            "<resume.json>.")
+    return step("parse gate", f"check_ats.py {os.path.basename(record)} --strict",
+                *run("check_ats.py", [record, "--strict"]))
 
 
 def run_gates(out_dir, record, pages=None, limit=None, record_gate=True, only=None, *,
@@ -266,15 +284,20 @@ def run_gates(out_dir, record, pages=None, limit=None, record_gate=True, only=No
         if not found:
             steps.append(skipped_gate(gate, script,
                                       f"no {' or '.join(extensions)} render in {out_dir}."))
-            continue
         for path in found:
             # The same rule render_resume.py prints after a render: the ATS-maximal
             # variant is the one aimed at a parser, so it is the one held to the
             # ATS-maximal rules.
             held = script == "check_ats.py" and strict(path)
             command = f"{script} {os.path.basename(path)}" + (" --strict" if held else "")
+            # The record's plain text is the order the PDF must extract in: given the
+            # record, the reading-order rule always runs, as there is no file to miss.
+            ordered = ["--record", record] if script == "check_ats.py" and record else []
             steps.append(step(gate, command,
-                              *run(script, [path] + (["--strict"] if held else []))))
+                              *run(script, [path] + (["--strict"] if held else [])
+                                   + ordered)))
+        if script == "check_ats.py":
+            steps.append(text_step(record, run=run))
 
     # The PDF alone: it reads the region and budget from the record the render used.
     pdfs = rendered_documents(out_dir, (".pdf",), only)
@@ -287,6 +310,6 @@ def run_gates(out_dir, record, pages=None, limit=None, record_gate=True, only=No
                           *run("layout.py", layout_args)))
 
     if record:
-        steps += terms_steps(out_dir, record, only, run=run)
+        steps += terms_steps(record, run=run)
     steps.append(render_section(out_dir, pages, only, measure=measure))
     return steps

@@ -429,7 +429,11 @@ class Ship(GateCase):
         self.assertNotIn("claims gate", heads)
         self.assertIn("parse gate", heads)
         self.assertIn("prose gate", heads)
-        self.assertTrue((out / "Test_Person_Contoso_Resume_ATS.txt").exists())
+        # The render leaves the .tex (and the PDF) and no plain-text file: the parse gate
+        # reads the plan's text in memory (Ruling 23 of the graph-native plan).
+        self.assertTrue((out / "Test_Person_Contoso_Resume.tex").exists())
+        self.assertEqual(list(out.glob("*.txt")), [])
+        self.assertIn("check_ats.py resume.json --strict", text)
 
     def test_view_is_refused_for_a_short_file(self):
         _, path = self.workspace()

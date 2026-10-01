@@ -25,13 +25,12 @@ the day it was sent. Each holds the whole of that application:
 | File | Is |
 |---|---|
 | `posting.md` | the advertisement verbatim, nothing added |
-| `gaps.md` | the assessment of the career against it, and the question queue |
 | `resume.json` | the short record this submission rendered from |
-| `<Name>_<Company>_Resume.{tex,pdf,txt}` | the files actually sent |
+| `<Name>_<Company>_Resume.{tex,pdf}` | the PDF actually sent, and the .tex it compiled from |
 
-What the posting asks for, and what was sent - the bullets and metric versions it
-carried, and every event since (`jsk app event`) - are kept in the record, career/store/,
-beside the career.
+What the posting asks for, the assessment of the career against it (`jsk tailor match`
+prints it), and what was sent - the bullets and metric versions it carried, and every
+event since (`jsk app event`) - are kept in the record, career/store/, beside the career.
 
 **Everything in here is frozen at submission.** The career keeps moving; an application
 that pointed at a moving record could not answer what it was answering.

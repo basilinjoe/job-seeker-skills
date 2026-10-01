@@ -275,7 +275,7 @@ def uncovered(rows, store, reads):
         dropped = dropped_lines(reads.adverts, store.root, folder, advert)
         for line in asked_lines(advert):
             if line in dropped:
-                continue                    # dropped with a reason, which gaps.md shows
+                continue                    # dropped with a reason, which the assessment shows
             low = line.casefold().rstrip(".;, ")
             if not any(q in low or low in q for q in said):
                 out.append({"focus": node(post), "line": line})
@@ -518,7 +518,7 @@ RULES = [
                                              else r["line"][:67].rstrip() + "…")
                    + " and no requirement quotes it",
          "write a requirement quoting it in the posting, or - if it is eligibility (work "
-         "rights, clearance, location) - it belongs in gaps.md's # Eligibility and can stay "
+         "rights, clearance, location) - it belongs in gaps.txt's eligibility: line and can stay "
          "unquoted", uncovered),
     Rule("log-sync", FAIL, None,
          lambda r: r["state"].detail, log_sync_fix, out_of_step(("torn", "out-of-sync"))),

@@ -57,7 +57,7 @@ def judge(text, title, requirements):
     """Every terms-gate rule over one rendered page.
 
     Args:
-        text: the page's text (the .txt render).
+        text: the page's text (the render's plain text, emitted from its plan).
         title: the posting's j:title.
         requirements: [(asked, necessity, other names)] - the term as the advert wrote it,
             required, preferred or implicit, and the labels of the concepts it resolves to.
@@ -95,7 +95,7 @@ def judge(text, title, requirements):
         elif necessity == "required":
             report.warn(f"required {asked!r} is not on the page - a search for it will not "
                         "find this resume; if the person has it, the evidence belongs in a "
-                        "bullet, and if not, it is a gap for gaps.md")
+                        "bullet, and if not, it is a gap - a short: line in gaps.txt")
         else:
             missing_preferred.append(asked)
     if missing_preferred:

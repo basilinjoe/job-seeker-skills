@@ -1,7 +1,8 @@
 """Check how much of the posting's own wording a rendered resume carries.
 
 Usage: jsk resume check <out-dir> --record <applications/<dir>/resume.json>
-       (runs after the layout gate whenever the record and a .txt render are there)
+       (runs after the layout gate whenever there is a record; it reads the render's
+       plain text, emitted in memory from the record's plan)
 
 Exit 0 = every finding is a warning; this gate never stops a send. Exit 2 = usage error.
 No third-party dependencies.
@@ -20,31 +21,50 @@ def gate(args):
     """The terms gate over the arguments alone, as `jsk resume check` runs it.
 
     Args:
-        args: the .txt render, then --record <resume.json>.
+        args: --record <resume.json>, whose plan's plain text is read in memory - or a .txt
+            passed by hand before it.
 
     Returns:
         (exit code, the TermsResult or Unreadable, None when the call was wrong).
-        Prints the verdict; reads the render and loads the workspace.
+        Prints the verdict; emits or reads the text and loads the workspace.
     """
+    from ....application.gates.result import unreadable
     from ....application.gates.terms import check_terms
-    from ....application.gates.result import Unreadable
+    from ....domain.resume.short import ShortError
     from ....infra.documents import read_txt
-    from ..compose.gates import posting_terms
+    from ..compose.gates import plan_text, posting_terms
 
     if wants_help(args):
         print(docstring_usage(__doc__))
         return 0, None
     parsed, _ = parse_flags(list(args), ("--record",), ())
-    if parsed is None or len(parsed[0]) != 1 or "--record" not in parsed[1]:
+    if parsed is None or len(parsed[0]) > 1 or "--record" not in parsed[1]:
         print("usage: jsk resume check <out-dir> --record <resume.json>")
         return 2, None
-    path, record = parsed[0][0], parsed[1]["--record"]
-    if not os.path.exists(path):
-        print(f"file not found: {path}")
-        return 2, None
-    result = check_terms(path, record, read_txt=read_txt, terms=posting_terms)
-    if isinstance(result, Unreadable):
-        return present.unreadable(result), result
+    record = parsed[1]["--record"]
+    # The posting first: a general resume has nothing to cover, and emitting its text
+    # would load its career for no finding.
+    found = posting_terms(record)
+    if parsed[0]:
+        path = parsed[0][0]
+        if not os.path.exists(path):
+            print(f"file not found: {path}")
+            return 2, None
+        name = os.path.basename(path)
+        try:
+            text, _ = read_txt(path)
+        except OSError as e:
+            result = unreadable(name, f"unreadable: {e}")
+            return present.unreadable(result), result
+    else:
+        name, text = f"plain text of {os.path.basename(record)} (in memory)", ""
+        if found is not None:
+            try:
+                text = plan_text(record)
+            except ShortError as err:
+                result = unreadable(name, f"not emitted: {err} - {err.fix}")
+                return present.unreadable(result), result
+    result = check_terms(text, name, record, terms=lambda _: found)
     return report(result), result
 
 

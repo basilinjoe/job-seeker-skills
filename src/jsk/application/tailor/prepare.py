@@ -3,8 +3,9 @@
 The check, scoped to this application plus any FAIL anywhere; the match as `jsk tailor match`
 prints it; what the record holds for every missing and candidate term; the person, for
 eligibility; the cover's projects with their bullets; what those projects hold
-unconfirmed; and the assessment - the gaps graph and gaps.md - written on every run, with
-gaps.txt drafted when asked for. Every section has a size cap and says when it was cut.
+unconfirmed; and the assessment - the gaps graph - written on every run and printed (there
+is no gaps.md), with gaps.txt drafted when asked for. Every section has a size cap and says
+when it was cut.
 It prints nothing: adapters/cli/tailor.py prints the sections in order.
 """
 import os
@@ -12,7 +13,7 @@ from dataclasses import dataclass
 
 PROJECTS = 3        # the cover's projects whose bullets are printed
 CAP = {"check": 30, "match": 200, "evidence": 40, "person": 20, "bullets": 120,
-       "unconfirmed": 30}
+       "unconfirmed": 30, "assessment": 200}
 
 
 @dataclass(frozen=True)
@@ -59,7 +60,7 @@ def prepare(root, app, named_as, budget, today, draft, *, load, queries, select,
         folder: the application's folder and record (compose.tailor.Folder).
 
     Returns:
-        The Digest. Writes the gaps graph and gaps.md, and gaps.txt when drafted.
+        The Digest. Writes the gaps graph, and gaps.txt when drafted.
     """
     from ...domain.matching.report import blocks
     from ...domain.record.store import Store
@@ -97,7 +98,12 @@ def prepare(root, app, named_as, budget, today, draft, *, load, queries, select,
     sections.append((f"bullets - {', '.join(projects) or 'no project carries a requirement'}",
                      capped(lines, "bullets")))
     sections.append(unconfirmed_section(store, held, reads))
-    sections.append(("gaps", gaps_lines(store, r, app, rel, today, draft, folder)))
+    lines, assessment = gaps_lines(store, r, app, rel, today, draft, folder)
+    sections.append(("gaps", lines))
+    if assessment:
+        # Printed, never written: no gaps.md (Ruling 24 of the graph-native plan).
+        sections.append(("assessment", capped(assessment.rstrip("\n").split("\n"),
+                                              "assessment")))
     return Digest(tuple(sections), None, 0)
 
 
@@ -195,13 +201,14 @@ def gaps_lines(store, r, app, rel, today, draft, folder):
         folder: the application's folder and record (compose.tailor.Folder).
 
     Returns:
-        The gaps section's lines. Writes the assessment, and gaps.txt when drafted.
+        (the gaps section's lines, the assessment rendered or None when none was written).
+        Writes the assessment's graph, and gaps.txt when drafted.
     """
     from .check_gaps import build, shown
 
     derived = folder.derive(r, store)
     target = os.path.join(app, "gaps.txt")
-    written, found = build(app, store, r, today, derived, folder=folder)
+    written, found, assessment = build(app, store, r, today, derived, folder=folder)
     lines = [f"{s}  {t}\n      fix: {f}" for s, t, f in found]
     if written:
         counts = {}
@@ -213,7 +220,7 @@ def gaps_lines(store, r, app, rel, today, draft, folder):
     lines += [f"flagged {row.slug}: {row.flag_text}" for row in derived.rows if row.flags]
     if draft:
         lines += drafted(store, derived, app, rel, target, folder)
-    return lines
+    return lines, assessment
 
 
 def drafted(store, derived, app, rel, target, folder):
@@ -242,7 +249,7 @@ def drafted(store, derived, app, rel, target, folder):
         return [f"no gaps.txt drafted: {held}"]
     if os.path.exists(target):
         return [f"{target} already exists - left as it is; `jsk tailor match {rel} "
-                f"--gaps {target}` checks it and rewrites the assessment and gaps.md"]
+                f"--gaps {target}` checks it, rewrites the assessment and prints it"]
     try:
         text = draft_gaps(derived, store, os.path.join(app, "posting.md"), folder=folder)
     except Unreadable as e:       # build() FAILed on the same file above

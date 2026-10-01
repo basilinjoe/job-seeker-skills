@@ -1,4 +1,4 @@
-"""The assessment (the gaps graph) and gaps.md: the derived assessment with gaps.txt folded
+"""The assessment (the gaps graph, printed - no gaps.md): the derived assessment with gaps.txt folded
 in - checked against the match, written only when nothing FAILs, frozen once the
 application is sent."""
 import datetime
@@ -63,7 +63,15 @@ class Build(unittest.TestCase):
         if txt is not None:
             (self.app(posting) / "gaps.txt").write_text(txt, encoding="utf-8", newline="\n")
         s = self.load()
-        return tailor.build(str(self.app(posting)), s, self.result(s, posting, flag_k8s), today)
+        written, found, self.shown = tailor.build(str(self.app(posting)), s,
+                                                  self.result(s, posting, flag_k8s), today)
+        return written, found
+
+    def printed(self):
+        """The assessment as `jsk tailor match` prints it: no gaps.md is written any more
+        (Ruling 24 of the graph-native plan), so the text the person reads is the build's."""
+        self.assertFalse((self.app() / "gaps.md").exists())
+        return self.shown
 
     def fails(self, found):
         return [t for sev, t, _ in found if sev == "FAIL"]
@@ -76,7 +84,7 @@ class Build(unittest.TestCase):
     def test_with_no_gaps_txt_the_derived_assessment_is_written_and_loads_clean(self):
         written, found = self.build()
         self.assertEqual(([check_gaps.shown(w) for w in written], found),
-                         ([self.gaps(), "gaps.md"], []))
+                         ([self.gaps()], []))
         self.assertFalse((self.app() / "gaps.ttl").exists())
         s = self.load()
         name = self.gaps()
@@ -85,9 +93,9 @@ class Build(unittest.TestCase):
         # SPARQL reaches it: one verdict per contoso requirement.
         self.assertEqual(len(s.select(queries.PRE + "SELECT ?v WHERE { ?x j:verdict ?v }")), 10)
 
-    def test_gaps_md_has_every_section_in_order_and_no_slot(self):
+    def test_the_printed_assessment_has_every_section_in_order_and_no_slot(self):
         self.build()
-        md = self.read("gaps.md")
+        md = self.printed()
         at = [md.find(s) for s in SECTIONS]
         self.assertNotIn(-1, at)
         self.assertEqual(at, sorted(at))
@@ -102,9 +110,9 @@ class Build(unittest.TestCase):
 
     def test_a_rebuild_is_identical_and_keeps_its_day(self):
         self.build()
-        ttl, md = appkit.facts(self.root, self.gaps()), self.read("gaps.md")
+        ttl, md = appkit.facts(self.root, self.gaps()), self.printed()
         self.build(today=TODAY + datetime.timedelta(days=3))
-        self.assertEqual((appkit.facts(self.root, self.gaps()), self.read("gaps.md")), (ttl, md))
+        self.assertEqual((appkit.facts(self.root, self.gaps()), self.printed()), (ttl, md))
 
     # --- the overlay folded in ---------------------------------------------------------
 
@@ -113,7 +121,7 @@ class Build(unittest.TestCase):
                                     "k8s | partial | one AKS cluster | never on call\n"
                                     "short: no on-call ownership\nask: Who ran it?\n")
         self.assertEqual(found, [])
-        ttl, md = self.ttl(), self.read("gaps.md")
+        ttl, md = self.ttl(), self.printed()
         self.assertIn('k:vrd_contoso_k8s j:assessment k:gap_contoso', ttl)
         self.assertIn("j:matched j:satisfied ; j:verdict j:partial", ttl)
         self.assertIn('j:shortfall "one AKS cluster | never on call"', ttl)
@@ -129,9 +137,10 @@ class Build(unittest.TestCase):
         no agent wrote nothing for them. A flag asks the analyst; until there is one, the
         derived assessment stands and says the row is waiting."""
         written, found = self.build(flag_k8s=True)
-        self.assertEqual((len(written), found), (2, []))
+        # One: the gaps graph. No gaps.md is written beside it.
+        self.assertEqual((len(written), found), (1, []))
         self.assertIn("| satisfied | prj_events | flagged, not yet reviewed: names Nomad; the "
-                      "evidence never does |", self.read("gaps.md"))
+                      "evidence never does |", self.printed())
 
     def test_a_flagged_row_must_be_answered_and_keep_is_marked(self):
         _, found = self.build("", flag_k8s=True)
@@ -142,7 +151,7 @@ class Build(unittest.TestCase):
         written, found = self.build("k8s | keep\n", flag_k8s=True)
         self.assertEqual(found, [])
         self.assertIn("| satisfied | prj_events | kept after review: names Nomad; the evidence "
-                      "never does |", self.read("gaps.md"))
+                      "never does |", self.printed())
         self.assertIn("j:flag j:listed-names", self.ttl())
 
     # --- what FAILs, and writes nothing ------------------------------------------------
@@ -178,7 +187,7 @@ class Build(unittest.TestCase):
         """Finding 4 of the 2026-09-28 review: this FAILed, so a flag the career had since
         cleared blocked the build. `keep` is the match's verdict, which is what is written."""
         written, found = self.build("k8s | keep\n")
-        self.assertEqual(len(written), 2)
+        self.assertEqual(len(written), 1)               # the gaps graph; no gaps.md
         self.assertEqual([(s, t) for s, t, _ in found],
                          [("WARN", "gaps.txt line 1: `keep` on k8s, which no flag asks about "
                                    "now")])
@@ -205,7 +214,7 @@ class Build(unittest.TestCase):
     def test_a_row_that_repeats_the_match_with_no_reason_only_warns(self):
         """Finding 5: this FAILed "no reason" beside the WARN telling it to delete the row."""
         written, found = self.build("dotnet | unevidenced\n")
-        self.assertEqual(len(written), 2)
+        self.assertEqual(len(written), 1)               # the gaps graph; no gaps.md
         self.assertEqual([(s, t) for s, t, _ in found],
                          [("WARN", "gaps.txt line 1: dotnet says unevidenced, which is the "
                                    "match's verdict already")])

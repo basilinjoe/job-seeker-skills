@@ -11,10 +11,11 @@ from dataclasses import dataclass
 class Drafted:
     """What `jsk tailor match --draft-gaps` did: the assessment's build, and the draft if written."""
 
-    written: list               # the gaps graph and gaps.md, as check_gaps.build names them
+    written: list               # the gaps graph, as check_gaps.build names it
     found: list                 # check_gaps.build's (severity, text, fix) findings
     path: str | None            # the gaps.txt written, or None when the build FAILed
     slots: int                  # the slots in it left to fill
+    assessment: str | None = None   # the assessment rendered, to print; None on a FAIL
 
 
 def draft_gaps(derived, store, advert_path, *, folder):
@@ -52,16 +53,16 @@ def draft_over_match(report, app, today, path, *, folder):
         folder: the application's folder and record (compose.tailor.Folder).
 
     Returns:
-        The Drafted. Writes the gaps graph, gaps.md and, when the build found no FAIL, `path`.
+        The Drafted. Writes the gaps graph and, when the build found no FAIL, `path`.
     """
     from ...domain.assessment.draft import slot_count
     from .check_gaps import build
 
     r, store = report.result, report.store
     derived = folder.derive(r, store)
-    written, found = build(app, store, r, today, derived, folder=folder)
+    written, found, assessment = build(app, store, r, today, derived, folder=folder)
     if any(s == "FAIL" for s, _, _ in found):
         return Drafted(written, found, None, 0)
     text = draft_gaps(derived, store, os.path.join(app, "posting.md"), folder=folder)
     folder.create(path, text)
-    return Drafted(written, found, path, slot_count(text))
+    return Drafted(written, found, path, slot_count(text), assessment)

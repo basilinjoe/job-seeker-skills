@@ -291,11 +291,11 @@ def reading_order(txt, stream, report):
     a float come out interleaved - a title from one column merged with a skill from the
     other - and an ATS credits each bullet to the role line above it in that stream. The
     emitters have no way to make a column today, so this guards the day a theme does: the
-    .txt render is the plan's own order, and the PDF must extract in it.
+    plain text the plan emits is its own order, and the PDF must extract in it.
 
     Args:
         txt: the PDF's extracted text.
-        stream: the .txt render of the same resume.json - the plan's order.
+        stream: the plain text of the same resume.json's plan, emitted in memory - its order.
         report: the Report the finding is added to.
     """
     page = flattened(txt)
@@ -331,7 +331,7 @@ def judge(txt, fonts, *, pdf, strict, stream=None):
         fonts: the embedded font names, empty for a .txt.
         pdf: the text came from a PDF, so the extraction rules apply.
         strict: the ATS-maximal variant's rules apply, and some warnings become failures.
-        stream: the .txt render beside a PDF, whose order the PDF must extract in
+        stream: the plan's plain text for a PDF, whose order the PDF must extract in
             (reading_order), or None.
 
     Returns:

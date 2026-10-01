@@ -20,6 +20,9 @@ from ...domain.resume.short import ShortError
 
 APPLICATION = "application.md"
 WORKING_FILES = ("gaps.txt", "decisions.txt")
+# The plain text a render wrote before Ruling 23 of the graph-native plan: not a letter, and
+# no longer a document. Named with --doc it is still listed, and the letter gate reads it.
+RETIRED_TEXT = "_resume_ats.txt"
 DATED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
 RECORD = "resume.json"
 
@@ -166,9 +169,12 @@ def plan(app_dir, submitted, named, checked, *, spelled):
     else:
         # gaps.txt and decisions.txt are the tailoring run's working files, not documents
         # anyone was sent: listed, the letter gate read them as letters and failed them.
+        # The documents are the PDFs and the letters: a render writes no .txt any more, so
+        # a .txt here is a letter - except the plain text an earlier render left behind.
         documents = sorted(name for name in os.listdir(app_dir)
                            if name.lower().endswith((".pdf", ".txt"))
                            and name.lower() not in WORKING_FILES
+                           and not name.lower().endswith(RETIRED_TEXT)
                            and os.path.isfile(os.path.join(app_dir, name)))
         pdfs = [d for d in documents if d.lower().endswith(".pdf")]
         if len(pdfs) > 1:

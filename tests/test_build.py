@@ -406,21 +406,24 @@ class RenderCommand(unittest.TestCase):
             out = Path(tmp, "out")
             code, text = self.render(path, "--out", str(out))
             self.assertEqual(code, 0, text)
+            # The .tex alone: the plain text is emitted in memory for the gates, never
+            # written (Ruling 23 of the graph-native plan).
             names = sorted(p.name for p in out.iterdir())
-            self.assertEqual(names, ["Test_Person_Contoso_Resume.tex",
-                                     "Test_Person_Contoso_Resume_ATS.txt"])
-            txt = Path(out, "Test_Person_Contoso_Resume_ATS.txt").read_text(encoding="ascii")
-            self.assertIn("Moved 40 applications to Entra ID single sign-on.", txt)
+            self.assertEqual(names, ["Test_Person_Contoso_Resume.tex"])
+            tex = Path(out, "Test_Person_Contoso_Resume.tex").read_text(encoding="utf-8")
+            self.assertIn("Moved 40 applications to Entra ID single sign-on.", tex)
 
     def test_the_plain_text_is_ascii_whatever_the_career_holds(self):
+        """The text the gates read in memory, as a paste-in box receives it."""
+        from jsk.adapters.cli.compose.gates import plan_text
+
         with tempfile.TemporaryDirectory() as tmp:
             _, path = careerkit.workspace(Path(tmp, "ws"), edits=[
                 ('"Led a team of 6 engineers."', '"Led a team of 6 engineers — hiring two."')],
                 short=short())
-            out = Path(tmp, "out")
-            self.render(path, "--out", str(out))
-            txt = next(out.glob("*.txt")).read_bytes()
-            self.assertTrue(all(b < 128 for b in txt))
+            text = plan_text(str(path))
+            self.assertIn("Led a team of 6 engineers", text)
+            self.assertTrue(all(ord(c) < 128 for c in text))
 
     def test_outside_a_workspace_is_a_refusal_with_the_fix(self):
         # Review Focus 1.

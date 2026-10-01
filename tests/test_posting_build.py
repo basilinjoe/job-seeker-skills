@@ -286,7 +286,9 @@ class Build(Workspace):
 
     def test_a_rebuild_removes_the_derived_assessment_and_keeps_gaps_txt(self):
         """A rebuild can drop a requirement the assessment names, and that dangling ref would
-        block prepare in this directory; gaps.txt is the analyst's, keyed by slug."""
+        block prepare in this directory; gaps.txt is the analyst's, keyed by slug. No gaps.md
+        is removed: jsk writes none (Ruling 24 of the graph-native plan), and an older one is
+        the person's."""
         self.build()
         self.put_gaps()
         for name in ("gaps.md", "gaps.txt"):
@@ -294,8 +296,8 @@ class Build(Workspace):
         _, _, warnings = self.build(replace=True)
         self.assertFalse(appkit.has(self.root, self.gaps))
         self.assertEqual([n for n in ("gaps.md", "gaps.txt") if (self.app / n).exists()],
-                         ["gaps.txt"])
-        self.assertEqual(warnings, [f"removed {self.gaps} and gaps.md, derived from the "
+                         ["gaps.md", "gaps.txt"])
+        self.assertEqual(warnings, [f"removed {self.gaps}, derived from the "
                                     "posting this replaces; `jsk tailor prepare` writes them "
                                     "again, with gaps.txt folded in"])
 

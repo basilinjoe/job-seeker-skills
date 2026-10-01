@@ -1,16 +1,17 @@
-"""The assessment and gaps.md: the derived assessment with the analyst's gaps.txt folded in.
+"""The assessment: the derived assessment with the analyst's gaps.txt folded in.
 
 gaps.txt is the only file a model edits, and it holds only what the match cannot know: a
 lowered verdict with its reason, a flagged row kept or lowered, eligibility, fit, and the
 prose. Everything else is derived (domain/assessment/derive.py). `build` checks the overlay
 against the match (domain/assessment/fold.py), then writes the assessment as the
-application's gaps graph - part of the record, so SPARQL reaches it - and renders gaps.md
-from the two. Nothing reads gaps.md back. It prints nothing: `jsk tailor match --gaps` and `jsk
-tailor prepare` say what it found and wrote.
+application's gaps graph - part of the record, so SPARQL reaches it - and renders it as text
+for the person. No gaps.md is written (Ruling 24 of the graph-native plan): nothing read it
+back. It prints nothing: `jsk tailor match --gaps` and `jsk tailor prepare` say what it found
+and wrote, and print the rendered assessment.
 
-Both are rebuilt on every run from the career as it stands, so there is no stale copy to
-warn about; once the application records the day it was sent, both are left as they were,
-because a sent assessment is what it said at the time.
+It is rebuilt on every run from the career as it stands, so there is no stale copy to warn
+about; once the application records the day it was sent, it is left as it was, because a
+sent assessment is what it said at the time.
 """
 import os
 
@@ -88,7 +89,8 @@ def requirement_rows(a):
 
 
 def render(r, a, today, lines=(), dropped=()):
-    """gaps.md: what the person reads, from the assessment and the match.
+    """The assessment as the person reads it, from the assessment and the match - printed by
+    `jsk tailor match --gaps`/`--draft-gaps` and `jsk tailor prepare`, never written to a file.
 
     Args:
         r: the match's plain data.
@@ -98,7 +100,7 @@ def render(r, a, today, lines=(), dropped=()):
         dropped: decisions.txt's drops.
 
     Returns:
-        gaps.md's text.
+        The assessment's text.
     """
     out = ["---", "type: Gap Assessment", f"posting: {a.derived.posting}",
            f"assessed: {today.isoformat()}", f"fit: {a.fit}", "---", HEADER, "",
@@ -120,8 +122,9 @@ def shown(written):
 
 
 def gaps_refusal(app, path, drafting):
-    """Why `path` is not this application's gaps.txt, or None. gaps.md is written by jsk
-    now, and read by nothing: a gaps.md jsk did not write is an older assessment.
+    """Why `path` is not this application's gaps.txt, or None. No gaps.md is written now -
+    `jsk tailor match` prints the assessment - and nothing reads one: a gaps.md is an older
+    assessment.
 
     Args:
         app: the application's directory.
@@ -132,13 +135,13 @@ def gaps_refusal(app, path, drafting):
         The refusal's two lines as one string, or None when `path` will do.
     """
     if path.endswith(".md"):
-        return (f"FAIL  {path}: gaps.md is written by jsk now; one it did not write is an "
-                f"older assessment, read by people only\n"
+        return (f"FAIL  {path}: gaps.md is an older assessment, read by people only - jsk "
+                f"prints the assessment now and reads no gaps.md\n"
                 f"      fix: pass the application's gaps.txt - --draft-gaps drafts one")
     want = os.path.join(os.path.abspath(app), "gaps.txt")
     if os.path.normcase(os.path.abspath(path)) != os.path.normcase(want):
         return (f"FAIL  {path}: not this application's gaps.txt\n"
-                f"      fix: pass {want} - gaps.md is written beside it")
+                f"      fix: pass {want}")
     if drafting and os.path.exists(path):
         # The analyst's filled slots are its judgement; a re-run must not wipe them.
         return (f"FAIL  {path} exists - the draft would overwrite it\n"
@@ -151,9 +154,10 @@ def gaps_refusal(app, path, drafting):
 
 
 def build(app_dir, store, r, today, derived, *, folder):
-    """Write the assessment - the gaps graph and gaps.md - for the match `r` of the posting
-    in `app_dir`. On a FAIL nothing is written; with no gaps.txt the derived assessment is
-    written alone - the path that needs no agent.
+    """Write the assessment - the gaps graph - for the match `r` of the posting in `app_dir`,
+    and render it for the person to read. On a FAIL nothing is written; with no gaps.txt the
+    derived assessment is written alone - the path that needs no agent. No gaps.md is
+    written (Ruling 24 of the graph-native plan): the caller prints the rendered text.
 
     Args:
         app_dir: the application's directory.
@@ -165,8 +169,9 @@ def build(app_dir, store, r, today, derived, *, folder):
             writes them.
 
     Returns:
-        (what was written - graph names and file paths - and the (severity, text, fix)
-        findings). Writes the gaps graph and gaps.md.
+        (what was written - graph names -, the (severity, text, fix) findings, and the
+        assessment rendered (render) or None when nothing was written). Writes the gaps
+        graph.
     """
     from ...domain.assessment import overlay as A
     from ...domain.assessment.fold import assessed, check, fold, previous_verdicts
@@ -181,26 +186,26 @@ def build(app_dir, store, r, today, derived, *, folder):
     try:
         day = folder.sent_day(app_dir, store)
     except GraphError as e:
-        return [], [("FAIL", f"{app_graph(app_rel, 'application')}: {e}", e.fix)]
+        return [], [("FAIL", f"{app_graph(app_rel, 'application')}: {e}", e.fix)], None
     if day:
         return [], [("FAIL", f"{app_rel}: sent on {day} - its assessment and gaps.md are "
                      "frozen", "a sent assessment is what it said at the time; nothing to "
-                     "rebuild")]
+                     "rebuild")], None
     derived = derived or folder.derive(r, store)
     try:
         text, reviewed = folder.read_text(os.path.join(app_dir, "gaps.txt"), "gaps.txt"), True
     except Missing:
         text, reviewed = "", False
     except Unreadable as e:
-        return [], [("FAIL", str(e), e.fix)]
+        return [], [("FAIL", str(e), e.fix)], None
     try:
         overlay = A.parse(text)
     except A.AssessmentError as e:
-        return [], [("FAIL", f"gaps.txt: {e}", "correct that line")]
+        return [], [("FAIL", f"gaps.txt: {e}", "correct that line")], None
     previous = previous_verdicts(store, app_rel, derived.stem)
     found = check(derived, overlay, text, previous, reviewed)
     if any(s == "FAIL" for s, _, _ in found):
-        return [], found
+        return [], found, None
     a = fold(derived, overlay, previous)
     # An assessment that has not changed keeps the day it was made: re-running prepare
     # tomorrow must not rewrite it for its date alone.
@@ -212,14 +217,11 @@ def build(app_dir, store, r, today, derived, *, folder):
         lines = folder.advert(os.path.join(app_dir, "posting.md"))
     except DecisionsError as e:
         return [], found + [("FAIL", f"decisions.txt: {e}",
-                             "correct that line; `jsk posting build` reads the same file")]
+                             "correct that line; `jsk posting build` reads the same file")], None
     except Unreadable as e:
-        return [], found + [("FAIL", str(e), e.fix)]
-    md_text = render(r, a, today, lines, dropped)
-    written = []
+        return [], found + [("FAIL", str(e), e.fix)], None
     try:
-        written += folder.write_graphs(app_dir, {"gaps": triples(a, today)}, store)
-        written.append(folder.write_file(app_dir, "gaps.md", md_text, store))
+        written = folder.write_graphs(app_dir, {"gaps": triples(a, today)}, store)
     except Unwritable as e:         # locked, or the store refused the write
-        return written, found + [("FAIL", str(e), e.fix)]
-    return written, found
+        return [], found + [("FAIL", str(e), e.fix)], None
+    return written, found, render(r, a, today, lines, dropped)

@@ -28,9 +28,14 @@ from ..cliutil import parse_flags, utf8_stdout, wants_help
 # either one and the other is found beside it.
 CHECK_GATES = [
     # key for --only, script, label, forwards --strict, extensions it reads
-    ("parse", "check_ats.py", "parse gate", True, (".pdf", ".txt")),
-    ("prose", "check_prose.py", "prose gate", False, (".tex", ".txt")),
+    ("parse", "check_ats.py", "parse gate", True, (".pdf",)),
+    ("prose", "check_prose.py", "prose gate", False, (".tex",)),
 ]
+
+# A file both document gates read when it is named, and never look for beside another: no
+# render writes a .txt any more (its text is emitted in memory), but a cover letter or a
+# pasted resume is one, and a person may still check it by hand.
+BY_HAND = (".txt",)
 
 # The gate `--only` reaches that the default pass never runs, its arguments passed through
 # unchanged. The layout gate reads the render, but only the PDF - a default pass over a .txt
@@ -66,11 +71,11 @@ def gate_target(path, accepts):
         accepts: the extensions the gate reads, in order of preference.
 
     Returns:
-        The path itself when the gate reads it, else the first sibling that exists, else
-        None.
+        The path itself when the gate reads it or it is a file named by hand (BY_HAND), else
+        the first sibling that exists, else None.
     """
     stem, ext = os.path.splitext(path)
-    if ext.lower() in accepts and os.path.exists(path):
+    if ext.lower() in accepts + BY_HAND and os.path.exists(path):
         return path
     for want in accepts:
         if os.path.exists(stem + want):
@@ -228,6 +233,11 @@ def cmd_check(args):
             continue
         print(f"--- {label}: {script} {path}" + (" --strict" if strict and takes_strict else ""))
         gate_args = [path] + (["--strict"] if strict and takes_strict else [])
+        beside = os.path.join(os.path.dirname(os.path.abspath(path)), DEFAULT_RECORD)
+        if script == "check_ats.py" and path.lower().endswith(".pdf") and os.path.isfile(beside):
+            # The resume.json the skill writes beside its render: its plan's plain text is
+            # the order the PDF must extract in.
+            gate_args += ["--record", beside]
         worst = max(worst, through(script, gate_args))
         ran = label
         print()

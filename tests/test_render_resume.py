@@ -22,7 +22,7 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import (PARSE_GATE, RENDER, RENDER_RESUME, example_short,
+from fixtures import (RENDER, RENDER_RESUME, example_short, gate,
                       load_script, render_module, run)
 from jsk.adapters.cli.compose import resume
 from test_build import LEAD_TITLE, BuildCase, short
@@ -105,18 +105,30 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         return out
 
     def test_the_plain_text_passes_check_ats_strict(self):
-        self.render(example_short())
-        code, out = run(PARSE_GATE, self.tmp / "Priya_Raman_Resume_ATS.txt", "--strict")
+        """The plain text is emitted in memory from the plan (Ruling 23 of the graph-native
+        plan), and the parse gate's strict pass judges that string - no file on disk. Called
+        as `jsk resume check DIR` and `jsk doctor --verify` call it."""
+        code, out = gate("check_ats.py", example_short(), "--strict")
         self.assertEqual(code, 0, out)
+        self.assertIn("plain text of resume.json (in memory)   mode: ATS-maximal (strict)", out)
         self.assertIn("PASS", out)
 
-    def test_one_record_yields_one_deliverable_and_the_paste_in_text(self):
-        """Four artefacts became two plus the .tex they come from. The .docx was
-        removed because the fitter measured it while the PDF was what shipped."""
+    def test_one_record_yields_the_tex_and_no_plain_text_file(self):
+        """Four artefacts became the PDF and the .tex it comes from. The .docx was
+        removed because the fitter measured it while the PDF was what shipped; the .txt
+        because the gates read the plan's text in memory and nothing else read it."""
         self.render(example_short())
-        for name in ("Priya_Raman_Resume.tex", "Priya_Raman_Resume_ATS.txt"):
-            self.assertTrue((self.tmp / name).exists(), name)
+        self.assertTrue((self.tmp / "Priya_Raman_Resume.tex").exists())
+        self.assertEqual(list(self.tmp.glob("*.txt")), [])
         self.assertEqual(list(self.tmp.glob("*.docx")), [])
+
+    def test_format_txt_is_retired_and_exits_2_naming_the_replacement(self):
+        """A retired option exits 2 and names what replaced it - never a silent shim."""
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--format", "txt")
+        self.assertEqual(code, 2, out)
+        self.assertIn("the plain-text resume is no longer written", out)
+        self.assertIn("read the render's text in memory", out)
+        self.assertEqual(list(self.tmp.glob("*")), [])
 
     def test_ats_max_switches_the_variant_rather_than_adding_a_file(self):
         """One .tex either way, named for the recruiter - `_ATS` was the name on the
@@ -127,9 +139,12 @@ class RenderedFilesPassTheGates(unittest.TestCase):
                       (self.tmp / "Priya_Raman_Resume.tex").read_text(encoding="utf8"))
 
     def test_plain_text_is_ascii_only(self):
-        self.render(example_short())
-        raw = (self.tmp / "Priya_Raman_Resume_ATS.txt").read_bytes()
-        self.assertTrue(all(b < 128 for b in raw))
+        """The text the gates read is the paste-in stream: ASCII whatever the PDF holds."""
+        from jsk.adapters.cli.compose.gates import plan_text
+
+        text = plan_text(str(example_short()))
+        self.assertTrue(text.strip())
+        self.assertTrue(all(ord(c) < 128 for c in text))
 
     def test_a_view_is_a_usage_error_naming_one_resume(self):
         """A resume.json is one resume: --view chose among a full record's views, and
@@ -555,6 +570,58 @@ class TheHeaderLinksAndTheMetadata(PlanCase):
         self.assertNotIn("mailto", text)
 
 
+class CompileLeavesThePdfAndTheTex(unittest.TestCase):
+    """Ruling 22 of the graph-native plan: a clean compile leaves the .pdf and the .tex and
+    nothing else; a failed one keeps the engine's by-products and names the .log, the only
+    account of what went wrong. The engine is faked as shipkit fakes it - no TeX needed."""
+
+    BY_PRODUCTS = (".log", ".aux", ".out", ".fls", ".fdb_latexmk")
+
+    def compile(self, returncode, pdf=True):
+        import subprocess
+        from unittest import mock
+
+        from jsk.infra import tex as engine
+
+        def fake_run(cmd, cwd, **_):
+            stem = Path(cmd[-1]).stem
+            for ext in self.BY_PRODUCTS:
+                Path(cwd, stem + ext).write_text("engine output\n", encoding="utf-8")
+            if pdf:
+                Path(cwd, stem + ".pdf").write_bytes(b"%PDF-1.4\n")
+            return subprocess.CompletedProcess(cmd, returncode, "", "! LaTeX Error: boom")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp, "Jane_Doe_Resume.tex")
+            source.write_text("\\documentclass{article}\n", encoding="utf-8")
+            # Another render's log in the same directory is not this compile's to remove.
+            Path(tmp, "Other_Resume.log").write_text("theirs\n", encoding="utf-8")
+            with mock.patch.object(engine.shutil, "which",
+                                   lambda name: name if name == "tectonic" else None), \
+                    mock.patch.object(engine.subprocess, "run", fake_run):
+                made, note = engine.compile_pdf(str(source), tmp)
+            return made, note, sorted(p.name for p in Path(tmp).iterdir())
+
+    def test_a_clean_compile_leaves_no_log_beside_the_pdf(self):
+        made, note, left = self.compile(0)
+        self.assertTrue(made, note)
+        self.assertEqual(left, ["Jane_Doe_Resume.pdf", "Jane_Doe_Resume.tex",
+                                "Other_Resume.log"])
+
+    def test_a_failed_compile_keeps_the_log_and_names_it(self):
+        made, note, left = self.compile(1, pdf=False)
+        self.assertIsNone(made)
+        self.assertIn("Jane_Doe_Resume.log", left)
+        self.assertIn("Jane_Doe_Resume.aux", left)
+        self.assertRegex(note, r"tectonic produced no PDF - see .*Jane_Doe_Resume\.log")
+
+    def test_keep_logs_is_still_asked_of_tectonic(self):
+        """A failed compile needs its .log, so tectonic is still told to keep one."""
+        from jsk.infra import tex as engine
+
+        self.assertIn("--keep-logs", dict(engine.TEX_ENGINES)["tectonic"])
+
+
 class TargetSelection(unittest.TestCase):
     """--profile names a variant, --format names a file kind, and the stem
     follows the variant. It used to follow the format, so an ats-maximal .tex
@@ -567,27 +634,29 @@ class TargetSelection(unittest.TestCase):
         rendered = self.select("all", "ats-maximal")
         self.assertEqual([v for v, k, _ in rendered if k == "latex"], ["ats-maximal"])
 
-    def test_the_plain_text_rides_along_whichever_variant_is_chosen(self):
+    def test_no_plain_text_file_rides_along_whichever_variant_is_chosen(self):
+        """Ruling 23 of the graph-native plan: the plain text is emitted in memory for the
+        gates, never written - so `all` is the .tex alone, whatever the variant."""
         for profile in (None, "ats-maximal"):
             kinds = {k for _, k, _ in self.select("all", profile)}
-            self.assertEqual(kinds, {"latex", "txt"}, profile)
+            self.assertEqual(kinds, {"latex"}, profile)
 
-    def test_the_pdf_is_named_for_its_reader_and_the_text_for_its_box(self):
+    def test_the_pdf_is_named_for_its_reader(self):
         """The two variants were kept apart by an `_ATS` suffix, and that suffix was on
         the file a recruiter received. A directory holds one PDF - freeze refuses two,
         and --ats-max switches the variant rather than adding one - so both share the
-        stem, and the gates read which variant from the render itself. The .txt keeps
-        its suffix: it is pasted, never attached."""
+        stem, and the gates read which variant from the render itself. No stem names a
+        plain-text file: none is written."""
         ats = self.select("latex", "ats-maximal")[0][2]
         presentation = self.select("latex", None)[0][2]
         self.assertEqual(ats, presentation)
         self.assertNotIn("_ATS", ats)
-        text = [stem for _, kind, stem in self.select("all", "ats-maximal") if kind == "txt"]
-        self.assertEqual(text, ["{name}_Resume_ATS"])
+        stems = [stem for _, _, stem in self.select("all", "ats-maximal")]
+        self.assertEqual(stems, ["{name}_Resume"])
 
     def test_no_profile_renders_the_presentation_variant(self):
         rendered = self.select("all", None)
-        self.assertEqual(len(rendered), 2)
+        self.assertEqual(len(rendered), 1)
         self.assertEqual([v for v, k, _ in rendered if k == "latex"], ["presentation"])
 
 

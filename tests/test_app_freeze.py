@@ -30,7 +30,9 @@ class FreezeGraph(GraphCase):
         self.assertEqual(app["posting"], k("post_contoso_platform"))
         self.assertEqual((app["view"], app["submitted"], app["channel"]),
                          (["resume"], ["2026-09-24"], ["Workday portal"]))
-        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt"])
+        # The PDF alone: a render writes no plain-text file (Ruling 23 of the graph-native
+        # plan), so the documents are the PDFs and the letters.
+        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf"])
         self.assertEqual(app["recordSha256"], [hashlib.sha256(raw).hexdigest()])
         # The inferred ingestion bullet is under the file's floor: it was not sent.
         self.assertEqual(app["carried"], k("ach_events_latency", "ach_events_team",
@@ -310,8 +312,7 @@ class FreezeRefuses(Untouched, GraphCase):
         self.assertUntouched()
 
     def test_a_directory_with_nothing_sendable_is_refused(self):
-        for name in ("Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt"):
-            (self.app / name).unlink()
+        (self.app / "Jane_Doe_Resume.pdf").unlink()
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
         self.assertIn("no .pdf or .txt", out)
@@ -360,14 +361,12 @@ class FreezeLetters(Untouched, GraphCase):
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - fit to send", out)
         app, _ = self.application()
-        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt",
-                                           "cover-letter.txt"])
+        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf", "cover-letter.txt"])
 
     def test_a_pdf_letter_no_gate_reads_is_refused(self):
         """Named with --doc: two PDFs in the directory are otherwise a question first."""
         build_pdf(self.app / "Cover_Letter.pdf", LETTER.splitlines())
-        code, out = self.freeze("--doc", "Jane_Doe_Resume.pdf",
-                                "--doc", "Jane_Doe_Resume_ATS.txt", "--doc", "Cover_Letter.pdf")
+        code, out = self.freeze("--doc", "Jane_Doe_Resume.pdf", "--doc", "Cover_Letter.pdf")
         self.assertEqual(code, 1, out)
         self.assertIn("Cover_Letter.pdf", out)
         self.assertIn("send the letter's .txt beside it, or leave it out with --doc", out)
@@ -377,7 +376,7 @@ class FreezeLetters(Untouched, GraphCase):
         """The cost Ruling 5 names: one extra file, and it is what the letter gate reads."""
         build_pdf(self.app / "Cover_Letter.pdf", LETTER.splitlines())
         (self.app / "Cover_Letter.txt").write_text(LETTER, encoding="utf-8")
-        code, out = self.freeze("--doc", "Jane_Doe_Resume.pdf", "--doc", "Jane_Doe_Resume_ATS.txt",
+        code, out = self.freeze("--doc", "Jane_Doe_Resume.pdf",
                                 "--doc", "Cover_Letter.pdf", "--doc", "Cover_Letter.txt")
         self.assertEqual(code, 0, out)
         app, _ = self.application()
@@ -395,7 +394,19 @@ class FreezeLetters(Untouched, GraphCase):
         self.assertEqual(code, 0, out)
         self.assertNotIn("letter gate", out)
         app, _ = self.application()
-        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf", "Jane_Doe_Resume_ATS.txt"])
+        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf"])
+
+    def test_the_plain_text_an_earlier_render_left_is_not_a_document(self):
+        """A render wrote <name>_Resume_ATS.txt before the gates read the plan's text in
+        memory. Left in an application from then, it is neither a letter nor anything
+        sent: listed, the letter gate would read a resume as a letter and fail it."""
+        (self.app / "Jane_Doe_Resume_ATS.txt").write_text("Jane Doe\n" + "word " * 400 + "\n",
+                                                          encoding="utf-8")
+        code, out = self.freeze()
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("letter gate", out)
+        app, _ = self.application()
+        self.assertEqual(app["document"], ["Jane_Doe_Resume.pdf"])
 
 
 class FreezeMarkdownWorkspace(GraphCase):

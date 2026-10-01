@@ -56,7 +56,7 @@ def cmd_load(args, flags, root, today):
         print("note     career/kb.ttl and the other .ttl files are no longer read - the record "
               "is career/store/; `jsk kb dump` writes it out as text")
     for app in done.missing_apps:
-        print(f"note     {app}: its documents (posting.md, gaps.md, resume.json, the files "
+        print(f"note     {app}: its documents (posting.md, resume.json, the files "
               f"sent) are not in this workspace - copy the folder into {root}")
     if done.app_failures:
         print(f"note     {done.app_failures} failures in applications - `jsk kb check` lists them")

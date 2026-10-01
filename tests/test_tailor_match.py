@@ -123,7 +123,8 @@ class Match(unittest.TestCase):
                             encoding="utf-8")
             code, out = run(*args)
             self.assertEqual(code, 0, out)
-            self.assertIn("0 FAIL, 0 WARN - wrote applications/contoso/gaps and gaps.md", out)
+            # The graph alone: the assessment is printed after it, no gaps.md written.
+            self.assertIn("0 FAIL, 0 WARN - wrote applications/contoso/gaps\n", out)
 
     def test_outside_the_layout_is_a_usage_error(self):
         code, out = run(JSK, "tailor", "match", self.FIX / "career")

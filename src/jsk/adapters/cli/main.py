@@ -14,7 +14,7 @@
       ...   --only parse|prose  one of them, for re-checking one repaired file
       ...   --only layout       fonts, tofu, stranded headings, date column, paper
       ... check DIR [--record R]  the record, parse, prose and layout gates over one render
-      ... render RESUME [...]   one resume.json to a PDF and plain text
+      ... render RESUME [...]   one resume.json to a .tex and a PDF
       ... preview RESUME --out D  the same resume in every template, to pick a look
       ... fit TEX [...]         fit a render to a page budget
       ... ship RESUME --out D   validate, render and gate, in one pass
@@ -111,7 +111,7 @@ NOUN_USAGE = {
     "resume": ("usage: jsk resume <verb> ...\n"
                "  check RESUME.json | RENDER | DIR   the record gate; parse and prose; "
                "or all four\n"
-               "  render RESUME --out DIR [...]      one resume.json to a PDF and plain text\n"
+               "  render RESUME --out DIR [...]      one resume.json to a .tex and a PDF\n"
                "  preview RESUME --out DIR           the same resume in every template\n"
                "  fit TEX [--target-pages N]         fit a render to a page budget\n"
                "  ship RESUME --out DIR [...]        validate, render and gate, in one pass"),

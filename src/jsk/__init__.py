@@ -7,8 +7,8 @@ Each application's resume is built from it and a short resume.json - the bullets
 for the posting, as ids, and a summary - and carried to a document somebody can send:
 
     career/store/  +  resume.json (short)      ->  .tex -> .pdf   (the deliverable)
-      jsk kb apply      jsk kb export,               \-> .txt       (paste-in boxes)
-                        then ordered
+      jsk kb apply      jsk kb export,               \-> plain text (in memory: the
+                        then ordered                     parse and terms gates read it)
 
     jsk doctor                       what works on this machine
     jsk kb new PATH --name NAME      scaffold career/store/ - the career and its log at
@@ -17,7 +17,7 @@ for the posting, as ids, and a summary - and carried to a document somebody can 
                                      export, check
     jsk tailor match APP             a posting against the career, through the vocabulary
     jsk resume check RESUME          the record gate: is the resume.json sound?
-    jsk resume render RESUME --out D one resume.json to a PDF and plain text
+    jsk resume render RESUME --out D one resume.json to a .tex and a PDF
     jsk resume preview RESUME --out D  the same resume in every template, to pick a look
     jsk resume check FILE            the parse gate and the prose gate
     jsk resume check DIR --record R  the record, parse and prose gates over one render
@@ -37,7 +37,8 @@ what you work on, the verb what you do to it.
 
 One dependency is required: `pyoxigraph`, the engine that stores, validates and queries
 the career. Everything else is optional and imported at the point of use rather than here:
-`pymupdf` to read a PDF. A bare Python runs the record gate, the prose gate and the `.txt` parse gate, and
+`pymupdf` to read a PDF. A bare Python runs the record gate, the prose gate and the plain-text
+parse gate, and
 `jsk doctor` is standard-library only, so it can report on a machine before anything is
 installed on it.
 """
