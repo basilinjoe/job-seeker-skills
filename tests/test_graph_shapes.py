@@ -17,8 +17,10 @@ from pathlib import Path
 
 from storekit import seed
 
-from jsk.graph import ontology as O
-from jsk.graph import db, shapes, store
+from jsk.domain import ontology as O
+from jsk.graph import store
+from jsk.infra.oxigraph import db
+from jsk.domain.record import shapes
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"
 

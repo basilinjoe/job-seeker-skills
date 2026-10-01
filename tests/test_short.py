@@ -177,7 +177,7 @@ class Example(unittest.TestCase):
     def test_the_example_career_imports_clean(self):
         from jsk import paths
         from jsk.graph import legacy
-        from jsk.graph import record as R
+        from jsk.infra.oxigraph import record as R
 
         imported, _, rewrites = legacy.read_workspace(paths.EXAMPLE_WORKSPACE)
         self.assertEqual(imported.fails(), [])

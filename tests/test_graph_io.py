@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 from jsk.graph import io, legacy
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 
 PFX = "".join(f"@prefix {n}: <{ns}> .\n" for n, ns in O.PREFIXES)
 

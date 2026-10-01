@@ -2,7 +2,7 @@
 import re
 import unittest
 
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 
 
 class OntologyTests(unittest.TestCase):
@@ -59,7 +59,7 @@ class OntologyTests(unittest.TestCase):
     def test_seniority_is_one_list(self):
         """The ranking's order and the ontology's enum were two copies of one list.
         There is one now."""
-        from jsk.graph import scoring
+        from jsk.domain.matching import scoring
         self.assertIs(scoring.SENIORITY, O.ENUMS["seniority"])
         self.assertEqual(O.ENUMS["seniority"][0], "architecture-ownership")
 
@@ -88,7 +88,7 @@ class OntologyTests(unittest.TestCase):
     def test_ontology_does_not_import_pyoxigraph(self):
         import subprocess
         import sys
-        code = "import sys, jsk.graph.ontology; print('pyoxigraph' in sys.modules)"
+        code = "import sys, jsk.domain.ontology; print('pyoxigraph' in sys.modules)"
         out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
         self.assertEqual(out.stdout.strip(), "False", out.stderr)
 

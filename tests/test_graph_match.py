@@ -13,7 +13,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 from jsk.graph import queries as Q
 from jsk.graph import store
 

@@ -19,9 +19,10 @@ from fixtures import CLI, child_env
 from test_graph_changeset import PFX
 from test_graph_shapes import FIXTURES
 
-from jsk.graph import db, edit
-from jsk.graph import ontology as O
-from jsk.graph import record as R
+from jsk.infra.oxigraph import db
+from jsk.domain.record import edit
+from jsk.domain import ontology as O
+from jsk.infra.oxigraph import record as R
 from jsk.graph import store as S
 
 

@@ -10,7 +10,7 @@ import glob
 import os
 
 from jsk.graph import legacy
-from jsk.graph import record as R
+from jsk.infra.oxigraph import record as R
 
 RECORD_FILES = ("career/kb.ttl", "career/log.ttl")
 APP_FILES = ("posting.ttl", "application.ttl", "gaps.ttl")
@@ -44,15 +44,15 @@ def rehash(root):
     hash does not match - one written outside jsk."""
     import pyoxigraph as ox
 
-    from jsk.graph import db
-    from jsk.graph import ontology as O
+    from jsk.infra.oxigraph import db
+    from jsk.domain import ontology as O
 
     record = db.read(str(root))
     kb, log = record.get(R.KB), record.get(R.LOG)
     rev, sha = R.last_entry(log or [])
     if kb is None or rev is None:
         return
-    from jsk.graph.writer import WriteError
+    from jsk.domain.record.writer import WriteError
     try:
         actual = R.career_sha(kb)
     except WriteError:
@@ -71,7 +71,7 @@ def graph_text(root, name=R.KB):
     """One graph of the store laid out as Turtle, as `jsk kb show` prints entries - for
     assertions that read the record the way a person would."""
     from jsk.graph import store as S
-    from jsk.graph.writer import write
+    from jsk.domain.record.writer import write
 
     store = S.load(str(root))
     return write(store.graph(name), store.parsed[name].kind) if name in store.parsed else None

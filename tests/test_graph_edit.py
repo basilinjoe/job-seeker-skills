@@ -11,8 +11,9 @@ import storekit
 from test_graph_changeset import PFX
 from test_graph_shapes import FIXTURES, load
 
-from jsk.graph import changeset, edit
-from jsk.graph import ontology as O
+from jsk.graph import changeset
+from jsk.domain.record import edit
+from jsk.domain import ontology as O
 from jsk.graph.changeset import Refused
 
 TODAY = datetime.date(2026, 9, 24)

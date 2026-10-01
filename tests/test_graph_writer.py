@@ -12,8 +12,9 @@ from pathlib import Path
 import pyoxigraph as ox
 
 from graphgen import graph
-from jsk.graph import io, writer
-from jsk.graph import ontology as O
+from jsk.graph import io
+from jsk.domain.record import writer
+from jsk.domain import ontology as O
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"
 FILES = sorted(FIXTURES.rglob("*.ttl"))

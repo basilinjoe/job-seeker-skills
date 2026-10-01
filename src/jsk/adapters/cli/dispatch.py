@@ -37,8 +37,13 @@ SUBPACKAGE = {
     "layout.py": "gates",
     "match.py": "graph",
     "prepare.py": "graph",
-    "kbcli.py": "graph",
     "timeline.py": "graph",
+}
+
+# The scripts that are their adapter now: the documented name kept, the module named whole,
+# since the adapter is called for the noun it serves and not for the old file.
+ADAPTERS = {
+    "kbcli.py": "adapters.cli.kb",
 }
 
 # The command each script answers to, for the hint that says how to run one by hand.
@@ -63,8 +68,10 @@ def module_for(script):
         script: e.g. `check_ats.py`.
 
     Returns:
-        Its dotted name, e.g. `jsk.gates.check_ats`.
+        Its dotted name, e.g. `jsk.gates.check_ats`, or `jsk.adapters.cli.kb` for `kbcli.py`.
     """
+    if script in ADAPTERS:
+        return f"{PACKAGE}.{ADAPTERS[script]}"
     stem = script[:-3]
     where = SUBPACKAGE.get(script)
     return f"{PACKAGE}.{where}.{stem}" if where else f"{PACKAGE}.{stem}"

@@ -298,20 +298,18 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   kb.py                             `jsk kb new` - hands over to adapters/cli/kb/new.py (the documented path)
   posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
   graph/                            the career record: see "Inside the graph package"
-    ontology.py                     the format, as data     writer.py     the entry printer
-    io.py  store.py  record.py      read and parse input, load and validate, the write gate
-    db.py  legacy.py                the store on disk, and the one-time import from files
-    shapes.py  rules.py             tier 1 and tier 2 rules
-    changeset.py  edit.py  kbcli.py `jsk kb`
-    pack.py  merge.py               `jsk kb pack` and `jsk kb merge`, drafted as changesets
+    io.py  store.py                 read and parse input, load and validate
+    legacy.py                       the one-time import from files
+    rules.py                        tier 2 bound to the disk
+    changeset.py  kbcli.py          a changeset read; the old path of `jsk kb`, naming it
+    pack.py                         `jsk kb pack`'s starter packs on disk
     queries.py  named.py  match.py  the vocabulary, named queries, `jsk tailor match`
-    scoring.py                      the ranking's numbers; standard library only
     select.py  export.py            what a match selects; `jsk kb export` writes the short file
     decisions.py  postingbuild.py   decisions.txt; `jsk posting extract` and `build` -> the posting graph
     prepare.py                      `jsk tailor prepare` - one digest for the assessment
     gapsderive.py  gapsdraft.py     the assessment derived from the match; the gaps.txt draft
     assessment.py  gapsbuild.py     gaps.txt read; checked, folded in, the gaps graph and gaps.md written
-    view.py  timeline.py            `jsk kb view`; the application graph and `jsk app event`
+    timeline.py                     the application graph and `jsk app event`
   resume/                           career + resume.json -> the render plan
     short.py                        the short file: read, shape, ids, its workspace
     career.py                       the career graph as the builder, export and match read it

@@ -231,7 +231,7 @@ class Build(Workspace):
     def test_the_default_need_follows_the_section(self):
         self.build()
         s = self.loaded()
-        from jsk.graph import ontology as O
+        from jsk.domain import ontology as O
         need = {r["r"].value[len(O.K):]: r["n"].value[len(O.J):] for r in s.select(
             f"PREFIX j: <{O.J}> SELECT ?r ?n WHERE {{ ?r j:necessity ?n }}")
             if "acme_staff" in r["r"].value}
@@ -301,7 +301,7 @@ class Build(Workspace):
     def test_replace_writes_the_posting_and_drops_the_assessment_in_one_update(self):
         """P4: the two change together or not at all - a posting rebuilt beside the old
         assessment would leave it naming requirements that may be gone."""
-        from jsk.graph import record as R
+        from jsk.infra.oxigraph import record as R
         self.build()
         self.put_gaps()
         calls = []
@@ -480,7 +480,7 @@ class Refusals(Workspace):
         emit one: the guard is for the day one does, and must say what a changeset says."""
         import pyoxigraph as ox
 
-        from jsk.graph import ontology as O
+        from jsk.domain import ontology as O
 
         made = postingbuild.triples
 

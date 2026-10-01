@@ -157,7 +157,7 @@ class ShortFile(unittest.TestCase):
         self.assertEqual(doc["bullets"], ["ach_events_terraform"])
 
     def test_the_selection_s_order_and_skills_are_kept(self):
-        from jsk.graph import ontology as O
+        from jsk.domain import ontology as O
         from jsk.graph.select import Selection
 
         sel = Selection([O.K + "prj_identity", O.K + "prj_events"],
@@ -216,8 +216,8 @@ class Command(Workspace):
         lines = [line for line in out.splitlines() if " | " in line]
         self.assertEqual([line.split(" | ")[0] for line in lines],
                          json.loads(Path(path).read_text(encoding="utf-8"))["bullets"])
-        from jsk.graph import ontology as O
-        from jsk.graph import record as R
+        from jsk.domain import ontology as O
+        from jsk.infra.oxigraph import record as R
 
         text = export.Career(store().graph(R.KB)).get(O.K + "ach_events_latency", "text")
         self.assertIn(f"ach_events_latency | {text[:100]}", lines)

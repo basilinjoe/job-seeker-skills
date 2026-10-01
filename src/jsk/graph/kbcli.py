@@ -1,15 +1,7 @@
-"""The old path of jsk.adapters.cli.kb, kept until every importer names the new one.
-
-The module object is jsk.adapters.cli.kb itself, so an attribute patched through this
-path is patched where the code looks it up.
-"""
+"""The old module path of `jsk kb` (adapters/cli/kb): run, it names the command it became."""
 import sys
-
-from ..adapters.cli import kb as _moved
 
 if __name__ == "__main__":
     from ..cliutil import retired_path
 
     sys.exit(retired_path("jsk.graph.kbcli", "jsk kb"))
-
-sys.modules[__name__] = _moved

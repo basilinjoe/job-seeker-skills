@@ -17,7 +17,7 @@ from unittest import mock
 
 import careerkit
 from jsk.gates import numbers, record
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 from jsk.render import tex
 
 TODAY = datetime.date(2026, 9, 24)
@@ -185,7 +185,7 @@ class Career(GateCase):
         state but clean that record.state reports for a stored career is refused."""
         from types import SimpleNamespace
 
-        from jsk.graph import record as R
+        from jsk.infra.oxigraph import record as R
         s = self.store()
         apart = SimpleNamespace(kind="out-of-sync", detail="r2 and r1", log_revision=1)
         with mock.patch.object(R, "state", return_value=apart):
@@ -201,7 +201,7 @@ class Career(GateCase):
         self.assertTrue(line.startswith("career-invalid kb - "), line)
 
     def test_a_store_with_no_career_is_refused(self):
-        from jsk.graph import record as R
+        from jsk.infra.oxigraph import record as R
         root, _ = self.workspace()
         R.write_graphs(root, {"kb": None})
         fails, _ = record.findings(short(), careerkit.store(root), TODAY)
@@ -366,7 +366,7 @@ class Validate(GateCase):
         import os
         import shutil
 
-        from jsk.graph import db
+        from jsk.infra.oxigraph import db
         root, path = self.workspace()
         shutil.rmtree(os.path.join(root, db.STORE_DIR))
         os.makedirs(os.path.join(root, db.STORE_DIR))

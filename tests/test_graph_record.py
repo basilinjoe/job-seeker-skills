@@ -10,7 +10,7 @@ from unittest import mock
 import storekit
 from test_graph_shapes import FIXTURES, load
 
-from jsk.graph import db, record
+from jsk.infra.oxigraph import db, record
 
 TODAY = datetime.date(2026, 9, 24)
 

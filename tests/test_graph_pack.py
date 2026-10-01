@@ -16,8 +16,9 @@ from test_graph_shapes import FIXTURES
 import jsk
 from jsk import cli
 from jsk.graph import io as gio
-from jsk.graph import ontology as O
-from jsk.graph import record, writer
+from jsk.domain import ontology as O
+from jsk.infra.oxigraph import record
+from jsk.domain.record import writer
 from jsk.graph import store as S
 from jsk.graph.pack import PACKS
 

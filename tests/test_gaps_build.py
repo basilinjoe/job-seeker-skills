@@ -13,7 +13,7 @@ from appkit import seed
 from jsk.graph import assessment as A
 from jsk.graph import gapsbuild as B
 from jsk.graph import match as M
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 from jsk.graph import queries as Q
 from jsk.graph import store
 from jsk.graph.gapsderive import derive

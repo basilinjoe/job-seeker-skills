@@ -10,10 +10,10 @@ import pyoxigraph as ox
 from storekit import seed
 
 from jsk.graph import match as M
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 from jsk.graph import queries as Q
 from jsk.graph import store
-from jsk.graph.writer import write
+from jsk.domain.record.writer import write
 
 FIXTURES = Path(__file__).parent / "match_fixtures"
 
@@ -55,7 +55,7 @@ class GapsKind(unittest.TestCase):
         edit a test made to its kb.ttl goes in with it."""
         from appkit import seed
 
-        from jsk.graph import record as R
+        from jsk.infra.oxigraph import record as R
         if not (self.root / "career" / "store").exists():
             seed(self.root)
         R.write_graphs(str(self.root), {f"applications/{app}/gaps": quads})

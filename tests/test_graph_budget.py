@@ -7,7 +7,7 @@ from pathlib import Path
 
 from storekit import seed
 
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 from jsk.graph import store
 
 

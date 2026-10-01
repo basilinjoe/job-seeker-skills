@@ -4,8 +4,8 @@ import unittest
 from test_graph_pack import Fixture
 
 from jsk.graph import changeset
-from jsk.graph import ontology as O
-from jsk.graph import record
+from jsk.domain import ontology as O
+from jsk.infra.oxigraph import record
 from jsk.graph import store as S
 
 VOCAB = "c:healthcare a j:Domain ."

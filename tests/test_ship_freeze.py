@@ -541,7 +541,7 @@ class GraphCase(unittest.TestCase):
 
     def application(self, where=None):
         """{predicate: sorted values} of the frozen application, and its events."""
-        from jsk.graph import ontology as O
+        from jsk.domain import ontology as O
 
         app, events = {}, {}
         for q in appkit.triples(self.root, self.graph(where or self.sent, "application")):
@@ -558,7 +558,7 @@ class GraphCase(unittest.TestCase):
 
 
 def k(*ids):
-    from jsk.graph import ontology as O
+    from jsk.domain import ontology as O
     return sorted(O.K + i for i in ids)
 
 
@@ -620,7 +620,7 @@ class FreezeGraph(GraphCase):
         land between the first check and this one's turn."""
         from unittest import mock
 
-        from jsk.graph import record as R
+        from jsk.infra.oxigraph import record as R
         turn = R.turn
         other = 'k:app_contoso_platform j:submitted "2026-09-23"^^xsd:date .\n'
 
@@ -640,7 +640,7 @@ class FreezeGraph(GraphCase):
         again after the rename, a store that will not open left the folder renamed."""
         from unittest import mock
 
-        from jsk.graph import db
+        from jsk.infra.oxigraph import db
         read = db.read
 
         def before_the_rename_only(root):
@@ -655,7 +655,7 @@ class FreezeGraph(GraphCase):
     def test_a_store_error_while_writing_renames_the_folder_back(self):
         from unittest import mock
 
-        from jsk.graph import db, timeline
+        from jsk.graph import timeline; from jsk.infra.oxigraph import db
 
         def unopenable(*_args):
             raise db.StoreError("career/store/ could not be opened", "`jsk doctor` checks it")
@@ -756,7 +756,7 @@ class FreezeWrites(GraphCase):
 
     def test_a_directory_already_named_for_the_day_stays_where_it_is(self):
         posting = appkit.triples(self.root, self.graph(self.app, "posting"))
-        from jsk.graph import record as R
+        from jsk.infra.oxigraph import record as R
         R.write_graphs(str(self.root), {self.graph(self.app, "posting"): None,
                                         self.graph(self.sent, "posting"): posting})
         self.app.rename(self.sent)

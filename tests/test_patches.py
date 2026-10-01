@@ -182,15 +182,15 @@ class PatchesReachTheCode(unittest.TestCase):
     def test_a_patch_on_a_name_nothing_reads_fails(self):
         # named.py imports curie at its top, so patching writer.curie is seen by named's
         # callers; patching named.curie from outside is not seen by writer's.
-        tree = ast.parse("from jsk.graph import writer\n"
+        tree = ast.parse("from jsk.domain.record import writer\n"
                          "mock.patch.object(writer, 'nobody_calls_this', lambda: 0)\n")
         found = [("planted", m, a) for m, a, _ in targets(tree)]
         src = dict(self.SRC)
-        path, parsed = src["jsk.graph.writer"]
+        path, parsed = src["jsk.domain.record.writer"]
         parsed = ast.parse(path.read_text(encoding="utf-8") +
                            "\ndef nobody_calls_this():\n    return 0\n")
-        src["jsk.graph.writer"] = (path, parsed)
-        module = importlib.import_module("jsk.graph.writer")
+        src["jsk.domain.record.writer"] = (path, parsed)
+        module = importlib.import_module("jsk.domain.record.writer")
         with mock.patch.object(module, "nobody_calls_this", lambda: 0, create=True):
             self.assertEqual(len(unread(found, src)), 1, found)
 

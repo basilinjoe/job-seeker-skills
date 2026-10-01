@@ -53,7 +53,7 @@ def workspace(root, edits=(), short=None, logged=True, stored=True):
 
 def relog(root):
     """log.ttl made to agree with kb.ttl as edited, as if jsk had written it."""
-    from jsk.graph import record as R
+    from jsk.infra.oxigraph import record as R
     from jsk.graph.io import sha256
 
     before = sha256((FIXTURES / "career" / "kb.ttl").read_text(encoding="utf-8"))

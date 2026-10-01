@@ -12,8 +12,8 @@ from pathlib import Path
 
 from fixtures import SCRIPTS, child_env, source_path
 
-from jsk.graph import db
-from jsk.graph import record as R
+from jsk.infra.oxigraph import db
+from jsk.infra.oxigraph import record as R
 
 NASTY = 'He said "hi"\\n and \\ left\nnew line\ttab é \U0001F680 }} ;. <x>'
 
@@ -221,7 +221,7 @@ class Turn(unittest.TestCase):
         R.write_graphs(self.root, {"kb": [triple("a", lit("0"))]}, create=True)
 
     HOLD = """
-        from jsk.graph import db
+        from jsk.infra.oxigraph import db
         with db.write_turn(root, say=lambda m: print('waited', flush=True)):
             print('got', time.time(), flush=True)
             time.sleep(float(sys.argv[1]) if len(sys.argv) > 1 else 1.0)
@@ -252,7 +252,7 @@ class Turn(unittest.TestCase):
         # Exclusive access is held for the write itself; a read in that window waits for it
         # (a read-only open while another process writes is undefined behaviour).
         holder = child("""
-            from jsk.graph import db
+            from jsk.infra.oxigraph import db
             with db.writing(root):
                 print('open', flush=True)
                 time.sleep(1.5)
@@ -269,7 +269,7 @@ class Turn(unittest.TestCase):
         # a whole write - never half of one.
         writer = child("""
             import pyoxigraph as ox
-            from jsk.graph import record as R
+            from jsk.infra.oxigraph import record as R
             for n in range(150):
                 big = [ox.Triple(ox.NamedNode(f"tag:s{i}"), ox.NamedNode("tag:p"),
                                  ox.Literal(str(n))) for i in range(300)]
@@ -294,7 +294,7 @@ class Turn(unittest.TestCase):
 
         loop = """
             import pyoxigraph as ox
-            from jsk.graph import record as R
+            from jsk.infra.oxigraph import record as R
             n = int(sys.argv[1]) * 1000
             print('started', flush=True)
             while True:
@@ -323,7 +323,7 @@ class Turn(unittest.TestCase):
     def test_a_writer_that_dies_holding_its_turn_releases_it(self):
         dead = child("""
             import os
-            from jsk.graph import db
+            from jsk.infra.oxigraph import db
             with db.write_turn(root):
                 os._exit(3)
         """, self.root)
@@ -345,7 +345,7 @@ class Turn(unittest.TestCase):
         # Four processes each add their own graph; every one lands, none is refused.
         add = """
             import pyoxigraph as ox
-            from jsk.graph import record as R
+            from jsk.infra.oxigraph import record as R
             n = sys.argv[1]
             R.write_graphs(root, {"g" + n: [ox.Triple(ox.NamedNode("tag:s" + n),
                                                        ox.NamedNode("tag:p"), ox.Literal(n))]})
@@ -366,7 +366,7 @@ class TurnBeforeTheStore(unittest.TestCase):
 
     FIRST = """
         from jsk import kb
-        from jsk.graph import db
+        from jsk.infra.oxigraph import db
         with db.write_turn(root):
             print('got', flush=True)
             time.sleep(1.5)
@@ -434,7 +434,7 @@ class OnlyDbKnowsTheStore(unittest.TestCase):
     def violations(self, sources):
         """(module, what it does that only db.py or record.py may) for each source."""
         out = []
-        db, record = source_path("jsk.graph.db"), source_path("jsk.graph.record")
+        db, record = source_path("jsk.infra.oxigraph.db"), source_path("jsk.infra.oxigraph.record")
         for name, text in sources:
             if name == db:
                 continue
@@ -455,7 +455,7 @@ class OnlyDbKnowsTheStore(unittest.TestCase):
         self.assertEqual(self.violations(self.sources()), [])
 
     def test_the_guard_sees_each_way_round_it(self):
-        record = source_path("jsk.graph.record")
+        record = source_path("jsk.infra.oxigraph.record")
         planted = [("a.py", "db = ox.Store(path)"), ("b.py", "pyoxigraph.Store.read_only(p)"),
                    ("c.py", "from pyoxigraph import Literal, Store\ns = Store(p)"),
                    ("d.py", "s = db.open_reader(root)"), ("e.py", "db.open_writer(root)"),

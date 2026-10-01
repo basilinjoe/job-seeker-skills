@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 from jsk.graph import timeline
 
 PFX = "".join(f"@prefix {n}: <{ns}> .\n" for n, ns in O.PREFIXES)

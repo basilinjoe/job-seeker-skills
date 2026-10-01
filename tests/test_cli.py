@@ -936,7 +936,7 @@ class UnloadedWorkspace(unittest.TestCase):
                 self.assertIn("fix:  jsk kb load .", out)
 
     def test_every_kb_verb_but_load_and_path_is_refused_with_kb_load(self):
-        from jsk.graph import kbcli
+        from jsk.adapters.cli import kb as kbcli
         for verb in sorted(set(kbcli.VERBS) - {"load", "path"}):
             with self.subTest(verb=verb):
                 code, out = self.jsk("kb", verb, "--root", self.root)

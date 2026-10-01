@@ -14,9 +14,10 @@ from pathlib import Path
 from storekit import seed
 from test_graph_shapes import load
 
-from jsk.graph import db, legacy, store
-from jsk.graph import ontology as O
-from jsk.graph import record as R
+from jsk.graph import legacy, store
+from jsk.infra.oxigraph import db
+from jsk.domain import ontology as O
+from jsk.infra.oxigraph import record as R
 from jsk.graph.io import GraphError, parse_text
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"

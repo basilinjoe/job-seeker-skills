@@ -5,10 +5,10 @@ The store has no files to open, so a test that used to read or hand-write postin
 application.ttl or gaps.ttl reads and writes the graph instead - read-only through
 db.read, written through record.write_graphs as every jsk write is.
 """
-from jsk.graph import db
-from jsk.graph import record as R
+from jsk.infra.oxigraph import db
+from jsk.infra.oxigraph import record as R
 from jsk.graph.io import parse_text
-from jsk.graph.ontology import kind_of
+from jsk.domain.ontology import kind_of
 
 PREFIXES = ("@prefix j: <tag:jsk,2026:ns#> .\n@prefix k: <tag:jsk,2026:id/> .\n"
             "@prefix c: <tag:jsk,2026:concept/> .\n"
@@ -70,7 +70,7 @@ def has(root, graph):
 
 def text(root, graph):
     """The graph laid out as Turtle, as `jsk kb show` prints entries; None when absent."""
-    from jsk.graph.writer import write
+    from jsk.domain.record.writer import write
 
     found = triples(root, graph)
     return None if found is None else write(found, kind_of(graph))

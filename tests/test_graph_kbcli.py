@@ -16,8 +16,8 @@ from test_graph_pack import edit_career
 from test_graph_shapes import FIXTURES
 
 from jsk import cli
-from jsk.graph import db, record
-from jsk.graph import ontology as O
+from jsk.infra.oxigraph import db, record
+from jsk.domain import ontology as O
 from jsk.graph import store as S
 
 BRAINDUMP = PFX + """
@@ -861,7 +861,7 @@ class Dispatch(Workspace):
         verbs = re.findall(r"^  (\w+)", out, re.M)
         self.assertEqual(verbs, ["new", "apply", "confirm", "show", "view", "query", "pack",
                                  "merge", "export", "check", "path", "load", "dump", "log"])
-        from jsk.graph import kbcli
+        from jsk.adapters.cli import kb as kbcli
         self.assertEqual(sorted([*kbcli.VERBS, "new"]), sorted(verbs))
 
     def test_a_verb_s_help(self):

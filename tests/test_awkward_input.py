@@ -34,7 +34,7 @@ from test_graph_kbcli import QUOTE, SOURCE
 from test_graph_shapes import FIXTURES as GRAPH
 from test_posting_build import ADVERT, HEADER, ROWS
 
-from jsk.graph import db
+from jsk.infra.oxigraph import db
 
 MATCH = Path(__file__).parent / "match_fixtures"
 PLAIN, SAME, REFUSED = AWKWARD[0], AWKWARD[1:3], AWKWARD[3]

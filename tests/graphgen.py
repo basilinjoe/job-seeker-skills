@@ -7,7 +7,7 @@ import random
 
 import pyoxigraph as ox
 
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 
 NASTY = ['"', '""', '"""', '""""', '\\', '\\"', "\n", "\n\n", "\t", "→", "é", "#", "'", "'''",
          " ", "a", "Bb", "0", "p95", "C# / .NET", "<x>", "\r"]

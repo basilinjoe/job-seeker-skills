@@ -11,7 +11,7 @@ from pathlib import Path
 
 from jsk.graph import gapsderive as G
 from jsk.graph import match as M
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 from jsk.graph import store
 
 FIXTURES = Path(__file__).parent / "match_fixtures"

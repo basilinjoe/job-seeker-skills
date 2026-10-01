@@ -14,7 +14,7 @@ import appkit
 
 from jsk import cli
 from jsk.graph import export
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 from jsk.graph import select as SEL
 from jsk.graph import store as S
 from jsk.resume import short

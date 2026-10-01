@@ -52,21 +52,19 @@ def load_script(name):
 
     A caller may name a module three ways: fully qualified, as a bare stem, or as the
     documented script filename that most of the codebase's comments still use. Which
-    subpackage a filename lives in is `cli.SUBPACKAGE`'s answer and not a second copy
-    here - that map is what `jsk` itself dispatches on, so a module that moves without
-    it being updated fails in the CLI before it fails in a test.
+    module a filename is is `dispatch.module_for`'s answer and not a second copy here -
+    that is what `jsk` itself dispatches on, so a module that moves without it being
+    updated fails in the CLI before it fails in a test.
     """
     name = str(name)
     if not name.startswith(PACKAGE + "."):
-        from jsk.cli import SUBPACKAGE              # noqa: PLC0415 - test helper
-        stem = Path(name).stem
-        where = SUBPACKAGE.get(f"{stem}.py")
-        name = f"{PACKAGE}.{where}.{stem}" if where else f"{PACKAGE}.{stem}"
+        from jsk.adapters.cli.dispatch import module_for   # noqa: PLC0415 - test helper
+        name = module_for(f"{Path(name).stem}.py")
     return importlib.import_module(name)
 
 
 def source_path(name):
-    """Where module `name` (dotted, e.g. `jsk.graph.db`) is defined, relative to SCRIPTS.
+    """Where module `name` (dotted, e.g. `jsk.infra.oxigraph.db`) is defined, relative to SCRIPTS.
 
     A structure test that names a module by its file stops matching the moment the module
     moves; named by its import path, it follows the move, because the old path is kept as

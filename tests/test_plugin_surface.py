@@ -244,14 +244,14 @@ class TheSectionsAndTheFormatAgree(unittest.TestCase):
         return [line.strip() for line in block.splitlines() if line.strip()]
 
     def test_the_format_lists_every_section_in_the_views_order(self):
-        from jsk.graph.ontology import SECTIONS
+        from jsk.domain.ontology import SECTIONS
 
         self.assertEqual(self.sections(), list(SECTIONS["kb"]))
 
     def test_the_view_prints_the_sections_as_the_format_shows_them(self):
         """The shape, not only the names: an empty career rendered by `jsk kb view`
         carries exactly the section headings kb-format.md lists."""
-        from jsk.graph import view
+        from jsk.domain.record import view
 
         text = view.render([])
         self.assertEqual(re.findall(r"^## (.+)$", text, re.M), self.sections())
@@ -261,7 +261,7 @@ class TheSectionsAndTheFormatAgree(unittest.TestCase):
         cannot know exists - it reaches for `j:note`, or invents a name that apply
         refuses. So every predicate of every class the career or a posting holds is
         named in it, backticked."""
-        from jsk.graph.ontology import CLASSES
+        from jsk.domain.ontology import CLASSES
 
         named = set(re.findall(r"`(?:j:)?([A-Za-z]+)`", self.format_text()))
         missing = sorted({f"{c.name}.{p}" for c in CLASSES

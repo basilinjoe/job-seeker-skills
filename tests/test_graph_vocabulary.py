@@ -8,8 +8,9 @@ import unittest
 from pathlib import Path
 
 import jsk
-from jsk.graph import io, store, writer
-from jsk.graph import ontology as O
+from jsk.graph import io, store
+from jsk.domain.record import writer
+from jsk.domain import ontology as O
 
 SHIPPED = Path(jsk.__file__).parent / "data" / "vocabulary.ttl"
 
