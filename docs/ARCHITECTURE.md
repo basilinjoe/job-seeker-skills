@@ -59,12 +59,12 @@ jsk posting build D         posting graph     each quote IS the extracted line, 
         |                                     every qualification line is used or dropped
         v
 jsk tailor prepare D        gaps graph        the match, evidence, the person, the cover - one digest;
-        --draft-gaps        gaps.md           the assessment derived from the match (gapsderive);
+        --draft-gaps        gaps.md           the assessment derived from the match (assessment/derive.py);
         |                   gaps.txt          a draft overlay, a <!-- jsk: --> slot per judgement
         |
         |   the analyst edits gaps.txt: lowers a verdict with a reason, fit, eligibility, the asks
         v
-jsk tailor match D                 gaps graph        the overlay checked against the match and folded in;
+jsk tailor match D          gaps graph        the overlay checked against the match and folded in;
         --gaps D/gaps.txt   gaps.md           an unfilled slot, or a raised verdict, is a FAIL
 ```
 
@@ -119,9 +119,12 @@ writes its application graph; no log entry is added, since the log is the career
 No copy of the content is written: the PDF, `.txt` and `.tex` beside it are the words sent. After that the directory is
 an archive: later events are added with `jsk app event`, never edited.
 
-Every verb runs **in process**. The dispatcher imports the adapter behind it and calls its `main()`
-with the same arguments, so the output and the exit code are the module's own and nothing is
-paraphrased on the way through. One interpreter per invocation is what lets `jsk resume ship` be a single
+Every verb runs **in process**. The dispatcher, `adapters/cli/main.py`, finds the noun's verb in
+its noun table and either calls the handler there or has `adapters/cli/dispatch.py` import the
+adapter behind it and call its `main()` with the same arguments, so the output and the exit code
+are the adapter's own and nothing is paraphrased on the way through. `dispatch.ADAPTERS` is the
+one map from a verb's documented script name to the adapter that serves it, and
+`tests/fixtures.load_script` reads that map rather than keeping a second copy. One interpreter per invocation is what lets `jsk resume ship` be a single
 command rather than four start-ups; `call_gate()` turns the two failures an in-process call adds — a
 module that will not import, and one that raises where it should have returned a verdict — into a
 reported failure instead of a traceback.
@@ -286,85 +289,84 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   cli.py                            the `jsk` console script's module: hands over to adapters/cli/main.py
   paths.py                          where the packaged schema lives - stated once
   preflight.py                      `jsk doctor`: what this machine can do
-  domain/                           the innermost ring: no files, argv, environment or clock
+  domain/                           ring 1, innermost: no files, argv, environment or clock
     naming.py                       a record graph's short name and its IRI, the same in memory and on disk
-    record/confirmation.py          what a confirmation's quote must share with its claim
-    record/provenance.py            what a hand edit of the career raised, named for the import
-    gates/numbers.py  report.py     numbers in prose and whether metrics hold them; a gate's findings
-    gates/ats_rules.py              the parse gate's rules over extracted text and fonts
-    gates/prose_rules.py            the prose gate's rules over a .tex's or .txt's paragraphs
-    gates/layout_rules.py           the layout gate's rules over page sizes, line boxes and fonts
-    gates/letter_rules.py           the letter check's rules over a letter's words: length, prose, quotes
-    resume/constants.py             the provenance floor's ranks and a skills row's length
-    resume/plan.py                  the render plan: every content decision, made exactly once
-    resume/short.py                 a resume.json as data: parsed, its shape, its ids, its summary
-    ontology.py  record/writer.py   the format, as data; the entry printer (moved from graph/)
+    ontology.py                     the career record's format, as data: every class, predicate and enum
     record/career.py                the career graph as the builder, export and match read it
+    record/changeset.py             a parsed changeset read, and what it may never say refused
+    record/confirmation.py          what a confirmation's quote must share with its claim
+    record/decisions.py             decisions.txt's format and its parser: header, rows, drops
+    record/edit.py                  a changeset merged into the career, refused where the career says
+    record/merge.py                 two concepts that are one, drafted as a changeset
+    record/pack.py                  a starter pack's draft against the workspace, and its TriG
     record/parsed.py                a Turtle or TriG text as parsed: quads, subject lines, comments
+    record/provenance.py            what a hand edit of the career raised, named for the import
+    record/rules.py                 tier 2: the rules over the whole workspace, as SPARQL rows
+    record/shapes.py                tier 1: the rules generated from the ontology, and their findings
     record/state.py                 the career and its log in step: revision, state, stamp, entry
     record/store.py                 a loaded workspace: its graphs, findings and engine; the derivations
-    record/decisions.py             decisions.txt's format and its parser: header, rows, drops
-    record/rules.py                 tier 2: the rules over the whole workspace, as SPARQL rows
-    record/changeset.py             a parsed changeset read, and what it may never say refused
-    record/edit.py                  a changeset merged into the career, refused where the career says
-    record/pack.py                  a starter pack's draft against the workspace, and its TriG
-    record/merge.py                 two concepts that are one, drafted as a changeset
+    record/view.py                  the career as Markdown, for `jsk kb view`
+    record/writer.py                the entry printer: the same triples always give the same bytes
     matching/model.py               the match's values: requirement, resolution, match, row, question
     matching/resolve.py             a requirement resolved to concepts, carried by projects; evidence
-    matching/rank.py  cover.py      the projects scored for a posting; the smallest set carrying it
+    matching/rank.py                every live project scored for a posting
+    matching/cover.py               the smallest set of projects carrying a posting's requirements
     matching/nearest.py             the concepts nearest a label, and those an advert line names
     matching/questions.py           the questions a tailoring round asks of a match
     matching/report.py              a bucket's verdict, a missing metric's question, the FAILs that block
+    matching/scoring.py             the numbers the match ranks by: seniority, weights, recency, months
     selection/select.py             the projects, bullets, skills and gaps a resume selects
-    posting/errors.py               posting.md's name, and how a posting step refuses
-    timeline/errors.py              how a write to an application refuses: sent, locked, refused
-    timeline/events.py              an application's graph and its events as triples; the dates they carry
-    posting/boards.py               which job board a URL is on, and its answer as a posting
-    posting/html_text.py            a board's or a saved page's HTML as text
-    posting/posting_md.py           posting.md as jsk writes it
-    posting/advert.py               an advert's text squashed, and its lines numbered by section
-    posting/decide.py               decisions.txt's name, a title's seniority hint, posting.md's header, the posting's triples
     assessment/verdict.py           the order verdicts rank in, and why none is ever raised
     assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
     assessment/derive.py            the gap assessment the match already knows, without a model
     assessment/fold.py              gaps.txt checked against the derived assessment and folded in; its triples
     assessment/draft.py             the gaps.txt draft: a slot wherever the analyst's judgement is needed
-    render/formatting.py  themes.py how one value reads; appearance only (moved from render/)
+    posting/errors.py               posting.md's name, and how a posting step refuses
+    posting/boards.py               which job board a URL is on, and its answer as a posting
+    posting/html_text.py            a board's or a saved page's HTML as text
+    posting/posting_md.py           posting.md as jsk writes it
+    posting/advert.py               an advert's text squashed, and its lines numbered by section
+    posting/decide.py               decisions.txt's name, a title's seniority hint, posting.md's header, the posting's triples
+    timeline/errors.py              how a write to an application refuses: sent, locked, refused
+    timeline/events.py              an application's graph and its events as triples; the dates they carry
+    resume/constants.py             the provenance floor's ranks and a skills row's length
+    resume/plan.py                  the render plan: every content decision, made exactly once
+    resume/short.py                 a resume.json as data: parsed, its shape, its ids, its summary
+    render/formatting.py            how one value reads: dates, grades, quantities, the fold to ASCII
+    render/themes.py                appearance only: palette, typeface, rhythm
+    render/emit_latex.py            the plan as LaTeX, for the PDF a person reads
+    render/emit_text.py             the plan as plain text, for paste-in boxes
     render/fit_levers.py            the page fitter's levers and floors over a .tex's text; page geometry read
     render/page_report.py           the line a render says about its pages, against the budget
     render/targets.py               which files a render writes, and what they are called
-  ports/                            what the application needs from outside, as Protocols
-    engine.py  record.py  codec.py  the graph engine; the record on disk; Turtle and TriG
-    files.py  tex.py  pdf.py        authored texts and application files; the TeX engine; a PDF read
-    posting_source.py  profiles.py  a job board's API; the region profiles
-    clock.py  queries.py            today; the feature reads over a loaded record
+    gates/report.py                 a gate's findings: failures and warnings, in the order found
+    gates/numbers.py                numbers in prose, and whether a career's metrics hold them
+    gates/ats_rules.py              the parse gate's rules over extracted text and fonts
+    gates/prose_rules.py            the prose gate's rules over a .tex's or .txt's paragraphs
+    gates/layout_rules.py           the layout gate's rules over page sizes, line boxes and fonts
+    gates/letter_rules.py           the letter check's rules over a letter's words: length, prose, quotes
+  ports/                            ring 2: what the application needs from outside, as Protocols
+    engine.py                       the graph engine a loaded record runs on
+    record.py                       the record on disk: its graphs read, the writer's turn, one write
+    codec.py                        Turtle and TriG in and out of the engine's terms
+    queries.py                      the feature reads over a loaded record, by name
     workspace.py                    a workspace as loading it needs it
-    outputs.py                      the files a render writes, and its scratch directories
-    advert.py                       an application's posting.md and decisions.txt, as the rules read them
+    files.py                        the texts people and agents write, and an application's files
     applications.py                 an application's folder and its record graphs in the store
-  application/                      the use cases: each returns a result and prints nothing
+    advert.py                       an application's posting.md and decisions.txt, as the rules read them
+    outputs.py                      the files a render writes, and its scratch directories
+    tex.py                          the TeX engine
+    pdf.py                          a rendered PDF read: text, fonts, pages
+    posting_source.py               a job board's API, or a file
+    profiles.py                     the region profiles
+    clock.py                        today, read once at the edge and passed down
+  application/                      ring 3, the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
-    gates/__init__.py               the four mechanical gates, and the fifth, which a person runs
-    gates/numbers.py                the untraced-number check over a loaded career
-    tailor/match_text.py            the match as markdown; its sections, shared with the gaps draft
-    tailor/match_posting.py         one application's posting matched against the career, as plain data
-    tailor/check_gaps.py            gaps.txt checked, the assessment and gaps.md written from the match
-    tailor/draft_gaps.py            the gaps.txt draft: the advert, the drops and the person read, the draft made
-    tailor/prepare.py               the tailoring digest: the check, the match, the evidence, the assessment written
-    posting/fetch.py                an advert from a job board or a file, written as posting.md
-    posting/extract.py              the decisions.txt header and the advert's lines, numbered, for the analyst
-    posting/build.py                decisions.txt checked against the advert and written as the posting graph
-    gates/result.py                 what a gate returns: its findings, or why it stopped
-    gates/ats.py                    the parse gate: a document's text extracted, then judged
-    gates/prose.py                  the prose gate: a document's paragraphs read, then judged
-    gates/layout.py                 the layout gate: a PDF's region and budget found, its lines judged
-    gates/record.py                 the record gate: a resume.json's career loaded, every finding asked of it
-    gates/letter.py                 the letter check: its length and prose judged, its numbers traced
-    gates/run_gates.py              `jsk resume check DIR`: the four gates over a render, the render gate said last
-    tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
-    tailor/export.py                `jsk kb export`: the bullets a resume.json shows chosen, the short file formed and written
+    ship.py                         `jsk resume ship`: the record gate, render, fit and gates, stopping at a failure
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     record/refusals.py              how a use case over the record refuses: the errors the CLI prints
+    record/write.py                 WriteLogged, the gate every kb write goes through; `jsk kb apply`
+    record/confirm.py               `jsk kb confirm`: the answer checked, the ids planned, the summary
     record/read.py                  `jsk kb show`, `view` and `log`: entries by id, the career, the log
     record/queries.py               `jsk kb query`: the named queries, registered as the kb's read vocabulary
     record/holdings.py              what each live project holds; the months of experience behind a concept
@@ -372,82 +374,99 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/check.py                 `jsk kb check`: every rule, the career's hash, the untraced numbers
     record/store_status.py          where a workspace's record is, and what is there instead
     record/dump.py                  `jsk kb dump`: the whole record as TriG
-    record/pack.py  merge.py        `jsk kb pack` and `merge`: changesets drafted on the logged revision
-    record/write.py                 WriteLogged, the gate every kb write goes through; `jsk kb apply`
-    record/confirm.py               `jsk kb confirm`: the answer checked, the ids planned, the summary
-    record/scaffold.py              `jsk kb new`: the empty record written, or a record started over
     record/load_import.py           `jsk kb load`: files or a dump read, validated, written once
+    record/pack.py                  `jsk kb pack`: a starter pack drafted on the logged revision
+    record/merge.py                 `jsk kb merge`: two concepts that are one, drafted on the logged revision
+    record/scaffold.py              `jsk kb new`: the empty record written, or a record started over
+    tailor/match_posting.py         one application's posting matched against the career, as plain data
+    tailor/match_text.py            the match as markdown; its sections, shared with the gaps draft
+    tailor/check_gaps.py            gaps.txt checked, the assessment and gaps.md written from the match
+    tailor/draft_gaps.py            the gaps.txt draft: the advert, the drops and the person read, the draft made
+    tailor/prepare.py               the tailoring digest: the check, the match, the evidence, the assessment written
+    tailor/export.py                `jsk kb export`: the bullets a resume.json shows chosen, the short file formed and written
+    posting/fetch.py                an advert from a job board or a file, written as posting.md
+    posting/extract.py              the decisions.txt header and the advert's lines, numbered, for the analyst
+    posting/build.py                decisions.txt checked against the advert and written as the posting graph
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
     render/build_plan.py            a resume.json on disk to its render plan
     render/render_resume.py         one render: plans built, files written, the PDF compiled and measured
     render/fit_pages.py             a .tex fitted to its budget: each lever staged, compiled, measured
     render/preview_templates.py     one resume.json in every template, rendered once each and compiled at once
+    gates/__init__.py               the four mechanical gates, and the fifth, which a person runs
+    gates/result.py                 what a gate returns: its findings, or why it stopped
+    gates/numbers.py                the untraced-number check over a loaded career
+    gates/record.py                 the record gate: a resume.json's career loaded, every finding asked of it
+    gates/ats.py                    the parse gate: a document's text extracted, then judged
+    gates/prose.py                  the prose gate: a document's paragraphs read, then judged
+    gates/layout.py                 the layout gate: a PDF's region and budget found, its lines judged
+    gates/letter.py                 the letter check: its length and prose judged, its numbers traced
+    gates/run_gates.py              `jsk resume check DIR`: the four gates over a render, the render gate said last
     timeline/freeze.py              an application frozen: checked, planned, gated, renamed to its day, written
     timeline/records.py             an application's record graphs: frozen, sent, written; the freeze sealed
     timeline/add_event.py           one event added to an application's record: minted, validated, written
-    ship.py                         `jsk resume ship`: the record gate, render, fit and gates, stopping at a failure
-  infra/                            what touches a disk, a process, the network or the engine
+  infra/                            ring 4: what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root; a document written atomically, or new
     workspace.py                    the workspace a load reads: career/store/, the files beside it, the vocabulary
     legacy_import.py                a workspace still laid out as .ttl files, read once for `jsk kb load`
     packs.py                        `jsk kb pack`'s starter packs on disk: where each is, and reading one
-    pdf.py                          a rendered PDF's text and fonts, through pymupdf
-    profiles.py                     the region profiles under data/ (moved from render/)
-    oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
-    oxigraph/db.py  record.py       the store on disk; the write gate every write goes through
-    oxigraph/applications.py        an application's folder and its graphs in career/store/, read and written
-    oxigraph/engine.py              the in-memory engine a loaded record runs on
-    oxigraph/queries.py             the feature reads over a loaded record, as SPARQL
-    tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
-    posting_sources.py              a board's JSON over the network; a .docx, .html or text file
-    outputs.py                      a render's files written, its scratch directories, a move
+    adverts.py                      an application's posting.md and decisions.txt, read from its folder
     documents.py                    what the gates judge, read leniently: a rendered .txt or .tex, a cover letter
-  adapters/                         the driving side: argv parsed, a use case run, its result printed
+    outputs.py                      a render's files written, its scratch directories, a move
+    pdf.py                          a rendered PDF's text and fonts, through pymupdf
+    tex.py                          the TeX engine a render's .tex is compiled with
+    profiles.py                     the region profiles under data/
+    posting_sources.py              a board's JSON over the network; a .docx, .html or text file
+    oxigraph/db.py                  the store on disk: RocksDB per workspace, the writers' turn; the only module that opens it
+    oxigraph/record.py              the write gate every write goes through: revision, log entry, state, one update
+    oxigraph/engine.py              the in-memory engine a loaded record runs on
+    oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
+    oxigraph/queries.py             the feature reads over a loaded record, as SPARQL
+    oxigraph/applications.py        an application's folder and its graphs in career/store/, read and written
+  adapters/                         ring 5, outermost: argv parsed, the real ports bound, a use case run, its result printed
     cli/main.py                     the dispatcher: seven nouns, each verb run in process, the retired names
     cli/dispatch.py                 a verb's adapter found (ADAPTERS) and its main() called, contained
-    cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
-    cli/resume.py                   `jsk resume check`: the gates its target calls for, by its kind
-    cli/render.py                   `jsk resume render`: its flags, the render run, what it wrote said
-    cli/fit.py                      `jsk resume fit`: its flags, the fit run, each lever and the verdict said
-    cli/preview.py                  `jsk resume preview`: its flags, every template previewed, the pages said
-    cli/freeze.py                   `jsk app freeze`: its flags, the freeze run, its gates and what it wrote said
-    cli/ship.py                     `jsk resume ship`: its flags and refusals, each step captured, the summary
-    cli/event.py                    `jsk app event`: its flags, the clock read once, the event added and its dates said
-    cli/match.py                    `jsk tailor match`: its flags, the match run and printed, or its assessment built
-    cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
-    cli/tailor.py                   `jsk tailor prepare`: its flags, the digest run and printed section by section
-    cli/posting.py                  `jsk posting`: fetch, extract or build run, what it wrote said
     cli/cliutil.py                  one contract for --help and flags across the commands; a finding list printed
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
-    cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
-    cli/compose/record.py           a workspace loaded over career/store/ and the engine; a changeset read
-    cli/compose/match.py            the match and the selection, each asked of the engine's feature reads
-    cli/compose/posting.py          `jsk posting`'s board API and file reader; extract and build's folder on disk, decisions.txt read
-    cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
-    cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads, the short file, the assessment's folder
-    cli/compose/resume.py           a resume.json read from disk, its workspace found, its career loaded, its plan built
-    cli/compose/render.py           `jsk resume render`'s TeX engine and PDF reader; the posting's employer
-    cli/compose/fit.py              `jsk resume fit`'s TeX engine, looked up where a test patches it
-    cli/compose/preview.py          `jsk resume preview`'s TeX engine, looked up where a test patches it
-    cli/compose/gates.py            the gates' career reads and its log's state bound; a resume.json's region and budget
-    cli/kb/__init__.py              `jsk kb`: the verb table, its flags, and the dispatch
+    cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
+    cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
+    cli/posting.py                  `jsk posting`: fetch, extract or build run, what it wrote said
+    cli/match.py                    `jsk tailor match`: its flags, the match run and printed, or its assessment built
+    cli/tailor.py                   `jsk tailor prepare`: its flags, the digest run and printed section by section
+    cli/resume.py                   `jsk resume check`: the gates its target calls for, by its kind
+    cli/render.py                   `jsk resume render`: its flags, the render run, what it wrote said
+    cli/preview.py                  `jsk resume preview`: its flags, every template previewed, the pages said
+    cli/fit.py                      `jsk resume fit`: its flags, the fit run, each lever and the verdict said
+    cli/ship.py                     `jsk resume ship`: its flags and refusals, each step captured, the summary
+    cli/freeze.py                   `jsk app freeze`: its flags, the freeze run, its gates and what it wrote said
+    cli/event.py                    `jsk app event`: its flags, the clock read once, the event added and its dates said
+    cli/kb/__init__.py              `jsk kb`: the verb table, its flags, the clock read once, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
-    cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG
     cli/kb/write.py                 `jsk kb apply`, and the logged write's diff every writing verb prints
-    cli/kb/new.py                   `jsk kb new`: its flags, the workspace scaffolded, what was written
     cli/kb/confirm.py               `jsk kb confirm`: its three forms, and what each confirmed
     cli/kb/draft.py                 `jsk kb pack` and `merge`: the drafted changeset printed or written
     cli/kb/export.py                `jsk kb export`: its flags, the choice's notes and gaps, the file
+    cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG
+    cli/kb/new.py                   `jsk kb new`: its flags, the workspace scaffolded, what was written
     cli/gates/__init__.py           the gates' commands, one module a gate
+    cli/gates/check.py              `jsk resume check` on each target kind: each gate contained, the summary
     cli/gates/present.py            the count line, findings and verdict every gate prints alike
+    cli/gates/record.py             the record gate (`jsk resume check` on a resume.json): its flags, the gate run, its verdict
+    cli/gates/short.py              the short file's own check of a resume.json: its shape and ids, PASS or FAIL
     cli/gates/ats.py                the parse gate: its flags, the gate run, its verdict said
     cli/gates/prose.py              the prose gate: its flags, the gate run, its verdict said
     cli/gates/layout.py             the layout gate: its flags, the gate run, its verdict said
-    cli/gates/record.py             the record gate (`jsk resume check` on a resume.json): its flags, the gate run, its verdict
-    cli/gates/letter.py             the letter check: its flags, the check run, its verdict said
-    cli/gates/short.py              the short file's own check of a resume.json: its shape and ids, PASS or FAIL
-    cli/gates/check.py              `jsk resume check` on each target kind: each gate contained, the summary
-    adverts.py                      an application's posting.md and decisions.txt, read from its folder
+    cli/gates/letter.py             the letter check (`jsk letter check`): its flags, the check run, its verdict said
+    cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
+    cli/compose/record.py           a workspace loaded over career/store/ and the engine; a changeset read
+    cli/compose/match.py            the match and the selection, each asked of the engine's feature reads
+    cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads, the short file, the assessment's folder
+    cli/compose/posting.py          `jsk posting`'s board API and file reader; extract and build's folder on disk, decisions.txt read
+    cli/compose/resume.py           a resume.json read from disk, its workspace found, its career loaded, its plan built
+    cli/compose/render.py           `jsk resume render`'s TeX engine and PDF reader; the posting's employer
+    cli/compose/preview.py          `jsk resume preview`'s TeX engine, looked up where a test patches it
+    cli/compose/fit.py              `jsk resume fit`'s TeX engine, looked up where a test patches it
+    cli/compose/gates.py            the gates' career reads and its log's state bound; a resume.json's region and budget
+    cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded
@@ -477,9 +496,10 @@ plugins/jsk/                        THE SKILL. markdown only - it ships no code
       writing-rules.md              X-Y-Z bullets, verb accuracy, phrases to cut
       templates.md                  the five visual templates
       rationale.md                  long-form reasoning, loaded to explain a rule
-tests/                              unittest: one file per module, plus the manifest surface
+tests/                              unittest: a file per module, adapter or use case, plus the manifest surface
   fixtures.py                       the path setup, and helpers every suite shares
   careerkit.py                      a workspace per test: claims_fixtures, edited, with a short file
+  appkit.py                         an application's record graphs in a test workspace's store
   storekit.py                       seed(): readable Turtle sources parsed into a workspace's store;
                                     Workspace, the fixture the `jsk kb` tests run in
   shipkit.py                        the ship, freeze and event fixtures, and the faked TeX compiles
@@ -496,35 +516,53 @@ builds, `jsk app freeze` and `jsk app event`), and every load validates it. No a
 summary and settings, which is why the record gate runs before anything renders: it is the last
 point at which a mistake is still cheap.
 
-## What is a package here, and what is not
+## What is a ring, and what is a package here
 
-There are four subpackages, and each was measured before it was made. The test is whether the
-members import *each other* more than they import outward. A group whose members share no edges
-is a folder with a theme, not a module.
+Every module under `src/jsk/` sits in one of five rings, innermost first: `domain`, `ports`,
+`application`, `infra` and `adapters` (Ruling 1 of
+docs/superpowers/specs/2026-09-30-onion-architecture-design.md). A ring is a package under
+`jsk/`, so a module's ring is the first part of its path, and a reviewer can tell it from the
+import line. The root modules Ruling 1 keeps where their documented paths are sit in a ring by
+name: `cli.py`, `__main__.py` and `preflight.py` are adapters, and `paths.py` is infra.
+`__init__.py` holds the version, imports nothing, and is in no ring.
 
-The counts below were measured on 2026-09-28. "Targets" are the distinct modules outside the
-package that it imports. "Inside" is the number of import statements between its own members.
-Both leave out the shared helpers `cliutil` and `paths`, which every CLI module imports.
+**The rule is one direction.** A module may import its own ring or one further in, and never
+one further out:
 
-| Group | Targets outside | Imports inside | Verdict |
-|---|---|---|---|
-| `render/`: rendering, preview and the page fitter, over the plan→document pipeline | **3**, all lazy and all from the two CLIs: `resume.build`, `resume.short`, `cli` (`frozen_refusal`) | 11 | **made**, and gone since: its modules are in the rings (see "The renderer, across the rings") |
-| `gates/`: record, parse, prose, layout, letter | **11**: six `graph/` modules, three `resume/`, two `render/`. All lazy except `record.py`'s import of `graph.ontology`, which is standard library only | 10 | **failed the test** (below), and gone since: the rules are `domain/gates/`, the runners `application/gates/` (Ruling 1 of the onion design) |
-| `graph/`: the career record, from format to assessment | **7** when measured | 202 | **made**, and gone since: its modules are in the rings (see "The career record, across the rings") |
-| `resume/`: the short file, the career as read for a resume, the plan builder | **8**, into `graph/` and `render/` | 4 | **made as the seam**, not by this test: it is the one place the career meets the renderer, and keeping that join in one package is what keeps `graph/` and `render/` from importing each other. Gone since: its modules are in the rings (see "The resume, across the rings") |
+| Ring | Holds | May not |
+|---|---|---|
+| `domain` | the record's format and rules, matching, selection, the plan, the gates' rules | import `os`, `sys`, `subprocess`, `shutil`, `glob`, `tempfile`, `pathlib` or `urllib` (but `urllib.parse`); call `open()`; read the clock; reach a Store. From pyoxigraph it takes only the terms (`NamedNode`, `Literal`, `BlankNode`, `Triple`, `Quad`, `DefaultGraph`), imported inside functions |
+| `ports` | what the application needs from outside, as `typing.Protocol`s | import anything but `typing`, `dataclasses` and `datetime`. Nothing imports a port at run time |
+| `application` | one use case per command: the ports as parameters, a result out, nothing printed | import infra or an adapter |
+| `infra` | the real ports: the store, the engine, the disk, TeX, pymupdf, the network | import an adapter |
+| `adapters` | argv parsed, the real ports bound to the use cases (`adapters/cli/compose/`), the clock read once, the result printed | - |
 
-`gates/` passed the test when it held three gates. The record gate and the letter check had
-since grown into readers of the career, and between them they imported from eleven modules
-outside the package, against ten imports among the gates themselves. The rings settled it: the
-rules are `domain/gates/`, the use cases `application/gates/`, and the career's reads come in
-through `adapters/cli/compose/gates.py`.
+A function that needs the engine, a file or today's date takes it as a parameter, and the
+adapter passes the real one in. Only the package itself may be imported from no ring, and only
+by an adapter: `jsk --version` reads `__version__`.
 
-The reason for measuring applies to anything proposed here: four modules that all operate on the same
-noun and never import each other would gain a boundary crossing per edge and buy nothing but a
-directory named after what they have in common.
+**`tests/test_layers.py` holds it.** It is standard-library `ast`, so it runs on a bare Python
+and in the sdist job. It walks every module under `src/jsk/`, collects every import - the lazy
+ones inside function bodies too, which is where every outward edge used to hide - resolves the
+relative ones, and maps both ends to a ring by path. It fails an edge that points outward, a
+module that sits in no ring, a ring's forbidden import, and in the domain a call to `open` or
+the clock, an `.ox` attribute or the name `record_graphs`. `KNOWN_EDGES` and `KNOWN_FORBIDDEN`
+were the allow-lists of what the move still had to remove; both are empty, and an inverse test
+fails an entry whose violation is gone, so neither can outlive what it excused. The same file
+plants violations of its own - a lazy outward import, an import into no ring, a module in no
+ring, a domain module opening a file or reading the clock - and asserts that each one fails,
+so the guard cannot encode the hole it guards.
 
-`dispatch.ADAPTERS` is the one map from a documented script name to the adapter that serves it,
-and `tests/fixtures.load_script` reads that map rather than keeping a second copy.
+**Inside a ring, a subpackage still has to be earned.** `domain/record/`, `application/gates/`,
+`infra/oxigraph/` and the rest each gather the modules about one noun, and the test for a
+subpackage is the one this page used to apply to every package: its members import *each
+other* more than they import outward. Four modules that all operate on the same noun and never
+import each other would gain a boundary crossing per edge and buy nothing but a directory named
+after what they have in common. The packages that came before the rings - `graph/`, `render/`,
+`resume/` and `gates/` - are gone; their modules are in the rings (see "across the rings"
+above), and `gates/` was split the way the test said it should be, the rules into `domain/gates/`
+and the runners into `application/gates/`, with the career's reads bound in
+`adapters/cli/compose/gates.py`.
 
 ## Where do I change X
 
@@ -552,6 +590,8 @@ and `tests/fixtures.load_script` reads that map rather than keeping a second cop
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
+| Where a new module goes, or what a ring may import | its path under `src/jsk/<ring>/`; the ring rules and `ROOT_ADAPTERS` / `ROOT_INFRA` in `tests/test_layers.py` | "What is a ring" above; a line in the repo layout, or `tests/test_plugin_surface.py` fails |
+| What a use case needs from outside | a Protocol in `src/jsk/ports/`, its implementation in `src/jsk/infra/` | bound to the use case in `src/jsk/adapters/cli/compose/`, the one composition root; a test passes a fake |
 | A noun or a verb | `src/jsk/adapters/cli/main.py` (the noun table) | the help docstring in the same file, the command table in `SKILL.md`, `docs/SCRIPTS.md` — all three pinned by `tests/test_plugin_surface.py` |
 
 ## What is frozen
@@ -602,7 +642,7 @@ story:
 
 **The career record and its boundaries** are what hold the third one: every write goes through
 `record.write_graphs` after the would-be record validates, and the record's modules never import
-`render/`. See "The career record, across the rings" above.
+the renderer's. See "The career record, across the rings" above.
 
 A bundle from a version before 4.0 has one route: read it whole and build the record from it
 with `jsk kb new` and changesets - and a changeset cannot confirm, so it carries `needs-verification` and
