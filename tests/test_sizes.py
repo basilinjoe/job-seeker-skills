@@ -34,8 +34,6 @@ SIZE_KNOWN = {
     ("src/jsk/domain/record/merge.py", "draft"): 101,
     ("src/jsk/domain/record/shapes.py", "tier1"): 90,
     ("src/jsk/domain/selection/select.py", "select"): 97,
-    ("src/jsk/graph/postingbuild.py", "built"): 190,
-    ("src/jsk/graph/prepare.py", "prepare"): 124,
     ("src/jsk/preflight.py", "gather"): 90,
 }
 
