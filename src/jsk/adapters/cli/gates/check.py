@@ -32,12 +32,10 @@ CHECK_GATES = [
     ("prose", "check_prose.py", "prose gate", False, (".tex", ".txt")),
 ]
 
-# Gates `--only` reaches that the default pass never runs: they check another document,
-# not the render. Arguments pass through unchanged.
-CHECK_ALONE = {"letter": "letter.py"}   # a cover letter: --only letter --record resume.json
-# The layout gate reads the render, but only the PDF - a default pass over a .txt would
-# report it SKIPPED. `jsk gates` and `jsk ship` run it; here it is asked for by name.
-CHECK_ALONE["layout"] = "layout.py"
+# The gate `--only` reaches that the default pass never runs, its arguments passed through
+# unchanged. The layout gate reads the render, but only the PDF - a default pass over a .txt
+# would report it SKIPPED. `jsk gates` and `jsk ship` run it; here it is asked for by name.
+CHECK_ALONE = {"layout": "layout.py"}
 
 CHECK_USAGE = "usage: jsk check <resume.pdf> [--strict] [--only parse|prose|layout]"
 

@@ -9,9 +9,11 @@ import contextlib
 import io
 import subprocess
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 
-from fixtures import child_env
+from fixtures import CLEAN_RESUME, build_text, child_env, example_short
 
 from jsk.adapters.cli import main as M
 
@@ -46,7 +48,7 @@ def jsk(*argv):
     """(exit code, stdout) of `jsk argv...` run in this interpreter."""
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        code = M.main(["jsk", *argv])
+        code = M.main(["jsk", *map(str, argv)])
     return code, buf.getvalue()
 
 
@@ -124,6 +126,70 @@ class TheNouns(unittest.TestCase):
 
         self.assertEqual(set(M.KB_VERBS), set(kb.VERBS))
         self.assertEqual(set(M.NOUNS["kb"]), set(kb.VERBS) | {"new"})
+
+
+class ResumeCheckByTarget(unittest.TestCase):
+    """`jsk resume check` picks its gates from what it is given, and refuses a flag that
+    does not fit that kind of target."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        self.txt = build_text(self.tmp / "resume.txt", CLEAN_RESUME)
+        self.json = self.tmp / "resume.json"
+        self.json.write_text("{}", encoding="utf-8")
+
+    def test_a_resume_json_gets_the_record_gate(self):
+        code, out = jsk("resume", "check", example_short())
+        self.assertEqual(code, 0, out)
+        self.assertIn("PASS - safe to render", out)
+        self.assertNotIn("parse gate", out)
+
+    def test_a_render_gets_the_parse_and_prose_gates(self):
+        code, out = jsk("resume", "check", self.txt)
+        self.assertEqual(code, 0, out)
+        self.assertIn("--- parse gate", out)
+        self.assertIn("--- prose gate", out)
+        self.assertNotIn("record gate", out)
+
+    def test_a_directory_gets_all_four(self):
+        (self.tmp / "out").mkdir()
+        code, out = jsk("resume", "check", self.tmp / "out")
+        self.assertEqual(code, 1, out)
+        for gate in ("record", "parse", "prose", "layout"):
+            self.assertIn(f"--- {gate} gate", out)
+        self.assertIn("=== summary", out)
+
+    def test_each_flag_that_does_not_fit_is_a_usage_error_naming_the_kind(self):
+        cases = [(self.json, flag, "a resume.json") for flag in
+                 (["--pages", "2"], ["--record", "x.json"], ["--json"], ["--only", "parse"])]
+        cases += [(self.txt, flag, "a render") for flag in
+                  (["--pages", "2"], ["--record", "x.json"], ["--json"],
+                   ["--max-findings", "3"])]
+        cases += [(self.tmp, flag, "a render's directory") for flag in
+                  (["--strict"], ["--only", "parse"])]
+        for target, flag, kind in cases:
+            with self.subTest(target=Path(target).name, flag=flag[0]):
+                code, out = jsk("resume", "check", target, *flag)
+                self.assertEqual(code, 2, out)
+                self.assertIn(f"{flag[0]} does not fit {kind}", out)
+                self.assertIn("fix:  jsk resume check", out)
+
+    def test_the_layout_gate_keeps_its_own_flags(self):
+        code, out = jsk("resume", "check", self.tmp / "resume.pdf", "--only", "layout",
+                        "--record", self.json, "--region", "AU")
+        self.assertNotIn("does not fit", out)
+
+    def test_only_letter_points_at_letter_check(self):
+        code, out = jsk("resume", "check", self.txt, "--only", "letter", "--record", self.json)
+        self.assertEqual(code, 2, out)
+        self.assertIn(f"fix:  jsk letter check {self.txt} --record {self.json}", out)
+
+    def test_no_target_is_the_usage_of_all_three(self):
+        code, out = jsk("resume", "check")
+        self.assertEqual(code, 2, out)
+        self.assertEqual(out.count("jsk resume check <"), 3, out)
 
 
 class EveryVerbAnswersHelp(unittest.TestCase):
