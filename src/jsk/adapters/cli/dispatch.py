@@ -41,6 +41,21 @@ SUBPACKAGE = {
     "timeline.py": "graph",
 }
 
+# The command each script answers to, for the hint that says how to run one by hand.
+COMMANDS = {
+    "kb.py": "jsk kb new",
+    "kbcli.py": "jsk kb",
+    "posting.py": "jsk posting",
+    "match.py": "jsk tailor match",
+    "prepare.py": "jsk tailor",
+    "timeline.py": "jsk app event",
+    "render_resume.py": "jsk resume render",
+    "preview_templates.py": "jsk resume preview",
+    "fit_pages.py": "jsk resume fit",
+    "preflight.py": "jsk doctor",
+}
+
+
 def module_for(script):
     """The module a documented script name is.
 
@@ -131,7 +146,7 @@ def call_gate(script, args, argv0=None, capture=True):
         return 2, buf.getvalue() + (
             f"FAIL  {script} raised {type(exc).__name__}: {exc}\n"
             f"fix:  run it directly to see the whole story - "
-            f"python -m {name} {' '.join(str(a) for a in args)}\n")
+            f"{COMMANDS.get(script, 'jsk')} {' '.join(str(a) for a in args)}\n")
     return (code if isinstance(code, int) else 0), buf.getvalue()
 
 

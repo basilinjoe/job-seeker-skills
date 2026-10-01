@@ -22,7 +22,8 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import CHECK_ATS, RENDER_RESUME, load_script, run, render_module, example_short
+from fixtures import (PARSE_GATE, RENDER, RENDER_RESUME, example_short,
+                      load_script, render_module, run)
 from jsk.resume import build
 from test_build import LEAD_TITLE, BuildCase, short
 
@@ -99,13 +100,13 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def render(self, source, *args):
-        code, out = run(RENDER_RESUME, source, "--out", self.tmp, *args)
+        code, out = run(RENDER, source, "--out", self.tmp, *args)
         self.assertEqual(code, 0, out)
         return out
 
     def test_the_plain_text_passes_check_ats_strict(self):
         self.render(example_short())
-        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume_ATS.txt", "--strict")
+        code, out = run(PARSE_GATE, self.tmp / "Priya_Raman_Resume_ATS.txt", "--strict")
         self.assertEqual(code, 0, out)
         self.assertIn("PASS", out)
 
@@ -133,7 +134,7 @@ class RenderedFilesPassTheGates(unittest.TestCase):
     def test_a_view_is_a_usage_error_naming_one_resume(self):
         """A resume.json is one resume: --view chose among a full record's views, and
         went with the record."""
-        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--view", "view_x")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--view", "view_x")
         self.assertEqual(code, 2, out)
         self.assertIn("a resume.json is one resume", out)
         self.assertEqual(list(self.tmp.glob("*")), [])
@@ -142,13 +143,13 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         root, path = careerkit.workspace(self.tmp / "ws")
         legacy = Path(__file__).parent / "legacy_fixtures" / "contoso-resume.urs.json"
         Path(path).write_bytes(legacy.read_bytes())
-        code, out = run(RENDER_RESUME, path, "--out", self.tmp / "out")
+        code, out = run(RENDER, path, "--out", self.tmp / "out")
         self.assertEqual(code, 2, out)
         self.assertIn("jsk kb export", out)
         self.assertNotIn("Traceback", out)
 
     def rendered_as(self, path):
-        code, out = run(RENDER_RESUME, path, "--out", self.tmp / "out", "--format", "latex")
+        code, out = run(RENDER, path, "--out", self.tmp / "out", "--format", "latex")
         self.assertEqual(code, 0, out)
         self.assertNotIn("Traceback", out)
         return [p.name for p in (self.tmp / "out").glob("*.tex")]
@@ -173,7 +174,7 @@ class RenderedFilesPassTheGates(unittest.TestCase):
     def test_absent_tex_engine_is_reported_not_assumed(self):
         if tex.available_engine():
             self.skipTest("a TeX engine is installed, so there is nothing to report")
-        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--pdf")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf")
         self.assertIn("UNVERIFIED", out)
         self.assertEqual(code, 1, out)
 
@@ -193,7 +194,7 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
     def test_a_pdf_is_actually_produced(self):
-        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--pdf")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf")
         self.assertEqual(code, 0, out)
         self.assertTrue((self.tmp / "Priya_Raman_Resume.pdf").exists(), out)
 
@@ -205,7 +206,7 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
         try:
             os.chdir(self.tmp)
             os.mkdir("rel")
-            code, out = run(RENDER_RESUME, example_short(), "--out", "rel", "--pdf")
+            code, out = run(RENDER, example_short(), "--out", "rel", "--pdf")
             self.assertEqual(code, 0, out)
             self.assertTrue((self.tmp / "rel" / "Priya_Raman_Resume.pdf").exists(), out)
         finally:
@@ -223,7 +224,7 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
 
     def test_without_pdf_a_missing_engine_is_not_a_failure(self):
         """Rendering the .tex alone is a legitimate thing to ask for."""
-        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp)
+        code, out = run(RENDER, example_short(), "--out", self.tmp)
         self.assertEqual(code, 0, out)
 
 
@@ -245,7 +246,7 @@ class ThePageCountIsMeasured(unittest.TestCase):
     def test_the_render_reports_the_pages_it_actually_produced(self):
         import pymupdf
 
-        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--pdf")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf")
         self.assertEqual(code, 0, out)
         with pymupdf.open(self.tmp / "Priya_Raman_Resume.pdf") as pdf:
             actual = pdf.page_count
@@ -426,7 +427,7 @@ class TheDateColumnHolds(PlanCase):
         _, path = careerkit.workspace(self.tmp / "ws", edits=list(self.EDITS) + [self.EDIT],
                                       short=short())
         out = self.tmp / "out"
-        code, said = run(RENDER_RESUME, path, "--out", out, "--pdf")
+        code, said = run(RENDER, path, "--out", out, "--pdf")
         self.assertEqual(code, 0, said)
         return next(out.glob("*.pdf"))
 
@@ -536,7 +537,7 @@ class TheHeaderLinksAndTheMetadata(PlanCase):
                                           edits=list(self.EDITS) + [self.PROFILES],
                                           short=short())
             out = Path(root, "out")
-            code, said = run(RENDER_RESUME, path, "--out", out, "--pdf")
+            code, said = run(RENDER, path, "--out", out, "--pdf")
             self.assertEqual(code, 0, said)
             with pymupdf.open(next(out.glob("*.pdf"))) as pdf:
                 meta = pdf.metadata

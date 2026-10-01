@@ -51,6 +51,11 @@ GATES_VALUE_FLAGS = ("--record", "--pages", "--max-findings")
 ADAPTERS = {"record.py": "record", "check_ats.py": "ats", "check_prose.py": "prose",
             "layout.py": "layout", "letter.py": "letter"}
 
+# The command that runs each gate alone, for the hint after one that raised.
+COMMANDS = {"record.py": "jsk resume check", "check_ats.py": "jsk resume check --only parse",
+            "check_prose.py": "jsk resume check --only prose",
+            "layout.py": "jsk resume check --only layout", "letter.py": "jsk letter check"}
+
 
 def gate_target(path, accepts):
     """The file a gate reads, given whichever sibling the caller named.
@@ -110,7 +115,7 @@ def contained(script, args, capture=True):
         return 2, buf.getvalue() + (
             f"FAIL  {script} raised {type(exc).__name__}: {exc}\n"
             f"fix:  run it directly to see the whole story - "
-            f"python -m {name} {' '.join(str(a) for a in args)}\n"), None
+            f"{COMMANDS[script]} {' '.join(str(a) for a in args)}\n"), None
     return code, buf.getvalue(), outcome
 
 

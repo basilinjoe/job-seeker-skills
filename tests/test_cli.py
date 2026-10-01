@@ -14,13 +14,12 @@ from pathlib import Path
 from unittest import mock
 
 import careerkit
-from fixtures import (CHECK_ATS, CHECK_PROSE, CLI, CLEAN_RESUME, example_short, SCRIPTS,
-                      build_pdf, build_text, load_script, resume_with, run)
+from fixtures import (CLI, CLEAN_RESUME, example_short, SCRIPTS,
+                      build_pdf, build_text, gate, load_script, resume_with, run)
 
 from jsk import cli
 
 JSK = CLI
-RECORD_GATE = "jsk.gates.record"
 GOOD = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team", "ach_identity_sso"]}
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
@@ -395,17 +394,17 @@ class GatesAgreement(GatesCase):
         tex = self.out / "Jane_Doe_Resume.tex"
         txt = self.out / "Jane_Doe_Resume_ATS.txt"
         return [
-            (RECORD_GATE, [self.record]),
-            (CHECK_ATS, [pdf]),
-            (CHECK_ATS, [txt, "--strict"]),
-            (CHECK_PROSE, [tex]),
-            (CHECK_PROSE, [txt]),
+            ("record.py", [self.record]),
+            ("check_ats.py", [pdf]),
+            ("check_ats.py", [txt, "--strict"]),
+            ("check_prose.py", [tex]),
+            ("check_prose.py", [txt]),
         ]
 
     def assertAgrees(self):
         worst, outputs = 0, []
         for script, args in self.five_commands():
-            code, out = run(script, *args)
+            code, out = gate(script, *args)
             worst = max(worst, code)
             outputs.append((script, out))
         code, combined = self.gates("--record", self.record)

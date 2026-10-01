@@ -14,12 +14,13 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from fixtures import CLI, CLEAN_RESUME, example_short, RENDER_RESUME, run, render_module
+from fixtures import (CLEAN_RESUME, CLI, RENDER, example_short, render_module,
+                      run)
 from jsk.gates import layout
 
 tex = render_module("render.tex")
 themes = render_module("render.themes")
-LAYOUT = "jsk.gates.layout"
+LAYOUT = ("jsk", "resume", "check", "--only", "layout")
 
 
 def has_pymupdf():
@@ -80,7 +81,7 @@ class EveryShippedTemplatePasses(unittest.TestCase):
         for name in themes.names():
             for variant in ((), ("--ats-max",)):
                 out = cls.tmp / (name + "".join(variant))
-                code, output = run(RENDER_RESUME, example_short(), "--out", out, "--template",
+                code, output = run(RENDER, example_short(), "--out", out, "--template",
                                    name, "--format", "latex", "--pdf", *variant)
                 assert code == 0, output
                 cls.pdfs[out.name] = next(out.glob("*.pdf"))
@@ -106,7 +107,7 @@ class EveryShippedTemplatePasses(unittest.TestCase):
 
     def test_a_us_render_is_letter_and_fails_against_an_au_record(self):
         out_dir = self.tmp / "us"
-        code, output = run(RENDER_RESUME, example_short(), "--out", out_dir, "--format", "latex",
+        code, output = run(RENDER, example_short(), "--out", out_dir, "--format", "latex",
                            "--pdf", "--region", "US")
         self.assertEqual(code, 0, output)
         path = next(out_dir.glob("*.pdf"))

@@ -68,4 +68,6 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    from ..cliutil import retired_path
+
+    sys.exit(retired_path("jsk.gates.check_ats", "jsk resume check RESUME.pdf --only parse"))

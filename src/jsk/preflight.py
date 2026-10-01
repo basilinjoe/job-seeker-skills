@@ -44,23 +44,22 @@ GRAPH_KB_FILENAME = "kb.ttl"
 # answered "is this file on disk", which stopped being the interesting question: a
 # module can be present and unimportable - a syntax error, a missing dependency of
 # its own, a half-finished editable checkout - and find_spec is what notices.
-MODULES = ["cli", "cliutil", "kb", "paths"]
-# The commands and the packages, never a module inside one. Internal modules move between
-# rings (docs/superpowers/specs/2026-09-30-onion-architecture-design.md), and a list that
-# named them would report a sound install broken after every move. None of these imports
-# pyoxigraph at module top, so find_spec answers "is the code here" even on a machine
-# without the engine - the engine is its own check below.
-GRAPH_MODULES = ["graph", "graph.kbcli", "graph.match", "graph.prepare", "graph.timeline"]
-GATE_MODULES = ["gates", "gates.check_ats", "gates.check_prose", "gates.layout",
-                "gates.letter", "gates.record"]
+#
+# The packages, never a module inside one: the rings, and the packages that still hold code
+# (Ruling 4 of docs/superpowers/specs/2026-09-30-onion-architecture-design.md). Internal
+# modules move between rings, and a list that named them would report a sound install broken
+# after every move. find_spec answers "is the code here" without importing the package, even
+# on a machine without the engine - the engine is its own check below.
+MODULES = ["cli", "cliutil", "paths", "domain", "ports", "application", "infra", "adapters"]
+GRAPH_MODULES = ["graph"]
+GATE_MODULES = ["gates"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken render package takes all
 # three with it and reporting them separately would name three symptoms of one cause.
 #
 # The builder (resume/) is counted with them: it turns the career and a resume.json into
 # the plan they render, and a render with no builder is as broken as one with no emitter.
-RENDER_MODULES = ["resume", "resume.short", "resume.build", "render",
-                  "render.render_resume", "render.preview_templates", "render.fit_pages"]
+RENDER_MODULES = ["resume", "render"]
 
 SCHEMA_FILES = ["profile.schema.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
@@ -329,9 +328,12 @@ def verify(tmp):
     """Render the shipped example and run every gate that can run here."""
     steps = []
 
-    # Spawned, not imported: doctor proves each `python -m` entry point runs from cold.
+    # Spawned, not imported: doctor proves each `jsk` command runs from cold. Run in the
+    # scratch directory, so the workspace around the caller's own directory is not asked
+    # whether it is loaded: the example is the only workspace these commands read.
     def run(label, args):
-        proc = subprocess.run([sys.executable, "-m"] + args, capture_output=True, text=True)
+        proc = subprocess.run([sys.executable, "-m", __package__] + args, capture_output=True,
+                              text=True, cwd=tmp)
         steps.append((label, proc.returncode == 0,
                       (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]))
         return proc.returncode == 0
@@ -349,28 +351,28 @@ def verify(tmp):
     short = os.path.join(workspace, os.path.basename(EXAMPLE_SHORT))
     shutil.copyfile(EXAMPLE_SHORT, short)
     if not run("load the example career into a store",
-               [__package__, "kb", "load", EXAMPLE_WORKSPACE, "--root", workspace]):
+               ["kb", "load", EXAMPLE_WORKSPACE, "--root", workspace]):
         return steps
     # The file the render reads, not the old example.resume.json: validating a URS record
     # the render no longer touched passed a check on the wrong file. The record gate, as
     # `jsk ship` runs it: shape, ids and every number traced in the example career.
-    run("validate the example resume", [f"{__package__}.gates.record", short])
+    run("validate the example resume", ["resume", "check", short])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the builder works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",
-             [f"{__package__}.render.render_resume", short, "--out", tmp, "--pdf"])
+             ["resume", "render", short, "--out", tmp, "--pdf"])
     if not ok:
         return steps
 
     pdf = os.path.join(tmp, "Priya_Raman_Resume.pdf")
     tex = os.path.join(tmp, "Priya_Raman_Resume.tex")
     txt = os.path.join(tmp, "Priya_Raman_Resume_ATS.txt")
-    run("parse gate, rendered PDF", [f"{__package__}.gates.check_ats", pdf])
+    run("parse gate, rendered PDF", ["resume", "check", pdf, "--only", "parse"])
     run("parse gate, plain text (strict)",
-        [f"{__package__}.gates.check_ats", txt, "--strict"])
-    run("prose gate", [f"{__package__}.gates.check_prose", tex])
+        ["resume", "check", txt, "--only", "parse", "--strict"])
+    run("prose gate", ["resume", "check", tex, "--only", "prose"])
     # The record names the region, so the paper is checked against it, not warned about.
-    run("layout gate", [f"{__package__}.gates.layout", pdf, "--record", short])
+    run("layout gate", ["resume", "check", pdf, "--only", "layout", "--record", short])
     return steps
 
 
@@ -453,4 +455,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    print("python -m jsk.preflight was retired: it is jsk doctor now (python -m jsk doctor)")
+    sys.exit(2)

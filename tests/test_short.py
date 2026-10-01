@@ -275,8 +275,8 @@ class Main(unittest.TestCase):
 
     def test_it_runs_as_a_module(self):
         # Doctor spawns it: an entry point that only works imported proves nothing there.
-        from fixtures import example_short, run
+        from fixtures import RECORD_GATE, example_short, run
 
-        code, out = run("jsk.resume.short", example_short())
+        code, out = run(RECORD_GATE, example_short())
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)

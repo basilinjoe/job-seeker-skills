@@ -18,8 +18,8 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import (CHECK_ATS, CHECK_PROSE, RENDER_RESUME, child_env, example_short, run,
-                      render_module)
+from fixtures import (PARSE_GATE, PROSE_GATE, RENDER, child_env,
+                      example_short, render_module, run)
 from jsk.resume import build
 from test_build import BuildCase, LEAD_TITLE, short
 
@@ -125,7 +125,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
 
     def render(self, name):
         out = self.tmp / name
-        code, output = run(RENDER_RESUME, example_short(), "--out", out,
+        code, output = run(RENDER, example_short(), "--out", out,
                            "--template", name, "--format", "latex", "--pdf")
         self.assertEqual(code, 0, output)
         return next(out.glob("*.pdf"))
@@ -191,7 +191,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         a claim, and check_ats.py is the thing that answers it."""
         for name in themes.names():
             pdf = self.render(name)
-            proc = subprocess.run([sys.executable, "-m", str(CHECK_ATS), str(pdf)],
+            proc = subprocess.run([sys.executable, "-m", *PARSE_GATE, str(pdf)],
                                       capture_output=True, text=True,
                                       env=child_env())
             self.assertEqual(proc.returncode, 0, f"{name}:\n{proc.stdout}")
@@ -210,12 +210,12 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
             _, path = careerkit.workspace(Path(tmp, "ws"), edits=BuildCase.EDITS,
                                           short=short())
             for name in themes.names():
-                code, out = run(RENDER_RESUME, path, "--out", tmp,
+                code, out = run(RENDER, path, "--out", tmp,
                                 "--template", name, "--format", "latex")
                 self.assertEqual(code, 0, out)
                 tex_file = next(Path(tmp).glob("*.tex"))
                 proc = subprocess.run(
-                    [sys.executable, "-m", str(CHECK_PROSE), str(tex_file)],
+                    [sys.executable, "-m", *PROSE_GATE, str(tex_file)],
                     capture_output=True, text=True, env=child_env())
                 self.assertNotIn("unresolved placeholder", proc.stdout,
                                  f"{name} emitted LaTeX the prose gate reads as text")
@@ -235,7 +235,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
 
         for name in themes.names():
             out = self.tmp / f"long-{name}"
-            code, output = run(RENDER_RESUME, path, "--out", out, "--template", name,
+            code, output = run(RENDER, path, "--out", out, "--template", name,
                                "--format", "latex", "--pdf")
             self.assertEqual(code, 0, output)
             with pymupdf.open(next(out.glob("*.pdf"))) as pdf:
@@ -261,7 +261,7 @@ class TheTemplateChoiceIsExplicit(unittest.TestCase):
 
     def test_the_cli_refuses_an_unknown_template(self):
         with tempfile.TemporaryDirectory() as tmp:
-            code, out = run(RENDER_RESUME, example_short(), "--out", tmp,
+            code, out = run(RENDER, example_short(), "--out", tmp,
                             "--template", "chartreuse")
             self.assertEqual(code, 2, out)
             self.assertIn("chartreuse", out)

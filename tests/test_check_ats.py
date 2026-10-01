@@ -8,9 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (CHECK_ATS, CLEAN_RESUME, example_short, RENDER_RESUME,
-                      build_pdf, build_text, load_script, resume_with, run,
-                      render_module)
+from fixtures import (CHECK_ATS, CLEAN_RESUME, PARSE_GATE, RENDER, build_pdf,
+                      build_text, example_short, load_script, render_module, resume_with,
+                      run)
 
 tex = render_module("render.tex")
 
@@ -27,7 +27,7 @@ class CheckATSCase(unittest.TestCase):
         path = build_text(self.tmp / name,
                           CLEAN_RESUME if paragraphs is None else paragraphs, **kw)
         args = [path, "--strict"] if strict else [path]
-        return run(CHECK_ATS, *args)
+        return run(PARSE_GATE, *args)
 
     def assertFails(self, out, code, needle=None):
         self.assertEqual(code, 1, f"expected FAIL, got exit {code}:\n{out}")
@@ -164,13 +164,13 @@ class MalformedInput(CheckATSCase):
     def test_a_pdf_that_is_not_a_pdf_reports_a_verdict(self):
         path = self.tmp / "fake.pdf"
         path.write_text("not a PDF at all", encoding="utf-8")
-        code, out = run(CHECK_ATS, path)
+        code, out = run(PARSE_GATE, path)
         self.assertEqual(code, 1)
         self.assertNotIn("Traceback", out)
         self.assertIn("FAIL", out)
 
     def test_missing_file_reports_a_verdict(self):
-        code, out = run(CHECK_ATS, self.tmp / "absent.pdf")
+        code, out = run(PARSE_GATE, self.tmp / "absent.pdf")
         self.assertNotEqual(code, 0)
         self.assertNotIn("Traceback", out)
 
@@ -178,18 +178,18 @@ class MalformedInput(CheckATSCase):
         """`python -m jsk.gates.check_ats --help` read --help as a path and printed
         "file not found: --help" with the usage-error exit."""
         for flag in ("--help", "-h"):
-            code, out = run(CHECK_ATS, flag)
+            code, out = run(PARSE_GATE, flag)
             self.assertEqual(code, 0, out)
             self.assertNotIn("file not found", out)
             self.assertIn("--strict", out)
-            self.assertIn("python -m jsk.gates.check_ats", out)
+            self.assertIn("jsk resume check", out)
 
     def test_the_docx_is_no_longer_accepted(self):
         """It was the deliverable; it is not one any more, and a gate that
         silently accepted it would be checking a file nobody sends."""
         path = self.tmp / "resume.docx"
         path.write_text("x", encoding="utf-8")
-        code, out = run(CHECK_ATS, path)
+        code, out = run(PARSE_GATE, path)
         self.assertEqual(code, 1)
         self.assertIn(".pdf", out)
 
@@ -263,15 +263,15 @@ class ThePdfItself(CheckATSCase):
 
     def test_a_pdf_with_no_text_layer_fails(self):
         path = build_pdf(self.tmp / "scan.pdf", blank=True)
-        code, out = run(CHECK_ATS, path)
+        code, out = run(PARSE_GATE, path)
         self.assertEqual(code, 1, out)
         self.assertIn("extractable text", out)
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
     def test_the_rendered_presentation_pdf_passes(self):
-        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--pdf")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf")
         self.assertEqual(code, 0, out)
-        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume.pdf")
+        code, out = run(PARSE_GATE, self.tmp / "Priya_Raman_Resume.pdf")
         self.assertPasses(out, code)
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
@@ -279,9 +279,9 @@ class ThePdfItself(CheckATSCase):
         """The ligature trap: T1 Computer Modern turns "fi" into U+FB01, so an
         ATS-maximal PDF failed its own ASCII rule until the emitter broke the
         pairs. The .docx never showed this, because nothing rendered it."""
-        code, out = run(RENDER_RESUME, example_short(), "--out", self.tmp, "--pdf", "--ats-max")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf", "--ats-max")
         self.assertEqual(code, 0, out)
-        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume.pdf", "--strict")
+        code, out = run(PARSE_GATE, self.tmp / "Priya_Raman_Resume.pdf", "--strict")
         self.assertPasses(out, code)
 
 
@@ -304,7 +304,7 @@ class SplitWords(CheckATSCase):
         path = self.pdf(resume_with(self.SPLIT))
         for args in ((), ("--strict",)):
             with self.subTest(args=args):
-                code, out = run(CHECK_ATS, path, *args)
+                code, out = run(PARSE_GATE, path, *args)
                 self.assertFails(out, code, "split across a line end")
                 self.assertIn("'decom-posing'", out)
                 self.assertIn("fix:", out)
@@ -312,14 +312,14 @@ class SplitWords(CheckATSCase):
     def test_the_same_pdf_unsplit_passes(self):
         """The control: the synthetic PDF is otherwise clean, so the failure above
         is the split and nothing else."""
-        code, out = run(CHECK_ATS, self.pdf(CLEAN_RESUME), "--strict")
+        code, out = run(PARSE_GATE, self.pdf(CLEAN_RESUME), "--strict")
         self.assertPasses(out, code)
 
     def test_a_compound_broken_at_its_own_hyphen_is_not_a_split_word(self):
         """A capital after the break is a compound - "Offline-Tolerant" - not a
         word TeX cut in half, and a search for either half still matches."""
         path = self.pdf(resume_with((BODY, "Built an Offline-\nTolerant sync engine for 40 clinics.")))
-        code, out = run(CHECK_ATS, path)
+        code, out = run(PARSE_GATE, path)
         self.assertPasses(out, code)
 
     def test_only_a_pdf_is_checked(self):
@@ -337,10 +337,10 @@ class SplitWords(CheckATSCase):
             for flags in ((), ("--ats-max",)):
                 with self.subTest(template=name, flags=flags):
                     out_dir = self.tmp / f"{name}{''.join(flags)}"
-                    code, out = run(RENDER_RESUME, example_short(), "--out", out_dir, "--template", name,
+                    code, out = run(RENDER, example_short(), "--out", out_dir, "--template", name,
                                     "--format", "latex", "--pdf", *flags)
                     self.assertEqual(code, 0, out)
-                    code, out = run(CHECK_ATS, next(out_dir.glob("*.pdf")))
+                    code, out = run(PARSE_GATE, next(out_dir.glob("*.pdf")))
                     self.assertNotIn("split across a line end", out)
 
 
@@ -387,7 +387,7 @@ class TheVariantIsInTheMetadata(CheckATSCase):
         for flags, variant, stem in (((), "presentation", "Priya_Raman_Resume"),
                                      (("--ats-max",), "ats-maximal", "Priya_Raman_Resume")):
             out_dir = self.tmp / variant
-            code, out = run(RENDER_RESUME, example_short(), "--out", out_dir, "--pdf", *flags)
+            code, out = run(RENDER, example_short(), "--out", out_dir, "--pdf", *flags)
             self.assertEqual(code, 0, out)
             renamed = out_dir / "resume-final.pdf"
             (out_dir / f"{stem}.pdf").rename(renamed)
@@ -397,9 +397,10 @@ class TheVariantIsInTheMetadata(CheckATSCase):
 class InProcessEntryPoint(CheckATSCase):
     """`jsk gates` calls main() instead of spawning a fifth interpreter to do it.
 
-    The CLI is the documented API - SKILL.md tells people to run this script
-    directly - so the two forms must not be able to disagree. These compare them on
-    the same file rather than asserting anything about either alone.
+    `jsk resume check --only parse` is the command that runs it, so the two forms must not
+    be able to disagree. These compare them on the same file rather than asserting
+    anything about either alone: the same exit code, and the gate's output whole inside
+    the command's.
     """
 
     def in_process(self, *args):
@@ -408,14 +409,18 @@ class InProcessEntryPoint(CheckATSCase):
             code = load_script(CHECK_ATS).main([str(a) for a in args])
         return code, buf.getvalue()
 
+    def assertAgrees(self, path):
+        code, out = self.in_process(path)
+        command_code, command_out = run(PARSE_GATE, path)
+        self.assertEqual(code, command_code, command_out)
+        self.assertIn(out.strip(), command_out)
+
     def test_it_agrees_with_the_command_line_on_a_clean_resume(self):
-        path = build_text(self.tmp / "resume.txt", CLEAN_RESUME)
-        self.assertEqual(self.in_process(path), run(CHECK_ATS, path))
+        self.assertAgrees(build_text(self.tmp / "resume.txt", CLEAN_RESUME))
 
     def test_it_agrees_with_the_command_line_on_a_failing_resume(self):
-        path = build_text(self.tmp / "resume.txt",
-                          resume_with((BODY, "Scaled to [NUMBER] tenants.")))
-        self.assertEqual(self.in_process(path), run(CHECK_ATS, path))
+        self.assertAgrees(build_text(self.tmp / "resume.txt",
+                                     resume_with((BODY, "Scaled to [NUMBER] tenants."))))
 
     def test_strict_reaches_it_through_the_arguments_it_is_given(self):
         """It read sys.argv, so --strict was picked up from the real command line
@@ -429,7 +434,7 @@ class InProcessEntryPoint(CheckATSCase):
         self.assertIn("mode: presentation", out)
 
     def test_no_arguments_is_the_same_usage_error(self):
-        self.assertEqual(self.in_process(), run(CHECK_ATS))
+        self.assertEqual(self.in_process()[0], run(PARSE_GATE)[0])
 
 
 if __name__ == "__main__":

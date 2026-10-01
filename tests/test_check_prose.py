@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import CHECK_PROSE, load_script, run
+from fixtures import (CHECK_PROSE, PROSE_GATE, gate, load_script, run)
 
 cp = load_script(CHECK_PROSE)
 
@@ -62,7 +62,7 @@ class ProseCase(unittest.TestCase):
         return path
 
     def check(self, paragraphs=None, name="resume.tex"):
-        return run(CHECK_PROSE, self.tex(CLEAN if paragraphs is None else paragraphs, name))
+        return run(PROSE_GATE, self.tex(CLEAN if paragraphs is None else paragraphs, name))
 
     def assertFails(self, code, out, needle=None):
         self.assertEqual(code, 1, f"expected FAIL, got exit {code}:\n{out}")
@@ -283,18 +283,18 @@ class PlainTextVariant(ProseCase):
         return path
 
     def test_plain_text_is_accepted(self):
-        code, out = run(CHECK_PROSE, self.write_txt(
+        code, out = run(PROSE_GATE, self.write_txt(
             ["Jane Doe", "Professional Summary",
              "- Owned the migration to event-driven services."]))
         self.assertEqual(code, 0, out)
 
     def test_plain_text_defects_are_caught(self):
-        code, out = run(CHECK_PROSE, self.write_txt(
+        code, out = run(PROSE_GATE, self.write_txt(
             ["Jane Doe", "- Built the platform that followed him into the role."]))
         self.assertFails(code, out, "third person")
 
     def test_dash_prefix_marks_a_bullet(self):
-        code, out = run(CHECK_PROSE, self.write_txt(
+        code, out = run(PROSE_GATE, self.write_txt(
             ["Jane Doe", "- Meanwhile the team shipped the portal."]))
         self.assertIn("does not open on a verb", out)
 
@@ -303,7 +303,7 @@ class MalformedInput(ProseCase):
     def test_the_docx_is_no_longer_accepted(self):
         junk = self.tmp / "resume.docx"
         junk.write_text("not a zip", encoding="utf-8")
-        code, out = run(CHECK_PROSE, junk)
+        code, out = gate("check_prose.py", junk)
         self.assertEqual(code, 2)
         self.assertIn("unsupported", out.lower())
 
@@ -311,26 +311,26 @@ class MalformedInput(ProseCase):
         """`python -m jsk.gates.check_prose --help` read --help as a path and printed
         "file not found: --help" with the usage-error exit."""
         for flag in ("--help", "-h"):
-            code, out = run(CHECK_PROSE, flag)
+            code, out = run(PROSE_GATE, flag)
             self.assertEqual(code, 0, out)
             self.assertNotIn("file not found", out)
-            self.assertIn("python -m jsk.gates.check_prose", out)
+            self.assertIn("jsk resume check", out)
             self.assertNotIn("The sibling gate", out)
 
     def test_missing_file_reports_a_verdict(self):
-        code, out = run(CHECK_PROSE, self.tmp / "absent.tex")
+        code, out = gate("check_prose.py", self.tmp / "absent.tex")
         self.assertEqual(code, 2)
         self.assertIn("not found", out.lower())
 
     def test_unsupported_extension_is_rejected(self):
         pdf = self.tmp / "resume.pdf"
         pdf.write_bytes(b"%PDF-1.4")
-        code, out = run(CHECK_PROSE, pdf)
+        code, out = gate("check_prose.py", pdf)
         self.assertEqual(code, 2)
         self.assertIn("unsupported", out.lower())
 
     def test_no_argument_is_a_usage_error(self):
-        code, out = run(CHECK_PROSE)
+        code, out = run(PROSE_GATE)
         self.assertEqual(code, 2)
         self.assertIn("usage", out.lower())
 

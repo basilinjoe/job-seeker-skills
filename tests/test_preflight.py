@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import PLUGIN, PREFLIGHT, load_script, run, render_module
+from fixtures import (DOCTOR, PLUGIN, PREFLIGHT, gate, load_script, render_module, run)
 
 preflight = load_script(PREFLIGHT)
 tex = render_module("render.tex")
@@ -111,7 +111,7 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
 
     def test_the_record_path_is_printed_once(self):
         path = self.make_kb(self.tmp)
-        code, out = run(PREFLIGHT, "--kb", path)
+        code, out = gate("preflight.py", "--kb", path)
         self.assertEqual(out.count(str(path)), 1, out)
 
     def test_a_directory_with_no_knowledge_base_is_not_one(self):
@@ -216,13 +216,13 @@ class CliBehaviour(unittest.TestCase):
 
     @NEEDS_TEX
     def test_plain_run_reports_a_verdict(self):
-        code, out = run(PREFLIGHT)
+        code, out = run(DOCTOR)
         self.assertEqual(code, 0, out)
         self.assertTrue(any(v in out for v in ("READY", "READY, with gaps")), out)
 
     @NEEDS_TEX
     def test_verify_runs_the_pipeline_and_every_gate(self):
-        code, out = run(PREFLIGHT, "--verify")
+        code, out = run(DOCTOR, "--verify")
         self.assertEqual(code, 0, out)
         for step in ("validate the example resume", "render the example to a PDF",
                      "parse gate, rendered PDF",
@@ -244,7 +244,7 @@ class CliBehaviour(unittest.TestCase):
 
         with mock.patch.object(preflight.subprocess, "run", fake):
             preflight.verify(str(self.tmp))
-        render = next(c for c in calls if any("render_resume" in a for a in c))
+        render = next(c for c in calls if c[3:5] == ["resume", "render"])
         # A copy beside the store the example was imported into, never the package's own.
         self.assertIn(str(self.tmp / "example" / "resume.json"), render)
         self.assertNotIn(paths.EXAMPLE_SHORT, render)
@@ -267,7 +267,7 @@ class CliBehaviour(unittest.TestCase):
 
         with mock.patch.object(preflight.subprocess, "run", fake):
             steps = preflight.verify(str(self.tmp))
-        check = next(c for c in calls if any("gates.record" in a for a in c))
+        check = next(c for c in calls if c[3:5] == ["resume", "check"])
         self.assertIn(str(self.tmp / "example" / "resume.json"), check)
         self.assertFalse(any("validate_urs" in a for c in calls for a in c))
         self.assertEqual([s[0] for s in steps[:2]], ["load the example career into a store",
@@ -276,7 +276,7 @@ class CliBehaviour(unittest.TestCase):
         self.assertIn(paths.EXAMPLE_WORKSPACE, calls[0])
 
     def test_json_output_is_machine_readable(self):
-        code, out = run(PREFLIGHT, "--json")
+        code, out = run(DOCTOR, "--json")
         self.assertEqual(code, VERDICT, out)
         payload = json.loads(out)
         self.assertIn("checks", payload)
@@ -285,7 +285,7 @@ class CliBehaviour(unittest.TestCase):
 
     @NEEDS_TEX
     def test_json_verify_reports_each_step(self):
-        code, out = run(PREFLIGHT, "--json", "--verify")
+        code, out = run(DOCTOR, "--json", "--verify")
         self.assertEqual(code, 0, out)
         payload = json.loads(out)
         self.assertTrue(payload["ok"])
@@ -294,7 +294,7 @@ class CliBehaviour(unittest.TestCase):
     def test_kb_override_is_honoured(self):
         path = self.tmp / "mine" / "career" / "store"
         path.mkdir(parents=True)
-        code, out = run(PREFLIGHT, "--kb", path, "--json")
+        code, out = run(DOCTOR, "--kb", path, "--json")
         self.assertEqual(code, VERDICT, out)
         self.assertEqual(Path(json.loads(out)["knowledge_base"]), path)
 
@@ -303,13 +303,13 @@ class CliBehaviour(unittest.TestCase):
         and exited 1 wherever there was no TeX engine, so reading the documentation
         looked like a failure. Help is the usage, and nothing is checked."""
         for flag in ("--help", "-h"):
-            code, out = run(PREFLIGHT, flag)
+            code, out = run(DOCTOR, flag)
             self.assertEqual(code, 0, out)
             self.assertIn("Usage:", out)
             self.assertNotIn("jsk preflight", out)      # the report's header
 
     def test_kb_flag_without_a_path_is_a_usage_error(self):
-        code, out = run(PREFLIGHT, "--kb")
+        code, out = run(DOCTOR, "--kb")
         self.assertEqual(code, 2)
         self.assertIn("needs a path", out)
 
@@ -317,7 +317,7 @@ class CliBehaviour(unittest.TestCase):
         # Probing the legacy `fitz` alias printed a PyMuPDF deprecation warning
         # into the middle of a setup report. The check asks about the module
         # fit_pages.py actually imports.
-        code, out = run(PREFLIGHT)
+        code, out = run(DOCTOR)
         self.assertNotIn("deprecated", out.lower())
 
 

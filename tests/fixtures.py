@@ -31,6 +31,16 @@ KB = f"{PACKAGE}.kb"
 CHECK_ATS = f"{PACKAGE}.gates.check_ats"
 FIT_PAGES = f"{PACKAGE}.render.fit_pages"
 
+# The commands the tests drive, as the argv of `python -m jsk ...`: `jsk` is the only door
+# (Ruling 10 of the onion design), so a module above is imported, never run.
+JSK_CLI = (PACKAGE,)
+PARSE_GATE = (PACKAGE, "resume", "check", "--only", "parse")
+PROSE_GATE = (PACKAGE, "resume", "check", "--only", "prose")
+RECORD_GATE = (PACKAGE, "resume", "check")
+RENDER = (PACKAGE, "resume", "render")
+FIT = (PACKAGE, "resume", "fit")
+DOCTOR = (PACKAGE, "doctor", "--quick")
+
 
 def load_script(name):
     """Import one of the package's modules, so its pure functions can be tested directly.
@@ -149,16 +159,30 @@ def child_env():
 
 
 def run(module, *args):
-    """Run a module as the CLI does, in a child interpreter.
+    """Run a command as the CLI does, in a child interpreter.
 
+    `module` is a module name, or a tuple naming a `jsk` command (PARSE_GATE, RENDER, ...).
     Returns (exit_code, combined_output). `-m` rather than a file path, because these
     modules live in a package and their relative imports need the package context.
     """
+    command = list(module) if isinstance(module, tuple) else [str(module)]
     proc = subprocess.run(
-        [sys.executable, "-m", str(module)] + [str(a) for a in args],
+        [sys.executable, "-m", *command] + [str(a) for a in args],
         capture_output=True, text=True, env=child_env(),
     )
     return proc.returncode, proc.stdout + proc.stderr
+
+
+def gate(script, *args):
+    """(exit code, output) of one gate's own main(), called in this interpreter.
+
+    The gates' argument handling has no command of its own any more - `jsk resume check`
+    finds a gate's file before it runs - so a test of what the gate itself says to a bad
+    call calls it the way `jsk` does (dispatch.call_gate).
+    """
+    from jsk.adapters.cli.dispatch import call_gate   # noqa: PLC0415 - test helper
+
+    return call_gate(script, [str(a) for a in args])
 
 
 # The four ways an authored file reaches jsk: as jsk writes it, then as a Windows editor

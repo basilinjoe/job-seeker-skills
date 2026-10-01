@@ -18,4 +18,6 @@ from .application.record.scaffold import header as header
 from .application.record.scaffold import kept_name as kept_name
 
 if __name__ == "__main__":
-    sys.exit(main())
+    from .cliutil import retired_path
+
+    sys.exit(retired_path("jsk.kb", "jsk kb new"))

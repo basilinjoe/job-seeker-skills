@@ -192,6 +192,55 @@ class ResumeCheckByTarget(unittest.TestCase):
         self.assertEqual(out.count("jsk resume check <"), 3, out)
 
 
+class TheModulePathsAreRetired(unittest.TestCase):
+    """`jsk` is the only door. A module path left importable but silent would exit 0, which
+    a script reads as success, so each one names its command and exits 2."""
+
+    PATHS = {
+        "jsk.kb": "jsk kb new",
+        "jsk.posting": "jsk posting",
+        "jsk.graph.kbcli": "jsk kb",
+        "jsk.graph.match": "jsk tailor match",
+        "jsk.graph.prepare": "jsk tailor prepare",
+        "jsk.graph.timeline": "jsk app event",
+        "jsk.render.render_resume": "jsk resume render",
+        "jsk.render.fit_pages": "jsk resume fit",
+        "jsk.render.preview_templates": "jsk resume preview",
+        "jsk.gates.check_ats": "jsk resume check RESUME.pdf --only parse",
+        "jsk.gates.check_prose": "jsk resume check RESUME.tex --only prose",
+        "jsk.gates.layout": "jsk resume check RESUME.pdf --only layout",
+        "jsk.gates.letter": "jsk letter check",
+        "jsk.gates.record": "jsk resume check RESUME.json",
+        "jsk.resume.short": "jsk resume check RESUME.json",
+        "jsk.preflight": "jsk doctor",
+    }
+
+    def test_each_names_its_command_and_exits_2(self):
+        for module, command in self.PATHS.items():
+            with self.subTest(module=module):
+                proc = subprocess.run([sys.executable, "-m", module, "--help"],
+                                      capture_output=True, text=True, encoding="utf-8",
+                                      env=child_env(), timeout=300)
+                self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+                self.assertEqual(proc.stdout.count("\n"), 1, proc.stdout)
+                self.assertIn(f"python -m {module} was retired: it is {command}", proc.stdout)
+
+    def test_doctor_runs_without_pyoxigraph(self):
+        """`python -m jsk doctor` replaced `python -m jsk.preflight`, which ran on a bare
+        machine; with the engine hidden it reports it missing rather than crashing."""
+        script = ("import runpy, sys; sys.modules['pyoxigraph'] = None; "
+                  "sys.argv = ['jsk', 'doctor', '--quick']; "
+                  "runpy.run_module('jsk', run_name='__main__')")
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                                  text=True, encoding="utf-8", env=child_env(), cwd=tmp,
+                                  timeout=300)
+        out = proc.stdout + proc.stderr
+        self.assertEqual(proc.returncode, 1, out)
+        self.assertIn("FAIL  pyoxigraph", out)
+        self.assertNotIn("Traceback", out)
+
+
 class EveryVerbAnswersHelp(unittest.TestCase):
     """One spawn per noun-verb pair, plus `jsk.cli:main_console`'s module and the doctor."""
 
