@@ -1,7 +1,7 @@
 """Visual themes for the LaTeX render: palette, typeface, rhythm, hierarchy.
 
 A theme decides how the document *looks*. It cannot decide what the document
-*says* - that was settled in `resume/build.py` long before a theme is consulted, and
+*says* - that was settled in `domain/resume/plan.py` long before a theme is consulted, and
 the same resume rendered under every theme in this file extracts to the same text.
 That is the property the whole pipeline is built on, and it is what makes a
 coloured resume safe: colour lives in the drawing instructions of a PDF, never

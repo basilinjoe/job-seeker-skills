@@ -4,6 +4,10 @@ pymupdf is optional: every function here raises ImportError without it, and each
 keeps its own policy for that - the fitter exits, the renderer says "not measured", the
 preview goes without its thumbnails.
 """
+import re
+
+# The keyword emit_latex.py writes into the PDF's metadata to name the variant.
+VARIANT_KEYWORD = re.compile(r"jsk-variant:([A-Za-z0-9_-]+)")
 
 
 def available():
@@ -84,6 +88,32 @@ def keywords(path):
 
     with pymupdf.open(path) as doc:
         return (doc.metadata or {}).get("keywords") or ""
+
+
+def variant_of(pdf_path):
+    """The render variant the PDF was built as, read from its metadata rather than its file
+    name, because the name is the person's to change: "_ATS" in the stem was the only
+    marker, and a renamed file silently lost its strict check.
+
+    Args:
+        pdf_path: the PDF.
+
+    Returns:
+        "ats-maximal", "presentation", ..., or None when its metadata carries no marker or
+        it cannot be opened as a PDF - the gate itself reports that.
+
+    Raises:
+        ImportError: pymupdf is not installed - a variant nobody could read is not the
+            same answer as a variant that is not there.
+    """
+    try:
+        found = keywords(pdf_path)
+    except ImportError:
+        raise
+    except Exception:  # noqa: BLE001 - pymupdf raises its own types on a damaged PDF; no keyword then
+        return None
+    m = VARIANT_KEYWORD.search(found)
+    return m.group(1) if m else None
 
 
 def lines(path):

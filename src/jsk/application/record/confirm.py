@@ -236,7 +236,7 @@ def confirm_summary(path, answer, root, *, files, short, frozen):
         answer: the person's words.
         root: the workspace.
         files: the workspace's files (infra.files): inside, read_text, write_document.
-        short: reads a resume.json (resume.short.read).
+        short: reads a resume.json (compose.resume.read).
         frozen: what says a directory was frozen, or None (compose.timeline.frozen).
 
     Returns:

@@ -67,7 +67,8 @@ def gate(argv):
     from ....application.gates.letter import check_letter
     from ....application.gates.result import GateStopped
     from ....domain.resume.short import ShortError
-    from ....gates.letter import number_lines, read
+    from ....infra.documents import read_letter as read
+    from ..compose.gates import number_lines
     from ..compose import resume as short
     from .record import has_engine
 

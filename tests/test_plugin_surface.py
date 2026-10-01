@@ -691,9 +691,8 @@ class TextIsReadInOnePlace(unittest.TestCase):
         "jsk.infra.files": "read_text itself",
         # Deliberately lenient: a gate reads a rendered document to judge it, and a stray
         # byte in what was rendered is a finding in its own right, not a reason to stop.
-        "jsk.gates.check_ats": "reads a rendered .txt with errors=replace",
-        "jsk.gates.check_prose": "reads a rendered .tex with errors=replace",
-        "jsk.gates.letter": "reads a cover letter with errors=replace",
+        "jsk.infra.documents": "reads a rendered .txt or .tex, or a cover letter, with "
+                               "errors=replace",
     }
 
     def allowed_paths(self):

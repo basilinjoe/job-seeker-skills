@@ -16,7 +16,8 @@ from unittest import mock
 
 from fixtures import (CLEAN_RESUME, CLI, RENDER, example_short, render_module,
                       run)
-from jsk.gates import layout
+from jsk.domain.gates import layout_rules
+from jsk.adapters.cli.gates import layout
 
 tex = render_module("infra.tex")
 themes = render_module("domain.render.themes")
@@ -132,19 +133,19 @@ class Families(LayoutCase):
         self.assertFails(code, out, "2 type families: Helvetica, Times")
 
     def test_the_declared_pairs_are_circuit_and_atrium(self):
-        pairs = layout.declared_pairs()
+        pairs = layout_rules.declared_pairs()
         self.assertEqual(pairs["circuit"], {"TeXGyreHeros", "TeXGyreAdventor"})
         self.assertEqual(pairs["atrium"], {"TeXGyrePagella", "TeXGyreHeros"})
         self.assertEqual(set(pairs), {"circuit", "atrium"})
 
     def test_every_theme_family_has_a_pdf_name(self):
-        self.assertEqual(set(layout.PDF_FAMILY), set(themes.FAMILIES))
+        self.assertEqual(set(layout_rules.PDF_FAMILY), set(themes.FAMILIES))
 
     def test_family_names_normalise(self):
         for font, want in (("IHAIZV+LMRoman12-Bold", "LMRoman"), ("TeXGyreHeros-Italic",
                            "TeXGyreHeros"), ("Times-Roman", "Times"), ("Arial,BoldItalic",
                            "Arial"), ("ArialMT", "Arial"), ("LMSans10-Regular", "LMSans")):
-            self.assertEqual(layout.family(font), want, font)
+            self.assertEqual(layout_rules.family(font), want, font)
 
 
 class Tofu(LayoutCase):
@@ -153,7 +154,7 @@ class Tofu(LayoutCase):
         U+FFFD as a middle dot, so a PDF made here cannot carry one."""
         rect = mock.Mock(width=595.28, height=841.89)
         lines = [("Cut latency � by half", (72, 60, 300, 72), {"Helvetica"})]
-        fails, _, _, _ = layout.check([(rect, lines)], [], "AU")
+        fails, _, _, _ = layout_rules.check([(rect, lines)], [], "AU")
         self.assertEqual(len(fails), 1, fails)
         self.assertIn("U+FFFD", fails[0])
         self.assertIn("fix:", fails[0])
@@ -161,12 +162,12 @@ class Tofu(LayoutCase):
     def test_a_private_use_codepoint_fails(self):
         rect = mock.Mock(width=595.28, height=841.89)
         lines = [(" Led the team", (72, 60, 300, 72), {"Helvetica"})]
-        fails, _, _, _ = layout.check([(rect, lines)], [], "AU")
+        fails, _, _, _ = layout_rules.check([(rect, lines)], [], "AU")
         self.assertIn("U+E000", fails[0])
 
     def test_a_type3_font_fails(self):
         rect = mock.Mock(width=595.28, height=841.89)
-        fails, _, _, _ = layout.check([(rect, [])], ["SFRM1095"], "AU")
+        fails, _, _, _ = layout_rules.check([(rect, [])], ["SFRM1095"], "AU")
         self.assertIn("Type3", fails[0])
         self.assertIn("lmodern", fails[0])
 
@@ -264,7 +265,7 @@ class CheckOnlyLayout(LayoutCase):
             plan, _ = resume.from_path(example_short(), fmt=fmt)
             for section in plan["sections"]:
                 if section.get("heading"):
-                    self.assertIn(section["heading"], layout.SECTION_TITLES)
+                    self.assertIn(section["heading"], layout_rules.SECTION_TITLES)
 
 
 if __name__ == "__main__":

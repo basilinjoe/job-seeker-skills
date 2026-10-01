@@ -28,7 +28,7 @@ if str(SRC) not in sys.path:
 SCRIPTS = REPO_ROOT / "src" / PACKAGE      # for tests that read a module's source text
 CLI = f"{PACKAGE}.cli"
 KB = f"{PACKAGE}.kb"
-CHECK_ATS = f"{PACKAGE}.gates.check_ats"
+CHECK_ATS = f"{PACKAGE}.adapters.cli.gates.ats"
 FIT_PAGES = f"{PACKAGE}.domain.render.fit_levers"
 
 # The commands the tests drive, as the argv of `python -m jsk ...`: `jsk` is the only door
@@ -228,7 +228,7 @@ def write_awkward(path, text, form):
 PLUGIN = REPO_ROOT / "plugins" / "jsk"
 SCHEMA_DIR = SRC / PACKAGE / "data" / "schema"
 RENDER_RESUME = f"{PACKAGE}.adapters.cli.render"
-CHECK_PROSE = f"{PACKAGE}.gates.check_prose"
+CHECK_PROSE = f"{PACKAGE}.domain.gates.prose_rules"
 PREFLIGHT = f"{PACKAGE}.preflight"
 # The shipped example workspace's short resume.json: what `jsk doctor` renders, and what
 # a render test reaches for when any resume will do. (example.resume.json, the full URS

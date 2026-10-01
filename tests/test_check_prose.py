@@ -445,7 +445,7 @@ class TemplateMarkupIsNotProse(ProseCase):
             r"\hypersetup{hidelinks,pdftitle={Jane Doe - Resume},pdfauthor={Jane Doe}}"
             "\n\\hyphenpenalty=10000\n\\begin{document}")
         path.write_text(text, encoding="utf-8")
-        texts = [t for _, t in cp.read_tex(path)]
+        texts = [t for _, t in load_script("jsk.infra.documents").read_tex(path)]
         self.assertFalse([t for t in texts if "pdftitle" in t or "10000" in t], texts)
 
 

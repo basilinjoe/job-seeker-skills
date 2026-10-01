@@ -67,7 +67,7 @@ def gate(args):
     from ....application.gates.record import record_gate
     from ....application.gates.result import GateStopped
     from ....domain.resume.short import ShortError
-    from ....gates.record import findings
+    from ..compose.gates import findings
     from ....infra.oxigraph import record as R
     from ..compose import resume as short
 

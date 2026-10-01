@@ -288,12 +288,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   paths.py                          where the packaged schema lives - stated once
   kb.py                             `jsk kb new` - hands over to adapters/cli/kb/new.py (the documented path)
   posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
-  gates/                            the mechanical gates `jsk resume check` and `jsk letter check` run
-    record.py                       the record gate - resume.json and the bullets it selects
-    numbers.py  report.py           the untraced-number check; one way to print a finding
-    check_ats.py                    the parse gate        check_prose.py    the prose gate
-    layout.py                       the layout gate - fonts, tofu, stranded headings, dates, paper
-    letter.py                       the letter check - a cover letter's length, prose and numbers
   preflight.py                      `jsk doctor`: what this machine can do
   domain/                           the innermost ring: no files, argv, environment or clock
     naming.py                       a record graph's short name and its IRI, the same in memory and on disk
@@ -353,6 +347,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     applications.py                 an application's folder and its record graphs in the store
   application/                      the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
+    gates/__init__.py               the four mechanical gates, and the fifth, which a person runs
     gates/numbers.py                the untraced-number check over a loaded career
     tailor/match_text.py            the match as markdown; its sections, shared with the gaps draft
     tailor/match_posting.py         one application's posting matched against the career, as plain data
@@ -366,7 +361,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/ats.py                    the parse gate: a document's text extracted, then judged
     gates/prose.py                  the prose gate: a document's paragraphs read, then judged
     gates/layout.py                 the layout gate: a PDF's region and budget found, its lines judged
-    gates/record.py                 the record gate: a resume.json's career loaded, every finding asked
+    gates/record.py                 the record gate: a resume.json's career loaded, every finding asked of it
     gates/letter.py                 the letter check: its length and prose judged, its numbers traced
     gates/run_gates.py              `jsk resume check DIR`: the four gates over a render, the render gate said last
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
@@ -409,6 +404,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     tex.py                          the TeX engine a render's .tex is compiled with (moved from render/)
     posting_sources.py              a board's JSON over the network; a .docx, .html or text file
     outputs.py                      a render's files written, its scratch directories, a move
+    documents.py                    what the gates judge, read leniently: a rendered .txt or .tex, a cover letter
   adapters/                         the driving side: argv parsed, a use case run, its result printed
     cli/main.py                     the dispatcher: seven nouns, each verb run in process, the retired names
     cli/dispatch.py                 a verb's module found and its main() called, contained
@@ -435,6 +431,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/render.py           `jsk resume render`'s TeX engine and PDF reader; the posting's employer
     cli/compose/fit.py              `jsk resume fit`'s TeX engine, looked up where a test patches it
     cli/compose/preview.py          `jsk resume preview`'s TeX engine, looked up where a test patches it
+    cli/compose/gates.py            the gates' career reads and its log's state bound; a resume.json's region and budget
     cli/kb/__init__.py              `jsk kb`: the verb table, its flags, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
     cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG
@@ -511,33 +508,32 @@ Both leave out the shared helpers `cliutil` and `paths`, which every CLI module 
 
 | Group | Targets outside | Imports inside | Verdict |
 |---|---|---|---|
-| `render/`: rendering, preview and the page fitter, over the plan→document pipeline | **3**, all lazy and all from the two CLIs: `resume.build`, `resume.short`, `cli` (`frozen_refusal`) | 11 | **made** |
-| `gates/`: record, parse, prose, layout, letter | **11**: six `graph/` modules, three `resume/`, two `render/`. All lazy except `record.py`'s import of `graph.ontology`, which is standard library only | 10 | **fails the test today** (below) |
+| `render/`: rendering, preview and the page fitter, over the plan→document pipeline | **3**, all lazy and all from the two CLIs: `resume.build`, `resume.short`, `cli` (`frozen_refusal`) | 11 | **made**, and gone since: its modules are in the rings (see "The renderer, across the rings") |
+| `gates/`: record, parse, prose, layout, letter | **11**: six `graph/` modules, three `resume/`, two `render/`. All lazy except `record.py`'s import of `graph.ontology`, which is standard library only | 10 | **failed the test** (below), and gone since: the rules are `domain/gates/`, the runners `application/gates/` (Ruling 1 of the onion design) |
 | `graph/`: the career record, from format to assessment | **7** when measured | 202 | **made**, and gone since: its modules are in the rings (see "The career record, across the rings") |
-| `resume/`: the short file, the career as read for a resume, the plan builder | **8**, into `graph/` and `render/` | 4 | **made as the seam**, not by this test: it is the one place the career meets the renderer, and keeping that join in one package is what keeps `graph/` and `render/` from importing each other |
+| `resume/`: the short file, the career as read for a resume, the plan builder | **8**, into `graph/` and `render/` | 4 | **made as the seam**, not by this test: it is the one place the career meets the renderer, and keeping that join in one package is what keeps `graph/` and `render/` from importing each other. Gone since: its modules are in the rings (see "The resume, across the rings") |
 
-`gates/` passed the test when it held three gates. The record gate and the letter check have
-since grown into readers of the career, and between them they import from eleven modules
-outside the package, against ten imports among the gates themselves. The package is still the set `jsk resume check` and
-`jsk letter check` run, but by the rule above that is a theme, not a reason. The honest options are to
-accept `gates/` as a named exception, like `resume/`, or to move the two career-reading gates
-beside what they read. Neither has been decided.
+`gates/` passed the test when it held three gates. The record gate and the letter check had
+since grown into readers of the career, and between them they imported from eleven modules
+outside the package, against ten imports among the gates themselves. The rings settled it: the
+rules are `domain/gates/`, the use cases `application/gates/`, and the career's reads come in
+through `adapters/cli/compose/gates.py`.
 
 The reason for measuring applies to anything proposed here: four modules that all operate on the same
 noun and never import each other would gain a boundary crossing per edge and buy nothing but a
 directory named after what they have in common.
 
-`cli.SUBPACKAGE` is the one map from a documented script name to where its module lives, and
-`tests/fixtures.load_script` reads that map rather than keeping a second copy.
+`dispatch.ADAPTERS` is the one map from a documented script name to the adapter that serves it,
+and `tests/fixtures.load_script` reads that map rather than keeping a second copy.
 
 ## Where do I change X
 
 | To change | Edit | And also |
 |---|---|---|
-| What the parse gate rejects | `src/jsk/gates/check_ats.py` | `references/ats-rules.md`, `tests/test_check_ats.py` |
-| What the prose gate rejects | `src/jsk/gates/check_prose.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
-| What the layout gate rejects | `src/jsk/gates/layout.py` | `docs/SCRIPTS.md`, `tests/test_layout.py` |
-| What makes a `resume.json` fail | `src/jsk/gates/record.py`, `src/jsk/domain/resume/short.py` (shape, ids) | `references/resume-format.md`, `tests/test_record_gate.py`, `tests/test_short.py` |
+| What the parse gate rejects | `src/jsk/domain/gates/ats_rules.py` | `references/ats-rules.md`, `tests/test_check_ats.py` |
+| What the prose gate rejects | `src/jsk/domain/gates/prose_rules.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
+| What the layout gate rejects | `src/jsk/domain/gates/layout_rules.py` | `docs/SCRIPTS.md`, `tests/test_layout.py` |
+| What makes a `resume.json` fail | `src/jsk/application/gates/record.py`, `src/jsk/domain/resume/short.py` (shape, ids) | `references/resume-format.md`, `tests/test_record_gate.py`, `tests/test_short.py` |
 | A key in `resume.json` | `short.KEYS` in `src/jsk/domain/resume/short.py` | `references/resume-format.md`, `domain/resume/plan.py`, `export.short_file` |
 | **What content is selected** | `src/jsk/domain/resume/plan.py` | never an emitter; `tests/test_build.py` |
 | **How a document looks** | `src/jsk/domain/render/emit_*.py` | never `plan.py` |
@@ -552,7 +548,7 @@ directory named after what they have in common.
 | A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `application/posting/build.py` and `application/tailor/check_gaps.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
 | What the analyst may write | `domain/record/decisions.py` (`decisions.txt`), `domain/assessment/overlay.py` (`gaps.txt`) | the checks in `domain/posting/decide.py` and `domain/assessment/fold.py`; `agents/jsk-tailor-analyst.md` |
 | How the career's projects are ranked for a posting | `rank` in `src/jsk/domain/matching/rank.py`; the weights in `src/jsk/domain/matching/scoring.py` | `cover` in `cover.py` beside it, and `src/jsk/domain/selection/select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
-| What the record gate checks | `src/jsk/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
+| What the record gate checks | `src/jsk/application/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
 | What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |

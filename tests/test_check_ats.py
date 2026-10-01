@@ -350,7 +350,7 @@ class TheVariantIsInTheMetadata(CheckATSCase):
 
     def setUp(self):
         super().setUp()
-        self.variant_of = load_script(CHECK_ATS).variant_of
+        self.variant_of = load_script("jsk.infra.pdf").variant_of
 
     def pdf_with_keywords(self, keywords):
         import pymupdf

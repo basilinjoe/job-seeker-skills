@@ -6,7 +6,7 @@ text is folded to ASCII. The emitters receive finished strings and decide nothin
 the PDF and the plain text built from one resume cannot disagree.
 
 What the plan is built under - the region profile and today's date - comes in as
-arguments: the profiles are data files and the date is the clock, and resume/build.py
+arguments: the profiles are data files and the date is the clock, and adapters/cli/compose/resume.py
 binds the real ones.
 """
 from .. import ontology as O

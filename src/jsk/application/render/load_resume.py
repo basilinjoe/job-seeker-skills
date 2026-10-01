@@ -2,7 +2,7 @@
 
 Loaded once, so a render building two variants reads the career once. Where the file's
 text comes from, how a workspace is found and how a career is loaded are the caller's to
-give; resume/short.py and resume/build.py bind the real ones.
+give; adapters/cli/compose/resume.py binds the real ones.
 """
 import os
 from dataclasses import dataclass

@@ -50,16 +50,7 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 KNOWN_EDGES = {
     # The documented `python -m` entry points hand over to their adapters until P5
     # deletes them (Ruling 4).
-    # The gates that read a resume.json take its bound reads from the composition root
-    # until the gates area moves into the rings.
-    ("jsk.gates.layout", "jsk.adapters.cli.compose.resume"): {"from_path"},
-    ("jsk.gates.record", "jsk.adapters.cli.compose.resume"): {"read"},
     ("jsk.posting", "jsk.adapters.cli.posting"): {"main"},
-    ("jsk.gates.check_ats", "jsk.adapters.cli.gates.ats"): {"main"},
-    ("jsk.gates.check_prose", "jsk.adapters.cli.gates.prose"): {"main"},
-    ("jsk.gates.layout", "jsk.adapters.cli.gates.layout"): {"main"},
-    ("jsk.gates.record", "jsk.adapters.cli.gates.record"): {"main"},
-    ("jsk.gates.letter", "jsk.adapters.cli.gates.letter"): {"main"},
 }
 
 # (module, what it does that its ring forbids).

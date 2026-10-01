@@ -32,7 +32,8 @@ def gate(args):
     """
     from ....application.gates.prose import check_prose
     from ....application.gates.result import GateStopped, Unreadable
-    from ....gates.check_prose import read_tex, read_txt
+    from ....infra.documents import read_tex
+    from ....infra.documents import read_txt_paragraphs as read_txt
 
     if wants_help(args):
         # Before the path is read: `--help` used to be looked up as a file and

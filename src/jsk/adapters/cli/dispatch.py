@@ -1,9 +1,8 @@
-"""How `jsk` runs a command in this interpreter: the module behind it found, its main() called.
+"""How `jsk` runs a command in this interpreter: the adapter behind it found, its main() called.
 
-Until the entry-point modules go (P6 of the onion design), the real ports of some are
-bound in them (jsk.render.render_resume, ...), and the tests' patches land there. So a
-verb still reaches its adapter through the module that binds it, by the documented script
-name that module had; a script that is its adapter now is named whole in ADAPTERS.
+Each verb is named by the documented script name its command had - what every comment in the
+codebase and every shell history call it - and ADAPTERS says which adapter module serves it,
+so the file moves and the name does not. The adapter binds its own ports from compose/.
 """
 import contextlib
 import importlib
@@ -15,27 +14,8 @@ from ...cliutil import utf8_stdout, wants_help
 
 PACKAGE = __name__.split(".")[0]
 
-# Which subpackage each script lives in. The tables are keyed by the documented script
-# names - what every comment in the codebase and every shell history call them - so the
-# file moves and the name does not.
-#
-# Both groupings were measured before they were made, because a package whose members
-# do not import each other is a folder, not a module:
-#
-#   render/ rendering, the preview and the page fitter, over the record->document
-#           pipeline they drive. One edge leaves it, and it is lazy.
-#   gates/  the record, parse and prose gates. The record gate (record.py) reads the
-#           graph, lazily; inside, check_prose borrows numbers.py's numeral detector.
-SUBPACKAGE = {
-    "check_ats.py": "gates",
-    "check_prose.py": "gates",
-    "record.py": "gates",
-    "letter.py": "gates",
-    "layout.py": "gates",
-}
-
-# The scripts that are their adapter now: the documented name kept, the module named whole,
-# since the adapter is called for the noun it serves and not for the old file.
+# The adapter module each documented script name is served by, under the package. A name
+# not here is a root module of its own (preflight.py).
 ADAPTERS = {
     "kbcli.py": "adapters.cli.kb",
     "timeline.py": "adapters.cli.event",
@@ -44,6 +24,11 @@ ADAPTERS = {
     "render_resume.py": "adapters.cli.render",
     "preview_templates.py": "adapters.cli.preview",
     "fit_pages.py": "adapters.cli.fit",
+    "check_ats.py": "adapters.cli.gates.ats",
+    "check_prose.py": "adapters.cli.gates.prose",
+    "record.py": "adapters.cli.gates.record",
+    "letter.py": "adapters.cli.gates.letter",
+    "layout.py": "adapters.cli.gates.layout",
 }
 
 # The command each script answers to, for the hint that says how to run one by hand.
@@ -68,13 +53,10 @@ def module_for(script):
         script: e.g. `check_ats.py`.
 
     Returns:
-        Its dotted name, e.g. `jsk.gates.check_ats`, or `jsk.adapters.cli.kb` for `kbcli.py`.
+        Its dotted name, e.g. `jsk.adapters.cli.gates.ats`, or `jsk.preflight` for
+        `preflight.py`.
     """
-    if script in ADAPTERS:
-        return f"{PACKAGE}.{ADAPTERS[script]}"
-    stem = script[:-3]
-    where = SUBPACKAGE.get(script)
-    return f"{PACKAGE}.{where}.{stem}" if where else f"{PACKAGE}.{stem}"
+    return f"{PACKAGE}.{ADAPTERS.get(script, script[:-3])}"
 
 
 # The scripts whose main() takes the whole argv, program name first, the way
@@ -95,7 +77,7 @@ def run_in_process(script, args):
     its progress.
 
     Args:
-        script: the documented script name, a key of SUBPACKAGE or a root module's.
+        script: the documented script name, a key of ADAPTERS or a root module's.
         args: its arguments alone.
 
     Returns:

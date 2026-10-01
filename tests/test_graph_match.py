@@ -399,8 +399,8 @@ class RecordFaults(unittest.TestCase):
         # prj_portal carries nothing Contoso asks for, so no draft for it selects the bullet;
         # `jsk kb check` asks about it across the career.
         s = edited("Built the AngularJS front end.", "Built the AngularJS front end for 12 teams.")
-        from jsk.gates import numbers
-        whole = numbers.untraced(s, [O.K + "ach_portal_frontend"], TODAY)
+        from jsk.adapters.cli.compose import gates
+        whole = gates.untraced(s, [O.K + "ach_portal_frontend"], TODAY)
         self.assertTrue(whole)                                             # it is a fault
         qs, _ = self.faults(s)
         self.assertNotIn("k:ach_portal_frontend", [q["bullet"] for q in qs])

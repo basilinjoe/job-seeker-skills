@@ -9,7 +9,6 @@ callers and tests reach through it are kept here too.
 import sys
 
 from .adapters.cli.dispatch import NO_RECORD as NO_RECORD
-from .adapters.cli.dispatch import SUBPACKAGE as SUBPACKAGE
 from .adapters.cli.dispatch import WHOLE_ARGV as WHOLE_ARGV
 from .adapters.cli.dispatch import call_gate as call_gate
 from .adapters.cli.dispatch import module_for as module_for

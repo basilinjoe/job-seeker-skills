@@ -51,7 +51,7 @@ GRAPH_KB_FILENAME = "kb.ttl"
 # on a machine without the engine - the engine is its own check below.
 MODULES = ["cli", "cliutil", "paths", "domain", "ports", "application", "infra", "adapters"]
 GRAPH_MODULES = ["domain.record", "application.record", "infra.oxigraph"]
-GATE_MODULES = ["gates"]
+GATE_MODULES = ["domain.gates", "application.gates"]
 # The renderer's ring packages: the plan builder, the emitters and the use cases that drive
 # them. A render with no builder is as broken as one with no emitter, so they are one check.
 RENDER_MODULES = ["domain.resume", "domain.render", "application.render"]
@@ -210,7 +210,7 @@ def gather(kb_arg=None):
     checks.append(Check(
         "gates package", not missing_gates,
         disables=f"missing: {', '.join(missing_gates)}" if missing_gates
-                 else "", detail=os.path.join(HERE, "gates")))
+                 else "", detail=os.path.join(HERE, "domain", "gates")))
 
     missing_schema = [f for f in SCHEMA_FILES if not os.path.exists(os.path.join(SCHEMA, f))]
     missing_prof = [p for p in PROFILES

@@ -93,9 +93,9 @@ def contained(script, args, capture=True):
         (exit code, output, outcome): the outcome is what the gate returned - a
         GateResult, the GateStopped it stopped with, or None.
     """
-    name = f"{__name__.split('.')[0]}.gates.{script[:-3]}"
+    name = f"{__package__}.{ADAPTERS[script]}"
     try:
-        module = importlib.import_module(f"{__package__}.{ADAPTERS[script]}")
+        module = importlib.import_module(name)
     except ImportError as exc:
         return 2, (f"FAIL  cannot load {script}: {exc}\n"
                    f"fix:  the install is incomplete - expected the module {name}\n"), None
@@ -382,7 +382,7 @@ def strict_for(path):
         True for the ATS-maximal variant. Reads the PDF, and maybe the .tex beside it.
     """
     from ....application.gates.run_gates import strict_for as held
-    from ....gates.check_ats import VARIANT_KEYWORD, variant_of
+    from ....infra.pdf import VARIANT_KEYWORD, variant_of
     from ....infra.files import Unreadable, read_text
 
     def pdf_variant(pdf):

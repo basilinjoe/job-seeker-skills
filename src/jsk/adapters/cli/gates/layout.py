@@ -96,7 +96,7 @@ def gate(argv):
         return code, None
     from ....application.gates.layout import check_layout
     from ....application.gates.result import GateStopped, Unreadable
-    from ....gates.layout import from_record
+    from ..compose.gates import from_record
     from ....infra import pdf
 
     path = pdf_of(argv[0])

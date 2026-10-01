@@ -14,7 +14,7 @@ stopped checking for them per render and a golden-file test guards this file
 instead.
 
 How the document *looks* moved to `themes.py`; what it *says* was settled in
-`resume/build.py`. This module is the seam: it walks the plan and hands each piece to
+`domain/resume/plan.py`. This module is the seam: it walks the plan and hands each piece to
 a command the theme defined. That split is why a theme cannot change a word, and
 why `tests/test_themes.py` can prove it by extracting text from five differently
 coloured PDFs and finding one document.

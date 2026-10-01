@@ -1,6 +1,6 @@
 """Region profiles: a market's conventions as data.
 
-A profile says what jsk.resume.build needs to know about a market and nothing else: its
+A profile says what domain/resume/plan.py needs to know about a market and nothing else: its
 paper size (`region`), the default page budget, which sections render in what order,
 whether the Indian declaration closes the page, and whether the right to work goes on
 the header line. The forbidden/expected/private-field gate that sat here went with the

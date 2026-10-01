@@ -37,7 +37,7 @@ def gate(args):
     """
     from ....application.gates.ats import check_ats
     from ....application.gates.result import GateStopped, Unreadable
-    from ....gates.check_ats import read_txt
+    from ....infra.documents import read_txt
     from ....infra.pdf import read_pdf
 
     if wants_help(args):

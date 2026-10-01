@@ -16,7 +16,8 @@ from pathlib import Path
 from unittest import mock
 
 import careerkit
-from jsk.gates import numbers, record
+from jsk.adapters.cli.compose import gates
+from jsk.domain.gates import numbers
 from jsk.domain import ontology as O
 from jsk.infra import tex
 
@@ -52,7 +53,7 @@ class GateCase(unittest.TestCase):
     def findings(self, doc=None, edits=()):
         doc = doc or short()
         root, _ = self.workspace(edits, doc)
-        return record.findings(doc, careerkit.store(root), TODAY)
+        return gates.findings(doc, careerkit.store(root), TODAY)
 
     def reworded(self, old, new):
         return [(f'"{old}"', f'"{new}"')]
@@ -64,7 +65,7 @@ class Untraced(GateCase):
 
     def faults(self, ident, text=None):
         edits = self.reworded(self.original(ident), text) if text else ()
-        return numbers.untraced(self.store(edits), [K + ident], TODAY)
+        return gates.untraced(self.store(edits), [K + ident], TODAY)
 
     @staticmethod
     def original(ident):
@@ -128,21 +129,21 @@ class Untraced(GateCase):
         # From test_graph_export's Qualified: "about 6-8", as the person stated it.
         ranged = (self.TEAM_V1, self.TEAM_V1 + " j:upper 8 ; j:qualifier j:about ;")
         s = self.store([ranged] + self.reworded(TEAM, "Led a team of 6-8 engineers."))
-        self.assertEqual(numbers.untraced(s, [K + "ach_events_team"], TODAY), [])
+        self.assertEqual(gates.untraced(s, [K + "ach_events_team"], TODAY), [])
         s = self.store([ranged] + self.reworded(TEAM, "Led a team of 9 engineers."))
-        [f] = numbers.untraced(s, [K + "ach_events_team"], TODAY)
+        [f] = gates.untraced(s, [K + "ach_events_team"], TODAY)
         self.assertEqual(f.numbers, ["9"])
 
     def test_a_metric_with_no_current_version_traces_nothing(self):
         # From test_graph_export's Replaced: every version closed, the number is the
         # bullet's alone - the export used to leave the metric off so the gate failed it.
         closed = (self.TEAM_V1, self.TEAM_V1 + ' j:validUntil "2026-01-01"^^xsd:date ;')
-        [f] = numbers.untraced(self.store([closed]), [K + "ach_events_team"], TODAY)
+        [f] = gates.untraced(self.store([closed]), [K + "ach_events_team"], TODAY)
         self.assertEqual(f.bullet, K + "ach_events_team")
 
     def test_order_and_unknown_iris(self):
         s = self.store(self.reworded(TEAM, "Led 8 engineers."))
-        faults = numbers.untraced(s, [K + "ach_identity_sso", K + "ach_nothing",
+        faults = gates.untraced(s, [K + "ach_identity_sso", K + "ach_nothing",
                                       K + "ach_events_team"], TODAY)
         self.assertEqual([f.bullet for f in faults], [K + "ach_events_team"])
 
@@ -189,7 +190,7 @@ class Career(GateCase):
         s = self.store()
         apart = SimpleNamespace(kind="out-of-sync", detail="r2 and r1", log_revision=1)
         with mock.patch.object(R, "state", return_value=apart):
-            fails, _ = record.findings(short(), s, TODAY)
+            fails, _ = gates.findings(short(), s, TODAY)
         [line] = fails
         self.assertTrue(line.startswith("career-unlogged kb - the career in career/store/ is "
                                         "not what its log last recorded (out-of-sync"), line)
@@ -204,7 +205,7 @@ class Career(GateCase):
         from jsk.infra.oxigraph import record as R
         root, _ = self.workspace()
         R.write_graphs(root, {"kb": None})
-        fails, _ = record.findings(short(), careerkit.store(root), TODAY)
+        fails, _ = gates.findings(short(), careerkit.store(root), TODAY)
         [line] = fails
         self.assertTrue(line.startswith("career-missing career/store/"), line)
 

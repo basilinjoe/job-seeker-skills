@@ -13,7 +13,9 @@ from pathlib import Path
 
 import careerkit
 from jsk import cli
-from jsk.gates import letter
+from jsk.domain.gates import letter_rules
+from jsk.adapters.cli.gates import letter
+from jsk.infra import documents
 
 BULLETS = ["ach_events_latency", "ach_events_team", "ach_identity_sso", "ach_data_ingestion"]
 
@@ -127,8 +129,8 @@ class Length(LetterCase):
 
     def test_the_salutation_and_closing_are_not_counted(self):
         text = "Dear Hiring Manager,\n\nOne two three.\n\nBest regards,\nTest Person\n"
-        self.assertEqual(letter.length_lines(text)[1], 3)
-        self.assertEqual(letter.length_lines("One two three.\n")[1], 3)
+        self.assertEqual(letter_rules.length_lines(text)[1], 3)
+        self.assertEqual(letter_rules.length_lines("One two three.\n")[1], 3)
 
     def test_a_bom_does_not_hide_the_salutation(self):
         """Notepad's UTF-8 starts the file with U+FEFF, which strip() keeps: the salutation
@@ -136,10 +138,10 @@ class Length(LetterCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp, "cover-letter.txt")
             path.write_bytes(b"\xef\xbb\xbfDear Hiring Manager,\r\n\r\nOne two three.\r\n")
-            self.assertEqual(letter.length_lines(letter.read(path))[1], 3)
+            self.assertEqual(letter_rules.length_lines(documents.read_letter(path))[1], 3)
 
     def test_a_reader_counts_hyphenated_and_suffixed_words_once(self):
-        self.assertEqual(letter.length_lines("Event-driven, 40K users, 62% faster.")[1], 5)
+        self.assertEqual(letter_rules.length_lines("Event-driven, 40K users, 62% faster.")[1], 5)
 
 
 class Prose(LetterCase):
