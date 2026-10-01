@@ -86,10 +86,10 @@ changeset to a file for later.
 | `jsk posting fetch <url>\|<file> <app-dir>` | a job board's posting, or a `.docx`/`.html`/`.txt`, as `posting.md` |
 | `jsk tailor match <app-dir>` | requirements matched through the vocabulary, ranked, questions |
 | `jsk tailor prepare <app-dir> [--draft-gaps]` | the match and all an assessment reads, one digest |
-| `jsk resume check <resume.json>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
+| `jsk resume check <resume.json>\|<stem>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
 | `jsk resume render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex` and PDF |
 | `jsk resume preview <resume.json> --out DIR` | every template, with page counts |
-| `jsk resume ship <resume.json> --out DIR [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
+| `jsk resume ship <resume.json> --out DIR\|<stem> [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
 | `jsk resume fit <resume.tex> --target-pages 2` | fits the render to a page budget |
 | `jsk letter check <letter> --record R` | a cover letter's words and numbers |
 | `jsk app freeze <app-dir> --submitted DATE\|false --channel TEXT` | records what was sent, if the gates pass |

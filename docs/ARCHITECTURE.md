@@ -414,6 +414,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     render/render_resume.py         one render: plans built, files written, the PDF compiled and measured
     render/fit_pages.py             a .tex fitted to its budget: each lever staged, compiled, measured
     render/preview_templates.py     one resume.json in every template, rendered once each and compiled at once
+    render/selection.py             a graph-native resume's selection: select, update, read, confirm; a target's ref
     gates/__init__.py               the four mechanical gates, and the fifth, which a person runs
     gates/result.py                 what a gate returns: its findings, or why it stopped
     gates/numbers.py                the untraced-number check over a loaded career
@@ -493,6 +494,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
     cli/compose/native.py           a graph-native application's use cases bound, each write in its own turn
     cli/compose/career.py           the kb verbs' reads and logged writes as values, unprinted: what the MCP tools return
+    cli/compose/selection.py        a selection's use cases bound; a target named on the command line; a ship by target
     mcp/__init__.py                 `jsk mcp`: stdlib only, so a plain install names the missing extra and exits 2
     mcp/server.py                   the eighteen MCP tools: each a compose call, its result JSON, a refusal its findings
     mcp/schemas.py                  the batch rows the tools take (requirement, drop, verdict, ask), typed for the schema

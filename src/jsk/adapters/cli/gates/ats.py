@@ -66,13 +66,17 @@ def gate(args):
     if not args:
         print("usage: jsk resume check resume.pdf | resume.txt --only parse [--strict]")
         return 2, None
+    from ....application.render.selection import parse_ref, shown_name
+
     path = args[0]
     strict = "--strict" in args
-    if not os.path.exists(path):
+    # A graph-native target's ref is a record as a resume.json is, with no file to find.
+    selected = parse_ref(path) is not None
+    if not selected and not os.path.exists(path):
         print(f"file not found: {path}")
         return 2, None
-    if path.lower().endswith(".json"):
-        name = f"plain text of {os.path.basename(path)} (in memory)"
+    if selected or path.lower().endswith(".json"):
+        name = f"plain text of {shown_name(path)} (in memory)"
         try:
             text = plan_text(path)
         except ShortError as err:

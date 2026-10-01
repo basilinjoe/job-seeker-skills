@@ -69,7 +69,9 @@ def refused(argv):
     if pages_flag is not None and not pages_flag.isdigit():
         print(f"--pages needs a whole number of pages, got {pages_flag!r}")
         return 2
-    if record is not None and not os.path.isfile(record):
+    from ....application.render.selection import parse_ref
+
+    if record is not None and not os.path.isfile(record) and not parse_ref(record):
         print(f"not a record file: {record}")
         print("fix:  --record takes the resume.json the PDF rendered from")
         return 2

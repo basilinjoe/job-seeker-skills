@@ -41,7 +41,8 @@ def company_of(record_path, store=None):
     the file with no company rather than stopping the render.
 
     Args:
-        record_path: the resume.json.
+        record_path: the resume.json, or a graph-native target's ref, which sits in the
+            application's directory as the file did.
         store: the workspace the render already loaded, so this costs one SELECT over the
             posting graph and no second load; None loads it.
 

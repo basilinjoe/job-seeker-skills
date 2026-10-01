@@ -3,6 +3,9 @@
 Each step's output is what its own command prints - the record gate's, `jsk resume render`'s,
 `jsk resume fit`'s, each gate's - captured as it runs, and the summary and --json are what
 `jsk resume check` prints over its steps.
+
+A graph-native target - `<stem>` or `resumes/<name>` - ships from its selection graph into
+its own directory, with no --out (compose.selection.ref_for reads the positional).
 """
 import contextlib
 import io
@@ -12,7 +15,9 @@ import os
 from .cliutil import parse_flags, wants_help
 
 SHIP_USAGE = ("usage: jsk resume ship <resume.json> --out DIR [--ats-max] "
-              "[--template N] [--pages N] [--no-fit] [--json]")
+              "[--template N] [--pages N] [--no-fit] [--json]\n"
+              "       jsk resume ship <stem>|resumes/<name> [--ats-max] [--template N] "
+              "[--pages N] [--no-fit] [--json]")
 
 SHIP_VALUE_FLAGS = ("--out", "--template", "--pages")
 
@@ -25,7 +30,8 @@ def called(args):
 
     Returns:
         (record, its flags, the page budget or None), or 0 for --help, 1 for a frozen
-        application and 2 for a call error, having printed why.
+        application and 2 for a call error, having printed why. A graph-native target
+        (`<stem>`, `resumes/<name>`) comes back as its ref, its directory as --out.
     """
     from ...application.guards import (VIEW_GONE, frozen_refusal, record_refusal,
                                        view_refusal)
@@ -48,6 +54,19 @@ def called(args):
         print(SHIP_USAGE)
         return 2
     record = positional[0]
+    from .compose.selection import ref_for
+
+    ref = ref_for(record, dirs=True)
+    if ref is not None:
+        # A graph-native target ships into its own directory (Ruling 12 of the graph-native
+        # plan): `applications/<stem>/` or `resumes/<name>/`, made by the render.
+        home = os.path.dirname(ref)
+        out = flags.get("--out")
+        if out and os.path.normcase(os.path.abspath(out)) != os.path.normcase(home):
+            print(f"--out {out}: {record} renders into its own directory, {home}")
+            print("fix:  drop --out")
+            return 2
+        record, flags["--out"] = ref, home
     refusal = record_refusal(record)
     if refusal:
         print("\n".join(refusal))

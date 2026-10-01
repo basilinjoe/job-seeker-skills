@@ -3,6 +3,12 @@
 Loaded once, so a render building two variants reads the career once. Where the file's
 text comes from, how a workspace is found and how a career is loaded are the caller's to
 give; adapters/cli/compose/resume.py binds the real ones.
+
+A graph-native target comes as its ref (application/render/selection.py): the dict is
+then its selection graph's, read from the career just loaded, and the checks are the
+same. A resume.json inside a graph-native application is refused, naming the tool that
+changes its selection (Ruling 11 of docs/superpowers/plans/
+2026-10-01-graph-native-applications-mcp.md); a legacy one reads as it always has.
 """
 import os
 from dataclasses import dataclass
@@ -84,25 +90,61 @@ def career_of(root, load_store):
         raise ShortError(str(e), e.fix) from None
 
 
-def load_resume(path, *, files, find_root, load_store):
+def selected_doc(path, store, root, selections):
+    """The selection a target's ref names, as resume.json's dict.
+
+    Args:
+        path: the ref.
+        store: its workspace, loaded.
+        root: that workspace's root.
+        selections: the selection's bound ports (compose.selection.Ports).
+
+    Raises:
+        ShortError: no selection, a legacy application or one with no posting - its fix
+            the tool or verb that answers it.
+    """
+    from ...domain.posting.errors import Refused
+    from .selection import doc_in, parse_ref
+
+    try:
+        return doc_in(store, root, (parse_ref(path) or ("", ""))[1], selections)
+    except Refused as e:
+        raise ShortError(str(e), (e.fix or "").removeprefix("fix:").strip()) from None
+
+
+def load_resume(path, *, files, find_root, load_store, selections=None):
     """The resume.json at `path` and the career it is built from, checked.
 
     Args:
-        path: the resume.json.
+        path: the resume.json, or a target's ref (selection.ref).
         files: reads it (ports.files.TextFiles).
         find_root: finds its workspace (infra.files.find_root).
         load_store: loads that workspace (compose.record.load).
+        selections: the selection's bound ports (compose.selection.Ports), which a ref
+            needs; None reads only files.
 
     Returns:
-        A LoadedResume. Reads the file and the career.
+        A LoadedResume. Reads the file, or the selection graph, and the career.
 
     Raises:
-        ShortError: a file that cannot be read, sits outside a workspace, or fails its
-            shape or id checks.
+        ShortError: a file that cannot be read, sits outside a workspace, lies inside a
+            graph-native application, or fails its shape or id checks; a ref with no
+            selection.
     """
-    doc = read_short(path, files)
-    root = workspace_of(path, find_root)
-    store = career_of(root, load_store)
+    from .selection import file_refusal, parse_ref
+
+    ref = parse_ref(path) if selections is not None else None
+    if ref is not None:
+        root = ref[0]
+        store = career_of(root, load_store)
+        doc = selected_doc(path, store, root, selections)
+    else:
+        doc = read_short(path, files)
+        root = workspace_of(path, find_root)
+        store = career_of(root, load_store)
+        refused = file_refusal(path, root, store)
+        if refused:
+            raise ShortError(*refused)
     fails = shape(doc) or ids(doc, store)
     if fails:
         raise ShortError(f"{path}: " + "; ".join(fails),

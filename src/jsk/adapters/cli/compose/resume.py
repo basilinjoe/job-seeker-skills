@@ -4,15 +4,21 @@ loaded, and the render plan built under the shipped region profiles.
 The file's checks are domain/resume/short.py's, the loading application/render/
 load_resume.py's and the plan domain/resume/plan.py's; this module hands them the disk, the
 store and the clock. Nothing is imported until a call.
+
+Wherever a resume.json path goes, a graph-native target's ref may go instead
+(application/render/selection.py): `read` gives its selection graph's dict and `workspace`
+the root the ref names, so the record gate, the render and the gates take a target with no
+change of their own.
 """
 import datetime
 
 
 def read(path):
-    """The resume.json at `path`, as a dict (application.render.load_resume.read_short).
+    """The resume.json at `path`, as a dict (application.render.load_resume.read_short),
+    or a target's selection when `path` is its ref.
 
     Args:
-        path: the file.
+        path: the file, or a target's ref.
 
     Returns:
         The dict. Reads the file.
@@ -20,9 +26,15 @@ def read(path):
     Raises:
         ShortError: the file is missing, unreadable, or not a version-2 resume.json.
     """
-    from ....application.render.load_resume import read_short
+    from ....application.render.load_resume import read_short, selected_doc
+    from ....application.render.selection import parse_ref
     from ....infra import files
 
+    ref = parse_ref(path)
+    if ref is not None:
+        from .selection import Ports
+
+        return selected_doc(path, career(ref[0]), ref[0], Ports())
     return read_short(path, files)
 
 
@@ -39,8 +51,12 @@ def workspace(path):
         ShortError: the file is not inside a workspace.
     """
     from ....application.render.load_resume import workspace_of
+    from ....application.render.selection import parse_ref
     from ....infra.files import find_root
 
+    ref = parse_ref(path)
+    if ref is not None:
+        return ref[0]
     return workspace_of(path, find_root)
 
 
@@ -79,8 +95,10 @@ def loaded_resume(path):
     from ....application.render.load_resume import load_resume
     from ....infra import files
     from .record import load as load_store
+    from .selection import Ports
 
-    return load_resume(path, files=files, find_root=files.find_root, load_store=load_store)
+    return load_resume(path, files=files, find_root=files.find_root, load_store=load_store,
+                       selections=Ports())
 
 
 def load(path):
