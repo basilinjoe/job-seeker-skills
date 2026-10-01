@@ -263,6 +263,7 @@ jsk kb pack capabilities --out pack.trig # the capability starter pack, drafted 
 jsk kb merge c:a --into c:b --out m.trig # two concepts that are one, drafted as a changeset
 jsk kb query similar "event pipeline Kafka"  # the closest live projects, words and concepts shared
 jsk kb query duplicates                  # pairs of projects that look like one told twice
+jsk kb query demand                      # | shortfalls | drops | outcomes | repeated | absences
 jsk kb show prj_payments --bullets       # a project's name and bullets, without its notes
 jsk kb path                              # the workspace, career/store/, applications/
 jsk kb check                             # every rule, and the record's state
@@ -295,6 +296,12 @@ that sent a metric version since replaced - `experience` of a concept (the month
 behind the projects holding it cover, overlaps once: what the record gate compares "N years
 of X" against), and `pipeline`, each application's stage: the kind of its latest dated event,
 the day, the days since, and any due date on it. A stage is never stored; it is this query.
+Across applications: `demand` (each concept the postings ask for, how many require it, the
+verdicts it got), `shortfalls` (concepts left unsatisfied, partial or unevidenced, with any
+"no" the person gave), `drops` (why advert lines were left out, by reason), `outcomes`
+(applications by assessed fit and stage), `repeated` (concepts asked about in more than one
+application's questions) and `absences` (each "no": live, due a year after it was said, or
+unconfirmed). `drops` and `repeated` read what only graph-native applications store.
 **`check`** runs every rule over the workspace and says at
 which revision the record stands; exit 1 on a FAIL. A finding names the graph (`kb`,
 `applications/<dir>/posting`) and the entry's id - the record has no lines to number.

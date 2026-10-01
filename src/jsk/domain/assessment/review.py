@@ -10,10 +10,21 @@ Ids are derived, never chosen: `k:rvw_<stem>` for the review, `k:rvr_<stem>_<slu
 row about `k:req_<stem>_<slug>`, `k:rvi_<stem>_<kind>_<i>` for the i-th short, surplus or
 ask line. Not `rev_`, which is a log entry's. Nothing here reads a file or the store.
 """
+import re
+
 from .overlay import Overlay, Row
 
 # The Overlay lists that become ordered items, by the item's kind (ENUMS["reviewItem"]).
 ITEMS = ("short", "surplus", "ask")
+# fold.check speaks gaps.txt: its lines, its `slug | verdict` rows. A review has neither,
+# so each phrasing becomes the review's - the analyst sends verdicts, not lines. In order:
+# the line prefix first, so the rest match the message that is left.
+RESTATED = ((re.compile(r"\Agaps\.txt line \d+: "), "the review: "),
+            (re.compile(r"gaps\.txt has no row for it"), "the review has no verdict for it"),
+            (re.compile(r"\Aadd `(\w+) \| keep`"), r"send the verdict \1: keep"),
+            (re.compile(r"`(\w+) \| keep`"), r"the verdict \1: keep"),
+            (re.compile(r"delete the row"), "clear that verdict (send it with no verdict)"),
+            (re.compile(r"after a second `\|`"), "as its reason"))
 
 
 def triples(overlay, stem, state=None):
@@ -99,3 +110,14 @@ def overlay_of(triples):
     for kind in ITEMS:
         setattr(out, kind, [text for _, text in sorted(items[kind])])
     return out
+
+
+def restated(found):
+    """fold.check's (severity, text, fix) findings in a review's words (RESTATED): the same
+    outcomes, naming verdicts instead of gaps.txt's lines and rows."""
+    def said(text):
+        for pattern, words in RESTATED:
+            text = pattern.sub(words, text or "")
+        return text
+
+    return [(severity, said(text), said(fix) if fix else fix) for severity, text, fix in found]

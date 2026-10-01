@@ -81,6 +81,13 @@ def main(argv):
         print("FAIL  jsk tailor needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
+    if draft:
+        from .match import graph_native
+
+        refused = graph_native(app, "jsk tailor prepare --draft-gaps")
+        if refused:
+            print(refused)
+            return 1
     from ...infra.oxigraph import record as R
 
     # It writes the assessment, so it takes its turn before it reads the record.

@@ -3,9 +3,12 @@
 Each returns (columns, rows), rows as dicts, so the same answer prints as a table or as
 JSON. A query is here because an agent would otherwise work it out by reading the whole
 file - which is the reading the graph exists to save. `experience` and `pipeline` came
-with the claims gate and `jsk app event` (P5); the roadmap's `inconsistent` and `demand` are
-not here yet. `evidence` and `person` replaced the tailor analyst's grep of kb.ttl: on the
-Taskrabbit run it spent five of its seven minutes on some forty greps and reads for terms
+with the claims gate and `jsk app event` (P5); the roadmap's `inconsistent` is not here yet.
+`demand`, `shortfalls`, `drops`, `outcomes`, `repeated` and `absences` read what a
+graph-native application puts in the store (docs/superpowers/plans/
+2026-10-01-graph-native-applications-mcp.md, P3): questions across applications that no
+file could answer; they live in insights.py. `evidence` and `person` replaced the tailor
+analyst's grep of kb.ttl: on the Taskrabbit run it spent five of its seven minutes on some forty greps and reads for terms
 and a location that two queries answer in half a second.
 
 The SPARQL stays here, over Store.select: the query text is the verb (Ruling 3 of the onion
@@ -448,3 +451,7 @@ query("similar", "<words>...", "live projects like what the words describe, best
       reads=True)(likeness.similar)
 query("duplicates", doc="pairs of live projects that look like one project told twice")(
     likeness.duplicates)
+
+# The insights across applications register themselves into QUERIES; imported last, as
+# they use `query` and `pipeline` from here.
+from . import insights  # noqa: E402, F401

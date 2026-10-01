@@ -58,7 +58,7 @@ def draft_over_match(report, app, today, path, *, folder):
     from .check_gaps import build
 
     r, store = report.result, report.store
-    derived = folder.derive(r, store)
+    derived = folder.derive(r, store, today)
     written, found = build(app, store, r, today, derived, folder=folder)
     if any(s == "FAIL" for s, _, _ in found):
         return Drafted(written, found, None, 0)

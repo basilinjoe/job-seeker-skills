@@ -60,6 +60,12 @@ def build(app_dir, decisions_path, replace, vocabulary, today, *, folder, triple
         folder.refuse_if_sent(app_dir, posting_graph(app_dir, folder))
     except Frozen as e:
         raise Refused(str(e), f"fix:  {e.fix}") from None
+    # Ruling 11 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md: a
+    # graph-native posting has no posting.md or decisions.txt, and its rows are decided by
+    # the tool; a rebuild from files would overwrite its lines.
+    refused = graph_native(app_dir, folder, "jsk posting build")
+    if refused:
+        raise refused
     if folder.has_record(app_dir, "posting") and not replace:
         raise Refused(f"{app_dir} already holds its posting",
                       "fix:  pass --replace to rebuild it from the decisions file - a "
@@ -103,6 +109,21 @@ def build(app_dir, decisions_path, replace, vocabulary, today, *, folder, triple
     if d.problems:
         raise Refused.every(d.problems)
     return written(d, built_triples, rel, len(reqs), store, folder)
+
+
+def graph_native(app_dir, folder, verb):
+    """The Refused for `verb` when the application at `app_dir` is graph-native, else None.
+
+    Args:
+        app_dir: the application's directory.
+        folder: the application's folder and record (compose.posting.PostingFolder).
+        verb: the verb, as native.TOOLS names it.
+    """
+    from .native import native_graphs, native_refusal
+
+    if not native_graphs(folder.app_graphs(app_dir, None)):
+        return None
+    return Refused(*native_refusal(folder.workspace_of_app(app_dir)[1] or app_dir, verb))
 
 
 def posting_graph(app_dir, folder):

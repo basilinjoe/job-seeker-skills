@@ -11,6 +11,13 @@ tailor prepare` say what it found and wrote.
 Both are rebuilt on every run from the career as it stands, so there is no stale copy to
 warn about; once the application records the day it was sent, both are left as they were,
 because a sent assessment is what it said at the time.
+
+A graph-native application (Ruling 11 of
+docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md) has no gaps.txt and no
+gaps.md: its overlay is the review graph (domain/assessment/review.py), its questions are
+j:Ask nodes, and gaps.txt, decisions.txt and posting.md are never read for it (`native_*`,
+which application/tailor/review.py and assessment.py share). The derivation takes the
+career's confirmed "no"s for every application, file-built too (Ruling 9).
 """
 import os
 
@@ -186,7 +193,9 @@ def build(app_dir, store, r, today, derived, *, folder):
         return [], [("FAIL", f"{app_rel}: sent on {day} - its assessment and gaps.md are "
                      "frozen", "a sent assessment is what it said at the time; nothing to "
                      "rebuild")]
-    derived = derived or folder.derive(r, store)
+    derived = derived or folder.derive(r, store, today)
+    if native_posting(store, derived):
+        return native_build(app_dir, store, app_rel, derived, today, folder)
     try:
         text, reviewed = folder.read_text(os.path.join(app_dir, "gaps.txt"), "gaps.txt"), True
     except Missing:
@@ -222,4 +231,86 @@ def build(app_dir, store, r, today, derived, *, folder):
         written.append(folder.write_file(app_dir, "gaps.md", md_text, store))
     except Unwritable as e:         # locked, or the store refused the write
         return written, found + [("FAIL", str(e), e.fix)]
+    return written, found
+
+
+def native_posting(store, derived):
+    """Whether the posting `derived` assesses is graph-native: its lines are in the store
+    (Ruling 11 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md)."""
+    from ...domain import ontology as O
+    from ...domain.posting.lines import native
+
+    return O.K + derived.posting.removeprefix("k:") in native(store)
+
+
+def review_of(store, app_rel):
+    """(the review graph's Overlay, whether the review is complete); an empty Overlay and
+    False when there is no review yet."""
+    from ...domain import ontology as O
+    from ...domain.assessment.overlay import Overlay
+    from ...domain.assessment.review import overlay_of
+    from ...domain.naming import app_graph
+
+    name = app_graph(app_rel, "review")
+    if name not in store.parsed:
+        return Overlay(), False
+    quads = store.graph(name)
+    return overlay_of(quads), any(q.predicate.value == O.J + "state"
+                                  and q.object.value == O.J + "complete" for q in quads)
+
+
+def native_assessed(store, app_rel, derived, overlay, reviewed):
+    """(the Assessment, the findings), or (None, the findings) on a FAIL: the review's
+    overlay checked against the match and folded in, as gaps.txt's is.
+
+    Args:
+        store: the loaded workspace.
+        app_rel: the application, `applications/<dir>`.
+        derived: the Derived assessment.
+        overlay: the review's Overlay.
+        reviewed: the review is complete, so a flag it has not answered FAILs; a draft's
+            waits, as a missing gaps.txt's does.
+    """
+    from ...domain.assessment.fold import check, fold, previous_verdicts
+    from ...domain.assessment.review import restated
+
+    previous = previous_verdicts(store, app_rel, derived.stem)
+    found = restated(check(derived, overlay, "", previous, reviewed))
+    if any(s == "FAIL" for s, _, _ in found):
+        return None, found
+    return fold(derived, overlay, previous), found
+
+
+def native_triples(store, app_rel, a, today):
+    """The gaps graph's triples for a graph-native Assessment `a`: its questions as j:Ask
+    nodes, and the day it was first made kept while it has not changed."""
+    from ...domain.assessment.fold import assessed, same_triples, triples
+    from ...domain.naming import app_graph
+
+    gaps = app_graph(app_rel, "gaps")
+    before = assessed(store, app_rel)
+    if before and gaps in store.parsed and same_triples(triples(a, before, native=True),
+                                                        store.graph(gaps)):
+        today = before
+    return triples(a, today, native=True)
+
+
+def native_build(app_dir, store, app_rel, derived, today, folder):
+    """build for a graph-native application: the overlay is the review graph's, never
+    gaps.txt, and the assessment is the gaps graph alone - no gaps.md (Ruling 24).
+
+    Returns:
+        (the graph names written, the findings), as build's.
+    """
+    from ...domain.timeline.errors import Unwritable
+
+    overlay, reviewed = review_of(store, app_rel)
+    a, found = native_assessed(store, app_rel, derived, overlay, reviewed)
+    if a is None:
+        return [], found
+    try:
+        written = folder.write_graphs(app_dir, {"gaps": native_triples(store, app_rel, a,
+                                                                       today)}, store)
+    except Unwritable as e:
+        return [], found + [("FAIL", str(e), e.fix)]
     return written, found

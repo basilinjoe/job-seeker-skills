@@ -85,6 +85,13 @@ def cmd_query(args, flags, root, today):
       concepts [--near <term>...]  the vocabulary; with --near, per term, only what it
                           names and the few concepts closest to it - one table each,
                           `== <term>` above it (quote a term of several words)
+      bare                capabilities with no label and no isA/partOf, most-held first
+      demand              each concept the postings ask for: postings, required, my verdicts
+      shortfalls          concepts the assessments leave short, with any "no" standing
+      drops               why advert lines were left out, by reason, with the postings
+      outcomes            applications by assessed fit and the stage they reached
+      repeated            concepts asked about in more than one application
+      absences            each "no" the person gave: live, due to ask again, unconfirmed
 
     A table by default; --json for the same rows, structured.
     """

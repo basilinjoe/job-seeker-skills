@@ -36,14 +36,7 @@ def fetch(url, app_dir, *, get, read_file, write):
         Refused: a board this does not know, a posting not on its board, a network
             failure, a file it cannot read, or a posting.md already there; nothing written.
     """
-    is_file = os.path.isfile(url)
-    known = None if is_file else recognise(url)
-    if known is None and not is_file:
-        if urllib.parse.urlsplit(url.strip()).scheme in ("http", "https"):
-            raise Refused(f"{url} is not an Ashby, Greenhouse or Lever posting URL",
-                          BROWSER_FIX)
-        raise Refused(f"{url} is neither a posting URL nor a file there is",
-                      "fix:  check the path, or give the posting's URL")
+    known = source(url)
     target = os.path.join(app_dir, POSTING)
     # Before the network: a posting.md is what an application answered, and a
     # second fetch of a posting since edited would quietly change it.
@@ -51,6 +44,49 @@ def fetch(url, app_dir, *, get, read_file, write):
         raise Refused(f"{target} already exists - posting.md is never overwritten",
                       "fix:  it is what this application answers; a different posting "
                       "is a different application directory")
+    title, text = advert(url, known, get=get, read_file=read_file)
+    return Fetched(write(app_dir, target, text), title, len(text))
+
+
+def source(url):
+    """The board `url` is on, or None for a file there is.
+
+    Args:
+        url: the posting's URL as a person would open it, or a file's path.
+
+    Returns:
+        boards.recognise's (provider, org, job, api), or None for a file.
+
+    Raises:
+        Refused: neither a board this knows nor a file there is.
+    """
+    if os.path.isfile(url):
+        return None
+    known = recognise(url)
+    if known is None:
+        if urllib.parse.urlsplit(url.strip()).scheme in ("http", "https"):
+            raise Refused(f"{url} is not an Ashby, Greenhouse or Lever posting URL",
+                          BROWSER_FIX)
+        raise Refused(f"{url} is neither a posting URL nor a file there is",
+                      "fix:  check the path, or give the posting's URL")
+    return known
+
+
+def advert(url, known, *, get, read_file):
+    """(title, the advert as posting.md holds it) for the board posting or file at `url`.
+
+    Split from fetch (2026-10-02) so `posting_capture` reads the same advert and writes it
+    to the graph instead of to posting.md (application/posting/capture.py).
+
+    Args:
+        url: the posting's URL, or a file's path.
+        known: source(url).
+        get: api url -> the board's JSON answer (ports.posting_source.PostingSource.get).
+        read_file: path -> (title, text) of a .docx, .html or text file.
+
+    Raises:
+        Refused: a posting not on its board, a network failure, or a file with no text.
+    """
     if known is None:
         name = os.path.basename(url)
         title, text = read_file(url)
@@ -58,8 +94,7 @@ def fetch(url, app_dir, *, get, read_file, write):
             raise Refused(f"{name} holds no text",
                           "fix:  check it is the posting, or write posting.md with the "
                           "Write tool - the advertisement verbatim")
-        title, text = file_md(name, title, text)
-        return Fetched(write(app_dir, target, text), title, len(text))
+        return file_md(name, title, text)
     provider, org, job, api = known
     try:
         data = get(api)
@@ -71,5 +106,4 @@ def fetch(url, app_dir, *, get, read_file, write):
         raise Refused(f"the {provider} posting {job} came back with no description",
                       BROWSER_FIX)
     title = title.strip()
-    text = posting_md(url, title, facts, description)
-    return Fetched(write(app_dir, target, text), title, len(text))
+    return title, posting_md(url, title, facts, description)

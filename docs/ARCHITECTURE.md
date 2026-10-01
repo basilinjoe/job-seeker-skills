@@ -376,6 +376,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/confirm.py               `jsk kb confirm`: the answer checked, the ids planned, the summary
     record/read.py                  `jsk kb show`, `view` and `log`: entries by id, the career, the log
     record/queries.py               `jsk kb query`: the named queries, registered as the kb's read vocabulary
+    record/insights.py              the named queries across applications: demand, shortfalls, drops, outcomes, repeated, absences
     record/holdings.py              what each live project holds; the months of experience behind a concept
     record/likeness.py              projects that look like one another, or like what some words describe
     record/check.py                 `jsk kb check`: every rule, the career's hash, the untraced numbers
@@ -394,6 +395,12 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/fetch.py                an advert from a job board or a file, written as posting.md
     posting/extract.py              the decisions.txt header and the advert's lines, numbered, for the analyst
     posting/build.py                decisions.txt checked against the advert and written as the posting graph
+    posting/native.py               a graph-native application by its stem: its posting read back, the refusals both ways
+    posting/capture.py              `posting_capture`: an advert fetched or pasted, stored as a draft posting's lines
+    posting/decide.py               `posting_decide` and `posting_complete`: rows upserted and checked, then settled
+    tailor/assessment.py            `assessment_derive`: the assessment derived, written, returned as data
+    tailor/review.py                `assessment_review` and `assessment_complete`: the review graph upserted, checked
+    tailor/show.py                  `app_show` and `app_list`: an application's parts, and every application, as data
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
     render/build_plan.py            a resume.json on disk to its render plan
     render/render_resume.py         one render: plans built, files written, the PDF compiled and measured
@@ -476,6 +483,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/fit.py              `jsk resume fit`'s TeX engine, looked up where a test patches it
     cli/compose/gates.py            the gates' career reads and its log's state bound; a resume.json's region and budget
     cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
+    cli/compose/native.py           a graph-native application's use cases bound, each write in its own turn
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded
