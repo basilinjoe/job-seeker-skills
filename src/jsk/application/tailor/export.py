@@ -375,7 +375,7 @@ def short(store, chosen, select, today, *, ships, queries):
         doc = short_file(store, selection=chosen, select=select, notes=notes, ships=ships)
     except ExportError as err:
         raise Refused([str(err)], err.fix) from None
-    faults = untraced_lines(store, queries, today, [O.K + b for b in doc["bullets"]])
+    faults = untraced_lines(store, queries, [O.K + b for b in doc["bullets"]])
     return Short(doc, tuple(notes), tuple(faults))
 
 

@@ -8,13 +8,12 @@ use, with a loaded Store in place of the ports. Nothing is imported until a call
 import datetime
 
 
-def untraced(store, bullets, today=None):
+def untraced(store, bullets):
     """[Fault] for the `bullets` whose words state a number the career's metrics do not hold.
 
     Args:
         store: a loaded workspace (compose.record.load).
         bullets: achievement iris, in order.
-        today: accepted so every caller passes one clock.
 
     Returns:
         application.gates.numbers.untraced over the store's queries. Runs two SELECTs.
@@ -22,7 +21,7 @@ def untraced(store, bullets, today=None):
     from ....application.gates.numbers import untraced as traced
     from ....infra.oxigraph.queries import OxigraphQueries
 
-    return traced(OxigraphQueries(store), bullets, today)
+    return traced(OxigraphQueries(store), bullets)
 
 
 def facts(store):

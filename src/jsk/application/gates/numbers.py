@@ -12,14 +12,14 @@ ElevenLabs run's six, "a 300-400 candidate drive" citing nothing), and this does
 from ...domain.gates.numbers import trace
 
 
-def untraced(queries, bullets, today=None):
+def untraced(queries, bullets):
     """[Fault] for the `bullets` whose words state a number the career's metrics do not hold.
+
+    No date is taken: a version's currency is whether it has a j:validUntil.
 
     Args:
         queries: a RecordQueries over a loaded workspace.
         bullets: achievement iris, in order.
-        today: accepted so every caller passes one clock; a version's currency is whether
-            it has a j:validUntil, not a date.
 
     Returns:
         domain.gates.numbers.trace over the career's metric facts. Reads them once.

@@ -146,17 +146,16 @@ def record_faults(store, queries, post, today, budget, ranked, select):
     for project in [r.project for r in ranked or () if r.required or r.preferred][:TOP]:
         bullets += sorted((a for a in live if career.get(a, "project") == project),
                           key=lambda a: (int(career.get(a, "rank", 0)), a))
-    return faults_in(queries, list(dict.fromkeys(bullets)), today)
+    return faults_in(queries, list(dict.fromkeys(bullets)))
 
 
-def faults_in(queries, bullets, today):
+def faults_in(queries, bullets):
     """record_faults' entries for `bullets`, in their order: numbers.untraced's Faults as
     the question's data.
 
     Args:
         queries: the feature reads over the workspace (ports.queries.RecordQueries).
         bullets: the bullets' iris.
-        today: the date a metric version's currency is judged on.
 
     Returns:
         [{bullet, numbers, superseded, cites}], ids as curies.
@@ -167,7 +166,7 @@ def faults_in(queries, bullets, today):
              "superseded": [{"number": s["number"], "version": curie(s["version"]),
                              "until": s["until"]} for s in f.superseded],
              "cites": [curie(m) for m in f.cites]}
-            for f in numbers.untraced(queries, bullets, today)]
+            for f in numbers.untraced(queries, bullets)]
 
 
 def result(store, queries, post, today, budget, elsewhere, select):

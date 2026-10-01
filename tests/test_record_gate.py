@@ -65,7 +65,7 @@ class Untraced(GateCase):
 
     def faults(self, ident, text=None):
         edits = self.reworded(self.original(ident), text) if text else ()
-        return gates.untraced(self.store(edits), [K + ident], TODAY)
+        return gates.untraced(self.store(edits), [K + ident])
 
     @staticmethod
     def original(ident):
@@ -129,22 +129,22 @@ class Untraced(GateCase):
         # From test_graph_export's Qualified: "about 6-8", as the person stated it.
         ranged = (self.TEAM_V1, self.TEAM_V1 + " j:upper 8 ; j:qualifier j:about ;")
         s = self.store([ranged] + self.reworded(TEAM, "Led a team of 6-8 engineers."))
-        self.assertEqual(gates.untraced(s, [K + "ach_events_team"], TODAY), [])
+        self.assertEqual(gates.untraced(s, [K + "ach_events_team"]), [])
         s = self.store([ranged] + self.reworded(TEAM, "Led a team of 9 engineers."))
-        [f] = gates.untraced(s, [K + "ach_events_team"], TODAY)
+        [f] = gates.untraced(s, [K + "ach_events_team"])
         self.assertEqual(f.numbers, ["9"])
 
     def test_a_metric_with_no_current_version_traces_nothing(self):
         # From test_graph_export's Replaced: every version closed, the number is the
         # bullet's alone - the export used to leave the metric off so the gate failed it.
         closed = (self.TEAM_V1, self.TEAM_V1 + ' j:validUntil "2026-01-01"^^xsd:date ;')
-        [f] = gates.untraced(self.store([closed]), [K + "ach_events_team"], TODAY)
+        [f] = gates.untraced(self.store([closed]), [K + "ach_events_team"])
         self.assertEqual(f.bullet, K + "ach_events_team")
 
     def test_order_and_unknown_iris(self):
         s = self.store(self.reworded(TEAM, "Led 8 engineers."))
         faults = gates.untraced(s, [K + "ach_identity_sso", K + "ach_nothing",
-                                      K + "ach_events_team"], TODAY)
+                                      K + "ach_events_team"])
         self.assertEqual([f.bullet for f in faults], [K + "ach_events_team"])
 
 

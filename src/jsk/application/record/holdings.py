@@ -5,8 +5,6 @@ bullet's words are checked against what its project holds, and "N years of X" ag
 roles behind the projects holding X. The SPARQL is over Store.select, as the named queries'
 is (application/record/queries.py).
 """
-import datetime
-
 from ...domain.matching.model import local
 from ...domain.ontology import SPARQL_PREFIX as PRE
 from ...domain.record.writer import curie
@@ -40,7 +38,7 @@ def holdings(store):
     return out
 
 
-def experience_of(store, concept, today=None, held=None):
+def experience_of(store, concept, today, held=None):
     """The months the roles behind the projects holding `concept` cover, overlaps counted
     once - scoring.experience over the graph. A project with no role has no dates, so it
     counts for nothing, and says so.
@@ -48,7 +46,7 @@ def experience_of(store, concept, today=None, held=None):
     Args:
         store: a loaded workspace.
         concept: the concept's iri.
-        today: the day an ongoing role runs to; today when None.
+        today: the day an ongoing role runs to.
         held: holdings(store), when the caller has it already.
 
     Returns:
@@ -56,7 +54,6 @@ def experience_of(store, concept, today=None, held=None):
     """
     from ...domain.matching.scoring import experience
 
-    today = today or datetime.date.today()
     held = holdings(store) if held is None else held
     projects = sorted(p for p, cs in held.items() if concept in cs)
     rows = store.select(PRE + """SELECT ?proj ?pos ?start ?end ?state WHERE {

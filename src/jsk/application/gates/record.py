@@ -172,14 +172,13 @@ def career_refusal(store, state):
                 "write jsk made")
 
 
-def numbers_lines(queries, bullets, today):
+def numbers_lines(queries, bullets):
     """numbers.untraced as FAIL lines: the untraced of a bullet in one, each superseded
     number in its own - it names the version that replaced it.
 
     Args:
         queries: a RecordQueries over the loaded workspace.
         bullets: the selected achievement iris, in order.
-        today: passed through to the number check.
 
     Returns:
         The FAIL lines.
@@ -188,7 +187,7 @@ def numbers_lines(queries, bullets, today):
     from . import numbers
 
     out = []
-    for f in numbers.untraced(queries, bullets, today):
+    for f in numbers.untraced(queries, bullets):
         ident = f.bullet[len(O.K):]
         for s in f.superseded:
             metric = s["version"].rsplit(".v", 1)[0]
@@ -343,7 +342,7 @@ def findings(doc, store, today, *, queries, state):
     career = Career(store.graph(KB))
     live = set(career.live("Achievement"))
     bullets = [b for b in (O.K + i for i in doc["bullets"]) if b in live]
-    fails += numbers_lines(queries, bullets, today)
+    fails += numbers_lines(queries, bullets)
     vocabulary = Vocabulary(queries)
     texts = list(prose(doc, career, bullets))
     warns = label_lines(store, career, bullets, vocabulary)
