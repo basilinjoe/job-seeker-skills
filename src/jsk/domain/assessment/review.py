@@ -8,7 +8,10 @@ fold.fold run on it unchanged.
 
 Ids are derived, never chosen: `k:rvw_<stem>` for the review, `k:rvr_<stem>_<slug>` for the
 row about `k:req_<stem>_<slug>`, `k:rvi_<stem>_<kind>_<i>` for the i-th short, surplus or
-ask line. Not `rev_`, which is a log entry's. Nothing here reads a file or the store.
+ask line. Not `rev_`, which is a log entry's. An ask about one requirement keeps it as the
+item's `j:about` (Overlay.about), which nothing wrote until 2026-10-02: without it the
+question's j:Ask named no requirement and never counted in `repeated`. Nothing here reads a
+file or the store.
 """
 import re
 
@@ -70,6 +73,9 @@ def triples(overlay, stem, state=None):
                     ox.Triple(s, j("position"),
                               ox.Literal(str(i), datatype=ox.NamedNode(O.XSD + "integer"))),
                     ox.Triple(s, j("text"), ox.Literal(text))]
+            slug = overlay.about.get(text) if kind == "ask" else None
+            if slug:
+                out.append(ox.Triple(s, j("about"), k(f"req_{stem}_{slug}")))
     return out
 
 
@@ -105,6 +111,8 @@ def overlay_of(triples):
             rows.append((slug, p["verdict"].removeprefix(O.J), p.get("shortfall", "")))
         elif cls == "ReviewItem":
             items[p["kind"].removeprefix(O.J)].append((int(p["position"]), p["text"]))
+            if "about" in p:
+                out.about[p["text"]] = p["about"].removeprefix(f"{O.K}req_{stem}_")
     out.rows = [Row(n, slug, verdict, reason)
                 for n, (slug, verdict, reason) in enumerate(sorted(rows), 1)]
     for kind in ITEMS:

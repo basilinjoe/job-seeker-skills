@@ -24,7 +24,8 @@ from ...domain.posting.errors import POSTING, Refused
 
 # The MCP tools (Ruling 18's table) a file verb names when it refuses a graph-native
 # application: what does that verb's work for one whose record is all in the store.
-TOOLS = {"jsk posting extract": "app_show (part: lines)",
+TOOLS = {"jsk tailor match": "assessment_derive",
+         "jsk posting extract": "app_show (part: lines)",
          "jsk posting build": "posting_decide",
          "jsk tailor match --gaps": "assessment_review",
          "jsk tailor match --draft-gaps": "assessment_derive",
@@ -248,11 +249,23 @@ def native(store, app, ports, *, posting=None):
     return s
 
 
-def refuse_if_sent(app, store, ports):
-    """Refuse a change to a sent application before anything is built.
+# The one way to reuse a frozen graph-native application through the tools: a directory
+# cannot be copied by an agent holding no shell, so the advert is captured again under a
+# new name and the run starts there.
+REUSE = "fix:  capture the posting again under a new stem (`posting_capture`) to reuse it"
+
+
+def refuse_if_frozen(app, store, ports):
+    """Refuse a change to a frozen application before anything is built: one sent, or one
+    `jsk app freeze --submitted false` held back.
+
+    The test is the one `resume_ship` makes (application.guards.frozen_refusal): the
+    application graph exists. Keyed on the day it was sent alone, a held-back freeze kept
+    taking reviews, selections and re-derivations under the record that froze them - the
+    end-to-end replay found it (2026-10-02).
 
     Raises:
-        Refused: it was sent, or whether it was cannot be read.
+        Refused: it is frozen, or whether it was sent cannot be read.
     """
     from ...domain.record.parsed import GraphError
 
@@ -262,7 +275,10 @@ def refuse_if_sent(app, store, ports):
         raise Refused(f"{app.graph('application')}: {e}", f"fix:  {e.fix}") from None
     if day:
         raise Refused(f"{app.rel}: the application was sent on {day}, and this is what it "
-                      "answered", "fix:  a new posting is a new application")
+                      "answered", REUSE)
+    if app.graph("application") in store.parsed:
+        raise Refused(f"{app.rel}: the application is frozen (held back, not sent), and this "
+                      "is what it was frozen with", REUSE)
 
 
 def write(app, store, graphs, ports):

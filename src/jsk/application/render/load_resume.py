@@ -131,7 +131,7 @@ def load_resume(path, *, files, find_root, load_store, selections=None):
             graph-native application, or fails its shape or id checks; a ref with no
             selection.
     """
-    from .selection import file_refusal, parse_ref
+    from .selection import file_refusal, parse_ref, target_name
 
     ref = parse_ref(path) if selections is not None else None
     if ref is not None:
@@ -145,7 +145,7 @@ def load_resume(path, *, files, find_root, load_store, selections=None):
         refused = file_refusal(path, root, store)
         if refused:
             raise ShortError(*refused)
-    fails = shape(doc) or ids(doc, store)
+    fails = shape(doc, target_name(path) if ref else None) or ids(doc, store)
     if fails:
         raise ShortError(f"{path}: " + "; ".join(fails),
                          "`jsk resume check` it and fix what it names")

@@ -30,6 +30,18 @@ op:add {
 
 
 class Apply(Workspace):
+    def test_a_refusal_prints_its_line_then_its_fix_and_writes_nothing(self):
+        # Pinned byte for byte: the refusals now travel with their fixes as fields
+        # (Problems, 2026-10-02), and the CLI must print what it printed before.
+        before = self.record()
+        code, out = self.kb("apply", self.changeset(
+            PFX + 'op:set { k:prj_nowhere j:name "x" . }\n'))
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out, "REFUSED  k:prj_nowhere - op:set on an entry that does not exist\n"
+                              "        fix: op:add it instead\n"
+                              "nothing was written\n")
+        self.assertEqual(self.record(), before)
+
     def test_a_braindump_becomes_a_valid_logged_record(self):
         code, out = self.kb("apply", self.changeset(BRAINDUMP))
         self.assertEqual(code, 0, out)

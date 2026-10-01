@@ -47,7 +47,7 @@ class Derived:
     asks: tuple = ()
 
 
-def derive(r, queries, ask, absences=(), today=None):
+def derive(r, queries, ask, absences=(), today=None, counts_as=None):
     """Derived for the match result `r` over the career `queries` reads.
 
     Args:
@@ -59,12 +59,15 @@ def derive(r, queries, ask, absences=(), today=None):
             and that have not lapsed by `today` answer a requirement whose every concept
             they deny (Ruling 9).
         today: the day an absence's lapse is measured against; needed with `absences`.
+        counts_as: concept iri -> the iris it counts as without an implies edge (the
+            match's own closure, ports.queries.RecordQueries.counts_as), so a no to a
+            concept also denies every narrower one; None denies only the concept itself.
 
     Returns:
         Derived: a row per requirement, the fit, and the questions in the analyst's order.
     """
     stem = r["posting"].removeprefix("k:post_")
-    r, said = answered(r, absences, today)
+    r, said = answered(r, absences, today, counts_as)
     rows = []
     for q in r["requirements"]:
         flag_text = listed_names(q, _texts(queries, q)) if q["verdict"] == "satisfied" else None
@@ -79,7 +82,7 @@ def derive(r, queries, ask, absences=(), today=None):
                    questions=tuple(text for text, _ in asks), asks=tuple(asks))
 
 
-def answered(r, absences, today):
+def answered(r, absences, today, counts_as=None):
     """(the match result with what the person has already said no to settled, {requirement
     id: its basis}).
 
@@ -89,10 +92,16 @@ def answered(r, absences, today):
     alternatives is settled only when every alternative is denied: one denied leaves the
     others to ask about. An implicit requirement stays unassessed; only its question goes.
 
+    Ruling 9's amendment (2026-10-02): a no to X also denies every concept that counts as
+    X - "never worked in financial services" answers insurance, which counts as it. Never
+    the reverse: a no to EKS says nothing of Kubernetes, as EKS work is Kubernetes work but
+    not the other way round. The closure is the match's (`counts_as`), not a second one.
+
     Args:
         r: match.result's plain data.
         absences: [domain.record.absence.Absence].
         today: the day lapses are measured against.
+        counts_as: concept iri -> the iris it counts as, or None (derive's).
 
     Returns:
         (r, or a copy with the settled requirements and questions changed; {id: basis}).
@@ -102,13 +111,21 @@ def answered(r, absences, today):
     if not absences:
         return r, {}
     denied = standing(absences, today)
+
+    def denial(c):
+        if c in denied:
+            return denied[c]
+        broader = sorted(b for b in (counts_as(c) if counts_as else ()) if b in denied)
+        return denied[broader[0]] if broader else None
+
     said, asked = {}, set()
     reqs = []
     for q in r["requirements"]:
         concepts = [_iri(c) for c in q["concepts"]]
-        if concepts and all(c in denied for c in concepts):
-            nos = dict.fromkeys(f"said on {denied[c].said.isoformat()}: {denied[c].answer}"
-                                for c in concepts)
+        nos_of = [denial(c) for c in concepts]
+        if concepts and all(nos_of):
+            nos = dict.fromkeys(f"said on {a.said.isoformat()}: {a.answer}"
+                                for a in nos_of if a)
             said[q["id"]] = " / ".join(nos)
             asked.add(q["asked"])
             q = {**q, "state": "missing", "carriers": [], "near": [],

@@ -154,6 +154,15 @@ class Shape(unittest.TestCase):
         self.assertTrue(self.check(headline={"text": "Two\nlines", "status": "inferred"}))
         self.assertTrue(self.check(headline={"text": "x", "status": "inferred", "why": "?"}))
 
+    def test_a_graph_native_selection_is_told_to_confirm_through_the_tool(self):
+        # A selection is a graph: `jsk kb confirm --headline <resume.json>` names a file
+        # that is never there (2026-10-02). The caller names the target.
+        flipped = short.shape({**OK, "headline": {"text": "Senior Platform Engineer",
+                                                  "status": "confirmed"}}, "acme-platform")
+        self.assertTrue(any('`career_confirm` (target "acme-platform", block "headline")' in f
+                            for f in flipped), flipped)
+        self.assertFalse(any("resume.json" in f for f in flipped), flipped)
+
     def test_names_maps_skill_ids_to_strings(self):
         self.assertEqual(self.check(names={"skill_kubernetes": "K8s"}), [])
         self.assertTrue(self.check(names={"ach_events_latency": "K8s"}))

@@ -28,6 +28,9 @@ class Assessment:
     short: tuple
     surplus: tuple
     questions: tuple
+    # (question, the requirement's "k:req_..." or None) for each of `questions`: the
+    # match's (Derived.asks), or the review's with its `about` (Overlay.about).
+    asks: tuple = ()
 
 
 def standing(row):
@@ -146,9 +149,14 @@ def fold(derived, overlay, previous=None):
             verdicts.append(Verdict(row, standing(row), None, answered))
         else:
             verdicts.append(Verdict(row, o.verdict, o.reason or None, answered))
+    if overlay.ask:
+        ids = {row.slug: row.id for row in derived.rows}
+        asks = tuple((q, ids.get(overlay.about.get(q, ""))) for q in overlay.ask)
+    else:
+        asks = derived.asks
     return Assessment(derived, overlay.fit or derived.fit, overlay.eligibility, tuple(verdicts),
                       tuple(overlay.short), tuple(overlay.surplus),
-                      tuple(overlay.ask) or derived.questions)
+                      tuple(overlay.ask) or derived.questions, asks)
 
 
 def triples(a, today, native=False):
@@ -203,7 +211,7 @@ def asks(a, gap, j, k):
     """The j:Ask triples for the assessment's questions, in order.
 
     A question the match derived knows its requirement (Derived.asks); one the analyst
-    wrote in its place names none, and is asked as written.
+    wrote in its place names the requirement its `about` gave (Assessment.asks), or none.
 
     Args:
         a: the Assessment.
@@ -219,7 +227,7 @@ def asks(a, gap, j, k):
     from .. import ontology as O
 
     d = a.derived
-    about = dict(d.asks)
+    about = dict(a.asks or d.asks)
     concepts = {row.id: row.concepts for row in d.rows}
     out = []
     for i, question in enumerate(a.questions, 1):

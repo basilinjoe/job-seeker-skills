@@ -72,6 +72,10 @@ def main(argv):
         return 2
     root, app = application(argv[0])
     if root is None:
+        refused = undirected(argv[0])
+        if refused:
+            print(refused)
+            return 1
         print("\n".join(app))
         return 2
     for flag in ("--gaps", "--draft-gaps"):
@@ -112,6 +116,22 @@ def graph_native(app, verb):
     except ImportError:
         return None         # no pyoxigraph: main says so next, and nothing is matched
     return refused_verb(graphs, rel, verb)
+
+
+def undirected(named):
+    """The refusal's two lines when `named` is a graph-native application with no directory
+    yet - its record is all in the store, and the first render makes the directory (Ruling
+    12) - else None. Asked of the store by name: told "not an application ... the folder
+    holding posting.md", the analyst went looking for a file that never exists (the
+    end-to-end replay, 2026-10-02)."""
+    from ...infra.oxigraph import db
+
+    here = os.path.abspath(named)
+    apps = os.path.dirname(here)
+    root = os.path.dirname(apps)
+    if os.path.isdir(here) or os.path.basename(apps) != "applications" or not db.exists(root):
+        return None
+    return graph_native(here, "jsk tailor match")
 
 
 def run_match(root, app, named, opts):

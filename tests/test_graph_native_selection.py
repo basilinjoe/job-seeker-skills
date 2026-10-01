@@ -85,6 +85,19 @@ class Select(Workspace):
         self.assertEqual(selection.read(self.root, STEM), done.doc)
         self.assertFalse(self.app.exists(), "the directory is the first render's")
 
+    def test_a_retuned_headline_is_confirmed_through_the_tool_not_a_file(self):
+        # The note named `jsk kb confirm --headline <resume.json>`, a file a graph-native
+        # application never has (2026-10-02).
+        native.capture(self.root, STEM, text=ADVERT.replace("# Platform Engineer",
+                                                            "# Staff Platform Engineer"),
+                       today=TODAY)
+        native.decide(self.root, STEM, rows=ROWS, drops=DROPS, today=TODAY)
+        native.complete_posting(self.root, STEM, today=TODAY)
+        done = selection.select(self.root, STEM, mode="from_match", today=TODAY)
+        [note] = [n for n in done.notes if "headline" in n]
+        self.assertIn(f'`career_confirm` (target "{STEM}", block "headline")', note)
+        self.assertNotIn("resume.json", note)
+
     def test_the_selection_part_shows_each_bullets_words(self):
         done = self.selected()
         shown = native.show(self.root, STEM, "selection", today=TODAY)

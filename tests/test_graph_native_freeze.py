@@ -6,7 +6,8 @@ stored selection, never a resume.json (Ruling 11), and its `recordSha256` is the
 the selection's canonical text (Ruling 7); it renames the directory to the day it was sent
 and moves the posting, review, gaps and resume graphs with the application graph, so all
 five sit under the new name and none under the old (Ruling 10); afterwards the selection and
-the posting refuse every change and a re-ship into the frozen directory is refused; a
+the posting refuse every change and a re-ship into the frozen directory is refused - a
+held-back freeze (`--submitted false`) as much as a sent one, saying it was not sent; a
 graph-native application with no selection is refused naming `resume_select`; and `jsk
 letter check --record <stem>` traces a letter's numbers through the stored selection and
 reads its quotes from the stored advert lines, failing a number the career cannot back as it
@@ -25,7 +26,7 @@ import shipkit
 from jsk.adapters.cli.compose import native, selection
 from jsk.domain.posting.errors import Refused
 from jsk.domain.resume.selection import canonical
-from test_graph_native_apps import STEM
+from test_graph_native_apps import ADVERT, STEM
 from test_graph_native_selection import SUMMARY, TODAY, Workspace, fails
 
 SENT = "2026-10-02"
@@ -127,6 +128,52 @@ class Freeze(Frozen):
             with self.subTest(tool=name), self.assertRaises(Refused) as caught:
                 call()
             self.assertIn(f"was sent on {SENT}", str(caught.exception))
+
+    def test_a_held_back_freeze_refuses_every_change_and_says_it_was_not_sent(self):
+        """`--submitted false` freezes without sending: the guards keyed on the day it was
+        sent let every tool keep writing under the record that froze it (2026-10-02)."""
+        from jsk.adapters.cli.compose import render
+        from jsk.application.record.refusals import Refused as ConfirmRefused
+
+        self.shipped()
+        code, out = self.jsk("app", "freeze", self.app, "--submitted", "false",
+                             "--channel", "held back")
+        self.assertEqual(code, 0, out)
+        self.assertTrue(self.app.is_dir(), "a held-back freeze keeps its name")
+        names = [f"applications/{STEM}/{kind}" for kind in KINDS]
+        before = {n: appkit.facts(self.root, n) for n in names}
+        sha = [t.object.value for t in appkit.triples(self.root, names[-1])
+               if t.predicate.value.endswith("#recordSha256")]
+        calls = {
+            "resume_update": lambda: selection.update(self.root, STEM, pages=1, today=TODAY),
+            "resume_select": lambda: selection.select(self.root, STEM, mode="from_match",
+                                                      replace=True, today=TODAY),
+            "posting_decide": lambda: native.decide(self.root, STEM, rows=[], drops=[],
+                                                    today=TODAY),
+            "posting_capture": lambda: native.capture(self.root, STEM, text=ADVERT,
+                                                      replace=True, today=TODAY),
+            "assessment_review": lambda: native.review(self.root, STEM, fit="poor",
+                                                       today=TODAY),
+            "assessment_derive": lambda: native.derive_assessment(self.root, STEM,
+                                                                  today=TODAY),
+            "career_confirm": lambda: selection.confirm(self.root, STEM, "summary",
+                                                        "Yes, that is what I do."),
+        }
+        for name, call in calls.items():
+            with self.subTest(tool=name), self.assertRaises((Refused, ConfirmRefused)) as e:
+                call()
+            said = str(e.exception) + " " + str(getattr(e.exception, "fix", ""))
+            self.assertIn("frozen (held back, not sent)", said)
+            self.assertIn("posting_capture", said)
+        with mock.patch.object(render, "compile_pdf", shipkit.fake_compile()), \
+                self.assertRaises(Refused) as caught:
+            selection.ship_target(self.root, STEM, fit=False, today=TODAY)
+        self.assertIn("held back, not sent", str(caught.exception))
+        self.assertNotIn("what was sent", str(caught.exception))
+        self.assertIn("posting_capture", caught.exception.fix)
+        self.assertEqual({n: appkit.facts(self.root, n) for n in names}, before,
+                         "nothing was written")
+        self.assertEqual(sha, self.expected_sha(selection.read(self.root, STEM)))
 
     def test_a_reship_by_target_into_the_frozen_directory_is_refused(self):
         from jsk.adapters.cli.compose import render

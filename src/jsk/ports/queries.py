@@ -44,6 +44,10 @@ class RecordQueries(Protocol):
         """(project, held) where the project holds only something `concept` counts as."""
         ...
 
+    def counts_as(self, concept: str) -> set[str]:
+        """The concepts `concept` counts as, without an implies edge, itself left out."""
+        ...
+
     def evidence_levels(self, project: str, concepts: Any) -> set[str]:
         """The provenances of the project's live, undisputed bullets showing one of
         `concepts` (an iri or several) without an implies edge."""

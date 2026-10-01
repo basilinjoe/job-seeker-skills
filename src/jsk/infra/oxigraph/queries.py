@@ -128,6 +128,24 @@ class OxigraphQueries:
               FILTER(?h > 0) FILTER NOT EXISTS {{ ?proj j:retired ?x }} }}""")
         return [(r["proj"].value, r["held"].value) for r in rows]
 
+    def counts_as(self, concept):
+        """The concepts `concept` counts as - EKS counts as Kubernetes - within the hop limit
+        and never through an implies edge: the paths a match counts as holding the asked
+        concept, read from the held side.
+
+        Args:
+            concept: a concept's iri.
+
+        Returns:
+            A set of iris, `concept` itself left out.
+        """
+        rows = self.store.select(PRE + f"""
+            SELECT DISTINCT ?to WHERE {{
+              GRAPH j:derived {{ ?p j:from <{concept}> ; j:to ?to ; j:hops ?h ;
+                                    j:implied false }}
+              FILTER(?h > 0) }}""")
+        return {r["to"].value for r in rows} - {concept}
+
     def evidence_levels(self, project, concepts):
         """The provenances of the project's live bullets that show one of the concepts, or
         something that counts as one without an implies edge. A disputed bullet is left out.

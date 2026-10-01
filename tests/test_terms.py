@@ -75,6 +75,17 @@ class Judge(unittest.TestCase):
         warns = self.warns([("Kubernetes", "required", [])], page=page)
         self.assertTrue(any("keyword stuffing" in w for w in warns), warns)
 
+    def test_a_graph_native_application_is_told_the_tools_not_the_files(self):
+        # Its headline is a selection's and its gaps a review's: no resume.json, no
+        # gaps.txt to edit (2026-10-02).
+        warns = judge(PAGE, "Senior Product Manager", [("Kafka", "required", [])],
+                      target="acme-platform")[1].warns
+        said = " ".join(warns)
+        self.assertIn('`career_confirm`, target "acme-platform", block "headline"', said)
+        self.assertIn("`assessment_review` short", said)
+        self.assertNotIn("resume.json", said)
+        self.assertNotIn("gaps.txt", said)
+
     def test_an_implicit_requirement_is_not_searched(self):
         counts, report = judge(PAGE, "Platform Engineer", [("Kafka", "implicit", [])])
         self.assertEqual(report.warns, [])
@@ -156,7 +167,7 @@ class Gate(unittest.TestCase):
 class Retuned(unittest.TestCase):
     """export --from-match puts the posting's strings in the file where the career has them."""
 
-    def retune(self, title, requirements, edits=()):
+    def retune(self, title, requirements, edits=(), target=None):
         from jsk.application.tailor.export import retuned
         from jsk.domain.matching.model import Requirement
         from jsk.domain.record.career import Career
@@ -169,8 +180,14 @@ class Retuned(unittest.TestCase):
             reqs = [Requirement(f"req_{n}", asked, asked, need)
                     for n, (asked, need) in enumerate(requirements)]
             doc = retuned(short(skills=["skill_kubernetes", "skill_dotnet"]), career, title,
-                          reqs, notes)
+                          reqs, notes, target)
         return doc, notes
+
+    def test_a_graph_native_selection_s_headline_note_names_career_confirm(self):
+        _, notes = self.retune("Senior Platform Engineer", [], target="acme-platform")
+        [note] = [n for n in notes if "headline" in n]
+        self.assertIn('`career_confirm` (target "acme-platform", block "headline")', note)
+        self.assertNotIn("resume.json", note)
 
     def test_the_posting_s_title_arrives_as_an_inferred_headline(self):
         doc, notes = self.retune("Senior Platform Engineer", [])

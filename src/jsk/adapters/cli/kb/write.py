@@ -97,9 +97,10 @@ def cmd_apply(args, flags, root, today):
     new bullet gets its id; a sent metric version gets a successor instead of a change.
     --dry-run prints the diff and writes nothing.
     """
-    from ....application.record.refusals import Refused
+    from ....application.record.refusals import Problems, Refused
     from ....application.record.write import apply
     from ..compose.record import load, read_changeset
+    from ..presenters import refuse_each
 
     if len(args) != 1:
         return usage("jsk kb apply takes one changeset")
@@ -123,6 +124,8 @@ def cmd_apply(args, flags, root, today):
                         read_changeset=read_changeset)
     except Refused as err:
         return refuse(err.lines, err.fix)
+    except Problems as err:
+        return refuse_each(err.problems)
     if applied is None:
         print("nothing to change: the record already says all of that")
         return 0

@@ -6,12 +6,15 @@ caller reads structure (Ruling 16 of
 docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md), so this returns the
 match result, each requirement's row - the match's verdict, the one that stands after the
 review, its evidence, why, and any flag - the fit and the questions. The derivation is
-check_gaps.build's graph-native branch, unchanged: the review graph folded in, the
-career's confirmed "no"s taken (Ruling 9), the gaps graph written with j:Ask nodes. The
-review is never written here, so it survives every re-derivation (Ruling 4).
+check_gaps' graph-native one: the review graph folded in, the career's confirmed "no"s
+taken (Ruling 9), the gaps graph written with j:Ask nodes - and written through
+application/posting/native.py's validated write, so a gaps graph that would newly break a
+rule is a FAIL with nothing written (Ruling 14). The review is never written here, so it
+survives every re-derivation (Ruling 4).
 
-It refuses an application made from files, one with no posting, a draft posting, a sent
-application, and a workspace whose FAILs stop the match. It prints nothing.
+It refuses an application made from files, one with no posting, a draft posting, a frozen
+application (sent or held back), and a workspace whose FAILs stop the match. It prints
+nothing.
 """
 from dataclasses import dataclass
 
@@ -78,11 +81,11 @@ def row_of(row, verdict=None, shortfall=None, kept=False):
             "kept": kept, "concepts": list(row.concepts)}
 
 
-def questions_of(questions, derived):
+def questions_of(questions, derived, asks=()):
     """{position, question, requirement slug or None} for each of `questions`, as the j:Ask
     nodes hold them: one the match derived knows its requirement, one the review wrote
-    does not."""
-    about = dict(derived.asks)
+    knows the one its `about` named (`asks`, Assessment.asks), or none."""
+    about = dict(asks or derived.asks)
     slugs = {row.id: row.slug for row in derived.rows}
     return tuple({"position": i, "question": q, "requirement": slugs.get(about.get(q))}
                  for i, q in enumerate(questions, 1))
@@ -103,19 +106,27 @@ def derive_assessment(root, stem, *, today, ports):
         the gaps graph is not written, and the rows are the match's.
 
     Raises:
-        Refused: a legacy application, no posting, a draft one, a sent application, or a
+        Refused: a legacy application, no posting, a draft one, a frozen application, or a
             FAIL that stops the match.
     """
-    from .check_gaps import build, native_assessed, review_of
+    from .check_gaps import native_assessed, native_triples, review_of
 
     app = N.app_of(root, stem)
     store = N.loaded(app, ports)
     N.native(store, app, ports, posting="complete")
-    N.refuse_if_sent(app, store, ports)
+    N.refuse_if_frozen(app, store, ports)
     r, derived = matched(store, app, today, ports)
-    written, found, _ = build(app.app_dir, store, r, today, derived, folder=ports.folder())
     overlay, reviewed = review_of(store, app.rel)
-    a, _ = native_assessed(store, app.rel, derived, overlay, reviewed)
+    a, found = native_assessed(store, app.rel, derived, overlay, reviewed)
+    if a is None:
+        return assessed(r, derived, None, found, ())
+    # Through N.write, as every other graph-native writer: the workspace loaded with the
+    # candidate gaps graph standing in, and anything it newly breaks refused with nothing
+    # written (Ruling 14). check_gaps.build wrote it unvalidated until 2026-10-02.
+    written, broken = N.write(app, store, {"gaps": native_triples(store, app.rel, a, today)},
+                              ports)
+    if broken:
+        return assessed(r, derived, None, list(found) + broken, ())
     return assessed(r, derived, a, found, written)
 
 
@@ -127,5 +138,6 @@ def assessed(r, derived, a, found, written):
                         questions_of(derived.questions, derived), (), (), N.clean(found),
                         tuple(written))
     return Assessed(r, tuple(row_of(v.row, v.verdict, v.shortfall, v.kept) for v in a.verdicts),
-                    a.fit, a.eligibility, questions_of(a.questions, derived), tuple(a.short),
+                    a.fit, a.eligibility, questions_of(a.questions, derived, a.asks),
+                    tuple(a.short),
                     tuple(a.surplus), N.clean(found), tuple(written))
