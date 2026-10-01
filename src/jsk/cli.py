@@ -53,12 +53,23 @@ import sys
 
 from . import __version__
 from .adapters.cli.gates.check import CHECK_GATES as CHECK_GATES
-from .adapters.cli.gates.check import (DEFAULT_RECORD, DOC_GATES, PAGES, cmd_check,
-                                       cmd_gates, cmd_validate, gate_result, gate_results,
-                                       parse_pages, print_results, rendered_documents,
-                                       worst_exit)
-from .application.guards import (VIEW_GONE, frozen_refusal, record_refusal,
-                                 unloaded_refusal, view_refusal)
+from .adapters.cli.gates.check import DEFAULT_RECORD as DEFAULT_RECORD
+from .adapters.cli.gates.check import DOC_GATES as DOC_GATES
+from .adapters.cli.gates.check import PAGES as PAGES
+from .adapters.cli.gates.check import cmd_check as cmd_check
+from .adapters.cli.gates.check import cmd_gates as cmd_gates
+from .adapters.cli.gates.check import cmd_validate as cmd_validate
+from .adapters.cli.gates.check import gate_result as gate_result
+from .adapters.cli.gates.check import gate_results as gate_results
+from .adapters.cli.gates.check import parse_pages as parse_pages
+from .adapters.cli.gates.check import print_results as print_results
+from .adapters.cli.gates.check import rendered_documents as rendered_documents
+from .adapters.cli.gates.check import worst_exit as worst_exit
+from .application.guards import VIEW_GONE as VIEW_GONE
+from .application.guards import frozen_refusal as frozen_refusal
+from .application.guards import record_refusal as record_refusal
+from .application.guards import unloaded_refusal as unloaded_refusal
+from .application.guards import view_refusal as view_refusal
 from .cliutil import parse_flags, refused, utf8_stdout, wants_help
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
