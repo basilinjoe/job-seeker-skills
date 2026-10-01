@@ -389,6 +389,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     render/fit_pages.py             a .tex fitted to its budget: each lever staged, compiled, measured
     render/preview_templates.py     one resume.json in every template, rendered once each and compiled at once
     timeline/freeze.py              an application frozen: checked, planned, gated, renamed to its day, written
+    timeline/add_event.py           one event added to an application's record: minted, validated, written
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root; a document written atomically
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
@@ -405,6 +406,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/fit.py                      `jsk fit`: its flags, the fit run, each lever and the verdict said
     cli/preview.py                  `jsk preview`: its flags, every template previewed, the pages said
     cli/freeze.py                   `jsk freeze`: its flags, the freeze run, its gates and what it wrote said
+    cli/event.py                    `jsk event`: its flags, the clock read once, the event added and its dates said
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)

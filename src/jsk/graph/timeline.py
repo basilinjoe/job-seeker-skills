@@ -1,32 +1,9 @@
-"""An application's record: what `jsk freeze` writes, and `jsk event` adds to.
+"""An application's record graphs: what `jsk freeze` writes, and `jsk event` adds to.
 
-Usage: jsk event <app-dir> <kind> --date YYYY-MM-DD|unknown [--channel TEXT] [--note TEXT]
-                 [--due YYYY-MM-DD] [--today YYYY-MM-DD]
-
-  <kind>   one of the pipeline vocabulary: submitted, acknowledged, screen-scheduled,
-           screen-done, interview-scheduled, interview-done, onsite-scheduled, onsite-done,
-           offer, offer-accepted, rejected, withdrawn, no-response, offer-declined,
-           follow-up-sent, note, referral, recruiter-contact
-
-Adds one event, k:evt_<stem>_<date>_<kind>, to the application's record (the graph
-applications/<dir>/application) - never edits one, never removes one. A second of the
-same kind on the same day - another note, a second interview round - is
-k:evt_..._<kind>_2, then _3; only an event identical to one already there (kind, date,
-channel, note and due) is refused. The whole workspace is validated with the event in it
-before anything is written. The application is not logged in the career's log: the log
-is the career's, and an application is not the career.
-
-A stage is not stored anywhere: `jsk kb query pipeline` derives it from the latest event.
-
-The date is the day it happened - a screen-scheduled event's is the day it was booked,
-the screen itself its --due. Both are printed back with their weekday and distance from
-today (--today, for a test), so "last Tuesday" worked out wrong shows as the wrong
-weekday; a --date after today is a WARN, since nothing has happened yet on it.
-
-Exit 0 added; 1 refused, with why; 2 called wrong.
+`jsk event` and `python -m jsk.graph.timeline` are adapters/cli/event.py, and the event is
+added by application/timeline/add_event.py. This module keeps the path (Ruling 4 of the
+onion design), the record's reads and writes, and event_quads, which a test patches here.
 """
-import datetime
-import difflib
 import os
 import sys
 
@@ -51,7 +28,6 @@ from ..infra.files import write_document as write_document
 
 # An application's record graphs, by kind: in career/store/ as applications/<dir>/<kind>.
 RECORD = ("posting", "application", "gaps")
-KINDS = O.ENUMS["eventKind"]
 
 
 def posting_of(store, rel_dir):
@@ -298,156 +274,18 @@ def write_frozen(root, sealed, final):
 
 # --- jsk event -----------------------------------------------------------------------
 
-def usage(message):
-    print(message)
-    print("usage: jsk event <app-dir> <kind> --date YYYY-MM-DD|unknown [--channel TEXT] "
-          "[--note TEXT] [--due YYYY-MM-DD] [--today YYYY-MM-DD]")
-    return 2
-
-
-def refuse(lines, fix):
-    for line in lines:
-        print(f"REFUSED  {line}")
-    print(f"        fix: {fix}")
-    print("nothing was written")
-    return 1
-
-
 def main(argv=None):
-    from ..cliutil import parse_flags, wants_help
+    """`jsk event` (adapters.cli.event.main).
 
-    args = list(sys.argv[1:] if argv is None else argv)
-    if wants_help(args):
-        # __doc__ is None only under -OO, which nothing runs jsk with.
-        print(__doc__.split("\n\nAdds", 1)[0])  # pyright: ignore[reportOptionalMemberAccess]
-        return 0
-    parsed, problem = parse_flags(args, ("--date", "--channel", "--note", "--due", "--today"), ())
-    if parsed is None:
-        return usage(problem)
-    positional, flags = parsed
-    if len(positional) != 2:
-        return usage("jsk event takes an application directory and a kind")
-    app_dir, kind = positional[0].rstrip("/\\") or positional[0], positional[1]
-    if kind not in KINDS:
-        near = difflib.get_close_matches(kind, KINDS, n=1, cutoff=0.5)
-        return usage(f"unknown kind: {kind!r} - " + (f"did you mean {near[0]!r}? " if near else "")
-                     + f"one of {', '.join(KINDS)}")
-    date = flags.get("--date")
-    if date is None:
-        return usage("--date is required: the day it happened, or `unknown`")
-    if date != "unknown" and not is_date(date):
-        return usage(f"--date needs YYYY-MM-DD or unknown, got {date!r}")
-    due = flags.get("--due")
-    if due is not None and not is_date(due):
-        return usage(f"--due needs YYYY-MM-DD, got {due!r}")
-    today = flags.get("--today", datetime.date.today().isoformat())
-    if not is_date(today):
-        return usage(f"--today needs YYYY-MM-DD, got {today!r}")
-    if not os.path.isdir(app_dir):
-        return usage(f"not a directory: {app_dir}")
-    if workspace_of_app(app_dir)[0] is None:
-        # An application's graph is named applications/<dir>/application, so an event
-        # written anywhere else would be one no query ever reads.
-        return usage(f"{app_dir} is not in an applications/ folder - pass "
-                     "applications/<dir>, beside career/")
-    try:
-        import pyoxigraph  # noqa: F401
-    except ImportError:
-        print("FAIL  jsk event needs pyoxigraph, and this Python has not got it - "
-              "`jsk doctor` says how to install it")
-        return 1
-    if not has_record(app_dir, "application"):
-        if os.path.isfile(os.path.join(app_dir, "application.md")):
-            return refuse([f"{app_dir} was frozen as application.md, which this command does "
-                           f"not write"], "append the row to its # Timeline table by hand")
-        return refuse([f"{app_dir} holds no application record"],
-                      "an application gets one when it is frozen: `jsk freeze`")
-    return add(workspace_of_app(app_dir)[0], app_dir, kind, date,
-               flags.get("--channel"), flags.get("--note"), due,
-               datetime.date.fromisoformat(today))
+    Args:
+        argv: the arguments after `event`; sys.argv's when None.
 
+    Returns:
+        The exit code.
+    """
+    from ..adapters.cli.event import main as event
 
-def free_iri(store, base, quads):
-    """(iri to mint, None), or (None, the iri of an event that is this one exactly).
-
-    Two notes on one day, a round-1 and a round-2 interview-done, two recruiter-contacts
-    dated unknown are all real, so the id is the first of base, base_2, base_3... that is
-    free. Only an event identical in every
-    field (kind, date, channel, note, due) is a duplicate: running the same command
-    twice records nothing new."""
-    want = {(q.predicate, q.object) for q in quads}
-    iri, n = base, 2
-    while iri in store.homes:
-        have = {(q.predicate, q.object) for parsed in store.parsed.values()
-                for q in parsed.quads if q.subject.value == iri}
-        if have == want:
-            return None, iri
-        iri, n = f"{base}_{n}", n + 1
-    return iri, None
-
-
-def add(root, app_dir, kind, date, channel, note, due, today=None):
-    """Add the event, inside this process's turn: taken before the application is read,
-    so an event that queued behind another write is added to what that one left."""
-    from ..infra.oxigraph import record as R
-
-    with R.turn(root):
-        return added(root, app_dir, kind, date, channel, note, due, today)
-
-
-def added(root, app_dir, kind, date, channel, note, due, today):
-    from ..infra.oxigraph import record as R
-    from . import store as S
-    from ..domain.record.state import diff, new_failures
-    from ..domain.record.writer import curie, write
-
-    store = S.load(root)
-    rel = S.app_graph(S.file_name(os.path.abspath(app_dir), store.root), "application")
-    parsed = store.parsed.get(rel)
-    if parsed is None:
-        return refuse([f.text() for f in store.findings if f.file == rel] or
-                      [f"{rel} is not in the store"], "`jsk kb check` shows what is wrong")
-    app = next((q.subject.value for q in parsed.quads
-                if O.class_of(q.subject.value) == "Application"), None)
-    if app is None:
-        return refuse([f"{rel} holds no application"], "`jsk freeze` writes one")
-    stem = app[len(O.K) + len("app_"):]
-    iri, quads = event_quads(app, stem, date, kind, channel, note, due)
-    iri, same = free_iri(store, iri, quads)
-    if same:
-        return refuse([f"{curie(same)} is already recorded: this {kind} on {date}, with the "
-                       "same channel, note and due"],
-                      f"`jsk kb show {curie(same)}`; an event is never edited - add a `note` "
-                      "event to say more")
-    iri, quads = event_quads(app, stem, date, kind, channel, note, due, iri=iri)
-    new = list(parsed.quads) + quads
-    after = S.load(root, graphs={rel: new})
-    broken = new_failures(store, after)
-    if broken:
-        return refuse([f"the event would leave {rel} failing:"] + [f.text() for f in broken],
-                      "check the date against the application's; `jsk kb check` shows the rest")
-    try:
-        R.write_graphs(root, {rel: new})
-    except R.Written as e:
-        # The event is in the store: not "nothing was written".
-        print(f"FAIL     {e}")
-        print(f"        fix: {e.fix}")
-        return 1
-    except R.RecordError as e:
-        return refuse([str(e)], e.fix)
-    print(diff(write(parsed.quads, "application"), write(new, "application"), rel), end="")
-    print(f"added    {curie(iri)}")
-    today = today or datetime.date.today()
-    print(f"recorded {kind} on {when(date, today)}")
-    if due:
-        print(f"due {when(due, today)}")
-    if date != "unknown" and datetime.date.fromisoformat(date) > today:
-        # Every kind's date is the day it happened - a booking's too, its day is --due -
-        # so a future one is arithmetic gone wrong, and it would sort as the latest stage.
-        print(f"WARN  {date} is after today, and the date is the day it happened - "
-              "a meeting still to come is the --due of its -scheduled event; an event is "
-              "never edited, so correct this one with a `note` event")
-    return 0
+    return event(argv)
 
 
 if __name__ == "__main__":

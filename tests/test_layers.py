@@ -54,6 +54,7 @@ KNOWN_EDGES = {
     ("jsk.render.render_resume", "jsk.adapters.cli.render"): {"main"},
     ("jsk.render.fit_pages", "jsk.adapters.cli.fit"): {"main"},
     ("jsk.render.preview_templates", "jsk.adapters.cli.preview"): {"main"},
+    ("jsk.graph.timeline", "jsk.adapters.cli.event"): {"main"},
 }
 
 # (module, what it does that its ring forbids).
