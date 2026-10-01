@@ -294,7 +294,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   cli.py                            the dispatcher: fifteen subcommands, each run in process
   cliutil.py                        one contract for --help across the hand-rolled entry points
   paths.py                          where the packaged schema lives - stated once
-  kb.py                             `jsk new` - scaffolds career/store/ (kb and log at r1), applications/
+  kb.py                             `jsk new` - hands over to adapters/cli/kb/new.py (the documented path)
   posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
   graph/                            the career record: see "Inside the graph package"
     ontology.py                     the format, as data     writer.py     the entry printer
@@ -393,6 +393,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/pack.py  merge.py        `jsk kb pack` and `merge`: changesets drafted on the logged revision
     record/write.py                 WriteLogged, the gate every kb write goes through; `jsk kb apply`
     record/confirm.py               `jsk kb confirm`: the answer checked, the ids planned, the summary
+    record/scaffold.py              `jsk new`: the empty record written, or a record started over
     record/load_import.py           `jsk kb load`: files or a dump read, validated, written once
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
     render/build_plan.py            a resume.json on disk to its render plan
@@ -419,6 +420,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
     cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG
     cli/kb/write.py                 `jsk kb apply`, and the logged write's diff every writing verb prints
+    cli/kb/new.py                   `jsk new`: its flags, the workspace scaffolded, what was written
     cli/kb/confirm.py               `jsk kb confirm`: its three forms, and what each confirmed
     cli/kb/draft.py                 `jsk kb pack` and `merge`: the drafted changeset printed or written
     cli/kb/export.py                `jsk kb export`: its flags, the choice's notes and gaps, the file
