@@ -46,6 +46,18 @@ def curie(iri):
     return f"<{iri}>"
 
 
+def curies(iris):
+    """The iris as CURIEs, sorted, comma-separated: how a kb verb names the ids it touched.
+
+    Args:
+        iris: any iterable of iris.
+
+    Returns:
+        One string, e.g. "k:ach_a, k:prj_b".
+    """
+    return ", ".join(curie(i) for i in sorted(iris))
+
+
 def short_string(value):
     return '"' + (value.replace("\\", "\\\\").replace('"', '\\"')
                   .replace("\t", "\\t").replace("\r", "\\r").replace("\n", "\\n")) + '"'
