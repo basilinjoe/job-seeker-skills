@@ -332,6 +332,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   domain/                           the innermost ring: no files, argv, environment or clock
     naming.py                       a record graph's short name and its IRI, the same in memory and on disk
     record/confirmation.py          what a confirmation's quote must share with its claim
+    record/provenance.py            what a hand edit of the career raised, named for the import
     gates/numbers.py  report.py     numbers in prose and whether metrics hold them; a gate's findings
     gates/ats_rules.py              the parse gate's rules over extracted text and fonts
     gates/prose_rules.py            the prose gate's rules over a .tex's or .txt's paragraphs
@@ -390,6 +391,9 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/store_status.py          where a workspace's record is, and what is there instead
     record/dump.py                  `jsk kb dump`: the whole record as TriG
     record/pack.py  merge.py        `jsk kb pack` and `merge`: changesets drafted on the logged revision
+    record/write.py                 WriteLogged, the gate every kb write goes through; `jsk kb apply`
+    record/confirm.py               `jsk kb confirm`: the answer checked, the ids planned, the summary
+    record/load_import.py           `jsk kb load`: files or a dump read, validated, written once
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
     render/build_plan.py            a resume.json on disk to its render plan
     render/render_resume.py         one render: plans built, files written, the PDF compiled and measured
@@ -414,6 +418,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/kb/__init__.py              `jsk kb`: the verb table, its flags, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
     cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG
+    cli/kb/write.py                 `jsk kb apply`, and the logged write's diff every writing verb prints
+    cli/kb/confirm.py               `jsk kb confirm`: its three forms, and what each confirmed
     cli/kb/draft.py                 `jsk kb pack` and `merge`: the drafted changeset printed or written
     cli/kb/export.py                `jsk kb export`: its flags, the choice's notes and gaps, the file
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
