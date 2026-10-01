@@ -10,7 +10,7 @@ check it against.
 """
 import datetime
 
-from ....cliutil import parse_flags, utf8_stdout, wants_help
+from ..cliutil import parse_flags, utf8_stdout, wants_help
 from . import present
 
 MAX_FINDINGS = 25

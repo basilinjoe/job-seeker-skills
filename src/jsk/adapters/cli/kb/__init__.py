@@ -46,7 +46,7 @@ import inspect
 import os
 import sys
 
-from ....cliutil import docstring_usage, parse_flags, wants_help
+from ..cliutil import docstring_usage, parse_flags, wants_help
 from ....infra.files import find_root
 from ..presenters import usage
 from . import confirm, draft, export, load, read, write
@@ -114,7 +114,7 @@ def main(argv=None):
         # `load` is the import itself; every other verb would answer from, or write to, a
         # record jsk no longer keeps.
         from ....application.guards import unloaded_refusal
-        from ....cliutil import refused
+        from ..cliutil import refused
         refusal = unloaded_refusal(os.path.abspath(root))
         if refusal:
             return refused(refusal)

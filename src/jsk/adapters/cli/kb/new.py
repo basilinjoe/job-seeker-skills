@@ -24,7 +24,7 @@ import datetime
 import os
 import sys
 
-from ....cliutil import docstring_usage, utf8_stdout, wants_help
+from ..cliutil import docstring_usage, utf8_stdout, wants_help
 
 INSTALL = 'python -m pip install "jsk-resume"   - pyoxigraph is one of its dependencies'
 
@@ -107,7 +107,7 @@ def refusal(err):
 
     from ....application.record import scaffold as N
     from ....application.record.refusals import Failing, Unclean
-    from ....cliutil import show
+    from ..cliutil import show
     from ....domain.record.store import Store
     from ..presenters import GUIDE
 

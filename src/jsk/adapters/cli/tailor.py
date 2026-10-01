@@ -25,7 +25,7 @@ tools took two seconds apiece; the turns took four minutes.
 """
 import datetime
 
-from ...cliutil import docstring_usage, wants_help
+from .cliutil import docstring_usage, wants_help
 from .options import BadOption, take_values, tailor_options
 
 USAGE = ("usage: jsk tailor prepare <applications/<dir>> [--draft-gaps] [--cover N] "

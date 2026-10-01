@@ -62,7 +62,7 @@ def main(args, *, fetch=None):
     Returns:
         The exit code: 0 written or printed, 1 refused, 2 called wrong.
     """
-    from ...cliutil import wants_help
+    from .cliutil import wants_help
     from ...domain.posting.errors import Refused
 
     args = list(args)

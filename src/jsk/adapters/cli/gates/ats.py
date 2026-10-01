@@ -20,7 +20,7 @@ the extracted text says, and whether a parser can extract it at all.
 """
 import os
 
-from ....cliutil import docstring_usage, utf8_stdout, wants_help
+from ..cliutil import docstring_usage, utf8_stdout, wants_help
 from . import present
 
 

@@ -80,7 +80,7 @@ def main(argv=None):
         The exit code: 0 added, 1 refused, 2 called wrong. Reads the clock once, for
         --today's default; writes the application graph.
     """
-    from ...cliutil import parse_flags, wants_help
+    from .cliutil import parse_flags, wants_help
     from ...infra.files import workspace_of_app
     from .compose import timeline
 

@@ -30,7 +30,7 @@ declaration, and whether it is true.
 """
 import os
 
-from ....cliutil import docstring_usage, utf8_stdout, wants_help
+from ..cliutil import docstring_usage, utf8_stdout, wants_help
 from . import present
 
 

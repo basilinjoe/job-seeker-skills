@@ -1020,7 +1020,7 @@ class ParseFlags(unittest.TestCase):
     """The one argument parser every hand-written entry point shares."""
 
     def parse(self, *args, **kinds):
-        from jsk.cliutil import parse_flags
+        from jsk.adapters.cli.cliutil import parse_flags
         return parse_flags(list(args), kinds.pop("values", ()), **kinds)
 
     def test_an_unknown_flag_is_refused_by_name(self):

@@ -28,7 +28,7 @@ and `tests/test_themes.py` is what says so. This module parses the flags and pri
 import datetime
 import os
 
-from ...cliutil import docstring_usage, wants_help
+from .cliutil import docstring_usage, wants_help
 from .render import arg
 
 

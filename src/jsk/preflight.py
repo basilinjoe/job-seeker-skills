@@ -49,7 +49,7 @@ GRAPH_KB_FILENAME = "kb.ttl"
 # modules move between rings, and a list that named them would report a sound install broken
 # after every move. find_spec answers "is the code here" without importing the package, even
 # on a machine without the engine - the engine is its own check below.
-MODULES = ["cli", "cliutil", "paths", "domain", "ports", "application", "infra", "adapters"]
+MODULES = ["cli", "paths", "domain", "ports", "application", "infra", "adapters"]
 GRAPH_MODULES = ["domain.record", "application.record", "infra.oxigraph"]
 GATE_MODULES = ["domain.gates", "application.gates"]
 # The renderer's ring packages: the plan builder, the emitters and the use cases that drive

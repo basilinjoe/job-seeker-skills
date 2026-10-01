@@ -9,7 +9,7 @@ import io
 import json
 import os
 
-from ...cliutil import parse_flags, wants_help
+from .cliutil import parse_flags, wants_help
 
 SHIP_USAGE = ("usage: jsk resume ship <resume.json> --out DIR [--ats-max] "
               "[--template N] [--pages N] [--no-fit] [--json]")

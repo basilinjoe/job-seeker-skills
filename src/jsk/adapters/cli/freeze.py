@@ -8,7 +8,7 @@ application/timeline/freeze.py.
 import datetime
 import os
 
-from ...cliutil import parse_flags, wants_help
+from .cliutil import parse_flags, wants_help
 
 FREEZE_USAGE = ("usage: jsk app freeze <app-dir> --submitted YYYY-MM-DD|false "
                 "--channel TEXT [--doc FILE ...]")

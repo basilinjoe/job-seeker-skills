@@ -72,7 +72,7 @@ def read_import(src, given, today, db):
         Failing, Refused: as application.record.load_import's readers raise them.
     """
     from ....application.record import load_import as L
-    from ....cliutil import show
+    from ..cliutil import show
     from ....domain.record.store import Store
     from ..compose.record import numbers_as_kept
     from ....infra import files

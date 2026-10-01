@@ -27,7 +27,7 @@ which it did not while the fitter measured a .docx nobody submitted.
 import datetime
 import os
 
-from ...cliutil import docstring_usage, wants_help
+from .cliutil import docstring_usage, wants_help
 from ...domain.render import themes
 
 

@@ -139,7 +139,7 @@ def cmd_check(args, flags, root, today):
                     own five.
     """
     from ....application.record.check import check
-    from ....cliutil import show
+    from ..cliutil import show
     from ..compose.record import load
     from ....infra import files
     from ....infra.oxigraph import record as R

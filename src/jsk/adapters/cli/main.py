@@ -33,7 +33,7 @@ it selects before anything renders - the last point at which a mistake is still 
 pyoxigraph for the graph record, and pymupdf to read a PDF.
 """
 from ... import __version__
-from ...cliutil import refused, wants_help
+from .cliutil import refused, wants_help
 from .dispatch import run_in_process, workspace_refusal
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens

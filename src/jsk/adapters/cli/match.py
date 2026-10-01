@@ -30,7 +30,7 @@ import datetime
 import json
 import os
 
-from ...cliutil import docstring_usage, wants_help
+from .cliutil import docstring_usage, wants_help
 from .options import BadOption, take_values, tailor_options
 
 USAGE = ("usage: jsk tailor match <applications/<dir>> [--cover N] [--json] "
@@ -127,7 +127,7 @@ def stopped(stop):
     Returns:
         1.
     """
-    from ...cliutil import show
+    from .cliutil import show
 
     if stop.kind == "blocked":
         print(f"FAIL  the workspace has {len(stop.detail)} failures - fix them before matching:")

@@ -1,5 +1,5 @@
 """The lines every gate prints the same way: its counts, its findings and its verdict."""
-from ....cliutil import show
+from ..cliutil import show
 
 FAILED = "DO NOT SEND - fix the failures above"
 

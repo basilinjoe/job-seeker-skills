@@ -16,7 +16,7 @@ through his promotion" - is not a parsing defect, so check_ats.py passes it with
 """
 import os
 
-from ....cliutil import docstring_usage, utf8_stdout, wants_help
+from ..cliutil import docstring_usage, utf8_stdout, wants_help
 from . import present
 
 

@@ -10,7 +10,7 @@ resume.json outside a workspace.
 import datetime
 import os
 
-from ....cliutil import docstring_usage, parse_flags, utf8_stdout, wants_help
+from ..cliutil import docstring_usage, parse_flags, utf8_stdout, wants_help
 from . import present
 
 

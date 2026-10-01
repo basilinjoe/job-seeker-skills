@@ -4,7 +4,7 @@ The record gate (adapters/cli/gates/record.py) asks this and everything else of 
 resume.json; this is the check with no gate behind it, over domain/resume/short.py's rules
 and the file and career compose.resume reads.
 """
-from ....cliutil import utf8_stdout
+from ..cliutil import utf8_stdout
 
 
 def main(argv):

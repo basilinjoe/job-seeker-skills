@@ -68,7 +68,7 @@ def show_findings(findings, title):
     Returns:
         None.
     """
-    from ...cliutil import show
+    from .cliutil import show
     from ...domain.record.store import Store
 
     rep = Store("", findings=findings).report()

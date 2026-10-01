@@ -103,7 +103,7 @@ def fitted(argv, *, tex):
     Raises:
         SystemExit: from argparse, for a bad call or --help.
     """
-    from ...cliutil import utf8_stdout
+    from .cliutil import utf8_stdout
 
     a = parse(argv)
     utf8_stdout()

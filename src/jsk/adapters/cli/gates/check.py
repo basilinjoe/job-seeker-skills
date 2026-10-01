@@ -17,7 +17,7 @@ from ....application.gates.run_gates import DEFAULT_RECORD as DEFAULT_RECORD
 from ....application.gates.run_gates import DOC_GATES as DOC_GATES
 from ....application.gates.run_gates import RENDERED as RENDERED
 from ....application.gates.run_gates import rendered_documents as rendered_documents
-from ....cliutil import parse_flags, utf8_stdout, wants_help
+from ..cliutil import parse_flags, utf8_stdout, wants_help
 
 # The gates jsk resume check runs, in order. Both always run: a document that fails the parse
 # gate can still have prose findings worth seeing in the same pass.

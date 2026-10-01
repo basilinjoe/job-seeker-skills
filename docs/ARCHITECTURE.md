@@ -119,7 +119,7 @@ writes its application graph; no log entry is added, since the log is the career
 No copy of the content is written: the PDF, `.txt` and `.tex` beside it are the words sent. After that the directory is
 an archive: later events are added with `jsk app event`, never edited.
 
-Every verb runs **in process**. The dispatcher imports the module behind it and calls its `main()`
+Every verb runs **in process**. The dispatcher imports the adapter behind it and calls its `main()`
 with the same arguments, so the output and the exit code are the module's own and nothing is
 paraphrased on the way through. One interpreter per invocation is what lets `jsk resume ship` be a single
 command rather than four start-ups; `call_gate()` turns the two failures an in-process call adds — a
@@ -284,7 +284,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   __init__.py                       __version__
   __main__.py                       `python -m jsk`, the same entry point as `jsk`
   cli.py                            the `jsk` console script's module: hands over to adapters/cli/main.py
-  cliutil.py                        one contract for --help across the hand-rolled entry points
   paths.py                          where the packaged schema lives - stated once
   preflight.py                      `jsk doctor`: what this machine can do
   domain/                           the innermost ring: no files, argv, environment or clock
@@ -405,7 +404,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     documents.py                    what the gates judge, read leniently: a rendered .txt or .tex, a cover letter
   adapters/                         the driving side: argv parsed, a use case run, its result printed
     cli/main.py                     the dispatcher: seven nouns, each verb run in process, the retired names
-    cli/dispatch.py                 a verb's module found and its main() called, contained
+    cli/dispatch.py                 a verb's adapter found (ADAPTERS) and its main() called, contained
     cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
     cli/resume.py                   `jsk resume check`: the gates its target calls for, by its kind
     cli/render.py                   `jsk resume render`: its flags, the render run, what it wrote said
@@ -418,6 +417,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
     cli/tailor.py                   `jsk tailor prepare`: its flags, the digest run and printed section by section
     cli/posting.py                  `jsk posting`: fetch, extract or build run, what it wrote said
+    cli/cliutil.py                  one contract for --help and flags across the commands; a finding list printed
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
     cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
     cli/compose/record.py           a workspace loaded over career/store/ and the engine; a changeset read

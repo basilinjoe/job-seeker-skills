@@ -10,7 +10,7 @@ import io
 import os
 
 from ...application.guards import unloaded_refusal
-from ...cliutil import utf8_stdout, wants_help
+from .cliutil import utf8_stdout, wants_help
 
 PACKAGE = __name__.split(".")[0]
 

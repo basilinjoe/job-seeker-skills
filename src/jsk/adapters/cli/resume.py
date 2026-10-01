@@ -8,7 +8,7 @@ does not fit the target's kind is a usage error naming the kind.
 """
 import os
 
-from ...cliutil import wants_help
+from .cliutil import wants_help
 from .gates.check import cmd_check, cmd_gates, cmd_validate
 
 RESUME_CHECK_USAGE = (

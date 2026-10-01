@@ -6,7 +6,7 @@ runs on a machine without it and says so.
 import os
 
 from ...application.guards import unloaded_refusal
-from ...cliutil import wants_help
+from .cliutil import wants_help
 from .dispatch import run_in_process
 
 

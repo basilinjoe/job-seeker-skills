@@ -11,6 +11,7 @@ and an exit code of 0.
 from __future__ import annotations
 
 import sys
+from typing import Any
 
 HELP_FLAGS = frozenset({"-h", "--help", "help"})
 
@@ -69,13 +70,17 @@ class Problem(str):
     """What was wrong with a call, as the message printed - and, for a caller that adds
     its own fix, `kind` ("unknown", "missing" or "repeated") and the `flag`."""
 
+    kind: str
+    flag: str
+
     def __new__(cls, text, kind, flag):
         self = super().__new__(cls, text)
         self.kind, self.flag = kind, flag
         return self
 
 
-def parse_flags(args, values, switches=("--json",), repeats=(), lists=(), dash=False):
+def parse_flags(args, values, switches=("--json",), repeats=(), lists=(),
+                dash=False) -> tuple[Any, Any]:
     """((positional, flags), None) or (None, a Problem).
 
     `values` take one argument, `switches` none, and `repeats` one argument each time
