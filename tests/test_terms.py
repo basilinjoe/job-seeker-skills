@@ -7,6 +7,7 @@ warning, because a missing term is often a gap, never a word to add. And `jsk kb
 skill it names by an alias shown under that alias."""
 import contextlib
 import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -81,28 +82,42 @@ class Judge(unittest.TestCase):
 
 
 class Gate(unittest.TestCase):
-    """The gate over a workspace: the posting found from the resume.json's directory."""
+    """The gate over a workspace: the posting found from the resume.json's directory, and the
+    page the plain text the record's plan emits in memory - no render writes a .txt (Ruling
+    23 of the graph-native plan) - or a .txt passed by hand."""
 
-    def run_gate(self, root, record, page=PAGE):
+    def run_gate(self, root, record, page=None):
         from jsk.adapters.cli.gates import terms
 
-        txt = Path(root, "Test_Person_Resume_ATS.txt")
-        txt.write_text(page, encoding="utf-8")
+        args = ["--record", str(record)]
+        if page is not None:
+            txt = Path(root, "pasted.txt")
+            txt.write_text(page, encoding="utf-8")
+            args = [str(txt)] + args
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code, result = terms.gate([str(txt), "--record", str(record)])
+            code, result = terms.gate(args)
         return code, out.getvalue(), result
 
     def test_the_posting_beside_the_record_is_covered(self):
         with tempfile.TemporaryDirectory() as tmp:
             root, path = careerkit.workspace(tmp, short=short())
             code, out, result = self.run_gate(root, path)
-        # The fixture's posting asks for "K8s"; the page says Kubernetes.
+        # The fixture's posting asks for "K8s"; the plan's text says Kubernetes.
         self.assertEqual(code, 0, out)
         self.assertEqual(result.posting, "Platform Engineer")
+        self.assertIn("checking: plain text of resume.json (in memory)", out)
         self.assertIn("required: 0/1", out)
         self.assertIn("'K8s' is not on the page, but 'Kubernetes' is", out)
         self.assertIn("PASS - terms reported", out)
+
+    def test_a_txt_passed_by_hand_is_still_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, path = careerkit.workspace(tmp, short=short())
+            code, out, result = self.run_gate(root, path, page=PAGE)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(result.name, "pasted.txt")
+        self.assertIn("'K8s' is not on the page, but 'Kubernetes' is", out)
 
     def test_a_record_with_no_posting_has_nothing_to_cover(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -125,16 +140,17 @@ class Gate(unittest.TestCase):
             general = Path(root, "resume.json")
             general.write_text('{"resume": 2, "bullets": ["ach_events_latency"]}\n',
                                encoding="utf-8")
-            Path(root, "Test_Person_Resume_ATS.txt").write_text(PAGE, encoding="utf-8")
+            # No .txt on disk either way: the terms gate reads the plan's text in memory.
             steps = run_gates(root, str(general), record_gate=False, run=contained,
                               strict=lambda p: False, measure=lambda p: (None, None))
             tailored = Path(root, APP)
-            Path(tailored, "Test_Person_Resume_ATS.txt").write_text(PAGE, encoding="utf-8")
+            Path(tailored, "resume.json").write_text(json.dumps(short()), encoding="utf-8")
             with_posting = run_gates(str(tailored), str(tailored / "resume.json"),
                                      record_gate=False, run=contained,
                                      strict=lambda p: False, measure=lambda p: (None, None))
         self.assertNotIn("terms gate", [s.gate for s in steps])
-        self.assertIn("terms gate", [s.gate for s in with_posting])
+        [terms] = [s for s in with_posting if s.gate == "terms gate"]
+        self.assertEqual(terms.status, "PASS", terms.output)
 
 
 class Retuned(unittest.TestCase):

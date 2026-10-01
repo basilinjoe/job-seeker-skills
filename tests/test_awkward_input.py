@@ -234,10 +234,11 @@ class MatchGaps(Forms):
             GAPS_TXT, match_workspace, lambda r: r / CONTOSO / "gaps.txt",
             lambda r: ["tailor", "match", r / CONTOSO, "--gaps", r / CONTOSO / "gaps.txt",
                        "--today", "2026-09-24"], "gaps.txt")
-        written = found[PLAIN][2]
         self.assertIn("applications/contoso/gaps", graphs(found[PLAIN]))
-        self.assertIn("meets it – based in Pune".encode(),
-                      written["applications/contoso/gaps.md"])
+        # The assessment is printed, not written to a gaps.md (Ruling 24 of the plan). The
+        # dash between is the child's console encoding's to spell; the words are the file's.
+        self.assertRegex(found[PLAIN][1], r"meets it \S+ based in Pune")
+        self.assertNotIn("applications/contoso/gaps.md", found[PLAIN][2])
 
 
 # --- jsk kb confirm -------------------------------------------------------------------

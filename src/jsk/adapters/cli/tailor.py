@@ -10,8 +10,9 @@ Usage: jsk tailor prepare <applications/<dir>> [--draft-gaps] [--cover N] [--tod
 One process, one digest, in this order: the check, scoped to this application plus any
 FAIL anywhere; the match as `jsk tailor match` prints it; what the record holds for every missing
 and candidate term; the person, for eligibility; the cover's projects with their bullets;
-what those projects hold unconfirmed; and the assessment - the gaps graph and gaps.md,
-derived from the match with gaps.txt folded in when there is one, written on every run.
+what those projects hold unconfirmed; and the assessment - the gaps graph, derived from
+the match with gaps.txt folded in when there is one, written on every run and printed
+(there is no gaps.md).
 Every section has a size cap and says when it was cut.
 
 Exit 0 digest printed; 1 a FAIL blocks the match, or the draft could not be written; 2

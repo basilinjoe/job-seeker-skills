@@ -17,7 +17,7 @@ Five things make it different:
   anything runs. Changes go in through `jsk kb apply` - validated, written in one step, logged, with
   the diff shown - and nothing can be marked confirmed except by your own answer: a backup edited
   outside jsk is refused when it is loaded back.
-- **Nothing is hand-built.** The PDF and the paste-in plain text are both built from your knowledge
+- **Nothing is hand-built.** The PDF and the text the checks read are both built from your knowledge
   base and a short `resume.json` naming what this resume shows — so they cannot drift apart or
   contradict each other.
 - **Gaps close first.** The posting, the gap assessment between it and your record, and the
@@ -72,7 +72,7 @@ Describe what you want and the skill routes there by itself. Or say it directly:
 |---|---|
 | `/jsk:setup` | First run, or importing an existing resume |
 | `/jsk:braindump` | You have something to say about your work |
-| `/jsk:resume` | You need a resume — one verified PDF plus plain text |
+| `/jsk:resume` | You need a resume — one verified PDF |
 | `/jsk:tailor` | You have a specific job posting - a loop that closes the gaps, then writes the resume |
 | `/jsk:ship` | A resume is finished and needs rendering, checking and filing — `jsk resume ship`, then `jsk app freeze` |
 | `/jsk:refresh` | Periodic top-up: what changed, what numbers moved |
@@ -98,10 +98,9 @@ my-career/                  `jsk kb new ./my-career --name "Your Name"` makes th
     2026-09-08-acme-platform-engineer/
       posting.md            the advertisement, verbatim
       decisions.txt         what it asks for, as the analyst read it
-      gaps.md               the assessment, and the question queue
+      gaps.txt              the analyst's changes to the assessment (`jsk tailor match` prints it)
       resume.json           the bullets and settings this submission rendered from
       Priya_Raman_Resume.{tex,pdf}
-      Priya_Raman_Resume_ATS.txt
   .jsk/backup.trig          the whole record as text, refreshed after every change; .jsk/ is
                             git-ignored, so if git is your backup, commit a `jsk kb dump` too
   .gitattributes            `career/store/** binary`, so git never rewrites the store's files

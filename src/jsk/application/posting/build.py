@@ -314,7 +314,7 @@ def checked(d, built_triples, rel, folder):
 def written(d, built_triples, rel, count, store, folder):
     """Write the posting, and remove the assessment derived from the one it replaces.
 
-    The assessment and gaps.md are derived from the posting just replaced: a requirement
+    The assessment is derived from the posting just replaced: a requirement
     it dropped would leave the assessment dangling, and that FAIL would block prepare
     here. gaps.txt is the analyst's, keyed by slug, and survives any rebuild that keeps
     the slugs.
@@ -342,8 +342,9 @@ def written(d, built_triples, rel, count, store, folder):
         # One update: the new posting and the old assessment's removal land together.
         target = folder.write_graphs(app_dir, {"posting": built_triples, "gaps": None},
                                      store)[0]
+        # No gaps.md to remove: none is written (Ruling 24 of the graph-native plan), and
+        # an older one is the person's to keep or delete.
         removed = [app_graph(rel, "gaps")] if had_gaps else []
-        removed += [n for n in ("gaps.md",) if folder.remove_file(app_dir, n, store)]
     except Unwritable as e:
         raise Refused(str(e), f"fix:  {e.fix}") from None
     if removed:

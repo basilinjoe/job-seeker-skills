@@ -66,8 +66,8 @@ file to open in an editor: `jsk kb view` prints the whole career as Markdown to 
 the history, and `jsk kb dump` writes all of it out as text. Every change also refreshes a copy in
 `.jsk/backup.trig`, so back up the folder and you have backed up the record.
 
-**A resume** — a PDF and a plain-text copy for paste-in boxes, both rendered from the same career, so
-they cannot contradict each other. The PDF is the presentation variant for people unless you ask for
+**A resume** — a PDF, rendered from the career together with the plain text the checks read, so
+the two cannot contradict each other. The PDF is the presentation variant for people unless you ask for
 the ATS-maximal one, which is aimed at job portals that parse badly.
 
 ## What to do next
@@ -94,7 +94,7 @@ jsk app freeze applications/<stem> --submitted 2026-09-08 --channel "Workday por
 ```
 
 `jsk resume ship` checks `resume.json` against your career first - every id live, every number traced to
-a current metric - and renders nothing if that fails, then renders the PDF and checks it and the plain text, printing every
+a current metric - and renders nothing if that fails, then renders the PDF and checks it and its plain text, printing every
 verdict. It reports the page count but leaves the last check to you: open the PDF and read every
 page. `jsk app freeze` refuses until the checks pass, then records in your record what was sent,
 when, and which bullets rendered and the metric versions they cite, and names the directory after the

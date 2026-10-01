@@ -44,8 +44,8 @@ def fault_question(q):
 
 
 def verdict(state, carriers):
-    """The Verdict the record supports, from the bucket and the evidence: the most gaps.md
-    may say. A tag or an unconfirmed bullet is a claim, so matching on one is `unevidenced`.
+    """The Verdict the record supports, from the bucket and the evidence: the most the
+    assessment may say. A tag or an unconfirmed bullet is a claim, so matching on one is `unevidenced`.
 
     Args:
         state: the requirement's bucket (matched, near, missing, ambiguous, candidate,

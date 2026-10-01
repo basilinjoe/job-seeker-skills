@@ -43,7 +43,7 @@ HEADING_ASKS = re.compile(
     r"about you|who you are|skills|experience|nice to have|bonus|preferred|desirable)\b", re.I)
 HEADING_NOT = re.compile(r"\b(benefits?|perks|we offer|responsibilit\w*|what you('ll| will) do|"
                          r"compensation|salary)\b", re.I)
-# Eligibility is gaps.md's `# Eligibility`, never a requirement, so it can never be quoted:
+# Eligibility is the assessment's `# Eligibility`, never a requirement, so it can never be quoted:
 # excluded by its words, or it would warn for the life of the application.
 ELIGIBILITY = re.compile(r"authori[sz]\w*|\bvisa|sponsor|clearance|citizen|right to work|"
                          r"work permit|relocat|on-?site|hybrid|remote|located in|based in|"
@@ -121,7 +121,7 @@ class AdvertLine:
     section: str        # qualification | responsibility | other
     text: str           # squashed: what a requirement built from it quotes
     optional: bool      # under an optional heading, or worded optionally itself
-    elig: bool          # eligibility's words: gaps.md's `# Eligibility`, never a requirement
+    elig: bool          # eligibility's words: the assessment's `# Eligibility`, never a requirement
 
 
 def _heading(line, text, item):

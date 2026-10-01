@@ -47,6 +47,33 @@ def pdf_path_for(tex_path, out_dir):
     return os.path.join(os.path.abspath(out_dir), stem + ".pdf")
 
 
+# What an engine leaves beside the PDF. A render leaves the .pdf and the .tex (Ruling 22 of
+# the graph-native plan): these go after a clean compile and stay after a failed one, when
+# the .log is the only account of what went wrong.
+BY_PRODUCTS = (".log", ".aux", ".out", ".fls", ".fdb_latexmk")
+
+
+def by_products(tex_path, out_dir):
+    """The by-product paths a compile of `tex_path` into `out_dir` can leave, present or not."""
+    stem = os.path.splitext(os.path.basename(tex_path))[0]
+    return [os.path.join(os.path.abspath(out_dir), stem + ext) for ext in BY_PRODUCTS]
+
+
+def tidy(tex_path, out_dir):
+    """Remove what a clean compile of `tex_path` left beside its PDF. Deletes files."""
+    for path in by_products(tex_path, out_dir):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def log_named(tex_path, out_dir):
+    """The words naming the .log a compile left, or an empty string when it left none."""
+    log = by_products(tex_path, out_dir)[0]
+    return f" - see {log}" if os.path.exists(log) else ""
+
+
 def compile_pdf(tex_path, out_dir):
     """Compile with the first engine that produces one. Returns (pdf_path, note).
 
@@ -57,6 +84,9 @@ def compile_pdf(tex_path, out_dir):
     A stale PDF is removed first, so "the file exists" means this run wrote it.
     An engine that exits non-zero is not trusted even when a PDF appears - a
     partial resume is worse than none, because it looks like a whole one.
+
+    After a clean compile the engine's by-products for this stem are removed; after a
+    failed one they stay, and the note names the .log.
     """
     tex_path = os.path.abspath(tex_path)
     out_dir = os.path.abspath(out_dir)
@@ -77,9 +107,11 @@ def compile_pdf(tex_path, out_dir):
             tried.append(f"{name} failed to run: {e}")
             continue
         if proc.returncode == 0 and os.path.exists(pdf):
+            tidy(tex_path, out_dir)
             return pdf, f"compiled with {name}"
         tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-6:]
-        tried.append(f"{name} produced no PDF:\n    " + "\n    ".join(tail))
+        tried.append(f"{name} produced no PDF{log_named(tex_path, out_dir)}:\n    "
+                     + "\n    ".join(tail))
 
     if not tried:
         return None, NO_ENGINE

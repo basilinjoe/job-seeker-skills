@@ -15,13 +15,18 @@ from pathlib import Path
 import careerkit
 from fixtures import (CLI, CLEAN_RESUME, example_short, SCRIPTS, build_pdf, build_text, gate,
                       load_script, resume_with, run)
-from shipkit import GraphCase
+from shipkit import CONTACTED, GraphCase
+from shipkit import GOOD as SHIPPABLE
 
 
 JSK = CLI
 
 
-GOOD = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team", "ach_identity_sso"]}
+# The summary and, in GatesCase, the person's email and phone: the parse gate's strict pass
+# reads the plain text this record's plan emits, in memory, and finds a summary heading and
+# the contact details there - a fixture .txt can no longer stand in for it.
+GOOD = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team", "ach_identity_sso"],
+        "summary": SHIPPABLE["summary"]}
 
 
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
@@ -257,7 +262,7 @@ class GatesCase(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         # A short resume.json reads its career, so both it and the render directory sit
         # in a workspace - the render directory beside the application, not inside it.
-        root, record = careerkit.workspace(self.tmp / "ws", short=GOOD)
+        root, record = careerkit.workspace(self.tmp / "ws", short=GOOD, edits=[CONTACTED])
         self.record = Path(record)
         self.out = Path(root) / "out"
         self.out.mkdir()
@@ -273,7 +278,9 @@ class GatesCase(unittest.TestCase):
                                encoding="utf-8")
 
     def render(self, paragraphs=None, pages=1):
-        """The three files render_resume.py leaves behind, without needing a TeX engine.
+        """The two files render_resume.py leaves behind, without needing a TeX engine: the
+        PDF and the .tex. No .txt - the gates emit the plain text from the record's plan
+        in memory (Ruling 23 of the graph-native plan).
 
         The names are the ones jsk-verifier.md globs for, because that is what
         decides which gate reads which file.
@@ -287,7 +294,6 @@ class GatesCase(unittest.TestCase):
                     doc.new_page()
                 doc.save(str(self.out / "tmp.pdf"))
             (self.out / "tmp.pdf").replace(self.out / "Jane_Doe_Resume.pdf")
-        build_text(self.out / "Jane_Doe_Resume_ATS.txt", lines)
         (self.out / "Jane_Doe_Resume.tex").write_text(
             TEX_PREAMBLE + "\n".join("\\item " + l for l in lines) + "\n\\end{document}\n",
             encoding="utf-8")
@@ -298,28 +304,29 @@ class GatesCase(unittest.TestCase):
 
 class GatesAgreement(GatesCase):
     """The one test the whole subcommand rests on: same record, same files, same
-    verdicts and same exit code as running the five commands by hand.
+    verdicts and same exit code as running the commands by hand.
 
     A faster gate that disagrees with the slow one is worse than no change at all,
     so the comparison is against the checkers' literal output rather than against a
     remembered snapshot of it.
     """
 
-    def five_commands(self):
+    def commands_by_hand(self):
+        # Four now, not five: there is no .txt for the parse and prose gates to read a
+        # second time. The parse gate judges the record's plain text in memory, --strict,
+        # and holds the PDF to its reading order (Ruling 23 of the graph-native plan).
         pdf = self.out / "Jane_Doe_Resume.pdf"
         tex = self.out / "Jane_Doe_Resume.tex"
-        txt = self.out / "Jane_Doe_Resume_ATS.txt"
         return [
             ("record.py", [self.record]),
-            ("check_ats.py", [pdf]),
-            ("check_ats.py", [txt, "--strict"]),
+            ("check_ats.py", [pdf, "--record", self.record]),
+            ("check_ats.py", [self.record, "--strict"]),
             ("check_prose.py", [tex]),
-            ("check_prose.py", [txt]),
         ]
 
     def assertAgrees(self):
         worst, outputs = 0, []
-        for script, args in self.five_commands():
+        for script, args in self.commands_by_hand():
             code, out = gate(script, *args)
             worst = max(worst, code)
             outputs.append((script, out))
@@ -353,8 +360,52 @@ class GatesAgreement(GatesCase):
         self.render(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
         code, out = self.gates("--record", self.record)
         self.assertEqual(code, 1, out)
+        # The parse gate twice - the PDF, and the plain text in memory - and the prose gate
+        # once, over the .tex: there is no .txt for it to read a second time.
         self.assertEqual(out.count("--- parse gate"), 2, out)
-        self.assertEqual(out.count("--- prose gate"), 2, out)
+        self.assertEqual(out.count("--- prose gate"), 1, out)
+
+
+class GatesReadingOrder(GatesCase):
+    """The parse gate's reading-order rule reads the plain text the record's plan emits, in
+    memory. It once read the `_ATS.txt` beside the PDF and skipped itself silently when
+    there was none (Ruling 23 of the graph-native plan): with no file to miss, a PDF whose
+    bullets extract out of the plan's order fails whenever the record is given."""
+
+    def bullets(self):
+        """The plan's own text, its bullets in the order they render."""
+        from jsk.adapters.cli.compose.gates import plan_text
+
+        lines = [l for l in plan_text(str(self.record)).split("\n") if l.strip()]
+        return lines, [i for i, l in enumerate(lines) if l.strip().startswith("- ")]
+
+    def render_in(self, lines):
+        build_pdf(self.out / "Jane_Doe_Resume.pdf", lines)
+        (self.out / "Jane_Doe_Resume.tex").write_text(
+            TEX_PREAMBLE + "\n".join("\\item " + l for l in lines) + "\n\\end{document}\n",
+            encoding="utf-8")
+
+    def test_a_pdf_out_of_the_plans_order_fails_with_no_txt_on_disk(self):
+        lines, at = self.bullets()
+        self.assertGreater(len(at), 1, lines)
+        swapped = list(lines)
+        # The first and last bullets traded places: every word on the page, out of order.
+        swapped[at[0]], swapped[at[-1]] = lines[at[-1]], lines[at[0]]
+        self.render_in(swapped)
+        self.assertEqual(list(self.out.glob("*.txt")), [])
+        code, out = self.gates("--record", self.record)
+        self.assertEqual(code, 1, out)
+        pdf_section = out.split("--- parse gate: check_ats.py Jane_Doe_Resume.pdf")[1]
+        self.assertRegex(pdf_section.split("--- ")[0],
+                         r"FAIL  reading order: \d+ bullet\(s\) extract out of the order they "
+                         r"render in")
+
+    def test_the_same_pdf_in_the_plans_order_has_no_reading_order_finding(self):
+        """The control: the planted swap above is the only thing that fails it."""
+        lines, _ = self.bullets()
+        self.render_in(lines)
+        _, out = self.gates("--record", self.record)
+        self.assertNotIn("reading order", out)
 
 
 class GatesMissingInput(GatesCase):
@@ -449,13 +500,14 @@ class GatesOutput(GatesCase):
         self.assertIn("PASS - safe to render", record["output"])
 
     def test_the_ats_variant_is_held_to_the_ats_maximal_rules(self):
-        """The same rule render_resume.py prints after a render: the file aimed at a
-        parser is the one checked with --strict."""
+        """The same rule render_resume.py prints after a render: the text aimed at a
+        parser is the one checked with --strict. It is the plan's plain text, emitted in
+        memory, held strict by the run rather than by `_ATS` in a file name."""
         self.render()
         code, out = self.gates("--record", self.record)
         del code
-        self.assertIn("check_ats.py Jane_Doe_Resume_ATS.txt --strict", out)
-        self.assertIn("mode: ATS-maximal (strict)", out)
+        self.assertIn("check_ats.py resume.json --strict", out)
+        self.assertIn("plain text of resume.json (in memory)   mode: ATS-maximal (strict)", out)
         self.assertIn("mode: presentation", out)
 
     def test_max_findings_reaches_the_record_gate(self):

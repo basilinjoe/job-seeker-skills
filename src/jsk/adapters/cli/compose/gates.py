@@ -130,6 +130,36 @@ def posting_terms(record):
                    for m in match(queries, post).values()]
 
 
+def plan_text(record):
+    """The plain text the render of `record` holds, emitted in memory from its plan.
+
+    The plaintext variant's plan through domain.render.emit_text: the same plan as the .tex,
+    ASCII-folded whatever the PDF holds. It replaces the `_ATS.txt` a render used to write
+    (Ruling 23 of the graph-native plan), so the parse and terms gates read the plan itself.
+
+    Args:
+        record: the resume.json.
+
+    Returns:
+        The text. Reads the file and loads the career.
+
+    Raises:
+        ShortError: the resume.json will not load or build - its `fix` says what to do.
+    """
+    from ....domain.render import emit_text
+    from ....domain.render.targets import TEXT_VARIANT
+    from ....domain.resume.short import ShortError
+    from .resume import from_path
+
+    try:
+        plan, _ = from_path(record, fmt=TEXT_VARIANT)
+    except KeyError as exc:
+        # What the builder raises for an id the career does not hold, as render reports it.
+        raise ShortError(f"{record}: the plan would not build: {exc}",
+                         f"jsk resume check {record} names what is wrong") from None
+    return emit_text.emit(plan)
+
+
 def from_record(record, pdf):
     """The region and page budget the render of `pdf` was built with, from its resume.json.
 

@@ -69,7 +69,7 @@ class Rows:
             out.append(("FAIL", f"{self.at(label)}: slug {slug!r} is used on line "
                                 f"{self.slugs[slug]} too", "fix:  one slug per requirement"))
         self.slugs.setdefault(slug, label)
-        # `jsk tailor match --gaps` pairs gaps.md's rows to requirements by this, so two with
+        # `jsk tailor match --gaps` pairs gaps.txt's rows to requirements by this, so two with
         # one `asked` could never pair and would warn on even a perfect draft.
         term = O.norm(asked)
         if term in self.terms:

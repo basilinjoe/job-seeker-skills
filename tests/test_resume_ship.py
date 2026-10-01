@@ -27,9 +27,11 @@ class ShipOrder(ShipCase):
     def test_a_clean_ship_runs_every_step_and_exits_0(self):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
+        # The parse gate twice - the PDF, and the plain text emitted in memory - and the
+        # prose gate once: no .txt is written for it to read a second time.
         self.assertEqual(self.headings(out),
                          ["record gate", "render", "parse gate", "parse gate",
-                          "prose gate", "prose gate", "layout gate", "render gate"], out)
+                          "prose gate", "layout gate", "render gate"], out)
 
     def test_every_gate_says_its_own_pass(self):
         """There is no claims gate: the record gate reads the career itself, and the
@@ -191,12 +193,13 @@ class ShipSummary(ShipCase):
         self.assertIn("render gate  UNVERIFIED", out)
 
     def test_it_counts_the_lines_the_render_withheld_once_each(self):
-        """build.py warns once per variant rendered; the line held back is one.
-        ach_data_ingestion is j:inferred in the fixture, under the default floor."""
+        """build.py warns once per variant rendered; the line held back is one. ach_data_ingestion is j:inferred in the fixture, under the
+        default floor. (The render builds one variant now - no plain-text file rides
+        along - so the warning can come once; the summary still names it once.)"""
         self.write(dict(GOOD, bullets=MERIDIAN + ["ach_data_ingestion"]))
         code, out = self.ship()
         self.assertEqual(code, 0, out)
-        self.assertGreater(out.count("withheld bullet ach_data_ingestion"), 1, out)
+        self.assertIn("withheld bullet ach_data_ingestion", out)
         [render] = [line for line in self.summary(out) if self.step(line) == "render"]
         # Named: the Arrow run shipped a second time only to grep for which one it was.
         self.assertIn("withheld 1 below the floor: ach_data_ingestion", render)

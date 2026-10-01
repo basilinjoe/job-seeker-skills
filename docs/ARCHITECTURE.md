@@ -22,12 +22,17 @@ domain/resume/plan.py builds the plan exactly once:
 render plan
    |
    +--> emit_latex.py  -->  .tex  -->  .pdf   (the deliverable; --ats-max picks the variant)
-   +--> emit_text.py   -->  .txt          (paste-in boxes)
+   +--> emit_text.py   -->  plain text, in memory (the parse and terms gates read it)
 ```
 
 **The render plan is the narrow waist.** Every content decision happens once, in the builder. The
 emitters translate a finished plan into markup and decide nothing. That is what guarantees the PDF
-and the plain text cannot say different things — neither of them chose what to say.
+and the text the gates read cannot say different things — neither of them chose what to say. The
+text is never written to a file (Ruling 23 of
+`docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`): the parse gate's strict pass,
+its reading-order rule and the terms gate call `emit_text.emit` over the plan, so no `.txt` can be
+missing, stale or skipped. A clean compile leaves the `.pdf` and the `.tex` and removes the TeX
+engine's by-products; a failed one keeps them and names the `.log` (Ruling 22).
 
 `resume.json` used to be the waist: a URS record, a full copy of the career written out per
 application, with an 11KB specification of its own. The emitters never read it - they read the
@@ -59,14 +64,17 @@ jsk posting build D         posting graph     each quote IS the extracted line, 
         |                                     every qualification line is used or dropped
         v
 jsk tailor prepare D        gaps graph        the match, evidence, the person, the cover - one digest;
-        --draft-gaps        gaps.md           the assessment derived from the match (assessment/derive.py);
+        --draft-gaps        (printed)         the assessment derived from the match (assessment/derive.py);
         |                   gaps.txt          a draft overlay, a <!-- jsk: --> slot per judgement
         |
         |   the analyst edits gaps.txt: lowers a verdict with a reason, fit, eligibility, the asks
         v
 jsk tailor match D          gaps graph        the overlay checked against the match and folded in;
-        --gaps D/gaps.txt   gaps.md           an unfilled slot, or a raised verdict, is a FAIL
+        --gaps D/gaps.txt   (printed)         an unfilled slot, or a raised verdict, is a FAIL
 ```
+
+The assessment is printed after the verdict lines, never written to a `gaps.md` (Ruling 24):
+nothing read one back.
 
 The graphs are `applications/<stem>/posting` and `applications/<stem>/gaps` in `career/store/`;
 the text files sit in the application directory `D`. Every command takes `D`, never a file in it.
@@ -90,7 +98,7 @@ jsk tailor prepare D [--draft-gaps]                   everything an assessment r
 jsk tailor match   applications/D                     the posting against the career, with the paths
 jsk kb export      --from-match D --out R.json        the short resume.json, chosen from the match
 jsk resume check   resume.json                        the record gate - before anything renders
-jsk resume render  resume.json --out D --pdf          .tex, .pdf, .txt
+jsk resume render  resume.json --out D --pdf          .tex, .pdf
 jsk resume check   D                                  record, parse, prose and layout gates over that render
 jsk resume ship    resume.json --out D                the gates above and the render, in order, in one process
 jsk letter check   LETTER --record R.json             a cover letter's length, prose and numbers
@@ -116,7 +124,7 @@ writes one — what was sent, the `resume.json` hash, the bullets that rendered 
 plan's `sent`) and the metric versions they cite — and renames the directory to the submitted date.
 The application's posting and assessment graphs move to the new name in the same update that
 writes its application graph; no log entry is added, since the log is the career's.
-No copy of the content is written: the PDF, `.txt` and `.tex` beside it are the words sent. After that the directory is
+No copy of the content is written: the PDF and `.tex` beside it are the words sent. After that the directory is
 an archive: later events are added with `jsk app event`, never edited.
 
 Every verb runs **in process**. The dispatcher, `adapters/cli/main.py`, finds the noun's verb in
@@ -199,7 +207,7 @@ without the engine and `jsk doctor` can report on it.
 | `domain/selection/select.py` · `application/tailor/export.py` | what a resume for one posting selects (projects, bullets, skill order) and `jsk kb export`, which writes it as the short file |
 | `domain/posting/decide.py` · `application/posting/` | `decisions.txt` read; `jsk posting extract` and `build`, which write the posting graph from it |
 | `application/tailor/prepare.py` | `jsk tailor prepare`: the check, the match, the evidence, the person and the cover, in one digest |
-| `domain/assessment/` · `application/tailor/check_gaps.py` | the assessment: derived from the match with no model; the draft `gaps.txt`; `gaps.txt` read; the overlay checked, folded in, and written as the gaps graph and `gaps.md` |
+| `domain/assessment/` · `application/tailor/check_gaps.py` | the assessment: derived from the match with no model; the draft `gaps.txt`; `gaps.txt` read; the overlay checked, folded in, written as the gaps graph and printed |
 | `domain/record/view.py` · `application/timeline/` | `jsk kb view`; `jsk app freeze`'s application graph and `jsk app event` |
 
 The real ports are bound to these use cases in one place, the composition root
@@ -237,7 +245,7 @@ Five tasks are delegated to subagents, and the line between them is what each ma
 and what holds them is partly what their files say and partly what the write path refuses:
 
 - `jsk-tailor-analyst` writes two text files, `decisions.txt` and `gaps.txt`. `jsk` turns them
-  into the posting and gaps graphs and `gaps.md`, so most of what it could get wrong is refused by
+  into the posting and gaps graphs, so most of what it could get wrong is refused by
   the write path, not by what its file says:
   - every requirement's quote *is* an extracted advert line;
   - every qualification line must be used or dropped with a reason;
@@ -341,7 +349,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     render/formatting.py            how one value reads: dates, grades, quantities, the fold to ASCII
     render/themes.py                appearance only: palette, typeface, rhythm
     render/emit_latex.py            the plan as LaTeX, for the PDF a person reads
-    render/emit_text.py             the plan as plain text, for paste-in boxes
+    render/emit_text.py             the plan as plain text, in memory, for the parse and terms gates
     render/fit_levers.py            the page fitter's levers and floors over a .tex's text; page geometry read
     render/page_report.py           the line a render says about its pages, against the budget
     render/targets.py               which files a render writes, and what they are called
@@ -388,7 +396,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/scaffold.py              `jsk kb new`: the empty record written, or a record started over
     tailor/match_posting.py         one application's posting matched against the career, as plain data
     tailor/match_text.py            the match as markdown; its sections, shared with the gaps draft
-    tailor/check_gaps.py            gaps.txt checked, the assessment and gaps.md written from the match
+    tailor/check_gaps.py            gaps.txt checked, the assessment written from the match and rendered to print
     tailor/draft_gaps.py            the gaps.txt draft: the advert, the drops and the person read, the draft made
     tailor/prepare.py               the tailoring digest: the check, the match, the evidence, the assessment written
     tailor/export.py                `jsk kb export`: the bullets a resume.json shows chosen, the short file formed and written
@@ -413,7 +421,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/ats.py                    the parse gate: a document's text extracted, then judged
     gates/prose.py                  the prose gate: a document's paragraphs read, then judged
     gates/layout.py                 the layout gate: a PDF's region and budget found, its lines judged
-    gates/terms.py                  the terms gate: a .txt render read, the posting's terms judged on it
+    gates/terms.py                  the terms gate: the render's plain text, the posting's terms judged on it
     gates/letter.py                 the letter check: its length and prose judged, its numbers traced
     gates/run_gates.py              `jsk resume check DIR`: the four gates over a render, the render gate said last
     timeline/freeze.py              an application frozen: checked, planned, gated, renamed to its day, written
@@ -425,7 +433,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     legacy_import.py                a workspace still laid out as .ttl files, read once for `jsk kb load`
     packs.py                        `jsk kb pack`'s starter packs on disk: where each is, and reading one
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
-    documents.py                    what the gates judge, read leniently: a rendered .txt or .tex, a cover letter
+    documents.py                    what the gates judge, read leniently: a .tex, a .txt passed by hand, a cover letter
     outputs.py                      a render's files written, its scratch directories, a move
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
     tex.py                          the TeX engine a render's .tex is compiled with
@@ -725,7 +733,7 @@ imported inside functions only, so `jsk doctor` stays standard-library and repor
 optional extra, imported at the point of use.
 
 ```bash
-pip install jsk-resume              # the graph record, the record gate, prose gate, .txt parse gate
+pip install jsk-resume              # the graph record, the record gate, prose gate, plain-text parse gate
 pip install 'jsk-resume[all]'       # + pymupdf
 pip install -e '.[dev]'             # the above plus pytest, pytest-xdist, ruff
 ```

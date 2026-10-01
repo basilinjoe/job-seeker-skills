@@ -20,7 +20,7 @@ Interview someone once; regenerate resumes, tailored variants and interview brie
 
 ```
 career/store/ + resume.json  ->  .tex -> .pdf   (the deliverable)
-  jsk kb apply   jsk kb export  \-> .txt          (paste-in boxes)
+  jsk kb apply   jsk kb export
 ```
 
 **Never hand-author a `.tex`.** Export `resume.json`, validate it, render every format from it —
@@ -30,7 +30,7 @@ two hand-built documents stop agreeing the moment one is edited.
 |---|---|---|
 | `career/store/` | the career, its history, each application's requirements, assessment and timeline | `jsk` only |
 | `applications/<stem>/posting.md` · `decisions.txt` | the advert verbatim · its requirements | you · `jsk-tailor-analyst` |
-| `applications/<stem>/gaps.md` · `gaps.txt` | the assessment · the analyst's changes to it | `jsk` · `jsk-tailor-analyst` |
+| `applications/<stem>/gaps.txt` | the analyst's changes to the assessment `jsk tailor match` prints | `jsk-tailor-analyst` |
 | `applications/<stem>/resume.json` | the bullets chosen for this posting, by id | `jsk-resume-author` |
 
 `applications/` is the directory beside `career/` — resolve it to an absolute path, never the
@@ -87,7 +87,7 @@ changeset to a file for later.
 | `jsk tailor match <app-dir>` | requirements matched through the vocabulary, ranked, questions |
 | `jsk tailor prepare <app-dir> [--draft-gaps]` | the match and all an assessment reads, one digest |
 | `jsk resume check <resume.json>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
-| `jsk resume render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex`/PDF and `.txt` |
+| `jsk resume render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex` and PDF |
 | `jsk resume preview <resume.json> --out DIR` | every template, with page counts |
 | `jsk resume ship <resume.json> --out DIR [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
 | `jsk resume fit <resume.tex> --target-pages 2` | fits the render to a page budget |
@@ -102,7 +102,7 @@ PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
 
 | Agent | Hand it | Get back |
 |---|---|---|
-| `jsk-tailor-analyst` | app directory, workspace | the requirements, the match, `gaps.md` and questions |
+| `jsk-tailor-analyst` | app directory, workspace | the requirements, the match, the assessment and questions |
 | `jsk-resume-author` | posting, gaps, workspace | `resume.json`, every authored clause quoted |
 | `jsk-kb-auditor` | workspace | what is missing, as a prioritised question queue |
 | `jsk-extractor` | workspace, a braindump or document in `sources/` | a dry-run changeset, its inferred clauses quoted |
@@ -119,7 +119,7 @@ where they fall short stay with you and the person. Their output does not reach 
 | Gate | Question | How |
 |---|---|---|
 | **Record** | shaped right, every id live, every number traced to a metric? | `jsk resume check` on the `.json` |
-| **Parse** | will an ATS read it? | `jsk resume check` on the PDF; `--strict` on the `.txt` |
+| **Parse** | will an ATS read it? | `jsk resume check` on the PDF; on the directory, its text `--strict` too |
 | **Prose** | does it obey the writing rules? | `jsk resume check --only prose` on the `.tex` |
 | **Layout** | tofu, fonts, stranded headings, dates, paper? | `jsk resume check --only layout` on the PDF |
 | **Render** | does it look right, and is it true? | open every page of the PDF |

@@ -17,7 +17,7 @@ retired, and each one prints the command that replaced it and exits 2.
 `kb`, `log`, and each application's `posting`, `application` and `gaps` - read and written only
 through `jsk`, and validated on every run. `jsk kb` changes it (through changesets) and reads it
 back, `jsk tailor match` ranks it against a posting, `jsk app freeze` and `jsk app event` record
-what was sent and what came back. Documents - `posting.md`, `decisions.txt`, `gaps.txt`, `gaps.md`,
+what was sent and what came back. Documents - `posting.md`, `decisions.txt`, `gaps.txt`,
 `resume.json`, the renders - stay files in `applications/<dir>/`. A resume is built from it and a
 short `resume.json` - the bullets chosen for one posting, by id, and its settings - which `jsk kb
 export` writes and `jsk resume check` checks against the career. The rendering half carries that
@@ -474,7 +474,7 @@ short.
 jsk tailor match applications/<dir>            # the four sections, as Markdown
 jsk tailor match applications/<dir> --cover 2  # a cover of at most two projects
 jsk tailor match applications/<dir> --json --today 2026-09-24
-jsk tailor match applications/<dir> --gaps applications/<dir>/gaps.txt  # check, then write the gaps graph + gaps.md
+jsk tailor match applications/<dir> --gaps applications/<dir>/gaps.txt  # check, write the gaps graph, print the assessment
 ```
 
 A posting's requirements joined with the career through the vocabulary - the shipped `jsk/data/vocabulary.ttl` and the knowledge base's own additions. It takes the
@@ -501,28 +501,28 @@ Exit 0 with the result - missing requirements included, since this is an assessm
 1 when the workspace has a FAIL; 2 called wrong, or a path that is not an application directory
 with a posting.
 
-**The assessment** is three parts, each with one owner. The gaps graph (in the store, so SPARQL
-reaches it) and `gaps.md` in the application directory (what the person reads) are written by
-code: derived from the match - per requirement the match's verdict, the projects behind it and a
+**The assessment** is two parts, each with one owner. The gaps graph (in the store, so SPARQL
+reaches it) is written by code, and printed as what the person reads - no `gaps.md` is written:
+derived from the match - per requirement the match's verdict, the projects behind it and a
 one-line basis - with the analyst's `gaps.txt` folded in. `gaps.txt` holds only what the match
 cannot know, one line each: `fit:`, `eligibility:`, `short:`, `surplus:` and `ask:` lines, and
-rows `slug | verdict | reason`, paired to requirements by slug. Nothing reads `gaps.md` back. A
+rows `slug | verdict | reason`, paired to requirements by slug. A
 satisfied requirement whose `asked` lists items (`Vector databases (Pinecone, Weaviate)`) that no
 confirmed evidence bullet names is **flagged**, and its row must be answered `keep` or lowered.
 Both are rebuilt on every run from the career as it stands; once the application graph records
 a submission date, they are frozen.
 
 **`--gaps <gaps.txt>`** prints no match: it checks the posting's own `gaps.txt`, then writes
-the gaps graph and `gaps.md`. It FAILs, and writes nothing, on a verdict above the match's (satisfied
+the gaps graph and prints the assessment after its verdict line. It FAILs, and writes nothing, on a verdict above the match's (satisfied
 > partial > unevidenced > unsatisfied; an `indeterminate` may become anything but satisfied or
 partial), a lowering with no reason, a flagged row with no
-row (once there is a gaps.txt - with none, gaps.md marks it not yet reviewed), a slug that is not the posting's, and any `<!-- jsk: -->` slot still in the file. A row the
+row (once there is a gaps.txt - with none, the assessment marks it not yet reviewed), a slug that is not the posting's, and any `<!-- jsk: -->` slot still in the file. A row the
 match has since moved WARNs, as do `keep` on a row no flag asks about now and a row restating
 the match's verdict: each is the match's verdict already. Each row gets one finding at most. Lowering is always allowed; raising never is - when the match
 under-reads, the career needs the tag or the confirmed bullet, made in the conversation. A
-`gaps.md` is refused: it is written by jsk. Exit 1 on any FAIL, 0 otherwise.
+`gaps.md` is refused: it is an older assessment, and jsk reads none. Exit 1 on any FAIL, 0 otherwise.
 
-**`--draft-gaps <gaps.txt>`** writes the gaps graph and `gaps.md` from the match alone, then drafts
+**`--draft-gaps <gaps.txt>`** writes the gaps graph from the match alone and prints it, then drafts
 `gaps.txt`, never over one already there: `fit:` at its default (poor when a required requirement
 is unsatisfied, strong when every one is satisfied, else partial), the person's eligibility facts
 as comments, a row slot for each flagged requirement, `decisions.txt`'s drops as comments, and the
@@ -547,8 +547,8 @@ about ten calls, each one a model turn. In order: the check, scoped to this appl
 plus every FAIL anywhere (as `jsk kb check --only`); the match as `jsk tailor match` prints it; `jsk kb
 query evidence` for every `missing` and `candidate` term; `jsk kb query person`; the cover's
 projects (at most three, or the top-ranked that carry a requirement), bullets only; and what those
-projects hold unconfirmed; and the assessment - the gaps graph and `gaps.md` written on every run,
-with the flagged rows and the counts by verdict. Every section has a size cap and prints
+projects hold unconfirmed; and the assessment - the gaps graph written on every run, with the
+flagged rows and the counts by verdict, then the assessment printed under `== assessment`. Every section has a size cap and prints
 `… N more cut` when it cuts. A `gaps.txt` the check refuses is reported there, not an exit 1:
 the analyst may be halfway through it.
 
@@ -573,8 +573,8 @@ jsk resume check <out-dir>                        # record, parse, prose and lay
 ```
 
 One verb for every gate on a resume, which picks the gates from what it is given. A `.json` file
-gets the record gate. A `.pdf`, `.tex` or `.txt` render gets the parse and prose gates, and
-`--only parse|prose|layout` narrows that to one. A directory gets the record, parse, prose and
+gets the record gate. A `.pdf` or `.tex` render, or a `.txt` named by hand,
+gets the parse and prose gates, and `--only parse|prose|layout` narrows that to one. A directory gets the record, parse, prose and
 layout gates over the render inside it. Each kind keeps its own flags - `--strict` and
 `--max-findings` for a `resume.json`; `--strict` and `--only` (with `--record`, `--region` and
 `--pages` for the layout gate) for a render; `--record`, `--pages`, `--json` and `--max-findings`
@@ -647,26 +647,28 @@ A run with `--only` never closes by saying both passed. It names the three gates
 
 ```bash
 jsk resume check resume.pdf --only parse               # the rendered deliverable
-jsk resume check resume_ATS.txt --only parse --strict  # the ASCII variant
+jsk resume check pasted.txt --only parse --strict      # a .txt named by hand
 ```
 
-The **parse gate**. Reads the PDF's text layer (or the `.txt`) for what makes applicant tracking
-systems mangle a resume: text that does not extract at all, section words that appear in prose but
-never in a heading, leftover bracketed placeholders, unparseable phone numbers, bullet glyphs a
-parser will not map, and arrow glyphs that fuse job titles when stripped. A PDF with its `_ATS.txt`
-beside it must also extract its bullets in the `.txt`'s order - the plan's - or it fails: a parser
-reads the text layer as one stream and credits a bullet to the role line above it there.
+The **parse gate**. Reads the PDF's text layer (or the plain text the plan emits, or a `.txt` named
+by hand) for what makes applicant tracking systems mangle a resume: text that does not extract at
+all, section words that appear in prose but never in a heading, leftover bracketed placeholders,
+unparseable phone numbers, bullet glyphs a parser will not map, and arrow glyphs that fuse job
+titles when stripped. A PDF whose `resume.json` is known - named to `jsk resume check <out-dir>
+--record`, or sitting beside it - must also extract its bullets in the order of the plan's plain
+text, or it fails: a parser reads the text layer as one stream and credits a bullet to the role line
+above it there. The text is emitted in memory, so the rule cannot be skipped for a missing file.
 
 The structural checks — tables, text boxes, header content, second columns — are gone. One LaTeX
 template produces every render and cannot express any of them, so the check moved from the output to
 a golden-file test on the template, where it is proved rather than sampled. Needs `pymupdf` for a
-PDF; the `.txt` path is standard library only.
+PDF; the plain-text path is standard library only.
 
 ##### `--only prose`
 
 ```bash
 jsk resume check resume.tex --only prose
-jsk resume check resume_ATS.txt --only prose
+jsk resume check pasted.txt --only prose        # a .txt named by hand
 ```
 
 The **prose gate** — the writing rules the parse gate cannot see. Third person, unresolved
@@ -709,7 +711,7 @@ declaration, and whether it is true. Those stay a person's.
 #### The terms gate
 
 The **terms gate** runs on a directory, after the layout gate, when the record's own directory holds
-a posting: the `.txt` render against the posting's title and its required and preferred terms,
+a posting: the render's plain text, emitted in memory from the record's plan, against the posting's title and its required and preferred terms,
 matched as strings, case aside, the way a recruiter's ATS search matches what they type. `jsk tailor
 match` judges evidence by concept; this asks whether the posting's words reached the page.
 
@@ -733,10 +735,11 @@ jsk resume check <out-dir> --max-findings 0
 ```
 
 The record, parse, prose and layout gates over one rendered output directory, in **one process**. It is the
-five invocations a hand-run verification used to make — the record gate on `resume.json`, the parse
-gate on the PDF and again on the `.txt` with `--strict`, the prose gate on the `.tex` and again on
-the `.txt` — then the layout gate on each PDF, handed the record. It imports the checkers rather than shelling out to them, and gives them the same
-arguments, so the findings and the exit code are the ones the five commands produce. That
+invocations a hand-run verification makes — the record gate on `resume.json`, the parse gate on
+the PDF (held to the plain text's reading order) and again on the plain text with `--strict`
+(emitted from the record's plan in memory; no `.txt` is written), the prose gate on the `.tex` — then the
+layout gate on each PDF, handed the record. It imports the checkers rather than shelling out to them, and gives them the same
+arguments, so the findings and the exit code are the ones those commands produce. That
 equivalence is what it is tested on.
 
 `check_ats.py` and `check_prose.py` grew a `main(argv)` entry point so it could: the same
@@ -787,7 +790,10 @@ jsk resume render resume.json --out DIR --pdf --ats-max
 ```
 
 One `resume.json`, built with the career it sits in (`domain/resume/plan.py`), to `.tex` (and PDF with
-`--pdf`) plus `.txt`. The PDF is the only rendered deliverable; `--ats-max` chooses which variant it
+`--pdf`). No `.txt` is written: the gates emit the plain text from the plan in memory, and
+`--format txt` exits 2 saying so. A clean compile leaves the `.pdf` and the `.tex` and removes the
+engine's `.log`, `.aux`, `.out`, `.fls` and `.fdb_latexmk`; a failed one keeps them and names the
+`.log`. The PDF is the only rendered deliverable; `--ats-max` chooses which variant it
 holds rather than adding a second file. A file that fails its shape or id checks, or sits outside a
 workspace, is exit 2 with the fix; `jsk resume check resume.json` is the full gate. A `resume.json` is one resume,
 so there is no `--view`.
@@ -798,7 +804,7 @@ so there is no `--view`.
 | `--pdf` | also run the TeX engine |
 | `--region CODE` | apply a region profile over the file's `region` |
 | `--profile PATH` | a profile file directly |
-| `--format` | `all` (default), or one of `latex` / `txt` |
+| `--format` | `all` (default) or `latex`; `txt` is retired and exits 2 |
 | `--ats-max` | render the PDF in the ATS-maximal variant (shorthand for `--profile ats-maximal`) |
 | `--template NAME` | the visual template (default `monolith`) |
 | `--list-templates` | print the templates with what each is for, and exit |
@@ -966,7 +972,7 @@ was sent as the application graph, `applications/<dir>/application` in the store
 ```turtle
 k:app_acme_platform j:posting k:post_acme_platform ; j:view "resume" ;
     j:submitted "2026-09-08"^^xsd:date ; j:channel "Workday portal" ;
-    j:document "Priya_Raman_Acme_Resume.pdf", "Priya_Raman_Acme_Resume_ATS.txt" ;
+    j:document "Priya_Raman_Acme_Resume.pdf", "cover-letter.txt" ;
     j:recordSha256 "7bc8...9f9c" ;
     j:carried k:ach_events_latency, k:ach_events_team ;
     j:carriedVersion k:met_latency.v2, k:met_team.v1 .
@@ -979,8 +985,8 @@ The id's stem is the posting's (`k:post_acme_platform` in the posting graph, whi
 there), and never changes when the directory is renamed. `recordSha256` is the frozen `resume.json`'s,
 byte for byte. `carried` is every bullet that rendered - the plan's `sent`, so one withheld below
 the floor is not carried - and `carriedVersion` is the current version, now, of every metric those
-bullets cite. No copy of the content is written: the PDF, `.txt` and `.tex` beside it are the
-words sent. That is what makes a later
+bullets cite. No copy of the content is written: the PDF and `.tex` beside it, and any letter,
+are the words sent. That is what makes a later
 revision visible: `jsk kb apply` never changes a sent version - a new number becomes the next
 one - and `jsk kb query stale` names every application that sent the old. The graph is validated
 with the whole record before anything is renamed or written, and goes in through the same write
@@ -989,8 +995,9 @@ itself is never touched. A graph is named by its directory, so when the director
 posting and assessment graphs move to the new name in the same update that writes the
 application graph - all three land, or none does and the directory is renamed back.
 
-The documents are the `--doc` files, or every `.pdf` and `.txt` in the
-directory. The final path is printed.
+The documents are the `--doc` files, or every `.pdf` and every `.txt` letter in the
+directory - the PDFs and the letters; a render writes no `.txt`, and the `<Name>_Resume_ATS.txt` an
+earlier one left is not listed. The final path is printed.
 
 It refuses — exit 1, saying why, with nothing renamed and nothing written — when:
 

@@ -17,7 +17,7 @@ from unittest import mock
 import appkit
 import careerkit
 from careerkit import MERIDIAN
-from fixtures import CLEAN_RESUME, build_pdf, build_text
+from fixtures import CLEAN_RESUME, build_pdf
 
 
 BAD = "Scaled the platform to [NUMBER] tenants."
@@ -56,7 +56,8 @@ def fake_compile(pages=1, fail=False):
     """A compile_pdf that writes a PDF without a TeX engine.
 
     The words are CLEAN_RESUME's, which is what the parse gate reads from it; the
-    .tex and .txt the renderer really wrote are what the prose gate reads.
+    .tex the renderer really wrote is what the prose gate reads, and the plain text the
+    plan emits in memory is what the parse gate's strict pass and the terms gate read.
     """
     def compile_pdf(tex_path, out_dir):
         from jsk.infra import tex
@@ -155,22 +156,27 @@ class GraphCase(unittest.TestCase):
         self.root = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
         shutil.copytree(careerkit.FIXTURES, self.root, dirs_exist_ok=True)
-        if self.EDITS:
-            kb = self.root / "career" / "kb.ttl"
-            text = kb.read_text(encoding="utf-8")
-            for old, new in self.EDITS:
-                assert text.count(old) == 1, old
-                text = text.replace(old, new)
-            kb.write_text(text, encoding="utf-8", newline="\n")
-            careerkit.relog(self.root)
+        kb = self.root / "career" / "kb.ttl"
+        text = kb.read_text(encoding="utf-8")
+        for old, new in self.EDITS:
+            assert text.count(old) == 1, old
+            text = text.replace(old, new)
+        # The person's email and phone, unless an edit says otherwise: the parse gate's
+        # strict pass reads the plain text the record's plan emits, in memory, and looks
+        # for them there - there is no fixture .txt to stand in for it any more.
+        if "j:email" not in text and text.count(PERSON) == 1:
+            text = text.replace(*CONTACTED)
+        kb.write_text(text, encoding="utf-8", newline="\n")
+        careerkit.relog(self.root)
         appkit.seed(self.root)
         self.app = self.root / "applications" / "contoso-platform"
         self.render()
 
     def render(self, lines=None):
+        """What a render leaves: the PDF and the .tex. No .txt - the gates emit the plain
+        text from the record's plan in memory (Ruling 23 of the graph-native plan)."""
         lines = CLEAN_RESUME if lines is None else lines
         build_pdf(self.app / "Jane_Doe_Resume.pdf", lines)
-        build_text(self.app / "Jane_Doe_Resume_ATS.txt", lines)
         (self.app / "Jane_Doe_Resume.tex").write_text(
             TEX_PREAMBLE + "\n".join("\\item " + l for l in lines) + "\n\\end{document}\n",
             encoding="utf-8")
@@ -231,15 +237,18 @@ class ShortCase(GraphCase):
     """The Contoso application with a short resume.json: ids chosen, the career in kb.ttl.
     ach_data_ingestion is j:inferred in the fixture, under the default floor."""
 
+    # The summary and the person's contact details, which the parse gate's strict pass looks
+    # for in the plain text this record's plan emits.
     SHORT = {"resume": 2, "bullets": ["ach_events_latency", "ach_events_team",
-                                      "ach_data_ingestion", "ach_identity_sso"]}
+                                      "ach_data_ingestion", "ach_identity_sso"],
+             "summary": GOOD["summary"]}
 
     def setUp(self):
         import careerkit
 
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
-        root, path = careerkit.workspace(self._tmp.name, short=self.SHORT)
+        root, path = careerkit.workspace(self._tmp.name, short=self.SHORT, edits=[CONTACTED])
         self.root, self.short = Path(root), Path(path)
         self.app = self.short.parent
         self.render()

@@ -67,8 +67,7 @@ says 200 ms; a later measurement becomes `v2` rather than overwriting it.
 
 **Application directory** — everything about one submission in one place:
 `applications/<yyyy-mm-dd>-<company>-<role>/`, holding the advert (`posting.md`), the analyst's
-`decisions.txt` and `gaps.txt`, the assessment (`gaps.md`), the `resume.json` it rendered from and
-the files actually sent. Beside them in the store are its graphs: what it asks for (`posting`),
+`decisions.txt` and `gaps.txt`, the `resume.json` it rendered from and the files actually sent. Beside them in the store are its graphs: what it asks for (`posting`),
 the assessment (`gaps`), and once sent, `application` - what was sent, the bullets that rendered
 and the metric versions they cite, and a timeline of what came back. Commands take the directory.
 *Why it matters:* it is frozen once the application goes out — `jsk app freeze` refuses until the gates
@@ -85,8 +84,8 @@ metrics are read from the career every time it is built, so a bullet confirmed o
 career is in the next render with nothing to update here.
 *Why it matters:* a selection that holds no bullet's words cannot invent one. Tailoring can
 emphasise, but a posting the career has no evidence for produces nothing to point at. And every
-output is built from the same career, so the PDF and the paste-in plain text cannot say different
-things about a date or a number.
+output is built from the same career, so the PDF and the text the checks read cannot say
+different things about a date or a number.
 
 **Posting** — the advertisement verbatim in `posting.md`, and its requirements in the posting graph.
 Each carries whether it was *required* or merely *preferred*, the term the advertisement actually
@@ -98,7 +97,7 @@ the other, a bare degree passes. Both are wrong, so the boolean structure is mod
 **Assessment** — the join between a posting and your record, written to be read aloud: one verdict per
 requirement, the evidence behind it, and how far short it falls on a *named* axis. `jsk tailor match`
 computes the join - which project holds each requirement, through which vocabulary edge - and the
-assessment is derived from it: the gaps graph and `gaps.md`, written by code, with the analyst's
+assessment is derived from it: the gaps graph, written by code and printed, with the analyst's
 `gaps.txt` holding only what the join cannot know - a verdict lowered, and why.
 *Why it matters:* it distinguishes "you don't have it" from "you have it and never wrote it down"
 from "you claimed it with nothing behind it". Those need opposite responses, and only the last one
@@ -112,7 +111,7 @@ may work there. Adding a market is a JSON file, not a schema change.
 
 **Variant** — the PDF comes in two variants, because readability and machine-parsing genuinely
 conflict: *presentation* for humans, *ATS-maximal* for job portals. Each render produces one of them
-as the PDF, plus plain text; `--ats-max` picks the second.
+as the PDF; `--ats-max` picks the second. The gates also read the plan's plain text, in memory.
 *Why it matters:* sending the pretty one into a portal is how good candidates vanish.
 
 ## The checking

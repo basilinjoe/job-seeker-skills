@@ -14,7 +14,7 @@ role is worth applying to, and which of two close projects leads are settled in 
 conversation with the person present.
 
 **You write in the application directory only: `decisions.txt` and `gaps.txt`, and through `jsk`,
-the posting and gaps graphs and `gaps.md`.** **Never touch the career** — no changeset, no
+the posting and gaps graphs.** **Never touch the career** — no changeset, no
 confirm, not a vocabulary term, even one you are certain of. Report what should change; the
 conversation makes the change.
 
@@ -84,8 +84,8 @@ jsk tailor prepare applications/<stem> --draft-gaps
 
 One digest: the check (a FAIL that stops the match is printed — **report it and stop**), the match,
 evidence for every missing and candidate term, the person, the cover's bullets, what they hold
-unconfirmed — then `gaps.md` and the gaps graph, derived from the match, and `gaps.txt` drafted for
-you. The match buckets each requirement `matched` / `near` / `missing` / `ambiguous` / `candidate`
+unconfirmed — then the assessment, printed and derived from the match, and `gaps.txt`
+drafted for you. The match buckets each requirement `matched` / `near` / `missing` / `ambiguous` / `candidate`
 / `implicit`, with a default Verdict and the evidence behind it.
 
 - **`ambiguous`** or **`candidate`** with a nearest concept exactly meant: put it in decisions.txt,
@@ -99,8 +99,8 @@ terms, never generic words. A `nothing` row is the answer.
 
 ## 3. Review the derived assessment
 
-`gaps.md` holds every requirement with the match's verdict, evidence and why. **Code wrote it;
-never edit it.** Read the evidence of each `satisfied` row — the match cannot tell whom a person
+The assessment holds every requirement with the match's verdict, evidence and why; code wrote
+it. Read the evidence of each `satisfied` row — the match cannot tell whom a person
 mentored, or one cloud from several — and write only what you change in `gaps.txt`, with `Edit`:
 
 - `eligibility:` against the facts listed; `fit:` if the default is wrong.
@@ -113,8 +113,7 @@ career, by the conversation. `partial` names its shortfall; `unevidenced` gets a
 soften `indeterminate` into `unsatisfied`: only one is about the candidate.
 
 Then run `jsk tailor match applications/<stem> --gaps applications/<stem>/gaps.txt`: it
-rewrites the gaps graph and `gaps.md`, or on a FAIL (an unfilled slot is one) writes nothing. Fix
-every FAIL before returning.
+rewrites and prints the assessment, or on a FAIL (an unfilled slot is one) writes nothing. Fix every FAIL before returning.
 
 ## 4. The questions
 
@@ -134,11 +133,11 @@ No resume and no `resume.json` — that is `jsk-resume-author`, after the person
 
 ## What you return
 
-`gaps.md` is the report: the caller shows it to the person whole. **Do not repeat it.** Return
-three lines and nothing else:
+The assessment is the report: the caller shows it to the person whole. Return this and nothing
+else:
 
 ```
 fit: partial - <the honest fit, one sentence>
 blocking: <what must be settled before anything is written, one sentence> | none
-gaps: <absolute path to gaps.md>
+gaps: <the assessment as `jsk tailor match --gaps` last printed it, verbatim>
 ```

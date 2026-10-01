@@ -1,6 +1,7 @@
 """`jsk resume check TARGET`: the gates a target calls for, chosen by what it is.
 
-A resume.json gets the record gate, a render (.pdf, .tex, .txt) the parse and prose gates -
+A resume.json gets the record gate, a render (.pdf, .tex, or a .txt named by hand) the parse and
+prose gates -
 `--only` narrowing that to one - and a render's directory all four
 (adapters/cli/gates/check.py runs each). Ruling 10 of the onion design folds the three
 commands that did this - `validate`, `check` and `gates` - into this one, and a flag that

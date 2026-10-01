@@ -22,8 +22,9 @@ summary or settings in `resume.json` — by the caller, who re-renders. You have
 The **skill directory** (absolute — `${CLAUDE_PLUGIN_ROOT}/skills/jsk` in a plugin install), the
 **output directory**, the **page budget**, the file names, the **record path** (`resume.json`,
 usually in the output directory) and the **workspace** (the folder holding `career/store/`; you read
-the career only with `jsk kb show <id>`, to name where a defect is repaired). If a file name is missing, glob for `*_Resume*.pdf`,
-`*_Resume*.tex` and `*_Resume_ATS.txt` in the output directory and say what you found.
+the career only with `jsk kb show <id>`, to name where a defect is repaired). If a file name is missing, glob for `*_Resume*.pdf`
+and `*_Resume*.tex` in the output directory and say what you found. There is no `.txt`: the plain
+text is emitted from `resume.json` in memory.
 
 A missing skill directory is the one thing you cannot work around: report it and stop.
 
@@ -36,8 +37,8 @@ Run `jsk`; not found, fall back to `python -m jsk`, then `py -3 -m jsk`. Report 
 | Gate | Command | Answers |
 |---|---|---|
 | **Record** | `jsk resume check resume.json` | Is `resume.json` shaped right, is every id it names live in the career, and does every number in a selected bullet trace to a current metric? |
-| **Parse** | `jsk resume check <Name>_Resume.pdf --only parse` **and** `jsk resume check <Name>_Resume_ATS.txt --only parse --strict` | Will an ATS read this without mangling it? |
-| **Prose** | `jsk resume check <Name>_Resume.tex --only prose` **and** `jsk resume check <Name>_Resume_ATS.txt --only prose` | Does it obey the writing rules? |
+| **Parse** | `jsk resume check <Name>_Resume.pdf --only parse` (with `resume.json` beside it, also its reading order); the plain text, `--strict`, in memory, runs only in `jsk resume check <out-dir>` | Will an ATS read this without mangling it? |
+| **Prose** | `jsk resume check <Name>_Resume.tex --only prose` | Does it obey the writing rules? |
 | **Layout** | `jsk resume check <Name>_Resume.pdf --only layout --record resume.json` | Tofu, a face the template did not declare, a stranded heading, a date out of column, the wrong paper? |
 | **Render** | open the PDF with Read and look at every page | Does it look right as a whole, and is it true? |
 
@@ -82,7 +83,7 @@ if labelled an estimate.
 Your output does not reach the person, so **quote the verdict lines verbatim**:
 
 ```
-COMMAND: jsk resume check Jane_Doe_Resume_ATS.txt --only parse --strict
+COMMAND: jsk resume check Jane_Doe_Resume.pdf --only parse
 EXIT: 1
 <the verdict lines, copied exactly>
 ```

@@ -101,10 +101,13 @@ class Prepare(unittest.TestCase):
         code, out = self.run_it()
         self.assertEqual(code, 0, out)
         app = self.root / APP
-        self.assertTrue(appkit.has(self.root, f"{APP}/gaps") and (app / "gaps.md").exists())
+        self.assertTrue(appkit.has(self.root, f"{APP}/gaps"))
+        # The assessment is printed, never written: no gaps.md (Ruling 24 of the plan).
+        self.assertFalse((app / "gaps.md").exists())
         self.assertFalse((app / "gaps.ttl").exists() or (app / "gaps.txt").exists())
-        self.assertRegex(out, rf"wrote {APP}/gaps and gaps\.md - fit (strong|partial|poor) by "
+        self.assertRegex(out, rf"wrote {APP}/gaps - fit (strong|partial|poor) by "
                               r"default; ")
+        self.assertIn("type: Gap Assessment", out.split("\n== assessment\n", 1)[1])
 
     def test_the_draft_is_written_once(self):
         self.unsend()

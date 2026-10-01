@@ -121,7 +121,7 @@ def record_faults(store, queries, post, today, budget, ranked, select):
     rest carried by tags - it picked nothing, so this asked nothing while `jsk kb check`
     named six faults. The author then read the top of the Ranking and exported those by
     hand. So every live bullet of the top-ranked projects that carry a requirement is
-    asked about too, by rank: the ones gaps.md cites and the author reads (`ranked`, `TOP`).
+    asked about too, by rank: the ones the assessment cites and the author reads (`ranked`, `TOP`).
 
     Args:
         store: the loaded workspace.

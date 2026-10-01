@@ -26,7 +26,7 @@ def cmd_export(args, flags, root, today):
     their bullets by what they show, the skills the posting asks for first - each skills
     row cut to the most a row renders, and a NOTE naming what each cut left out. What it
     cannot close prints as GAP lines - tag-only, unconfirmed, uncovered, unresolved - for
-    gaps.md. --select adds to it; --cover and --today are jsk tailor match's. It also sets
+    the assessment. --select adds to it; --cover and --today are jsk tailor match's. It also sets
     `headline` to the posting's title, inferred until `jsk kb confirm --headline`, and
     `names` for a skill the posting asks for by one of its aliases - each said in a NOTE.
 

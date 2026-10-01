@@ -361,10 +361,16 @@ def verify(tmp):
 
     pdf = os.path.join(tmp, "Priya_Raman_Resume.pdf")
     tex = os.path.join(tmp, "Priya_Raman_Resume.tex")
-    txt = os.path.join(tmp, "Priya_Raman_Resume_ATS.txt")
     run("parse gate, rendered PDF", ["resume", "check", pdf, "--only", "parse"])
-    run("parse gate, plain text (strict)",
-        ["resume", "check", txt, "--only", "parse", "--strict"])
+    # No render writes the plain text: the parse gate emits it from the plan in memory, as
+    # `jsk resume check DIR` runs it. No command takes a resume.json to that one pass, so its
+    # adapter is spawned directly, from cold like the rest, with the arguments DIR gives it.
+    entry = (f"import sys; from {__package__}.adapters.cli.gates.ats import main; "
+             f"sys.exit(main(sys.argv[1:]))")
+    proc = subprocess.run([sys.executable, "-c", entry, short, "--strict"],
+                          capture_output=True, text=True, cwd=tmp)
+    steps.append(("parse gate, plain text (strict)", proc.returncode == 0,
+                  (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]))
     run("prose gate", ["resume", "check", tex, "--only", "prose"])
     # The record names the region, so the paper is checked against it, not warned about.
     run("layout gate", ["resume", "check", pdf, "--only", "layout", "--record", short])

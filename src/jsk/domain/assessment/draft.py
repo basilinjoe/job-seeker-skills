@@ -2,7 +2,7 @@
 slot, with everything else left to the derived assessment.
 
 On the three fast-tailor runs the analyst kept the match's verdict on all but seven rows, so
-the draft lists only the rows the review flag fired on; gaps.md shows the rest with their
+the draft lists only the rows the review flag fired on; the printed assessment shows the rest with their
 evidence, and the analyst lowers one by adding a row. `--gaps` FAILs on any slot left
 unfilled. The text is built here from what the caller read: the person's facts, posting.md's
 lines and decisions.txt's drops (application/tailor/draft_gaps.py reads them).
@@ -13,8 +13,8 @@ CUT = 80
 
 HEAD = [
     "# gaps.txt - your overlay on the assessment jsk derived from the match.",
-    "# `jsk tailor match <application> --gaps <this file>` checks it, then writes the assessment and gaps.md.",
-    "# A requirement not listed keeps the match's verdict (gaps.md shows each, with its evidence).",
+    "# `jsk tailor match <application> --gaps <this file>` checks it, then writes the assessment and prints it.",
+    "# A requirement not listed keeps the match's verdict (the assessment shows each, with its evidence).",
     "# A row is `slug | verdict | reason`: it lowers a verdict, never raises one.",
 ]
 

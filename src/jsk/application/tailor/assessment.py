@@ -113,7 +113,7 @@ def derive_assessment(root, stem, *, today, ports):
     N.native(store, app, ports, posting="complete")
     N.refuse_if_sent(app, store, ports)
     r, derived = matched(store, app, today, ports)
-    written, found = build(app.app_dir, store, r, today, derived, folder=ports.folder())
+    written, found, _ = build(app.app_dir, store, r, today, derived, folder=ports.folder())
     overlay, reviewed = review_of(store, app.rel)
     a, _ = native_assessed(store, app.rel, derived, overlay, reviewed)
     return assessed(r, derived, a, found, written)

@@ -157,7 +157,7 @@ def uncovered(rows, store, reads):
         said = [q for q in said if q]
         for line in asked:
             if line in dropped:
-                continue                    # dropped with a reason, which gaps.md shows
+                continue                    # dropped with a reason, which the assessment shows
             low = line.casefold().rstrip(".;, ")
             if not any(q in low or low in q for q in said):
                 out.append({"focus": node(post), "line": line})

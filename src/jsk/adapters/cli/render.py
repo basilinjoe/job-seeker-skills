@@ -1,9 +1,9 @@
-"""Render a short resume.json into a .tex (and PDF), or plain text.
+"""Render a short resume.json into a .tex (and PDF).
 
 Usage:
   jsk resume render <resume.json> --out DIR [options]
 
-  --format F         latex | txt | all             (default: all)
+  --format F         latex | all                   (default: all; txt is retired)
   --region CC        override the file's region profile, e.g. AU, IN, AE
   --profile P        override the file's format: presentation | ats-maximal | plaintext
   --ats-max          shorthand for --profile ats-maximal: renders the PDF in the
@@ -18,7 +18,7 @@ Exit 2 = usage error.
 
 Every content decision is made once, in domain/resume/plan.py, and the emitters translate
 that plan into markup without choosing anything. Which is the point: the PDF and
-the plain text built from one resume.json cannot say different things.
+the plain text the gates read from one resume.json cannot say different things.
 
 There is one rendered deliverable, the PDF, and --ats-max chooses which variant
 it holds. The page count therefore describes the document actually being sent -
@@ -79,6 +79,9 @@ def refused(argv):
         print(docstring_usage(__doc__))
         # Asking for help is not calling the command wrong; only a real misuse is.
         return 0 if wants_help(argv) else 2
+    if arg(argv, "--format") == "txt":
+        print(TXT_RETIRED)
+        return 2
     src = argv[1]
     if not os.path.exists(src):
         print(f"file not found: {src}")
@@ -173,7 +176,16 @@ def stopped(stop):
         return "\n".join(stop.detail)
     if stop.kind == "plan":
         return f"FAIL  {stop.detail}"
-    return f"unknown --format {stop.detail!r}: use latex, txt or all"
+    if stop.kind == "txt":
+        return TXT_RETIRED
+    return f"unknown --format {stop.detail!r}: use latex or all"
+
+
+# A retired option exits 2 and names its replacement (CLAUDE.md): never a silent shim.
+TXT_RETIRED = ("--format txt is retired: the plain-text resume is no longer written.\n"
+               "fix:  render with --format all (the .tex and, with --pdf, the PDF); the "
+               "parse and terms gates\n      read the render's text in memory - "
+               "jsk resume check <out-dir> --record <resume.json>")
 
 
 def report(result, out_dir):
@@ -204,17 +216,14 @@ def report(result, out_dir):
 
     # Name only files that exist. A hint pointing at a document nobody wrote
     # teaches people the gates are decorative.
-    checkable = [p for p in result.written if p.endswith((".pdf", ".txt"))]
+    checkable = [p for p in result.written if p.endswith(".pdf")]
     if checkable:
         print("\nRendered. Now run the gates - a rendered resume is not a checked one:")
         for path in checkable:
-            name = os.path.basename(path)
-            ats = result.variants.get(path) == "ats-maximal" if path.endswith(".pdf") \
-                else "_ATS" in name
-            strict = " --strict" if ats else ""
-            print(f"  check_ats.py {name}{strict}")
+            strict = " --strict" if result.variants.get(path) == "ats-maximal" else ""
+            print(f"  check_ats.py {os.path.basename(path)}{strict}")
         for path in result.written:
-            if path.endswith((".tex", ".txt")):
+            if path.endswith(".tex"):
                 print(f"  check_prose.py {os.path.basename(path)}")
     if not result.written:
         return 1

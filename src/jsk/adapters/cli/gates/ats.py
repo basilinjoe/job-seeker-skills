@@ -7,6 +7,10 @@ Usage: jsk resume check resume.pdf --only parse [--strict]
 Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
 Reading a PDF needs pymupdf; the .txt path is standard library only.
 
+A render writes no .txt. Its plain text is emitted in memory from the resume.json's plan:
+`jsk resume check <out-dir> --record <resume.json>` judges it --strict, and holds the PDF to
+its reading order. A resume.json beside a PDF checked alone is read for that order too.
+
 This used to read a .docx and check seven structural hazards inside its XML - a
 table, a text box, an image, a drawing, SmartArt, header content, a second
 column. Those checks are gone because the thing they guarded against is gone:
@@ -27,24 +31,38 @@ from . import present
 def gate(args):
     """The parse gate over the arguments alone, as `jsk resume check` runs it.
 
+    The document is a .pdf, a .txt passed by hand, or a resume.json - whose plan's plain text
+    is judged in memory, as no render writes it to disk. `--record <resume.json>` beside a
+    PDF holds the PDF to that text's reading order.
+
     Args:
-        args: the document, then --strict when asked for.
+        args: the document, then --strict when asked for, then --record <resume.json>.
 
     Returns:
         (exit code, the AtsResult or Unreadable - the GateStopped when it stopped, None
         when the call was wrong).
-        Prints the verdict; reads the document.
+        Prints the verdict; reads the document, and the record's career.
     """
-    from ....application.gates.ats import check_ats
-    from ....application.gates.result import GateStopped, Unreadable
+    from ....application.gates.ats import check_ats, check_text
+    from ....application.gates.result import GateStopped, Unreadable, unreadable
+    from ....domain.resume.short import ShortError
     from ....infra.documents import read_txt
     from ....infra.pdf import read_pdf
+    from ..compose.gates import plan_text
 
     if wants_help(args):
         # Before the path is read: `--help` used to be looked up as a file and
         # reported "file not found: --help" with the usage-error exit.
         print(docstring_usage(__doc__))
         return 0, None
+    args, record = list(args), None
+    if "--record" in args:
+        at = args.index("--record")
+        if at + 1 >= len(args):
+            print("usage: jsk resume check resume.pdf | resume.txt --only parse [--strict]")
+            return 2, None
+        record = args[at + 1]
+        del args[at:at + 2]
     if not args:
         print("usage: jsk resume check resume.pdf | resume.txt --only parse [--strict]")
         return 2, None
@@ -53,8 +71,25 @@ def gate(args):
     if not os.path.exists(path):
         print(f"file not found: {path}")
         return 2, None
+    if path.lower().endswith(".json"):
+        name = f"plain text of {os.path.basename(path)} (in memory)"
+        try:
+            text = plan_text(path)
+        except ShortError as err:
+            result = unreadable(name, f"not emitted: {err} - {err.fix}")
+            return present.unreadable(result), result
+        result = check_text(text, name, strict=strict)
+        return report(result), result
+    stream = no_stream = None
+    if record is not None and path.lower().endswith(".pdf"):
+        try:
+            stream = plan_text(record)
+        except ShortError as err:
+            no_stream = f"the plain text of {os.path.basename(record)} could not be " \
+                        f"emitted: {err}"
     try:
-        result = check_ats(path, strict=strict, read_pdf=read_pdf, read_txt=read_txt)
+        result = check_ats(path, strict=strict, read_pdf=read_pdf, read_txt=read_txt,
+                           stream=stream, no_stream=no_stream)
     except GateStopped as stop:
         return stopped(stop), stop
     if isinstance(result, Unreadable):

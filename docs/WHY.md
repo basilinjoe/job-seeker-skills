@@ -22,8 +22,8 @@ with an id, and every "this bullet is about that project" or "this number is tha
 edge. Every record is a named graph in one Oxigraph store (RocksDB on disk) at `career/store/`:
 `kb` for the career, `log` for its history, and `applications/<stem>/posting`, `.../application`
 and `.../gaps` for each application. Documents stay files beside them - the advert as
-`posting.md`, the analyst's `decisions.txt` and `gaps.txt`, the derived `gaps.md`, `resume.json`
-and the renders - because they are documents, not the record.
+`posting.md`, the analyst's `decisions.txt` and `gaps.txt`, `resume.json` and the renders (the
+derived assessment is printed, never written to a file) - because they are documents, not the record.
 
 You read the career with `jsk kb view`, which prints it as Markdown in the order the knowledge base
 always had: Identity, Positioning, Work authorization and languages, Vocabulary, Organisations,
@@ -193,7 +193,7 @@ not against a determined person with the file: someone who edits a dump and reco
 
 ## Every document is rendered from the career, never hand-built
 
-The LaTeX, the PDF and the plain text are all built from the career and a short
+The LaTeX, the PDF and the plain text the gates read are all built from the career and a short
 [`resume.json`](../plugins/jsk/skills/jsk/references/resume-format.md) - about twenty lines naming
 the bullets chosen for one posting, by id, and its settings. Its one piece of prose is the summary.
 
@@ -210,12 +210,14 @@ file build the plan directly, and a bullet confirmed or corrected in the career 
 render with nothing to update.
 
 It is also what makes a resume answerable a year later. `jsk app freeze` records in the application's graph
-which bullets rendered and which metric versions they cite, beside the PDF and plain text that were
+which bullets rendered and which metric versions they cite, beside the PDF that was
 sent, so "what did this application claim, and where did that come from" has an answer.
 
 The plan is built once — selection, ordering, provenance filtering, region, ASCII folding, date
 formatting — and the emitters translate it into markup without deciding anything. That split is
-what guarantees the PDF and the plain text cannot say different things.
+what guarantees the PDF and the text the gates read cannot say different things. That text is
+never written to a file: the gates emit it from the plan in memory, so it cannot go missing or
+stale beside the PDF.
 
 ## Four gates, not one
 
@@ -283,8 +285,7 @@ flattering you. Being flattered costs interviews.
 
 ## Two variants, because readability and parsing conflict
 
-A presentation variant for humans, an ATS-maximal variant for portals, plus plain text for paste-in
-boxes. One document cannot be optimal for both readers, and pretending otherwise means quietly losing
+A presentation variant for humans, an ATS-maximal variant for portals. One document cannot be optimal for both readers, and pretending otherwise means quietly losing
 one of them.
 
 Each render's PDF holds one variant — `--ats-max` chooses which — rather than every render producing

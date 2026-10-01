@@ -8,7 +8,7 @@ says what it did.
 import os
 from dataclasses import dataclass
 
-from ...domain.render import emit_latex, emit_text, themes
+from ...domain.render import emit_latex, themes
 from ...domain.render.fit_levers import fill_percent
 from ...domain.render.targets import safe_name, select_targets
 from ...domain.render.page_report import page_report
@@ -19,8 +19,9 @@ class RenderStopped(Exception):
     """A render that stopped before it finished.
 
     `kind` says why: "frozen" (`detail` is the refusal's lines, from
-    application.guards.frozen_refusal), "plan" (`detail` is what the builder raised) or
-    "format" (`detail` is the file kind nobody renders). `code` is the exit code.
+    application.guards.frozen_refusal), "plan" (`detail` is what the builder raised),
+    "txt" (the plain-text file, retired) or "format" (`detail` is the file kind nobody
+    renders). `code` is the exit code.
     """
 
     def __init__(self, kind, detail, code):
@@ -164,7 +165,7 @@ def render_loaded(loaded, src, out_dir, *, fmt="all", region=None, profile=None,
         loaded: the resume.json and its career (load_resume.LoadedResume).
         src: the resume.json's path, which company_of reads the application from.
         out_dir: where the files go; it exists.
-        fmt: latex | txt | all - the file kinds.
+        fmt: latex | all - the file kinds; txt is retired and stops the render.
         region: overrides the file's region profile.
         profile: the variant; by default the file's own format, else presentation.
         template: the visual theme; None is the default one.
@@ -177,10 +178,11 @@ def render_loaded(loaded, src, out_dir, *, fmt="all", region=None, profile=None,
             (ports.tex.TexCompiler, ports.pdf.PdfInspector, ports.outputs.RenderOutputs).
 
     Returns:
-        A RenderResult. Writes a .tex and a .txt per target, and a PDF with `want_pdf`.
+        A RenderResult. Writes a .tex per target, and a PDF with `want_pdf`.
 
     Raises:
-        RenderStopped: a KeyError from the builder, or a `fmt` naming no file kind.
+        RenderStopped: a KeyError from the builder, `fmt` txt (retired), or a `fmt`
+            naming no file kind.
     """
     store, doc = loaded.store, loaded.doc
 
@@ -193,6 +195,9 @@ def render_loaded(loaded, src, out_dir, *, fmt="all", region=None, profile=None,
     # found it, documented as the place to choose, doing nothing - --ats-max or
     # presentation, whatever the file said.
     targets = select_targets(fmt, profile or doc.get("format"))
+    if fmt == "txt":
+        # Ruling 23: the plain text is no longer a file; the gates read it in memory.
+        raise RenderStopped("txt", fmt, 2)
 
     written, warnings, notes, pages, held, counted, withheld = [], [], [], [], {}, [], []
     first, unverified = None, False
@@ -220,11 +225,6 @@ def render_loaded(loaded, src, out_dir, *, fmt="all", region=None, profile=None,
                     pages.append(measured(reader, pdf, rendered["pages"], counted))
                 else:
                     unverified = True
-        elif kind == "txt":
-            txt = path + ".txt"
-            outputs.write_text(txt, emit_text.emit(rendered), encoding="ascii",
-                               errors="replace")
-            written.append(txt)
         else:
             raise RenderStopped("format", kind, 2)
 

@@ -335,7 +335,10 @@ def dump_text(record):
         g = graph_node(name)
         quads += sorted((ox.Quad(t.subject, t.predicate, t.object, g) for t in record[name]),
                         key=str)
-    return ox.serialize(quads, format=ox.RdfFormat.TRIG).decode("utf-8")
+    data = ox.serialize(quads, format=ox.RdfFormat.TRIG)
+    # serialize returns None only when given an `output` to write to; none is passed here.
+    assert data is not None
+    return data.decode("utf-8")
 
 
 def parse_dump(text):

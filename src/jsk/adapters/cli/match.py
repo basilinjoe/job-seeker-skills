@@ -7,9 +7,9 @@ Usage: jsk tailor match <applications/<dir>> [--cover N] [--json] [--today YYYY-
   --json            the same result, structured
   --today           the date recency is measured from (default: today)
   --gaps F          check the application's gaps.txt against the match, then write the
-                    assessment and gaps.md; a `<!-- jsk: ... -->` slot still in it is a
+                    assessment and print it; a `<!-- jsk: ... -->` slot still in it is a
                     FAIL, and on a FAIL nothing is written
-  --draft-gaps F    write the assessment and gaps.md from the match alone, then draft
+  --draft-gaps F    write the assessment from the match alone and print it, then draft
                     gaps.txt with a slot wherever judgement is needed; refuses an F that
                     exists
 
@@ -45,7 +45,7 @@ def main(argv):
 
     Returns:
         The exit code: 0 matched, 1 a FAIL blocks it or --gaps found one, 2 called wrong.
-        Prints the match; --gaps and --draft-gaps write the assessment and gaps.md.
+        Prints the match; --gaps and --draft-gaps write the assessment and print it.
     """
     from ...application.tailor.check_gaps import gaps_refusal
     from ...application.tailor.match_posting import application
@@ -203,13 +203,28 @@ def show_build(written, found, label):
     return 1 if fails else 0
 
 
+def show_assessment(text):
+    """Print the assessment after the lines above it: it is not written to a file (Ruling 24
+    of the graph-native plan - no gaps.md), so this is where the person and the author read it.
+
+    Args:
+        text: the assessment rendered (check_gaps.render), or None when none was written.
+    """
+    if text:
+        print()
+        print(text, end="" if text.endswith("\n") else "\n")
+
+
 def report_gaps(report, app, today):
-    """--gaps: check gaps.txt, then write the assessment and gaps.md; 1 on any FAIL."""
+    """--gaps: check gaps.txt, then write the assessment and print it; 1 on any FAIL."""
     from ...application.tailor.check_gaps import build
     from .compose.tailor import Folder
 
-    written, found = build(app, report.store, report.result, today, None, folder=Folder())
-    return show_build(written, found, os.path.join(app, "gaps.txt"))
+    written, found, text = build(app, report.store, report.result, today, None,
+                                 folder=Folder())
+    code = show_build(written, found, os.path.join(app, "gaps.txt"))
+    show_assessment(text)
+    return code
 
 
 def write_draft(report, app, today, path):
@@ -223,4 +238,5 @@ def write_draft(report, app, today, path):
         return 1
     print(f"wrote {path}: {len(report.result['requirements'])} requirements, "
           f"{done.slots} slots to fill")
+    show_assessment(done.assessment)
     return 0
