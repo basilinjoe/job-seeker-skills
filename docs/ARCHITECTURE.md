@@ -337,6 +337,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/ats_rules.py              the parse gate's rules over extracted text and fonts
     gates/prose_rules.py            the prose gate's rules over a .tex's or .txt's paragraphs
     gates/layout_rules.py           the layout gate's rules over page sizes, line boxes and fonts
+    gates/letter_rules.py           the letter check's rules over a letter's words: length, prose, quotes
     resume/constants.py             the provenance floor's ranks and a skills row's length
     resume/plan.py                  the render plan: every content decision, made exactly once
     resume/short.py                 a resume.json as data: parsed, its shape, its ids, its summary
@@ -394,6 +395,13 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/fetch.py                an advert from a job board or a file, written as posting.md
     posting/extract.py              the decisions.txt header and the advert's lines, numbered, for the analyst
     posting/build.py                decisions.txt checked against the advert and written as the posting graph
+    gates/result.py                 what a gate returns: its findings, or why it stopped
+    gates/ats.py                    the parse gate: a document's text extracted, then judged
+    gates/prose.py                  the prose gate: a document's paragraphs read, then judged
+    gates/layout.py                 the layout gate: a PDF's region and budget found, its lines judged
+    gates/record.py                 the record gate: a resume.json's career loaded, every finding asked
+    gates/letter.py                 the letter check: its length and prose judged, its numbers traced
+    gates/run_gates.py              `jsk gates`: the four gates over a render, the render gate said last
     tailor/match_text.py            the match's sections as markdown, shared with the gaps draft
     tailor/export.py                `jsk kb export`: the bullets a resume.json shows chosen, the file written
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
@@ -444,6 +452,14 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/kb/confirm.py               `jsk kb confirm`: its three forms, and what each confirmed
     cli/kb/draft.py                 `jsk kb pack` and `merge`: the drafted changeset printed or written
     cli/kb/export.py                `jsk kb export`: its flags, the choice's notes and gaps, the file
+    cli/gates/__init__.py           the gates' commands, one module a gate
+    cli/gates/present.py            the count line, findings and verdict every gate prints alike
+    cli/gates/ats.py                the parse gate: its flags, the gate run, its verdict said
+    cli/gates/prose.py              the prose gate: its flags, the gate run, its verdict said
+    cli/gates/layout.py             the layout gate: its flags, the gate run, its verdict said
+    cli/gates/record.py             the record gate (`jsk validate`): its flags, the gate run, its verdict
+    cli/gates/letter.py             the letter check: its flags, the check run, its verdict said
+    cli/gates/check.py              `jsk validate`, `check`, `gates`: each gate contained, the summary
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)

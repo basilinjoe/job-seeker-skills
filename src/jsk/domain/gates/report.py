@@ -21,3 +21,18 @@ class Report:
     def warn(self, msg):
         """Record one warning line."""
         self.warns.append(msg)
+
+
+def line(check, focus, detail, fix):
+    """One finding as the record gate and the letter check print it.
+
+    Args:
+        check: the finding's id, e.g. number-untraced.
+        focus: what it is about - a bullet's id, "letter", "resume.json".
+        detail: what is wrong.
+        fix: what to do about it.
+
+    Returns:
+        The finding, its fix on an indented line of its own.
+    """
+    return f"{check} {focus} - {detail}\n        fix: {fix}"

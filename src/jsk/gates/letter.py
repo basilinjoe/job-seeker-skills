@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-"""The letter check: a cover letter, against the resume.json it goes out beside.
+"""The letter check's number check, and `python -m jsk.gates.letter`, its entry point.
 
-Usage: jsk check <cover-letter.txt|.md> --only letter --record <resume.json>
-       python -m jsk.gates.letter <cover-letter.txt|.md> [--record <resume.json>]
-       --record R    the application's resume.json; without it the number check is
-                     SKIPPED, and a gate that did not run is a failure
-
-Exit 0 = fit to send. Exit 1 = do not send this letter. Exit 2 = usage, or a
-resume.json outside a workspace.
+The command is adapters/cli/gates/letter.py, the check application/gates/letter.py and its
+rules over the words domain/gates/letter_rules.py; this module keeps the path, the letter's
+reader, the number check that reads the career, and the names callers and tests reach
+through it (Ruling 4 of the onion design).
 
 mode-tailor.md had the model write a letter nobody checked, beside a resume whose every
 numeral must trace to a current metric version. A number in the letter is the same claim
@@ -28,34 +25,20 @@ the posting's words, not a claim, and is skipped. Whether each sentence is true 
 career is not provable without reading it as a person would, so it is not attempted.
 """
 import datetime
-import os
-import re
 import sys
 
-from ..cliutil import docstring_usage, parse_flags, utf8_stdout, wants_help
-from .report import show
-
-LIMIT = 250
-
-# A word as a reader counts one: "event-driven", "40K", "62%" and "don't" are one each.
-WORD = re.compile(r"[A-Za-z0-9]+(?:['’.,-][A-Za-z0-9]+)*")
-SALUTATION = re.compile(r"^(dear|hi|hello|to whom)\b.{0,60}[,:]?$", re.I)
-CLOSING = re.compile(r"^(sincerely|regards|best|best regards|kind regards|warm regards|"
-                     r"many thanks|thanks|thank you|cheers|respectfully|"
-                     r"yours(?: sincerely| faithfully| truly)?)[,.!]?$", re.I)
-QUOTED = re.compile(r"\"([^\"\n]{1,200})\"|“([^”\n]{1,200})”")
-
-# mode-tailor.md: "No enthusiasm padding." writing-rules.md's filler ("passionate about
-# technology", "stayed current with industry trends") is this in a resume's clothes. A
-# failure rather than a warning: in a letter there is no legitimate "thrilled".
-PADDING = re.compile(r"\b(passionat\w*|excit(?:ed|ement|ing opportunity)|thrill\w*|"
-                     r"delighted|eager\w*|dream (?:job|role|company)|perfect fit|"
-                     r"stayed current with industry trends)\b", re.I)
-
-
-def line(check, focus, detail, fix):
-    from .record import line as record_line
-    return record_line(check, focus, detail, fix)
+from ..domain.gates.letter_rules import LIMIT as LIMIT
+from ..domain.gates.letter_rules import WORD as WORD
+from ..domain.gates.letter_rules import SALUTATION as SALUTATION
+from ..domain.gates.letter_rules import CLOSING as CLOSING
+from ..domain.gates.letter_rules import QUOTED as QUOTED
+from ..domain.gates.letter_rules import PADDING as PADDING
+from ..domain.gates.letter_rules import body as body
+from ..domain.gates.letter_rules import paragraphs as paragraphs
+from ..domain.gates.letter_rules import length_lines as length_lines
+from ..domain.gates.letter_rules import prose_lines as prose_lines
+from ..domain.gates.letter_rules import unquote_posting as unquote_posting
+from ..domain.gates.report import line as line
 
 
 def read(path):
@@ -65,71 +48,6 @@ def read(path):
 
     with open(path, encoding="utf-8", errors="replace") as fh:
         return normalise(fh.read())
-
-
-def body(text):
-    """The paragraphs a reader counts: between the salutation and the closing."""
-    lines = [ln.strip().lstrip("#").strip() for ln in text.splitlines()]
-    start = next((i + 1 for i, ln in enumerate(lines) if ln and SALUTATION.match(ln)), 0)
-    end = next((i for i, ln in enumerate(lines) if i >= start and CLOSING.match(ln)), len(lines))
-    return "\n".join(lines[start:end]).strip()
-
-
-def paragraphs(text):
-    return [" ".join(p.split()) for p in re.split(r"\n\s*\n", text) if p.strip()]
-
-
-def length_lines(text):
-    words = len(WORD.findall(body(text)))
-    if words <= LIMIT:
-        return [], words
-    return [line("too-long", "letter", f"{words} words in the body; the limit is {LIMIT}",
-                 "cut to the strongest match, one piece of evidence with its metric and the "
-                 "gap in one line - mode-tailor.md")], words
-
-
-def prose_lines(text):
-    """(fails, warns): the check_prose rules that hold for a letter. Its third-person,
-    opens-on-a-verb, duplicate, long and unquantified bullet rules do not - a letter is
-    written in the first person, to someone, in sentences."""
-    from ..domain.gates.prose_rules import BANNED, ai_tells, dangling_tail, placeholders
-
-    fails = [line("placeholder", "letter", f, "write the words it stands for, or drop them")
-             for f in placeholders(text)]
-    warns = []
-    for para in paragraphs(body(text)):
-        tail = dangling_tail(para)
-        if tail:
-            word, hard = tail
-            (fails if hard else warns).append(line(
-                "unfinished", "letter", f"a sentence stops on {word!r}: {para[-60:]!r}",
-                "finish the sentence"))
-    seen = set()
-    for m in PADDING.finditer(text):
-        if m.group(0).lower() not in seen:
-            seen.add(m.group(0).lower())
-            fails.append(line("padding", "letter", f"{m.group(0)!r} is enthusiasm, not evidence",
-                              "cut it; say what you did and what it moved"))
-    lowered = text.lower()
-    warns += [line("cut-on-sight", "letter", f"{p!r} - activity, not achievement",
-                   "say what changed because of the work - writing-rules.md")
-              for p in BANNED if p in lowered]
-    warns += [line("stock-vocabulary", "letter", f"{w!r} - the word every generated "
-                   f"letter uses", "say what you did in the words you would use out loud")
-              for w in ai_tells(text)]
-    return fails, warns
-
-
-def unquote_posting(text, posting):
-    """`text` with each quotation the posting holds verbatim blanked out."""
-    if not posting:
-        return text
-    held = " ".join(posting.split()).casefold()
-
-    def blank(m):
-        said = " ".join((m.group(1) or m.group(2)).split()).casefold()
-        return " " * len(m.group(0)) if said in held else m.group(0)
-    return QUOTED.sub(blank, text)
 
 
 def years_lines(store, text, today):
@@ -227,83 +145,18 @@ def number_lines(text, doc, store, posting=None, today=None):
     return out
 
 
-def parse(argv):
-    """(letter, record, problem)."""
-    no_value = "--record needs a value\nfix:  --record applications/<dir>/resume.json"
-    parsed, problem = parse_flags(argv, ("--record",), ())
-    if parsed is None:
-        return None, None, no_value if problem.kind == "missing" else \
-            f"{problem}\n{docstring_usage(__doc__)}"
-    positional, flags = parsed
-    record = flags.get("--record")
-    if record == "":
-        return None, None, no_value
-    if len(positional) != 1:
-        return None, None, docstring_usage(__doc__)
-    return positional[0], record, None
-
-
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else argv
-    utf8_stdout()
-    if wants_help(argv):
-        print(docstring_usage(__doc__))
-        return 0
-    path, record, problem = parse(argv)
-    if problem:
-        print(problem)
-        return 2
-    if not os.path.exists(path):
-        print(f"file not found: {path}")
-        return 2
-    if os.path.splitext(path)[1].lower() not in (".txt", ".md"):
-        print(f"unsupported file type {os.path.splitext(path)[1]!r} - write the letter as "
-              ".txt or .md")
-        return 2
-    text = read(path)
-    fails, words = length_lines(text)
-    more, warns = prose_lines(text)
-    fails += more
-    against = "nothing - no --record"
-    if record is None:
-        fails.append(line("numbers-skipped", "letter",
-                          "SKIPPED - no --record, so no number in it was traced. A gate that "
-                          "did not run is not a gate that passed",
-                          "pass --record applications/<dir>/resume.json"))
-    else:
-        from ..resume import short
+    """The check, as an exit code (adapters.cli.gates.letter.main).
 
-        try:
-            doc = short.read(record)
-            root = short.workspace(record)
-        except short.ShortError as err:
-            print(f"FAIL  {err}")
-            print(f"fix:  {err.fix}")
-            return 2
-        try:
-            import pyoxigraph  # noqa: F401
-        except ImportError:
-            print("FAIL  the number check needs pyoxigraph, and this Python has not got it - "
-                  "`jsk doctor` says how to install it")
-            return 1
-        try:
-            store = short.career(root)
-        except short.ShortError as err:
-            print(f"FAIL  {err}")
-            print(f"fix:  {err.fix}")
-            return 2
+    Args:
+        argv: the arguments alone; by default sys.argv's.
 
-        beside = os.path.join(os.path.dirname(os.path.abspath(record)), "posting.md")
-        posting = read(beside) if os.path.exists(beside) else None
-        fails += number_lines(body(text), doc, store, posting)
-        against = os.path.basename(record)
-    print(f"checking: {os.path.basename(path)}   against: {against}")
-    print(f"words: {words} (limit {LIMIT})")
-    print(f"\nFAIL {len(fails)}   WARN {len(warns)}")
-    show(fails, "FAIL", None)
-    show(warns, "warn", None)
-    print("\nPASS - fit to send" if not fails else "\nDO NOT SEND - fix the failures above")
-    return 1 if fails else 0
+    Returns:
+        The exit code. Prints the verdict.
+    """
+    from ..adapters.cli.gates.letter import main as letter
+
+    return letter(sys.argv[1:] if argv is None else argv)
 
 
 if __name__ == "__main__":

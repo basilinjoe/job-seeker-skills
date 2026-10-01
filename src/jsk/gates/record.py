@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
-"""The record gate: a short resume.json, and the career bullets it selects.
+"""The record gate's checks, and `python -m jsk.gates.record`, its documented entry point.
 
-Usage: jsk validate <resume.json> [--strict] [--max-findings N]
-       python -m jsk.gates.record <resume.json> [--strict] [--max-findings N]
-       --strict            treat warnings as failures
-       --max-findings N    print at most N failures and N warnings (default 25;
-                           0 prints every one)
-
-Exit 0 = safe to render. Exit 1 = do not render this. Exit 2 = usage, or no career to
-check it against.
+The command is adapters/cli/gates/record.py and the gate application/gates/record.py; this
+module keeps the path, the checks the gate asks of a short resume.json over its career, and
+the names callers and tests reach through it (Ruling 4 of the onion design).
 
 It replaced two gates (2026-09-25). validate_urs checked a 41KB URS record against itself
 and claims.py checked that record against career/kb.ttl; the record was a copy of the
@@ -31,23 +26,16 @@ The label and years checks read prose, where a word can be a technology or not (
 so they warn, as they did in the claims gate. The rest read ids and numbers.
 """
 import datetime
-import os
 import re
 import sys
 
 from ..domain import ontology as O
-from .report import show
-
-MAX_FINDINGS = 25
+from ..domain.gates.report import line as line
 
 # "8 years of Kubernetes", "8+ yrs of hands-on K8s", "8 years' experience with Kafka".
 YEARS = re.compile(r"(?<![\d.])(\d{1,2})\+?\s*(?:years?|yrs?)(?:'|’)?\s+"
                    r"(?:of\s+)?(?:(?:hands-on|professional|production|commercial)\s+)?"
                    r"(?:experience\s+(?:in|with)\s+)?", re.I)
-
-
-def line(check, focus, detail, fix):
-    return f"{check} {focus} - {detail}\n        fix: {fix}"
 
 
 # --- the vocabulary in prose --------------------------------------------------------
@@ -266,75 +254,18 @@ def findings(doc, store, today=None):
     return fails, warns
 
 
-def parse(argv):
-    """(path or None, strict, limit, problem)."""
-    from ..cliutil import parse_flags
-
-    strict, limit = False, MAX_FINDINGS
-    not_a_number = ("--max-findings needs a whole number, got {!r}\n"
-                    "fix:  --max-findings 50   - or 0 to print every finding")
-    parsed, problem = parse_flags(argv, ("--max-findings",), ("--strict",))
-    if parsed is None:
-        if problem.kind == "missing":
-            return None, strict, limit, not_a_number.format(None)
-        return None, strict, limit, f"{problem}\n{__doc__.split(chr(10) * 2)[1]}"
-    positional, flags = parsed
-    if "--max-findings" in flags:
-        raw = flags["--max-findings"]
-        if not raw.isdigit():
-            return None, strict, limit, not_a_number.format(raw)
-        limit = int(raw) or None
-    strict = "--strict" in flags
-    if len(positional) != 1:
-        return None, strict, limit, __doc__.split("\n\n")[1]
-    return positional[0], strict, limit, None
-
-
 def main(argv):
-    from ..cliutil import wants_help
+    """The gate, as an exit code (adapters.cli.gates.record.main).
 
-    if wants_help(argv[1:]):
-        print(__doc__.split("\n\n")[1])
-        return 0
-    path, strict, limit, problem = parse(argv[1:])
-    if problem:
-        print(problem)
-        return 2
-    from ..resume import short
+    Args:
+        argv: the whole argv, the program name first.
 
-    try:
-        doc = short.read(path)
-        root = short.workspace(path)
-    except short.ShortError as err:
-        print(f"FAIL  {err}")
-        print(f"fix:  {err.fix}")
-        return 2
-    try:
-        import pyoxigraph  # noqa: F401
-    except ImportError:
-        print("FAIL  the record gate needs pyoxigraph, and this Python has not got it - "
-              "`jsk doctor` says how to install it")
-        return 1
-    from ..infra.oxigraph import record as R
+    Returns:
+        The exit code. Prints the verdict.
+    """
+    from ..adapters.cli.gates.record import main as record
 
-    try:
-        store = short.career(root)
-    except short.ShortError as err:
-        print(f"FAIL  {err}")
-        print(f"fix:  {err.fix}")
-        return 2
-    fails, warns = findings(doc, store)
-    if strict:
-        fails, warns = fails + warns, []
-    st = R.state(store)
-    at = f" r{st.log_revision}" if st.log_revision else ""
-    print(f"checking: {os.path.basename(path)}   against: career/store/{at}")
-    print(f"\nFAIL {len(fails)}   WARN {len(warns)}")
-    show(fails, "FAIL", limit)
-    show(warns, "warn", limit)
-    print("\nPASS - safe to render" if not fails
-          else "\nDO NOT RENDER - fix the failures above")
-    return 1 if fails else 0
+    return record(argv)
 
 
 if __name__ == "__main__":
