@@ -24,7 +24,7 @@ Five things make it different:
   `resume.json` that selects what renders all live in one directory per application. Tailoring closes the gaps
   first and writes the resume last — there is no reason to author a document from a record you are
   about to change.
-- **Nothing is invented.** Tailoring is selection: `resume.json` names your evidence by id and orders
+- **Nothing is invented.** Tailoring is selection: a resume names your evidence by id and orders
   it, and holds no bullet's words — a reworded bullet goes into the career, where you confirm it.
   Every id must be live in your career and every number in a chosen bullet must trace to the current
   version of a recorded metric, or the resume fails before anything renders.
@@ -36,10 +36,11 @@ Five things make it different:
 The toolchain is a Python package, and the skill drives it:
 
 ```
-pip install 'jsk-resume[all]'
+pip install 'jsk-resume[all,mcp]'
 ```
 
-Then the plugin:
+`mcp` is the extra the plugin needs: since 5.0.0 its agents work through `jsk mcp`, a server the
+plugin starts, rather than by writing files for the CLI to read. Then the plugin:
 
 ```
 /plugin marketplace add basilinjoe/job-seeker-skills
@@ -74,7 +75,7 @@ Describe what you want and the skill routes there by itself. Or say it directly:
 | `/jsk:braindump` | You have something to say about your work |
 | `/jsk:resume` | You need a resume — one verified PDF |
 | `/jsk:tailor` | You have a specific job posting - a loop that closes the gaps, then writes the resume |
-| `/jsk:ship` | A resume is finished and needs rendering, checking and filing — `jsk resume ship`, then `jsk app freeze` |
+| `/jsk:ship` | A resume is finished and needs rendering, checking and filing — `resume_ship`, then `jsk app freeze` |
 | `/jsk:refresh` | Periodic top-up: what changed, what numbers moved |
 | `/jsk:gaps` | Resolve unanswered questions and unverified claims |
 | `/jsk:pipeline` | What to chase this week: what has gone quiet, what is overdue |
@@ -93,18 +94,22 @@ details. Every quarter → `refresh`. Before applying → `gaps`, then `resume`.
 my-career/                  `jsk kb new ./my-career --name "Your Name"` makes this
   career/
     store/                  the record: the career, every change to it, and each application's
-                            requirements, assessment and timeline - read and written by jsk only
+                            advert, requirements, review, assessment, selection and timeline -
+                            read and written by jsk only
   applications/
     2026-09-08-acme-platform-engineer/
-      posting.md            the advertisement, verbatim
-      decisions.txt         what it asks for, as the analyst read it
-      gaps.txt              the analyst's changes to the assessment (`jsk tailor match` prints it)
-      resume.json           the bullets and settings this submission rendered from
-      Priya_Raman_Resume.{tex,pdf}
+      Priya_Raman_Resume.{tex,pdf}    what was sent, and nothing else
   .jsk/backup.trig          the whole record as text, refreshed after every change; .jsk/ is
                             git-ignored, so if git is your backup, commit a `jsk kb dump` too
   .gitattributes            `career/store/** binary`, so git never rewrites the store's files
 ```
+
+**New in 5.0.0.** An application lives in the store: the advert as numbered lines, its
+requirements, the analyst's review, the assessment and the resume's selection are graphs the
+agents reach through `jsk mcp`'s tools, and the application's directory holds only the rendered
+`.pdf` and `.tex`. A "no" you give ("never used Kafka") is kept, so the next posting does not ask it
+again for a year. Applications made before 5.0.0 keep their `posting.md`, `decisions.txt`,
+`gaps.txt` and `resume.json`, and the commands still work them.
 
 One record for the career, and a frozen directory per application. The career holds identity,
 positioning, work rights, vocabulary, organisations, roles, projects, metrics, skills, education,

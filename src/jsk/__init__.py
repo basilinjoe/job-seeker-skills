@@ -25,6 +25,8 @@ for the posting, as ids, and a summary - and carried to a document somebody can 
     jsk resume ship RESUME --out D   validate, render and gate, in one pass
     jsk app freeze APP ...           archive a sent application: its record, in the store
     jsk app event APP KIND           add a screen, an offer, a rejection to one
+    jsk mcp                          the career and graph-native applications as MCP tools,
+                                     the plugin's agents' only way in (the `mcp` extra)
 
 `jsk resume check` checks a resume.json before anything renders - every id it names is live
 in the career, and every number in a bullet it selects traces to a current version of a metric
@@ -37,12 +39,12 @@ what you work on, the verb what you do to it.
 
 One dependency is required: `pyoxigraph`, the engine that stores, validates and queries
 the career. Everything else is optional and imported at the point of use rather than here:
-`pymupdf` to read a PDF. A bare Python runs the record gate, the prose gate and the plain-text
+`pymupdf` to read a PDF, `mcp` to serve `jsk mcp`. A bare Python runs the record gate, the prose gate and the plain-text
 parse gate, and
 `jsk doctor` is standard-library only, so it can report on a machine before anything is
 installed on it.
 """
 
-__version__ = "4.4.0"
+__version__ = "5.0.0"
 
 __all__ = ["__version__"]

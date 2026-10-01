@@ -15,6 +15,7 @@ career/store/  (the graph record: named graphs in one RocksDB store, validated o
    |                     |  resume.json  (the short file, one per application: bullet ids in
    |                     |  order, skills, format, region, budgets, floor, a summary - no copy
    |                     |  of the career; `jsk kb export` writes it, `jsk resume check` gates it)
+   |                     |  - or a selection graph with the same keys, `resume_select` writes it
    v                     v
 domain/resume/plan.py builds the plan exactly once:
    selection, ordering, provenance filtering, region, ASCII folding, date formatting
@@ -51,7 +52,48 @@ find yourself making a formatting decision inside the builder, it belongs in an 
 
 The second pipeline runs before the first: a posting turned into requirements, joined with the
 career, and assessed. It follows the same rule as the render plan. **A model writes only
-decisions, as short text files. Code writes every graph and every rendered page from them.**
+decisions. Code writes every graph and every rendered page from them.**
+
+Since 5.0.0 the decisions arrive as typed tool calls to `jsk mcp` (`adapters/mcp/server.py`,
+Rulings 18-19 of `docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`), and an
+application is graph-native: everything it is lives in the store, and its directory holds only
+the rendered `.pdf` and `.tex`.
+
+```
+posting_capture(app, url|text)    posting graph   the advert as numbered j:AdvertLines; state draft
+        |
+app_show(app, "lines")            (JSON)          every line, sectioned, with the concepts it names now
+        |
+        |   the analyst sends one posting_decide batch: a row per requirement {n, slug, asked,
+        |   concepts}, a drop per line left out {n, reason}
+        v
+posting_decide / posting_complete posting graph   each row checked against its line, quote = the
+        |                                         line's text; every qualification line used or dropped
+        v
+assessment_derive(app)            gaps graph      the match, the assessment derived (assessment/derive.py),
+        |                                         the stored review folded in; rows, fit, j:Ask questions
+        |   the analyst sends one assessment_review batch: verdicts kept or lowered with a reason,
+        |   fit, eligibility, short, surplus, asks
+        v
+assessment_review / _complete     review graph    each verdict checked against the match (fold.check);
+                                                  a raised verdict or an unanswered flag is a FAIL
+```
+
+So the analyst still writes only what code cannot know - which concept an advert line means, and
+a verdict the triples read too generously - and it writes it as JSON fields, never as triples, ids
+or quotes. Every tool validates its candidate graphs with the whole record before it writes, through
+the one write gate, and a FAIL writes nothing. The review is its own graph
+(`applications/<stem>/review`), so a re-derivation after the career changes folds the same review
+into the new match. A confirmed, unlapsed `j:Absence` in the career (a person's "no") settles a
+requirement as `missing` with no question (Rulings 8-9).
+
+The grants are the boundary (Ruling 19): the analyst holds the posting and assessment tools and
+no tool that writes the career; the author holds `career_apply` (which writes only `j:inferred`)
+and the selection tools; no agent holds `career_confirm`. `tests/test_plugin_surface.py`'s
+`AgentGrants` pins each grant.
+
+An application made from files keeps the file pipeline below, unchanged; the file verbs refuse a
+graph-native application, and the tools refuse a file-made one, each naming the other (Ruling 11).
 
 ```
 jsk posting fetch URL D     posting.md        the advert, verbatim - public board JSON, no browser
@@ -231,39 +273,44 @@ through the composition root's load, and nothing in them imports the renderer.
 
 ## The agent boundary
 
-Five tasks are delegated to subagents, and the line between them is what each may write.
+Five tasks are delegated to subagents, and the line between them is what each may call. Since
+5.0.0 every jsk call an agent makes is a `jsk mcp` tool (`mcp__plugin_jsk_jsk__<tool>`), and each
+agent's `tools:` names its tools one by one: P0 measured that an explicit list holds a subagent to
+exactly those tools, while an omitted line or the `mcp__plugin_jsk_jsk__*` wildcard hands it all
+eighteen (Ruling 19 of `docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`).
 
 | Agent | Has | Deliberately lacks |
 |---|---|---|
-| `jsk-verifier` | Bash, Read, Glob | Write and Edit — a defect is fixed in the career or `resume.json` and re-rendered, never patched into the render |
-| `jsk-kb-auditor` | Read, Write, Glob, Grep, Bash | Edit — it writes an audit from `jsk kb check` and `jsk kb query`; the career is the person's |
-| `jsk-extractor` | Read, Write, Glob, Grep, Bash | Edit — it writes one changeset from a braindump or an imported document and only dry-runs it; the session shows the diff, applies and confirms |
-| `jsk-tailor-analyst` | Read, Write, Edit, Glob, Grep, Bash | nothing, and that is worth reading below |
-| `jsk-resume-author` | Read, Write, Edit, Glob, Grep, Bash | nothing — it is the one that writes prose |
+| `jsk-verifier` | Bash, Read, Glob; `career_show`, `app_show` | Write, Edit and every writing tool — a defect is fixed in the career or the selection and re-rendered, never patched into the render |
+| `jsk-kb-auditor` | Read, Write, Glob, Bash; the career reads, `career_log`, `app_list`, `app_show` | Edit and every writing tool — it writes an audit from `jsk kb check` and the queries; the career is the person's |
+| `jsk-extractor` | Read, Glob; the career reads, `career_preview` | Write, Bash and `career_apply` — it drafts one changeset from a braindump or an imported document and only previews it; the session shows the diff, applies and confirms |
+| `jsk-tailor-analyst` | Read; the career reads, `app_show`, `posting_*`, `assessment_*` | Write, Edit, Bash and every tool that writes the career |
+| `jsk-resume-author` | Read; the career reads, `career_preview`, `career_apply`, `app_show`, `resume_select`, `resume_update` | Write, Edit, Bash and the review — it is the one that writes prose |
 
-**For the two authoring agents the anti-invention guarantee is not a tool grant.** Both hold Edit,
-and what holds them is partly what their files say and partly what the write path refuses:
+No agent holds `career_confirm`: it carries the person's words, and only the main session talks to
+the person. `tests/test_plugin_surface.py`'s `AgentGrants` pins every row.
 
-- `jsk-tailor-analyst` writes two text files, `decisions.txt` and `gaps.txt`. `jsk` turns them
-  into the posting and gaps graphs, so most of what it could get wrong is refused by
+**For the two authoring agents the anti-invention guarantee is a grant and a gate.**
+
+- `jsk-tailor-analyst` sends two batches, `posting_decide` and `assessment_review`. The tools turn
+  them into the posting and review graphs, so most of what it could get wrong is refused by
   the write path, not by what its file says:
-  - every requirement's quote *is* an extracted advert line;
+  - every requirement's quote *is* a stored advert line;
   - every qualification line must be used or dropped with a reason;
   - a verdict can only be lowered from the match's, never raised, and a lowered one needs a
     reason.
 
-  It **never touches the career**. That boundary is prose, and
-  `tests/test_plugin_surface.py` asserts the sentence is still in the file, which is the most a
-  test can do about a rule of that kind. There is no file for it to edit by hand: the career is
-  in `career/store/`, and the only way in is `jsk kb`, whose every write is logged.
-- `jsk-resume-author` reads `jsk tailor match` and `jsk kb show <ids>`, and bullets it writes for the
+  It **never touches the career**, and since 5.0.0 that is true by construction: it holds no tool
+  that could. `tests/test_plugin_surface.py` still asserts the sentence is in the file, so a grant
+  widened later meets the rule in writing.
+- `jsk-resume-author` reads the assessment and `career_show`, and bullets it writes for the
   career go in through a changeset — they belong in the project they are about, so the next
-  application can reuse them. What holds it is not a tool grant: `jsk kb apply` makes every new or
-  changed claim `j:inferred` and refuses a changeset asserting `confirmed`; the short file's `floor`
-  (`confirmed` by default) means the builder withholds each unconfirmed clause - it prints a
-  `withheld` warning rather than failing, so the mode files make every warning a confirm-or-cut
-  before hand-over; and `resume.json` holds ids, never a bullet's words, so the record gate fails a
-  bullet the career does not hold.
+  application can reuse them. What holds it is the write path: `career_apply`, like `jsk kb
+  apply`, makes every new or changed claim `j:inferred` and refuses a changeset asserting
+  `confirmed`; the selection's `floor` (`confirmed` by default) means the builder withholds each
+  unconfirmed clause - it prints a `withheld` warning rather than failing, so the mode files make
+  every warning a confirm-or-cut before hand-over; and a selection holds ids, never a bullet's
+  words, so the record gate fails a bullet the career does not hold.
   **The guarantee lives in the gates, not in the agent.**
 
 That asymmetry is the design. Where a rule can be enforced by a gate, it is; where it cannot, it is
@@ -507,16 +554,16 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     profiles/*.json                 region profiles: default, au, in, ae
     profile.schema.json             what a region profile must contain
 plugins/jsk/                        THE SKILL. markdown only - it ships no code
-  .claude-plugin/plugin.json        plugin manifest (carries a version)
+  .claude-plugin/plugin.json        plugin manifest (carries a version; starts `jsk mcp` as server `jsk`)
   commands/                         slash commands
     setup|braindump|resume|...      thin delegations into the skill's modes; each procedure
                                     lives in references/mode-<name>.md
   agents/                           subagents the modes delegate to
-    jsk-verifier.md                 interprets a failed gate against the career and resume.json
+    jsk-verifier.md                 interprets a failed gate against the career and the selection
     jsk-kb-auditor.md               checks and queries the career, writes a posting-less audit
-    jsk-extractor.md                a braindump or imported document to one dry-run changeset
-    jsk-tailor-analyst.md           writes decisions.txt and gaps.txt; jsk writes the rest
-    jsk-resume-author.md            bullets into the career, then exports resume.json and its summary
+    jsk-extractor.md                a braindump or imported document to one previewed changeset
+    jsk-tailor-analyst.md           posting_decide and assessment_review batches; the tools write the graphs
+    jsk-resume-author.md            bullets into the career, then the selection and its summary
   skills/jsk/
     SKILL.md                        the agent's entry point: routing + hard rules
     references/                     what the agent loads on demand
@@ -617,11 +664,11 @@ and the runners into `application/gates/`, with the career's reads bound in
 | Where the record is stored, or how a write lands | `src/jsk/infra/oxigraph/db.py` (storage), `src/jsk/infra/oxigraph/record.py` (the write gate) | `tests/test_db.py`, which also fails a second module that opens the store or writes it |
 | What `jsk kb new` scaffolds | `src/jsk/application/record/scaffold.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
 | A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `application/posting/build.py` and `application/tailor/check_gaps.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
-| What the analyst may write | `domain/record/decisions.py` (`decisions.txt`), `domain/assessment/overlay.py` (`gaps.txt`) | the checks in `domain/posting/decide.py` and `domain/assessment/fold.py`; `agents/jsk-tailor-analyst.md` |
+| What the analyst may write | `adapters/mcp/schemas.py` (the batch rows) and its grant in `agents/jsk-tailor-analyst.md`; for files, `domain/record/decisions.py` (`decisions.txt`), `domain/assessment/overlay.py` (`gaps.txt`) | the checks in `domain/posting/decide.py` and `domain/assessment/fold.py`; `agents/jsk-tailor-analyst.md` |
 | How the career's projects are ranked for a posting | `rank` in `src/jsk/domain/matching/rank.py`; the weights in `src/jsk/domain/matching/scoring.py` | `cover` in `cover.py` beside it, and `src/jsk/domain/selection/select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
 | What the record gate checks | `src/jsk/application/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
-| What an agent may do | `plugins/jsk/agents/<name>.md` | the delegation note in every mode that calls it, and the Agents table in `SKILL.md` |
+| What an agent may do | `plugins/jsk/agents/<name>.md`: its body, and its `tools:` naming each tool in full (`mcp__plugin_jsk_jsk__<tool>`), never the wildcard | the delegation note in every mode that calls it, the Agents table in `SKILL.md`, the agent table above; `AgentGrants` in `tests/test_plugin_surface.py` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
 | Where a new module goes, or what a ring may import | its path under `src/jsk/<ring>/`; the ring rules and `ROOT_ADAPTERS` / `ROOT_INFRA` in `tests/test_layers.py` | "What is a ring" above; a line in the repo layout, or `tests/test_plugin_surface.py` fails |
 | What a use case needs from outside | a Protocol in `src/jsk/ports/`, its implementation in `src/jsk/infra/` | bound to the use case in `src/jsk/adapters/cli/compose/`, the one composition root; a test passes a fake |
@@ -737,11 +784,13 @@ capability layered on top, and the cost [WHY.md](WHY.md) states for choosing a g
 store. It is pinned to one minor version, because the store's on-disk format follows it, ships wheels for every supported platform, and has no dependencies of its own. It is
 imported inside functions only, so `jsk doctor` stays standard-library and reports its absence
 ("cannot read or validate the graph record") rather than failing to start. `pymupdf` is an
-optional extra, imported at the point of use.
+optional extra, imported at the point of use, and so is `mcp`, the SDK behind `jsk mcp`: the
+plugin's agents need it (5.0.0), the CLI does not.
 
 ```bash
 pip install jsk-resume              # the graph record, the record gate, prose gate, plain-text parse gate
 pip install 'jsk-resume[all]'       # + pymupdf
+pip install 'jsk-resume[mcp]'       # + the MCP SDK, for `jsk mcp` and the plugin's agents
 pip install -e '.[dev]'             # the above plus pytest, pytest-xdist, ruff
 ```
 
@@ -773,6 +822,10 @@ asserts it:
 
 - `plugins/jsk/.claude-plugin/plugin.json`
 - `.claude-plugin/marketplace.json`
+
+Since 5.0.0 the plugin starts `jsk mcp` and its agents work only through its tools, so a plugin
+release names the CLI it needs; `test_the_plugin_ships_the_package_it_describes` keeps the plugin's
+version equal to `jsk.__version__`.
 
 The **CLI** version is `__version__` in `src/jsk/__init__.py`, which `pyproject.toml` reads through
 `[tool.hatch.version]`. `jsk --version` and `jsk doctor` both report it.

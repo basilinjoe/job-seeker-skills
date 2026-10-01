@@ -53,11 +53,11 @@ two entries for one project split its evidence so neither reads as strong.
 their words, not a summary — to `<workspace>/sources/<yyyy-mm-dd>-braindump.md` (Write tool).
 
 **Send `jsk-extractor`** the workspace, that file and the skill directory. It reads what the career
-holds, writes one changeset and dry-runs it; it never applies. Back come the diff, every clause
-that is not their words, quoted with its id, and the questions still open.
+holds, drafts one changeset and previews it; it never applies. Back come the changeset, the diff,
+every clause that is not their words, quoted with its id, and the questions still open.
 
 **Show them the diff and the quoted clauses** — names, not Turtle — and ask about each. Then
-`jsk kb apply <its file>`. Everything lands `inferred`: only what they said in so many words gets
+`career_apply` the changeset it returned, corrected as they said. Everything lands `inferred`: only what they said in so many words gets
 `jsk kb confirm <ids> --answer "…"`, or `--source sources/<that file> --quote "their words"`,
 checked against what you saved. **Tell them which parts were inferred**, every time.
 

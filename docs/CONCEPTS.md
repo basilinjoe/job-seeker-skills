@@ -65,11 +65,13 @@ says 200 ms; a later measurement becomes `v2` rather than overwriting it.
 *Why it matters:* an application that sent the old number still says what it sent, and
 `jsk kb query stale` names every application that sent a number since revised.
 
-**Application directory** — everything about one submission in one place:
-`applications/<yyyy-mm-dd>-<company>-<role>/`, holding the advert (`posting.md`), the analyst's
-`decisions.txt` and `gaps.txt`, the `resume.json` it rendered from and the files actually sent. Beside them in the store are its graphs: what it asks for (`posting`),
-the assessment (`gaps`), and once sent, `application` - what was sent, the bullets that rendered
-and the metric versions they cite, and a timeline of what came back. Commands take the directory.
+**Application** — one submission, named by its stem, `<yyyy-mm-dd>-<company>-<role>`. Since 5.0.0
+it lives in the store as graphs: the advert as numbered lines and what it asks for (`posting`), the
+analyst's review (`review`), the assessment (`gaps`), the bullets chosen (`resume`), and once sent,
+`application` - what was sent, the bullets that rendered and the metric versions they cite, and a
+timeline of what came back. Its directory, `applications/<stem>/`, holds only the files actually
+sent: the PDF and the `.tex`. An application made before 5.0.0 keeps its files (`posting.md`,
+`decisions.txt`, `gaps.txt`, `resume.json`) beside them, and the commands still work it.
 *Why it matters:* it is frozen once the application goes out — `jsk app freeze` refuses until the gates
 pass, records the application and names the directory after the day it was sent; after that
 `jsk app event` adds what happened next, and nothing is edited. The career keeps moving, and an
@@ -77,9 +79,10 @@ application that pointed at a moving source could not answer what it was answeri
 
 ## The rendering
 
-**Resume file** — `resume.json`, about twenty lines for one resume: the bullets chosen, by id, in
-order, and settings - format, region, page budgets, the provenance floor, and the one piece of prose,
-a summary. `jsk kb export --from-match` writes it from the match. Names, dates, bullet text and
+**Selection** — one resume's choices: the bullets chosen, by id, in order, and settings - format,
+region, page budgets, the provenance floor, and the prose, a summary and a headline. It is a graph in
+the store (`resume_select` makes it from the match, `resume_update` changes it), with the same keys
+an older `resume.json` file holds. Names, dates, bullet text and
 metrics are read from the career every time it is built, so a bullet confirmed or corrected in the
 career is in the next render with nothing to update here.
 *Why it matters:* a selection that holds no bullet's words cannot invent one. Tailoring can
@@ -87,7 +90,8 @@ emphasise, but a posting the career has no evidence for produces nothing to poin
 output is built from the same career, so the PDF and the text the checks read cannot say
 different things about a date or a number.
 
-**Posting** — the advertisement verbatim in `posting.md`, and its requirements in the posting graph.
+**Posting** — the advertisement verbatim, stored as numbered lines, and its requirements in the
+posting graph, each pointing at its line.
 Each carries whether it was *required* or merely *preferred*, the term the advertisement actually
 used, and a quote of the words it was read from - checked, verbatim, against the advert.
 *Why it matters:* a flat list of keywords cannot say "a degree **and** six years, **or** a
@@ -97,8 +101,9 @@ the other, a bare degree passes. Both are wrong, so the boolean structure is mod
 **Assessment** — the join between a posting and your record, written to be read aloud: one verdict per
 requirement, the evidence behind it, and how far short it falls on a *named* axis. `jsk tailor match`
 computes the join - which project holds each requirement, through which vocabulary edge - and the
-assessment is derived from it: the gaps graph, written by code and printed, with the analyst's
-`gaps.txt` holding only what the join cannot know - a verdict lowered, and why.
+assessment is derived from it: the gaps graph, written by code, with the analyst's review holding
+only what the join cannot know - a verdict lowered, and why. A "no" you have confirmed ("never used
+Kafka") answers a requirement by itself, with no question, for a year (an **absence**).
 *Why it matters:* it distinguishes "you don't have it" from "you have it and never wrote it down"
 from "you claimed it with nothing behind it". Those need opposite responses, and only the last one
 ends an interview badly.

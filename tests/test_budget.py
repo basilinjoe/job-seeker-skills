@@ -74,6 +74,11 @@ class ResidentCost(unittest.TestCase):
         # measured. The file table's kb.ttl/log.ttl/posting.ttl/application.ttl rows became one
         # `career/store/` row, `adopt` left the kb verb list and `log` came in, and the hand-edit
         # sentence became "never open anything under career/" plus the one-line import hint.
+        #
+        # Held at 2400 for the jsk mcp tools (5.0.0, 2026-10-02): 2,290 -> 2,308 measured. The
+        # application's four file rows became one directory row and a line for applications
+        # made from files; a short tools section came in, and the posting and tailor rows
+        # merged into one for the file path.
         self.assertLess(tokens(SKILL / "SKILL.md"), 2400)
 
 
@@ -100,6 +105,9 @@ class AgentReadBudget(unittest.TestCase):
         # warning left; `jsk match` takes the application directory.
         # Held for tailor-time Task 2 (2026-09-29): 1,881 -> 1,895. One --near call takes
         # every term, `resp` lines need no row, and build names every problem at once.
+        # Held for the jsk mcp tools (5.0.0, 2026-10-02): 1,896 -> 1,874. File paths, the
+        # decisions.txt format, `jsk kb path`, prepare's digest and `--gaps` left; two JSON
+        # batch examples and eleven full tool names in the frontmatter came in.
         self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 1900)
 
     def test_the_resume_author_reads_the_short_file_format_and_the_rules(self):
@@ -157,6 +165,11 @@ class AgentReadBudget(unittest.TestCase):
         # under the name, and `names`, a skill under the posting's alias for it - and
         # ats-rules.md the terms gate and the reading-order rule. An ATS search matches
         # the string a recruiter types, and nothing put the posting's strings on the page.
+        #
+        # Held at 5100 for the jsk mcp tools (5.0.0, 2026-10-02). Measured: 5,057 -> 4,996,
+        # the author 1,882 -> 1,784. The two exports, `jsk kb path`, the shell advice and the
+        # record gate left - it selects, applies and updates through tools - and
+        # resume-format.md says once that the keys are a selection's in the store.
         self.assertLess(author + spec + rules, 5100)
 
     def test_the_extractor_reads_its_definition_and_the_format(self):
@@ -171,6 +184,9 @@ class AgentReadBudget(unittest.TestCase):
         """
         # New agent, new ceiling (2026-09-26): 3,098 measured - the definition 1,254,
         # kb-format.md 1,844. Headroom covers kb-format.md growing to its own 2000.
+        # Held for the jsk mcp tools (5.0.0, 2026-10-02): 3,264 -> 3,207. career_preview took
+        # the changes/ file and its dry-run; returning the changeset whole came in, and
+        # kb-format.md's file tree lost the application's text files.
         self.assertLess(tokens(AGENTS / "jsk-extractor.md", REFS / "kb-format.md"), 3400)
 
 
@@ -206,8 +222,9 @@ class TheWritePathStaysCheap(unittest.TestCase):
     # because the fix a person would reach for is to delete the disclaimer.
     INSTRUCTION = ("Follow ", "Read ", "Open ", "**Follow ", "**Read ", "**Open ")
 
-    # The two agents that write a record file: the analyst writes posting.ttl, the
-    # author a changeset. Each carries the shape it writes inline for the same reason.
+    # The two agents that write the record: the analyst a posting and a review through its
+    # tools' batches, the author a changeset. Each carries the shape it sends inline for the
+    # same reason.
     WRITE_AGENTS = ("jsk-tailor-analyst.md", "jsk-resume-author.md")
 
     def mandated(self, path):
@@ -309,11 +326,16 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         with --bullets, once without, 41.5KB of notes it read back from a spill file.
         On the Arrow and Schneider runs it still showed all 16 ranked projects before
         exporting - 42KB, read whole. The export lists what it chose now, one line a
-        bullet, and `kb show` is only for the projects it will reword or write."""
+        bullet, and `kb show` is only for the projects it will reword or write.
+
+        Changed on purpose in 5.0.0: the export became `resume_select`, its `id | text`
+        lines the selection's `bullets` as `app_show` returns them, and `jsk kb show` the
+        `career_show` tool. The order is the rule and it stands: select, then show."""
         body = " ".join(self.body("jsk-resume-author.md").split())
-        self.assertIn("do not re-run `jsk tailor match`", body)
-        self.assertLess(body.index("**Export first**"), body.index("jsk kb show <prj_ ids>"))
-        self.assertIn("`id | text` lines are your survey", body)
+        self.assertIn("do not re-run the match", body)
+        self.assertLess(body.index("**Select first**"),
+                        body.index("`career_show(ids, bullets=true)`"))
+        self.assertIn("its `bullets` are your survey", body)
         self.assertIn("only for the projects whose bullets you will reword or write", body)
         self.assertNotIn("<the prj_ ids gaps.md ranks>", body)
         self.assertIn("never the same ids twice", body)
@@ -325,12 +347,19 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         refreshed a record the career had moved under. The short file holds no copy to
         read the end of or to refresh: every word goes into the career, the file is
         exported again over the first (the Arrow author deleted it by hand to do that),
-        and the author edits only the order, the summary and the page settings."""
+        and the author edits only the order, the summary and the page settings.
+
+        Changed on purpose in 5.0.0: there is no file to export over. `resume_select`
+        (`from_match`) chooses once and `resume_update` changes only the order, the summary
+        and the settings, so a bullet written into the career is placed by id, never
+        re-exported."""
         body = " ".join(self.body("jsk-resume-author.md").split())
         self.assertIn("Every new or reworded bullet goes into the career", body)
-        self.assertIn("jsk kb export --from-match", body)
-        self.assertIn("--out applications/<stem>/resume.json --replace", body)
-        self.assertIn("**Then edit only** `bullets`", body)
+        self.assertIn('"mode": "from_match"', body)
+        self.assertIn("**Then `resume_update` only** `bullets`", body)
+        for gone in ("jsk kb export", "--replace", "resume.json --"):
+            with self.subTest(gone=gone):
+                self.assertNotIn(gone, body)
         for gone in ("--refresh", "--urs", "view_draft", "include", "narrative",
                      "Read only the end of the record"):
             with self.subTest(gone=gone):
@@ -344,9 +373,19 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         index --rank`; it is `jsk match` now, which matches through the vocabulary
         rather than by exact string. The analyst reads the entries it cites, and no
         more, and no index is named anywhere: it is leaving with the Markdown. The match
-        takes the application directory now that the posting is a graph in the store."""
+        takes the application directory now that the posting is a graph in the store.
+
+        Changed on purpose in 5.0.0: `jsk tailor match applications/<stem> --gaps` became
+        the tools - one `posting_decide` batch, `assessment_derive`, one `assessment_review`
+        batch - and no file path is named at all."""
         analyst = self.body("jsk-tailor-analyst.md")
-        self.assertIn("jsk tailor match applications/<stem> --gaps", analyst)
+        flat = " ".join(analyst.split())
+        self.assertIn("**one `posting_decide`**", flat)
+        self.assertIn("`assessment_derive(app)`", flat)
+        self.assertIn("**one `assessment_review`**", flat)
+        for gone in ("decisions.txt", "gaps.txt", "--gaps", "applications/<stem>"):
+            with self.subTest(gone=gone):
+                self.assertNotIn(gone, analyst)
         self.assertNotIn("posting.ttl", analyst)
         self.assertIn("Read a project before citing it as evidence", analyst)
         self.assertIn("Do not read the whole career", analyst)
@@ -357,9 +396,12 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         is now a complete, valid, hand-written example of exactly the file this agent
         is about to write - which makes it a template to copy, and a tailored resume
         that copies one has stopped being tailored. A master record is the same
-        template by another name, so the warning names it too."""
-        body = self.body("jsk-resume-author.md")
-        self.assertIn("Do not read any other `resume.json`", body)
+        template by another name, so the warning names it too.
+
+        Changed on purpose in 5.0.0: a selection is a graph `app_show` reads, not a file,
+        so the warning names the selection."""
+        body = " ".join(self.body("jsk-resume-author.md").split())
+        self.assertIn("Do not read any other application's selection", body)
         self.assertIn("master", body)
 
     def test_the_author_is_handed_its_paths_rather_than_searching(self):
@@ -396,10 +438,15 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         The caller used to rescore a project by hand with the analyst's weights,
         restated in one line, and this test kept the two statements agreeing. `jsk
         match` prints the weights and the scores, so the caller re-runs it instead and
-        neither file restates them - one statement cannot disagree with itself."""
-        tailor = (REFS / "mode-tailor.md").read_text(encoding="utf-8")
-        self.assertIn("Patch it yourself when every change is a row", tailor)
-        self.assertIn("Re-run `jsk tailor match`", tailor)
+        neither file restates them - one statement cannot disagree with itself.
+
+        Changed on purpose in 5.0.0: the patch is an `assessment_review` call, not a
+        gaps.txt edit, and the re-run is `assessment_derive`, which folds the stored review
+        into the new match."""
+        tailor = " ".join((REFS / "mode-tailor.md").read_text(encoding="utf-8").split())
+        self.assertIn("Patch it yourself with `assessment_review` when every change is a row",
+                      tailor)
+        self.assertIn("Re-derive with `assessment_derive`", tailor)
         self.assertNotIn("+3 a required term", tailor)
         self.assertNotIn("×3", self.body("jsk-tailor-analyst.md"))
 
@@ -471,6 +518,10 @@ class TheMainThreadBudget(unittest.TestCase):
         # 6,239. mode-ship.md and mode-tailor.md each name `--headline`, and ship says the
         # terms gate only warns: a required term missing from the page is a gap, and an
         # agent that read the warning as a failure would add the word.
+        # Held at 6300 for the jsk mcp tools (5.0.0, 2026-10-02). Measured: 6,278 -> 6,271
+        # (SKILL 2,308, tailor 2,573, ship 1,389). posting.md written by hand, the directory's
+        # file list and the gaps.txt patch left mode-tailor.md; a "no" recorded as an absence,
+        # and the tool call for each step, came in.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
