@@ -190,23 +190,27 @@ def complete_review(root, stem, *, today):
         return complete(root, stem, today=today, ports=Ports())
 
 
-def show(root, stem, part, *, today):
+def show(root, stem, part, *, today, ports=None):
     """One part of an application as plain data (application.tailor.show.show); no turn.
+
+    `ports` stands in for Ports(): the MCP server passes one whose load is its cached read
+    (adapters/mcp/session.py), since a read takes no turn and nothing here writes.
 
     Raises:
         Refused: as show does.
     """
     from ....application.tailor.show import show as shown
 
-    return shown(root, stem, part, today=today, ports=Ports())
+    return shown(root, stem, part, today=today, ports=ports or Ports())
 
 
-def list_apps(root, *, today):
-    """Every application and resume (application.tailor.show.list_apps); no turn.
+def list_apps(root, *, today, ports=None):
+    """Every application and resume (application.tailor.show.list_apps); no turn. `ports`
+    as show takes it.
 
     Raises:
         Refused: there is no store.
     """
     from ....application.tailor.show import list_apps as listed
 
-    return listed(root, today=today, ports=Ports())
+    return listed(root, today=today, ports=ports or Ports())

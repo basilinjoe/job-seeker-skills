@@ -8,7 +8,7 @@ in place of `python3`.
 
 Every command is `jsk <noun> <verb>`: the noun is what you work on, the verb what you do to it.
 There are six nouns - `kb`, `posting`, `tailor`, `resume`, `letter`, `app` - and `jsk doctor`
-beside them. `jsk --help` lists the nouns, `jsk <noun> --help` a noun's verbs, and
+and `jsk mcp` beside them. `jsk --help` lists the nouns, `jsk <noun> --help` a noun's verbs, and
 `jsk <noun> <verb> --help` one verb's flags. This page has one section per noun and, under it, one
 per verb. `jsk` is the only door: the `python -m jsk.<module>` paths of earlier releases are
 retired, and each one prints the command that replaced it and exits 2.
@@ -43,6 +43,7 @@ jsk resume preview resume.json --out ./looks
 jsk resume ship resume.json --out .   # validate, render, gate
 jsk app freeze applications/<dir> --submitted 2026-09-08 --channel "Workday portal"
 jsk app event applications/<dir> screen-scheduled --date 2026-09-15   # what happened next
+jsk mcp                          # the career and its applications as MCP tools, over stdio
 ```
 
 Each verb runs in the same interpreter as `jsk` itself. None of them spawns a Python child: that
@@ -1043,6 +1044,60 @@ gate as every other write. An application frozen as `application.md` is pointed 
 The stage is never stored: `jsk kb query pipeline` derives it from the latest dated event.
 
 Exit 0 added, 1 refused, 2 called wrong.
+
+## `jsk mcp`
+
+```bash
+pip install 'jsk-resume[mcp]'
+jsk mcp                          # serves until the client closes stdin
+JSK_ROOT=~/my-career jsk mcp     # a workspace other than the one around the current directory
+```
+
+Serves the career and graph-native applications to an agent as MCP tools, over stdio - the
+plugin starts it, one process per session. It takes no arguments. The workspace is `JSK_ROOT`
+when set, else the one around the directory it started in; a call made with none answers with
+the `jsk kb new` fix. Without the `mcp` extra it prints
+`the MCP server needs the mcp extra: pip install 'jsk-resume[mcp]'` and exits 2.
+
+Every result is JSON: `{"ok": true, "findings": [...], ...}`, or `{"ok": false, "findings":
+[...]}` with each finding `{severity, text, fix}`. A refusal is its findings, never a traceback;
+an unexpected error is one `FAIL` naming the tool, its traceback on the server's stderr, and the
+server keeps serving. A write tool takes the writers' turn for that call alone, exactly as a
+command does, so a tool write and a `jsk kb apply` in another shell queue for each other; nothing
+is held between calls. Reads share one loaded record until the store on disk moves.
+
+| Tool | Does | Wraps |
+|---|---|---|
+| `career_view(section?, offset?, limit?)` | the career as Markdown, paged (`next`) | `jsk kb view` |
+| `career_show(ids, bullets?)` | entries as Turtle, with the revision for `op:base` | `jsk kb show` |
+| `career_query(name, args?)` | any named query, rows as JSON; `concepts` with terms finds the nearest | `jsk kb query` |
+| `career_log(last?)` | the history, newest first | `jsk kb log` |
+| `career_preview(changeset)` | a TriG changeset dry-run: the diff, findings; nothing written | `jsk kb apply --dry-run` |
+| `career_apply(changeset)` | apply it: validated, written, logged; new claims arrive inferred | `jsk kb apply` |
+| `career_confirm(ids?, target?, block?, answer?, source?, quote?)` | confirm entries with the person's answer or a document's quote; or a selection's summary or headline | `jsk kb confirm` |
+| `app_list()` | every application and general resume: kind, posting and review state, stage | `jsk kb query pipeline` |
+| `app_show(app, part, offset?, limit?)` | `posting`, `lines` (paged), `requirements`, `review`, `assessment`, `selection` | the graphs |
+| `posting_capture(app, url? \| text?, company?, title?, captured?, replace?)` | an advert fetched or pasted, stored as a draft posting's lines | `jsk posting fetch` |
+| `posting_decide(app, header?, requirements?, drops?, remove?)` | requirement rows and drops upserted, each checked against its line | `jsk posting build`'s checks |
+| `posting_complete(app)` | every qualification line used or dropped, the rules clean; `complete` | build's coverage check |
+| `assessment_derive(app)` | match, fold the stored review, write the assessment; rows, fit, questions | `jsk tailor match` |
+| `assessment_review(app, fit?, eligibility?, verdicts?, short?, surplus?, asks?)` | the review upserted, each verdict checked against the match | `--gaps` |
+| `assessment_complete(app)` | every flag answered, no FAIL; the review `complete` | |
+| `resume_select(target, mode, replace?)` | `from_match` or `ranked`; the selection stored | `jsk kb export` |
+| `resume_update(target, bullets?, roles?, skills?, names?, format?, region?, pages?, ats_pages?, floor?, summary?, headline?)` | the selection changed; a changed summary or headline drops to inferred | `resume.json` edits |
+| `resume_ship(target, ats_max?, template?, pages?, fit?)` | record gate, render, fit, gates into the directory; each step as JSON | `jsk resume ship` |
+
+`app` is an application's stem (`applications/<stem>`); `target` is a stem or `resumes/<name>`.
+The tools refuse an application made from files, naming the file verb that still works on it;
+the file verbs refuse a graph-native one, naming the tool. `resume_select`, `resume_update`,
+`resume_ship` and the selection branch of `career_confirm` answer `not built yet` until the
+selection's use cases land.
+
+What stays a command only: `jsk kb new`, `jsk doctor`, `jsk app freeze`, `jsk app event`,
+`jsk letter check`, `jsk kb dump` and `load`, and `jsk resume check`, `render`, `preview` and
+`fit` over a directory - a person's acts, or a verifier's tracing.
+
+Exit 0 when the client closes the session, 2 for arguments or a missing extra.
 
 ## What is not here any more
 

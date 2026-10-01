@@ -40,8 +40,12 @@ dependencies = ["pyoxigraph>=0.5.11,<0.6"]
 # and the Markdown knowledge base it read. pyyaml stays in `dev` only: the plugin
 # surface tests read the skill files' frontmatter with it.
 pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
+# `jsk mcp`, the tools agents call. 1.30 is the floor P0 measured on Python 3.10-3.13
+# (docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md); a 2.x is a new API.
+mcp = ["mcp>=1.30,<2"]
 all = ["pymupdf"]
-dev = ["pymupdf", "pyyaml", "pytest", "pytest-xdist", "ruff", "pyright==1.1.414"]
+dev = ["pymupdf", "pyyaml", "pytest", "pytest-xdist", "ruff", "pyright==1.1.414",
+       "mcp>=1.30,<2"]
 
 [project.scripts]
 jsk = "jsk.cli:main_console"

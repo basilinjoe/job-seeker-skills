@@ -94,6 +94,7 @@ changeset to a file for later.
 | `jsk letter check <letter> --record R` | a cover letter's words and numbers |
 | `jsk app freeze <app-dir> --submitted DATE\|false --channel TEXT` | records what was sent, if the gates pass |
 | `jsk app event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |
+| `jsk mcp` | the career and graph-native applications as MCP tools, over stdio (`mcp` extra) |
 
 Exit codes: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are required — the
 PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
