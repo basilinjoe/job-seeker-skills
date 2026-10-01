@@ -23,6 +23,10 @@ DERIVED = J + "derived"
 # The writer's prefix block, in this order, always complete. `op` only in changesets.
 PREFIXES = (("j", J), ("k", K), ("c", C), ("xsd", XSD))
 
+# What a SPARQL text over the record opens with: the prefixes the reads name.
+SPARQL_PREFIX = (f"PREFIX j: <{J}>\nPREFIX k: <{K}>\nPREFIX c: <{C}>\n"
+                 f"PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n")
+
 FORMAT = 3
 
 # The reserved graphs of a changeset (TriG). P1 names them; P3 gives them meaning.

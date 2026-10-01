@@ -302,7 +302,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     rules.py                        tier 2 bound to the disk
     changeset.py  kbcli.py          a changeset read; the old path of `jsk kb`, naming it
     pack.py                         `jsk kb pack`'s starter packs on disk
-    queries.py  named.py  match.py  the vocabulary, named queries, `jsk tailor match`
+    queries.py  match.py            the vocabulary, `jsk tailor match`
     select.py  export.py            what a match selects; `jsk kb export` writes the short file
     decisions.py  postingbuild.py   decisions.txt; `jsk posting extract` and `build` -> the posting graph
     prepare.py                      `jsk tailor prepare` - one digest for the assessment
@@ -405,6 +405,9 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     record/refusals.py              how a use case over the record refuses: the errors the CLI prints
     record/read.py                  `jsk kb show`, `view` and `log`: entries by id, the career, the log
+    record/queries.py               `jsk kb query`: the named queries, registered as the kb's read vocabulary
+    record/holdings.py              what each live project holds; the months of experience behind a concept
+    record/likeness.py              projects that look like one another, or like what some words describe
     record/check.py                 `jsk kb check`: every rule, the career's hash, the untraced numbers
     record/store_status.py          where a workspace's record is, and what is there instead
     record/dump.py                  `jsk kb dump`: the whole record as TriG
@@ -449,7 +452,9 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
     cli/tailor.py                   `jsk tailor prepare`: its flags, the digest run and printed section by section
     cli/posting.py                  `jsk posting`: fetch, extract or build run, what it wrote said
-    cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error
+    cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
+    cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
+    cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads
     cli/kb/__init__.py              `jsk kb`: the verb table, its flags, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
     cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG

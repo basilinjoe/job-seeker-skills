@@ -80,8 +80,8 @@ class Folder:
         return advert(path)
 
     def person(self, store):
-        """(columns, rows) of the person's facts (graph.named.person)."""
-        from .named import person
+        """(columns, rows) of the person's facts (application.record.queries.person)."""
+        from ..application.record.queries import person
 
         return person(store)
 

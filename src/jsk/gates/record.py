@@ -174,7 +174,7 @@ def prose(doc, career, bullets):
 def label_lines(store, career, bullets, vocabulary):
     """Check 4 of the claims gate: a technology named in a bullet is one its project
     holds - "EKS" under a project that ran on AKS is a claim of experience nobody had."""
-    from ..graph.named import holdings
+    from ..application.record.holdings import holdings
 
     held = holdings(store)
     out = []
@@ -193,7 +193,7 @@ def label_lines(store, career, bullets, vocabulary):
 def years_lines(store, texts, vocabulary, today):
     """Check 6 of the claims gate: "N years of X" against the roles behind the projects
     holding X."""
-    from ..graph.named import experience_of, holdings
+    from ..application.record.holdings import experience_of, holdings
 
     held = holdings(store)
     out = []

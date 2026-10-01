@@ -90,27 +90,30 @@ def cmd_query(args, flags, root, today):
     """
     import json
 
+    from ....application.record.queries import QUERIES
     from ....graph import store as S
-    from ....graph.named import QUERIES, table
+    from ....infra.oxigraph.queries import OxigraphQueries
+    from ..presenters import table
 
     as_json, near = "--json" in flags, flags.get("--near")
     if not args or args[0] not in QUERIES:
         return usage(f"jsk kb query takes one of: {', '.join(QUERIES)}")
     name, rest = args[0], args[1:]
-    want, _, fn = QUERIES[name]
+    want, _, fn, reads = QUERIES[name]
     if want.endswith("...") and not rest or not want.endswith("...") and len(rest) != len(want.split()):
         return usage(f"jsk kb query {name} {want}".rstrip())
     if near is not None and name != "concepts":
         return usage("--near is for `jsk kb query concepts --near <term>...` only")
     if near is None:
-        columns, rows = fn(S.load(root), *rest)
+        store = S.load(root)
+        columns, rows = fn(store, *rest, **({"queries": OxigraphQueries(store)} if reads else {}))
         print(json.dumps(rows, indent=2, ensure_ascii=False) if as_json else table(columns, rows))
         return 0
     if not near:
         return usage("jsk kb query concepts --near <term>... - one or more terms")
     # Several terms from one load: the analyst ran this 21 times in a shell loop, 15-25 s.
     store = S.load(root)
-    found = {term: fn(store, near=term) for term in near}
+    found = {term: fn(store, near=term, queries=OxigraphQueries(store)) for term in near}
     if as_json:
         print(json.dumps({t: rows for t, (_, rows) in found.items()}, indent=2,
                          ensure_ascii=False))

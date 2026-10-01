@@ -46,7 +46,7 @@ def eligibility(rows, lines):
     what the analyst judges against, kept out of the value it writes.
 
     Args:
-        rows: the person's facts, each {fact, value, provenance} (graph.named.person).
+        rows: the person's facts, each {fact, value, provenance} (application.record.queries.person).
         lines: posting.md's numbered lines (domain.posting.advert.advert_lines).
 
     Returns:

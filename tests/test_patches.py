@@ -205,8 +205,8 @@ class PatchesReachTheCode(unittest.TestCase):
         self.assertEqual(sorted(readers("jsk.a", "f", src)), ["jsk.b:2", "jsk.c:3"])
 
     def test_a_string_patch_is_resolved(self):
-        tree = ast.parse("mock.patch('jsk.graph.named.curie', lambda i: i)\n")
-        self.assertEqual(targets(tree), [("jsk.graph.named", "curie", 1)])
+        tree = ast.parse("mock.patch('jsk.application.record.queries.curie', lambda i: i)\n")
+        self.assertEqual(targets(tree), [("jsk.application.record.queries", "curie", 1)])
 
 
 if __name__ == "__main__":

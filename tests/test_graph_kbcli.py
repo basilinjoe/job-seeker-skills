@@ -610,7 +610,7 @@ class Query(Workspace):
         self.assertEqual(self.kb("query", "evidence")[0], 2)
 
     def test_evidence_shows_fewer_text_hits_when_the_term_names_a_concept(self):
-        from jsk.graph import named
+        from jsk.application.record import queries as named
         self.assertLess(named.TEXT_HITS_RESOLVED, named.TEXT_HITS)
         kb = self.path("career/kb.ttl")                 # before it is stored
         kb.write_text(kb.read_text(encoding="utf-8") + "".join(
@@ -758,7 +758,7 @@ class Similar(Workspace):
         """The thresholds' calibration: none of the fixture careers holds a project twice."""
         from appkit import stored_copy
 
-        from jsk.graph import named
+        from jsk.application.record import likeness as named
 
         tests = Path(__file__).parent
         for root in (FIXTURES, tests / "match_fixtures", tests / "claims_fixtures",

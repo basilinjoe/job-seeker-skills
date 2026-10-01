@@ -53,7 +53,7 @@ def read(path):
 def years_lines(store, text, today):
     """(findings, text with each "N years of <label>" blanked): record.py's years check,
     as a failure - in a letter nothing else stands behind the number."""
-    from ..graph.named import experience_of, holdings
+    from ..application.record.holdings import experience_of, holdings
     from .record import YEARS, Vocabulary, curie
 
     vocabulary, held, out = Vocabulary(store), None, []

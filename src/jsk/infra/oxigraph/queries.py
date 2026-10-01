@@ -5,11 +5,8 @@ j:derived, that a retired entry carries j:retired - so the text is here, beside 
 and the domain asks for what it needs by method. Each method runs over the Store it was
 made with, through Store.select.
 """
-from ...domain import ontology as O
 from ...domain.matching.model import Requirement, local
-
-PRE = (f"PREFIX j: <{O.J}>\nPREFIX k: <{O.K}>\nPREFIX c: <{O.C}>\n"
-       f"PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n")
+from ...domain.ontology import SPARQL_PREFIX as PRE
 
 
 class OxigraphQueries:

@@ -49,7 +49,7 @@ def skill_order(store, matches):
     from ..domain.matching.resolve import labels
     from ..domain.record.career import Career
     from ..infra.oxigraph import record as R
-    from .named import holdings
+    from ..application.record.holdings import holdings
 
     by_label = labels(OxigraphQueries(store))
     held = set().union(*holdings(store).values())
