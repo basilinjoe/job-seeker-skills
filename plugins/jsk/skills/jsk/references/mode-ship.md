@@ -48,8 +48,8 @@ only warn.
 content is dropped from the render; the only sign is a `withheld …` line. Every one is confirmed or
 cut before the resume is handed over: confirm it in the career — `career_confirm(ids,
 answer="…")`, new wording first through `career_apply`, never on the strength of the old text —
-and re-ship. The summary: `career_confirm(target=<stem>, block="summary", answer="…")`; the
-headline, `block="headline"`. The terms gate only warns: a missing required term is a gap, not a
+and re-ship. A summary or headline the selection holds: `career_confirm(target=<stem>,
+block="summary"|"headline", answer="…")`. The terms gate only warns: a missing required term is a gap, not a
 word to add.
 
 ## 3. Fit, if it overran
@@ -72,8 +72,8 @@ fonts, stranded headings, the date column, the paper and the page count; open th
       theirs to confirm — call the resume **unverified** until they have read it
 
 **`jsk-verifier`** is for a failed gate whose source you cannot see, or a second reading of the
-render gate. Hand it the output directory, the page budget, the stem (or `resume.json` path) and
-the workspace; it returns each verdict quoted and each defect traced to the id where it is fixed.
+render gate. Hand it the skill directory, the output directory, the page budget, the stem (or
+`resume.json` path) and the workspace; it returns each verdict quoted and each defect traced to the id where it is fixed.
 To re-check after one repair, `jsk resume check <dir>`, or `<file> --only parse|prose|layout` for
 one gate.
 

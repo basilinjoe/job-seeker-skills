@@ -80,7 +80,8 @@ in `plan.py`, never in an emitter.
 
 **A model writes only decisions; code writes every graph.** A new application is graph-native: agents send their
 decisions to `jsk mcp` tools (`posting_capture` → `posting_decide` → `posting_complete` → `assessment_derive` →
-`assessment_review` → `resume_select`/`resume_update` → `resume_ship`), and code writes and checks every triple:
+`assessment_review` → `assessment_complete` → `resume_select`/`resume_update` → `resume_ship` → `jsk app freeze`),
+and code writes and checks every triple:
 - every quote is a stored line of the advert;
 - a verdict can only be lowered from the match's, never raised.
 

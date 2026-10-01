@@ -7,8 +7,8 @@ Match the career against a posting, close the gaps, then write the resume once.
 **Tailoring is selection and emphasis. It is never invention.**
 
 Every claim must trace to a `confirmed` entry in the career. If the posting wants something
-they have not done, say so — do not manufacture a bullet; someone who bluffs past a screen is found
-out in the first technical conversation. A selection names career entries by id, so it cannot
+they have not done, say so — never manufacture a bullet: a bluff is found out in the first
+technical conversation. A selection names career entries by id, so it cannot
 hold what the career does not.
 
 ## The shape
@@ -19,11 +19,12 @@ assessment_derive   requirements × career   ──►  assessment   verdicts, s
 answers             career_apply / confirm  ──►  selection    authored once, confirmed, shipped
 ```
 
-Every step is a `jsk` tool, and every part of the application is a graph in the store. Its stem
-is `<yyyy-mm-dd>-<company>-<role>`, named for the day it is worked on; the first render creates
-`<workspace>/applications/<stem>/`, which holds the `.pdf` and `.tex` and nothing else, and
-`jsk app freeze` renames it if sent later. An application made from files (`posting.md`,
-`decisions.txt`) is finished on the commands it was started on: the tools refuse it, naming them.
+Every step is a `jsk` tool; every part of the application is a graph in the store. Its stem,
+`<yyyy-mm-dd>-<company>-<role>`, cannot be renamed until `jsk app freeze`; the first render
+creates `<workspace>/applications/<stem>/`, for the renders and any cover letter. The tools refuse
+an application made from files (`posting.md`, `decisions.txt`): finish it with `docs/SCRIPTS.md`'s
+`jsk posting build`, `jsk tailor match --gaps`, `jsk kb export --from-match`, `jsk resume ship
+<resume.json> --out`.
 
 **Two agent passes, and the person in between.** One writes the assessment; one writes the resume
 after the questions are answered. The resume is written **last** — never from a career you are
@@ -31,16 +32,15 @@ about to change.
 
 ## 0. Have they been here before?
 
-**Before the posting is captured**, `app_list()`: each application and its stage. Applying twice
-is ordinary, so this is a check, not a prohibition. If one matches the company, **show them** the
-role, its stage and when. Then stop: **that
-decision is theirs and it comes before the work.** Nothing back means nothing recorded, not never
-applied.
+**First**, `app_list()`: each application and its stage. Applying twice is ordinary: a check,
+not a prohibition. If one matches the company, **show them** the role, its stage and when, and
+stop: **that decision is theirs and comes before the work.** Nothing back means nothing recorded.
 
 ## 1. Capture the posting
 
-`$ARGUMENTS` may hold a URL, the text, or a path. **You capture it**; the analyst has no network.
-**Ashby, Greenhouse or Lever, or a file (`.docx`, `.html`, `.txt`): `posting_capture(app=<stem>,
+`$ARGUMENTS` may hold a URL, the text, or a path. Name the stem from the URL's slug or the text,
+or ask. **You capture**: the analyst captures only a board URL it is handed, and triage needs the
+lines first. **Ashby, Greenhouse or Lever, or a file (`.docx`, `.html`, `.txt`): `posting_capture(app=<stem>,
 url=<it>)`**, never through the context. **JavaScript-rendered career sites** (Workday,
 SuccessFactors, iCIMS, Phenom `careers.<company>` portals) **go straight to a browser tool**: a
 plain fetch sees an empty shell. Open the posting and save it, outside the application directory,
@@ -54,9 +54,8 @@ advertisement verbatim and nothing else**; **never paraphrase it**.
 
 ## 1b. Triage
 
-A bad fit shows in two seconds; the assessment takes minutes. In one message with the capture and
-step 0's calls, run `career_query("person")` and `career_query("evidence", [terms])`: the 2–5
-load-bearing terms of the title and first qualifications, the title's domain first. **A title term
+A bad fit shows in two seconds; the assessment takes minutes. With the capture, run
+`career_query("person")` and `career_query("evidence", [terms])`: the 2–5 load-bearing terms of the title and first qualifications, the title's domain first. **A title term
 `nothing`, or eligibility plainly failing: ask whether to go on, before dispatching.** A doubt
 short of that: dispatch the analyst in the background and ask at once; on "stop", stop the agent.
 
@@ -152,13 +151,12 @@ Bullets it adds or rewords arrive `inferred`; the render drops them below the fl
 `withheld …` warnings, each confirmed or cut before hand-over. **It quotes every clause back.**
 **Read those quotes to the person and get confirm-correct-or-cut on each**, then `career_confirm`
 with their words and one changeset for the corrections. Confirm confirms the career's current
-text, never on the strength of the old text. The summary: `career_confirm(target=<stem>,
-block="summary", answer=…)`, the posting's title as headline with `block="headline"`. Shortfalls it
-returns go into the review (`short`). Then `jsk resume check <stem>`, the record gate. This step is
-yours and is not delegable.
+text, never on the strength of the old text. If the selection (`app_show(stem, "selection")`)
+holds a summary, `career_confirm(target=<stem>, block="summary", answer=…)`; a headline, the same
+with `block="headline"`. Shortfalls it returns go into the review (`short`), then
+`assessment_complete`. Then `jsk resume check <stem>`. This step is yours, not delegable.
 
-**A selection references content; it cannot contain it.** If the posting wants something the career does
-not have, say so out loud.
+**A selection references content; it cannot contain it.** What the career lacks, say out loud.
 
 ## 6. Ship
 

@@ -28,7 +28,7 @@ the output directory needs no `--record`) — and the **workspace** (the folder 
 `career/store/`; you read the career only with `career_show(ids)`, to name where a defect is
 repaired). If a file name is missing, glob for `*_Resume*.pdf`
 and `*_Resume*.tex` in the output directory and say what you found. There is no `.txt`: the plain
-text is emitted from `resume.json` in memory.
+text is emitted in memory from `resume.json`, or from a graph-native application's selection.
 
 A missing skill directory is the one thing you cannot work around: report it and stop.
 
@@ -40,10 +40,10 @@ Run `jsk`; not found, fall back to `python -m jsk`, then `py -3 -m jsk`. Report 
 
 | Gate | Command | Answers |
 |---|---|---|
-| **Record** | `jsk resume check resume.json` | Is `resume.json` shaped right, is every id it names live in the career, and does every number in a selected bullet trace to a current metric? |
+| **Record** | `jsk resume check resume.json`, or `jsk resume check <stem>` for a graph-native application | Is the record shaped right, is every id it names live in the career, and does every number in a selected bullet trace to a current metric? |
 | **Parse** | `jsk resume check <Name>_Resume.pdf --only parse` (with `resume.json` beside it, also its reading order); the plain text, `--strict`, in memory, runs only in `jsk resume check <out-dir>` | Will an ATS read this without mangling it? |
 | **Prose** | `jsk resume check <Name>_Resume.tex --only prose` | Does it obey the writing rules? |
-| **Layout** | `jsk resume check <Name>_Resume.pdf --only layout --record resume.json` | Tofu, a face the template did not declare, a stranded heading, a date out of column, the wrong paper? |
+| **Layout** | `jsk resume check <Name>_Resume.pdf --only layout --record resume.json` (a graph-native application: `jsk resume check <out-dir>`) | Tofu, a face the template did not declare, a stranded heading, a date out of column, the wrong paper? |
 | **Render** | open the PDF with Read and look at every page | Does it look right as a whole, and is it true? |
 
 Prefer running the first four together:
@@ -52,7 +52,8 @@ Prefer running the first four together:
 jsk resume check <out-dir> --pages N
 ```
 
-It finds `resume.json` in that directory (`--record <path>` names one elsewhere) and never attempts
+It finds `resume.json` in that directory, or a graph-native application's selection
+(`--record <path>` or `--record <stem>` names one elsewhere), and never attempts
 the render gate. If it is unavailable, run the table's commands individually — the verdicts are the
 same. `--pages N` reports the page count and never fails on it.
 

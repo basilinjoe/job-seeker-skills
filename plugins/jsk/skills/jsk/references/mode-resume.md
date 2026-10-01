@@ -50,6 +50,10 @@ posting, `<Name>` gains the company.
 
 5. **Validate while you iterate** — `jsk resume check resumes/<name>` — until it passes.
 
+   **Confirm the summary.** `resume_update` stores it `inferred`, so the floor withholds it: read
+   it to the person, then `career_confirm(target="resumes/<name>", block="summary",
+   answer="their words")`, and `block="headline"` too if the selection holds one.
+
 6. **Ship it** per steps 1–2 of `references/mode-ship.md`: `resume_ship(target="resumes/<name>")`.
 
    - **Read the warnings the render prints**: a withheld bullet or summary, a skills row cut at its
