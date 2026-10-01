@@ -365,7 +365,7 @@ class TurnBeforeTheStore(unittest.TestCase):
     must not both find none. Each takes its turn with no store yet, and asks inside it."""
 
     FIRST = """
-        from jsk import kb
+        from jsk.adapters.cli.kb import new as kb
         from jsk.infra.oxigraph import db
         with db.write_turn(root):
             print('got', flush=True)
@@ -404,9 +404,9 @@ class TurnBeforeTheStore(unittest.TestCase):
     def test_a_load_queued_behind_a_new_is_refused(self):
         import datetime
 
-        from jsk import kb
+        from jsk.application.record import scaffold
         dump = Path(self.root, "other.trig")
-        dump.write_text(db.dump_text(kb.first_write("Second", datetime.date(2026, 9, 29))),
+        dump.write_text(db.dump_text(scaffold.first_write("Second", datetime.date(2026, 9, 29))),
                         encoding="utf-8")
         second, names = self.behind_a_new("kb", "load", str(dump), "--root", self.root)
         self.assertEqual(second.returncode, 1, second.stdout + second.stderr)

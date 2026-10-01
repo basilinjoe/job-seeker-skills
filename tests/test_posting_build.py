@@ -20,7 +20,8 @@ import appkit
 import fixtures  # noqa: F401 - puts the worktree's src first on sys.path
 from appkit import seed
 
-from jsk import posting
+from jsk.domain.posting import errors
+from jsk.adapters.cli import posting
 from jsk.adapters.cli.compose import posting as postingbuild, record
 from jsk.domain.posting import decide, advert
 
@@ -101,7 +102,7 @@ class Workspace(unittest.TestCase):
                                   vocabulary=self.root / "vocabulary.ttl", today=TODAY)
 
     def refused(self, rows=ROWS, header=HEADER, says=""):
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             self.build(rows, header)
         # Every problem is reported (tailor-cost Ruling 6): `says` is in one of them.
         problems = caught.exception.problems
@@ -203,7 +204,7 @@ class Extract(Workspace):
 
     def test_no_posting_md_is_refused(self):
         (self.app / "posting.md").unlink()
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             self.extract()
         self.assertIn("jsk posting fetch", caught.exception.fix)
 
@@ -321,7 +322,7 @@ class Build(Workspace):
         self.put_gaps()
         before = (appkit.facts(self.root, self.target), appkit.facts(self.root, self.gaps))
         with appkit.refusing_store():
-            with self.assertRaises(posting.Refused) as caught:
+            with self.assertRaises(errors.Refused) as caught:
                 self.build(ROWS.replace("c:docker |", "c:docker | preferred"), replace=True)
         self.assertIn("nothing was changed", str(caught.exception))
         self.assertEqual((appkit.facts(self.root, self.target),
@@ -339,7 +340,7 @@ class Build(Workspace):
         (self.app / "gaps.md").write_text("gaps.md\n", encoding="utf-8")
         self.send()
         before = (appkit.graphs(self.root), (self.app / "gaps.md").read_bytes())
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             self.build(ROWS.replace("c:docker |", "c:docker | preferred"), replace=True)
         self.assertIn("sent on 2026-09-20", str(caught.exception))
         self.assertTrue(caught.exception.fix.startswith("fix:  "), caught.exception.fix)
@@ -355,7 +356,7 @@ class Build(Workspace):
         self.build()
         self.send()
         before = appkit.graphs(self.root)
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             postingbuild.build(str(other), str(self.decide()), replace=True,
                                vocabulary=self.root / "vocabulary.ttl", today=TODAY)
         self.assertIn("sent on 2026-09-20", str(caught.exception))
@@ -389,7 +390,7 @@ class Build(Workspace):
         kept = 'k:post_hand j:company "Hand reviewed" .\n'
         appkit.put(self.root, self.target, kept)
         before = appkit.facts(self.root, self.target)
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             self.build()
         self.assertIn("--replace", caught.exception.fix)
         self.assertEqual(appkit.facts(self.root, self.target), before)
@@ -414,7 +415,7 @@ class Refusals(Workspace):
         self.refused(ROWS + "5 | Bad Slug | systems | - |\n", says="is not lowercase words")
 
     def test_no_decisions_file(self):
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             postingbuild.build(str(self.app), vocabulary=self.root / "vocabulary.ttl")
         self.assertIn("no decisions file", str(caught.exception))
 

@@ -286,8 +286,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   cli.py                            the `jsk` console script's module: hands over to adapters/cli/main.py
   cliutil.py                        one contract for --help across the hand-rolled entry points
   paths.py                          where the packaged schema lives - stated once
-  kb.py                             `jsk kb new` - hands over to adapters/cli/kb/new.py (the documented path)
-  posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
   preflight.py                      `jsk doctor`: what this machine can do
   domain/                           the innermost ring: no files, argv, environment or clock
     naming.py                       a record graph's short name and its IRI, the same in memory and on disk
@@ -390,7 +388,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     timeline/add_event.py           one event added to an application's record: minted, validated, written
     ship.py                         `jsk resume ship`: the record gate, render, fit and gates, stopping at a failure
   infra/                            what touches a disk, a process, the network or the engine
-    files.py                        the workspace on disk: find_root; a document written atomically
+    files.py                        the workspace on disk: find_root; a document written atomically, or new
     workspace.py                    the workspace a load reads: career/store/, the files beside it, the vocabulary
     legacy_import.py                a workspace still laid out as .ttl files, read once for `jsk kb load`
     packs.py                        `jsk kb pack`'s starter packs on disk: where each is, and reading one
@@ -424,7 +422,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
     cli/compose/record.py           a workspace loaded over career/store/ and the engine; a changeset read
     cli/compose/match.py            the match and the selection, each asked of the engine's feature reads
-    cli/compose/posting.py          `jsk posting extract` and `build`'s folder on disk, decisions.txt read
+    cli/compose/posting.py          `jsk posting`'s board API and file reader; extract and build's folder on disk, decisions.txt read
     cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
     cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads, the short file, the assessment's folder
     cli/compose/resume.py           a resume.json read from disk, its workspace found, its career loaded, its plan built
@@ -544,7 +542,7 @@ and `tests/fixtures.load_script` reads that map rather than keeping a second cop
 | The shipped vocabulary | `src/jsk/data/vocabulary.ttl` | technologies only, no `implies`; `tests/test_graph_vocabulary.py` |
 | The capability starter pack | `src/jsk/data/capabilities.ttl`, `src/jsk/infra/packs.py`, `src/jsk/domain/record/pack.py` | applied to the career as a changeset, never loaded as vocabulary; `tests/test_graph_pack.py` |
 | Where the record is stored, or how a write lands | `src/jsk/infra/oxigraph/db.py` (storage), `src/jsk/infra/oxigraph/record.py` (the write gate) | `tests/test_db.py`, which also fails a second module that opens the store or writes it |
-| What `jsk kb new` scaffolds | `src/jsk/kb.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
+| What `jsk kb new` scaffolds | `src/jsk/application/record/scaffold.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
 | A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `application/posting/build.py` and `application/tailor/check_gaps.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
 | What the analyst may write | `domain/record/decisions.py` (`decisions.txt`), `domain/assessment/overlay.py` (`gaps.txt`) | the checks in `domain/posting/decide.py` and `domain/assessment/fold.py`; `agents/jsk-tailor-analyst.md` |
 | How the career's projects are ranked for a posting | `rank` in `src/jsk/domain/matching/rank.py`; the weights in `src/jsk/domain/matching/scoring.py` | `cover` in `cover.py` beside it, and `src/jsk/domain/selection/select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |

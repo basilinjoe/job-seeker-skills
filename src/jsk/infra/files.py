@@ -173,6 +173,26 @@ def write_document(path, text, tries=REPLACE_TRIES, wait=0.05):
     return path
 
 
+def write_new(folder, target, text):
+    """Write a new document, creating its folder; never over a file there is.
+
+    Args:
+        folder: the folder `target` sits in, created if missing.
+        target: the file's path.
+        text: its text, written as UTF-8 with LF line endings.
+
+    Returns:
+        `target`.
+
+    Raises:
+        FileExistsError: `target` is there.
+    """
+    os.makedirs(folder, exist_ok=True)
+    with open(target, "x", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+    return target
+
+
 def remove_document(path):
     """Remove the document at `path` if it is there.
 

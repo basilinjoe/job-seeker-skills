@@ -16,7 +16,9 @@ from unittest import mock
 
 import fixtures  # noqa: F401 - puts the worktree's src first on sys.path
 
-from jsk import posting
+from jsk.adapters.cli.compose import posting
+from jsk.domain.posting import errors, html_text, boards
+from jsk.adapters.cli import posting as posting_cli
 
 ASHBY_URL = "https://jobs.ashbyhq.com/elevenlabs/a571b8e4-8176-4e31-aab6-2287ee810236"
 GREENHOUSE_URL = "https://job-boards.greenhouse.io/anthropic/jobs/4461450008"
@@ -90,7 +92,7 @@ class Recognise(unittest.TestCase):
         ]
         for url, want in cases:
             with self.subTest(url=url):
-                self.assertEqual(posting.recognise(url), want)
+                self.assertEqual(boards.recognise(url), want)
 
     def test_anything_else_is_not_recognised(self):
         for url in ("https://careers.example.com/jobs/123",
@@ -101,37 +103,37 @@ class Recognise(unittest.TestCase):
                     "ftp://jobs.ashbyhq.com/elevenlabs/a571b8e4-8176-4e31-aab6-2287ee810236",
                     "not a url"):
             with self.subTest(url=url):
-                self.assertIsNone(posting.recognise(url))
+                self.assertIsNone(boards.recognise(url))
 
 
 class HtmlToText(unittest.TestCase):
     def test_paragraphs_become_blank_line_separated(self):
-        self.assertEqual(posting.html_to_text("<p>One\n  two.</p><p>Three.</p>"),
+        self.assertEqual(html_text.html_to_text("<p>One\n  two.</p><p>Three.</p>"),
                          "One two.\n\nThree.")
 
     def test_list_items_become_dash_lines(self):
         self.assertEqual(
-            posting.html_to_text("<p>Do:</p><ul><li>First</li><li><p>Second</p></li></ul>"
+            html_text.html_to_text("<p>Do:</p><ul><li>First</li><li><p>Second</p></li></ul>"
                                  "<p>After.</p>"),
             "Do:\n\n- First\n- Second\n\nAfter.")
 
     def test_a_nested_list_is_indented_under_its_item(self):
         self.assertEqual(
-            posting.html_to_text("<ul><li>Outer<ul><li>Inner</li></ul></li><li>Next</li></ul>"),
+            html_text.html_to_text("<ul><li>Outer<ul><li>Inner</li></ul></li><li>Next</li></ul>"),
             "- Outer\n  - Inner\n- Next")
 
     def test_entities_are_unescaped(self):
-        self.assertEqual(posting.html_to_text("<p>R&amp;D &mdash; you&rsquo;ll &lt;3</p>"),
+        self.assertEqual(html_text.html_to_text("<p>R&amp;D &mdash; you&rsquo;ll &lt;3</p>"),
                          "R&D — you’ll <3")
 
     def test_inline_markup_and_line_breaks(self):
         self.assertEqual(
-            posting.html_to_text("<div><strong>Pay:</strong> <em>£1</em><br>per year</div>"),
+            html_text.html_to_text("<div><strong>Pay:</strong> <em>£1</em><br>per year</div>"),
             "Pay: £1\nper year")
 
     def test_headings_keep_their_words_and_scripts_are_dropped(self):
         self.assertEqual(
-            posting.html_to_text("<h2>About</h2><script>x()</script><p>Text</p>"),
+            html_text.html_to_text("<h2>About</h2><script>x()</script><p>Text</p>"),
             "About\n\nText")
 
 
@@ -198,14 +200,14 @@ class Refusals(unittest.TestCase):
         self.app = Path(self._tmp.name) / "acme"
 
     def main(self, url, data=None, error=None):
-        """jsk.posting.main(), its fetch_json replaced by the board's answer."""
+        """`jsk posting fetch`, its fetch_json replaced by the board's answer."""
         def get(api):
             if error:
                 raise error
             return data
         buf = io.StringIO()
         with mock.patch.object(posting, "fetch_json", get), contextlib.redirect_stdout(buf):
-            code = posting.main(["fetch", url, str(self.app)])
+            code = posting_cli.main(["fetch", url, str(self.app)])
         return code, buf.getvalue()
 
     def test_an_unknown_board_is_sent_to_the_browser(self):
@@ -224,12 +226,12 @@ class Refusals(unittest.TestCase):
         self.assertFalse((self.app / "posting.md").exists())
 
     def test_a_404_is_a_posting_not_on_the_board(self):
-        code, out = self.main(GREENHOUSE_URL, error=posting.NotOnBoard("404"))
+        code, out = self.main(GREENHOUSE_URL, error=errors.NotOnBoard("404"))
         self.assertEqual(code, 1, out)
         self.assertIn("the posting may be closed", out)
 
     def test_a_network_failure_is_refused_with_its_reason(self):
-        code, out = self.main(LEVER_URL, error=posting.Refused(
+        code, out = self.main(LEVER_URL, error=errors.Refused(
             "could not read https://api.lever.co/...: timed out", "fix:  try again"))
         self.assertEqual(code, 1, out)
         self.assertIn("timed out", out)
@@ -239,7 +241,7 @@ class Refusals(unittest.TestCase):
         import urllib.error
         with mock.patch("urllib.request.urlopen",
                         side_effect=urllib.error.URLError("no route to host")):
-            with self.assertRaises(posting.Refused) as caught:
+            with self.assertRaises(errors.Refused) as caught:
                 posting.fetch_json("https://api.lever.co/v0/postings/x/y")
         self.assertIn("no route to host", str(caught.exception))
         self.assertTrue(caught.exception.fix.startswith("fix:  "))
@@ -248,7 +250,7 @@ class Refusals(unittest.TestCase):
         import urllib.error
         err = urllib.error.HTTPError("https://x", 404, "Not Found", {}, None)
         with mock.patch("urllib.request.urlopen", side_effect=err):
-            with self.assertRaises(posting.NotOnBoard):
+            with self.assertRaises(errors.NotOnBoard):
                 posting.fetch_json("https://boards-api.greenhouse.io/v1/boards/x/jobs/1")
 
     def test_an_existing_posting_md_is_never_overwritten_or_fetched_for(self):
@@ -272,8 +274,8 @@ class Refusals(unittest.TestCase):
     def test_called_wrong_is_2(self):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            self.assertEqual(posting.main(["fetch", ASHBY_URL]), 2)
-            self.assertEqual(posting.main(["get", ASHBY_URL, str(self.app)]), 2)
+            self.assertEqual(posting_cli.main(["fetch", ASHBY_URL]), 2)
+            self.assertEqual(posting_cli.main(["get", ASHBY_URL, str(self.app)]), 2)
         self.assertIn("usage: jsk posting fetch", buf.getvalue())
 
 
@@ -379,7 +381,7 @@ class FromAFile(unittest.TestCase):
     def test_an_unknown_kind_of_file_is_refused_with_its_fix(self):
         path = self.tmp / "posting.pdf"
         path.write_bytes(b"%PDF-1.4")
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             posting.fetch(str(path), str(self.app))
         self.assertIn("a .pdf file is not one posting fetch reads", str(caught.exception))
         self.assertIn(".docx, .html or .txt", caught.exception.fix)
@@ -388,10 +390,10 @@ class FromAFile(unittest.TestCase):
     def test_a_broken_docx_and_a_missing_file_are_refused(self):
         path = self.tmp / "broken.docx"
         path.write_bytes(b"not a zip")
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             posting.fetch(str(path), str(self.app))
         self.assertIn("not a Word document", str(caught.exception))
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             posting.fetch(str(self.tmp / "missing.docx"), str(self.app))
         self.assertIn("neither a posting URL nor a file", str(caught.exception))
         self.assertFalse(self.app.exists())
@@ -399,7 +401,7 @@ class FromAFile(unittest.TestCase):
     def test_posting_md_is_never_overwritten_by_a_file(self):
         self.app.mkdir(parents=True)
         (self.app / "posting.md").write_text("what was answered\n", encoding="utf-8")
-        with self.assertRaises(posting.Refused) as caught:
+        with self.assertRaises(errors.Refused) as caught:
             self.fetch("advert.txt", b"Something else\n")
         self.assertIn("already exists", str(caught.exception))
         self.assertEqual((self.app / "posting.md").read_text(encoding="utf-8"),
@@ -408,7 +410,7 @@ class FromAFile(unittest.TestCase):
     def test_only_urllib_at_import(self):
         import subprocess
         import sys
-        code = ("import sys, jsk.posting; "
+        code = ("import sys, jsk.adapters.cli.compose.posting; "
                 "print(sorted(m for m in ('zipfile', 'xml.etree.ElementTree') "
                 "if m in sys.modules))")
         out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,

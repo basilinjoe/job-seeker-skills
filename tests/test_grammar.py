@@ -200,8 +200,6 @@ class TheModulePathsAreRetired(unittest.TestCase):
     a script reads as success, so each one names its command and exits 2."""
 
     PATHS = {
-        "jsk.kb": "jsk kb new",
-        "jsk.posting": "jsk posting",
         "jsk.preflight": "jsk doctor",
     }
 

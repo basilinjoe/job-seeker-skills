@@ -27,7 +27,6 @@ if str(SRC) not in sys.path:
 # `from . import ...` fails on the way in. `run()` invokes them with `-m`.
 SCRIPTS = REPO_ROOT / "src" / PACKAGE      # for tests that read a module's source text
 CLI = f"{PACKAGE}.cli"
-KB = f"{PACKAGE}.kb"
 CHECK_ATS = f"{PACKAGE}.adapters.cli.gates.ats"
 FIT_PAGES = f"{PACKAGE}.domain.render.fit_levers"
 

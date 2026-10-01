@@ -1,16 +1,40 @@
-"""`jsk posting extract` and `jsk posting build`'s ports, bound: code extracts the advert's
-lines, the model decides in decisions.txt, code writes the posting - the application's
-posting graph in career/store/.
+"""`jsk posting`'s ports, bound: fetch reads a board's API or a file and writes posting.md;
+code extracts the advert's lines, the model decides in decisions.txt, code writes the
+posting - the application's posting graph in career/store/.
 
 The decisions as data are domain/posting/decide.py's and the two use cases
 application/posting/extract.py's and build.py's. This module holds the application's
 folder on disk (PostingFolder), and `extract` and `build` with their callers' signatures,
 each defaulting the day to today for a caller that has not read the clock. `triples` is
-looked up here at each build, because a test patches it here.
+looked up here at each build, and the board's API `fetch_json` at each fetch, because a test
+patches each here. Only urllib at import: a .docx loads zipfile and xml.etree when it is read.
 """
 import datetime
 
 from ....domain.posting.decide import triples
+from ....infra.posting_sources import fetch_json, read_file
+
+
+def fetch(url, app_dir, get=None):
+    """Write `app_dir`/posting.md from a board's API or a file (application.posting.fetch).
+
+    Args:
+        url: the posting's URL, or a file's path.
+        app_dir: the application's directory, created if missing.
+        get: api url -> the board's JSON answer; by default this module's fetch_json,
+            looked up at the call so a patch of it reaches the fetch.
+
+    Returns:
+        (path written, title, characters).
+
+    Raises:
+        Refused: as application.posting.fetch.fetch does; nothing written.
+    """
+    from ....application.posting.fetch import fetch as fetched
+    from ....infra.files import write_new
+
+    done = fetched(url, app_dir, get=get or fetch_json, read_file=read_file, write=write_new)
+    return done.path, done.title, done.chars
 
 
 def read_decisions(path, what=None):

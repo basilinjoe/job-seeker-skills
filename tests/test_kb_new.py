@@ -17,7 +17,9 @@ import storekit
 from fixtures import REPO_ROOT as REPO
 from test_graph_shapes import FIXTURES
 
-from jsk import cli, kb
+from jsk import cli
+from jsk.adapters.cli.kb import new
+from jsk.application.record import scaffold
 from jsk.adapters.cli.compose import record
 from jsk.infra.oxigraph import db
 from jsk.domain import ontology as O
@@ -73,7 +75,7 @@ class FromNothing(Scaffold):
     def test_it_writes_the_workspace(self):
         code, out = self.new()
         self.assertEqual(code, 0, out)
-        self.assertTrue(self.path(kb.STORE).is_dir(), out)
+        self.assertTrue(self.path(scaffold.STORE).is_dir(), out)
         for name in ("applications/README.md", ".gitattributes"):
             with self.subTest(file=name):
                 self.assertTrue(self.path(name).is_file(), out)
@@ -206,7 +208,7 @@ class Refusals(Scaffold):
     def test_pyoxigraph_is_needed_and_the_fix_says_how(self):
         from unittest import mock
         with mock.patch.dict("sys.modules", {"pyoxigraph": None}):
-            code, lines = kb.scaffold(self.root, "Priya Raman", today=TODAY)
+            code, lines = new.scaffold(self.root, "Priya Raman", today=TODAY)
         self.assertEqual(code, 1)
         text = "\n".join(lines)
         self.assertIn("pyoxigraph", text)
@@ -307,7 +309,7 @@ class Force(Scaffold):
 class Direct(unittest.TestCase):
     def test_scaffold_takes_a_day(self):
         with tempfile.TemporaryDirectory() as root:
-            code, lines = kb.scaffold(root, "Ada Lovelace", today=TODAY)
+            code, lines = new.scaffold(root, "Ada Lovelace", today=TODAY)
             self.assertEqual(code, 0, lines)
             self.assertIn('j:updated "2026-09-25"^^xsd:date', storekit.kb_text(root))
 

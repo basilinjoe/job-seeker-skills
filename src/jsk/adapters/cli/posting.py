@@ -51,13 +51,13 @@ USAGE = ("usage: jsk posting fetch <url>|<file> <application-dir>\n"
          "       jsk posting build <application-dir> [<decisions-file>] [--replace]")
 
 
-def main(args, *, fetch):
+def main(args, *, fetch=None):
     """`jsk posting fetch|extract|build`: one verb run, what it wrote said.
 
     Args:
         args: the arguments after `jsk posting`.
-        fetch: (url, app_dir) -> (path, title, characters); the entry point binds its own,
-            so the board's API is the one jsk.posting names.
+        fetch: (url, app_dir) -> (path, title, characters); by default compose.posting's,
+            whose board API is looked up there at the call.
 
     Returns:
         The exit code: 0 written or printed, 1 refused, 2 called wrong.
@@ -80,6 +80,9 @@ def main(args, *, fetch):
         return 2
     try:
         if verb == "fetch":
+            if fetch is None:
+                from .compose.posting import fetch as bound
+                fetch = bound
             target, title, count = fetch(args[1], args[2])
             print(f"wrote  {target}   {title}   {count} chars")
         elif verb == "extract":

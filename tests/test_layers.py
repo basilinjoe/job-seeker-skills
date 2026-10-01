@@ -27,7 +27,7 @@ RANK = {ring: i for i, ring in enumerate(RINGS)}
 UNSORTED = "unsorted"
 
 # Adapters that still live at the package root, where their documented paths are.
-ROOT_ADAPTERS = {"jsk.cli", "jsk.__main__", "jsk.kb", "jsk.preflight", "jsk.mcp"}
+ROOT_ADAPTERS = {"jsk.cli", "jsk.__main__", "jsk.preflight", "jsk.mcp"}
 # paths.py is where the packaged data is on disk: infra by what it does, kept at the root
 # because the wheel and the sdist are built around it.
 ROOT_INFRA = {"jsk.paths"}
@@ -47,11 +47,7 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 
 # (importer, imported) -> the names it imports. Today's outward edges, each to be removed by
 # the phase that moves or splits one end of it.
-KNOWN_EDGES = {
-    # The documented `python -m` entry points hand over to their adapters until P5
-    # deletes them (Ruling 4).
-    ("jsk.posting", "jsk.adapters.cli.posting"): {"main"},
-}
+KNOWN_EDGES = {}
 
 # (module, what it does that its ring forbids).
 KNOWN_FORBIDDEN = set()

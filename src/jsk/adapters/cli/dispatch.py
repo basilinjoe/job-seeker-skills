@@ -17,7 +17,9 @@ PACKAGE = __name__.split(".")[0]
 # The adapter module each documented script name is served by, under the package. A name
 # not here is a root module of its own (preflight.py).
 ADAPTERS = {
+    "kb.py": "adapters.cli.kb.new",
     "kbcli.py": "adapters.cli.kb",
+    "posting.py": "adapters.cli.posting",
     "timeline.py": "adapters.cli.event",
     "match.py": "adapters.cli.match",
     "prepare.py": "adapters.cli.tailor",
