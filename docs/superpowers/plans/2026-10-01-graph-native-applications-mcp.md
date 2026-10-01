@@ -1,8 +1,9 @@
 # Graph-native applications over MCP - implementation plan
 
-## Status (2026-10-01)
+## Status (2026-10-02)
 
-Planned, not started. Branch from `feat/vocabulary-graph`.
+In progress on `feat/graph-native-mcp`. P0 done (results below its section); P1 and P2 being
+built.
 
 **Spec:** none. This plan and its Rulings are the spec. The decisions are the user's
 (2026-10-01), made in one conversation:
@@ -167,8 +168,8 @@ D/<Name>_Resume.{pdf,tex,log}, <Name>_Resume_ATS.txt   render
     `the MCP server needs the mcp extra: pip install 'jsk-resume[mcp]'` and exits 2),
     `server.py` (the tools), `schemas.py` (argument and result shapes), `session.py` (workspace
     and revision cache). It binds through `adapters/cli/compose/` and the use cases; it holds no
-    logic a CLI test could not reach. The SDK is an optional extra, `mcp = ["mcp>=1.10,<2"]`
-    (exact floor confirmed in P0), added to `dev` so CI tests it.
+    logic a CLI test could not reach. The SDK is an optional extra, `mcp = ["mcp>=1.30,<2"]`
+    (floor confirmed in P0), added to `dev` so CI tests it.
 14. **No long-lived lock.** Each tool call that writes takes the writers' turn, loads, builds
     its candidate, validates it (`load(root, graphs=candidate)` + `new_failures`), writes
     through `records.write_app_graphs` or `record.commit`, and gives the turn up, exactly as a
@@ -316,6 +317,26 @@ held to a subset - Ruling 19 falls back to the prose boundaries and the tools' o
 (`career_apply` writes only `inferred`, `career_confirm` needs an answer). A server-side role
 check is not possible: one server process serves the whole session and cannot tell which agent
 called. The plan says so in an amendment rather than pretending the grants hold.
+
+#### P0 results (2026-10-02, Claude Code 2.1.280, headless `claude -p --plugin-dir`, a stub plugin)
+
+1. Tool names are `mcp__plugin_<plugin>_<server>__<tool>`: the stub's showed as
+   `mcp__plugin_jskprobe_probe__alpha`. jsk's will be `mcp__plugin_jsk_jsk__<tool>`.
+2. **An explicit `tools:` list holds a plugin subagent to exactly those tools** - granted
+   `alpha, beta`, the agent saw only those two (plus `SubagentHandback`). **No `tools:` line
+   inherits every MCP tool** of the session. **`mcp__plugin_<p>_<s>__*` works** and grants the
+   whole server. So Ruling 19 holds as written, and every agent must list its tools by name -
+   never the wildcard, never an omitted `tools:`. P6 pins that.
+3. A command's `allowed-tools` naming an MCP tool lets it call that tool with no other grant.
+4. No tool-call timeout at 150 s (`sleep_for(150)` returned). Ruling 20's fallback is not needed:
+   `resume_ship` fits by default.
+5. A 200k-character result is refused inline and saved to `tool-results/...txt`, with an error
+   naming the file. Ruling 16's default limits (under 10k tokens) stand.
+6. `mcp` 1.30.0 installs on Python 3.12 here; it declares `Requires-Python >=3.10`. Pin
+   `mcp>=1.30,<2`. `FastMCP` tools with typed parameters produce JSON schemas; a `dict` return
+   arrives as JSON text content (not `structuredContent`) unless the return type is a typed
+   model - tests read the text. In-process tests use
+   `mcp.shared.memory.create_connected_server_and_client_session(server._mcp_server)`.
 
 ### P1 - the render leaves a `.pdf` and a `.tex` (all applications)
 
