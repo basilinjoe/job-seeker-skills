@@ -78,11 +78,16 @@ and `emit_text.py` turn the finished plan into markup and decide nothing, which 
 read cannot disagree. No `.txt` is written: the gates read `emit_text.emit(plan)` in memory. Content selection goes
 in `plan.py`, never in an emitter.
 
-**A model writes only decisions; code writes every graph.** In the tailoring pipeline
-(`jsk posting fetch/extract/build` → `jsk tailor prepare` → `jsk tailor match`), the analyst agent writes exactly two
-text files, `decisions.txt` and `gaps.txt`. The CLI turns them into the posting and gaps graphs and checks them:
-- every quote is an extracted line of the advert;
+**A model writes only decisions; code writes every graph.** A new application is graph-native: agents send their
+decisions to `jsk mcp` tools (`posting_capture` → `posting_decide` → `posting_complete` → `assessment_derive` →
+`assessment_review` → `resume_select`/`resume_update` → `resume_ship`), and code writes and checks every triple:
+- every quote is a stored line of the advert;
 - a verdict can only be lowered from the match's, never raised.
+
+Each agent's `tools:` lists its MCP tools by name, which is what holds it to its boundary (the analyst has no tool
+that writes the career; no agent has `career_confirm`). An application made before this keeps its files
+(`decisions.txt`, `gaps.txt`, `resume.json`) and the file verbs; the two kinds refuse each other. The plan is
+`docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`.
 
 **One write gate for the record.** Every career change goes through `jsk kb apply` changesets:
 validate → write → log. Writes land in `infra/oxigraph/record.py` and storage is in `infra/oxigraph/db.py`.
