@@ -1,6 +1,8 @@
 # Onion architecture for `src/jsk`: dependencies point inward, and a test says so
 
-**Status:** proposal, 2026-09-30. Reviewed 2026-09-30 against the code through pyright; fixes folded in.
+**Status:** implemented, 2026-10-01, on feat/vocabulary-graph from `29e08fc` (this spec) onward.
+Reviewed 2026-09-30 against the code through pyright; fixes folded in. Where the build departed
+from a ruling, "As built" at the end says how and why.
 **Builds on:** `docs/ARCHITECTURE.md` (the layering rules at :217-227 and "What is a package
 here" at :376-404), `docs/WHY.md` (the `okf` table at :125-145), `docs/SCRIPTS.md:8-9` (module
 paths are documented API until P5 drops them, Ruling 10), and `specs/2026-09-30-jsk-mcp-design.md` (a second driving adapter).
@@ -791,3 +793,91 @@ Ruling 2's alternative.
 ## Open questions
 
 None. Every question the first draft raised is settled in a ruling or a phase.
+
+## As built
+
+What the implementation did differently from the rulings above, and why. Everything not
+listed here was built as written.
+
+**The old paths during the migration (Ruling 4).** A module that moved whole left an alias at
+its old path - `sys.modules[__name__] = <the moved module>` - not a `from new import name`
+re-export. The old path and the new one were then the same module object, so a test's
+`mock.patch.object(old_module, "fn")` patched the code where it ran, and the patch problem
+Ruling 4 describes could not arise for a whole move. A module that split kept its old path as a
+binding module: it re-exported the moved names and kept today's signatures, passing the real
+ports in. test_layers ignores aliases and fails any source module that imports through one, so
+only the tests used old paths. P6 deleted both kinds.
+
+**The patch guard (P0).** "Assert the patched attribute's `__module__` is the patched module"
+fails on today's own working patches: `preview_templates` calls `compile_pdf` through its own
+namespace though `tex` defines it. tests/test_patches.py checks what a patch needs instead -
+that some code looks the name up through the patched module at call time (a bare name inside
+it, `module.name` elsewhere, or a `from module import name` run inside a function).
+
+**P1's cuts.** Three things the package view missed:
+- kbcli.py was the cause of three of the six cycles (graph -> cli, gates, resume). It moved whole
+  to adapters/cli/kb.py first, and P4 split it into the adapters/cli/kb/ package.
+- `show` prints, so it went to cliutil with the adapters, not to domain/gates/report.py with
+  `Report`.
+- numbers.py split into the comparison (domain/gates/numbers.py, a new `trace(facts, bullets)`)
+  and the career read (application/gates/numbers.py), so the domain never held SPARQL.
+
+**Rings and rules (Ruling 7).**
+- The domain may import `urllib.parse`: quoting a graph name for an IRI is string work.
+- A port may import `datetime`: the Clock names a date.
+- The cycle check runs over the unsorted packages only, because a ring cannot sit in a cycle
+  without an outward edge, which is failed on its own.
+
+**More ports than Ruling 1 listed.** WorkspaceSource (what a load reads), AdvertSource (the
+tier-2 rules' posting.md and decisions.txt), RenderOutputs (a render's files and scratch
+directories) and ApplicationRecords (an application's stored graphs) each came out of a module
+that turned out to read the disk.
+
+**The composition root (Ruling 6).** No top-level container, as ruled. The bindings the old paths
+held - the real store, engine, queries and TeX compiler handed to each use case - became
+adapters/cli/compose/, one module per area. A module per area rather than per command keeps a
+binding shared by three commands in one place. render, fit and preview each have their own,
+because a test that patches the render's compile_pdf must not patch the fit's.
+
+**The clock (Ruling 9).** No Clock implementation was written. Each adapter calls
+`datetime.date.today()` once, at the edge, and passes the day down. A one-method infra class
+would have added nothing.
+
+**P5's grammar (Ruling 10).**
+- `resume check` decides by target kind as follows:
+  - a directory, or a nameless path with no extension, gets all four gates;
+  - a `.json`, `.md` or `.ttl` gets the record gate, so a kb.ttl or user-knowledgebase.md still
+    gets its `jsk kb check` pointer;
+  - anything else is a render.
+- A flag that does not fit the target is exit 2. So `--json` on a render, which the old `jsk check`
+  ignored, is now an error.
+- A retired name prints two lines (`it is X now.`, then `fix:  X args`), the style `index` and
+  `migrate` already used.
+- Between P5 and P6, each `python -m jsk.<module>` path printed one line naming its replacement
+  and exited 2, where a bare removal of its main block would have exited 0 having done nothing.
+  P6 deleted the modules, and they now fail with "No module named". Only `jsk.cli` and
+  `python -m jsk` remain.
+- The changes a person sees beyond names:
+  - doctor's `modules (n/n)` line, and its package detail paths, which now name the rings;
+  - a new record's first log entry says "Created by jsk kb new";
+  - hints that named a script (`run fit_pages.py`) name the command.
+
+**Dispatch (Ruling 10).** SUBPACKAGE is gone; adapters/cli/dispatch.py maps each command's
+script name to its adapter (ADAPTERS) and still imports it by name through call_gate. Two
+tests pin call_gate's containment of an adapter that cannot be imported or that raises,
+which a direct call would not exercise.
+
+**`jsk tailor prepare`.** It now collects every section before printing. On a crash
+mid-digest, the sections before the crash are no longer printed above the traceback. No
+normal path's output changed.
+
+**Ruling 11's "left for later".** Five functions stay over 80 lines and listed in SIZE_KNOWN:
+`edit.apply` (143), `merge.draft` (101), `select.select` (97), `shapes.tier1` (90) and
+`preflight.gather` (90). The others the ruling named left SIZE_KNOWN on the way:
+`postingbuild.built` and `prepare.prepare` split in P4, and `rules.py` and `timeline.py`
+split in P3.
+
+**How it was built.** P2 onward ran as parallel agents, each in its own git worktree, each
+area's branch merged one at a time. Each agent replayed its commands against the code before
+its change and reported every difference; those reports are where the departures above were
+caught.
