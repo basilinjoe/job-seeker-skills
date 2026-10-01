@@ -1,4 +1,5 @@
 """The files a render writes, and the scratch directories it stages them in (ports.outputs)."""
+import contextlib
 import os
 import tempfile
 
@@ -35,3 +36,13 @@ def replace(src, dst):
         None. Moves the file.
     """
     os.replace(src, dst)
+
+
+def discard(path):
+    """Remove `path`; nothing when it is not there.
+
+    Returns:
+        None. Deletes the file.
+    """
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(path)

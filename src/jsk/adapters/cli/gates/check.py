@@ -12,7 +12,6 @@ import importlib
 import io
 import json
 import os
-import re
 
 from ....application.gates.run_gates import DEFAULT_RECORD as DEFAULT_RECORD
 from ....application.gates.run_gates import DOC_GATES as DOC_GATES
@@ -355,14 +354,17 @@ def cmd_gates(args):
 
 
 class Shown(dict):
-    """A step as --json prints it - gate, command, status, exit, output - with the counts
-    and page measurements the summary restates kept beside it rather than in it."""
+    """A step as --json prints it - gate, command, status, exit, output - with the counts,
+    page measurements, withheld lines and fit the summary restates kept beside it rather
+    than in it."""
 
     def __init__(self, step):
         super().__init__(gate=step.gate, command=step.command, status=step.status,
                          exit=step.exit, output=step.output)
         self.counts = step.counts
         self.pages = step.pages
+        self.withheld = step.withheld
+        self.fitted = step.fitted
 
 
 def strict_for(path):
@@ -453,7 +455,7 @@ def print_results(title, results):
 
     Args:
         title: the first line.
-        results: the steps, Shown or the dicts `jsk ship` builds of its own.
+        results: the steps, each a Shown.
 
     Returns:
         None. Writes to stdout.
@@ -471,39 +473,6 @@ def print_results(title, results):
         print(result["output"], end="" if result["output"].endswith("\n") else "\n")
         print()
     print("\n".join(summary(results)))
-
-
-# What the summary restates of a step `jsk ship` still builds from a captured output -
-# its render and its fit, which are not use cases yet: every checker's count line,
-# render_resume.py's `WARN n` over its warnings and its page lines, build.py's warning for
-# a line below the floor, and the fit step's outcome. A step from run_gates carries these
-# as fields and is never read back.
-COUNTS = re.compile(r"^(?:FAIL (\d+)\s+)?WARN (\d+)\s*$", re.M)
-PAGES = re.compile(r"^  pages  (.+?): (\d+) pages? against a budget of (\d+)", re.M)
-WITHHELD = re.compile(r"^  warn  \[[^\]]*\] withheld (.+?) - provenance", re.M)
-FITTED = re.compile(r"^\s*(fit: .+?|over by ~\d+ lines? at the floors)\s*$", re.M)
-
-
-def read_back(result):
-    """(counts, pages, withheld, fitted) of a step known only by what it printed.
-
-    Args:
-        result: a step dict that is not a Shown - one `jsk ship` built itself.
-
-    Returns:
-        counts is (failures or None, warnings) from its last count line, or None; pages
-        the (name, count, budget) of each page line; withheld the ids held below the
-        floor, each once; fitted the fit's last outcome line, or None.
-    """
-    output = result["output"] or ""
-    found = COUNTS.findall(output)
-    counts = None
-    if found:
-        fails, warns = found[-1]
-        counts = (int(fails) if fails else None, int(warns))
-    withheld = tuple(dict.fromkeys(what.split()[-1] for what in WITHHELD.findall(output)))
-    fitted = FITTED.findall(output)
-    return counts, tuple(PAGES.findall(output)), withheld, (fitted[-1] if fitted else None)
 
 
 def summary(results):
@@ -524,10 +493,8 @@ def summary(results):
     lines = ["=== summary"]
     rendered = any(r["gate"] == "render" for r in results)
     for result in results:
-        if isinstance(result, Shown):
-            counts, pages, withheld, fitted = result.counts, result.pages, (), None
-        else:
-            counts, pages, withheld, fitted = read_back(result)
+        counts, pages = result.counts, result.pages
+        withheld, fitted = result.withheld, result.fitted
         parts = [result["status"]]
         if counts:
             fails, warns = counts

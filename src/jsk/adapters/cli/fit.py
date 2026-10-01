@@ -73,13 +73,30 @@ def main(argv=None, *, tex):
     Returns:
         The exit code. Prints the report; may write the fitted .tex.
     """
+    return fitted(argv, tex=tex)[0]
+
+
+def fitted(argv, *, tex):
+    """`jsk fit` with how it went: `jsk ship` reads the levers off it.
+
+    Args:
+        argv: the arguments after the program name; None reads sys.argv.
+        tex: compiles each candidate (ports.tex.TexCompiler).
+
+    Returns:
+        (exit code, the FitResult, or None when the fit could not start). Prints the
+        report; may write the fitted .tex.
+
+    Raises:
+        SystemExit: from argparse, for a bad call or --help.
+    """
     from ...cliutil import utf8_stdout
 
     a = parse(argv)
     utf8_stdout()
     code = refused(a)
     if code is not None:
-        return code
+        return code, None
 
     from ...application.render.fit_pages import FitStopped, fit_pages
     from ...infra import files, outputs, pdf
@@ -94,9 +111,9 @@ def main(argv=None, *, tex):
             print(f"  fix: {stop.fix}")
         else:
             print("\n".join(STOPPED[stop.kind]))
-        return 2
+        return 2, None
     report(result)
-    return CODES[result.outcome]
+    return CODES[result.outcome], result
 
 
 def report_pages(pages, indent="  "):

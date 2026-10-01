@@ -44,6 +44,8 @@ class RenderResult:
     warnings: tuple             # each once, in the order raised
     variants: dict              # PDF path -> the variant it holds
     unverified: bool            # a PDF was asked for and none was produced
+    measured: tuple = ()        # (PDF name, pages, budget) for each PDF whose pages counted
+    withheld: tuple = ()        # the id of each entry held below the floor, each once
 
 
 def page_count(reader, pdf):
@@ -87,19 +89,22 @@ def last_page_fill(reader, pdf):
     return fill_percent(pages[-1]) if pages else None
 
 
-def measured(reader, pdf, budget):
+def measured(reader, pdf, budget, counted):
     """The page line for a PDF just compiled (domain.render.page_report).
 
     Args:
         reader: counts and measures it (ports.pdf.PdfInspector).
         pdf: the PDF.
         budget: the plan's page budget.
+        counted: gains (the PDF's name, its pages, the budget) when its pages counted.
 
     Returns:
         The line. Reads the PDF twice: its page count and its last page's fill.
     """
-    return page_report(os.path.basename(pdf), page_count(reader, pdf), budget,
-                       last_page_fill(reader, pdf))
+    name, count = os.path.basename(pdf), page_count(reader, pdf)
+    if count is not None:
+        counted.append((name, count, budget))
+    return page_report(name, count, budget, last_page_fill(reader, pdf))
 
 
 def basename_for(plan_for, company_of, src, store):
@@ -188,7 +193,7 @@ def render_loaded(loaded, src, out_dir, *, fmt="all", region=None, profile=None,
     # presentation, whatever the file said.
     targets = select_targets(fmt, profile or doc.get("format"))
 
-    written, warnings, notes, pages, held = [], [], [], [], {}
+    written, warnings, notes, pages, held, counted, withheld = [], [], [], [], {}, [], []
     first, unverified = None, False
     for variant, kind, stem in targets:
         try:
@@ -198,6 +203,7 @@ def render_loaded(loaded, src, out_dir, *, fmt="all", region=None, profile=None,
         if first is None:
             first = rendered
         warnings.extend(f"[{variant}/{kind}] {w}" for w in rendered["warnings"])
+        withheld.extend(rendered["withheld"])
         path = os.path.join(out_dir, stem.format(name=base))
 
         if kind == "latex":
@@ -210,7 +216,7 @@ def render_loaded(loaded, src, out_dir, *, fmt="all", region=None, profile=None,
                 if pdf:
                     written.append(pdf)
                     held[pdf] = variant
-                    pages.append(measured(reader, pdf, rendered["pages"]))
+                    pages.append(measured(reader, pdf, rendered["pages"], counted))
                 else:
                     unverified = True
         elif kind == "txt":
@@ -222,9 +228,9 @@ def render_loaded(loaded, src, out_dir, *, fmt="all", region=None, profile=None,
             raise RenderStopped("format", kind, 2)
 
     assert first is not None, "select_targets names at least one target"
-    seen = set()
-    unique = tuple(w for w in warnings if not (w in seen or seen.add(w)))
     return RenderResult(view=first["view"], profile=first["profile"], budget=first["pages"],
                         template=template or themes.DEFAULT, written=tuple(written),
-                        pages=tuple(pages), notes=tuple(notes), warnings=unique,
-                        variants=held, unverified=unverified)
+                        pages=tuple(pages), notes=tuple(notes),
+                        warnings=tuple(dict.fromkeys(warnings)),
+                        variants=held, unverified=unverified, measured=tuple(counted),
+                        withheld=tuple(dict.fromkeys(withheld)))

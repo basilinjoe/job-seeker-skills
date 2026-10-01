@@ -47,6 +47,8 @@ class GateStep:
     output: str                 # everything the gate printed, verbatim
     counts: tuple | None = None     # (failures or None, warnings) from its count line
     pages: tuple = ()               # (PDF name, pages, budget) for each PDF measured
+    withheld: tuple = ()            # `jsk ship`'s render: each id held below the floor
+    fitted: str | None = None       # `jsk ship`'s fit: what it came to, as its line says it
 
 
 def step(gate, command, code, output, outcome=None):

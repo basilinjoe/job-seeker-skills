@@ -79,8 +79,8 @@ class Builder:
     """One plan's sections, built from the career for one resume.json and one variant.
 
     Each section method returns its section as the emitters take it, or None when the
-    career has nothing for it. What is withheld and why accumulates in `warnings`, and the
-    bullets placed on the page in `sent`.
+    career has nothing for it. What is withheld and why accumulates in `warnings`, the id of
+    each entry withheld in `withheld`, and the bullets placed on the page in `sent`.
     """
 
     def __init__(self, career, doc, profile, ascii_only, today):
@@ -97,6 +97,7 @@ class Builder:
         self.ascii_only = ascii_only
         self.signed_on = today
         self.warnings = []
+        self.withheld = []
         self.sent = []
         self.floor = PROVENANCE_RANK.get(doc.get("floor", "confirmed"), 3)
         self.me = O.K + "person"
@@ -128,10 +129,12 @@ class Builder:
             what: how the warning names the entry.
 
         Returns:
-            True to render it; False after adding a warning that it was withheld.
+            True to render it; False after adding a warning that it was withheld, and its
+            id (the last word of `what`) to `withheld`.
         """
         if PROVENANCE_RANK.get(status, 0) < self.floor:
             self.warnings.append(f"withheld {what} - provenance '{status}' is below the floor")
+            self.withheld.append(what.split()[-1])
             return False
         return True
 
@@ -467,5 +470,6 @@ def build(store, doc, *, profiles, today, region=None, fmt=None):
         "headline": getattr(b, "headline", None),
         "sections": sections,
         "warnings": b.warnings,
+        "withheld": b.withheld,
         "sent": b.sent,
     }
