@@ -1,6 +1,5 @@
 """`jsk kb export`: its flags, the bullets chosen (application/tailor/export.py), what the
 choice left out and the checks it fails said, and the short resume.json printed or written."""
-import datetime
 import os
 import sys
 
@@ -46,20 +45,27 @@ def cmd_export(args, flags, root, today):
     --urs and --refresh are gone with the full record: the short file is the one format,
     and there is nothing in it to refresh.
     """
-    from ....graph.match import COVER
-
-    options = export_options(args, flags, COVER)
+    options = export_options(args, flags, today)
     if isinstance(options, int):
         return options
-    select, today_text, budget = options
-    if today_text:
-        today = datetime.date.fromisoformat(today_text)
+    select, today, budget = options
     return exported(root, flags, select, today, budget)
 
 
-def export_options(args, flags, cover):
-    """(the --select ids or None, --today as given, the cover budget), or the exit code of
-    a call made wrongly, its usage printed."""
+def export_options(args, flags, today):
+    """Check export's flags and read --cover and --today as the tailoring commands do.
+
+    Args:
+        args: the arguments left after the flags.
+        flags: the parsed flags.
+        today: the day the command read, used when --today is not given.
+
+    Returns:
+        (the --select ids or None, the day, the cover budget), or the exit code of a call
+        made wrongly, its usage printed.
+    """
+    from ..options import BadOption, tailor_options
+
     # Said by name rather than as an unknown flag - so they are switches it takes: an
     # agent file or a shell history written before the short file still has them.
     if "--urs" in flags:
@@ -88,17 +94,11 @@ def export_options(args, flags, cover):
         return usage("--today goes with --from-match or --ranked")
     if "--replace" in flags and not out:
         return usage("--replace goes with --out: it lets the export write over that file")
-    budget = cover
     try:
-        if today_text:
-            datetime.date.fromisoformat(today_text)
-        if cover_text:
-            budget = int(cover_text)
-    except ValueError:
-        return usage("--cover takes a whole number and --today a YYYY-MM-DD date")
-    if budget < 1:
-        return usage("--cover takes a whole number of at least 1")
-    return select, today_text, budget
+        chosen = tailor_options(cover_text or None, today_text or None, lambda: today)
+    except BadOption as e:
+        return usage(str(e))
+    return select, chosen.today, chosen.budget
 
 
 def exported(root, flags, select, today, budget):
