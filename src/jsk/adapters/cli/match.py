@@ -75,6 +75,10 @@ def main(argv):
         print("\n".join(app))
         return 2
     for flag in ("--gaps", "--draft-gaps"):
+        refused = flag in options and graph_native(app, f"jsk tailor match {flag}")
+        if refused:
+            print(refused)
+            return 1
         refused = flag in options and gaps_refusal(app, options[flag], flag == "--draft-gaps")
         if refused:
             print(refused)
@@ -93,6 +97,21 @@ def main(argv):
     writes = "--gaps" in options or "--draft-gaps" in options
     with R.turn(root, dry_run=not writes):
         return matched(root, app, argv[0], options, opts, as_json)
+
+
+def graph_native(app, verb):
+    """The refusal's two lines when `app` is graph-native - its review is the store's, not
+    gaps.txt (Ruling 11 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md)
+    - else None."""
+    from ...application.posting.native import refused_verb
+    from .compose.timeline import app_graphs, records
+
+    rel = records().workspace_of_app(app)[1] or app
+    try:
+        graphs = app_graphs(app)
+    except ImportError:
+        return None         # no pyoxigraph: main says so next, and nothing is matched
+    return refused_verb(graphs, rel, verb)
 
 
 def run_match(root, app, named, opts):

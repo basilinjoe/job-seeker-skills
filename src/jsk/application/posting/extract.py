@@ -101,8 +101,14 @@ def extract(app_dir, vocabulary, today, *, folder):
         The text to print.
 
     Raises:
-        Refused: there is no readable posting.md.
+        Refused: there is no readable posting.md, or the application is graph-native -
+            its lines are in the store (Ruling 11).
     """
+    from .build import graph_native
+
+    refused = graph_native(app_dir, folder, "jsk posting extract")
+    if refused:
+        raise refused
     advert = read_advert(app_dir, folder=folder)
     title, company, url = advert_header(advert)
     root, store = workspace(app_dir, vocabulary, folder=folder)

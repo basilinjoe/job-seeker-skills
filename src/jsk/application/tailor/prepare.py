@@ -199,7 +199,7 @@ def gaps_lines(store, r, app, rel, today, draft, folder):
     """
     from .check_gaps import build, shown
 
-    derived = folder.derive(r, store)
+    derived = folder.derive(r, store, today)
     target = os.path.join(app, "gaps.txt")
     written, found = build(app, store, r, today, derived, folder=folder)
     lines = [f"{s}  {t}\n      fix: {f}" for s, t, f in found]

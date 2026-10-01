@@ -48,22 +48,28 @@ def read_assessment(path):
     return parse(read_text(path, "gaps.txt"))
 
 
-def derive(r, store):
+def derive(r, store, today=None):
     """The Derived assessment for the match result `r` over `store`
-    (domain.assessment.derive.derive over the engine's queries).
+    (domain.assessment.derive.derive over the engine's queries), with the career's
+    absences: a confirmed "no" still standing on `today` answers what it denies (Ruling 9
+    of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md).
 
     Args:
         r: match.result's plain data for one posting.
         store: the loaded workspace the match ran on.
+        today: the day an absence's lapse is measured against; None takes no absence.
 
     Returns:
         domain.assessment.derive.derive's Derived. Reads the confirmed bullets' words.
     """
     from ....application.tailor.match_text import question_line
     from ....domain.assessment.derive import derive as derived
+    from ....domain.record.absence import of_triples
+    from ....domain.record.state import KB
     from ....infra.oxigraph.queries import OxigraphQueries
 
-    return derived(r, OxigraphQueries(store), question_line)
+    absences = of_triples(store.graph(KB)) if today is not None and KB in store.parsed else []
+    return derived(r, OxigraphQueries(store), question_line, absences=absences, today=today)
 
 
 def advert(path):
@@ -146,9 +152,10 @@ class Folder:
 
         return sent_day(app_dir, store)
 
-    def derive(self, r, store):
-        """The Derived assessment for the match `r` (this module's derive)."""
-        return derive(r, store)
+    def derive(self, r, store, today=None):
+        """The Derived assessment for the match `r`, with the absences standing on `today`
+        (this module's derive)."""
+        return derive(r, store, today)
 
     def read_text(self, path, what):
         """An authored file's text (infra.files.read_text).
