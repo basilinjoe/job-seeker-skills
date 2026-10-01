@@ -8,7 +8,7 @@ from ...domain.record.state import KB, LOG, State, unrecorded
 from ...domain.record.store import Store
 
 
-def untraced_lines(store, queries, today, bullets=None):
+def untraced_lines(store, queries, bullets=None):
     """numbers.untraced over `bullets`, a line each: what the record gate would refuse in
     any resume selecting the bullet. Export asks it of the bullets it chose - on the
     Everforth run the author found four of these one gate at a time, three changesets deep.
@@ -21,7 +21,6 @@ def untraced_lines(store, queries, today, bullets=None):
     Args:
         store: the loaded workspace.
         queries: its ports.queries.RecordQueries.
-        today: the date the command runs on.
         bullets: achievement iris; every live bullet when None.
 
     Returns:
@@ -35,7 +34,7 @@ def untraced_lines(store, queries, today, bullets=None):
     career = Career(store.graph(KB))
     out = []
     chosen = sorted(career.live("Achievement")) if bullets is None else bullets
-    for f in untraced(queries, chosen, today):
+    for f in untraced(queries, chosen):
         if f.numbers:
             one = len(f.numbers) == 1
             out.append(f"{curie(f.bullet)} - {quoted(f.numbers)} "
@@ -56,13 +55,12 @@ class Checked:
     state: State
 
 
-def check(root, only, today, *, load, state, graph_name, queries):
+def check(root, only, *, load, state, graph_name, queries):
     """Validate the workspace and say where the career and its log stand.
 
     Args:
         root: the workspace.
         only: a graph name or a path to narrow the findings to (every FAIL stays), or None.
-        today: the date the number check reads versions against.
         load: loads the workspace (compose.record.load).
         state: where the career and its log stand (infra.oxigraph.record.state).
         graph_name: the graph a path holds (infra.files.graph_name).
@@ -83,7 +81,7 @@ def check(root, only, today, *, load, state, graph_name, queries):
     rep = Store(store.root, findings=[f for f in store.findings
                                       if f.severity == "FAIL" or within(f.file)]).report()
     if not rep.fails and KB in store.parsed and within(KB):
-        for line in untraced_lines(store, queries(store), today):
+        for line in untraced_lines(store, queries(store)):
             rep.warn(f"a record selecting it fails a gate: {line}\n        fix: record the "
                      "number as a metric version and cite it (j:cites), or correct the words, "
                      "with `jsk kb apply` - every application selecting it pays this otherwise")

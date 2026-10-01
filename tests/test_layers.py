@@ -7,10 +7,12 @@ same about pyoxigraph and preflight for a year; the lazy imports that broke it w
 ones nobody could see without reading function bodies. So this walks every import,
 including the ones inside functions, and fails an edge that points outward.
 
-A module not yet moved into a ring is "unsorted". It may import anything but an adapter,
-and nothing sorted may import it - moving it is how an edge into it goes away. KNOWN
-holds today's violations. An entry may only leave it: the inverse test fails the moment a
-listed violation is gone, so the list cannot outlive what it excuses.
+Every module is in a ring. The root modules Ruling 1 keeps at the package root are placed
+by name (ROOT_ADAPTERS, ROOT_INFRA); the package's own __init__, which holds only the
+version, is in none, imports nothing, and only an adapter may import it. A module outside
+every ring fails. KNOWN holds the violations a phase still had to remove. An entry may
+only leave it: the inverse test fails the moment a listed violation is gone, so the list
+cannot outlive what it excuses.
 
 Standard library only, like the rest of the suite's structure tests, so it runs in the
 sdist job and on a machine without pyoxigraph.
@@ -24,7 +26,6 @@ from fixtures import SCRIPTS
 PACKAGE = "jsk"
 RINGS = ("domain", "ports", "application", "infra", "adapters")
 RANK = {ring: i for i, ring in enumerate(RINGS)}
-UNSORTED = "unsorted"
 
 # Adapters that still live at the package root, where their documented paths are.
 ROOT_ADAPTERS = {"jsk.cli", "jsk.__main__", "jsk.preflight", "jsk.mcp"}
@@ -52,9 +53,9 @@ KNOWN_EDGES = {}
 # (module, what it does that its ring forbids).
 KNOWN_FORBIDDEN = set()
 
-# Package cycles among the unsorted packages: (package, package) pairs that import each
-# other, P1's work. A ring cannot be in one without an outward edge, which is failed above.
-KNOWN_CYCLES = set()
+# There is no package-cycle check. It was P1's, over the packages not yet in a ring; with
+# every module in one, a cycle between two rings needs an outward edge, which is failed
+# above, and the ring rule says nothing about subpackages of one ring importing each other.
 
 
 def module_name(path):
@@ -67,7 +68,10 @@ def module_name(path):
 
 
 def ring_of(name):
-    """The ring `name` (a dotted jsk module) sits in, or UNSORTED."""
+    """The ring `name` (a dotted jsk module) sits in, or None for a module in no ring.
+
+    Only the package itself, `jsk`, may be in none; unringed() names any other.
+    """
     if name in ROOT_ADAPTERS:
         return "adapters"
     if name in ROOT_INFRA:
@@ -75,7 +79,12 @@ def ring_of(name):
     parts = name.split(".")
     if len(parts) > 1 and parts[1] in RANK:
         return parts[1]
-    return UNSORTED
+    return None
+
+
+def unringed(mods):
+    """The sorted names in `mods` that sit in no ring, the package's own __init__ aside."""
+    return sorted(name for name in mods if ring_of(name) is None and name != PACKAGE)
 
 
 # The line that makes a module an alias of one that moved: its old path is kept for the
@@ -154,15 +163,14 @@ def jsk_edges(mods, keep=()):
 
 
 def outward(edges):
-    """The edges that point from a ring to one further out, or into an unsorted module."""
+    """The edges that point from a ring to one further out, into a module in no ring
+    from anywhere but an adapter, or out of a module in no ring at all."""
     bad = {}
     for (src, dst), names in edges.items():
         a, b = ring_of(src), ring_of(dst)
-        if b == "adapters" and a != "adapters":
-            bad[(src, dst)] = names
-        elif a == UNSORTED or a == "adapters":
+        if a == "adapters":
             continue
-        elif b == UNSORTED or RANK[b] > RANK[a]:
+        if a is None or b is None or RANK[b] > RANK[a]:
             bad[(src, dst)] = names
     return bad
 
@@ -217,27 +225,13 @@ def domain_calls(name, tree):
     return out
 
 
-def package_of(name):
-    """`jsk.graph.store` -> `jsk.graph`; a root module is its own package."""
-    parts = name.split(".")
-    return ".".join(parts[:2]) if len(parts) > 2 or (len(parts) == 2 and parts[1] in RANK) \
-        else name
-
-
-def cycles(edges):
-    """{(a, b)} sorted pairs of unsorted top-level packages (or root modules) importing
-    each other."""
-    pkg = {}
-    for src, dst in edges:
-        a, b = package_of(src), package_of(dst)
-        if a != b and PACKAGE not in (a, b) and UNSORTED == ring_of(a) == ring_of(b):
-            pkg.setdefault(a, set()).add(b)
-    return {tuple(sorted((a, b))) for a, bs in pkg.items() for b in bs if a in pkg.get(b, ())}
-
-
 class DependenciesPointInward(unittest.TestCase):
     MODS = modules()
     EDGES = jsk_edges(MODS)
+
+    def test_every_module_sits_in_a_ring(self):
+        self.assertEqual(unringed(self.MODS), [], "put the module in a ring's package, or "
+                                                  "name it in ROOT_ADAPTERS or ROOT_INFRA")
 
     def test_no_module_imports_an_old_path(self):
         old = aliases()
@@ -260,12 +254,6 @@ class DependenciesPointInward(unittest.TestCase):
     def test_every_known_forbidden_use_still_exists(self):
         stale = sorted(KNOWN_FORBIDDEN - forbidden(self.MODS))
         self.assertEqual(stale, [], "these are gone - take them off KNOWN_FORBIDDEN")
-
-    def test_no_new_package_cycle(self):
-        found = cycles(self.EDGES)
-        self.assertEqual(sorted(found - KNOWN_CYCLES), [], "two packages import each other")
-        self.assertEqual(sorted(KNOWN_CYCLES - found), [],
-                         "these cycles are gone - take them off KNOWN_CYCLES")
 
 
 class TheGuardSeesEachWayRound(unittest.TestCase):
@@ -291,9 +279,24 @@ class TheGuardSeesEachWayRound(unittest.TestCase):
         bad = self.edges_of("jsk.application.record.x", text, ["jsk.infra.files"])
         self.assertIn(("jsk.application.record.x", "jsk.infra.files"), bad)
 
-    def test_a_sorted_module_may_not_import_an_unsorted_one(self):
+    def test_a_ring_may_not_import_a_module_in_no_ring(self):
         bad = self.edges_of("jsk.domain.x", "from ..graph import store\n", ["jsk.graph.store"])
         self.assertIn(("jsk.domain.x", "jsk.graph.store"), bad)
+
+    def test_only_an_adapter_may_import_the_package_itself(self):
+        text = "from .. import __version__\n"
+        self.assertIn(("jsk.domain.x", "jsk"), self.edges_of("jsk.domain.x", text, ["jsk"]))
+        self.assertEqual(self.edges_of("jsk.adapters.x", text, ["jsk"]), {})
+
+    def test_a_module_in_no_ring_is_seen(self):
+        mods = {name: (SCRIPTS / "x.py", self.tree("")) for name in
+                ("jsk", "jsk.graph.store", "jsk.cli", "jsk.paths", "jsk.domain.naming")}
+        self.assertEqual(unringed(mods), ["jsk.graph.store"])
+
+    def test_a_module_in_no_ring_may_import_nothing(self):
+        bad = self.edges_of("jsk.graph.store", "from ..domain import naming\n",
+                            ["jsk.domain.naming"])
+        self.assertIn(("jsk.graph.store", "jsk.domain.naming"), bad)
 
     def test_an_outer_ring_may_import_an_inner_one(self):
         bad = self.edges_of("jsk.adapters.cli.x", "from ...domain import naming\n",
@@ -313,10 +316,6 @@ class TheGuardSeesEachWayRound(unittest.TestCase):
     def test_an_import_of_an_old_path_is_seen(self):
         mods = {"jsk.x": (SCRIPTS / "x.py", self.tree("from .graph import kbcli\n"))}
         self.assertIn(("jsk.x", "jsk.graph.kbcli"), jsk_edges(mods, {"jsk.graph.kbcli"}))
-
-    def test_a_cycle_is_seen(self):
-        edges = {("jsk.graph.a", "jsk.gates.b"): set(), ("jsk.gates.c", "jsk.graph.d"): set()}
-        self.assertEqual(cycles(edges), {("jsk.gates", "jsk.graph")})
 
 
 if __name__ == "__main__":

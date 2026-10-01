@@ -6,8 +6,14 @@ before the store (legacy.read_workspace), put in a store, and removed - so nothi
 test can keep reading a file the record no longer lives in. Unlike `jsk kb load`, seed()
 keeps a record with FAILs: tests of the rules need one.
 """
+import contextlib
 import glob
+import io
 import os
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
 
 from jsk.infra import legacy_import as legacy
 from jsk.infra.oxigraph import record as R
@@ -79,3 +85,69 @@ def graph_text(root, name=R.KB):
 
 def kb_text(root):
     return graph_text(root, R.KB)
+
+
+class Workspace(unittest.TestCase):
+    """The fixture copied, and put in a store the first time a test runs `jsk kb` on it -
+    so a test can edit the fixture's text first (a record with a FAIL, say: the store
+    keeps what it is given)."""
+
+    def setUp(self):
+        # Imported here, not at the top: test_graph_shapes imports this module.
+        from test_graph_shapes import FIXTURES
+
+        self.root = tempfile.mkdtemp()
+        shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
+        self.addCleanup(shutil.rmtree, self.root)
+        self.seeded = False
+
+    def seed(self):
+        if not self.seeded:
+            seed(self.root)
+            self.seeded = True
+
+    def path(self, name):
+        return Path(self.root) / name
+
+    def changeset(self, text, name="changes.trig"):
+        self.path(name).write_text(text, encoding="utf-8")
+        return str(self.path(name))
+
+    def kb(self, *args):
+        from jsk import cli
+
+        self.seed()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cli.main(["jsk", "kb", *args, "--root", self.root])
+        return code, out.getvalue()
+
+    def loaded(self):
+        from jsk.adapters.cli.compose import record as S
+
+        self.seed()
+        return S.load(self.root)
+
+    def record(self):
+        """The whole record as its dump: what a refusal must leave as it was."""
+        from jsk.infra.oxigraph import db
+
+        self.seed()
+        return db.dump_text(db.read(self.root))
+
+    def kb_text(self):
+        return kb_text(self.root)
+
+    def log_text(self):
+        return graph_text(self.root, R.LOG)
+
+    def edit_kb(self, old, new):
+        """Change the career: its text before it is stored, the store after."""
+        from test_graph_pack import edit_career
+
+        if self.seeded:
+            return edit_career(self, self.root, old, new)
+        kb = self.path("career/kb.ttl")
+        text = kb.read_text(encoding="utf-8")
+        self.assertIn(old, text)
+        kb.write_text(text.replace(old, new), encoding="utf-8", newline="\n")

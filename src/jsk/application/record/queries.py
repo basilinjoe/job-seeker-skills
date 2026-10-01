@@ -11,8 +11,9 @@ and a location that two queries answer in half a second.
 The SPARQL stays here, over Store.select: the query text is the verb (Ruling 3 of the onion
 design). `@query` registers each verb in QUERIES, the kb's read vocabulary; the few that
 resolve a term through the vocabulary are registered as `reads` and take the record's
-feature reads (ports.queries.RecordQueries) as `queries`. How the rows print is the CLI's
-(adapters/cli/presenters.table).
+feature reads (ports.queries.RecordQueries) as `queries`, and the few that count to a day
+as `dated`, taking the day the command read from the clock as `today`. How the rows print
+is the CLI's (adapters/cli/presenters.table).
 """
 import datetime
 
@@ -27,7 +28,7 @@ from .holdings import experience_of
 QUERIES = {}
 
 
-def query(name, args="", doc="", reads=False):
+def query(name, args="", doc="", reads=False, dated=False):
     """Register the function it decorates as the `jsk kb query` verb `name`.
 
     Args:
@@ -35,12 +36,14 @@ def query(name, args="", doc="", reads=False):
         args: its arguments as the usage shows them; `...` at the end for one or more.
         doc: the line the verb's list gives it.
         reads: the verb takes the record's feature reads as `queries`.
+        dated: the verb takes the day the command runs on as `today`.
 
     Returns:
-        The decorator, which records (args, doc, fn, reads) in QUERIES and returns fn.
+        The decorator, which records (args, doc, fn, reads, dated) in QUERIES and returns
+        fn.
     """
     def register(fn):
-        QUERIES[name] = (args, doc, fn, reads)
+        QUERIES[name] = (args, doc, fn, reads, dated)
         return fn
     return register
 
@@ -135,19 +138,21 @@ def stale(store):
               "current": curie(r["now"].value) if "now" in r else ""} for r in rows])
 
 
-@query("experience", "<concept>", "months the roles behind the projects holding a concept cover")
-def experience_query(store, concept):
+@query("experience", "<concept>", "months the roles behind the projects holding a concept cover",
+       dated=True)
+def experience_query(store, concept, *, today):
     """experience_of as a table: each role behind the concept's projects, then the total.
 
     Args:
         store: a loaded workspace.
         concept: a concept's `c:` curie or bare id.
+        today: the day an ongoing role runs to.
 
     Returns:
         (columns, rows), the last row the months in all, overlaps counted once.
     """
     iri = O.C + concept[2:] if concept.startswith("c:") else O.C + concept
-    months, spans, _ = experience_of(store, iri)
+    months, spans, _ = experience_of(store, iri, today)
     rows = [{"project": curie(p), "role": curie(pos), "from": start, "to": end or "ongoing",
              "months": ""} for p, pos, start, end in spans]
     rows.append({"project": "total, overlaps once", "role": "", "from": "", "to": "",
@@ -155,20 +160,20 @@ def experience_query(store, concept):
     return (("project", "role", "from", "to", "months"), rows)
 
 
-@query("pipeline", doc="each application's stage: its latest event, and how long ago")
-def pipeline(store, today=None):
+@query("pipeline", doc="each application's stage: its latest event, and how long ago",
+       dated=True)
+def pipeline(store, *, today):
     """Each application's stage. The stage is a query, never a stored field: the latest
     dated event of each application. An event dated `unknown` is the stage only when
     nothing is dated.
 
     Args:
         store: a loaded workspace.
-        today: the day the days since are counted to; today when None.
+        today: the day the days since are counted to.
 
     Returns:
         (columns, rows), by application.
     """
-    today = today or datetime.date.today()
     apps = store.select(PRE + """SELECT ?app ?sub WHERE { ?app a j:Application ;
                                                                 j:submitted ?sub }""")
     events = store.select(PRE + """SELECT ?app ?e ?date ?kind ?due WHERE {

@@ -400,7 +400,7 @@ class RecordFaults(unittest.TestCase):
         # `jsk kb check` asks about it across the career.
         s = edited("Built the AngularJS front end.", "Built the AngularJS front end for 12 teams.")
         from jsk.adapters.cli.compose import gates
-        whole = gates.untraced(s, [O.K + "ach_portal_frontend"], TODAY)
+        whole = gates.untraced(s, [O.K + "ach_portal_frontend"])
         self.assertTrue(whole)                                             # it is a fault
         qs, _ = self.faults(s)
         self.assertNotIn("k:ach_portal_frontend", [q["bullet"] for q in qs])
