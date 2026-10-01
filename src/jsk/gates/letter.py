@@ -80,7 +80,7 @@ def number_lines(text, doc, store, posting=None, today=None):
     """FAIL lines for each numeral the application cannot stand on - see the docstring."""
     from ..domain import ontology as O
     from ..infra.oxigraph import record as R
-    from ..resume import short
+    from ..domain.resume import short
     from ..domain.resume.constants import PROVENANCE_RANK  # the floor as the render reads it
     from ..domain.record.career import Career
     from . import numbers

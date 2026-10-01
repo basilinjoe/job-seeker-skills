@@ -24,11 +24,11 @@ from pathlib import Path
 import careerkit
 from fixtures import (PARSE_GATE, RENDER, RENDER_RESUME, example_short,
                       load_script, render_module, run)
-from jsk.resume import build
+from jsk.adapters.cli.compose import resume
 from test_build import LEAD_TITLE, BuildCase, short
 
-emit_latex = render_module("render.emit_latex")
-tex = render_module("render.tex")
+emit_latex = render_module("domain.render.emit_latex")
+tex = render_module("infra.tex")
 
 TEAM = '"Led a team of 6 engineers."'
 
@@ -214,7 +214,8 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
 
     def test_a_failed_compile_exits_nonzero_and_says_unverified(self):
         module = load_script(RENDER_RESUME)
-        module.compile_pdf = lambda tex_path, out_dir: (None, "stub: no PDF")
+        bound = load_script("jsk.adapters.cli.compose.render")
+        bound.compile_pdf = lambda tex_path, out_dir: (None, "stub: no PDF")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             code = module.main(["render_resume.py", str(example_short()),
@@ -240,7 +241,7 @@ class ThePageCountIsMeasured(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-        self.report = load_script(RENDER_RESUME).page_report
+        self.report = load_script("jsk.domain.render.page_report").page_report
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
     def test_the_render_reports_the_pages_it_actually_produced(self):
@@ -251,7 +252,7 @@ class ThePageCountIsMeasured(unittest.TestCase):
         with pymupdf.open(self.tmp / "Priya_Raman_Resume.pdf") as pdf:
             actual = pdf.page_count
         self.assertIn(f"pages  Priya_Raman_Resume.pdf: {actual} page", out)
-        budget = build.from_path(example_short())[0]["pages"]
+        budget = resume.from_path(example_short())[0]["pages"]
         self.assertIn(f"against a budget of {budget}", out)
 
     def test_over_budget_is_named_rather_than_left_to_be_noticed(self):
@@ -303,7 +304,7 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
         them or it is sampling again - which is exactly what moving the check
         here was meant to stop.
         """
-        themes_mod = render_module("render.themes")
+        themes_mod = render_module("domain.render.themes")
         plans = {fmt: self.plan(fmt=fmt) for fmt in ("presentation", "ats-maximal")}
         return [(f"{fmt}/{name}", emit_latex.emit(plan, template=name))
                 for fmt, plan in plans.items()
@@ -416,7 +417,7 @@ class TheDateColumnHolds(PlanCase):
         \\rightskip globally; the \\hfill that pushes the date right is `fill`,
         an infinity order above `fil`, so it still wins and the guard is
         unaffected either way."""
-        themes_mod = render_module("render.themes")
+        themes_mod = render_module("domain.render.themes")
         plan = self.plan(edits=[self.EDIT])
         for name in themes_mod.names():
             rendered = emit_latex.emit(plan, template=name)
@@ -462,7 +463,7 @@ class NoTemplateHyphenates(PlanCase):
     compiled proof is check_ats.py's split-word rule, tested in test_check_ats."""
 
     def test_every_theme_and_variant_turns_hyphenation_off_and_sets_ragged_right(self):
-        themes_mod = render_module("render.themes")
+        themes_mod = render_module("domain.render.themes")
         for fmt in ("presentation", "ats-maximal"):
             plan = self.plan(fmt=fmt)
             for name in themes_mod.names():
@@ -560,7 +561,7 @@ class TargetSelection(unittest.TestCase):
     was written over the presentation one under the same name."""
 
     def setUp(self):
-        self.select = load_script(RENDER_RESUME).select_targets
+        self.select = load_script("jsk.domain.render.targets").select_targets
 
     def test_profile_is_not_discarded_under_the_default_format(self):
         rendered = self.select("all", "ats-maximal")

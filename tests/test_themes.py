@@ -20,7 +20,7 @@ from pathlib import Path
 import careerkit
 from fixtures import (PARSE_GATE, PROSE_GATE, RENDER, child_env,
                       example_short, render_module, run)
-from jsk.resume import build
+from jsk.adapters.cli.compose import resume
 from test_build import BuildCase, LEAD_TITLE, short
 
 # Every claim in this file is about the text layer, so which resume renders is
@@ -28,9 +28,9 @@ from test_build import BuildCase, LEAD_TITLE, short
 LONG_TITLE = (LEAD_TITLE, '    j:title "Member of Technical Staff, Distinguished Grade IV" ;\n'
                           '    j:functionalTitle "Principal Full-Stack Platform Engineer" ;\n')
 
-emit_latex = render_module("render.emit_latex")
-themes = render_module("render.themes")
-tex = render_module("render.tex")
+emit_latex = render_module("domain.render.emit_latex")
+themes = render_module("domain.render.themes")
+tex = render_module("infra.tex")
 
 ENGINE = tex.available_engine()
 
@@ -144,7 +144,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         on the name, because a heavy all-caps name is the strongest anchor
         available at the top of a page - and it is the one theme choice a parser
         can see, on the single highest-value field in the document."""
-        plan, _ = build.from_path(example_short())
+        plan, _ = resume.from_path(example_short())
         for name in themes.names():
             rendered = emit_latex.emit(plan, template=name)
             head = rendered.split(r"\begin{document}")[0]
@@ -174,7 +174,7 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         tempting and most expensive, and they have to come back out of the PDF
         exactly as the builder wrote them.
         """
-        plan, _ = build.from_path(example_short())
+        plan, _ = resume.from_path(example_short())
         for name in themes.names():
             text = self.extract(self.render(name))
             self.assertIn(plan["name"], text, f"{name}: the name is not in the text layer")

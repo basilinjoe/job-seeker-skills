@@ -64,7 +64,7 @@ class OntologyTests(unittest.TestCase):
         self.assertEqual(O.ENUMS["seniority"][0], "architecture-ownership")
 
     def test_provenance_matches_the_renderer(self):
-        from jsk.resume.build import PROVENANCE_RANK
+        from jsk.domain.resume.constants import PROVENANCE_RANK
         self.assertEqual(set(PROVENANCE_RANK), set(O.ENUMS["provenance"]))
 
     def test_class_of(self):

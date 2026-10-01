@@ -27,9 +27,9 @@ from ..domain.gates.layout_rules import check as check
 def from_record(record, pdf):
     """(region, page budget, None) from the plan the render built, or (None, None, why)."""
     from .check_ats import variant_of              # noqa: PLC0415
-    from ..resume import build                     # noqa: PLC0415 - only with a record
+    from ..adapters.cli.compose.resume import from_path  # noqa: PLC0415 - only with a record
     try:
-        plan, _ = build.from_path(record, fmt=variant_of(pdf))
+        plan, _ = from_path(record, fmt=variant_of(pdf))
     except Exception as exc:                       # noqa: BLE001 - reported, never fatal
         return None, None, f"{type(exc).__name__}: {exc}"
     return plan.get("region"), plan.get("pages"), None

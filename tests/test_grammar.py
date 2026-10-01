@@ -202,15 +202,11 @@ class TheModulePathsAreRetired(unittest.TestCase):
     PATHS = {
         "jsk.kb": "jsk kb new",
         "jsk.posting": "jsk posting",
-        "jsk.render.render_resume": "jsk resume render",
-        "jsk.render.fit_pages": "jsk resume fit",
-        "jsk.render.preview_templates": "jsk resume preview",
         "jsk.gates.check_ats": "jsk resume check RESUME.pdf --only parse",
         "jsk.gates.check_prose": "jsk resume check RESUME.tex --only prose",
         "jsk.gates.layout": "jsk resume check RESUME.pdf --only layout",
         "jsk.gates.letter": "jsk letter check",
         "jsk.gates.record": "jsk resume check RESUME.json",
-        "jsk.resume.short": "jsk resume check RESUME.json",
         "jsk.preflight": "jsk doctor",
     }
 

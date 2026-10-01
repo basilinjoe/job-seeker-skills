@@ -426,7 +426,7 @@ class ConfirmSummary(Workspace):
         return self.kb("confirm", "--summary", str(path or self.file), "--answer", answer)
 
     def test_the_answer_and_the_text_s_hash_are_written(self):
-        from jsk.resume import short
+        from jsk.domain.resume import short
 
         code, out = self.confirm()
         self.assertEqual(code, 0, out)
@@ -473,7 +473,7 @@ class ConfirmSummary(Workspace):
         self.assertIn("not inside this workspace", out)
 
     def test_an_edit_after_confirming_drops_it(self):
-        from jsk.resume import short
+        from jsk.domain.resume import short
 
         self.assertEqual(self.confirm()[0], 0)
         doc = json.loads(self.file.read_text(encoding="utf-8"))

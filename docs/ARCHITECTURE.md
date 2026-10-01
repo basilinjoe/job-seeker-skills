@@ -16,7 +16,7 @@ career/store/  (the graph record: named graphs in one RocksDB store, validated o
    |                     |  order, skills, format, region, budgets, floor, a summary - no copy
    |                     |  of the career; `jsk kb export` writes it, `jsk resume check` gates it)
    v                     v
-resume/build.py builds the plan exactly once:
+domain/resume/plan.py builds the plan exactly once:
    selection, ordering, provenance filtering, region, ASCII folding, date formatting
    v
 render plan
@@ -126,13 +126,14 @@ command rather than four start-ups; `call_gate()` turns the two failures an in-p
 module that will not import, and one that raises where it should have returned a verdict — into a
 reported failure instead of a traceback.
 
-### Inside the `resume` package
+### The resume, across the rings
 
 | Module | Decides |
 |---|---|
-| `short.py` | the short file: `read` (refuses a legacy URS record, naming `jsk kb export`), `workspace` (by `kbcli.find_root`, never `dirname`), `shape` and `ids` - the FAIL lines the record gate and the builder share |
-| `career.py` | reading the career graph: `Career`, employers and their roles by date, periods. Shared with export, select and match |
-| `build.py` | *what* the document says: `build(store, doc)` returns the plan; `from_path(path)` reads, checks and builds |
+| `domain/resume/short.py` · `application/render/load_resume.py` | the short file: parsed (a legacy URS record refused, naming `jsk kb export`), its workspace (by `infra.files.find_root`, never `dirname`), `shape` and `ids` - the FAIL lines the record gate and the builder share |
+| `domain/record/career.py` | reading the career graph: `Career`, employers and their roles by date, periods. Shared with export, select and match |
+| `domain/resume/plan.py` | *what* the document says: `build(store, doc, ...)` returns the plan |
+| `adapters/cli/compose/resume.py` | the file read from disk, its workspace found and its career loaded; `from_path(path)` reads, checks and builds under the shipped region profiles |
 
 ### The render plan
 
@@ -152,20 +153,20 @@ Every string in it is final: folded to ASCII for `ats-maximal`, dates formatted,
 already dropped. A new section kind is a builder method and a branch in each emitter; a key the
 emitters do not read is dead.
 
-### Inside the `render` package
+### The renderer, across the rings
 
-The renderer: everything after the plan, and the three CLIs.
+Everything after the plan, and the three commands that drive it.
 
 | Module | Decides |
 |---|---|
-| `formatting.py` | *how* one value reads: dates, grades, quantities, the fold to ASCII |
-| `profiles.py` | region profile loading |
-| `emit_*.py` | markup only |
-| `themes.py` | *appearance* only: palette, typeface, rhythm. Below `emit_latex.py`, and it cannot reach the text |
-| `render_resume.py` · `preview_templates.py` · `fit_pages.py` | the CLIs — `jsk resume render`, `jsk resume preview`, `jsk resume fit`. They orchestrate the modules above and decide nothing themselves |
+| `domain/render/formatting.py` | *how* one value reads: dates, grades, quantities, the fold to ASCII |
+| `infra/profiles.py` | region profile loading |
+| `domain/render/emit_*.py` | markup only |
+| `domain/render/themes.py` | *appearance* only: palette, typeface, rhythm. Below `emit_latex.py`, and it cannot reach the text |
+| `application/render/` · `adapters/cli/{render,preview,fit}.py` | `jsk resume render`, `jsk resume preview`, `jsk resume fit`: the use cases orchestrate the modules above and decide nothing themselves; the adapters parse and print |
+| `adapters/cli/compose/{render,preview,fit}.py` | each command's TeX engine, bound where a test's patch of `compile_pdf` reaches it |
 
-`render_resume.py` reaches the career only through `resume.build` (and `resume.short` for the
-short file's errors), lazily. `formatting.py` holds
+The render reaches the career only through `compose.resume`, lazily. `formatting.py` holds
 pure functions over single values — no profile, no career — which is what makes them testable in
 isolation.
 
@@ -214,8 +215,8 @@ ask a validated in-memory store about a career. Rule text and the named queries 
 `infra/oxigraph/queries.py`.
 
 Which module may import which is the rings' rule, and `tests/test_layers.py` holds it: an import
-points at its own ring or one further in. Nothing in `render/` imports the record's modules but
-through the composition root's load, and nothing in them imports `render/`.
+points at its own ring or one further in. Nothing in the renderer imports the record's modules but
+through the composition root's load, and nothing in them imports the renderer.
 
 ## The agent boundary
 
@@ -287,17 +288,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   paths.py                          where the packaged schema lives - stated once
   kb.py                             `jsk kb new` - hands over to adapters/cli/kb/new.py (the documented path)
   posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
-  resume/                           career + resume.json -> the render plan
-    short.py                        the short file: read, shape, ids, its workspace
-    career.py                       the career graph as the builder, export and match read it
-    build.py                        every content decision, made exactly once
-  render/                           plan -> document, and the three CLIs that drive it
-    formatting.py                   *how* one value reads      profiles.py   region profiles
-    themes.py                       appearance only            tex.py        the engine
-    emit_latex.py  emit_text.py     markup only
-    render_resume.py                `jsk resume render` - one resume to .tex/PDF plus .txt
-    preview_templates.py            `jsk resume preview` - every template, so the look is chosen by looking
-    fit_pages.py                    `jsk resume fit` - fits a render to a page budget
   gates/                            the mechanical gates `jsk resume check` and `jsk letter check` run
     record.py                       the record gate - resume.json and the bullets it selects
     numbers.py  report.py           the untraced-number check; one way to print a finding
@@ -441,6 +431,10 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/posting.py          `jsk posting extract` and `build`'s folder on disk, decisions.txt read
     cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
     cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads, the short file, the assessment's folder
+    cli/compose/resume.py           a resume.json read from disk, its workspace found, its career loaded, its plan built
+    cli/compose/render.py           `jsk resume render`'s TeX engine and PDF reader; the posting's employer
+    cli/compose/fit.py              `jsk resume fit`'s TeX engine, looked up where a test patches it
+    cli/compose/preview.py          `jsk resume preview`'s TeX engine, looked up where a test patches it
     cli/kb/__init__.py              `jsk kb`: the verb table, its flags, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
     cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG
@@ -456,6 +450,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/gates/layout.py             the layout gate: its flags, the gate run, its verdict said
     cli/gates/record.py             the record gate (`jsk resume check` on a resume.json): its flags, the gate run, its verdict
     cli/gates/letter.py             the letter check: its flags, the check run, its verdict said
+    cli/gates/short.py              the short file's own check of a resume.json: its shape and ids, PASS or FAIL
     cli/gates/check.py              `jsk resume check` on each target kind: each gate contained, the summary
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
@@ -542,11 +537,11 @@ directory named after what they have in common.
 | What the parse gate rejects | `src/jsk/gates/check_ats.py` | `references/ats-rules.md`, `tests/test_check_ats.py` |
 | What the prose gate rejects | `src/jsk/gates/check_prose.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
 | What the layout gate rejects | `src/jsk/gates/layout.py` | `docs/SCRIPTS.md`, `tests/test_layout.py` |
-| What makes a `resume.json` fail | `src/jsk/gates/record.py`, `src/jsk/resume/short.py` (shape, ids) | `references/resume-format.md`, `tests/test_record_gate.py`, `tests/test_short.py` |
-| A key in `resume.json` | `short.KEYS` in `src/jsk/resume/short.py` | `references/resume-format.md`, `build.py`, `export.short_file` |
-| **What content is selected** | `src/jsk/resume/build.py` | never an emitter; `tests/test_build.py` |
-| **How a document looks** | `src/jsk/render/emit_*.py` | never `build.py` |
-| **A palette, typeface or rule** | `src/jsk/render/themes.py` | `references/templates.md`, `tests/test_themes.py` |
+| What makes a `resume.json` fail | `src/jsk/gates/record.py`, `src/jsk/domain/resume/short.py` (shape, ids) | `references/resume-format.md`, `tests/test_record_gate.py`, `tests/test_short.py` |
+| A key in `resume.json` | `short.KEYS` in `src/jsk/domain/resume/short.py` | `references/resume-format.md`, `domain/resume/plan.py`, `export.short_file` |
+| **What content is selected** | `src/jsk/domain/resume/plan.py` | never an emitter; `tests/test_build.py` |
+| **How a document looks** | `src/jsk/domain/render/emit_*.py` | never `plan.py` |
+| **A palette, typeface or rule** | `src/jsk/domain/render/themes.py` | `references/templates.md`, `tests/test_themes.py` |
 | Support for a new market | `data/schema/profiles/<code>.json` | `profile.schema.json`, `region` in `references/resume-format.md` |
 | **The career record's format** | `src/jsk/domain/ontology.py` | `references/kb-format.md` and `docs/ONTOLOGY.md` — the ontology is the format and the reference is its prose; a class, predicate or section in one and not the other is a defect. The writer and the tier-1 rules follow the ontology by themselves |
 | A rule across entries | `src/jsk/domain/record/rules.py` | a mutation in `tests/test_graph_rules.py` — a rule with no mutation fails the suite |

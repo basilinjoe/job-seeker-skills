@@ -50,14 +50,10 @@ STDLIB_ONLY = {"jsk.preflight", "jsk.adapters.mcp"}
 KNOWN_EDGES = {
     # The documented `python -m` entry points hand over to their adapters until P5
     # deletes them (Ruling 4).
-    ("jsk.render.render_resume", "jsk.adapters.cli.render"): {"main"},
-    ("jsk.render.fit_pages", "jsk.adapters.cli.fit"): {"main"},
-    ("jsk.render.preview_templates", "jsk.adapters.cli.preview"): {"main"},
-    # The unsorted modules that load a workspace take the bound load from the composition
-    # root until the render and resume areas move into the rings.
-    ("jsk.render.render_resume", "jsk.adapters.cli.compose.record"): {"load"},
-    ("jsk.resume.build", "jsk.adapters.cli.compose.record"): {"load"},
-    ("jsk.resume.short", "jsk.adapters.cli.compose.record"): {"load"},
+    # The gates that read a resume.json take its bound reads from the composition root
+    # until the gates area moves into the rings.
+    ("jsk.gates.layout", "jsk.adapters.cli.compose.resume"): {"from_path"},
+    ("jsk.gates.record", "jsk.adapters.cli.compose.resume"): {"read"},
     ("jsk.posting", "jsk.adapters.cli.posting"): {"main"},
     ("jsk.gates.check_ats", "jsk.adapters.cli.gates.ats"): {"main"},
     ("jsk.gates.check_prose", "jsk.adapters.cli.gates.prose"): {"main"},

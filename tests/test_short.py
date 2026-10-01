@@ -8,7 +8,9 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from jsk.resume import short
+from jsk.domain.resume import short
+from jsk.adapters.cli.compose import resume
+from jsk.adapters.cli.gates import short as own_check
 
 OK = {"resume": 2, "bullets": ["ach_events_latency", "ach_identity_sso"]}
 
@@ -17,15 +19,15 @@ class Read(unittest.TestCase):
     def test_a_short_file_reads(self):
         with tempfile.TemporaryDirectory() as tmp:
             root, path = careerkit.workspace(tmp, short=OK)
-            self.assertEqual(short.read(path)["bullets"], OK["bullets"])
-            self.assertEqual(Path(short.workspace(path)), Path(root))
+            self.assertEqual(resume.read(path)["bullets"], OK["bullets"])
+            self.assertEqual(Path(resume.workspace(path)), Path(root))
 
     def test_a_legacy_record_points_at_export(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp, "resume.json")
             p.write_text(json.dumps({"urs": "1.0.0"}), encoding="utf-8")
             with self.assertRaises(short.ShortError) as err:
-                short.read(p)
+                resume.read(p)
             # The file named: the short one is written over it.
             self.assertIn(f"jsk kb export --select <id>... --out {p}", err.exception.fix)
 
@@ -34,9 +36,9 @@ class Read(unittest.TestCase):
             p = Path(tmp, "resume.json")
             p.write_text("{not json", encoding="utf-8")
             with self.assertRaises(short.ShortError):
-                short.read(p)
+                resume.read(p)
             with self.assertRaises(short.ShortError):
-                short.read(Path(tmp, "absent.json"))
+                resume.read(Path(tmp, "absent.json"))
 
     def test_a_cp1252_file_is_refused_as_not_utf8(self):
         """A person edits resume.json - a summary with a Windows editor's curly quote.
@@ -45,7 +47,7 @@ class Read(unittest.TestCase):
             p = Path(tmp, "resume.json")
             p.write_bytes(b'{"resume": 2, "summary": {"text": "\x93Led\x94 it"}}')
             with self.assertRaises(short.ShortError) as err:
-                short.read(p)
+                resume.read(p)
             self.assertIn("not UTF-8", str(err.exception))
             self.assertIn("UTF-8", err.exception.fix)
 
@@ -53,21 +55,21 @@ class Read(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp, "resume.json")
             p.write_bytes(b'\xef\xbb\xbf' + json.dumps(OK, indent=2).encode().replace(b"\n", b"\r\n"))
-            self.assertEqual(short.read(p)["bullets"], OK["bullets"])
+            self.assertEqual(resume.read(p)["bullets"], OK["bullets"])
 
     def test_another_version_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp, "resume.json")
             p.write_text(json.dumps({"resume": 3, "bullets": []}), encoding="utf-8")
             with self.assertRaises(short.ShortError):
-                short.read(p)
+                resume.read(p)
 
     def test_outside_a_workspace_is_refused_not_a_traceback(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp, "resume.json")
             p.write_text(json.dumps(OK), encoding="utf-8")
             with self.assertRaises(short.ShortError) as err:
-                short.workspace(p)
+                resume.workspace(p)
             self.assertIn("career/store/", err.exception.fix)
 
     def test_a_workspace_named_career_is_found(self):
@@ -75,7 +77,7 @@ class Read(unittest.TestCase):
         # parent is the wrong answer, so the walk up is the only right one.
         with tempfile.TemporaryDirectory() as tmp:
             root, path = careerkit.workspace(Path(tmp, "career"), short=OK)
-            self.assertEqual(Path(short.workspace(path)), Path(root))
+            self.assertEqual(Path(resume.workspace(path)), Path(root))
 
 
 class Shape(unittest.TestCase):
@@ -168,9 +170,9 @@ class Example(unittest.TestCase):
     def test_the_example_reads_and_every_id_is_held(self):
         from jsk import paths
 
-        doc = short.read(paths.EXAMPLE_SHORT)
+        doc = resume.read(paths.EXAMPLE_SHORT)
         self.assertEqual(short.shape(doc), [])
-        self.assertEqual(Path(short.workspace(paths.EXAMPLE_SHORT)),
+        self.assertEqual(Path(resume.workspace(paths.EXAMPLE_SHORT)),
                          Path(paths.EXAMPLE_WORKSPACE))
         self.assertEqual(short.ids(doc, self.stored()), [])
 
@@ -232,8 +234,8 @@ class Ids(unittest.TestCase):
 
 
 class Main(unittest.TestCase):
-    """`python -m jsk.resume.short <resume.json>`: the check doctor spawns over the
-    example, until the record gate (jsk validate) takes its place."""
+    """The short file's own check of one resume.json (adapters/cli/gates/short.py): its
+    shape and ids, with no gate behind it."""
 
     def main(self, *args):
         import contextlib
@@ -241,7 +243,7 @@ class Main(unittest.TestCase):
 
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = short.main(["short.py", *map(str, args)])
+            code = own_check.main(["short.py", *map(str, args)])
         return code, out.getvalue()
 
     def test_the_example_passes(self):

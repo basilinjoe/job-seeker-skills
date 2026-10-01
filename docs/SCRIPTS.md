@@ -755,7 +755,7 @@ jsk resume render resume.json --out DIR --region au
 jsk resume render resume.json --out DIR --pdf --ats-max
 ```
 
-One `resume.json`, built with the career it sits in (`jsk.resume.build`), to `.tex` (and PDF with
+One `resume.json`, built with the career it sits in (`domain/resume/plan.py`), to `.tex` (and PDF with
 `--pdf`) plus `.txt`. The PDF is the only rendered deliverable; `--ats-max` chooses which variant it
 holds rather than adding a second file. A file that fails its shape or id checks, or sits outside a
 workspace, is exit 2 with the fix; `jsk resume check resume.json` is the full gate. A `resume.json` is one resume,

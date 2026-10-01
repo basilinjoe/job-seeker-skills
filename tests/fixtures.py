@@ -29,7 +29,7 @@ SCRIPTS = REPO_ROOT / "src" / PACKAGE      # for tests that read a module's sour
 CLI = f"{PACKAGE}.cli"
 KB = f"{PACKAGE}.kb"
 CHECK_ATS = f"{PACKAGE}.gates.check_ats"
-FIT_PAGES = f"{PACKAGE}.render.fit_pages"
+FIT_PAGES = f"{PACKAGE}.domain.render.fit_levers"
 
 # The commands the tests drive, as the argv of `python -m jsk ...`: `jsk` is the only door
 # (Ruling 10 of the onion design), so a module above is imported, never run.
@@ -227,7 +227,7 @@ def write_awkward(path, text, form):
 # below read the package.
 PLUGIN = REPO_ROOT / "plugins" / "jsk"
 SCHEMA_DIR = SRC / PACKAGE / "data" / "schema"
-RENDER_RESUME = f"{PACKAGE}.render.render_resume"
+RENDER_RESUME = f"{PACKAGE}.adapters.cli.render"
 CHECK_PROSE = f"{PACKAGE}.gates.check_prose"
 PREFLIGHT = f"{PACKAGE}.preflight"
 # The shipped example workspace's short resume.json: what `jsk doctor` renders, and what
@@ -257,10 +257,10 @@ def example_short():
 
 
 def render_module(name):
-    """Import a module from the render package the renderer itself uses.
+    """Import a module the renderer itself uses, named under the package: `infra.tex`,
+    `domain.render.themes`, `domain.render.emit_latex`.
 
-    `render.emit_latex` and `jsk.render.emit_latex` name the same module now, so the bare
-    spelling callers already use is qualified here rather than at every call site.
+    The bare spelling callers use is qualified here rather than at every call site.
     """
     if not name.startswith(PACKAGE + "."):
         name = f"{PACKAGE}.{name}"

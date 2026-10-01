@@ -14,7 +14,7 @@ from pathlib import Path
 from fixtures import (DOCTOR, PLUGIN, PREFLIGHT, gate, load_script, render_module, run)
 
 preflight = load_script(PREFLIGHT)
-tex = render_module("render.tex")
+tex = render_module("infra.tex")
 
 # Without a TeX engine preflight is BLOCKED by design - the PDF is the deliverable - so a
 # test that expects a passing verdict needs one. These ran nowhere without an engine

@@ -32,15 +32,15 @@ from ...cliutil import docstring_usage, wants_help
 from .render import arg
 
 
-def main(argv, *, tex):
+def main(argv):
     """`jsk resume preview`: every template rendered, compiled and listed with its page count.
 
     Args:
         argv: the whole argv, the program name first.
-        tex: compiles each template (ports.tex.TexCompiler); the entry point binds its own.
 
     Returns:
-        The exit code. Prints the report; writes DIR/<template>.{tex,pdf,png}.
+        The exit code. Prints the report; writes DIR/<template>.{tex,pdf,png}. Each
+        template compiles through compose.preview's Tex, which looks the engine up there.
     """
     if len(argv) < 2 or argv[1].startswith("--"):
         print(docstring_usage(__doc__))
@@ -65,14 +65,15 @@ def main(argv, *, tex):
     from ...application.render.preview_templates import PreviewStopped, preview_templates
     from ...domain.resume.short import ShortError
     from ...infra import outputs, pdf, profiles
-    from ...resume import build as B
+    from .compose.preview import Tex
+    from .compose.resume import loaded_resume
     from .compose.timeline import frozen
 
     try:
         result = preview_templates(
             src, out_dir, arg(argv, "--only"), region=arg(argv, "--region"),
-            ats_max="--ats-max" in argv, today=datetime.date.today(), load=B.loaded_resume,
-            profiles=profiles, tex=tex, reader=pdf, outputs=outputs, frozen=frozen)
+            ats_max="--ats-max" in argv, today=datetime.date.today(), load=loaded_resume,
+            profiles=profiles, tex=Tex(), reader=pdf, outputs=outputs, frozen=frozen)
     except ShortError as err:
         print(f"FAIL  {err}")
         print(f"fix:  {err.fix}")

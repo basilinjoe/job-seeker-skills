@@ -23,7 +23,7 @@ from jsk.adapters.cli.compose import tailor
 from jsk.application.tailor import export
 from jsk.domain.record import career
 from jsk.adapters.cli.compose import record
-from jsk.resume import short
+from jsk.domain.resume import short
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
 STORE = None

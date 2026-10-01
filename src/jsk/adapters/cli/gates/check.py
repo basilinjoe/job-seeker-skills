@@ -403,14 +403,15 @@ def strict_for(path):
 
 
 def measure(pdf):
-    """(pages, last page's fill) of a PDF, as render_resume.py measures one.
+    """(pages, last page's fill) of a PDF, as `jsk resume render` measures one
+    (compose.render).
 
     Raises:
-        ImportError: render_resume.py will not load - the render gate says so.
+        ImportError: the render's bindings will not load - the render gate says so.
     """
-    from ....render import render_resume
+    from ..compose import render as bound
 
-    return render_resume.page_count(pdf), render_resume.last_page_fill(pdf)
+    return bound.page_count(pdf), bound.last_page_fill(pdf)
 
 
 def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only=None):

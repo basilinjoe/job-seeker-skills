@@ -6,12 +6,12 @@ The count was right and the page was wasted; only the fill says so.
 """
 import unittest
 
-from jsk.render import render_resume
+from jsk.domain.render import page_report
 
 
 class TheLastPageIsMeasured(unittest.TestCase):
     def report(self, count, budget, fill):
-        return render_resume.page_report("Resume.pdf", count, budget, fill)
+        return page_report.page_report("Resume.pdf", count, budget, fill)
 
     def test_a_half_empty_last_page_is_named(self):
         line = self.report(2, 2, 38.0)

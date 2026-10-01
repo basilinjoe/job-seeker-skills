@@ -107,18 +107,19 @@ def refused(argv):
     return None
 
 
-def main(argv, *, tex, company_of):
+def main(argv):
     """`jsk resume render`: render one resume.json and say what was written.
 
     Args:
         argv: the whole argv, the program name first.
-        tex: compiles the .tex (ports.tex.TexCompiler); the entry point binds its own.
-        company_of: (src, store) -> the posting's employer or None.
 
     Returns:
-        The exit code. Prints the report; writes the render.
+        The exit code. Prints the report; writes the render. The TeX engine and the
+        posting's employer are compose.render's, looked up there at the call.
     """
-    return rendered(argv, tex=tex, company_of=company_of)[0]
+    from .compose.render import Tex, company_of
+
+    return rendered(argv, tex=Tex(), company_of=company_of)[0]
 
 
 def rendered(argv, *, tex, company_of):
@@ -145,12 +146,12 @@ def rendered(argv, *, tex, company_of):
     from ...application.render.render_resume import RenderStopped, render_resume
     from ...domain.resume.short import ShortError
     from ...infra import outputs, pdf, profiles
-    from ...resume import build as B
+    from .compose.resume import loaded_resume
     from .compose.timeline import frozen
 
     try:
         result = render_resume(
-            src, out_dir, load=B.loaded_resume, frozen=frozen, fmt=arg(argv, "--format", "all"),
+            src, out_dir, load=loaded_resume, frozen=frozen, fmt=arg(argv, "--format", "all"),
             region=arg(argv, "--region"),
             profile="ats-maximal" if "--ats-max" in argv else arg(argv, "--profile"),
             template=arg(argv, "--template"), want_pdf="--pdf" in argv,

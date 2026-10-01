@@ -64,7 +64,7 @@ def confirm_summary(path, answer, root):
     from ....application.record.refusals import Refused
     from ....domain.record.state import diff
     from ....infra import files
-    from ....resume import short
+    from ..compose import resume as short
     from ..compose.timeline import frozen
 
     try:

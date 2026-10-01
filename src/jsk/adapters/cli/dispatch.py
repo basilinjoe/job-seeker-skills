@@ -27,9 +27,6 @@ PACKAGE = __name__.split(".")[0]
 #   gates/  the record, parse and prose gates. The record gate (record.py) reads the
 #           graph, lazily; inside, check_prose borrows numbers.py's numeral detector.
 SUBPACKAGE = {
-    "render_resume.py": "render",
-    "preview_templates.py": "render",
-    "fit_pages.py": "render",
     "check_ats.py": "gates",
     "check_prose.py": "gates",
     "record.py": "gates",
@@ -44,6 +41,9 @@ ADAPTERS = {
     "timeline.py": "adapters.cli.event",
     "match.py": "adapters.cli.match",
     "prepare.py": "adapters.cli.tailor",
+    "render_resume.py": "adapters.cli.render",
+    "preview_templates.py": "adapters.cli.preview",
+    "fit_pages.py": "adapters.cli.fit",
 }
 
 # The command each script answers to, for the hint that says how to run one by hand.

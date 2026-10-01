@@ -227,13 +227,14 @@ def bracket_lines(texts):
 def findings(doc, store, today=None):
     """(fails, warns): every finding for a short file - a dict, or a path to one - over
     a loaded workspace."""
-    from ..infra.oxigraph import record as R
-    from ..resume import short
+    from ..adapters.cli.compose.resume import read
     from ..domain.record.career import Career
+    from ..domain.resume import short
+    from ..infra.oxigraph import record as R
 
     today = today or datetime.date.today()
     if not isinstance(doc, dict):
-        doc = short.read(doc)
+        doc = read(doc)
     refusal = career_refusal(store)
     if refusal:
         return [refusal], []

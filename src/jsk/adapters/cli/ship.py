@@ -5,7 +5,6 @@ Each step's output is what its own command prints - the record gate's, `jsk resu
 `jsk resume check` prints over its steps.
 """
 import contextlib
-import importlib
 import io
 import json
 import os
@@ -84,62 +83,59 @@ def called(args):
 
 def held(script, call, args):
     """One step run in this interpreter with its output captured, contained as
-    cli.call_gate contains a module: a step that raised is reported as its own failure.
+    dispatch.call_gate contains a module: a step that raised is reported as its own failure.
 
     Args:
-        script: the step's script name under jsk/render/, e.g. "render_resume.py".
-        call: module -> (exit code, its result), given that entry-point module.
+        script: the step's documented script name, e.g. "render_resume.py".
+        call: () -> (exit code, its result).
         args: the step's arguments, for the hint a step that raised prints.
 
     Returns:
         (exit code, everything it printed, its result or None).
     """
-    name = f"{__name__.split('.')[0]}.render.{script[:-3]}"
-    try:
-        module = importlib.import_module(name)
-    except ImportError as exc:
-        return 2, (f"FAIL  cannot load {script}: {exc}\n"
-                   f"fix:  the install is incomplete - expected the module {name}\n"), None
+    from .dispatch import COMMANDS
+
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            code, result = call(module)
+            code, result = call()
     except SystemExit as exc:
         # argparse's --help exits 0 by raising; so would a bare sys.exit().
         code = 0 if exc.code is None else (exc.code if isinstance(exc.code, int) else 2)
         return code, buf.getvalue(), None
     except Exception as exc:                      # noqa: BLE001 - deliberately broad
         # The steps share this interpreter, so an unhandled error inside one would print
-        # a traceback where a verdict belongs. The hint names the module, not the file:
-        # `python fit_pages.py` stops at its first relative import.
+        # a traceback where a verdict belongs.
         return 2, buf.getvalue() + (
             f"FAIL  {script} raised {type(exc).__name__}: {exc}\n"
             f"fix:  run it directly to see the whole story - "
-            f"python -m {name} {' '.join(str(a) for a in args)}\n"), None
+            f"{COMMANDS[script]} {' '.join(str(a) for a in args)}\n"), None
     return (code if isinstance(code, int) else 0), buf.getvalue(), result
 
 
 def render(args):
-    """`jsk resume render` over `args`, with render/render_resume.py's TeX engine.
+    """`jsk resume render` over `args`, with compose.render's TeX engine.
 
     Returns:
         (exit code, its output, the RenderResult or None).
     """
+    from .compose.render import Tex, company_of
     from .render import rendered
 
-    return held("render_resume.py", lambda m: rendered(
-        ["render_resume.py"] + list(args), tex=m.Tex(), company_of=m.company_of), args)
+    return held("render_resume.py", lambda: rendered(
+        ["render_resume.py"] + list(args), tex=Tex(), company_of=company_of), args)
 
 
 def fit(args):
-    """`jsk resume fit` over `args`, with render/fit_pages.py's TeX engine.
+    """`jsk resume fit` over `args`, with compose.fit's TeX engine.
 
     Returns:
         (exit code, its output, the FitResult or None).
     """
+    from .compose.fit import Tex
     from .fit import fitted
 
-    return held("fit_pages.py", lambda m: fitted(list(args), tex=m.Tex()), args)
+    return held("fit_pages.py", lambda: fitted(list(args), tex=Tex()), args)
 
 
 def main(args):
@@ -161,13 +157,13 @@ def main(args):
     from ...application.ship import ship
     from ...infra import outputs
     from ...infra.files import rel
-    from ...render import render_resume
+    from .compose import render as bound
     from .gates.check import Shown, contained, measure, print_results, strict_for
 
     result = ship(record, out_dir, ats_max=bool(flags.get("--ats-max")),
                   template=flags.get("--template"), pages=pages,
                   fit=not flags.get("--no-fit"), run=contained, render=render, fitter=fit,
-                  tex_engine=render_resume.Tex(), page_count=render_resume.page_count,
+                  tex_engine=bound.Tex(), page_count=bound.page_count,
                   outputs=outputs, rel=rel, strict=strict_for, measure=measure)
     steps = [Shown(s) for s in result.steps]
     if flags.get("--json"):

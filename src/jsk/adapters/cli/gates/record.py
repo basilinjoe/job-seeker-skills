@@ -69,7 +69,7 @@ def gate(args):
     from ....domain.resume.short import ShortError
     from ....gates.record import findings
     from ....infra.oxigraph import record as R
-    from ....resume import short
+    from ..compose import resume as short
 
     try:
         result = record_gate(path, strict=strict, read=short.read, workspace=short.workspace,

@@ -52,13 +52,9 @@ GRAPH_KB_FILENAME = "kb.ttl"
 MODULES = ["cli", "cliutil", "paths", "domain", "ports", "application", "infra", "adapters"]
 GRAPH_MODULES = ["domain.record", "application.record", "infra.oxigraph"]
 GATE_MODULES = ["gates"]
-# Rendering, the preview and the page fitter moved in here: they drive the
-# record->document pipeline and import nothing else, so a broken render package takes all
-# three with it and reporting them separately would name three symptoms of one cause.
-#
-# The builder (resume/) is counted with them: it turns the career and a resume.json into
-# the plan they render, and a render with no builder is as broken as one with no emitter.
-RENDER_MODULES = ["resume", "render"]
+# The renderer's ring packages: the plan builder, the emitters and the use cases that drive
+# them. A render with no builder is as broken as one with no emitter, so they are one check.
+RENDER_MODULES = ["domain.resume", "domain.render", "application.render"]
 
 SCHEMA_FILES = ["profile.schema.json"]
 PROFILES = ["default.json", "au.json", "in.json", "ae.json"]
@@ -202,7 +198,7 @@ def gather(kb_arg=None):
     checks.append(Check(
         "renderer package", not missing_mod,
         disables=f"missing: {', '.join(missing_mod)}" if missing_mod
-                 else "", detail=os.path.join(HERE, "render")))
+                 else "", detail=os.path.join(HERE, "domain", "render")))
 
     missing_graph = present(GRAPH_MODULES)
     checks.append(Check(

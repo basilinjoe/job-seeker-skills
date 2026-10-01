@@ -183,10 +183,10 @@ def main(args):
     from ...infra import files
     from ...infra.oxigraph import db
     from ...infra.oxigraph import record as R
-    from ...resume import build
+    from .compose.resume import from_path
 
     try:
-        checked = F.check(app_dir, record=Applications(), build=build.from_path)
+        checked = F.check(app_dir, record=Applications(), build=from_path)
         planned = F.plan(app_dir, submitted, named, checked, spelled=files.spelled)
     except F.FreezeRefused as refusal:
         return freeze_refusal(*refusal.lines)

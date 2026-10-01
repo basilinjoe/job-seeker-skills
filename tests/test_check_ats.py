@@ -12,7 +12,7 @@ from fixtures import (CHECK_ATS, CLEAN_RESUME, PARSE_GATE, RENDER, build_pdf,
                       build_text, example_short, load_script, render_module, resume_with,
                       run)
 
-tex = render_module("render.tex")
+tex = render_module("infra.tex")
 
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
@@ -332,7 +332,7 @@ class SplitWords(CheckATSCase):
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
     def test_no_template_splits_a_word(self):
         """Every theme, in both variants, with a record long enough to wrap."""
-        themes = render_module("render.themes")
+        themes = render_module("domain.render.themes")
         for name in themes.names():
             for flags in ((), ("--ats-max",)):
                 with self.subTest(template=name, flags=flags):

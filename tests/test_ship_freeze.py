@@ -48,7 +48,7 @@ def fake_compile(pages=1, fail=False):
     .tex and .txt the renderer really wrote are what the prose gate reads.
     """
     def compile_pdf(tex_path, out_dir):
-        from jsk.render import tex
+        from jsk.infra import tex
         if fail:
             return None, "UNVERIFIED - fake produced no PDF"
         pdf = tex.pdf_path_for(tex_path, out_dir)
@@ -82,7 +82,7 @@ class ShipCase(unittest.TestCase):
     def ship(self, *extra, compile_pdf=None):
         """cli.main() in this interpreter, with the TeX compile faked."""
         from jsk import cli
-        from jsk.render import render_resume
+        from jsk.adapters.cli.compose import render as render_resume
         args = ["jsk", "resume", "ship", str(self.record), "--out", str(self.out)]
         buf = io.StringIO()
         with mock.patch.object(render_resume, "compile_pdf",
@@ -192,7 +192,7 @@ class ShipStops(ShipCase):
         self.assertEqual(self.headings(out)[-1], "render gate", out)
 
     def test_a_failing_document_gate_fails_the_ship(self):
-        from jsk.render import emit_text
+        from jsk.domain.render import emit_text
         real = emit_text.emit
         with mock.patch.object(emit_text, "emit",
                                lambda rendered: real(rendered) + BAD + "\n"):
@@ -314,7 +314,7 @@ def margin_compile(fits_at=None, over=3, under=2):
     because the fitter measures where the text on each page ends."""
     def compile_pdf(tex_path, out_dir):
         import pymupdf
-        from jsk.render import tex
+        from jsk.infra import tex
         compile_pdf.into.append(Path(out_dir).resolve())
         margin = float(MARGIN.search(Path(tex_path).read_text(encoding="utf-8")).group(1))
         pages = under if fits_at is not None and margin <= fits_at else over
@@ -343,13 +343,13 @@ class ShipFits(ShipCase):
 
     def fit_ship(self, *extra, fits_at=None):
         from jsk import cli
-        from jsk.render import fit_pages, render_resume
+        from jsk.adapters.cli.compose import fit, render as render_resume
         self.fake = fake = margin_compile(fits_at)
         args = ["jsk", "resume", "ship", str(self.record), "--out", str(self.out)]
         buf = io.StringIO()
         with mock.patch.object(render_resume, "compile_pdf", fake), \
-                mock.patch.object(fit_pages, "compile_pdf", fake), \
-                mock.patch.object(fit_pages, "available_engine", lambda: "fake"), \
+                mock.patch.object(fit, "compile_pdf", fake), \
+                mock.patch.object(fit, "available_engine", lambda: "fake"), \
                 contextlib.redirect_stdout(buf):
             code = cli.main(args + [str(a) for a in extra])
         return code, buf.getvalue()
@@ -1017,7 +1017,7 @@ class ShipGraph(GraphCase):
     EDITS = (CONTACTED,)
 
     def ship(self):
-        from jsk.render import render_resume
+        from jsk.adapters.cli.compose import render as render_resume
 
         out_dir = self.root / "out"
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
@@ -1292,7 +1292,7 @@ class ShipFrozen(ShortCase):
     overwrite the PDF the application's record says went out."""
 
     def ship(self, *args):
-        from jsk.render import render_resume
+        from jsk.adapters.cli.compose import render as render_resume
 
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
             return self.jsk("resume", "ship", *args)

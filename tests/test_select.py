@@ -18,7 +18,7 @@ from jsk.domain import ontology as O
 from jsk.adapters.cli.compose import match
 from jsk.domain.selection import select
 from jsk.adapters.cli.compose import record
-from jsk.resume import short
+from jsk.domain.resume import short
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
 TODAY = datetime.date(2026, 9, 25)
@@ -265,7 +265,7 @@ class Capped(unittest.TestCase):
     the posting's asks first."""
 
     def setUp(self):
-        from jsk.resume.build import MAX_SKILLS_PER_ROW
+        from jsk.domain.resume.constants import MAX_SKILLS_PER_ROW
 
         self.cap = MAX_SKILLS_PER_ROW
         root = workspace(self)
@@ -288,10 +288,10 @@ class Capped(unittest.TestCase):
         self.assertIn("5 left out: skill_tool07, skill_tool08", self.notes[0])
 
     def test_the_render_drops_nothing(self):
-        from jsk.resume import build
+        from jsk.adapters.cli.compose import resume
 
         def cut(doc):
-            return [w for w in build.build(self.store, doc, today=TODAY)["warnings"]
+            return [w for w in resume.build(self.store, doc, today=TODAY)["warnings"]
                     if "skills row" in w]
 
         self.assertEqual(cut(self.doc), [])
@@ -379,7 +379,7 @@ class Ranked(unittest.TestCase):
 
     def test_score_allocates_and_chronology_orders(self):
         """The oldest project scoring highest leads the file, and still renders last."""
-        from jsk.resume import build
+        from jsk.adapters.cli.compose import resume as build
 
         kb = Path(self.root, "career", "kb.ttl")
         text = kb.read_text(encoding="utf-8")

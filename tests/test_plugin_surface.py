@@ -540,7 +540,7 @@ class DocumentedSurface(unittest.TestCase):
         short file refuses an unknown key, so a key the reference does not name is one
         an author cannot know it may set, and one it names that `short.KEYS` lacks fails
         every file that uses it."""
-        from jsk.resume import short
+        from jsk.domain.resume import short
 
         text = (self.REFS / "resume-format.md").read_text(encoding="utf-8")
         table = set(re.findall(r"^\| `([a-z_]+)`", text, re.M))

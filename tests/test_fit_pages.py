@@ -18,9 +18,9 @@ from fixtures import (FIT, FIT_PAGES, RENDER, example_short, load_script,
                       render_module, run)
 
 fp = load_script(FIT_PAGES)
-emit_latex = render_module("render.emit_latex")
-themes = render_module("render.themes")
-tex = render_module("render.tex")
+emit_latex = render_module("domain.render.emit_latex")
+themes = render_module("domain.render.themes")
+tex = render_module("infra.tex")
 
 
 def preamble(margin="0.8in", section="7pt", entry="4pt",

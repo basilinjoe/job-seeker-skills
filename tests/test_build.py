@@ -12,8 +12,8 @@ import unittest
 
 import appkit
 import careerkit
-from jsk.resume import build
-from jsk.render import emit_latex, emit_text
+from jsk.adapters.cli.compose import resume
+from jsk.domain.render import emit_latex, emit_text
 
 PERSON = 'k:person j:fullName "Test Person" ; j:headline "Platform Engineer" ; j:provenance j:confirmed .'
 FULL_PERSON = ('k:person j:fullName "Test Person" ; j:headline "Platform Engineer" ;\n'
@@ -44,7 +44,7 @@ class BuildCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root, _ = careerkit.workspace(tmp, edits=list(self.EDITS) + list(edits),
                                           short=doc or short())
-            return build.build(careerkit.store(root), doc or short(), **kwargs)
+            return resume.build(careerkit.store(root), doc or short(), **kwargs)
 
     def section(self, plan, heading):
         return next((s for s in plan["sections"] if s.get("heading") == heading), None)
@@ -266,7 +266,7 @@ class Summary(BuildCase):
         return section["paragraphs"] if section else None
 
     def test_the_file_s_summary(self):
-        from jsk.resume.short import confirmed
+        from jsk.domain.resume.short import confirmed
 
         summary = confirmed({"text": "Builds event platforms.", "status": "inferred"},
                             "Yes, that is how I describe my work.")
@@ -276,7 +276,7 @@ class Summary(BuildCase):
     def test_a_confirmation_that_does_not_hold_is_withheld(self):
         """A status flipped by hand, or text edited after confirm, renders as inferred -
         so a render with no validate before it still withholds it."""
-        from jsk.resume.short import confirmed
+        from jsk.domain.resume.short import confirmed
 
         held = confirmed({"text": "Builds event platforms.", "status": "inferred"},
                          "Yes, that is how I describe my work.")
@@ -377,10 +377,10 @@ class RenderCommand(unittest.TestCase):
         import contextlib
         import io
 
-        from jsk.render import render_resume
+        from jsk.adapters.cli import render
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = render_resume.main(["render_resume.py", *args])
+            code = render.main(["render_resume.py", *args])
         return code, out.getvalue()
 
     def test_a_short_file_renders_named_for_the_person_and_the_company(self):
@@ -472,16 +472,16 @@ class RenderCommand(unittest.TestCase):
 
 class FromPath(unittest.TestCase):
     def test_a_file_that_fails_its_checks_does_not_build(self):
-        from jsk.resume import short as S
+        from jsk.domain.resume import short as S
         with tempfile.TemporaryDirectory() as tmp:
             _, path = careerkit.workspace(tmp, short=short(["ach_nothing_like_it"]))
             with self.assertRaises(S.ShortError) as err:
-                build.from_path(path)
+                resume.from_path(path)
             self.assertIn("ach_nothing_like_it", str(err.exception))
 
     def test_a_good_file_builds_with_its_root(self):
         with tempfile.TemporaryDirectory() as tmp:
             root, path = careerkit.workspace(tmp, short=short())
-            plan, found = build.from_path(path)
+            plan, found = resume.from_path(path)
             self.assertEqual(found, root)
             self.assertEqual(plan["sent"], MERIDIAN)

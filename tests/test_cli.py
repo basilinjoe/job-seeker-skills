@@ -724,10 +724,10 @@ class PreviewInProcess(unittest.TestCase):
         self.out = self.tmp / "looks"
 
     def preview(self, compile_pdf):
-        from jsk.render import preview_templates
-        with mock.patch.object(preview_templates, "available_engine",
+        from jsk.adapters.cli.compose import preview
+        with mock.patch.object(preview, "available_engine",
                                return_value="fake"), \
-                mock.patch.object(preview_templates, "compile_pdf", compile_pdf), \
+                mock.patch.object(preview, "compile_pdf", compile_pdf), \
                 mock.patch("subprocess.Popen", side_effect=AssertionError("spawned")):
             return in_process("resume", "preview", self.record, "--out", self.out)
 
@@ -736,7 +736,7 @@ class PreviewInProcess(unittest.TestCase):
         completion order would list it last."""
         import threading
         import time
-        from jsk.render import tex, themes
+        from jsk.infra import tex; from jsk.domain.render import themes
         names = themes.names()
         stages, lock = set(), threading.Lock()
 
@@ -758,7 +758,7 @@ class PreviewInProcess(unittest.TestCase):
             self.assertTrue((self.out / f"{name}.tex").exists(), name)
 
     def test_a_template_that_does_not_compile_fails_the_preview(self):
-        from jsk.render import tex, themes
+        from jsk.infra import tex; from jsk.domain.render import themes
         broken = themes.names()[1]
 
         def one_broken(tex_path, out_dir):

@@ -18,8 +18,8 @@ from fixtures import (CLEAN_RESUME, CLI, RENDER, example_short, render_module,
                       run)
 from jsk.gates import layout
 
-tex = render_module("render.tex")
-themes = render_module("render.themes")
+tex = render_module("infra.tex")
+themes = render_module("domain.render.themes")
 LAYOUT = ("jsk", "resume", "check", "--only", "layout")
 
 
@@ -259,9 +259,9 @@ class CheckOnlyLayout(LayoutCase):
     def test_the_section_titles_are_the_builders(self):
         """Headings are found by their words, so a title build.py renames is a heading
         this gate stops seeing."""
-        from jsk.resume import build
+        from jsk.adapters.cli.compose import resume
         for fmt in ("presentation", "ats-maximal"):
-            plan, _ = build.from_path(example_short(), fmt=fmt)
+            plan, _ = resume.from_path(example_short(), fmt=fmt)
             for section in plan["sections"]:
                 if section.get("heading"):
                     self.assertIn(section["heading"], layout.SECTION_TITLES)

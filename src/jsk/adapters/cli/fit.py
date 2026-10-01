@@ -1,7 +1,18 @@
 """`jsk resume fit`: its flags parsed, the fit run (application/render/fit_pages.py), the result said.
 
-render/fit_pages.py is the documented entry point and holds the usage text; this prints
-exactly what it printed when the fit and its report were one function.
+Usage: jsk resume fit resume.tex [--target-pages 2] [--dry-run] [-o out.tex] [--in-place]
+
+Measures geometry FIRST, then applies levers (domain/render/fit_levers.py), cheapest-looking
+first, stopping at the floors `references/ats-rules.md` sets rather than crossing them:
+inter-paragraph spacing and bullet spacing (floor 0pt), margins (0.5in), body font size
+(10pt). Exit 0 = fits. Exit 1 = cannot fit without breaching a floor; the remedy is to cut
+evidence, not to shrink type. Exit 2 = usage or environment error.
+
+It rewrites the .tex and measures the PDF that .tex compiles to, so the page count describes
+the artefact that goes out: a .docx measured through LibreOffice once reported 2 pages for
+a resume that shipped as a 3-page PDF. Needs a TeX engine and `pymupdf`; with either missing
+it reports loudly and exits 2, because a page count nobody measured is a page count nobody
+knows. The engine is compose.fit's.
 """
 import argparse
 import os
@@ -63,17 +74,19 @@ def refused(a):
     return None
 
 
-def main(argv=None, *, tex):
+def main(argv=None):
     """`jsk resume fit`: fit a rendered .tex to its page budget and say how.
 
     Args:
         argv: the arguments after the program name; None reads sys.argv.
-        tex: compiles each candidate (ports.tex.TexCompiler); the entry point binds its own.
 
     Returns:
-        The exit code. Prints the report; may write the fitted .tex.
+        The exit code. Prints the report; may write the fitted .tex. The TeX engine is
+        compose.fit's, looked up there at each compile.
     """
-    return fitted(argv, tex=tex)[0]
+    from .compose.fit import Tex
+
+    return fitted(argv, tex=Tex())[0]
 
 
 def fitted(argv, *, tex):
