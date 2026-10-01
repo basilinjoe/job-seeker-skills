@@ -25,7 +25,6 @@ career's standing with its log as `state`; this reads the file, loads its worksp
 folds the warnings into the failures under --strict. It prints nothing:
 adapters/cli/gates/record.py says what it found.
 """
-import os
 import re
 from dataclasses import dataclass
 
@@ -53,7 +52,8 @@ def record_gate(path, *, strict, read, workspace, has_engine, career, findings, 
     """Check the short resume.json at `path` against the career it sits in.
 
     Args:
-        path: the resume.json.
+        path: the resume.json, or a graph-native target's ref
+            (application/render/selection.py), whose selection graph `read` gives.
         strict: treat warnings as failures.
         read: path -> the file as a dict (compose.resume.read).
         workspace: path -> the workspace root around it (compose.resume.workspace).
@@ -67,19 +67,26 @@ def record_gate(path, *, strict, read, workspace, has_engine, career, findings, 
         A RecordResult. Loads the workspace.
 
     Raises:
-        ShortError: the file will not read, sits in no workspace, or its store will not
-            open - each carrying .fix.
+        ShortError: the file will not read, sits in no workspace, lies inside a
+            graph-native application (Ruling 11), or its store will not open - each
+            carrying .fix.
         GateStopped: "no-engine" (exit 1) when the graph engine is not installed.
     """
+    from ...domain.resume.short import ShortError
+    from ..render.selection import file_refusal, parse_ref, shown_name
+
     doc = read(path)
     root = workspace(path)
     if not has_engine():
         raise GateStopped("no-engine", None, 1)
     store = career(root)
+    refused = file_refusal(path, root, store) if parse_ref(path) is None else None
+    if refused:
+        raise ShortError(*refused)
     fails, warns = findings(doc, store, today)
     if strict:
         fails, warns = fails + warns, []
-    return RecordResult(fails=tuple(fails), warns=tuple(warns), name=os.path.basename(path),
+    return RecordResult(fails=tuple(fails), warns=tuple(warns), name=shown_name(path),
                         revision=state(store).log_revision)
 
 

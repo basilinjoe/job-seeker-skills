@@ -6,6 +6,11 @@ prose gates -
 (adapters/cli/gates/check.py runs each). Ruling 10 of the onion design folds the three
 commands that did this - `validate`, `check` and `gates` - into this one, and a flag that
 does not fit the target's kind is a usage error naming the kind.
+
+A graph-native target - `<stem>` or `resumes/<name>`, with no file of that name - is a
+record: its selection graph gets the record gate, where a resume.json would (Ruling 12 of
+docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md). A directory that
+exists is still a directory.
 """
 import os
 
@@ -131,7 +136,12 @@ def cmd_resume_check(args):
     if target is None:
         print(RESUME_CHECK_USAGE)
         return 0 if wants_help(args) else 2
-    kind = kind_of(target)
+    from .compose.selection import ref_for
+
+    ref = None if os.path.exists(target) else ref_for(target)
+    if ref is not None:
+        args = [ref if a is target else a for a in args]
+    kind = "record" if ref is not None else kind_of(target)
     if kind == "render" and only_of(args) == "letter":
         at = args.index("--only")
         rest = args[:at] + args[at + 2:]

@@ -25,7 +25,9 @@ def cmd_confirm(args, flags, root, today):
     --summary confirms a resume.json's summary: resume.json keeps the answer and the
     text's hash, so an edit to the text afterwards drops it back to inferred. --headline
     does the same for its headline - the posting's title, which the person must stand
-    behind before it renders under their name.
+    behind before it renders under their name. For a graph-native application (`<stem>`)
+    or a general resume (`resumes/<name>`) in place of the resume.json, the block is
+    confirmed in its selection graph.
     """
     from ....application.record import confirm as C
     from ....application.record.refusals import Failing, Problems, Refused, Unclean
@@ -76,16 +78,25 @@ def confirm_summary(path, answer, root, key="summary"):
     from ....domain.record.state import diff
     from ....infra import files
     from ..compose import resume as short
+    from ....application.render.selection import parse_ref
+    from ..compose import selection
     from ..compose.timeline import frozen
 
+    ref = selection.ref_for(path, root=root)
+    target = (parse_ref(ref) or ("", ""))[1] if ref else None
+    label = f"{target}/resume" if target else files.rel(path, root)
     try:
-        done = confirmed(path, answer, root, files=files, short=short.read, frozen=frozen,
-                         key=key)
+        if target:
+            # A graph-native target: the block is in its selection graph, not a file.
+            done = selection.confirm(root, target, key, answer)
+        else:
+            done = confirmed(path, answer, root, files=files, short=short.read,
+                             frozen=frozen, key=key)
     except Refused as err:
         return refused(err)
     if done.new is None:
         print(f"nothing to change: the {key} is confirmed already")
         return 0
-    print(diff(done.old, done.new, files.rel(path, root)), end="")
+    print(diff(done.old, done.new, label), end="")
     print(f"confirmed the {key} in {path}")
     return 0

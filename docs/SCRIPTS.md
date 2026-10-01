@@ -242,7 +242,8 @@ log entry keeps the answer beside the ids. An answer that says nothing - `yes`, 
 `--summary <resume.json>` and `--headline <resume.json>` confirm the file's own prose instead:
 `resume.json` keeps the answer and the text's hash, and the career is not written or logged. The
 headline is the posting's title as `jsk kb export --from-match` set it; it renders under the name
-only once the person says it is a title they stand behind.
+only once the person says it is a title they stand behind. Given a graph-native application's
+`<stem>` or `resumes/<name>` in place of the file, the block is confirmed in its selection graph.
 
 **`log`** is the history, newest first: each revision's number, day, the command that made it
 (`apply`, `confirm`, `new`, ...), its summary, and the ids it minted and touched. `--last N`, the
@@ -570,6 +571,7 @@ document.
 jsk resume check applications/<dir>/resume.json   # the record gate
 jsk resume check resume.pdf                       # the parse and prose gates
 jsk resume check <out-dir>                        # record, parse, prose and layout
+jsk resume check <stem>|resumes/<name>            # the record gate, on its selection graph
 ```
 
 One verb for every gate on a resume, which picks the gates from what it is given. A `.json` file
@@ -886,7 +888,13 @@ Needs a TeX engine and `pymupdf`.
 
 ```bash
 jsk resume ship <resume.json> --out DIR [--ats-max] [--template N] [--pages N] [--no-fit] [--json]
+jsk resume ship <stem>|resumes/<name> [--ats-max] [--template N] [--pages N] [--no-fit] [--json]
 ```
+
+A graph-native application (`<stem>`) or a general resume (`resumes/<name>`) ships from its
+selection graph, with no `resume.json` and no `--out`: into `applications/<stem>/` or
+`resumes/<name>/`, made by the render and left holding the `.pdf` and the `.tex`. A `resume.json`
+inside a graph-native application is refused, naming the `resume_update` tool.
 
 The commands a ship used to be, in one process and in order, each step's output printed
 verbatim under its own `---` heading the way `jsk resume check` prints it over a directory:

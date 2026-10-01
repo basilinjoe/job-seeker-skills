@@ -414,6 +414,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     render/render_resume.py         one render: plans built, files written, the PDF compiled and measured
     render/fit_pages.py             a .tex fitted to its budget: each lever staged, compiled, measured
     render/preview_templates.py     one resume.json in every template, rendered once each and compiled at once
+    render/selection.py             a graph-native resume's selection: select, update, read, confirm; a target's ref
     gates/__init__.py               the four mechanical gates, and the fifth, which a person runs
     gates/result.py                 what a gate returns: its findings, or why it stopped
     gates/numbers.py                the untraced-number check over a loaded career
@@ -492,6 +493,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/gates.py            the gates' career reads and its log's state bound; a resume.json's region and budget
     cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
     cli/compose/native.py           a graph-native application's use cases bound, each write in its own turn
+    cli/compose/selection.py        a selection's use cases bound; a target named on the command line; a ship by target
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded

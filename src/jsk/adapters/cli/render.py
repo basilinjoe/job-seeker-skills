@@ -83,7 +83,10 @@ def refused(argv):
         print(TXT_RETIRED)
         return 2
     src = argv[1]
-    if not os.path.exists(src):
+    from ...application.render.selection import parse_ref
+
+    # A graph-native target's ref names its selection graph; no file is there to find.
+    if not os.path.exists(src) and not parse_ref(src):
         print(f"file not found: {src}")
         return 2
     os.makedirs(arg(argv, "--out", "."), exist_ok=True)

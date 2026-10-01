@@ -225,28 +225,39 @@ class SummaryConfirmed:
     new: str | None
 
 
-def confirm_summary(path, answer, root, *, files, short, frozen, key="summary"):
+def confirm_summary(path, answer, root, *, files=None, short=None, frozen=None,
+                    key="summary", ports=None):
     """`jsk kb confirm --summary` (or `--headline`, `key`): the summary or the headline
     confirmed in resume.json, beside the answer
     and its text's hash. Not logged: a logged write stamps the career with a new revision,
     and the summary is not in the career. resume.json holds the audit trail, and `jsk
     freeze` hashes it into the application graph.
 
+    With `ports`, `path` is a graph-native target instead (`<stem>` or `resumes/<name>`),
+    and the block is confirmed in its selection graph (application.render.selection.
+    confirm): Ruling 6 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md
+    keeps the status, the answer and the hash there, and no resume.json exists to write.
+    The file branch stays for a legacy application.
+
     Args:
-        path: the resume.json.
+        path: the resume.json, or with `ports` the target.
         answer: the person's words.
         root: the workspace.
         files: the workspace's files (infra.files): inside, read_text, write_document.
         short: reads a resume.json (compose.resume.read).
         frozen: what says a directory was frozen, or None (compose.timeline.frozen).
         key: "summary" or "headline" - which of the file's two prose blocks.
+        ports: the selection's bound ports (compose.selection.Ports), for a target; the
+            caller holds the workspace's turn.
 
     Returns:
-        SummaryConfirmed. Writes resume.json.
+        SummaryConfirmed. Writes resume.json, or with `ports` the selection graph - old and
+        new are then the selection as JSON text.
 
     Raises:
         Refused: the answer says nothing, the file is outside the workspace or frozen,
-            it will not read, its summary is missing or malformed, or the write failed.
+            it will not read, its summary is missing or malformed, or the write failed;
+            for a target, as application.render.selection.confirm refuses.
     """
     import json
 
@@ -256,6 +267,10 @@ def confirm_summary(path, answer, root, *, files, short, frozen, key="summary"):
 
     said_nothing(answer, f"write the {key} again with what the person said, and ask "
                          "them about the new words")
+    if ports is not None:
+        return confirmed_in_graph(path, answer, root, key, ports)
+    assert files is not None and short is not None and frozen is not None, \
+        "the file branch reads and writes resume.json: it needs files, short and frozen"
     if not files.inside(path, root):
         raise Refused([f"{path}: not inside this workspace"], "pass the application's resume.json")
     if frozen_refusal(os.path.dirname(os.path.abspath(path)), frozen=frozen):
@@ -286,3 +301,31 @@ def confirm_summary(path, answer, root, *, files, short, frozen, key="summary"):
     except Unwritable as err:
         raise Refused([str(err)], err.fix) from None
     return SummaryConfirmed(old, text)
+
+
+def confirmed_in_graph(target, answer, root, key, ports):
+    """confirm_summary's graph-native branch: the block confirmed in the target's
+    selection graph, a refusal said as this module's Refused says one.
+
+    Returns:
+        SummaryConfirmed over the selection as JSON text; both None when it was
+        confirmed already.
+    """
+    import json
+
+    from ...domain.posting.errors import Refused as NotSelected
+    from ..render.selection import confirm
+
+    try:
+        before, after = confirm(root, target, key, answer, ports=ports)
+    except NotSelected as e:
+        raise Refused([text for text, _ in e.problems],
+                      "; ".join((fix or "").removeprefix("fix:").strip()
+                                for _, fix in e.problems)) from None
+    if after is None:
+        return SummaryConfirmed(None, None)
+
+    def text(doc):
+        return json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
+
+    return SummaryConfirmed(text(before), text(after))

@@ -99,7 +99,8 @@ def posting_terms(record):
     career's words for the thing the posting asked by its own (application.gates.terms).
 
     Args:
-        record: the resume.json.
+        record: the resume.json, or a graph-native target's ref - whose directory is the
+            application's, so its posting is found the same way.
 
     Returns:
         The posting's terms, or None. Loads the workspace.

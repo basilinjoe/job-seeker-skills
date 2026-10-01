@@ -67,12 +67,18 @@ def record_refusal(target):
     record turn the same wrong file away in the same words.
 
     Args:
-        target: the path the command was given.
+        target: the path the command was given, or a graph-native target's ref.
 
     Returns:
         The lines saying what is wrong and what to pass instead, or None. Asks only
         whether the path exists and is a directory.
     """
+    from .render.selection import parse_ref
+
+    if parse_ref(target):
+        # A target's selection is a graph, not a file: the record gate reads it
+        # (application/render/selection.py), and there is nothing on disk to look for.
+        return None
     if os.path.isdir(target):
         return [f"FAIL  cannot validate a directory: {target}",
                 "fix:  there is no bundle format any more. Pass the application's",

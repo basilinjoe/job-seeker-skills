@@ -8,7 +8,10 @@ stands, never stored (Ruling 1) - its requirements and drops, the review, and th
 assessment as the gaps graph holds it. The assessment also comes as the Markdown
 check_gaps.render writes: that needs the match's ranking and cover, which no graph keeps,
 so it is rendered from a fresh read-only match with the stored review folded in, dated the
-day the gaps graph was made. The selection is P3b's part and is not here yet.
+day the gaps graph was made. The selection is the resume graph's dict (resume.json's keys,
+Ruling 6) with each chosen bullet's words from the career as it stands, so the author reads
+what was chosen without a second call; it is the one part a general resume
+(`resumes/<name>`) has too.
 
 `show` refuses an application made from files (Ruling 11), one with no posting, a part it
 does not know, and an assessment not derived yet. `list_apps` reads every application:
@@ -21,7 +24,7 @@ from ...domain.posting.errors import Refused
 from ..posting import native as N
 
 # The parts app_show reads, in the order the analyst needs them.
-PARTS = ("posting", "lines", "requirements", "review", "assessment")
+PARTS = ("posting", "lines", "requirements", "review", "assessment", "selection")
 
 
 @dataclass(frozen=True)
@@ -37,22 +40,24 @@ def show(root, stem, part, *, today, ports):
 
     Args:
         root: the workspace root.
-        stem: the application's name.
+        stem: the application's name; for `selection`, `resumes/<name>` too.
         part: one of PARTS.
         today: the day the assessment's Markdown is matched on.
         ports: the bound ports (compose.native.Ports).
 
     Returns:
-        A dict (posting, review, assessment) or a list (lines); requirements is
-        {requirements, drops}.
+        A dict (posting, review, assessment, selection) or a list (lines); requirements
+        is {requirements, drops}.
 
     Raises:
-        Refused: a part it does not know, a legacy application, no posting, or no
-            assessment yet.
+        Refused: a part it does not know, a legacy application, no posting, no
+            assessment yet, or no selection yet.
     """
     if part not in PARTS:
         raise Refused(f"{part!r} is not a part of an application",
                       f"fix:  one of {', '.join(PARTS)}")
+    if part == "selection":
+        return selection(root, stem, ports)
     app = N.app_of(root, stem)
     store = N.loaded(app, ports)
     s = N.native(store, app, ports)
@@ -65,6 +70,36 @@ def show(root, stem, part, *, today, ports):
     if part == "review":
         return review(store, app)
     return assessment(store, app, s, today, ports)
+
+
+def selection(root, target, ports):
+    """The selection as resume.json's dict, and each bullet it lists with its words.
+
+    Returns:
+        {target, graph, doc, bullets: [{id, text, provenance}]} - the bullets in the
+        selection's order, the words and provenance the career holds for each now.
+
+    Raises:
+        Refused: as application.render.selection.read refuses.
+    """
+    from ...domain.record.career import Career
+    from ...domain.record.state import KB
+    from ..render.selection import checked, loaded, stored, target_of
+
+    t = target_of(root, target)
+    store = loaded(root, ports)
+    checked(store, t, ports)
+    doc = stored(store, t)
+    career = Career(store.graph(KB))
+
+    def provenance(iri):
+        value = career.get(iri, "provenance")
+        return value.removeprefix(O.J) if value else None
+
+    return {"target": t.rel, "graph": t.graph, "doc": doc,
+            "bullets": [{"id": b, "text": career.get(O.K + b, "text"),
+                         "provenance": provenance(O.K + b)}
+                        for b in doc.get("bullets") or []]}
 
 
 def posting(store, app, s):

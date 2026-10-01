@@ -316,15 +316,21 @@ def gates_call(args):
     # named nor sitting where the skill writes it is a missing input, which is
     # SKIPPED and a failure further down. The two are different mistakes and
     # reporting them the same way hides one of them.
+    from ....application.render.selection import parse_ref
+    from ..compose.selection import ref_for, selection_ref
+
     record = flags.get("--record")
     if record is not None:
-        if not os.path.isfile(record):
+        record = ref_for(record) or record
+        if not os.path.isfile(record) and not parse_ref(record):
             print(f"not a record file: {record}")
             print("fix:  --record takes the resume.json the documents rendered from")
             return 2
     else:
         beside = os.path.join(out_dir, DEFAULT_RECORD)
-        record = beside if os.path.isfile(beside) else None
+        # A graph-native application's directory holds no resume.json: its selection
+        # graph is the record (Ruling 6 of the graph-native plan).
+        record = beside if os.path.isfile(beside) else selection_ref(out_dir)
 
     pages, problem = parse_pages(flags.get("--pages"))
     if problem:
