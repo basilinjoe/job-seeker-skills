@@ -20,6 +20,7 @@ from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record
 from jsk.domain.record import writer
 from jsk.graph import store as S
+from jsk.infra import legacy_import
 from jsk.graph.pack import PACKS
 
 PACK = Path(jsk.__file__).parent / "data" / "capabilities.ttl"
@@ -108,7 +109,7 @@ class ThePack(unittest.TestCase):
     def test_it_is_never_loaded_as_vocabulary(self):
         self.assertEqual(PACKS["capabilities"], str(PACK))
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertNotIn(str(PACK), S.workspace_files(tmp))
+            self.assertNotIn(str(PACK), legacy_import.workspace_files(tmp))
             s = S.load(tmp)
         self.assertNotIn(O.C + "system-design", s.homes)
         self.assertEqual(O.kind_of(PACK), None)

@@ -66,9 +66,8 @@ def scaffold(root, name, force=False, today=None):
     """
     from ....application.record import scaffold as N
     from ....application.record.refusals import Failing, Unclean
-    from ....graph import legacy
     from ....graph import store as S
-    from ....infra import files
+    from ....infra import files, legacy_import as legacy
     from ....infra.oxigraph import db
     from ....infra.oxigraph import record as R
 

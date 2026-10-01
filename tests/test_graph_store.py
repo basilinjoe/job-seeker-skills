@@ -14,7 +14,8 @@ from pathlib import Path
 from storekit import seed
 from test_graph_shapes import load
 
-from jsk.graph import legacy, store
+from jsk.graph import store
+from jsk.infra import legacy_import as legacy
 from jsk.infra.oxigraph import db
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record as R

@@ -167,7 +167,7 @@ def cmd_path(args, flags, root, today):
     career/store/ there.
     """
     from ....application.record.store_status import where
-    from ....graph import legacy
+    from ....infra import legacy_import as legacy
     from ....infra.oxigraph import db
 
     if args:

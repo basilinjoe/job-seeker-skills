@@ -24,8 +24,9 @@ def cmd_load(args, flags, root, today):
     from ....application.record.refusals import Failing, Refused
     from ....domain.record.state import RecordError
     from ....domain.record.writer import curies
-    from ....graph import legacy
     from ....graph import store as S
+    from ....infra import legacy_import as legacy
+    from ....infra.workspace import SHIPPED_VOCABULARY
     from ....infra.oxigraph import db
     from ....infra.oxigraph import record as R
     from .write import refused
@@ -39,7 +40,7 @@ def cmd_load(args, flags, root, today):
         if isinstance(got, int):
             return got
         record, rewrites = got
-        after = L.validated(root, record, load=S.load, vocabulary=S.SHIPPED_VOCABULARY)
+        after = L.validated(root, record, load=S.load, vocabulary=SHIPPED_VOCABULARY)
     except (Failing, Refused) as err:
         return refused(err)
     for name, q, kept in rewrites:
@@ -73,9 +74,9 @@ def read_import(src, given, today, db):
     from ....application.record import load_import as L
     from ....cliutil import show
     from ....domain.record.store import Store
-    from ....graph import legacy
     from ....graph.changeset import numbers_as_kept
     from ....infra import files
+    from ....infra import legacy_import as legacy
     from ....infra.oxigraph import record as R
     from ....infra.oxigraph.codec import parse_text
 

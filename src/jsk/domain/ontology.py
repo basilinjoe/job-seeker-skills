@@ -388,7 +388,7 @@ ALL_BANNERS = {"kb"}
 # The class each file kind holds exactly one of: what makes the file that kind of file.
 HEADS = {"kb": "KB", "posting": "Posting", "application": "Application", "gaps": "Assessment"}
 
-# The file names are the import's: a workspace from before the store (legacy.py).
+# The file names are the import's: a workspace from before the store (infra/legacy_import.py).
 FILE_KINDS = {"kb.ttl": "kb", "log.ttl": "log", "posting.ttl": "posting",
               "application.ttl": "application", "gaps.ttl": "gaps",
               "vocabulary.ttl": "vocabulary",

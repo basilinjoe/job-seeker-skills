@@ -275,7 +275,7 @@ def scaffold(root, name, force, today, *, load, record, db, legacy, files, disk)
         load: loads the workspace (graph.store.load).
         record: the write gate (infra.oxigraph.record): turn, state, prepared, write_graphs.
         db: the store on disk (infra.oxigraph.db): exists, read, dump_text.
-        legacy: the workspace laid out as files (graph.legacy): has_files.
+        legacy: the workspace laid out as files (infra.legacy_import): has_files.
         files: reads a text (infra.files.read_text).
         disk: writes the scaffold's files: create_text, write_text, append_text, makedirs.
 

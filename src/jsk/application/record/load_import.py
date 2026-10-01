@@ -93,7 +93,7 @@ def from_files(src, today, *, legacy, state, files, parse_text):
     Args:
         src: the workspace imported from, which has career/kb.ttl.
         today: the day the entry is dated.
-        legacy: reads the files (graph.legacy.read_workspace).
+        legacy: reads the files (infra.legacy_import.read_workspace).
         state: where the career and its log stand (infra.oxigraph.record.state).
         files, parse_text: as hand_edit takes them.
 
@@ -237,7 +237,7 @@ def written(root, record, after, *, gate, load, legacy):
         after: the store it validated as.
         gate: the write gate (infra.oxigraph.record): write_graphs, state.
         load: loads a workspace (graph.store.load).
-        legacy: whether a workspace is laid out as files (graph.legacy.has_files).
+        legacy: whether a workspace is laid out as files (infra.legacy_import.has_files).
 
     Returns:
         Loaded. Writes career/store/ and its backup.

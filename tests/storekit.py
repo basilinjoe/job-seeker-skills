@@ -9,7 +9,7 @@ keeps a record with FAILs: tests of the rules need one.
 import glob
 import os
 
-from jsk.graph import legacy
+from jsk.infra import legacy_import as legacy
 from jsk.infra.oxigraph import record as R
 
 RECORD_FILES = ("career/kb.ttl", "career/log.ttl")

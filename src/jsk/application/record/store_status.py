@@ -26,7 +26,7 @@ def where(root, *, db, legacy):
     Args:
         root: the workspace, absolute.
         db: the store on disk (infra.oxigraph.db): its path and whether it exists.
-        legacy: the workspace laid out as files (graph.legacy): whether it is one.
+        legacy: the workspace laid out as files (infra.legacy_import): whether it is one.
 
     Returns:
         Where. Looks at the folders only.

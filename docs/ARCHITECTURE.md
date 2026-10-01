@@ -299,7 +299,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
   graph/                            the career record: see "Inside the graph package"
     io.py  store.py                 read and parse input, load and validate
-    legacy.py                       the one-time import from files
     rules.py                        tier 2 bound to the disk
     changeset.py  kbcli.py          a changeset read; the old path of `jsk kb`, naming it
     pack.py                         `jsk kb pack`'s starter packs on disk
@@ -424,6 +423,8 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     ship.py                         `jsk resume ship`: the record gate, render, fit and gates, stopping at a failure
   infra/                            what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root; a document written atomically
+    workspace.py                    the workspace a load reads: career/store/, the files beside it, the vocabulary
+    legacy_import.py                a workspace still laid out as .ttl files, read once for `jsk kb load`
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
     profiles.py                     the region profiles under data/ (moved from render/)
     oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
