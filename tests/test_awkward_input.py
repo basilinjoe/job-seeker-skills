@@ -30,7 +30,7 @@ from pathlib import Path
 
 from fixtures import AWKWARD, CLI, run, write_awkward
 from storekit import seed
-from test_graph_kbcli import QUOTE, SOURCE
+from test_kb_confirm import QUOTE, SOURCE
 from test_graph_shapes import FIXTURES as GRAPH
 from test_posting_build import ADVERT, HEADER, ROWS
 

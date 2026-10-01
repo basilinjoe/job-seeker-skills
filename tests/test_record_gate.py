@@ -404,7 +404,7 @@ class Validate(GateCase):
 
 class Ship(GateCase):
     def ship(self, path, *extra, fake=True):
-        from test_ship_freeze import fake_compile
+        from shipkit import fake_compile
 
         from jsk.adapters.cli.compose import render
         out = Path(path).parent / "out"

@@ -480,7 +480,9 @@ plugins/jsk/                        THE SKILL. markdown only - it ships no code
 tests/                              unittest: one file per module, plus the manifest surface
   fixtures.py                       the path setup, and helpers every suite shares
   careerkit.py                      a workspace per test: claims_fixtures, edited, with a short file
-  storekit.py                       seed(): readable Turtle sources parsed into a workspace's store
+  storekit.py                       seed(): readable Turtle sources parsed into a workspace's store;
+                                    Workspace, the fixture the `jsk kb` tests run in
+  shipkit.py                        the ship, freeze and event fixtures, and the faked TeX compiles
   graph_fixtures/                   a valid graph workspace as those sources - kb at r2, its log, one
                                     application - kept as Turtle so a test's content stays reviewable
 ```
