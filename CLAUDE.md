@@ -8,6 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **sd** is installed — use instead of `sed` for regex find-and-replace text tasks.
 - **jq** is installed — use for processing JSON objects in shell workflows.
 
+## Code navigation
+- A Python LSP (pyright) is available through the `LSP` tool. It is deferred: load it with ToolSearch
+  (`select:LSP`) at the start of any task that navigates or refactors Python.
+- Use `goToDefinition`, `findReferences` and `incomingCalls` to trace symbols, size a refactor, and follow
+  imports across the rings. Use `rg` for text, strings, docs and non-Python files.
+
 ## What this repo is
 
 Two things that ship and version on their own:

@@ -1,5 +1,5 @@
 """`jsk kb confirm`: the only way an entry becomes j:confirmed, and a resume.json's summary
-with it.
+or headline with it.
 
 An answer is the person's words, or a document's quoted word for word; one that says
 nothing, or only names a document, is refused. Confirming ids is a logged write, planned
@@ -225,8 +225,9 @@ class SummaryConfirmed:
     new: str | None
 
 
-def confirm_summary(path, answer, root, *, files, short, frozen):
-    """`jsk kb confirm --summary`: the summary confirmed in resume.json, beside the answer
+def confirm_summary(path, answer, root, *, files, short, frozen, key="summary"):
+    """`jsk kb confirm --summary` (or `--headline`, `key`): the summary or the headline
+    confirmed in resume.json, beside the answer
     and its text's hash. Not logged: a logged write stamps the career with a new revision,
     and the summary is not in the career. resume.json holds the audit trail, and `jsk
     freeze` hashes it into the application graph.
@@ -238,6 +239,7 @@ def confirm_summary(path, answer, root, *, files, short, frozen):
         files: the workspace's files (infra.files): inside, read_text, write_document.
         short: reads a resume.json (compose.resume.read).
         frozen: what says a directory was frozen, or None (compose.timeline.frozen).
+        key: "summary" or "headline" - which of the file's two prose blocks.
 
     Returns:
         SummaryConfirmed. Writes resume.json.
@@ -252,7 +254,7 @@ def confirm_summary(path, answer, root, *, files, short, frozen):
     from ...domain.timeline.errors import Unwritable
     from ..guards import frozen_refusal
 
-    said_nothing(answer, "write the summary again with what the person said, and ask "
+    said_nothing(answer, f"write the {key} again with what the person said, and ask "
                          "them about the new words")
     if not files.inside(path, root):
         raise Refused([f"{path}: not inside this workspace"], "pass the application's resume.json")
@@ -263,20 +265,20 @@ def confirm_summary(path, answer, root, *, files, short, frozen):
         doc = short(path)
     except shape_of.ShortError as err:
         raise Refused([str(err)], err.fix) from None
-    summary = doc.get("summary")
+    summary = doc.get(key)
     if not isinstance(summary, dict):
-        raise Refused([f"{path} has no summary to confirm"],
-                      'write one first - "summary": {"text": "...", "status": "inferred"} - '
+        raise Refused([f"{path} has no {key} to confirm"],
+                      f'write one first - "{key}": {{"text": "...", "status": "inferred"}} - '
                       "and read it to the person")
-    # The summary's own shape, less the unearned confirmation this is here to earn.
-    earned = shape_of.unearned(summary)
+    # The block's own shape, less the unearned confirmation this is here to earn.
+    earned = shape_of.unearned(summary, key)
     faults = [f for f in shape_of.shape({"resume": shape_of.VERSION, "bullets": ["ach_"],
-                                         "summary": summary}) if f not in earned]
+                                         key: summary}) if f not in earned]
     if faults:
-        raise Refused(faults, "fix the summary in resume.json, then confirm it")
+        raise Refused(faults, f"fix the {key} in resume.json, then confirm it")
     if summary.get("status") == "confirmed" and not earned:
         return SummaryConfirmed(None, None)
-    doc["summary"] = shape_of.confirmed(summary, answer)
+    doc[key] = shape_of.confirmed(summary, answer)
     old = files.read_text(path, "resume.json")
     text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
     try:

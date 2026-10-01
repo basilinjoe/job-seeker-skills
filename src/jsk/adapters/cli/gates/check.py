@@ -49,12 +49,13 @@ GATES_VALUE_FLAGS = ("--record", "--pages", "--max-findings")
 # Each gate's script, as the headings and the tables above name it, and the adapter
 # module under this package that runs it.
 ADAPTERS = {"record.py": "record", "check_ats.py": "ats", "check_prose.py": "prose",
-            "layout.py": "layout", "letter.py": "letter"}
+            "layout.py": "layout", "terms.py": "terms", "letter.py": "letter"}
 
 # The command that runs each gate alone, for the hint after one that raised.
 COMMANDS = {"record.py": "jsk resume check", "check_ats.py": "jsk resume check --only parse",
             "check_prose.py": "jsk resume check --only prose",
-            "layout.py": "jsk resume check --only layout", "letter.py": "jsk letter check"}
+            "layout.py": "jsk resume check --only layout",
+            "terms.py": "jsk resume check <out-dir> --record", "letter.py": "jsk letter check"}
 
 
 def gate_target(path, accepts):

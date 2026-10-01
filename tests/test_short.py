@@ -141,6 +141,25 @@ class Shape(unittest.TestCase):
         self.assertTrue(self.check(bullets="ach_events_latency"))
         self.assertTrue(self.check(pages=0))
 
+    def test_a_headline_is_held_to_the_summary_s_rules(self):
+        """The posting's title under the name is prose the person must stand behind, so a
+        hand-set confirmed headline fails as a hand-set confirmed summary does."""
+        headline = {"text": "Senior Platform Engineer", "status": "inferred"}
+        self.assertEqual(self.check(headline=headline), [])
+        flipped = self.check(headline={**headline, "status": "confirmed"})
+        self.assertTrue(any("headline is confirmed but records no answer" in f
+                            and "jsk kb confirm --headline" in f for f in flipped), flipped)
+        earned = short.confirmed(headline, "Yes, that is the title I hold.")
+        self.assertEqual(self.check(headline=earned), [])
+        self.assertTrue(self.check(headline={"text": "Two\nlines", "status": "inferred"}))
+        self.assertTrue(self.check(headline={"text": "x", "status": "inferred", "why": "?"}))
+
+    def test_names_maps_skill_ids_to_strings(self):
+        self.assertEqual(self.check(names={"skill_kubernetes": "K8s"}), [])
+        self.assertTrue(self.check(names={"ach_events_latency": "K8s"}))
+        self.assertTrue(self.check(names={"skill_kubernetes": ""}))
+        self.assertTrue(self.check(names=["skill_kubernetes"]))
+
     def test_wrong_prefix_and_duplicate(self):
         self.assertTrue(self.check(bullets=["prj_events"]))
         self.assertTrue(self.check(roles=["ach_events_latency"]))
@@ -203,6 +222,16 @@ class Ids(unittest.TestCase):
         found = self.ids({**OK, "bullets": ["ach_events_latencyy"]})
         self.assertTrue(any("ach_events_latencyy" in f and "did you mean ach_events_latency"
                             in f for f in found), found)
+
+    def test_a_name_must_be_the_skill_s_own_or_an_alias(self):
+        """`names` picks the posting's spelling of a skill from the ones the career holds;
+        a word the career lacks would be a claim nothing confirmed."""
+        self.assertEqual(self.ids({**OK, "names": {"skill_kubernetes": "K8s"}}), [])
+        self.assertEqual(self.ids({**OK, "names": {"skill_kubernetes": "Kubernetes"}}), [])
+        found = self.ids({**OK, "names": {"skill_kubernetes": "OpenShift"}})
+        self.assertTrue(any("'OpenShift', which is neither its name nor an alias" in f
+                            for f in found), found)
+        self.assertTrue(self.ids({**OK, "names": {"skill_nothing_here": "K8s"}}))
 
     def test_an_id_of_another_kind_is_refused(self):
         # Right prefix, wrong thing: a pos_ in the career's text as a skill id would not

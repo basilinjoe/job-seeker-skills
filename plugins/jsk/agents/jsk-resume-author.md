@@ -95,7 +95,8 @@ bullet out of `bullets` and return the line as a question. **Each `GAP` line goe
 as a `short:` line**, except `unconfirmed … is selected`: your own bullet, to confirm.
 
 **Then edit only** `bullets` — reorder only with a stated reason — `summary`, and `pages`,
-`ats_pages` or `format` when this posting wants them.
+`ats_pages` or `format` when this posting wants them. The export sets `headline` to the posting's
+title; delete it if it claims a level the career does not show, and say so.
 
 ## The summary
 
@@ -123,5 +124,6 @@ render: that is `/jsk:ship`, where your unconfirmed prose shows as `withheld` wa
 1. **`jsk resume check` output, verbatim**, and the `jsk kb apply` output.
 2. **Every clause you authored, quoted**, with its source and `ach_` id — withheld until confirmed.
 3. **The `bullets` order, and what you cut.**
-4. **The framing you took**, or the new summary and why; any departure from the recency ratio.
+4. **The framing you took**, or the new summary and why; the headline kept or cut; any departure
+   from the recency ratio.
 5. **Projects with no bullets, and what the career cannot answer**, in a line each.

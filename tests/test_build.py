@@ -221,6 +221,11 @@ class Skills(BuildCase):
         rows, _ = self.rows()
         self.assertEqual(sorted(n for _, items in rows for n in items), [".NET", "Kubernetes"])
 
+    def test_names_shows_a_skill_under_the_posting_s_alias(self):
+        """The alias replaces the name, never joins it: one string per skill, as before."""
+        rows, _ = self.rows(short(skills=["skill_kubernetes"], names={"skill_kubernetes": "K8s"}))
+        self.assertEqual(rows, [("Platforms", ["K8s"])])
+
     def test_a_row_is_capped_and_the_dropped_names_are_warned(self):
         extra = "".join(f'k:skill_t{n} j:name "Tool{n}" ; j:category "tooling" ; j:rank {n + 1} .\n'
                         for n in range(12))
@@ -253,6 +258,23 @@ class Header(BuildCase):
         plan = self.plan()
         self.assertEqual(plan["name"], "Test Person")
         self.assertEqual(plan["headline"], "Platform Engineer")
+
+    def test_a_confirmed_headline_from_the_file_replaces_the_career_s(self):
+        """A recruiter searches by the advertised title; the file carries it word for word."""
+        from jsk.domain.resume import short as shape
+
+        mine = shape.confirmed({"text": "Senior Platform Engineer", "status": "inferred"},
+                               "Yes, that is the title I hold.")
+        plan = self.plan(short(headline=mine))
+        self.assertEqual(plan["headline"], "Senior Platform Engineer")
+        self.assertEqual(self.header(short(headline=mine))[0], "Senior Platform Engineer")
+
+    def test_an_inferred_headline_is_withheld_and_the_career_s_stands_in(self):
+        plan = self.plan(short(headline={"text": "Senior Platform Engineer",
+                                         "status": "inferred"}))
+        self.assertEqual(plan["headline"], "Platform Engineer")
+        self.assertIn("headline", plan["withheld"])
+        self.assertTrue(any("withheld headline" in w for w in plan["warnings"]))
 
 
 class Summary(BuildCase):

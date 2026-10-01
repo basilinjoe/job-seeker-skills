@@ -1,5 +1,6 @@
 """`jsk kb confirm`: its three forms, the confirmation planned (application/record/confirm.py)
-and written through the logged write, or a resume.json's summary confirmed in place."""
+and written through the logged write, or a resume.json's summary or headline confirmed in
+place."""
 from ..presenters import usage
 from .write import refused, write_logged
 
@@ -8,6 +9,7 @@ def cmd_confirm(args, flags, root, today):
     """jsk kb confirm <id>... --answer "what the person said"
        jsk kb confirm <id>... --source <file> --quote "the document's words"
        jsk kb confirm --summary <resume.json> --answer "what the person said"
+       jsk kb confirm --headline <resume.json> --answer "what the person said"
 
     The only way an entry becomes j:confirmed. Ask the person; record their answer in their
     words. Each entry named is confirmed, every open question about it is answered today,
@@ -21,7 +23,9 @@ def cmd_confirm(args, flags, root, today):
     The log keeps `From <file>: "<quote>"`. A .docx is refused; a .pdf needs pymupdf.
 
     --summary confirms a resume.json's summary: resume.json keeps the answer and the
-    text's hash, so an edit to the text afterwards drops it back to inferred.
+    text's hash, so an edit to the text afterwards drops it back to inferred. --headline
+    does the same for its headline - the posting's title, which the person must stand
+    behind before it renders under their name.
     """
     from ....application.record import confirm as C
     from ....application.record.refusals import Failing, Problems, Refused, Unclean
@@ -30,17 +34,24 @@ def cmd_confirm(args, flags, root, today):
     from ....infra import files, pdf
     from ....infra.oxigraph import record as R
 
-    answer, summary, source, quote = (flags.get(f) for f in
-                                      ("--answer", "--summary", "--source", "--quote"))
+    answer, summary, headline, source, quote = (
+        flags.get(f) for f in ("--answer", "--summary", "--headline", "--source", "--quote"))
     if (source is not None or quote is not None) and answer is not None:
         return usage("--source/--quote and --answer are two ways to confirm - pass one")
     if (source is None) != (quote is None):
         return usage('--source and --quote go together: the file, and the words in it')
+    if summary is not None and headline is not None:
+        return usage("--summary and --headline confirm one block each - pass one")
     if summary is not None:
         if args or answer is None:
             return usage('jsk kb confirm --summary <resume.json> --answer "what the person '
                          'said" - the summary alone, no ids, and the person\'s answer')
         return confirm_summary(summary, answer, root)
+    if headline is not None:
+        if args or answer is None:
+            return usage('jsk kb confirm --headline <resume.json> --answer "what the person '
+                         'said" - the headline alone, no ids, and the person\'s answer')
+        return confirm_summary(headline, answer, root, key="headline")
     if not args or (answer is None and source is None):
         return usage('jsk kb confirm takes ids and --answer "what the person said", or '
                      '--source <file> --quote "its words"')
@@ -57,9 +68,9 @@ def cmd_confirm(args, flags, root, today):
                         touched=plan.touched, answer=answer, today=today)
 
 
-def confirm_summary(path, answer, root):
-    """`jsk kb confirm --summary`: the summary confirmed, and the diff of resume.json
-    printed. Returns the exit code."""
+def confirm_summary(path, answer, root, key="summary"):
+    """`jsk kb confirm --summary` (or `--headline`, `key`): the block confirmed, and the
+    diff of resume.json printed. Returns the exit code."""
     from ....application.record.confirm import confirm_summary as confirmed
     from ....application.record.refusals import Refused
     from ....domain.record.state import diff
@@ -68,12 +79,13 @@ def confirm_summary(path, answer, root):
     from ..compose.timeline import frozen
 
     try:
-        done = confirmed(path, answer, root, files=files, short=short.read, frozen=frozen)
+        done = confirmed(path, answer, root, files=files, short=short.read, frozen=frozen,
+                         key=key)
     except Refused as err:
         return refused(err)
     if done.new is None:
-        print("nothing to change: the summary is confirmed already")
+        print(f"nothing to change: the {key} is confirmed already")
         return 0
     print(diff(done.old, done.new, files.rel(path, root)), end="")
-    print(f"confirmed the summary in {path}")
+    print(f"confirmed the {key} in {path}")
     return 0

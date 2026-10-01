@@ -353,7 +353,57 @@ class Short:
     faults: tuple               # untraced_lines over the chosen bullets
 
 
-def short(store, chosen, select, today, *, ships, queries):
+def retuned(doc, career, title, requirements, notes):
+    """`doc` with the posting's own strings where the career holds them under another:
+    the advertised title as an inferred headline, and a skill the posting asks for by one
+    of its aliases shown under that alias (`names`).
+
+    ATS matching is literal, and recruiters search by the advertised title: "Senior
+    Product Manager" in the posting finds a resume that says it, not one that says
+    "Product Lead". The headline arrives inferred, so it renders only once the person
+    confirms they stand behind it (`jsk kb confirm --headline`); an alias is the career's
+    own word for the skill, so it needs nothing.
+
+    Args:
+        doc: the short file as a dict; changed in place.
+        career: the career graph.
+        title: the posting's j:title.
+        requirements: the posting's requirements (ports.queries.RecordQueries.requirements),
+            required first is the order they are tried in.
+        notes: the list a NOTE line per change is appended to.
+
+    Returns:
+        `doc`.
+    """
+    me = O.K + "person"
+    held = (career.get(me, "headline") or "").strip()
+    if title and title.strip().casefold() != held.casefold():
+        doc["headline"] = {"text": title.strip(), "status": "inferred"}
+        notes.append(f"NOTE  headline is the posting's title {title.strip()!r}, inferred - ask "
+                     "the person whether it is a title they stand behind, then `jsk kb confirm "
+                     "--headline <resume.json>`; until then the career's headline renders")
+    skills = [O.K + s for s in doc.get("skills") or []] or sorted(career.live("Skill"))
+    asked = [r.asked.strip() for r in sorted(
+        requirements, key=lambda r: r.necessity != "required")]
+    names = {}
+    for s in skills:
+        name = (career.get(s, "name") or "").strip()
+        aliases = {t.value.strip().casefold(): t.value.strip() for t in career.all(s, "alias")}
+        for term in asked:
+            key = term.casefold()
+            if key == name.casefold():
+                break
+            if key in aliases:
+                names[local(s)] = aliases[key]
+                notes.append(f"NOTE  {local(s)} renders as {aliases[key]!r}, the posting's word "
+                             f"for {name!r}")
+                break
+    if names:
+        doc["names"] = names
+    return doc
+
+
+def short(store, chosen, select, today, *, ships, queries, post=None):
     """The short resume.json for `chosen` (or `select`, or the whole career).
 
     Args:
@@ -363,6 +413,8 @@ def short(store, chosen, select, today, *, ships, queries):
         today: the date the number check runs on.
         ships: (code) -> whether a region profile ships for it (infra.profiles.ships).
         queries: the RecordQueries over the store.
+        post: the posting's iri with --from-match, whose title and wording the file is
+            retuned to (retuned), or None.
 
     Returns:
         Short.
@@ -375,6 +427,9 @@ def short(store, chosen, select, today, *, ships, queries):
         doc = short_file(store, selection=chosen, select=select, notes=notes, ships=ships)
     except ExportError as err:
         raise Refused([str(err)], err.fix) from None
+    if post is not None:
+        retuned(doc, Career(store.graph(KB)), queries.posting_head(post)[1],
+                queries.requirements(post), notes)
     faults = untraced_lines(store, queries, [O.K + b for b in doc["bullets"]])
     return Short(doc, tuple(notes), tuple(faults))
 

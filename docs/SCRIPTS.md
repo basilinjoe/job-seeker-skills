@@ -239,6 +239,11 @@ log entry keeps the answer beside the ids. An answer that says nothing - `yes`, 
 `confirmed`, a placeholder - is refused, and one that reached the log by hand is flagged by
 `answer-placeholder`. This is an instruction with an audit trail, not a proof that anyone asked.
 
+`--summary <resume.json>` and `--headline <resume.json>` confirm the file's own prose instead:
+`resume.json` keeps the answer and the text's hash, and the career is not written or logged. The
+headline is the posting's title as `jsk kb export --from-match` set it; it renders under the name
+only once the person says it is a title they stand behind.
+
 **`log`** is the history, newest first: each revision's number, day, the command that made it
 (`apply`, `confirm`, `new`, ...), its summary, and the ids it minted and touched. `--last N`, the
 newest N (default 10). It is how the history is read - there is no log file to open.
@@ -588,8 +593,8 @@ URS record (`"urs"` key) is exit 2 naming `jsk kb export`, which writes a short 
 | `career-invalid` - the career has a FAIL (`jsk kb check`) | FAIL |
 | `career-unlogged` - the career and its log are out of sync: something outside jsk wrote the store. Restore it from the backup: `jsk kb load .jsk/backup.trig --root <new folder>` | FAIL |
 | `career-missing` - the store holds no career to check against: `jsk kb new`, or `jsk kb load` | FAIL |
-| shape - an unknown key, a wrong type, `resume` not 2, no `bullets`, a bad `format` or summary `status`, an id with the wrong prefix, a duplicate | FAIL |
-| ids - an id the career does not hold (with the nearest), a retired one (with its reason), a bullet whose project names no role | FAIL |
+| shape - an unknown key, a wrong type, `resume` not 2, no `bullets`, a bad `format` or summary or headline `status`, an id with the wrong prefix, a duplicate | FAIL |
+| ids - an id the career does not hold (with the nearest), a retired one (with its reason), a bullet whose project names no role, a `names` entry that is neither the skill's name nor one of its aliases | FAIL |
 | `number-untraced` - a numeral in a chosen bullet is in no current version of a metric it cites | FAIL |
 | `number-superseded` - it is only a replaced version's number; the line names the current one | FAIL |
 | `label-unheld` - a vocabulary label in a bullet names a concept its project does not hold | WARN |
@@ -641,7 +646,9 @@ jsk resume check resume_ATS.txt --only parse --strict  # the ASCII variant
 The **parse gate**. Reads the PDF's text layer (or the `.txt`) for what makes applicant tracking
 systems mangle a resume: text that does not extract at all, section words that appear in prose but
 never in a heading, leftover bracketed placeholders, unparseable phone numbers, bullet glyphs a
-parser will not map, and arrow glyphs that fuse job titles when stripped.
+parser will not map, and arrow glyphs that fuse job titles when stripped. A PDF with its `_ATS.txt`
+beside it must also extract its bullets in the `.txt`'s order - the plan's - or it fails: a parser
+reads the text layer as one stream and credits a bullet to the role line above it there.
 
 The structural checks — tables, text boxes, header content, second columns — are gone. One LaTeX
 template produces every render and cannot express any of them, so the check moved from the output to
@@ -691,6 +698,23 @@ render never runs it unasked (it reads only the PDF); on a directory it does, an
 Not measured: a typed `•` — the template's bullet is the same codepoint in the same face, so nothing
 in the text layer tells them apart — and whether it looks right as a whole, the work-rights line and
 declaration, and whether it is true. Those stay a person's.
+
+#### The terms gate
+
+The **terms gate** runs on a directory, after the layout gate, when the record's own directory holds
+a posting: the `.txt` render against the posting's title and its required and preferred terms,
+matched as strings, case aside, the way a recruiter's ATS search matches what they type. `jsk tailor
+match` judges evidence by concept; this asks whether the posting's words reached the page.
+
+- **The title** not on the page - set `headline` and confirm it with `--headline`.
+- **A required term** not on the page.
+- **Another name of its concept** on the page in its place - use the posting's word where it is
+  true: a skill's alias in `names`, or a bullet reworded in the career.
+- **The preferred terms** not on the page, in one line.
+- **A term past five uses** - repetition a reader takes for stuffing.
+
+Every finding is a warning and it exits 0: a missing term is often a gap the person has, and a gap
+is never closed by a word on the page. A record with no posting beside it gets no terms gate.
 
 #### A directory: all four gates
 

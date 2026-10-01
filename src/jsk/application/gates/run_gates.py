@@ -1,7 +1,8 @@
 """`jsk resume check` as a use case: the record, parse, prose and layout gates over one render.
 
-The same gates jsk-verifier.md runs, in its order - record, parse, prose, layout - and the
-render gate after them, which nothing here can run and which is said out loud instead.
+The same gates jsk-verifier.md runs, in its order - record, parse, prose, layout - then the
+terms gate when the record's directory holds a posting, and the render gate after them,
+which nothing here can run and which is said out loud instead.
 
 It is file-driven rather than a fixed list of five commands, because the render profile
 decides which files exist: every render writes <name>_Resume.{tex,pdf} beside
@@ -192,6 +193,33 @@ def render_section(out_dir, pages, only=None, *, measure):
                     pages=tuple(measured))
 
 
+def terms_steps(out_dir, record, only, *, run):
+    """The terms gate over each .txt render, or nothing for a record with no posting.
+
+    Over the .txt alone: every variant renders the same words, and the .txt is the one
+    stream with no layout between them and a search. A record with no posting beside it -
+    a general resume - has nothing to cover, and the step is left out rather than
+    reported as a pass that measured nothing.
+
+    Args:
+        out_dir: the render's directory.
+        record: the resume.json, whose directory says which posting it answers.
+        only: the documents to gate (rendered_documents), or None.
+        run: (script, args) -> (exit code, output, outcome), as run_gates takes it.
+
+    Returns:
+        The GateSteps, one a .txt.
+    """
+    steps = []
+    for path in rendered_documents(out_dir, (".txt",), only):
+        code, output, outcome = run("terms.py", [path, "--record", record])
+        if code == 0 and getattr(outcome, "posting", "") is None:
+            continue
+        steps.append(step("terms gate", f"terms.py {os.path.basename(path)}",
+                          code, output, outcome))
+    return steps
+
+
 def run_gates(out_dir, record, pages=None, limit=None, record_gate=True, only=None, *,
               run, strict, measure):
     """Every `jsk resume check` step over one directory, the render gate last.
@@ -258,5 +286,7 @@ def run_gates(out_dir, record, pages=None, limit=None, record_gate=True, only=No
         steps.append(step("layout gate", f"layout.py {os.path.basename(path)}",
                           *run("layout.py", layout_args)))
 
+    if record:
+        steps += terms_steps(out_dir, record, only, run=run)
     steps.append(render_section(out_dir, pages, only, measure=measure))
     return steps

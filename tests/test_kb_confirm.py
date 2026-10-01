@@ -286,5 +286,47 @@ class ConfirmSummary(Workspace):
         self.assertEqual(code, 2, out)
 
 
+class ConfirmHeadline(Workspace):
+    """`--headline <resume.json>`: the posting's title under the name, confirmed the way
+    the summary is - the person's answer and the text's hash, kept in resume.json."""
+
+    TITLE = "Principal Clinical Platform Architect"
+
+    def setUp(self):
+        super().setUp()
+        app = self.path("applications/globex-architect")
+        app.mkdir()
+        self.file = app / "resume.json"
+        self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"],
+                    "headline": {"text": self.TITLE, "status": "inferred"}})
+
+    def write(self, doc):
+        self.file.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+
+    def test_the_headline_is_confirmed_beside_its_answer(self):
+        from jsk.domain.resume import short
+
+        code, out = self.kb("confirm", "--headline", str(self.file), "--answer",
+                            "Yes, that is the title I held at Globex.")
+        self.assertEqual(code, 0, out)
+        self.assertIn("confirmed the headline", out)
+        doc = json.loads(self.file.read_text(encoding="utf-8"))
+        self.assertEqual(doc["headline"]["status"], "confirmed")
+        self.assertEqual(doc["headline"]["text_sha256"], short.digest(self.TITLE))
+        self.assertEqual(short.shape(doc), [])
+
+    def test_a_file_with_no_headline_is_refused(self):
+        self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"]})
+        code, out = self.kb("confirm", "--headline", str(self.file), "--answer", ANSWER)
+        self.assertEqual(code, 1, out)
+        self.assertIn("no headline to confirm", out)
+
+    def test_summary_and_headline_together_are_a_usage_error(self):
+        code, out = self.kb("confirm", "--summary", str(self.file), "--headline",
+                            str(self.file), "--answer", ANSWER)
+        self.assertEqual(code, 2, out)
+
+
+
 if __name__ == "__main__":
     unittest.main()

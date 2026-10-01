@@ -26,15 +26,19 @@ a confirm or a corrected bullet is on the next render with nothing to update her
 | `pages`, `ats_pages` | no | page budgets; `ats_pages` for the ATS-maximal variant |
 | `floor` | no | provenance floor, default `confirmed`: a bullet or summary below it is withheld, with a warning |
 | `summary` | no | `{text, status}`, `status` `inferred`; `jsk kb confirm --summary` adds `answer` and `text_sha256`. Absent, the career's positioning |
+| `headline` | no | `{text, status}` like `summary`: the posting's exact title, under the name; `jsk kb confirm --headline` confirms it. Below the floor or absent, the career's headline |
+| `names` | no | `{skill_id: name}`: the skill shown under one of its `j:alias`, the posting's spelling of it. Anything but its name or an alias fails |
 | `roles` | no | `pos_` ids to show with no bullet, for chronology |
 | `skills` | no | `skill_` ids in row order; absent, every skill |
 
 For one render, `jsk resume ship --ats-max` overrides `format` and `render --region` `region`.
 
-**The summary is the only prose in it.** A reworded bullet goes into the career first
+**The summary and the headline are the only prose in it.** A reworded bullet goes into the career first
 (`jsk kb apply`) and is named here by its id; an unknown key fails. Once the person confirms the
 summary, `jsk kb confirm --summary <resume.json> --answer "…"` marks it `confirmed` beside their
-answer and the text's hash; a hand-set `confirmed`, or text edited since, fails.
+answer and the text's hash; a hand-set `confirmed`, or text edited since, fails. The headline is
+confirmed the same way with `--headline`: `jsk kb export --from-match` sets it to the posting's
+title, and the person says whether they stand behind it.
 
 ```bash
 jsk kb export --from-match applications/<stem> --out applications/<stem>/resume.json

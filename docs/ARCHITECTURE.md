@@ -344,6 +344,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/ats_rules.py              the parse gate's rules over extracted text and fonts
     gates/prose_rules.py            the prose gate's rules over a .tex's or .txt's paragraphs
     gates/layout_rules.py           the layout gate's rules over page sizes, line boxes and fonts
+    gates/terms_rules.py            the terms gate's rules: the posting's words, as strings, on the page
     gates/letter_rules.py           the letter check's rules over a letter's words: length, prose, quotes
   ports/                            ring 2: what the application needs from outside, as Protocols
     engine.py                       the graph engine a loaded record runs on
@@ -399,6 +400,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/ats.py                    the parse gate: a document's text extracted, then judged
     gates/prose.py                  the prose gate: a document's paragraphs read, then judged
     gates/layout.py                 the layout gate: a PDF's region and budget found, its lines judged
+    gates/terms.py                  the terms gate: a .txt render read, the posting's terms judged on it
     gates/letter.py                 the letter check: its length and prose judged, its numbers traced
     gates/run_gates.py              `jsk resume check DIR`: the four gates over a render, the render gate said last
     timeline/freeze.py              an application frozen: checked, planned, gated, renamed to its day, written
@@ -455,6 +457,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/gates/ats.py                the parse gate: its flags, the gate run, its verdict said
     cli/gates/prose.py              the prose gate: its flags, the gate run, its verdict said
     cli/gates/layout.py             the layout gate: its flags, the gate run, its verdict said
+    cli/gates/terms.py              the terms gate: its flags, the gate run, its verdict said
     cli/gates/letter.py             the letter check (`jsk letter check`): its flags, the check run, its verdict said
     cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
     cli/compose/record.py           a workspace loaded over career/store/ and the engine; a changeset read
@@ -571,6 +574,7 @@ and the runners into `application/gates/`, with the career's reads bound in
 | What the parse gate rejects | `src/jsk/domain/gates/ats_rules.py` | `references/ats-rules.md`, `tests/test_check_ats.py` |
 | What the prose gate rejects | `src/jsk/domain/gates/prose_rules.py` | `references/writing-rules.md`, `tests/test_check_prose.py` |
 | What the layout gate rejects | `src/jsk/domain/gates/layout_rules.py` | `docs/SCRIPTS.md`, `tests/test_layout.py` |
+| What the terms gate warns of | `src/jsk/domain/gates/terms_rules.py` | `references/ats-rules.md`, `docs/SCRIPTS.md`, `tests/test_terms.py` |
 | What makes a `resume.json` fail | `src/jsk/application/gates/record.py`, `src/jsk/domain/resume/short.py` (shape, ids) | `references/resume-format.md`, `tests/test_record_gate.py`, `tests/test_short.py` |
 | A key in `resume.json` | `short.KEYS` in `src/jsk/domain/resume/short.py` | `references/resume-format.md`, `domain/resume/plan.py`, `export.short_file` |
 | **What content is selected** | `src/jsk/domain/resume/plan.py` | never an emitter; `tests/test_build.py` |

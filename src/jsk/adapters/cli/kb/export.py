@@ -26,7 +26,9 @@ def cmd_export(args, flags, root, today):
     their bullets by what they show, the skills the posting asks for first - each skills
     row cut to the most a row renders, and a NOTE naming what each cut left out. What it
     cannot close prints as GAP lines - tag-only, unconfirmed, uncovered, unresolved - for
-    gaps.md. --select adds to it; --cover and --today are jsk tailor match's.
+    gaps.md. --select adds to it; --cover and --today are jsk tailor match's. It also sets
+    `headline` to the posting's title, inferred until `jsk kb confirm --headline`, and
+    `names` for a skill the posting asks for by one of its aliases - each said in a NOTE.
 
     --ranked is the same with no posting, for a general rebuild: the projects by strength
     and recency, their confirmed bullets by the same bands, a bullet citing a current
@@ -136,7 +138,8 @@ def exported(root, flags, select, today, budget):
             # printed without them would leave the author to run jsk tailor match to find out why.
             said(chosen, report)
         doc = E.short(store, chosen, select, today, ships=profiles.ships,
-                      queries=OxigraphQueries(store))
+                      queries=OxigraphQueries(store),
+                      post=posting_in(store, app) if posting else None)
     except Unclean as err:
         return unclean(err.state)
     except Failing as err:

@@ -151,7 +151,13 @@ class AgentReadBudget(unittest.TestCase):
         # first and surveys from the export's `id | text` lines, then exports again with
         # --replace (tailor-time plan, Ruling 4); the second export cost what the one
         # before it did, and the order moved.
-        self.assertLess(author + spec + rules, 4800)
+        #
+        # 4800 -> 5100 for the posting's title and terms (2026-10-01). Measured: 4,797 ->
+        # 5,046. resume-format.md gained two keys - `headline`, the posting's exact title
+        # under the name, and `names`, a skill under the posting's alias for it - and
+        # ats-rules.md the terms gate and the reading-order rule. An ATS search matches
+        # the string a recruiter types, and nothing put the posting's strings on the page.
+        self.assertLess(author + spec + rules, 5100)
 
     def test_the_extractor_reads_its_definition_and_the_format(self):
         """The one writing agent that MANDATES kb-format.md, and so the one left out of
@@ -461,11 +467,15 @@ class TheMainThreadBudget(unittest.TestCase):
         # Held at 6200 for ship fitting itself (tailor-time Task 3, 2026-09-30). Measured:
         # 6,144 -> 6,184 (SKILL 2,253, tailor 2,576, ship 1,354). mode-ship.md §3 says when to cut and when not: the Arrow run
         # spent 13 turns fitting by hand and cut what it need not.
+        # 6200 -> 6300 for the posting's title and terms (2026-10-01). Measured: 6,184 ->
+        # 6,239. mode-ship.md and mode-tailor.md each name `--headline`, and ship says the
+        # terms gate only warns: a required term missing from the page is a gap, and an
+        # agent that read the warning as a failure would add the word.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
                    REFS / "mode-ship.md"),
-            6200)
+            6300)
 
 
 if __name__ == "__main__":

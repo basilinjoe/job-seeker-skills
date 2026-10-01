@@ -89,6 +89,47 @@ def number_lines(text, doc, store, posting=None, today=None):
                  queries=OxigraphQueries(store), state=R.state)
 
 
+def posting_terms(record):
+    """(title, [(asked, necessity, other names)]) of the posting in the application
+    directory holding `record`, or None when that directory holds none - a resume.json
+    outside applications/, or one whose workspace will not load, has nothing to cover.
+
+    The other names are the labels of the concepts each requirement resolves to, as `jsk
+    tailor match` resolves it - the analyst's concept, else the term's own labels: the
+    career's words for the thing the posting asked by its own (application.gates.terms).
+
+    Args:
+        record: the resume.json.
+
+    Returns:
+        The posting's terms, or None. Loads the workspace.
+    """
+    import os
+
+    from ....domain.resume.short import ShortError
+    from ....infra.oxigraph.queries import OxigraphQueries
+    from .match import posting_in
+    from .resume import career, workspace
+
+    try:
+        store = career(workspace(record))
+    except ShortError:
+        return None
+    post = posting_in(store, os.path.dirname(os.path.abspath(record)))
+    if post is None:
+        return None
+    from ....domain.matching.resolve import match
+
+    queries = OxigraphQueries(store)
+    labels = {}
+    for concept, label in queries.label_pairs():
+        labels.setdefault(concept, []).append(label)
+    title = queries.posting_head(post)[1]
+    return title, [(m.requirement.asked, m.requirement.necessity,
+                    [l for c in m.resolution.concepts for l in labels.get(c, [])])
+                   for m in match(queries, post).values()]
+
+
 def from_record(record, pdf):
     """The region and page budget the render of `pdf` was built with, from its resume.json.
 

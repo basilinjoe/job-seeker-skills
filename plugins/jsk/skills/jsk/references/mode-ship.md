@@ -50,7 +50,8 @@ only warn.
 content is dropped from the render; the only sign is a `withheld …` line. Every one is confirmed or
 cut before the resume is handed over: confirm it in the career — `jsk kb confirm <ids> --answer
 "…"`, new wording first through `jsk kb apply`, never on the strength of the old text — and
-re-ship. The summary: `jsk kb confirm --summary <resume.json> --answer "…"`.
+re-ship. The summary: `jsk kb confirm --summary <resume.json> --answer "…"`; the headline,
+`--headline`. The terms gate only warns: a missing required term is a gap, not a word to add.
 
 ## 3. Fit, if it overran
 

@@ -8,6 +8,7 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   confirm <id>... --answer "..."       confirm entries with the person's answer, logged;
           <id>... --source F --quote "..."  or with a document's own words;
           --summary <resume.json> --answer "..."  or a resume.json's summary
+          --headline <resume.json> --answer "..."  or its headline
   show <id>... [--bullets]             entries as Turtle, and the op:base to use;
                                        --bullets, a project's name and bullets only
   view [--section NAME]                the whole career as Markdown, to read
@@ -60,7 +61,8 @@ TABLE = {
     "apply": (write.cmd_apply, (), ("--dry-run",), ()),
     "pack": (draft.cmd_pack, ("--out",), (), ()),
     "merge": (draft.cmd_merge, ("--out", "--into"), (), ()),
-    "confirm": (confirm.cmd_confirm, ("--answer", "--summary", "--source", "--quote"), (), ()),
+    "confirm": (confirm.cmd_confirm, ("--answer", "--summary", "--headline", "--source",
+                                    "--quote"), (), ()),
     "show": (read.cmd_show, (), ("--bullets",), ()),
     "view": (read.cmd_view, ("--section",), (), ()),
     "export": (export.cmd_export, ("--out", "--from-match", "--cover", "--today"),

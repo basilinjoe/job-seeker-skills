@@ -331,6 +331,47 @@ class SplitWords(CheckATSCase):
         self.assertPasses(out, code)
 
 
+class ReadingOrder(unittest.TestCase):
+    """A parser reads the text layer as one stream and credits a bullet to the role line
+    above it there; a PDF must extract its bullets in the .txt render's order - the plan's.
+    Two columns would interleave them, and nothing else would notice."""
+
+    STREAM = ("Test Person\n\nPROFESSIONAL EXPERIENCE\nLead Engineer | Jan 2023 - Present\n"
+              "- Cut event latency 40 percent by moving ingest to a partitioned queue.\n"
+              "Engineer | Jan 2020 - Dec 2022\n"
+              "- Shipped single sign-on for every internal tool in one quarter.\n")
+
+    def judge(self, pdf_text):
+        from jsk.domain.gates.ats_rules import judge
+
+        return judge(pdf_text, ["Helvetica"], pdf=True, strict=False, stream=self.STREAM)[1]
+
+    def test_a_pdf_in_the_plan_s_order_passes(self):
+        # Wrapped across lines and with a ligature, as a PDF's text layer comes out.
+        pdf = ("Test Person\nProfessional Experience\nLead Engineer   Jan 2023 – Present\n"
+               "• Cut event latency 40 percent by moving ingest to a parti-\ntioned queue.\n"
+               "Engineer   Jan 2020 – Dec 2022\n• Shipped single sign-on for every internal\n"
+               "tool in one quarter.\n")
+        self.assertFalse([f for f in self.judge(pdf).fails if "reading order" in f])
+
+    def test_bullets_extracted_out_of_order_fail(self):
+        # The planted violation: a second column's bullet comes out first.
+        pdf = ("Test Person\nProfessional Experience\n"
+               "• Shipped single sign-on for every internal tool in one quarter.\n"
+               "Lead Engineer   Jan 2023 – Present\n"
+               "• Cut event latency 40 percent by moving ingest to a partitioned queue.\n"
+               "Engineer   Jan 2020 – Dec 2022\n")
+        fails = self.judge(pdf).fails
+        self.assertTrue(any("reading order: 1 bullet(s)" in f and "Shipped single sign-on" in f
+                            for f in fails), fails)
+
+    def test_a_pdf_with_no_stream_beside_it_is_not_judged_for_order(self):
+        from jsk.domain.gates.ats_rules import judge
+
+        report = judge("• Shipped it.\n", [], pdf=True, strict=False)[1]
+        self.assertFalse([f for f in report.fails if "reading order" in f])
+
+
 @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
 @one_test_each({name + "".join(flags): (name, flags) for name in themes.names()
                 for flags in ((), ("--ats-max",))}, "test_{}_splits_no_word", "splits_none")

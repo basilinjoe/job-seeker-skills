@@ -64,10 +64,13 @@ and a parser may extract a phantom title. Give each role its own dated line, its
 
 ## Keywords
 
-Relevance scoring is largely term frequency against the posting. Mirror its **exact** wording — if it
-says "Solution Architect", the summary contains that phrase, not only "solution architecture". Spell
+Recruiters search the ATS by the posting's words, matched as strings. Mirror its **exact** wording:
+its title is the `headline` once the person confirms it, a skill it names by an alias renders under
+that alias (`names`), and "Solution Architect" in the posting is that phrase in the summary. Spell
 out and abbreviate on first use: `Retrieval-Augmented Generation (RAG)`. Put the posting's stack row
-second in the skills block, after the architecture row. Do not stuff; a human reads it next.
+second in the skills block, after the architecture row. Do not stuff; a human reads it next. The
+terms gate warns of the title or a required term missing from the page, and of a term repeated
+past five times.
 
 ## What this does not do
 
@@ -98,6 +101,8 @@ Then on extracted text:
 - No `[...]` span and no stray `[` anywhere.
 - Bullet markers are `•` or `-`; a decorative glyph fails.
 - At least four `Mon YYYY` dates; arrow glyphs absent — warn normally, fail under `--strict`.
+- A PDF extracts its bullets in the order of the `.txt` beside it; out of order fails, as a column
+  would.
 
 Under `--strict` additionally: no non-ASCII at all (fails), plain hyphens in date ranges (fails),
 and role lines that appear not to name an employer (warns — the heuristic is too rough to block on).

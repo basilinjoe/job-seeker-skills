@@ -21,6 +21,23 @@ class AtsResult(GateResult):
     fonts: tuple        # the embedded font names; empty for a .txt
 
 
+def stream_of(pdf, read_txt):
+    """The .txt render beside `pdf` - the plan's order, which the PDF must extract in - or
+    None when there is none to compare with (a PDF checked on its own).
+
+    A render writes <name>_Resume.pdf beside <name>_Resume_ATS.txt from one resume.json
+    (domain/render/targets.py), so the sibling is named, not searched for.
+
+    Args:
+        pdf: the PDF's path.
+        read_txt: path -> (text, fonts); raises OSError when the file will not read.
+    """
+    try:
+        return read_txt(os.path.splitext(pdf)[0] + "_ATS.txt")[0]
+    except OSError:
+        return None
+
+
 def check_ats(path, *, strict, read_pdf, read_txt):
     """Judge the document at `path` as an ATS would read it.
 
@@ -54,6 +71,7 @@ def check_ats(path, *, strict, read_pdf, read_txt):
     else:
         raise GateStopped("format", ext, 1)
 
-    lines, report = judge(txt, fonts, pdf=ext == ".pdf", strict=strict)
+    lines, report = judge(txt, fonts, pdf=ext == ".pdf", strict=strict,
+                          stream=stream_of(path, read_txt) if ext == ".pdf" else None)
     return AtsResult(fails=tuple(report.fails), warns=tuple(report.warns), name=name,
                      strict=strict, lines=len(lines), fonts=tuple(fonts))

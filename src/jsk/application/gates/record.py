@@ -222,7 +222,10 @@ def prose(doc, career, bullets):
         A generator of (where, text).
     """
     me = O.K + "person"
-    if career.get(me, "headline"):
+    headline = doc.get("headline")
+    if isinstance(headline, dict) and isinstance(headline.get("text"), str):
+        yield "headline", headline["text"]
+    elif career.get(me, "headline"):
         yield "headline", career.get(me, "headline")
     summary = doc.get("summary")
     if isinstance(summary, dict) and isinstance(summary.get("text"), str):

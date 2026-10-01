@@ -161,7 +161,7 @@ Bullets it adds or rewords arrive `inferred`; the render drops them below the fl
 <ids> --answer "…"` and one changeset for the corrections. Confirm confirms the career's current
 text, never on the strength of the old text. Nothing in `resume.json` needs updating — the next ship
 builds from the career; the summary is confirmed with `jsk kb confirm --summary <resume.json>
---answer "…"`. This step is yours and is not delegable.
+--answer "…"`, the posting's title as headline with `--headline`. This step is yours and is not delegable.
 
 **`resume.json` references content; it cannot contain it.** If the posting wants something the career does
 not have, say so out loud.

@@ -148,11 +148,23 @@ class Builder:
         """(the person's name, the header lines under it): headline, contacts, work rights.
 
         Sets `headline` as a side effect, for the plan's own headline key.
+
+        The file's headline wins over the career's when it clears the floor. A recruiter
+        searches the ATS by the advertised title, so the line under the name is worth most
+        when it is that title word for word ("Senior Product Manager", not "Product Lead");
+        the career's one j:headline cannot be every posting's. Below the floor it is
+        withheld like a summary, and the career's headline stands in.
         """
+        from . import short
+
         c, me = self.career, self.me
         name = c.get(me, "fullName", "")
         lines = []
-        self.headline = self.t(c.get(me, "headline")) if c.get(me, "headline") else None
+        mine = self.doc.get("headline")
+        if mine and self.keep(short.summary_status(mine, "headline"), "headline"):
+            self.headline = self.t(mine["text"].strip())
+        else:
+            self.headline = self.t(c.get(me, "headline")) if c.get(me, "headline") else None
         if self.headline:
             lines.append(self.headline)
         place = []
@@ -250,11 +262,15 @@ class Builder:
                 else (len(CATEGORY_ORDER), key)
 
         order = list(groups) if chosen else sorted(groups, key=rank)
+        # The file's `names` shows a skill under one of its aliases - the posting's own
+        # string for it. Still one name per skill: the alias replaces the name, never
+        # joins it (short.renamed holds it to the skill's name and aliases).
+        renamed = {self.iri(k): v for k, v in (self.doc.get("names") or {}).items()}
         rows, seen = [], set()
         for cat in order:
             names = []
             for s in groups[cat]:
-                name = (c.get(s, "name") or "").strip()
+                name = (renamed.get(s) or c.get(s, "name") or "").strip()
                 if name and name.casefold() not in seen:
                     seen.add(name.casefold())
                     names.append(name)

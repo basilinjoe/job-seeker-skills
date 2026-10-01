@@ -268,7 +268,58 @@ def ats_maximal(txt, lines, report):
                     f"e.g. {bad[0][:60]!r}")
 
 
-def judge(txt, fonts, *, pdf, strict):
+def flattened(text):
+    """`text` as the order check compares it: ligatures opened, folded to ASCII as the .txt
+    render is, whitespace collapsed and casefolded - a bullet wrapped across lines in the
+    PDF is one run of words, as it is on its single line in the .txt."""
+    from ..render.formatting import fold_ascii
+
+    opened = "".join(unicodedata.normalize("NFKC", c) if c in LIGATURES else c for c in text)
+    return " ".join((fold_ascii(opened) or "").split()).casefold()
+
+
+# A bullet's opening words, enough to tell it from its neighbours. Its whole text would
+# miss on a line-end hyphen the split-word rule reports already, and a bullet's end is
+# where two bullets of one project most often agree.
+ORDER_KEY = 48
+
+
+def reading_order(txt, stream, report):
+    """Flag a PDF whose extracted text puts the bullets in a different order from the plan.
+
+    A parser reads the text layer top to bottom as one stream. Two columns, a text box or
+    a float come out interleaved - a title from one column merged with a skill from the
+    other - and an ATS credits each bullet to the role line above it in that stream. The
+    emitters have no way to make a column today, so this guards the day a theme does: the
+    .txt render is the plan's own order, and the PDF must extract in it.
+
+    Args:
+        txt: the PDF's extracted text.
+        stream: the .txt render of the same resume.json - the plan's order.
+        report: the Report the finding is added to.
+    """
+    page = flattened(txt)
+    bullets = [l.strip()[2:] for l in stream.split("\n") if l.strip().startswith("- ")]
+    at, late = -1, []
+    for bullet in bullets:
+        key = flattened(bullet)[:ORDER_KEY]
+        if not key:
+            continue
+        found = page.find(key, at + 1)
+        if found < 0:
+            if page.find(key) >= 0:
+                late.append(bullet)
+            # Not in the text layer as one run at all: the split-word and ligature rules
+            # say why, and a missing bullet is not an order.
+            continue
+        at = found
+    if late:
+        report.fail(f"reading order: {len(late)} bullet(s) extract out of the order they "
+                    f"render in, e.g. {late[0][:60]!r} - a parser reading this PDF top to "
+                    "bottom credits them to the wrong role")
+
+
+def judge(txt, fonts, *, pdf, strict, stream=None):
     """Every parse-gate rule over one document's extracted text, in the gate's order.
 
     The fonts are informational: the old allowlist warned on anything outside a set of
@@ -280,6 +331,8 @@ def judge(txt, fonts, *, pdf, strict):
         fonts: the embedded font names, empty for a .txt.
         pdf: the text came from a PDF, so the extraction rules apply.
         strict: the ATS-maximal variant's rules apply, and some warnings become failures.
+        stream: the .txt render beside a PDF, whose order the PDF must extract in
+            (reading_order), or None.
 
     Returns:
         (lines, report): the document's non-empty lines, stripped, and the Report of
@@ -290,6 +343,8 @@ def judge(txt, fonts, *, pdf, strict):
     report = Report()
     if pdf:
         extractable(txt, fonts, report)
+        if stream is not None:
+            reading_order(txt, stream, report)
     bullet_glyphs(lines, report)
     sections(lines, txt, report)
     contact(txt, report)

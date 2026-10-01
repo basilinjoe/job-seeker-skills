@@ -1,4 +1,5 @@
-"""The short resume.json as data: its shape, its ids against the career, its summary.
+"""The short resume.json as data: its shape, its ids against the career, its summary and
+headline.
 
 Pure: the file arrives as text and the career as a loaded store. Reading the file,
 finding its workspace and loading the career are application/render/load_resume.py's.
@@ -14,9 +15,21 @@ STATUSES = ("confirmed", "inferred")
 FLOORS = ("confirmed", "inferred", "needs-verification", "disputed")
 LISTS = {"bullets": "ach_", "roles": "pos_", "skills": "skill_"}
 KEYS = {"resume": int, "bullets": list, "roles": list, "skills": list, "format": str,
-        "region": str, "pages": int, "ats_pages": int, "floor": str, "summary": dict}
+        "region": str, "pages": int, "ats_pages": int, "floor": str, "summary": dict,
+        "headline": dict, "names": dict}
 SUMMARY_KEYS = ("text", "status", "answer", "text_sha256")
-CONFIRM = 'confirm it with `jsk kb confirm --summary <resume.json> --answer "their words"`'
+# The two pieces of prose the file holds itself, each confirmed the same way. The headline
+# is the posting's title when the person stands behind it: the line a recruiter's title
+# search matches, which the career's one j:headline cannot be for every posting.
+PROSE = ("summary", "headline")
+
+
+def confirm_hint(key):
+    """How a `key` block ("summary" or "headline") is confirmed, as the findings say it."""
+    return f'confirm it with `jsk kb confirm --{key} <resume.json> --answer "their words"`'
+
+
+CONFIRM = confirm_hint("summary")
 
 
 def digest(text):
@@ -31,31 +44,33 @@ def confirmed(summary, answer):
     return out
 
 
-def unearned(summary):
-    """Why a `"status": "confirmed"` summary has not earned it - [] when it has.
+def unearned(summary, key="summary"):
+    """Why a `"status": "confirmed"` summary (or headline) has not earned it - [] when it has.
 
     Flipping the status by hand confirmed a summary with no answer and no audit, and a
     later edit to the text kept it confirmed: the answer and the text's hash are what
-    only `jsk kb confirm --summary` writes, and a changed text drops out of confirmed
-    as a changed claim does in the career."""
+    only `jsk kb confirm --summary` (or `--headline`) writes, and a changed text drops out
+    of confirmed as a changed claim does in the career."""
     from ..record.rules import DENIAL, PLACEHOLDER
 
     if summary.get("status") != "confirmed" or not isinstance(summary.get("text"), str):
         return []
+    hint = confirm_hint(key)
     answer = summary.get("answer")
     if not isinstance(answer, str) or PLACEHOLDER.fullmatch(answer) or DENIAL.fullmatch(answer):
-        return [f"summary is confirmed but records no answer from the person - {CONFIRM}"]
+        return [f"{key} is confirmed but records no answer from the person - {hint}"]
     if summary.get("text_sha256") != digest(summary["text"]):
         if "text_sha256" not in summary:
-            return [f"summary is confirmed but holds no text_sha256 - {CONFIRM}"]
-        return [f"the summary changed since it was confirmed - read it to the person and "
-                f"{CONFIRM}"]
+            return [f"{key} is confirmed but holds no text_sha256 - {hint}"]
+        return [f"the {key} changed since it was confirmed - read it to the person and "
+                f"{hint}"]
     return []
 
 
-def summary_status(summary):
-    """The status a summary renders at: inferred when its confirmation does not hold."""
-    return "inferred" if unearned(summary) else summary.get("status")
+def summary_status(summary, key="summary"):
+    """The status a summary (or headline) renders at: inferred when its confirmation does
+    not hold."""
+    return "inferred" if unearned(summary, key) else summary.get("status")
 
 
 class ShortError(Exception):
@@ -133,22 +148,34 @@ def shape(doc):
         out.append(f"format {doc['format']!r} is not one of {', '.join(FORMATS)}")
     if isinstance(doc.get("floor"), str) and doc["floor"] not in FLOORS:
         out.append(f"floor {doc['floor']!r} is not one of {', '.join(FLOORS)}")
-    summary = doc.get("summary")
-    if isinstance(summary, dict):
+    for block in PROSE:
+        summary = doc.get(block)
+        if not isinstance(summary, dict):
+            continue
         if not isinstance(summary.get("text"), str) or not summary["text"].strip():
-            out.append("summary needs its text")
+            out.append(f"{block} needs its text")
+        elif block == "headline" and "\n" in summary["text"]:
+            out.append("headline is one line - it renders under the name")
         if summary.get("status") not in STATUSES:
-            out.append(f"summary status must be one of {', '.join(STATUSES)}")
+            out.append(f"{block} status must be one of {', '.join(STATUSES)}")
         for key in sorted(set(summary) - set(SUMMARY_KEYS)):
-            out.append(f"summary: unknown key {key!r}")
-        out += unearned(summary)
+            out.append(f"{block}: unknown key {key!r}")
+        out += unearned(summary, block)
+    names = doc.get("names")
+    if isinstance(names, dict):
+        for ident, name in names.items():
+            if not ident.startswith("skill_"):
+                out.append(f"names: {ident!r} is not a skill_ id")
+            if not isinstance(name, str) or not name.strip():
+                out.append(f"names: {ident} needs the name it renders under")
     return out
 
 
 def ids(doc, store):
     """FAIL lines for ids the career does not hold as the file uses them: unknown (with
     the near one), retired (with its reason), of another kind, or a bullet whose project
-    names no role - it would render under no employer."""
+    names no role - it would render under no employer - and a `names` entry the skill does
+    not answer to (renamed)."""
     from .. import ontology as O
     from ..record.career import Career
     from ..record.state import KB
@@ -191,4 +218,33 @@ def ids(doc, store):
                                    f"on {career.get(held, 'retired')} "
                                    f"({career.get(held, 'reason', 'no reason given')}) - drop "
                                    "the bullet, or move it to a live one in the career")
+    out += renamed(doc, career, known)
+    return out
+
+
+def renamed(doc, career, known):
+    """FAIL lines for `names`: each must be a skill the career holds, under its own name or
+    one of its j:alias - the posting's spelling of it, never a word the career lacks.
+
+    "Adobe Creative Cloud" and "Adobe Creative Suite" are two strings to a parser; the
+    alias says the person answers to both, and `names` picks which one this resume shows.
+    """
+    from .. import ontology as O
+
+    out = []
+    names = doc.get("names")
+    if not isinstance(names, dict):
+        return out
+    for ident, name in names.items():
+        iri = O.K + ident
+        if not isinstance(name, str) or not ident.startswith("skill_"):
+            continue
+        if known.get(iri) != "Skill":
+            out.append(f"names: {ident} is not a skill in the career")
+            continue
+        allowed = [career.get(iri, "name") or ""] + [t.value for t in career.all(iri, "alias")]
+        if name not in allowed:
+            out.append(f"names: {ident} renders as {name!r}, which is neither its name nor an "
+                       f"alias ({', '.join(repr(a) for a in allowed if a)}) - add the alias "
+                       "to the skill with `jsk kb apply` first")
     return out
