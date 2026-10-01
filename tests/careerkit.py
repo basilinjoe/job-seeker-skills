@@ -10,7 +10,7 @@ import json
 import shutil
 from pathlib import Path
 
-from jsk.graph import store as S
+from jsk.adapters.cli.compose import record
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
 APP = Path("applications") / "contoso-platform"
@@ -54,7 +54,7 @@ def workspace(root, edits=(), short=None, logged=True, stored=True):
 def relog(root):
     """log.ttl made to agree with kb.ttl as edited, as if jsk had written it."""
     from jsk.infra.oxigraph import record as R
-    from jsk.graph.io import sha256
+    from jsk.domain.record.parsed import sha256
 
     before = sha256((FIXTURES / "career" / "kb.ttl").read_text(encoding="utf-8"))
     after = sha256((Path(root) / "career" / "kb.ttl").read_text(encoding="utf-8"))
@@ -64,4 +64,4 @@ def relog(root):
 
 
 def store(root):
-    return S.load(root)
+    return record.load(root)

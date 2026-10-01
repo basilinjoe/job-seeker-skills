@@ -5,7 +5,7 @@ postings. Each rule is one row - id, severity, a SELECT naming ?focus, and a fix
 adding one is adding a row, and tests/test_graph_rules.py proves each one fires.
 
 The texts beside an application's graphs (posting.md, decisions.txt) and the state of a
-career still laid out as files are read through what tier2 is given: graph/rules.py binds
+career still laid out as files are read through what tier2 is given: adapters/cli/compose/record.py binds
 the disk.
 """
 import difflib

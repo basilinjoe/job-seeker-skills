@@ -4,7 +4,7 @@
 own `..` arithmetic against `__file__`, from three different depths in the tree. So
 the schema directory's location was asserted in three places and correct in whichever
 of them had last been updated - and moving the directory needed all three found. They,
-and `graph/export.py`, import it from here now.
+and infra/profiles.py's `ships`, import it from here now.
 
 Plain path arithmetic rather than `importlib.resources`. The callers read these files
 with `open()` and test for them with `os.path.exists`, neither of which works out of a

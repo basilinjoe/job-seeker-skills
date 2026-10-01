@@ -11,10 +11,10 @@ import storekit
 from test_graph_changeset import PFX
 from test_graph_shapes import FIXTURES, load
 
-from jsk.graph import changeset
+from jsk.adapters.cli.compose import record
 from jsk.domain.record import edit
 from jsk.domain import ontology as O
-from jsk.graph.changeset import Refused
+from jsk.domain.record.changeset import Refused
 
 TODAY = datetime.date(2026, 9, 24)
 STORE = None
@@ -41,7 +41,7 @@ def store():
 
 
 def run(body):
-    return edit.apply(store(), changeset.read(PFX + body), TODAY)
+    return edit.apply(store(), record.read_changeset(PFX + body), TODAY)
 
 
 def refused(body):
@@ -202,7 +202,7 @@ class Restored(unittest.TestCase):
         self.store = load(self.root)
 
     def run_(self, body):
-        return edit.apply(self.store, changeset.read(PFX + body), TODAY)
+        return edit.apply(self.store, record.read_changeset(PFX + body), TODAY)
 
     def test_the_next_version_skips_a_number_an_application_still_names(self):
         e = self.run_('op:set { k:met_team.v1 j:value 7 . }\n')

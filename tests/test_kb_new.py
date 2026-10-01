@@ -18,11 +18,11 @@ from fixtures import REPO_ROOT as REPO
 from test_graph_shapes import FIXTURES
 
 from jsk import cli, kb
-from jsk.graph import changeset
+from jsk.adapters.cli.compose import record
 from jsk.infra.oxigraph import db
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record as R
-from jsk.graph import store as S
+from jsk.adapters.cli.compose import record as S
 
 TODAY = datetime.date(2026, 9, 25)
 
@@ -166,7 +166,7 @@ class ThenApply(Scaffold):
         self.assertGreaterEqual(len(blocks), 2)
         for n, block in enumerate(blocks):
             with self.subTest(block=n):
-                cs = changeset.read(block, f"block{n}.trig")
+                cs = record.read_changeset(block, f"block{n}.trig")
                 self.assertIsNotNone(cs.base)
 
 

@@ -53,8 +53,11 @@ KNOWN_EDGES = {
     ("jsk.render.render_resume", "jsk.adapters.cli.render"): {"main"},
     ("jsk.render.fit_pages", "jsk.adapters.cli.fit"): {"main"},
     ("jsk.render.preview_templates", "jsk.adapters.cli.preview"): {"main"},
-    ("jsk.graph.match", "jsk.adapters.cli.match"): {"main"},
-    ("jsk.graph.prepare", "jsk.adapters.cli.tailor"): {"main"},
+    # The unsorted modules that load a workspace take the bound load from the composition
+    # root until the render and resume areas move into the rings.
+    ("jsk.render.render_resume", "jsk.adapters.cli.compose.record"): {"load"},
+    ("jsk.resume.build", "jsk.adapters.cli.compose.record"): {"load"},
+    ("jsk.resume.short", "jsk.adapters.cli.compose.record"): {"load"},
     ("jsk.posting", "jsk.adapters.cli.posting"): {"main"},
     ("jsk.gates.check_ats", "jsk.adapters.cli.gates.ats"): {"main"},
     ("jsk.gates.check_prose", "jsk.adapters.cli.gates.prose"): {"main"},

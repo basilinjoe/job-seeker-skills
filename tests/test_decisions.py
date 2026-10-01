@@ -3,7 +3,7 @@ import unittest
 
 import fixtures  # noqa: F401  (puts src/ on the path)
 
-from jsk.graph import decisions as D
+from jsk.domain.record import decisions
 
 GOOD = """company: JumpCloud
 title: Staff Software Engineer, PAM / PWM - India
@@ -20,7 +20,7 @@ captured: 2026-09-26
 
 class Parse(unittest.TestCase):
     def test_header_rows_and_drops(self):
-        d = D.parse(GOOD)
+        d = decisions.parse(GOOD)
         self.assertEqual(d.header, {"company": "JumpCloud",
                                     "title": "Staff Software Engineer, PAM / PWM - India",
                                     "captured": "2026-09-26"})
@@ -45,8 +45,8 @@ class Parse(unittest.TestCase):
                 ("17 | csharp | C# | - |\ncompany: x", "after the rows"),
                 ("company: a\ncompany: b", "twice")):
             with self.subTest(text=text):
-                with self.assertRaises(D.DecisionsError) as caught:
-                    D.parse(text)
+                with self.assertRaises(decisions.DecisionsError) as caught:
+                    decisions.parse(text)
                 self.assertIn(said, str(caught.exception))
                 self.assertIn("line ", str(caught.exception))
 

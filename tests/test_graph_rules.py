@@ -16,7 +16,8 @@ import test_graph_shapes as shapes_tests
 from storekit import seed
 from test_graph_shapes import APPLICATION_FILE, FIXTURES, KB, KB_FILE, POSTING, POSTING_FILE, load
 
-from jsk.graph import rules
+from jsk.domain.record import rules
+from jsk.domain.posting import advert as rules_advert
 
 LOG = "career/log.ttl"
 # Rules that only a workspace laid out as files can break - its hash, which the store
@@ -230,8 +231,8 @@ class Findings(unittest.TestCase):
         self.assertEqual([f for f in s.findings if f.rule == "advert-uncovered"], [])
 
     def test_typography_is_not_wording(self):
-        self.assertEqual(rules.squash("You’ll own “the” platform — `Kafka`"),
-                         rules.squash("You'll own \"the\" platform - Kafka"))
+        self.assertEqual(rules_advert.squash("You’ll own “the” platform — `Kafka`"),
+                         rules_advert.squash("You'll own \"the\" platform - Kafka"))
 
     def test_an_empty_quote_quotes_nothing(self):
         s, _ = mutated((POSTING_FILE, 'j:quote "Event-driven systems a plus"', 'j:quote "  "', "", ""))

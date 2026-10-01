@@ -7,57 +7,59 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jsk.graph import assessment as A
-from jsk.graph import gapsbuild as B
-from jsk.graph.gapsderive import Derived, Row
+from jsk.domain.assessment import overlay
+from jsk.adapters.cli.compose import tailor
+from jsk.domain.assessment import fold
+from jsk.application.tailor import check_gaps
+from jsk.domain.assessment.derive import Derived, Row
 
 
 class Parse(unittest.TestCase):
     def refuses(self, text, *needles):
-        with self.assertRaises(A.AssessmentError) as cm:
-            A.parse(text)
+        with self.assertRaises(overlay.AssessmentError) as cm:
+            overlay.parse(text)
         for needle in needles:
             self.assertIn(needle, str(cm.exception))
         return str(cm.exception)
 
     def test_a_full_overlay(self):
-        o = A.parse("# a comment\n\nfit: partial\neligibility: India-based, as the role is\n"
+        o = overlay.parse("# a comment\n\nfit: partial\neligibility: India-based, as the role is\n"
                     "vector_dbs | unevidenced | pgvector only\nmentoring | keep\n"
                     "short: vector databases\nsurplus: Rust\nask: Have you used Pinecone?\n")
         self.assertEqual((o.fit, o.eligibility), ("partial", "India-based, as the role is"))
-        self.assertEqual(o.rows, [A.Row(5, "vector_dbs", "unevidenced", "pgvector only"),
-                                  A.Row(6, "mentoring", "keep", "")])
+        self.assertEqual(o.rows, [overlay.Row(5, "vector_dbs", "unevidenced", "pgvector only"),
+                                  overlay.Row(6, "mentoring", "keep", "")])
         self.assertEqual((o.short, o.surplus, o.ask),
                          (["vector databases"], ["Rust"], ["Have you used Pinecone?"]))
 
     def test_an_empty_file_is_an_empty_overlay(self):
-        self.assertEqual(A.parse(""), A.Overlay())
+        self.assertEqual(overlay.parse(""), overlay.Overlay())
 
     def test_repeated_short_surplus_and_ask_keep_file_order(self):
-        o = A.parse("short: b\nask: two?\nshort: a\nsurplus: y\nask: one?\nsurplus: x\n"
+        o = overlay.parse("short: b\nask: two?\nshort: a\nsurplus: y\nask: one?\nsurplus: x\n"
                     "short: c\n")
         self.assertEqual((o.short, o.surplus, o.ask), (["b", "a", "c"], ["y", "x"],
                                                        ["two?", "one?"]))
 
     def test_a_pipe_in_a_reason_stays_in_the_reason(self):
-        o = A.parse("grpc | partial | one service | internal only\n")
-        self.assertEqual(o.rows, [A.Row(1, "grpc", "partial", "one service | internal only")])
+        o = overlay.parse("grpc | partial | one service | internal only\n")
+        self.assertEqual(o.rows, [overlay.Row(1, "grpc", "partial", "one service | internal only")])
 
     def test_a_pipe_in_a_keyed_value_stays_keyed(self):
-        o = A.parse("short: gRPC | one service\neligibility: yes | remote\n")
+        o = overlay.parse("short: gRPC | one service\neligibility: yes | remote\n")
         self.assertEqual((o.short, o.eligibility, o.rows), (["gRPC | one service"],
                                                             "yes | remote", []))
 
     def test_an_empty_keyed_value_is_skipped(self):
-        o = A.parse("fit:\neligibility:   \nsurplus:\nshort: \t\nask:\n")
-        self.assertEqual(o, A.Overlay())
+        o = overlay.parse("fit:\neligibility:   \nsurplus:\nshort: \t\nask:\n")
+        self.assertEqual(o, overlay.Overlay())
 
     def test_crlf_and_indentation(self):
-        o = A.parse("  fit: strong\r\n\tgrpc | partial | one  \r\n")
-        self.assertEqual((o.fit, o.rows), ("strong", [A.Row(2, "grpc", "partial", "one")]))
+        o = overlay.parse("  fit: strong\r\n\tgrpc | partial | one  \r\n")
+        self.assertEqual((o.fit, o.rows), ("strong", [overlay.Row(2, "grpc", "partial", "one")]))
 
     def test_slots_are_text_here_and_checked_by_gapsbuild(self):
-        o = A.parse("fit: <!-- jsk: strong / partial / poor -->\n"
+        o = overlay.parse("fit: <!-- jsk: strong / partial / poor -->\n"
                     "eligibility: <!-- jsk: judge eligibility -->\n"
                     "grpc | <!-- jsk: keep, or lower: partial / unevidenced / unsatisfied --> |\n"
                     "short: <!-- jsk: the unmet -->\n")
@@ -69,7 +71,7 @@ class Parse(unittest.TestCase):
 
     def test_every_verdict_name_and_keep(self):
         names = ("keep", "satisfied", "partial", "unevidenced", "unsatisfied", "indeterminate")
-        o = A.parse("".join(f"r{i} | {v} | why\n" for i, v in enumerate(names)))
+        o = overlay.parse("".join(f"r{i} | {v} | why\n" for i, v in enumerate(names)))
         self.assertEqual(tuple(r.verdict for r in o.rows), names)
 
     # -- refusals, each naming the line
@@ -114,16 +116,16 @@ class Parse(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "gaps.txt"
             path.write_text("fit: poor\n", encoding="utf-8")
-            self.assertEqual(A.read(path).fit, "poor")
+            self.assertEqual(tailor.read_assessment(path).fit, "poor")
 
     def test_read_refuses_a_file_that_is_not_utf8(self):
-        from jsk.graph import io
+        from jsk.domain.record import parsed
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "gaps.txt"
             path.write_bytes(b"fit: poor\n# \x93curly\x94\n")
-            with self.assertRaises(io.NotUtf8) as cm:
-                A.read(path)
+            with self.assertRaises(parsed.NotUtf8) as cm:
+                tailor.read_assessment(path)
             self.assertIn("gaps.txt: not UTF-8", str(cm.exception))
 
 
@@ -186,8 +188,8 @@ class Outcome(unittest.TestCase):
 
     def outcome(self, said, matched, flagged, reason, was):
         d = derived(matched, flagged)
-        o = A.parse(f"r | {said} | because\n" if reason else f"r | {said}\n")
-        found = B.check(d, o, "", {} if was is None else {"r": was})
+        o = overlay.parse(f"r | {said} | because\n" if reason else f"r | {said}\n")
+        found = fold.check(d, o, "", {} if was is None else {"r": was})
         return d, o, [(sev, text) for sev, text, _ in found]
 
     def test_every_combination_has_exactly_the_one_outcome_ruling_7_gives_it(self):
@@ -213,7 +215,7 @@ class Outcome(unittest.TestCase):
                 continue                                # fold is not called past a FAIL
             said, matched = case[0], case[1]
             d, o, _ = self.outcome(*case)
-            v = B.fold(d, o, {} if case[4] is None else {"r": case[4]}).verdicts[0]
+            v = fold.fold(d, o, {} if case[4] is None else {"r": case[4]}).verdicts[0]
             with self.subTest(case=case):
                 honoured = want in (None, MOVED_ABOVE) and said != "keep"
                 self.assertEqual(v.verdict, said if honoured else (matched or "indeterminate"))
@@ -228,14 +230,14 @@ class Outcome(unittest.TestCase):
                 continue
             said, matched, flagged, reason = case[:4]
             d, o, _ = self.outcome(*case)
-            v = B.fold(d, o, {} if case[4] is None else {"r": case[4]}).verdicts[0]
+            v = fold.fold(d, o, {} if case[4] is None else {"r": case[4]}).verdicts[0]
             with self.subTest(case=case):
                 self.assertEqual(v.kept, flagged and (
                     said == "keep" or (said == (matched or "indeterminate") and not reason)))
-                shortfall = B.requirement_rows(B.Assessment(d, "partial", None, (v,), (), (), ()))
+                shortfall = check_gaps.requirement_rows(fold.Assessment(d, "partial", None, (v,), (), (), ()))
                 self.assertNotIn("None", shortfall[2])
                 if want != MOVED_BELOW:     # a raise the career undid asks the flag again
-                    self.assertNotIn(B.UNREVIEWED, shortfall[2])
+                    self.assertNotIn(check_gaps.UNREVIEWED, shortfall[2])
 
     def test_no_advice_on_a_flagged_row_is_to_delete_it(self):
         """Deleting a flagged row FAILs "flagged and gaps.txt has no row for it"."""
@@ -243,8 +245,8 @@ class Outcome(unittest.TestCase):
             if not case[2]:
                 continue
             d = derived(case[1], True)
-            o = A.parse(f"r | {case[0]} | because\n" if case[3] else f"r | {case[0]}\n")
-            found = B.check(d, o, "", {} if case[4] is None else {"r": case[4]})
+            o = overlay.parse(f"r | {case[0]} | because\n" if case[3] else f"r | {case[0]}\n")
+            found = fold.check(d, o, "", {} if case[4] is None else {"r": case[4]})
             with self.subTest(case=case):
                 self.assertFalse([f for f in found if "delete" in f[2]], found)
 
@@ -259,14 +261,14 @@ class Outcome(unittest.TestCase):
                                           "match's verdict already")])
 
     def test_an_unknown_slug_is_its_one_fail(self):
-        found = B.check(derived("satisfied", False), A.parse("kotlin | partial\n"))
+        found = fold.check(derived("satisfied", False), overlay.parse("kotlin | partial\n"))
         self.assertEqual([(s, t) for s, t, _ in found],
                          [("FAIL", "gaps.txt line 1: 'kotlin' is not a requirement of this "
                                    "posting")])
 
     def test_an_unfilled_slot_is_named_once_by_the_slot_fail(self):
-        text = f"r | {A.MARK} keep, or lower -->\n"
-        found = B.check(derived("satisfied", True), A.parse(text), text)
+        text = f"r | {overlay.MARK} keep, or lower -->\n"
+        found = fold.check(derived("satisfied", True), overlay.parse(text), text)
         self.assertEqual([(s, t) for s, t, _ in found],
                          [("FAIL", "gaps.txt line 1: unfilled slot")])
 

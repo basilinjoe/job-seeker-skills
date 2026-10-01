@@ -3,10 +3,10 @@ import unittest
 
 from test_graph_pack import Fixture
 
-from jsk.graph import changeset
+from jsk.adapters.cli.compose import record as changeset
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record
-from jsk.graph import store as S
+from jsk.adapters.cli.compose import record as S
 
 VOCAB = "c:healthcare a j:Domain ."
 
@@ -31,7 +31,7 @@ class Merge(Fixture):
         return code, out + err
 
     def drafted(self, name="merge.trig"):
-        return changeset.read(self.path(name).read_text(encoding="utf-8"))
+        return changeset.read_changeset(self.path(name).read_text(encoding="utf-8"))
 
     def kb_quads(self):
         return {(q.subject.value, q.predicate.value, q.object.value)

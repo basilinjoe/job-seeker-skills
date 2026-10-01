@@ -27,7 +27,7 @@ def merge(root, away, into, *, load, state):
         root: the workspace.
         away: c:a, the concept merged away, as typed.
         into: c:b, the one it becomes, as typed.
-        load: loads the workspace (graph.store.load).
+        load: loads the workspace (compose.record.load).
         state: where the career and its log stand (infra.oxigraph.record.state).
 
     Returns:

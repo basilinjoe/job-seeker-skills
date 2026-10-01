@@ -12,7 +12,8 @@ from pathlib import Path
 import pyoxigraph as ox
 
 from graphgen import graph
-from jsk.graph import io
+from jsk.infra.oxigraph import codec
+from jsk.infra import files
 from jsk.domain.record import writer
 from jsk.domain import ontology as O
 
@@ -31,13 +32,13 @@ class FixturesAreCanonical(unittest.TestCase):
         for path in FILES:
             with self.subTest(file=path.name):
                 text = path.read_bytes().decode("utf-8")
-                parsed = io.parse_text(text, path.name)
+                parsed = codec.parse_text(text, path.name)
                 self.assertEqual(writer.write(parsed.quads, parsed.kind), text)
 
     def test_the_shipped_vocabulary_is_canonical(self):
         import jsk
         text = (Path(jsk.__file__).parent / "data" / "vocabulary.ttl").read_bytes().decode()
-        parsed = io.parse_text(text, "vocabulary.ttl")
+        parsed = codec.parse_text(text, "vocabulary.ttl")
         self.assertEqual(writer.write(parsed.quads, "vocabulary"), text)
 
 
@@ -50,7 +51,7 @@ class RandomGraphsRoundTrip(unittest.TestCase):
                 with self.subTest(kind=kind, seed=seed):
                     ts, _ = graph(seed, kind)
                     out = writer.write(ts, kind)
-                    back = io.parse_text(out, f"{kind}.ttl", kind)
+                    back = codec.parse_text(out, f"{kind}.ttl", kind)
                     self.assertEqual(triples(back), {(str(t.subject), str(t.predicate),
                                                       str(t.object)) for t in ts})
                     self.assertEqual(writer.write(back.quads, kind), out)
@@ -76,7 +77,7 @@ class Literals(unittest.TestCase):
                 t = ox.Triple(ox.NamedNode(O.K + "met_x"), ox.NamedNode(O.J + "subject"),
                               ox.Literal(value))
                 out = writer.write([t], "kb")
-                back = io.parse_text(out, "kb.ttl")
+                back = codec.parse_text(out, "kb.ttl")
                 self.assertEqual([q.object.value for q in back.quads], [value])
 
     def test_multiline_prose_stays_readable(self):
@@ -86,7 +87,7 @@ class Literals(unittest.TestCase):
         self.assertIn('j:problem """It said "no".\nSo we did.""" .', out)
 
     def test_numbers_and_dates_are_bare_or_typed(self):
-        out = writer.write(io.parse_text(PFX + 'k:met_x.v1 j:value 42 ; j:baseline 8.5 ; '
+        out = writer.write(codec.parse_text(PFX + 'k:met_x.v1 j:value 42 ; j:baseline 8.5 ; '
                                          'j:validFrom "2026-09-01"^^xsd:date .', "kb.ttl").quads,
                            "kb")
         self.assertIn("j:baseline 8.5 ; j:value 42", out)
@@ -137,7 +138,7 @@ class NeverUnparseable(unittest.TestCase):
 
     def round_trip(self, triples, kind="kb"):
         out = writer.write(triples, kind)
-        back = io.parse_text(out, f"{kind}.ttl", kind)
+        back = codec.parse_text(out, f"{kind}.ttl", kind)
         return out, {(str(q.subject), str(q.predicate), str(q.object)) for q in back.quads}
 
     def test_a_triple_given_twice_is_written_once(self):
@@ -169,7 +170,7 @@ class NeverUnparseable(unittest.TestCase):
 
 class SubjectLines(unittest.TestCase):
     def test_findings_can_point_into_the_fixture(self):
-        parsed = io.parse(FIXTURES / "career" / "kb.ttl")
+        parsed = files.parse(FIXTURES / "career" / "kb.ttl")
         text = (FIXTURES / "career" / "kb.ttl").read_text(encoding="utf-8").split("\n")
         line = parsed.lines[O.K + "met_team.v1"]
         self.assertTrue(text[line - 1].startswith("k:met_team.v1 "))

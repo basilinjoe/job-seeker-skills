@@ -53,10 +53,10 @@ def write_logged(store, root, quads, by, summary, touched=(), minted=(), answer=
     from ....application.record.write import WriteLogged
     from ....domain.record.state import RecordError
     from ....domain.record.writer import curies
-    from ....graph import store as S
+    from ..compose.record import load
     from ....infra.oxigraph import record as R
 
-    gate = WriteLogged(root, load=S.load, record=R)
+    gate = WriteLogged(root, load=load, record=R)
     try:
         c = gate.candidate(store, quads, by, summary, today, touched, minted, answer, notes)
     except (Failing, Refused) as err:
@@ -99,8 +99,7 @@ def cmd_apply(args, flags, root, today):
     """
     from ....application.record.refusals import Refused
     from ....application.record.write import apply
-    from ....graph import changeset
-    from ....graph import store as S
+    from ..compose.record import load, read_changeset
 
     if len(args) != 1:
         return usage("jsk kb apply takes one changeset")
@@ -110,7 +109,7 @@ def cmd_apply(args, flags, root, today):
                      "stdin is refused, because a pipe that never closes hangs the command")
     if not path.endswith(".trig") or not os.path.isfile(path):
         return usage(f"{path}: not a .trig file")
-    store = S.load(root)
+    store = load(root)
     code = writable(store)
     if code is not None:
         return code
@@ -121,7 +120,7 @@ def cmd_apply(args, flags, root, today):
                       "save it as UTF-8 - in PowerShell, `Set-Content -Encoding utf8`")
     try:
         applied = apply(store, text, os.path.basename(path), today,
-                        read_changeset=changeset.read)
+                        read_changeset=read_changeset)
     except Refused as err:
         return refuse(err.lines, err.fix)
     if applied is None:

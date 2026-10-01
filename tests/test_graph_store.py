@@ -14,12 +14,15 @@ from pathlib import Path
 from storekit import seed
 from test_graph_shapes import load
 
-from jsk.graph import store
+from jsk.adapters.cli.compose import record
+from jsk.infra import files as disk
+from jsk.domain import naming
 from jsk.infra import legacy_import as legacy
 from jsk.infra.oxigraph import db
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record as R
-from jsk.graph.io import GraphError, parse_text
+from jsk.domain.record.parsed import GraphError
+from jsk.infra.oxigraph.codec import parse_text
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"
 PRE = f"PREFIX j: <{O.J}>\nPREFIX k: <{O.K}>\nPREFIX c: <{O.C}>\n"
@@ -109,7 +112,7 @@ class Closure(unittest.TestCase):
     def load(self, edges):
         text = "".join(f"@prefix {n}: <{ns}> .\n" for n, ns in O.PREFIXES) + edges
         with tempfile.TemporaryDirectory() as tmp:
-            return store.load(tmp, vocabulary=None, graphs={R.KB: parse_text(text, R.KB).quads})
+            return record.load(tmp, vocabulary=None, graphs={R.KB: parse_text(text, R.KB).quads})
 
     def test_hop_limit_and_direction(self):
         s = self.load("c:a a j:Technology ; j:isA c:b .\nc:b a j:Capability ; j:partOf c:c .\n"
@@ -135,7 +138,7 @@ class StandIns(unittest.TestCase):
     def test_a_graph_stands_in_for_the_stores_and_none_drops_one(self):
         before = load(self.root)
         posting = list(before.graph(f"{APP}/posting"))
-        s = store.load(self.root, vocabulary=self.root / "vocabulary.ttl",
+        s = record.load(self.root, vocabulary=self.root / "vocabulary.ttl",
                        graphs={f"{APP}/posting": posting[:-1], f"{APP}/application": None})
         self.assertNotIn(f"{APP}/application", s.parsed)
         self.assertEqual(len(s.graph(f"{APP}/posting")), len(posting) - 1)
@@ -145,7 +148,7 @@ class StandIns(unittest.TestCase):
         # `career/kb.ttl` and `kb` name one graph: a caller that still says the file does not
         # load a second career beside the first.
         kb = list(load(self.root).graph(R.KB))
-        s = store.load(self.root, vocabulary=self.root / "vocabulary.ttl",
+        s = record.load(self.root, vocabulary=self.root / "vocabulary.ttl",
                        graphs={"career/kb.ttl": kb})
         self.assertIn(R.KB, s.parsed)
         self.assertNotIn("career/kb.ttl", s.parsed)
@@ -162,7 +165,7 @@ class StandIns(unittest.TestCase):
 class Discovery(unittest.TestCase):
     def test_a_workspace_with_nothing_in_it_is_absent_not_an_error(self):
         with tempfile.TemporaryDirectory() as tmp:
-            s = store.load(tmp)
+            s = record.load(tmp)
             self.assertEqual(sorted(s.parsed), ["vocabulary"])
             self.assertEqual(s.findings, [])
             self.assertEqual(R.state(s).kind, "missing")
@@ -171,14 +174,14 @@ class Discovery(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             shutil.copytree(FIXTURES, tmp, dirs_exist_ok=True)
             with self.assertRaises(GraphError) as e:
-                store.load(tmp)
+                record.load(tmp)
         self.assertEqual(e.exception.file, "career/kb.ttl")
         self.assertIn("jsk kb load .", e.exception.fix)
 
     def test_an_empty_store_holds_no_career(self):
         with tempfile.TemporaryDirectory() as tmp:
             R.write_graphs(tmp, {"kb": None}, create=True)
-            s = store.load(tmp)
+            s = record.load(tmp)
             self.assertTrue(s.stored)
             self.assertEqual(sorted(s.parsed), ["vocabulary"])
             self.assertEqual(R.state(s).kind, "missing")
@@ -188,7 +191,7 @@ class Discovery(unittest.TestCase):
             os.makedirs(os.path.join(tmp, db.STORE_DIR))
             Path(tmp, db.STORE_DIR, "CURRENT").write_text("garbage\n", encoding="utf-8")
             with self.assertRaises(GraphError) as e:
-                store.load(tmp)
+                record.load(tmp)
         self.assertEqual(e.exception.file, "career/store/")
         self.assertIn("could not be opened", str(e.exception))
         self.assertTrue(e.exception.fix)
@@ -219,9 +222,9 @@ class Discovery(unittest.TestCase):
         site-packages on C:, the workspace on D:."""
         from unittest import mock
         with mock.patch("os.path.relpath", side_effect=ValueError("path is on mount 'C:'")):
-            self.assertEqual(store.file_name("C:/py/jsk/data/vocabulary.ttl", "D:/career"),
+            self.assertEqual(disk.file_name("C:/py/jsk/data/vocabulary.ttl", "D:/career"),
                              "vocabulary.ttl")
-            self.assertEqual(store.graph_name("C:/py/jsk/data/vocabulary.ttl", "D:/career"),
+            self.assertEqual(disk.graph_name("C:/py/jsk/data/vocabulary.ttl", "D:/career"),
                              "vocabulary")
 
     def test_graph_returns_the_triples_as_loaded(self):
@@ -260,22 +263,22 @@ class Paths(unittest.TestCase):
 
     def test_rel_and_inside_on_one_drive(self):
         root = os.path.abspath("ws")
-        self.assertEqual(store.rel(os.path.join(root, "career", "kb.ttl"), root), "career/kb.ttl")
-        self.assertTrue(store.inside(os.path.join(root, "career"), root))
-        self.assertFalse(store.inside(os.path.dirname(root), root))
+        self.assertEqual(disk.rel(os.path.join(root, "career", "kb.ttl"), root), "career/kb.ttl")
+        self.assertTrue(disk.inside(os.path.join(root, "career"), root))
+        self.assertFalse(disk.inside(os.path.dirname(root), root))
 
     def test_graph_names(self):
         for path, name in (("career/kb.ttl", "kb"), ("career/log.ttl", "log"),
                            (f"{APP}/posting.ttl", f"{APP}/posting"),
                            (f"{APP}/gaps.ttl", f"{APP}/gaps"), ("kb", "kb"),
                            ("career/notes.ttl", "career/notes.ttl")):
-            self.assertEqual(store.short_name(path), name, path)
+            self.assertEqual(naming.short_name(path), name, path)
 
     @unittest.skipUnless(os.name == "nt", "only Windows has drives")
     def test_another_drive_answers_rather_than_raising(self):
-        self.assertFalse(store.inside("D:\\x", "C:\\y"))
-        self.assertEqual(store.rel("D:\\x\\a.ttl", "C:\\y"), "D:/x/a.ttl")
-        self.assertEqual(store.file_name("D:\\x\\a.ttl", "C:\\y"), "a.ttl")
+        self.assertFalse(disk.inside("D:\\x", "C:\\y"))
+        self.assertEqual(disk.rel("D:\\x\\a.ttl", "C:\\y"), "D:/x/a.ttl")
+        self.assertEqual(disk.file_name("D:\\x\\a.ttl", "C:\\y"), "a.ttl")
 
 
 if __name__ == "__main__":

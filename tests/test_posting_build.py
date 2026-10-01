@@ -21,7 +21,8 @@ import fixtures  # noqa: F401 - puts the worktree's src first on sys.path
 from appkit import seed
 
 from jsk import posting
-from jsk.graph import postingbuild, rules, store
+from jsk.adapters.cli.compose import posting as postingbuild, record
+from jsk.domain.posting import decide, advert
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"
 STEM = "acme-staff-platform"
@@ -111,7 +112,7 @@ class Workspace(unittest.TestCase):
         return caught.exception
 
     def loaded(self):
-        return store.load(self.root, vocabulary=self.root / "vocabulary.ttl")
+        return record.load(self.root, vocabulary=self.root / "vocabulary.ttl")
 
     def text(self):
         return appkit.text(self.root, self.target)
@@ -122,7 +123,7 @@ class Workspace(unittest.TestCase):
 
 class Lines(unittest.TestCase):
     def test_the_numbering_this_file_relies_on(self):
-        lines = rules.advert_lines(ADVERT)
+        lines = advert.advert_lines(ADVERT)
         # The eligibility paragraph was line 9; it sits under Benefits, and a paragraph
         # under an offered heading is skipped now (2026-09-29-tailor-time Ruling 1).
         self.assertEqual([(x.n, x.section) for x in lines], [
@@ -148,7 +149,7 @@ class Extract(Workspace):
                      "seniority: architecture-ownership", "captured: 2026-09-27"):
             self.assertIn(line + "\n", out)
         # What extract prints as the header, decisions.parse reads back.
-        from jsk.graph import decisions
+        from jsk.domain.record import decisions
         head = decisions.parse(out.split("\n# n ", 1)[0]).header
         self.assertEqual(head["company"], "Acme Health")
         self.assertEqual(head["seniority"], "architecture-ownership")
@@ -179,10 +180,10 @@ class Extract(Workspace):
         out = self.extract()
         self.assertIn("title: Lead Architect\n", out)
         self.assertIn("company: \n", out)
-        self.assertEqual(postingbuild.advert_header("Principal Engineer\nAcme\n"),
+        self.assertEqual(decide.advert_header("Principal Engineer\nAcme\n"),
                          ("Principal Engineer", "", ""))
         # A fetched file's first line says where it came from, and is not the title either.
-        self.assertEqual(postingbuild.advert_header("Source: role.docx\n\nLead Architect\n"),
+        self.assertEqual(decide.advert_header("Source: role.docx\n\nLead Architect\n"),
                          ("Lead Architect", "", ""))
 
     def test_the_directory_date_is_not_part_of_the_id(self):
@@ -361,13 +362,12 @@ class Build(Workspace):
         self.assertEqual(appkit.graphs(self.root).keys(), before.keys())
 
     def test_an_application_is_named_as_its_folder_is(self):
-        from jsk.graph import store as S
         from jsk.infra import files
         other = self.root / "APPLICATIONS" / STEM.upper()
         if not other.is_dir():
             self.skipTest("a case-sensitive filesystem: another case is another folder")
         self.assertEqual(files.workspace_of_app(other)[1], f"applications/{STEM}")
-        self.assertEqual(S.file_name(str(other), str(self.root)), f"applications/{STEM}")
+        self.assertEqual(files.file_name(str(other), str(self.root)), f"applications/{STEM}")
 
     def test_a_stray_application_ttl_file_does_not_freeze_a_stored_application(self):
         """`jsk kb load` leaves the old files where they were; the store alone says sent."""

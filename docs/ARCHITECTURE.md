@@ -297,18 +297,9 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   paths.py                          where the packaged schema lives - stated once
   kb.py                             `jsk kb new` - hands over to adapters/cli/kb/new.py (the documented path)
   posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
-  graph/                            the career record: see "Inside the graph package"
-    io.py  store.py                 read and parse input, load and validate
-    rules.py                        tier 2 bound to the disk
-    changeset.py  kbcli.py          a changeset read; the old path of `jsk kb`, naming it
-    pack.py                         `jsk kb pack`'s starter packs on disk
-    queries.py  match.py            the vocabulary, `jsk tailor match`
-    select.py                       what a match selects
-    decisions.py  postingbuild.py   decisions.txt; `jsk posting extract` and `build` -> the posting graph
-    prepare.py                      `jsk tailor prepare` - one digest for the assessment
-    gapsderive.py  gapsdraft.py     the assessment derived from the match; the gaps.txt draft
-    assessment.py  gapsbuild.py     gaps.txt read; checked, folded in, the gaps graph and gaps.md written
-    timeline.py                     the old path of `jsk app event`, naming it
+  graph/                            the old module paths of four commands, each naming the one it became
+    kbcli.py  match.py  prepare.py  `jsk kb`, `jsk tailor match`, `jsk tailor prepare`
+    timeline.py                     `jsk app event`
   resume/                           career + resume.json -> the render plan
     short.py                        the short file: read, shape, ids, its workspace
     career.py                       the career graph as the builder, export and match read it
@@ -430,6 +421,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     files.py                        the workspace on disk: find_root; a document written atomically
     workspace.py                    the workspace a load reads: career/store/, the files beside it, the vocabulary
     legacy_import.py                a workspace still laid out as .ttl files, read once for `jsk kb load`
+    packs.py                        `jsk kb pack`'s starter packs on disk: where each is, and reading one
     pdf.py                          a rendered PDF's text and fonts, through pymupdf
     profiles.py                     the region profiles under data/ (moved from render/)
     oxigraph/codec.py               Turtle and TriG parsed through the engine; numbers as it keeps them
@@ -457,8 +449,11 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/posting.py                  `jsk posting`: fetch, extract or build run, what it wrote said
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
     cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
+    cli/compose/record.py           a workspace loaded over career/store/ and the engine; a changeset read
+    cli/compose/match.py            the match and the selection, each asked of the engine's feature reads
+    cli/compose/posting.py          `jsk posting extract` and `build`'s folder on disk, decisions.txt read
     cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
-    cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads, the short file
+    cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads, the short file, the assessment's folder
     cli/kb/__init__.py              `jsk kb`: the verb table, its flags, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
     cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG

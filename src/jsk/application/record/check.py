@@ -63,7 +63,7 @@ def check(root, only, today, *, load, state, graph_name, queries):
         root: the workspace.
         only: a graph name or a path to narrow the findings to (every FAIL stays), or None.
         today: the date the number check reads versions against.
-        load: loads the workspace (graph.store.load).
+        load: loads the workspace (compose.record.load).
         state: where the career and its log stand (infra.oxigraph.record.state).
         graph_name: the graph a path holds (infra.files.graph_name).
         queries: makes the RecordQueries over a loaded workspace.

@@ -95,15 +95,15 @@ def prepared(root, app, named_as, opts, draft):
         The digest's exit code.
     """
     from ...application.tailor.prepare import prepare
-    from ...graph import select as SEL
-    from ...graph import store as S
-    from ...graph.gapsbuild import Folder
+    from .compose import match
+    from .compose.record import load
+    from .compose.tailor import Folder
     from ...infra.files import file_name
     from ...infra.oxigraph.queries import OxigraphQueries
     from .compose.tailor import Reads
 
-    digest = prepare(root, app, named_as, opts.budget, opts.today, draft, load=S.load,
-                     queries=OxigraphQueries, select=SEL.select, name_of=file_name,
+    digest = prepare(root, app, named_as, opts.budget, opts.today, draft, load=load,
+                     queries=OxigraphQueries, select=match.select, name_of=file_name,
                      reads=Reads(), folder=Folder())
     for title, lines in digest.sections:
         section(title, lines)

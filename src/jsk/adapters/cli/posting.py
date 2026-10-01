@@ -41,7 +41,7 @@ through hand-written curl and inline Python and posting.md was assembled by hand
 one input every requirement quotes, made by the least repeatable step of the run. The
 file argument came after the Arrow run (2026-09-29), where a .docx was unzipped with
 inline Python and posting.md typed back out through the context.
-Only urllib at import: extract and build load graph.postingbuild when they run, and a
+Only urllib at import: extract and build load compose.posting when they run, and a
 .docx loads zipfile and xml.etree when it is read.
 """
 import datetime
@@ -109,14 +109,14 @@ def extracted(app_dir, today):
         Refused: there is no readable posting.md.
     """
     from ...application.posting.extract import extract
-    from ...graph.postingbuild import PostingFolder
+    from .compose.posting import PostingFolder
 
     return extract(app_dir, None, today, folder=PostingFolder())
 
 
 def built(app_dir, decisions_path, replace, today):
     """`jsk posting build` (application.posting.build) inside the workspace's turn, with
-    graph.postingbuild's triples as they are at the call.
+    compose.posting's triples as they are at the call.
 
     Returns:
         The Built.
@@ -125,11 +125,11 @@ def built(app_dir, decisions_path, replace, today):
         Refused: every problem, and nothing written.
     """
     from ...application.posting.build import build
-    from ...graph import postingbuild as PB
+    from .compose import posting
     from ...infra.files import find_root
     from ...infra.oxigraph import record as R
 
     root = find_root(app_dir)
     with R.turn(root, dry_run=root is None):
         return build(app_dir, decisions_path, replace, None, today,
-                     folder=PB.PostingFolder(), triples=PB.triples)
+                     folder=posting.PostingFolder(), triples=posting.triples)

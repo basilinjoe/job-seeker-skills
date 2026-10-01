@@ -406,7 +406,8 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
         """A worked example a model copies is code, and unverified code in a document
         reads as checked. Every TriG block with a changeset graph in it must get past
         apply's own reader - the refusals that need no career in front of them."""
-        from jsk.graph import changeset
+        from jsk.adapters.cli.compose import record
+        from jsk.domain.record import changeset
 
         seen = 0
         for name, text in self.plugin_texts().items():
@@ -416,7 +417,7 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
                 seen += 1
                 with self.subTest(file=name, block=block[:60]):
                     try:
-                        changeset.read(block.replace("…", "x"), name)
+                        record.read_changeset(block.replace("…", "x"), name)
                     except changeset.Refused as exc:
                         self.fail("\n".join(r.text() for r in exc.refusals))
         self.assertGreaterEqual(seen, 3)

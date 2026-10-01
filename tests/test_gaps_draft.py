@@ -8,10 +8,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jsk.graph import assessment as A
-from jsk.graph import gapsdraft as G
-from jsk.graph import store
-from jsk.graph.gapsderive import Derived, Row
+from jsk.domain.assessment import overlay
+from jsk.adapters.cli.compose import tailor
+from jsk.adapters.cli.compose import record
+from jsk.domain.assessment.derive import Derived, Row
 
 FIXTURES = Path(__file__).parent / "match_fixtures"
 ADVERT = FIXTURES / "applications" / "contoso" / "posting.md"
@@ -41,17 +41,17 @@ class Draft(unittest.TestCase):
     def setUpClass(cls):
         from appkit import stored_copy
         root = stored_copy(FIXTURES)
-        cls.s = store.load(root, vocabulary=root / "vocabulary.ttl")
-        cls.text = G.draft_gaps(DERIVED, cls.s, str(ADVERT))
-        cls.overlay = A.parse(cls.text)
+        cls.s = record.load(root, vocabulary=root / "vocabulary.ttl")
+        cls.text = tailor.draft_gaps(DERIVED, cls.s, str(ADVERT))
+        cls.overlay = overlay.parse(cls.text)
 
     def test_the_draft_is_an_overlay_the_parser_reads(self):
-        self.assertIsInstance(self.overlay, A.Overlay)
+        self.assertIsInstance(self.overlay, overlay.Overlay)
 
     def test_one_row_per_flagged_requirement_and_none_for_the_others(self):
         self.assertEqual([r.slug for r in self.overlay.rows], ["vector_dbs", "ai_tools"])
         for r in self.overlay.rows:
-            self.assertTrue(r.verdict.startswith(G.MARK), r)
+            self.assertTrue(r.verdict.startswith(overlay.MARK), r)
             self.assertEqual(r.reason, "")
 
     def test_each_row_has_its_flag_as_a_comment_above_it(self):
@@ -74,27 +74,27 @@ class Draft(unittest.TestCase):
 
     def test_the_slots_are_exactly_the_judgements(self):
         """eligibility, one per flagged row, short, surplus and the blocking ask."""
-        self.assertEqual(self.text.count(G.MARK), 1 + 2 + 1 + 1 + 1)
-        self.assertEqual(sum(G.MARK in line for line in self.text.split("\n")), 6)
-        self.assertTrue(self.overlay.eligibility.startswith(G.MARK))
+        self.assertEqual(self.text.count(overlay.MARK), 1 + 2 + 1 + 1 + 1)
+        self.assertEqual(sum(overlay.MARK in line for line in self.text.split("\n")), 6)
+        self.assertTrue(self.overlay.eligibility.startswith(overlay.MARK))
         self.assertEqual(len(self.overlay.short), 1)
         self.assertEqual(len(self.overlay.surplus), 1)
 
     def test_no_flagged_rows_leaves_four_slots_and_no_rows(self):
         quiet = Derived("k:post_contoso", "contoso", (row("k8s"),), "strong", ())
-        text = G.draft_gaps(quiet, self.s, str(ADVERT))
-        self.assertEqual(text.count(G.MARK), 4)
-        o = A.parse(text)
+        text = tailor.draft_gaps(quiet, self.s, str(ADVERT))
+        self.assertEqual(text.count(overlay.MARK), 4)
+        o = overlay.parse(text)
         self.assertEqual((o.rows, o.fit, len(o.ask)), ([], "strong", 1))
 
     def test_the_derived_questions_are_asks_after_the_blocking_slot(self):
         self.assertEqual(self.overlay.ask[1:], list(DERIVED.questions))
-        self.assertTrue(self.overlay.ask[0].startswith(G.MARK + " blocking"))
+        self.assertTrue(self.overlay.ask[0].startswith(overlay.MARK + " blocking"))
         self.assertIn("# reword each ask to be said aloud", self.text)
 
     def test_a_question_with_a_newline_stays_one_ask(self):
         d = Derived("k:post_contoso", "contoso", (), "partial", ("Two\nlines?",))
-        self.assertEqual(A.parse(G.draft_gaps(d, self.s, str(ADVERT))).ask[1:], ["Two lines?"])
+        self.assertEqual(overlay.parse(tailor.draft_gaps(d, self.s, str(ADVERT))).ask[1:], ["Two lines?"])
 
     def test_the_head_says_what_the_file_is(self):
         head = self.text.split("\n\n")[0]
@@ -124,7 +124,7 @@ class Draft(unittest.TestCase):
                 "company: Fabrikam\n\n# n | slug | asked | concepts | need\n"
                 "2 | dotnet_framework | .NET Framework | - |\n3 | - | internal tooling\n"
                 "4 | - | eligibility: judged under eligibility\n", encoding="utf-8")
-            text = G.draft_gaps(DERIVED, self.s, str(advert))
+            text = tailor.draft_gaps(DERIVED, self.s, str(advert))
         lines = text.split("\n")
         drops = [x for x in lines if x.startswith("# dropped advert line")]
         self.assertEqual(len(drops), 2, drops)
@@ -134,14 +134,14 @@ class Draft(unittest.TestCase):
         self.assertEqual(drops[1], "# dropped advert line 4: Must hold a UK work visa. - "
                                    "eligibility: judged under eligibility")
         self.assertIn('#   advert: "Must hold a UK work visa."', lines)
-        self.assertEqual([(r.slug, r.verdict) for r in A.parse(text).rows],   # comments only
+        self.assertEqual([(r.slug, r.verdict) for r in overlay.parse(text).rows],   # comments only
                          [(r.slug, r.verdict) for r in self.overlay.rows])
 
     def test_no_decisions_file_is_a_legacy_posting_not_an_error(self):
         with tempfile.TemporaryDirectory() as tmp:
-            text = G.draft_gaps(DERIVED, self.s, str(Path(tmp) / "posting.md"))
+            text = tailor.draft_gaps(DERIVED, self.s, str(Path(tmp) / "posting.md"))
         self.assertNotIn("# dropped", text)
-        self.assertEqual(A.parse(text).fit, "partial")
+        self.assertEqual(overlay.parse(text).fit, "partial")
 
 
 if __name__ == "__main__":

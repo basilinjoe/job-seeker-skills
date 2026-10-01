@@ -92,7 +92,7 @@ def add_event(root, app_dir, kind, date, channel, note, due, today, *, load, nam
         note: what it said, or None.
         due: the day a scheduled one is, YYYY-MM-DD, or None.
         today: the date the command runs on, read once by the adapter.
-        load: (root, graphs=None) -> the loaded workspace (graph.store.load).
+        load: (root, graphs=None) -> the loaded workspace (compose.record.load).
         name_of: (path, root) -> how findings name the file (infra.files.file_name).
         event_quads: (app, stem, date, kind, channel, note, due, iri=None) -> (iri, quads).
         write_graphs: (root, {name: triples}) writes them (ports.record.RecordRepository).

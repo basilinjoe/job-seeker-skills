@@ -15,8 +15,9 @@ import appkit
 from jsk import cli
 from jsk.adapters.cli.compose import tailor
 from jsk.domain import ontology as O
-from jsk.graph import select as SEL
-from jsk.graph import store as S
+from jsk.adapters.cli.compose import match
+from jsk.domain.selection import select
+from jsk.adapters.cli.compose import record
 from jsk.resume import short
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
@@ -66,7 +67,7 @@ def load(root):
     kb.ttl as Turtle and then reads the record as jsk keeps it."""
     if not os.path.isdir(os.path.join(root, "career", "store")):
         appkit.seed(root)
-    return S.load(root)
+    return record.load(root)
 
 
 def ids(iris):
@@ -76,7 +77,7 @@ def ids(iris):
 class Selected(unittest.TestCase):
     def setUp(self):
         self.store = load(workspace(self))
-        self.sel = SEL.select(self.store, POST, TODAY, 3)
+        self.sel = match.select(self.store, POST, TODAY, 3)
 
     def test_projects_are_the_cover_then_what_carries_evidence(self):
         self.assertEqual(ids(self.sel.projects), ["prj_events", "prj_identity"])
@@ -109,7 +110,7 @@ class Selected(unittest.TestCase):
         self.assertNotIn("Terraform", [g.requirement for g in self.sel.gaps])
 
     def test_deterministic(self):
-        again = SEL.select(load(self.store.root), POST, TODAY, 3)
+        again = match.select(load(self.store.root), POST, TODAY, 3)
         self.assertEqual(again, self.sel)
 
 
@@ -118,16 +119,16 @@ class Extra(unittest.TestCase):
         self.store = load(workspace(self))
 
     def test_a_project_added_brings_its_first_bullet(self):
-        sel = SEL.select(self.store, POST, TODAY, 3, extra=[O.K + "prj_game"])
+        sel = match.select(self.store, POST, TODAY, 3, extra=[O.K + "prj_game"])
         self.assertEqual(ids(sel.projects)[-1], "prj_game")
         self.assertEqual(ids(sel.bullets[O.K + "prj_game"]), ["ach_game_players"])
 
     def test_a_bullet_added_brings_exactly_itself(self):
-        sel = SEL.select(self.store, POST, TODAY, 3, extra=[O.K + "ach_portal_frontend"])
+        sel = match.select(self.store, POST, TODAY, 3, extra=[O.K + "ach_portal_frontend"])
         self.assertEqual(ids(sel.bullets[O.K + "prj_portal"]), ["ach_portal_frontend"])
 
     def test_an_id_already_selected_is_not_duplicated(self):
-        sel = SEL.select(self.store, POST, TODAY, 3,
+        sel = match.select(self.store, POST, TODAY, 3,
                          extra=[O.K + "prj_events", O.K + "ach_events_team"])
         self.assertEqual(ids(sel.projects), ["prj_events", "prj_identity"])
         self.assertEqual(len(sel.bullets[O.K + "prj_events"]), 3)
@@ -138,7 +139,7 @@ class Nothing(unittest.TestCase):
         posting = POSTING.split("k:req_sel_k8s")[0] + (
             'k:req_sel_rust j:posting k:post_contoso_select ; j:asked "Rust" ;\n'
             '    j:necessity j:required ; j:quote "Rust is required." .\n')
-        sel = SEL.select(load(workspace(self, posting)), POST, TODAY, 3)
+        sel = match.select(load(workspace(self, posting)), POST, TODAY, 3)
         self.assertEqual(sel.projects, [])
         self.assertEqual([g.kind for g in sel.gaps], ["uncovered"])
 
@@ -171,7 +172,7 @@ k:ach_x2 j:project k:prj_x ; j:rank 2 ; j:text "Wrote Rust." ; j:shows c:rust ;
 k:ach_x3 j:project k:prj_x ; j:rank 3 ; j:text "Wrote SQL." ; j:shows c:sql-server ;
     j:provenance j:confirmed .
 """)
-        sel = SEL.select(load(root), POST, TODAY, 1)
+        sel = match.select(load(root), POST, TODAY, 1)
         self.assertIn(O.K + "prj_x", sel.projects)
         self.assertEqual(ids(sel.bullets[O.K + "prj_x"]), ["ach_x1", "ach_x2", "ach_x3"])
         self.assertEqual(sel.gaps, [])
@@ -187,7 +188,7 @@ class Reworded(unittest.TestCase):
         end = text.index("k:ach_events_team")
         kb.write_bytes((text[:at] + text[at:end].replace("j:confirmed", "j:inferred")
                         + text[end:]).encode())
-        self.sel = SEL.select(load(root), POST, TODAY, 3,
+        self.sel = match.select(load(root), POST, TODAY, 3,
                               extra=[O.K + "ach_events_latency"])
 
     def test_it_is_placed_by_what_it_shows(self):
@@ -201,7 +202,7 @@ class Reworded(unittest.TestCase):
 
 class Implied(unittest.TestCase):
     def test_a_bullet_showing_what_only_implies_it_is_named(self):
-        sel = SEL.select(load(workspace(self, asking("IaC", need="preferred"))),
+        sel = match.select(load(workspace(self, asking("IaC", need="preferred"))),
                          POST, TODAY, 3)
         self.assertIn("k:ach_events_terraform shows c:terraform, which only implies",
                       sel.gaps[0].detail)
@@ -209,30 +210,30 @@ class Implied(unittest.TestCase):
 
 class Pick(unittest.TestCase):
     def test_bands(self):
-        self.assertEqual([SEL.band(n) for n in (1, 2, 3, 5, 6, 8, 9)],
+        self.assertEqual([select.band(n) for n in (1, 2, 3, 5, 6, 8, 9)],
                          [(5, 3), (5, 3), (2, 1), (2, 1), (1, 1), (1, 1), (1, 1)])
 
     def test_the_cover_beats_the_band(self):
         cands = [("a", 3, {"r1"}), ("b", 3, {"r2"}), ("c", 1, set())]
-        self.assertEqual(SEL.pick(cands, {"r1", "r2"}, 1, 1), ["a", "b"])
+        self.assertEqual(select.pick(cands, {"r1", "r2"}, 1, 1), ["a", "b"])
 
     def test_greedy_takes_the_bullet_showing_most(self):
         cands = [("b", 6, {"r1", "r2"}), ("a", 3, {"r1"})]
-        self.assertEqual(SEL.pick(cands, {"r1", "r2"}, 1, 1), ["b"])
+        self.assertEqual(select.pick(cands, {"r1", "r2"}, 1, 1), ["b"])
 
     def test_fill_to_the_floor_with_non_scoring(self):
         cands = [("a", 3, {"r1"}), ("b", 0, set()), ("c", 0, set()), ("d", 0, set())]
-        self.assertEqual(SEL.pick(cands, set(), 5, 3), ["a", "b", "c"])
+        self.assertEqual(select.pick(cands, set(), 5, 3), ["a", "b", "c"])
 
     def test_cap_counts_the_cover(self):
         cands = [("a", 3, {"r1"}), ("b", 3, {"r2"}), ("c", 3, {"r3"})]
-        self.assertEqual(SEL.pick(cands, {"r1", "r2"}, 2, 1), ["a", "b"])
+        self.assertEqual(select.pick(cands, {"r1", "r2"}, 2, 1), ["a", "b"])
 
 
 class Exported(unittest.TestCase):
     def setUp(self):
         self.store = load(workspace(self))
-        self.doc = tailor.short_file(self.store, selection=SEL.select(self.store, POST, TODAY, 3))
+        self.doc = tailor.short_file(self.store, selection=match.select(self.store, POST, TODAY, 3))
 
     def test_the_selected_bullets_in_the_selection_s_order(self):
         self.assertEqual(self.doc["bullets"],
@@ -248,7 +249,7 @@ class Exported(unittest.TestCase):
 
     def test_byte_identical(self):
         store = load(self.store.root)
-        again = tailor.short_file(store, selection=SEL.select(store, POST, TODAY, 3))
+        again = tailor.short_file(store, selection=match.select(store, POST, TODAY, 3))
         self.assertEqual(json.dumps(again), json.dumps(self.doc))
 
 
@@ -271,7 +272,7 @@ class Capped(unittest.TestCase):
         career_plus(root, TOOLS)                   # Platforms: Kubernetes and these 14
         self.store = load(root)
         self.notes = []
-        self.doc = tailor.short_file(self.store, selection=SEL.select(self.store, POST, TODAY, 3),
+        self.doc = tailor.short_file(self.store, selection=match.select(self.store, POST, TODAY, 3),
                                      notes=self.notes)
 
     def test_a_row_of_15_exports_10_the_asked_ones_first(self):
@@ -294,12 +295,12 @@ class Capped(unittest.TestCase):
                     if "skills row" in w]
 
         self.assertEqual(cut(self.doc), [])
-        uncut = dict(self.doc, skills=ids(SEL.select(self.store, POST, TODAY, 3).skills))
+        uncut = dict(self.doc, skills=ids(match.select(self.store, POST, TODAY, 3).skills))
         self.assertEqual(len(cut(uncut)), 1)                      # what it was before
 
     def test_the_ranked_export_names_no_skills_to_cut(self):
         self.assertNotIn("skills", tailor.short_file(self.store,
-                                                     selection=SEL.ranked(self.store, TODAY)))
+                                                     selection=match.ranked(self.store, TODAY)))
 
 
 def many(root, name, n, cites=False):
@@ -318,7 +319,7 @@ class Ranked(unittest.TestCase):
         self.root = workspace(self)
 
     def sel(self, extra=()):
-        return SEL.ranked(load(self.root), TODAY, extra)
+        return match.ranked(load(self.root), TODAY, extra)
 
     def test_projects_by_strength_and_recency(self):
         sel = self.sel()
@@ -360,7 +361,7 @@ class Ranked(unittest.TestCase):
             f'k:ach_z{i} j:project k:prj_z{i} ; j:rank 1 ; j:text "Z{i}." ; '
             f'j:provenance j:confirmed .\n' for i in range(4)))
         sel = self.sel()
-        self.assertEqual(len(sel.projects), SEL.MOST)
+        self.assertEqual(len(sel.projects), select.MOST)
         self.assertEqual(ids(sel.projects)[-3:], ["prj_z0", "prj_z1", "prj_z2"])
 
     def test_select_adds_to_it(self):
@@ -371,9 +372,9 @@ class Ranked(unittest.TestCase):
 
     def test_deterministic(self):
         store = load(self.root)
-        first = tailor.short_file(store, selection=SEL.ranked(store, TODAY))
+        first = tailor.short_file(store, selection=match.ranked(store, TODAY))
         store = load(self.root)
-        self.assertEqual(json.dumps(tailor.short_file(store, selection=SEL.ranked(store, TODAY))),
+        self.assertEqual(json.dumps(tailor.short_file(store, selection=match.ranked(store, TODAY))),
                          json.dumps(first))
 
     def test_score_allocates_and_chronology_orders(self):
@@ -386,7 +387,7 @@ class Ranked(unittest.TestCase):
                        .replace("j:strength 5 ; j:recency 2026", "j:strength 1 ; j:recency 2026")
                        .encode())
         store = load(self.root)
-        doc = tailor.short_file(store, selection=SEL.ranked(store, TODAY))
+        doc = tailor.short_file(store, selection=match.ranked(store, TODAY))
         self.assertEqual(doc["bullets"][0], "ach_game_players")
         self.assertEqual(doc["bullets"][-2:], ["ach_events_latency", "ach_events_team"])  # 5th
         self.assertEqual(short.shape(doc), [])
@@ -411,7 +412,7 @@ class SkillAliases(unittest.TestCase):
         kb.write_bytes(text.replace('j:alias "C#" .', 'j:alias "C#", "Widgetry" .').encode())
         if label:
             career_plus(root, '\nc:widgetry a j:Capability ; j:label "Widgetry" .\n')
-        return ids(SEL.select(load(root), POST, TODAY, 3).skills)
+        return ids(match.select(load(root), POST, TODAY, 3).skills)
 
     def test_an_alias_no_project_holds_ranks_nothing(self):
         self.assertEqual(self.order(label=True), ["skill_kubernetes", "skill_dotnet"])

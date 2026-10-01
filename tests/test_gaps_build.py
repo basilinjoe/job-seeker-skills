@@ -10,13 +10,16 @@ from pathlib import Path
 import appkit
 from appkit import seed
 
-from jsk.graph import assessment as A
-from jsk.graph import gapsbuild as B
-from jsk.graph import match as M
+from jsk.domain.assessment import overlay
+from jsk.domain.assessment import fold
+from jsk.application.tailor import check_gaps
+from jsk.adapters.cli.compose import tailor
+from jsk.adapters.cli.compose import match
+from jsk.adapters.cli import match as M_match
 from jsk.domain import ontology as O
-from jsk.graph import queries as Q
-from jsk.graph import store
-from jsk.graph.gapsderive import derive
+from jsk.infra.oxigraph import queries
+from jsk.adapters.cli.compose import record
+from jsk.adapters.cli.compose.tailor import derive
 
 FIXTURES = Path(__file__).parent / "match_fixtures"
 TODAY = datetime.date(2026, 9, 24)
@@ -45,10 +48,10 @@ class Build(unittest.TestCase):
         return appkit.has(self.root, self.gaps(posting))
 
     def load(self):
-        return store.load(self.root, vocabulary=self.root / "vocabulary.ttl")
+        return record.load(self.root, vocabulary=self.root / "vocabulary.ttl")
 
     def result(self, s, posting="contoso", flag_k8s=False):
-        r = M.result(s, O.K + "post_" + posting, TODAY, 3)
+        r = match.result(s, O.K + "post_" + posting, TODAY, 3)
         if flag_k8s:
             # prj_events' confirmed kubernetes bullet says AKS, never Nomad: the flag fires.
             r["requirements"] = [dict(q, asked="Container platforms (AKS, Nomad)")
@@ -60,7 +63,7 @@ class Build(unittest.TestCase):
         if txt is not None:
             (self.app(posting) / "gaps.txt").write_text(txt, encoding="utf-8", newline="\n")
         s = self.load()
-        return B.build(str(self.app(posting)), s, self.result(s, posting, flag_k8s), today)
+        return tailor.build(str(self.app(posting)), s, self.result(s, posting, flag_k8s), today)
 
     def fails(self, found):
         return [t for sev, t, _ in found if sev == "FAIL"]
@@ -72,7 +75,7 @@ class Build(unittest.TestCase):
 
     def test_with_no_gaps_txt_the_derived_assessment_is_written_and_loads_clean(self):
         written, found = self.build()
-        self.assertEqual(([B.shown(w) for w in written], found),
+        self.assertEqual(([check_gaps.shown(w) for w in written], found),
                          ([self.gaps(), "gaps.md"], []))
         self.assertFalse((self.app() / "gaps.ttl").exists())
         s = self.load()
@@ -80,7 +83,7 @@ class Build(unittest.TestCase):
         self.assertEqual([f.text() for f in s.fails()], [])
         self.assertEqual([f.text() for f in s.findings if f.file == name], [])
         # SPARQL reaches it: one verdict per contoso requirement.
-        self.assertEqual(len(s.select(Q.PRE + "SELECT ?v WHERE { ?x j:verdict ?v }")), 10)
+        self.assertEqual(len(s.select(queries.PRE + "SELECT ?v WHERE { ?x j:verdict ?v }")), 10)
 
     def test_gaps_md_has_every_section_in_order_and_no_slot(self):
         self.build()
@@ -88,8 +91,8 @@ class Build(unittest.TestCase):
         at = [md.find(s) for s in SECTIONS]
         self.assertNotIn(-1, at)
         self.assertEqual(at, sorted(at))
-        self.assertNotIn(A.MARK, md)
-        self.assertIn(B.HEADER, md)
+        self.assertNotIn(overlay.MARK, md)
+        self.assertIn(check_gaps.HEADER, md)
         self.assertTrue(md.startswith("---\ntype: Gap Assessment"))
         self.assertIn("fit: partial", md)
         self.assertIn("Not judged", md)
@@ -212,16 +215,16 @@ class Build(unittest.TestCase):
         d = derive(self.result(s), s)
         # The match used to say satisfied for .NET, the analyst lowered it to partial, and the
         # career has since lost the evidence: the match's unevidenced stands.
-        o = A.parse("dotnet | partial | only one service\n")
-        found = B.check(d, o, "", {"dotnet": "satisfied"})
+        o = overlay.parse("dotnet | partial | only one service\n")
+        found = fold.check(d, o, "", {"dotnet": "satisfied"})
         self.assertEqual([(sev, t) for sev, t, _ in found],
                          [("WARN", "gaps.txt line 1: the match now says unevidenced; the row "
                                    "lowers nothing - delete it")])
-        self.assertEqual(next(v.verdict for v in B.fold(d, o, {"dotnet": "satisfied"}).verdicts
+        self.assertEqual(next(v.verdict for v in fold.fold(d, o, {"dotnet": "satisfied"}).verdicts
                               if v.row.slug == "dotnet"), "unevidenced")
         # The match rose from unsatisfied to satisfied under a lowering to partial.
-        o = A.parse("k8s | partial | one cluster\n")
-        found = B.check(d, o, "", {"k8s": "unsatisfied"})
+        o = overlay.parse("k8s | partial | one cluster\n")
+        found = fold.check(d, o, "", {"k8s": "unsatisfied"})
         self.assertEqual([(sev, t) for sev, t, _ in found],
                          [("WARN", "gaps.txt line 1: the match now says satisfied; you lowered "
                                    "it to partial because one cluster - still true?")])
@@ -237,7 +240,7 @@ class Build(unittest.TestCase):
 
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = M.main([str(self.app()), "--today", "2026-09-24",
+            code = M_match.main([str(self.app()), "--today", "2026-09-24",
                            "--gaps", str(self.app() / "gaps.txt")])
         return code, out.getvalue()
 

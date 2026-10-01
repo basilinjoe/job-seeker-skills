@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from .. import ontology as O
 from .writer import Subjects
 
-# For the checker alone, as in graph/writer.py: `typing` costs a command ~3 ms.
+# For the checker alone, as in domain/record/writer.py: `typing` costs a command ~3 ms.
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from typing import TypeVar, overload

@@ -39,7 +39,7 @@ def build(app_dir, decisions_path, replace, vocabulary, today, *, folder, triple
         replace: replace a posting the application already holds, and its assessment.
         vocabulary: the vocabulary file to load, or None for the shipped one.
         today: the `captured:` day when neither the header nor the posting says one.
-        folder: the application's folder and record (graph.postingbuild.PostingFolder).
+        folder: the application's folder and record (compose.posting.PostingFolder).
         triples: the posting graph's triples (domain.posting.decide.triples's signature).
 
     Returns:

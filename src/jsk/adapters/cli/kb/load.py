@@ -24,7 +24,7 @@ def cmd_load(args, flags, root, today):
     from ....application.record.refusals import Failing, Refused
     from ....domain.record.state import RecordError
     from ....domain.record.writer import curies
-    from ....graph import store as S
+    from ..compose.record import load
     from ....infra import legacy_import as legacy
     from ....infra.workspace import SHIPPED_VOCABULARY
     from ....infra.oxigraph import db
@@ -40,14 +40,14 @@ def cmd_load(args, flags, root, today):
         if isinstance(got, int):
             return got
         record, rewrites = got
-        after = L.validated(root, record, load=S.load, vocabulary=SHIPPED_VOCABULARY)
+        after = L.validated(root, record, load=load, vocabulary=SHIPPED_VOCABULARY)
     except (Failing, Refused) as err:
         return refused(err)
     for name, q, kept in rewrites:
         print(f"number   {name} {curies([q.subject.value])} {curies([q.predicate.value])} "
               f"{q.object.value} kept as {kept.value}")
     try:
-        done = L.written(root, record, after, gate=R, load=S.load, legacy=legacy.has_files)
+        done = L.written(root, record, after, gate=R, load=load, legacy=legacy.has_files)
     except RecordError as e:
         return unwritten(e)
     print(f"loaded   {done.triples} triples in {done.graphs} graphs into "
@@ -74,7 +74,7 @@ def read_import(src, given, today, db):
     from ....application.record import load_import as L
     from ....cliutil import show
     from ....domain.record.store import Store
-    from ....graph.changeset import numbers_as_kept
+    from ..compose.record import numbers_as_kept
     from ....infra import files
     from ....infra import legacy_import as legacy
     from ....infra.oxigraph import record as R

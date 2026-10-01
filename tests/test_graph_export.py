@@ -22,7 +22,7 @@ from jsk import cli
 from jsk.adapters.cli.compose import tailor
 from jsk.application.tailor import export
 from jsk.domain.record import career
-from jsk.graph import store as S
+from jsk.adapters.cli.compose import record
 from jsk.resume import short
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
@@ -35,7 +35,7 @@ def stored(root, text=None):
     if text is not None:
         Path(root, "career", "kb.ttl").write_bytes(text.encode())
     appkit.seed(root)
-    return S.load(root)
+    return record.load(root)
 
 
 def store():
@@ -92,7 +92,7 @@ class Retired(unittest.TestCase):
         appkit.put(self.root, "kb", appkit.text(self.root, "kb")
                    + f'\n{iri} j:retired "2026-09-01"^^xsd:date ; j:reason "gone" .\n',
                    prefixes=False)
-        self.store = S.load(self.root)
+        self.store = record.load(self.root)
 
     def test_a_bullet_whose_project_is_retired_is_refused_not_dropped(self):
         """Only live projects are walked, so the bullet had no home and left the file
@@ -160,7 +160,7 @@ class ShortFile(unittest.TestCase):
 
     def test_the_selection_s_order_and_skills_are_kept(self):
         from jsk.domain import ontology as O
-        from jsk.graph.select import Selection
+        from jsk.domain.selection.select import Selection
 
         sel = Selection([O.K + "prj_identity", O.K + "prj_events"],
                         {O.K + "prj_identity": [O.K + "ach_identity_events"],
@@ -323,7 +323,7 @@ class OpenSource(unittest.TestCase):
                                             "# == Open source\n\n" + OPEN_SOURCE).encode())
         storekit.seed(root)
         with self.assertRaises(export.ExportError) as caught:
-            tailor.short_file(S.load(root), select=["os_widget"])
+            tailor.short_file(record.load(root), select=["os_widget"])
         self.assertIn("os_widget is open source (https://github.com/test/widget)",
                       str(caught.exception))
         self.assertIn("contacts carry their github profile", caught.exception.fix)

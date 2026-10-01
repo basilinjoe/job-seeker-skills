@@ -107,12 +107,14 @@ def exported(root, flags, select, today, budget):
 
     from ....application.record.refusals import Failing, Refused, Unclean
     from ....application.tailor import export as E
-    from ....graph import select as selector
-    from ....graph import store as S
-    from ....graph.match import application, blocks, posting_in
-    from ....infra import profiles
+    from ....application.tailor.match_posting import application
+    from ....domain.matching.report import blocks
+    from ....infra import files, profiles
     from ....infra.oxigraph import record as R
     from ....infra.oxigraph.queries import OxigraphQueries
+    from ..compose import match as selector
+    from ..compose.match import posting_in
+    from ..compose.record import load
 
     out, posting = flags.get("--out"), flags.get("--from-match")
     app = None
@@ -125,8 +127,8 @@ def exported(root, flags, select, today, budget):
             return usage(f"{posting}: not an application of this workspace ({root})")
     report = sys.stdout if out else sys.stderr
     try:
-        store = E.opened(root, app, posting, out, "--replace" in flags, load=S.load,
-                         state=R.state, file_name=S.file_name, blocks=blocks)
+        store = E.opened(root, app, posting, out, "--replace" in flags, load=load,
+                         state=R.state, file_name=files.file_name, blocks=blocks)
         chosen = E.selection(store, app, posting, select, "--ranked" in flags, today, budget,
                              selector=selector, posting_in=posting_in)
         if chosen is not None:

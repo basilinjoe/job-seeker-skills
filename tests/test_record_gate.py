@@ -308,20 +308,21 @@ class MatchAsks(unittest.TestCase):
     POST = "tag:jsk,2026:id/post_contoso_platform"
 
     def test_a_number_its_metric_held_once_is_asked_as_replaced(self):
-        from jsk.graph import match as M
+        from jsk.adapters.cli.compose import match
+        from jsk.domain.matching import report
         tmp = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, tmp, True)
         root, _ = careerkit.workspace(tmp, edits=[("from 5 s to 400 ms on AKS",
                                                    "from 5 s to 1 s on AKS")])
-        [q] = M.record_faults(careerkit.store(root), self.POST, TODAY, 3)
+        [q] = match.record_faults(careerkit.store(root), self.POST, TODAY, 3)
         self.assertEqual((q["bullet"], q["numbers"]), ("k:ach_events_latency", []))
-        self.assertEqual(M.fault_question(q),
+        self.assertEqual(report.fault_question(q),
                          "'1' in k:ach_events_latency is k:met_latency.v1's number, replaced "
                          "on 2026-03-01 - what is the figure, and where does it come from "
                          "(dashboards, retros, release notes)? Or should the words change?")
 
     def test_the_fixture_as_shipped_asks_nothing(self):
-        from jsk.graph import match as M
+        from jsk.adapters.cli.compose import match as M
         tmp = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, tmp, True)
         root, _ = careerkit.workspace(tmp)

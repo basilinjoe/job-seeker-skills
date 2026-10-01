@@ -7,8 +7,8 @@ from pathlib import Path
 
 import fixtures  # noqa: F401  (puts src/ on the path)
 
-from jsk.graph import rules
-from jsk.graph.rules import BOLD_LINE, ELIGIBILITY, HEADING_ASKS, HEADING_NOT, LIST_ITEM, squash
+from jsk.domain.posting import advert as rules
+from jsk.domain.posting.advert import BOLD_LINE, ELIGIBILITY, HEADING_ASKS, HEADING_NOT, LIST_ITEM, squash
 
 REPO = Path(__file__).parent.parent
 
@@ -251,9 +251,9 @@ class LabelsIn(unittest.TestCase):
         from appkit import stored_copy
         from test_graph_shapes import FIXTURES
 
-        from jsk.graph import queries
-        from jsk.graph import store as S
-        cls.named = staticmethod(queries.labels_in(S.load(str(stored_copy(FIXTURES)))))
+        from jsk.adapters.cli.compose import match
+        from jsk.adapters.cli.compose import record
+        cls.named = staticmethod(match.labels_in(record.load(str(stored_copy(FIXTURES)))))
 
     def ids(self, line):
         return [c.rsplit("/", 1)[1] for c in self.named(line)]

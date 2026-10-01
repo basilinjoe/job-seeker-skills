@@ -47,9 +47,9 @@ def workspace(path):
 def career(root):
     """The workspace at `root`, loaded. A store that will not open is a ShortError with
     its fix, as a file that cannot be read is - never a traceback."""
-    from ..graph import store as S
+    from ..adapters.cli.compose.record import load
 
-    return career_of(root, S.load)
+    return career_of(root, load)
 
 
 def main(argv):

@@ -18,7 +18,7 @@ from test_graph_shapes import FIXTURES
 from jsk import cli
 from jsk.infra.oxigraph import db, record
 from jsk.domain import ontology as O
-from jsk.graph import store as S
+from jsk.adapters.cli.compose import record as S
 
 BRAINDUMP = PFX + """
 op:changeset op:base 2 ; op:summary "The payments project, from the 24 Sep braindump." .

@@ -55,8 +55,8 @@ def prepare(root, app, named_as, budget, today, draft, *, load, queries, select,
         queries: store -> its feature reads (ports.queries.RecordQueries).
         select: (store, post, today, budget) -> the posting's Selection.
         name_of: (path, root) -> the path as findings name it.
-        reads: the named reads the digest shows (graph.prepare.Reads).
-        folder: the application's folder and record (graph.gapsbuild.Folder).
+        reads: the named reads the digest shows (compose.tailor.Reads).
+        folder: the application's folder and record (compose.tailor.Folder).
 
     Returns:
         The Digest. Writes the gaps graph and gaps.md, and gaps.txt when drafted.
@@ -108,7 +108,7 @@ def evidence_sections(store, r, reads):
     Args:
         store: the loaded workspace.
         r: the match's plain data.
-        reads: the named reads (graph.prepare.Reads).
+        reads: the named reads (compose.tailor.Reads).
 
     Returns:
         The two (title, lines) sections.
@@ -169,7 +169,7 @@ def unconfirmed_section(store, held, reads):
     Args:
         store: the loaded workspace.
         held: the curies of the projects shown and their bullets.
-        reads: the named reads (graph.prepare.Reads).
+        reads: the named reads (compose.tailor.Reads).
 
     Returns:
         The (title, lines) section.
@@ -192,7 +192,7 @@ def gaps_lines(store, r, app, rel, today, draft, folder):
         rel: the application's folder relative to the workspace.
         today: the day the assessment is dated.
         draft: also draft gaps.txt when there is none.
-        folder: the application's folder and record (graph.gapsbuild.Folder).
+        folder: the application's folder and record (compose.tailor.Folder).
 
     Returns:
         The gaps section's lines. Writes the assessment, and gaps.txt when drafted.
@@ -225,7 +225,7 @@ def drafted(store, derived, app, rel, target, folder):
         app: the application's directory.
         rel: the application's folder relative to the workspace.
         target: the gaps.txt to write.
-        folder: the application's folder and record (graph.gapsbuild.Folder).
+        folder: the application's folder and record (compose.tailor.Folder).
 
     Returns:
         The line saying what was drafted, or why not. Writes `target`.

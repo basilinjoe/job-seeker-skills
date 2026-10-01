@@ -2,8 +2,9 @@
 without the career in front of it."""
 import unittest
 
-from jsk.graph import changeset as C
-from jsk.graph.io import GraphError
+from jsk.adapters.cli.compose import record
+from jsk.domain.record import changeset
+from jsk.domain.record.parsed import GraphError
 
 PFX = """@prefix j: <tag:jsk,2026:ns#> .
 @prefix k: <tag:jsk,2026:id/> .
@@ -14,13 +15,13 @@ PFX = """@prefix j: <tag:jsk,2026:ns#> .
 
 
 def read(body):
-    return C.read(PFX + body)
+    return record.read_changeset(PFX + body)
 
 
 def refusals(body):
     try:
         read(body)
-    except C.Refused as e:
+    except changeset.Refused as e:
         return [x.text() for x in e.refusals]
     raise AssertionError("not refused")
 
@@ -41,7 +42,7 @@ class Reading(unittest.TestCase):
 
     def test_a_changeset_saved_by_a_windows_editor_reads_the_same(self):
         body = 'op:add { k:prj_payments j:name "Payments" . }\n'
-        cs = C.read("﻿" + (PFX + body).replace("\n", "\r\n"))
+        cs = record.read_changeset("﻿" + (PFX + body).replace("\n", "\r\n"))
         self.assertEqual(len(cs.add), 1)
         self.assertEqual(cs.add[0][2].value, "Payments")
 

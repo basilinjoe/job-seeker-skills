@@ -324,7 +324,7 @@ class FromAFile(unittest.TestCase):
 
     def sections(self, text):
         """{line text: (section, is an item)} as extract's line step reads posting.md."""
-        from jsk.graph.rules import advert_lines
+        from jsk.domain.posting.advert import advert_lines
         return {x.text: x.section for x in advert_lines(text)}
 
     def test_a_docx_keeps_its_headings_and_list_paragraphs(self):

@@ -83,7 +83,7 @@ class WriteLogged:
 
     Args:
         root: the workspace.
-        load: loads the workspace (graph.store.load); here, the candidate record.
+        load: loads the workspace (compose.record.load); here, the candidate record.
         record: the write gate (infra.oxigraph.record): state, prepared, write_graphs.
     """
 
@@ -162,7 +162,7 @@ def apply(store, text, name, today, *, read_changeset):
         text: the changeset's TriG.
         name: its file name, for its syntax errors and the default summary.
         today: the day a changed claim is dated.
-        read_changeset: parses and checks a changeset (graph.changeset.read).
+        read_changeset: parses and checks a changeset (compose.record.read_changeset).
 
     Returns:
         Applied, or None when the record already says all of it.

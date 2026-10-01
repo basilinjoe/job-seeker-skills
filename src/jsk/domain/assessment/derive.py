@@ -7,7 +7,7 @@ bullet does. So everything else - the verdict, its evidence, why the match says 
 from `match.result`, in milliseconds, and gaps.txt carries only what the analyst changes.
 
 This is pure: a function of the match result and the career's queries, with no file I/O.
-graph/gapsderive.py binds it to a loaded Store.
+adapters/cli/compose/tailor.py binds it to a loaded Store.
 """
 import re
 from dataclasses import dataclass

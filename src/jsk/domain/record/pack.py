@@ -19,7 +19,7 @@ career, where the judgement is theirs.
 Everything skipped is said, so the person can decide it by hand. Nothing is applied:
 the changeset goes through `jsk kb apply --dry-run` like any other.
 
-Where the pack file is and reading it are graph/pack.py's; this is the pack's logic.
+Where the pack file is and reading it are infra/packs.py's; this is the pack's logic.
 """
 from collections import defaultdict
 from dataclasses import dataclass, field

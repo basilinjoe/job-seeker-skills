@@ -50,8 +50,8 @@ def cmd_pack(args, flags, root, today):
     """
     from ....application.record.pack import pack
     from ....application.record.refusals import Unclean
-    from ....graph import pack as P
-    from ....graph import store as S
+    from ....infra import packs as P
+    from ..compose.record import load
     from ....infra.oxigraph import record as R
 
     out, code = draft_out(flags)
@@ -60,7 +60,7 @@ def cmd_pack(args, flags, root, today):
     if len(args) != 1 or args[0] not in P.PACKS:
         return usage(f"jsk kb pack takes one of: {', '.join(P.PACKS)}")
     try:
-        d = pack(root, args[0], load=S.load, state=R.state, packs=P)
+        d = pack(root, args[0], load=load, state=R.state, packs=P)
     except Unclean as err:
         return unlogged(err.state)
     report = sys.stdout if out else sys.stderr
@@ -95,7 +95,7 @@ def cmd_merge(args, flags, root, today):
     from ....application.record.merge import merge
     from ....application.record.refusals import Problems, Unclean
     from ....domain.record.writer import curies
-    from ....graph import store as S
+    from ..compose.record import load
     from ....infra.oxigraph import record as R
 
     out, code = draft_out(flags)
@@ -106,7 +106,7 @@ def cmd_merge(args, flags, root, today):
         return usage("jsk kb merge c:a --into c:b - the concept to merge away, and the one "
                      "it becomes")
     try:
-        merged = merge(root, args[0], into, load=S.load, state=R.state)
+        merged = merge(root, args[0], into, load=load, state=R.state)
     except Unclean as err:
         return unlogged(err.state)
     except Problems as err:

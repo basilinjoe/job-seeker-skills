@@ -1,7 +1,7 @@
 """Reading the record: entries by id as Turtle, the whole career as Markdown, the log.
 
 `jsk kb show`, `view` and `log`. Each loads the workspace through the `load` it is given
-(graph/store.py's) and returns what to print; adapters/cli/kb/read.py prints it.
+(adapters/cli/compose/record.py's) and returns what to print; adapters/cli/kb/read.py prints it.
 """
 import difflib
 from dataclasses import dataclass
@@ -67,7 +67,7 @@ def show(root, ids, bullets, *, load, state):
         root: the workspace.
         ids: the ids asked for, as typed.
         bullets: a project as its name and its bullets only.
-        load: loads the workspace (graph.store.load).
+        load: loads the workspace (compose.record.load).
         state: where the career and its log stand (infra.oxigraph.record.state).
 
     Returns:
@@ -102,7 +102,7 @@ def view(root, section, *, load, state):
     Args:
         root: the workspace.
         section: the one section to show, or None for all.
-        load: loads the workspace (graph.store.load).
+        load: loads the workspace (compose.record.load).
         state: where the career and its log stand (infra.oxigraph.record.state).
 
     Returns:
@@ -137,7 +137,7 @@ def log(root, last, *, load):
     Args:
         root: the workspace.
         last: how many.
-        load: loads the workspace (graph.store.load).
+        load: loads the workspace (compose.record.load).
 
     Returns:
         [LogEntry]. Reads the record.

@@ -70,7 +70,7 @@ def career_of(root, load_store):
 
     Args:
         root: the workspace root.
-        load_store: loads it (graph.store.load).
+        load_store: loads it (compose.record.load).
 
     Returns:
         The loaded store.
@@ -91,7 +91,7 @@ def load_resume(path, *, files, find_root, load_store):
         path: the resume.json.
         files: reads it (ports.files.TextFiles).
         find_root: finds its workspace (infra.files.find_root).
-        load_store: loads that workspace (graph.store.load).
+        load_store: loads that workspace (compose.record.load).
 
     Returns:
         A LoadedResume. Reads the file and the career.

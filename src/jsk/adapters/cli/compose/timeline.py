@@ -89,11 +89,11 @@ def freeze(root, app_dir, plan, short_bytes, submitted, channel, documents):
     """(Sealed, None), or (None, the lines saying why not) (records.freeze over the
     workspace's load and the engine's queries)."""
     from ....application.timeline import records as T
-    from ....graph import store as S
+    from .record import load
     from ....infra.oxigraph.queries import OxigraphQueries
 
     return T.freeze(root, app_dir, plan, short_bytes, submitted, channel, documents,
-                    load=S.load, records=records(), queries=OxigraphQueries)
+                    load=load, records=records(), queries=OxigraphQueries)
 
 
 def write_frozen(root, sealed, final):

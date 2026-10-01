@@ -9,10 +9,11 @@ import time
 import unittest
 from pathlib import Path
 
-from jsk.graph import gapsderive as G
-from jsk.graph import match as M
+from jsk.domain.assessment import derive
+from jsk.adapters.cli.compose import tailor
+from jsk.adapters.cli.compose import match
 from jsk.domain import ontology as O
-from jsk.graph import store
+from jsk.adapters.cli.compose import record
 
 FIXTURES = Path(__file__).parent / "match_fixtures"
 TODAY = datetime.date(2026, 9, 24)
@@ -28,9 +29,9 @@ class Derive(unittest.TestCase):
     def setUpClass(cls):
         from appkit import stored_copy
         root = stored_copy(FIXTURES)
-        cls.s = store.load(root, vocabulary=root / "vocabulary.ttl")
-        cls.r = {p: M.result(cls.s, O.K + "post_" + p, TODAY, 3) for p in POSTINGS}
-        cls.d = {p: G.derive(cls.r[p], cls.s) for p in POSTINGS}
+        cls.s = record.load(root, vocabulary=root / "vocabulary.ttl")
+        cls.r = {p: match.result(cls.s, O.K + "post_" + p, TODAY, 3) for p in POSTINGS}
+        cls.d = {p: tailor.derive(cls.r[p], cls.s) for p in POSTINGS}
 
     def row(self, posting, slug):
         return next(x for x in self.d[posting].rows if x.slug == slug)
@@ -83,7 +84,7 @@ class Derive(unittest.TestCase):
 
     def test_implicit(self):
         x = self.row("contoso", "mentoring")
-        self.assertEqual((x.matched, x.evidence, x.basis), (None, (), G.IMPLICIT))
+        self.assertEqual((x.matched, x.evidence, x.basis), (None, (), derive.IMPLICIT))
 
     def test_no_fixture_row_is_flagged(self):
         # Every satisfied fixture requirement names one thing, so the flag has nothing to list.
@@ -95,7 +96,7 @@ class Derive(unittest.TestCase):
         r["requirements"] = [dict(q, asked="Container platforms (AKS, Nomad)")
                              if q["id"] == "k:req_contoso_k8s" else q
                              for q in r["requirements"]]
-        x = next(x for x in G.derive(r, self.s).rows if x.slug == "k8s")
+        x = next(x for x in tailor.derive(r, self.s).rows if x.slug == "k8s")
         self.assertEqual((x.flags, x.flag_text),
                          (("listed-names",), "names Nomad; the evidence never does"))
 
@@ -120,7 +121,7 @@ class Derive(unittest.TestCase):
     def test_derive_is_fast(self):
         big = max(POSTINGS, key=lambda p: len(self.r[p]["requirements"]))
         start = time.perf_counter()
-        G.derive(self.r[big], self.s)
+        tailor.derive(self.r[big], self.s)
         self.assertLess(time.perf_counter() - start, 1.0)
 
 
@@ -129,16 +130,16 @@ class SlugOf(unittest.TestCase):
         """A migrated posting's requirement ids need not carry its stem: on the real corpus
         post_elevenlabs_creative_studio asks req_elevenlabs_api_design, and the stem-stripped
         slug came out `k:req_…`, which the writer refused."""
-        self.assertEqual(G.slug_of("k:req_contoso_k8s", "contoso"), "k8s")
-        self.assertEqual(G.slug_of("k:req_elevenlabs_api_design", "elevenlabs_creative_studio"),
+        self.assertEqual(derive.slug_of("k:req_contoso_k8s", "contoso"), "k8s")
+        self.assertEqual(derive.slug_of("k:req_elevenlabs_api_design", "elevenlabs_creative_studio"),
                          "elevenlabs_api_design")
-        self.assertRegex(G.slug_of("k:req_elevenlabs_api_design", "elevenlabs_creative_studio"),
+        self.assertRegex(derive.slug_of("k:req_elevenlabs_api_design", "elevenlabs_creative_studio"),
                          rf"\A{O.SLUG}\Z")
 
 
 class Fit(unittest.TestCase):
     def fit(self, *reqs):
-        return G.fit_default({"requirements": list(reqs)})
+        return derive.fit_default({"requirements": list(reqs)})
 
     def test_poor_when_a_required_one_is_unsatisfied(self):
         self.assertEqual(self.fit(req("a"), req("b", "unsatisfied")), "poor")
@@ -154,31 +155,31 @@ class Fit(unittest.TestCase):
 class ListedNames(unittest.TestCase):
     def test_fires_on_products_the_evidence_never_names(self):
         self.assertEqual(
-            G.listed_names(req("Vector databases (Pinecone, Weaviate, Milvus)"),
+            derive.listed_names(req("Vector databases (Pinecone, Weaviate, Milvus)"),
                            ["Built a Postgres+pgvector store."]),
             "names Pinecone, Weaviate, Milvus; the evidence never does")
 
     def test_names_only_the_missing_items(self):
         self.assertEqual(
-            G.listed_names(req("Vector databases (Pinecone, Weaviate, Milvus)"),
+            derive.listed_names(req("Vector databases (Pinecone, Weaviate, Milvus)"),
                            ["Moved search from Pinecone to Milvus."]),
             "names Weaviate; the evidence never does")
 
     def test_quiet_when_every_item_is_named(self):
-        self.assertIsNone(G.listed_names(req("Gemini, Cursor, and Claude"),
+        self.assertIsNone(derive.listed_names(req("Gemini, Cursor, and Claude"),
                                          ["Shipped with Gemini and Cursor, reviewed by Claude."]))
 
     def test_the_heading_is_not_an_item(self):
-        self.assertEqual(G.listed_names(req("SQL Server: Stored procedures, queries"), []),
+        self.assertEqual(derive.listed_names(req("SQL Server: Stored procedures, queries"), []),
                          "names Stored procedures, queries; the evidence never does")
 
     def test_quiet_when_nothing_is_listed(self):
-        self.assertIsNone(G.listed_names(req("Kubernetes"), []))
-        self.assertIsNone(G.listed_names(req("CI/CD"), []))
+        self.assertIsNone(derive.listed_names(req("Kubernetes"), []))
+        self.assertIsNone(derive.listed_names(req("CI/CD"), []))
 
     def test_never_fires_on_a_row_that_is_not_satisfied(self):
         for verdict in ("partial", "unevidenced", "unsatisfied", "indeterminate", None):
-            self.assertIsNone(G.listed_names(
+            self.assertIsNone(derive.listed_names(
                 req("Vector databases (Pinecone, Weaviate, Milvus)", verdict), []))
 
 

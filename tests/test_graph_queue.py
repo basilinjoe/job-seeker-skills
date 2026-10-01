@@ -23,7 +23,7 @@ from jsk.infra.oxigraph import db
 from jsk.domain.record import edit
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record as R
-from jsk.graph import store as S
+from jsk.adapters.cli.compose import record
 
 
 def jsk(root, *args):
@@ -61,7 +61,7 @@ class Workspace(unittest.TestCase):
 
     def entries(self):
         """{revision: (by, {touched ∪ minted})} of the log as the store holds it."""
-        s = S.load(self.root)
+        s = record.load(self.root)
         by = {}
         for q in s.graph(R.LOG):
             e = by.setdefault(q.subject.value, {"ids": set()})
@@ -75,7 +75,7 @@ class Workspace(unittest.TestCase):
         return {e["revision"]: (e["by"], e["ids"]) for e in by.values()}
 
     def value(self, subject, pred):
-        s = S.load(self.root)
+        s = record.load(self.root)
         return sorted(q.object.value for q in s.graph(R.KB)
                       if q.subject.value == O.K + subject and q.predicate.value == O.J + pred)
 
@@ -97,12 +97,12 @@ class Queue(Workspace):
                         for _, out in results)
         self.assertEqual(landed, [3, 4, 5, 6])
         self.assertEqual(sorted(self.entries()), [1, 2, 3, 4, 5, 6])
-        st = R.state(S.load(self.root))
+        st = R.state(record.load(self.root))
         self.assertEqual((st.kind, st.kb_revision), ("clean", 6))
         self.assertEqual(self.value("prj_clinical_events", "strength"), ["4"])
         self.assertEqual(self.value("prj_site_onboarding", "strength"), ["4"])
         self.assertEqual(self.value("met_sites.v1", "value"), ["43"])
-        self.assertIn(O.C + "queue-work", S.load(self.root).homes)
+        self.assertIn(O.C + "queue-work", record.load(self.root).homes)
 
     def test_of_two_overlapping_writers_the_second_is_refused_and_changes_nothing(self):
         paths = [self.changeset("op:changeset op:base 2 .\n"
@@ -202,13 +202,13 @@ op:add {
     def test_every_write_logs_every_id_it_changed(self):
         for verb, what, body in self.STEPS:
             with self.subTest(what):
-                before = S.load(self.root)
+                before = record.load(self.root)
                 was = self.subjects(before.graph(R.KB))
                 rev = R.state(before).log_revision
                 args = (self.changeset(body),) if verb == "apply" else body
                 code, out = done(jsk(self.root, verb, *args))
                 self.assertEqual(code, 0, out)
-                after = S.load(self.root)
+                after = record.load(self.root)
                 self.assertEqual(R.state(after).log_revision, rev + 1, out)
                 changed = {s for s, _, _ in was ^ self.subjects(after.graph(R.KB))}
                 by, named = self.entries()[rev + 1]
@@ -222,10 +222,10 @@ op:add {
         pack = os.path.join(self.root, "pack.trig")
         code, out = done(jsk(self.root, "pack", "capabilities", "--out", pack))
         self.assertEqual(code, 0, out)
-        before = self.subjects(S.load(self.root).graph(R.KB))
+        before = self.subjects(record.load(self.root).graph(R.KB))
         code, out = done(jsk(self.root, "apply", pack))
         self.assertEqual(code, 0, out)
-        changed = {s for s, _, _ in before ^ self.subjects(S.load(self.root).graph(R.KB))}
+        changed = {s for s, _, _ in before ^ self.subjects(record.load(self.root).graph(R.KB))}
         self.assertEqual(self.entries()[3][1], changed)
 
 

@@ -9,10 +9,10 @@ from pathlib import Path
 import pyoxigraph as ox
 from storekit import seed
 
-from jsk.graph import match as M
+from jsk.domain.matching import report
 from jsk.domain import ontology as O
-from jsk.graph import queries as Q
-from jsk.graph import store
+from jsk.adapters.cli.compose import match
+from jsk.adapters.cli.compose import record
 from jsk.domain.record.writer import write
 
 FIXTURES = Path(__file__).parent / "match_fixtures"
@@ -48,7 +48,7 @@ class GapsKind(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
 
     def load(self):
-        return store.load(self.root, vocabulary=self.root / "vocabulary.ttl")
+        return record.load(self.root, vocabulary=self.root / "vocabulary.ttl")
 
     def put(self, quads, app="contoso"):
         """The assessment written into the store - seeded from the fixture first, so an
@@ -81,8 +81,8 @@ class GapsKind(unittest.TestCase):
         fails = self.load().fails()
         self.assertEqual({(f.rule, f.file) for f in fails},
                          {("dangling", "applications/contoso/gaps")})
-        self.assertTrue(all(M.blocks(f, "applications/contoso/") for f in fails))
-        self.assertFalse(any(M.blocks(f, "applications/fabrikam/") for f in fails))
+        self.assertTrue(all(report.blocks(f, "applications/contoso/") for f in fails))
+        self.assertFalse(any(report.blocks(f, "applications/fabrikam/") for f in fails))
 
     def test_two_assessments_in_one_file_fail_the_head_rule(self):
         quads = assessment() + [q for q in assessment(gap="gap_contoso_two")
@@ -120,11 +120,11 @@ class ConfirmedTexts(unittest.TestCase):
                 ("old", 6, "confirmed", ' j:retired "2026-01-01"^^xsd:date ; j:reason "gone" ;')))
         kb.write_text(kb.read_text(encoding="utf-8") + extra, encoding="utf-8", newline="\n")
         seed(root)
-        s = store.load(root, vocabulary=root / "vocabulary.ttl")
+        s = record.load(root, vocabulary=root / "vocabulary.ttl")
         self.assertEqual([f.text() for f in s.fails()], [])
-        self.assertEqual(Q.confirmed_texts(s, O.K + "prj_events", O.C + "kafka"),
+        self.assertEqual(match.confirmed_texts(s, O.K + "prj_events", O.C + "kafka"),
                          ["Cut p95 event latency from 5 s to 400 ms on AKS with Kafka."])
-        self.assertEqual(Q.confirmed_texts(s, O.K + "prj_data", [O.C + "fastapi"]), [])
+        self.assertEqual(match.confirmed_texts(s, O.K + "prj_data", [O.C + "fastapi"]), [])
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ against; `op:summary` is what the log says it did.
 This module reads a parsed changeset and refuses what can be refused without the career
 in front of it. What needs the career - does the entry exist, is it referenced, was it
 sent - is edit.py's. The text's parse and the store's form of a number are the engine's,
-passed in; graph/changeset.py binds them.
+passed in; adapters/cli/compose/record.py binds them.
 """
 import difflib
 from dataclasses import dataclass, field

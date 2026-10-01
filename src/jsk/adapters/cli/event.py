@@ -149,14 +149,14 @@ def add(root, app_dir, kind, date, channel, note, due, today):
     """
     from ...application.timeline.add_event import EventLanded, EventRefused, add_event
     from ...domain.timeline import events
-    from ...graph import store as S
+    from .compose.record import load
     from ...infra.files import file_name
     from ...infra.oxigraph import record as R
 
     try:
         with R.turn(root):
             result = add_event(root, app_dir, kind, date, channel, note, due, today,
-                               load=S.load, name_of=file_name,
+                               load=load, name_of=file_name,
                                event_quads=events.event_quads, write_graphs=R.write_graphs)
     except EventRefused as e:
         return refuse(e.lines, e.fix)

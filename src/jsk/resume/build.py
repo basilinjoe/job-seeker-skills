@@ -70,10 +70,10 @@ def loaded_resume(path):
     Raises:
         ShortError: as load_resume does.
     """
-    from ..graph import store as S
+    from ..adapters.cli.compose.record import load as load_store
     from ..infra import files
 
-    return load_resume(path, files=files, find_root=files.find_root, load_store=S.load)
+    return load_resume(path, files=files, find_root=files.find_root, load_store=load_store)
 
 
 def from_path(path, *, region=None, fmt=None, today=None):

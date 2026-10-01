@@ -157,13 +157,13 @@ class Example(unittest.TestCase):
         from storekit import seed
 
         from jsk import paths
-        from jsk.graph import store as S
+        from jsk.adapters.cli.compose import record
 
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, True)
         shutil.copytree(paths.EXAMPLE_WORKSPACE, tmp, dirs_exist_ok=True)
         seed(tmp)
-        return S.load(tmp)
+        return record.load(tmp)
 
     def test_the_example_reads_and_every_id_is_held(self):
         from jsk import paths

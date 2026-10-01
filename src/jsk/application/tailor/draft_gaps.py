@@ -24,7 +24,7 @@ def draft_gaps(derived, store, advert_path, *, folder):
         derived: the Derived assessment.
         store: the loaded workspace, whose person's facts the eligibility slot shows.
         advert_path: the application's posting.md; decisions.txt is read beside it.
-        folder: the application's folder and record (graph.gapsbuild.Folder).
+        folder: the application's folder and record (compose.tailor.Folder).
 
     Returns:
         The draft's text.
@@ -49,7 +49,7 @@ def draft_over_match(report, app, today, path, *, folder):
         app: the application's directory.
         today: the day the assessment is dated.
         path: the gaps.txt to create; the caller has checked it is not there.
-        folder: the application's folder and record (graph.gapsbuild.Folder).
+        folder: the application's folder and record (compose.tailor.Folder).
 
     Returns:
         The Drafted. Writes the gaps graph, gaps.md and, when the build found no FAIL, `path`.

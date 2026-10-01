@@ -1,6 +1,6 @@
 """The career and its log in step: the revision they share, the states they can be in, and
 the stamp and log entry every write adds. Nothing here opens the store; the write gate that
-does is graph/record.py."""
+does is infra/oxigraph/record.py."""
 import difflib
 from dataclasses import dataclass
 

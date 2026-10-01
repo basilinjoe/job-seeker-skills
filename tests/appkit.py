@@ -7,7 +7,7 @@ db.read, written through record.write_graphs as every jsk write is.
 """
 from jsk.infra.oxigraph import db
 from jsk.infra.oxigraph import record as R
-from jsk.graph.io import parse_text
+from jsk.infra.oxigraph.codec import parse_text
 from jsk.domain.ontology import kind_of
 
 PREFIXES = ("@prefix j: <tag:jsk,2026:ns#> .\n@prefix k: <tag:jsk,2026:id/> .\n"

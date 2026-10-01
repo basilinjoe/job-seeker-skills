@@ -11,7 +11,7 @@ import appkit
 from test_graph_shapes import FIXTURES
 
 from jsk import cli
-from jsk.graph import prepare
+from jsk.application.tailor import prepare
 
 APP = "applications/acme-platform-engineer"
 TODAY = "2026-09-27"

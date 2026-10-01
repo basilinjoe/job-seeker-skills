@@ -26,7 +26,7 @@ def cmd_confirm(args, flags, root, today):
     from ....application.record import confirm as C
     from ....application.record.refusals import Failing, Problems, Refused, Unclean
     from ....domain.record.writer import curies
-    from ....graph import store as S
+    from ..compose.record import load
     from ....infra import files, pdf
     from ....infra.oxigraph import record as R
 
@@ -46,7 +46,7 @@ def cmd_confirm(args, flags, root, today):
                      '--source <file> --quote "its words"')
     try:
         answer = C.answer_of(answer, source, quote, root, files=files, read_pdf=pdf.read_pdf)
-        store = S.load(root)
+        store = load(root)
         plan = C.confirmation(store, args, quote, today, state=R.state)
     except (Refused, Problems, Failing, Unclean) as err:
         return refused(err)

@@ -18,7 +18,7 @@ from pathlib import Path
 from storekit import seed
 
 from jsk.domain import ontology as O
-from jsk.graph import store
+from jsk.adapters.cli.compose import record
 from jsk.infra import legacy_import
 from jsk.infra.oxigraph import db
 from jsk.domain.record import shapes
@@ -33,8 +33,8 @@ def load(root):
     (legacy.read_workspace) - the only reader of record files left."""
     vocabulary = Path(root) / "vocabulary.ttl"
     if db.exists(root):
-        return store.load(root, vocabulary=vocabulary)
-    return store.load(root, files=legacy_import.workspace_files(root, vocabulary))
+        return record.load(root, vocabulary=vocabulary)
+    return record.load(root, files=legacy_import.workspace_files(root, vocabulary))
 
 
 # The files a mutation edits, and the graphs findings name.
@@ -196,7 +196,7 @@ class Findings(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "career").mkdir()
             (Path(tmp) / "career" / "kb.ttl").write_text("", encoding="utf-8")
-            s = store.load(tmp, files=legacy_import.workspace_files(tmp))
+            s = record.load(tmp, files=legacy_import.workspace_files(tmp))
         [f] = [f for f in s.findings if f.rule == "cardinality"]
         self.assertEqual((f.file, f.line), (KB, 0))
         self.assertIn("exactly one KB; this one holds 0", f.detail)

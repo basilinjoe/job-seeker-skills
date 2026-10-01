@@ -3,7 +3,7 @@
 Loading never raises on bad content - it reports, and the caller decides what a FAIL
 stops. Where the graphs come from and what engine holds them are the caller's to give
 (ports.workspace.WorkspaceSource, ports.engine.GraphEngine), and so is where the rules
-read an application's own files from (ports.advert.AdvertSource): graph/store.py binds the
+read an application's own files from (ports.advert.AdvertSource): adapters/cli/compose/record.py binds the
 real ones.
 """
 from ...domain import ontology as O

@@ -135,7 +135,7 @@ def edited_dump(record, name, *, numbers_as_kept):
         record: {graph name: triples}, as the dump parsed.
         name: the dump's file name.
         numbers_as_kept: refuses a number the store would rewrite
-            (graph.changeset.numbers_as_kept).
+            (compose.record.numbers_as_kept).
 
     Raises:
         Refused: it was changed outside jsk.
@@ -199,7 +199,7 @@ def validated(root, record, *, load, vocabulary):
     Args:
         root: the workspace loaded into.
         record: {graph name: triples}.
-        load: loads a workspace (graph.store.load).
+        load: loads a workspace (compose.record.load).
         vocabulary: the shipped vocabulary's file.
 
     Returns:
@@ -236,7 +236,7 @@ def written(root, record, after, *, gate, load, legacy):
         record: {graph name: triples}.
         after: the store it validated as.
         gate: the write gate (infra.oxigraph.record): write_graphs, state.
-        load: loads a workspace (graph.store.load).
+        load: loads a workspace (compose.record.load).
         legacy: whether a workspace is laid out as files (infra.legacy_import.has_files).
 
     Returns:

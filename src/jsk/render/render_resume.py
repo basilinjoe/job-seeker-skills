@@ -39,16 +39,17 @@ def company_of(record_path, store=None):
     the posting graph and no second load. A naming nicety, so a record outside an
     application, or one with no posting, names the file with no company rather than
     stopping the render."""
-    from ..graph import store as S
-    from ..graph.queries import PRE
+    from ..adapters.cli.compose.record import load
+    from ..domain import naming
     from ..infra.files import workspace_of_app
+    from ..infra.oxigraph.queries import PRE
 
     root, rel = workspace_of_app(os.path.dirname(os.path.abspath(record_path)))
     if root is None:
         return None
     if store is None:
-        store = S.load(root)
-    graph = S.graph_iri(S.app_graph(rel, "posting"))
+        store = load(root)
+    graph = naming.graph_iri(naming.app_graph(rel, "posting"))
     found = store.select(PRE + f"SELECT ?c WHERE {{ GRAPH <{graph}> {{ ?p j:company ?c }} }}")
     return found[0]["c"].value if found else None
 

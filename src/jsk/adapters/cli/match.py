@@ -112,13 +112,13 @@ def run_match(root, app, named, opts):
         MatchStopped: a FAIL blocks the match, or the application holds no posting.
     """
     from ...application.tailor.match_posting import match_posting
-    from ...graph import select as SEL
-    from ...graph import store as S
+    from .compose import match
+    from .compose.record import load
     from ...infra.files import file_name
     from ...infra.oxigraph.queries import OxigraphQueries
 
-    return match_posting(root, app, named, opts.today, opts.budget, load=S.load,
-                         queries=OxigraphQueries, select=SEL.select, name_of=file_name)
+    return match_posting(root, app, named, opts.today, opts.budget, load=load,
+                         queries=OxigraphQueries, select=match.select, name_of=file_name)
 
 
 def stopped(stop):
@@ -187,7 +187,7 @@ def show_build(written, found, label):
 def report_gaps(report, app, today):
     """--gaps: check gaps.txt, then write the assessment and gaps.md; 1 on any FAIL."""
     from ...application.tailor.check_gaps import build
-    from ...graph.gapsbuild import Folder
+    from .compose.tailor import Folder
 
     written, found = build(app, report.store, report.result, today, None, folder=Folder())
     return show_build(written, found, os.path.join(app, "gaps.txt"))
@@ -197,7 +197,7 @@ def write_draft(report, app, today, path):
     """--draft-gaps: the assessment from the match alone, then gaps.txt drafted over it."""
     from ...application.tailor.draft_gaps import draft_over_match
     from ...domain.naming import app_graph
-    from ...graph.gapsbuild import Folder
+    from .compose.tailor import Folder
 
     done = draft_over_match(report, app, today, path, folder=Folder())
     if show_build(done.written, done.found, app_graph(report.rel, "gaps")):

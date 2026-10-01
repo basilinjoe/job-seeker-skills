@@ -66,14 +66,14 @@ def scaffold(root, name, force=False, today=None):
     """
     from ....application.record import scaffold as N
     from ....application.record.refusals import Failing, Unclean
-    from ....graph import store as S
+    from ..compose.record import load
     from ....infra import files, legacy_import as legacy
     from ....infra.oxigraph import db
     from ....infra.oxigraph import record as R
 
     today = today or datetime.date.today()
     try:
-        done = N.scaffold(root, name, force, today, load=S.load, record=R, db=db,
+        done = N.scaffold(root, name, force, today, load=load, record=R, db=db,
                           legacy=legacy, files=files, disk=Disk())
     except N.NoEngine:
         return 1, no_engine()

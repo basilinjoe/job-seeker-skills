@@ -151,7 +151,7 @@ def restart(root, name, today, *, load, record, db):
         root: the workspace.
         name: the person's full name.
         today: the day the entry is dated.
-        load: loads the workspace (graph.store.load).
+        load: loads the workspace (compose.record.load).
         record: the write gate (infra.oxigraph.record): state, prepared.
         db: the store on disk (infra.oxigraph.db): read, dump_text.
 
@@ -272,7 +272,7 @@ def scaffold(root, name, force, today, *, load, record, db, legacy, files, disk)
         name: the person's full name, for the record's header.
         force: start an existing record over from the empty one.
         today: the day the log entry is dated.
-        load: loads the workspace (graph.store.load).
+        load: loads the workspace (compose.record.load).
         record: the write gate (infra.oxigraph.record): turn, state, prepared, write_graphs.
         db: the store on disk (infra.oxigraph.db): exists, read, dump_text.
         legacy: the workspace laid out as files (infra.legacy_import): has_files.

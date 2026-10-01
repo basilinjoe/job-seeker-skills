@@ -21,12 +21,12 @@ def cmd_show(args, flags, root, today):
     characters a project.
     """
     from ....application.record.read import show
-    from ....graph import store as S
+    from ..compose.record import load
     from ....infra.oxigraph import record as R
 
     if not args:
         return usage("jsk kb show takes one or more ids")
-    shown = show(root, args, "--bullets" in flags, load=S.load, state=R.state)
+    shown = show(root, args, "--bullets" in flags, load=load, state=R.state)
     revision = shown.log_revision
     print(f"# r{revision} - op:base {revision}" if revision else
           "# not logged yet - `jsk kb check` says why")
@@ -54,13 +54,13 @@ def cmd_view(args, flags, root, today):
     """
     from ....application.record.read import view
     from ....application.record.refusals import Unclean
-    from ....graph import store as S
+    from ..compose.record import load
     from ....infra.oxigraph import record as R
 
     if args:
         return usage("jsk kb view takes only --section NAME")
     try:
-        text = view(root, flags.get("--section"), load=S.load, state=R.state)
+        text = view(root, flags.get("--section"), load=load, state=R.state)
     except Unclean as err:
         return refuse([GUIDE[err.state.kind][0]], GUIDE[err.state.kind][1])
     print(text, end="")
@@ -91,7 +91,7 @@ def cmd_query(args, flags, root, today):
     import json
 
     from ....application.record.queries import QUERIES
-    from ....graph import store as S
+    from ..compose.record import load
     from ....infra.oxigraph.queries import OxigraphQueries
     from ..presenters import table
 
@@ -105,14 +105,14 @@ def cmd_query(args, flags, root, today):
     if near is not None and name != "concepts":
         return usage("--near is for `jsk kb query concepts --near <term>...` only")
     if near is None:
-        store = S.load(root)
+        store = load(root)
         columns, rows = fn(store, *rest, **({"queries": OxigraphQueries(store)} if reads else {}))
         print(json.dumps(rows, indent=2, ensure_ascii=False) if as_json else table(columns, rows))
         return 0
     if not near:
         return usage("jsk kb query concepts --near <term>... - one or more terms")
     # Several terms from one load: the analyst ran this 21 times in a shell loop, 15-25 s.
-    store = S.load(root)
+    store = load(root)
     found = {term: fn(store, near=term, queries=OxigraphQueries(store)) for term in near}
     if as_json:
         print(json.dumps({t: rows for t, (_, rows) in found.items()}, indent=2,
@@ -140,14 +140,15 @@ def cmd_check(args, flags, root, today):
     """
     from ....application.record.check import check
     from ....cliutil import show
-    from ....graph import store as S
+    from ..compose.record import load
+    from ....infra import files
     from ....infra.oxigraph import record as R
     from ....infra.oxigraph.queries import OxigraphQueries
 
     if args:
         return usage("jsk kb check takes no arguments but --only <path>")
-    checked = check(root, flags.get("--only"), today, load=S.load, state=R.state,
-                    graph_name=S.graph_name, queries=OxigraphQueries)
+    checked = check(root, flags.get("--only"), today, load=load, state=R.state,
+                    graph_name=files.graph_name, queries=OxigraphQueries)
     rep, st = checked.report, checked.state
     print(f"record   {st.kind}" + (f" at r{st.log_revision}" if st.log_revision else "")
           + (f" - {st.detail}" if st.detail else ""))
@@ -200,7 +201,7 @@ def cmd_log(args, flags, root, today):
     from ....application.record.read import log
     from ....application.record.refusals import Refused
     from ....domain.record.writer import curies
-    from ....graph import store as S
+    from ..compose.record import load
 
     if args:
         return usage("jsk kb log takes no arguments - --last N")
@@ -208,7 +209,7 @@ def cmd_log(args, flags, root, today):
     if not last.isdigit() or int(last) < 1:
         return usage(f"--last {last}: a count, 1 or more")
     try:
-        entries = log(root, int(last), load=S.load)
+        entries = log(root, int(last), load=load)
     except Refused as err:
         return refuse(err.lines, err.fix)
     for e in entries:

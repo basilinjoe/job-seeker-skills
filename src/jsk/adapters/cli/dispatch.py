@@ -1,9 +1,9 @@
 """How `jsk` runs a command in this interpreter: the module behind it found, its main() called.
 
-Until the entry-point modules go (P6 of the onion design), the real ports are bound in them
-(jsk.render.render_resume, jsk.graph.match, ...), and the tests' patches land there. So a
+Until the entry-point modules go (P6 of the onion design), the real ports of some are
+bound in them (jsk.render.render_resume, ...), and the tests' patches land there. So a
 verb still reaches its adapter through the module that binds it, by the documented script
-name that module had.
+name that module had; a script that is its adapter now is named whole in ADAPTERS.
 """
 import contextlib
 import importlib
@@ -35,8 +35,6 @@ SUBPACKAGE = {
     "record.py": "gates",
     "letter.py": "gates",
     "layout.py": "gates",
-    "match.py": "graph",
-    "prepare.py": "graph",
 }
 
 # The scripts that are their adapter now: the documented name kept, the module named whole,
@@ -44,6 +42,8 @@ SUBPACKAGE = {
 ADAPTERS = {
     "kbcli.py": "adapters.cli.kb",
     "timeline.py": "adapters.cli.event",
+    "match.py": "adapters.cli.match",
+    "prepare.py": "adapters.cli.tailor",
 }
 
 # The command each script answers to, for the hint that says how to run one by hand.

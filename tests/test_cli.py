@@ -866,7 +866,7 @@ class Match(unittest.TestCase):
         self.assertIn("k:prj_events (via c:kafka, 1 hop, implied)", out)
 
     def test_a_relative_path_from_inside_the_workspace(self):
-        from jsk.graph.match import application
+        from jsk.application.tailor.match_posting import application
         here = os.getcwd()
         try:
             os.chdir(self.FIX)

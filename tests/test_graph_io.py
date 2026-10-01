@@ -8,7 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jsk.graph import io
+from jsk.domain.record import parsed as io
+from jsk.infra.oxigraph import codec
+from jsk.infra import files
 from jsk.infra import legacy_import as legacy
 from jsk.domain import ontology as O
 
@@ -18,7 +20,7 @@ PFX = "".join(f"@prefix {n}: <{ns}> .\n" for n, ns in O.PREFIXES)
 class Reading(unittest.TestCase):
     def test_syntax_error_names_file_line_and_column(self):
         with self.assertRaises(io.GraphError) as cm:
-            io.parse_text(PFX + "k:org_x j:name \"A\" ;\n    j:size ,, .\n", "career/kb.ttl")
+            codec.parse_text(PFX + "k:org_x j:name \"A\" ;\n    j:size ,, .\n", "career/kb.ttl")
         e = cm.exception
         self.assertEqual((e.file, e.line), ("career/kb.ttl", 6))
         self.assertIsNotNone(e.col)
@@ -26,21 +28,21 @@ class Reading(unittest.TestCase):
 
     def test_crlf_and_bom_read_as_lf(self):
         text = "﻿" + (PFX + 'k:org_x j:name """two\r\nlines""" .\r\n')
-        parsed = io.parse_text(text, "kb.ttl")
+        parsed = codec.parse_text(text, "kb.ttl")
         self.assertEqual(parsed.quads[0].object.value, "two\nlines")
 
     def test_a_triple_stated_twice_is_one_triple(self):
         text = PFX + 'k:met_x j:subject "A" .\nk:met_x j:subject "A" .\n'
-        self.assertEqual(len(io.parse_text(text, "kb.ttl").quads), 1)
+        self.assertEqual(len(codec.parse_text(text, "kb.ttl").quads), 1)
 
     def test_the_kind_comes_from_the_file_name(self):
-        self.assertEqual(io.parse_text(PFX, "applications/a/posting.ttl").kind, "posting")
+        self.assertEqual(codec.parse_text(PFX, "applications/a/posting.ttl").kind, "posting")
 
     def test_subject_lines_point_at_the_first_line_of_each_subject(self):
         text = (PFX + '\nk:met_team j:subject "engineers led" .\n'
                 "k:met_team.v1 j:of k:met_team ;\n    j:value 6 .\n\n"
                 "c:kafka j:isA c:event-driven-architecture .\n")
-        lines = io.parse_text(text, "kb.ttl").lines
+        lines = codec.parse_text(text, "kb.ttl").lines
         self.assertEqual((lines[O.K + "met_team"], lines[O.K + "met_team.v1"],
                           lines[O.C + "kafka"]), (6, 7, 10))
 
@@ -49,7 +51,7 @@ class Reading(unittest.TestCase):
                 'k:skill_dotnet j:name "C# / .NET" ; j:category "language" .  # trailing\n'
                 'k:os_x j:name "x" ; j:url <https://x/#frag> .\n'
                 'k:prj_x j:problem """A # in prose\nis prose.""" .\n')
-        found = io.parse_text(text, "kb.ttl").comments
+        found = codec.parse_text(text, "kb.ttl").comments
         self.assertEqual(found, [(7, "# my own note"), (8, "# trailing")])
 
     def test_a_file_with_no_hash_has_no_comments(self):
@@ -60,7 +62,7 @@ class Reading(unittest.TestCase):
             path = Path(tmp) / "kb.ttl"
             path.write_bytes(b'k:org_x j:name "caf\xe9" .')
             with self.assertRaises(io.GraphError) as cm:
-                io.parse(path)
+                files.parse(path)
             self.assertIn("not UTF-8", str(cm.exception))
 
     def test_the_import_of_a_non_utf8_kb_names_it_and_takes_nothing(self):
@@ -83,7 +85,7 @@ class ReadText(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "posting.md"
             path.write_bytes(data)
-            return io.read_text(path, "posting.md")
+            return files.read_text(path, "posting.md")
 
     def test_a_bom_and_crlf_read_as_the_plain_text(self):
         plain = "# Role\n\nBuild things.\n"
@@ -100,7 +102,7 @@ class ReadText(unittest.TestCase):
     def test_a_missing_file_is_its_own_refusal(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(io.Missing) as cm:
-                io.read_text(Path(tmp) / "gaps.txt", "gaps.txt")
+                files.read_text(Path(tmp) / "gaps.txt", "gaps.txt")
         self.assertIn("gaps.txt: no such file at", str(cm.exception))
         self.assertIsInstance(cm.exception, io.Unreadable)
 

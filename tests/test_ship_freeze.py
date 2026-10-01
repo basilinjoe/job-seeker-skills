@@ -553,8 +553,8 @@ class GraphCase(unittest.TestCase):
         return {k: sorted(v) for k, v in app.items()}, events
 
     def store(self):
-        from jsk.graph import store as S
-        return S.load(self.root)
+        from jsk.adapters.cli.compose import record
+        return record.load(self.root)
 
 
 def k(*ids):

@@ -15,20 +15,21 @@ from test_graph_shapes import FIXTURES
 
 import jsk
 from jsk import cli
-from jsk.graph import io as gio
+from jsk.infra.oxigraph import codec
+from jsk.infra import files
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record
 from jsk.domain.record import writer
-from jsk.graph import store as S
+from jsk.adapters.cli.compose import record as S
 from jsk.infra import legacy_import
-from jsk.graph.pack import PACKS
+from jsk.infra.packs import PACKS
 
 PACK = Path(jsk.__file__).parent / "data" / "capabilities.ttl"
 SHIPPED = Path(jsk.__file__).parent / "data" / "vocabulary.ttl"
 
 
 def quads(path):
-    return gio.parse_text(Path(path).read_text(encoding="utf-8"), "capabilities.ttl",
+    return codec.parse_text(Path(path).read_text(encoding="utf-8"), "capabilities.ttl",
                           kind="vocabulary").quads
 
 
@@ -37,7 +38,7 @@ def edit_career(case, root, old, new):
     as it was: the edit stands for one made before the fixture's last revision."""
     text = storekit.kb_text(root)
     case.assertIn(old, text)
-    record.write_graphs(str(root), {record.KB: gio.parse_text(text.replace(old, new),
+    record.write_graphs(str(root), {record.KB: codec.parse_text(text.replace(old, new),
                                                               record.KB).quads})
     storekit.rehash(root)
 
@@ -83,13 +84,13 @@ class ThePack(unittest.TestCase):
 
     def test_it_is_canonical(self):
         text = PACK.read_bytes().decode("utf-8")
-        self.assertEqual(writer.write(gio.parse_text(text, "x.ttl", kind="vocabulary").quads,
+        self.assertEqual(writer.write(codec.parse_text(text, "x.ttl", kind="vocabulary").quads,
                                       "vocabulary"), text)
 
     def test_no_label_is_a_shipped_label_or_id_or_another_pack_concept_s(self):
-        shipped = {O.norm(x.object.value) for x in gio.parse(SHIPPED).quads
+        shipped = {O.norm(x.object.value) for x in files.parse(SHIPPED).quads
                    if x.predicate.value in (O.J + "label", O.J + "former")}
-        shipped |= {x.subject.value[len(O.C):] for x in gio.parse(SHIPPED).quads}
+        shipped |= {x.subject.value[len(O.C):] for x in files.parse(SHIPPED).quads}
         owners = {}
         q = quads(PACK)
         for x in q:
@@ -115,16 +116,16 @@ class ThePack(unittest.TestCase):
         self.assertEqual(O.kind_of(PACK), None)
 
     def test_a_two_line_summary_round_trips(self):
-        from jsk.graph.pack import trig
+        from jsk.domain.record.pack import trig
 
         summary = 'Merged c:a into c:b.\nThe "old" wording stays as a label.'
         text = trig(2, summary, {})
-        said = [q.object.value for q in gio.parse_text(text, "x.trig", kind="changeset").quads
+        said = [q.object.value for q in codec.parse_text(text, "x.trig", kind="changeset").quads
                 if q.predicate.value == O.OP + "summary"]
         self.assertEqual(said, [summary])
 
     def test_the_shipped_vocabulary_is_still_technologies_only(self):
-        kinds = {x.object.value for x in gio.parse(SHIPPED).quads
+        kinds = {x.object.value for x in files.parse(SHIPPED).quads
                  if x.predicate.value == O.RDF_TYPE}
         self.assertEqual(kinds, {O.J + "Technology"})
 
@@ -150,10 +151,10 @@ class InARecord(Fixture):
         self.assertIn("dry run: r3 not written", out)
 
     def test_a_concept_the_record_has_gets_only_what_it_lacks(self):
-        from jsk.graph import changeset
+        from jsk.adapters.cli.compose import record as changeset
 
         self.pack()
-        cs = changeset.read(self.path("pack.trig").read_text(encoding="utf-8"))
+        cs = changeset.read_changeset(self.path("pack.trig").read_text(encoding="utf-8"))
         eda = {(p.value[len(O.J):] if p.value.startswith(O.J) else "a", o.value)
                for s, p, o in cs.add if s.value == O.C + "event-driven-architecture"}
         # Its class and its own "EDA" stay as they are; the pack adds its other wordings

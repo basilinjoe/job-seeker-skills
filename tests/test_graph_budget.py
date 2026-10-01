@@ -8,7 +8,7 @@ from pathlib import Path
 from storekit import seed
 
 from jsk.domain import ontology as O
-from jsk.graph import store
+from jsk.adapters.cli.compose import record
 
 
 def big_workspace(root, projects=300, applications=100):
@@ -76,13 +76,13 @@ class Budget(unittest.TestCase):
             big_workspace(Path(tmp))
             seed(tmp)                            # the files into career/store/, then gone
             self.assertFalse((Path(tmp) / "career" / "kb.ttl").exists())
-            store.load(tmp)                      # warm: the first query compiles caches
+            record.load(tmp)                      # warm: the first query compiles caches
             # The fastest of three: other work on the machine - the match mutations run
             # whole pytest processes beside this one under -n auto - only ever adds time.
             timings = []
             for _ in range(3):
                 start = time.perf_counter()
-                s = store.load(tmp)
+                s = record.load(tmp)
                 timings.append((time.perf_counter() - start) * 1000)
             ms = min(timings)
             quads = len(s.ox)

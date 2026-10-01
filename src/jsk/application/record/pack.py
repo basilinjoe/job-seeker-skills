@@ -40,9 +40,9 @@ def pack(root, name, *, load, state, packs):
     Args:
         root: the workspace.
         name: a key of packs.PACKS.
-        load: loads the workspace (graph.store.load).
+        load: loads the workspace (compose.record.load).
         state: where the career and its log stand (infra.oxigraph.record.state).
-        packs: where the packs are and how one is read (graph.pack): PACKS, read_pack.
+        packs: where the packs are and how one is read (infra.packs): PACKS, read_pack.
 
     Returns:
         Drafted. Reads the record and the pack's file.

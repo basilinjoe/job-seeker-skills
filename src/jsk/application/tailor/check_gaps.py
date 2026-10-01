@@ -161,7 +161,7 @@ def build(app_dir, store, r, today, derived, *, folder):
         r: match_posting.result's plain data for the posting.
         today: the day the assessment is dated, unless it has not changed.
         derived: the Derived assessment, or None to derive it from `r`.
-        folder: the application's folder and record, as graph.gapsbuild.Folder reads and
+        folder: the application's folder and record, as compose.tailor.Folder reads and
             writes them.
 
     Returns:

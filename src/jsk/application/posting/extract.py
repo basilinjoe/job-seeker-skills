@@ -29,7 +29,7 @@ def read_advert(app_dir, *, folder):
 
     Args:
         app_dir: the application's directory.
-        folder: the application's folder and record (graph.postingbuild.PostingFolder).
+        folder: the application's folder and record (compose.posting.PostingFolder).
 
     Returns:
         The advert, normalised.
@@ -56,7 +56,7 @@ def workspace(app_dir, vocabulary, *, folder):
     Args:
         app_dir: the application's directory.
         vocabulary: the vocabulary file to load, or None for the shipped one.
-        folder: the application's folder and record (graph.postingbuild.PostingFolder).
+        folder: the application's folder and record (compose.posting.PostingFolder).
 
     Returns:
         The workspace root and its loaded Store.
@@ -75,7 +75,7 @@ def posting_stem(app_dir, root, store, *, folder):
         app_dir: the application's directory.
         root: the workspace root.
         store: the loaded workspace, or None.
-        folder: the application's folder and record (graph.postingbuild.PostingFolder).
+        folder: the application's folder and record (compose.posting.PostingFolder).
 
     Returns:
         The stem.
@@ -95,7 +95,7 @@ def extract(app_dir, vocabulary, today, *, folder):
         app_dir: the application's directory.
         vocabulary: the vocabulary file to load, or None for the shipped one.
         today: the `captured:` day the header proposes.
-        folder: the application's folder and record (graph.postingbuild.PostingFolder).
+        folder: the application's folder and record (compose.posting.PostingFolder).
 
     Returns:
         The text to print.
