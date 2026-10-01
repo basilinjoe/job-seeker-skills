@@ -388,6 +388,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     tailor/match_posting.py         one application's posting matched against the career, as plain data
     tailor/check_gaps.py            gaps.txt checked, the assessment and gaps.md written from the match
     tailor/draft_gaps.py            the gaps.txt draft: the advert, the drops and the person read, the draft made
+    tailor/prepare.py               the tailoring digest: the check, the match, the evidence, the assessment written
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     render/load_resume.py           a resume.json read, its workspace found, its career loaded, checked
     render/build_plan.py            a resume.json on disk to its render plan
@@ -411,6 +412,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/preview.py                  `jsk preview`: its flags, every template previewed, the pages said
     cli/match.py                    `jsk match`: its flags, the match run and printed, or its assessment built
     cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
+    cli/tailor.py                   `jsk tailor prepare`: its flags, the digest run and printed section by section
     adverts.py                      an application's posting.md and decisions.txt, read from its folder
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
