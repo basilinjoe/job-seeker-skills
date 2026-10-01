@@ -616,7 +616,7 @@ it gets all four gates, below.
 
 Exit 0 safe to render, 1 do not render it, 2 called wrong or no career to check against. Called
 from code as `record.findings(doc, store, today=None) -> (fails, warns)`, `doc` a parsed short file
-or a path, `store` `jsk.graph.store.load(root)`.
+or a path, `store` `jsk.adapters.cli.compose.record.load(root)`.
 
 #### A render: the parse and prose gates
 

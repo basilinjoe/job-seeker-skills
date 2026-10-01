@@ -4,7 +4,7 @@ Every class, predicate, enumeration and rule the career record is built from, an
 one means. Read it to extend the format, write a tool that reads a workspace, or work out why
 a finding fired.
 
-**The definition is code.** [`src/jsk/graph/ontology.py`](../src/jsk/graph/ontology.py) holds
+**The definition is code.** [`src/jsk/domain/ontology.py`](../src/jsk/domain/ontology.py) holds
 the format as data. The entry printer (`jsk kb show`) takes its order from those tables, and the
 tier-1 rules are generated from them. This document and the agent-facing
 [`references/kb-format.md`](../plugins/jsk/skills/jsk/references/kb-format.md) describe that
@@ -852,8 +852,8 @@ out explicitly (`FILTER(?g != j:derived)`).
 ## 11. Matching: requirements, evidence, verdicts
 
 `jsk tailor match` joins one posting's requirements to the career through the vocabulary. The steps
-below are its semantics. Code: [`queries.py`](../src/jsk/graph/queries.py),
-[`match.py`](../src/jsk/graph/match.py), [`gapsderive.py`](../src/jsk/graph/gapsderive.py).
+below are its semantics. Code: [`domain/matching/`](../src/jsk/domain/matching/),
+[`match_posting.py`](../src/jsk/application/tailor/match_posting.py), [`derive.py`](../src/jsk/domain/assessment/derive.py).
 
 **1. Resolve the requirement to concepts.**
 
@@ -917,7 +917,7 @@ render. A WARN is reported and the command goes on.
 
 ### 12.1 Tier 1: one graph, generated from the ontology
 
-Code: [`shapes.py`](../src/jsk/graph/shapes.py).
+Code: [`shapes.py`](../src/jsk/domain/record/shapes.py).
 
 | Rule | Severity | Fires when |
 |---|---|---|
@@ -934,7 +934,7 @@ Code: [`shapes.py`](../src/jsk/graph/shapes.py).
 
 ### 12.2 Tier 2: the whole workspace, as SPARQL
 
-Code: [`rules.py`](../src/jsk/graph/rules.py). Each rule is one row: an id, a severity, a
+Code: [`rules.py`](../src/jsk/domain/record/rules.py). Each rule is one row: an id, a severity, a
 SELECT naming `?focus`, and an optional post-processing step.
 
 | Rule | Severity | Fires when |

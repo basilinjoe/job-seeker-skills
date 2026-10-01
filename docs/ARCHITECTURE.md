@@ -71,8 +71,8 @@ jsk tailor match D                 gaps graph        the overlay checked against
 The graphs are `applications/<stem>/posting` and `applications/<stem>/gaps` in `career/store/`;
 the text files sit in the application directory `D`. Every command takes `D`, never a file in it.
 
-`decisions.txt` ([`graph/decisions.py`](../src/jsk/graph/decisions.py)) and `gaps.txt`
-([`graph/assessment.py`](../src/jsk/graph/assessment.py)) are the only two files the analyst
+`decisions.txt` ([`domain/record/decisions.py`](../src/jsk/domain/record/decisions.py)) and
+`gaps.txt` ([`domain/assessment/overlay.py`](../src/jsk/domain/assessment/overlay.py)) are the only two files the analyst
 writes. Each holds only what code cannot know: which concept an advert means, and a verdict that
 the triples read too generously. The rest is derived. The cost argument is measured: writing
 the posting's Turtle by hand cost one run 26.5k output tokens, most of them ids and quotes copied
@@ -169,63 +169,53 @@ short file's errors), lazily. `formatting.py` holds
 pure functions over single values — no profile, no career — which is what makes them testable in
 isolation.
 
-### Inside the `graph` package
+### The career record, across the rings
 
-The career record. It keeps the record in `career/store/`, reads Turtle and TriG as input
+The career record keeps the record in `career/store/`, reads Turtle and TriG as input
 (changesets, dumps, the vocabulary), and never renders anything; the rendering half never imports
-it. Every module keeps `pyoxigraph` inside its functions, so importing the package
-costs nothing on a machine without the engine and `jsk doctor` can report on it.
+it. It was the `graph/` package; its modules now sit in the rings (Ruling 1 of
+docs/superpowers/specs/2026-09-30-onion-architecture-design.md), and `graph/` is gone. Every
+module keeps `pyoxigraph` inside its functions, so importing one costs nothing on a machine
+without the engine and `jsk doctor` can report on it.
 
 | Module | Decides |
 |---|---|
-| `ontology.py` | **the format**: every class, predicate, cardinality, datatype, enum and section, as data. Standard library only. The single definition - the writer, the rules and the format reference all follow it |
-| `io.py` | `read_text` (every text read: BOM, CRLF, cp1252 once) and parsing Turtle and TriG input - changesets, dumps, the vocabulary - with a parse failure's line |
-| `writer.py` | the entry printer `jsk kb show`, `pack` and `merge` use: subject blocks, a project with its bullets and a metric with its versions, predicates in ontology order, `"""` prose |
-| `shapes.py` · `rules.py` | tier 1, generated from the ontology (closed predicates, required, cardinality, datatype, enum, id prefix); tier 2, the cross-node rules, each a SPARQL query with a fix, each with a mutation test |
-| `store.py` | a workspace in memory: the record graphs copied out of the store (or a write's candidate graphs) plus the shipped vocabulary, derived triples in `j:derived`, every rule run on every load |
-| `db.py` | the record on disk: one RocksDB store per workspace at `career/store/`, a named graph per record, the writers' turn (a blocking OS lock), one update per write, dump and parse. The only module that opens the store |
-| `legacy.py` | a workspace still laid out as `.ttl` files, read once for `jsk kb load` - validated as before, numbers kept as the store keeps them and each rewrite reported |
-| `record.py` | **the write gate**: revision and log entry (`prepared`), `state` (clean, out-of-sync, missing - and, for the files the import reads, hand-edited, torn and unlogged), `turn` - the writer's turn, taken before a writing command reads the record, and before it asks whether a store exists - `unrecorded` (is the career what the log's newest `kbSha256` hashed: `jsk kb check` and a dump's load ask it) and `write_graphs`: every touched graph in one `db.replace_graphs`, then `.jsk/backup.trig`; a failure after the update landed is `Written`, never "nothing was changed". The only caller of `replace_graphs` |
-| `changeset.py` · `edit.py` · `kbcli.py` | `jsk kb`: a changeset read and refused or merged, and every verb over the record. `changeset.numbers_as_kept` refuses a number the store would rewrite (`8.40`) - in changesets, posting builds and dumps `jsk kb load` reads; not a rule id, since the import rewrites and lists them instead |
-| `pack.py` · `merge.py` | `jsk kb pack` (the capability starter pack) and `jsk kb merge` (two concepts that are one), each drafted as a changeset and never applied |
-| `queries.py` · `named.py` · `match.py` | the vocabulary and the named questions; `jsk tailor match` |
-| `scoring.py` | the numbers the match ranks by: seniority order, the requirement weights, recency points, months of experience. Standard library only |
-| `select.py` · `export.py` | what a resume for one posting selects (projects, bullets, skill order) and `jsk kb export`, which writes it as the short file |
-| `decisions.py` · `postingbuild.py` | `decisions.txt` read; `jsk posting extract` and `build`, which write the posting graph from it |
-| `prepare.py` | `jsk tailor prepare`: the check, the match, the evidence, the person and the cover, in one digest |
-| `gapsderive.py` · `gapsdraft.py` · `assessment.py` · `gapsbuild.py` | the assessment: derived from the match with no model; the draft `gaps.txt`; `gaps.txt` read; the overlay checked, folded in, and written as the gaps graph and `gaps.md` |
-| `view.py` · `timeline.py` | `jsk kb view`; `jsk app freeze`'s application graph and `jsk app event` |
+| `domain/ontology.py` | **the format**: every class, predicate, cardinality, datatype, enum and section, as data. Standard library only. The single definition - the writer, the rules and the format reference all follow it |
+| `infra/files.py` · `infra/oxigraph/codec.py` | `read_text` (every text read: BOM, CRLF, cp1252 once) and parsing Turtle and TriG input - changesets, dumps, the vocabulary - with a parse failure's line |
+| `domain/record/writer.py` | the entry printer `jsk kb show`, `pack` and `merge` use: subject blocks, a project with its bullets and a metric with its versions, predicates in ontology order, `"""` prose |
+| `domain/record/shapes.py` · `rules.py` | tier 1, generated from the ontology (closed predicates, required, cardinality, datatype, enum, id prefix); tier 2, the cross-node rules, each a SPARQL query with a fix, each with a mutation test |
+| `application/record/load.py` · `domain/record/store.py` | a workspace in memory: the record graphs copied out of the store (or a write's candidate graphs) plus the shipped vocabulary, derived triples in `j:derived`, every rule run on every load |
+| `infra/oxigraph/db.py` | the record on disk: one RocksDB store per workspace at `career/store/`, a named graph per record, the writers' turn (a blocking OS lock), one update per write, dump and parse. The only module that opens the store |
+| `infra/legacy_import.py` | a workspace still laid out as `.ttl` files, read once for `jsk kb load` - validated as before, numbers kept as the store keeps them and each rewrite reported |
+| `infra/oxigraph/record.py` | **the write gate**: revision and log entry (`prepared`), `state` (clean, out-of-sync, missing - and, for the files the import reads, hand-edited, torn and unlogged), `turn` - the writer's turn, taken before a writing command reads the record, and before it asks whether a store exists - `unrecorded` (is the career what the log's newest `kbSha256` hashed: `jsk kb check` and a dump's load ask it) and `write_graphs`: every touched graph in one `db.replace_graphs`, then `.jsk/backup.trig`; a failure after the update landed is `Written`, never "nothing was changed". The only caller of `replace_graphs` |
+| `domain/record/changeset.py` · `edit.py` · `adapters/cli/kb/` | `jsk kb`: a changeset read and refused or merged, and every verb over the record. `changeset.numbers_as_kept` refuses a number the store would rewrite (`8.40`) - in changesets, posting builds and dumps `jsk kb load` reads; not a rule id, since the import rewrites and lists them instead |
+| `domain/record/pack.py` · `merge.py` | `jsk kb pack` (the capability starter pack) and `jsk kb merge` (two concepts that are one), each drafted as a changeset and never applied |
+| `domain/matching/` · `application/record/queries.py` · `application/tailor/match_posting.py` | the vocabulary and the named questions; `jsk tailor match` |
+| `domain/matching/scoring.py` | the numbers the match ranks by: seniority order, the requirement weights, recency points, months of experience. Standard library only |
+| `domain/selection/select.py` · `application/tailor/export.py` | what a resume for one posting selects (projects, bullets, skill order) and `jsk kb export`, which writes it as the short file |
+| `domain/posting/decide.py` · `application/posting/` | `decisions.txt` read; `jsk posting extract` and `build`, which write the posting graph from it |
+| `application/tailor/prepare.py` | `jsk tailor prepare`: the check, the match, the evidence, the person and the cover, in one digest |
+| `domain/assessment/` · `application/tailor/check_gaps.py` | the assessment: derived from the match with no model; the draft `gaps.txt`; `gaps.txt` read; the overlay checked, folded in, and written as the gaps graph and `gaps.md` |
+| `domain/record/view.py` · `application/timeline/` | `jsk kb view`; `jsk app freeze`'s application graph and `jsk app event` |
 
-**Its boundaries.** Only `db.py` opens `career/store/`, and only `record.py` calls
-`db.replace_graphs`; `tests/test_db.py` fails if anything else does. So every write - `jsk kb`'s
-verbs, `jsk kb new`, the posting and gaps builds, `jsk app freeze` and `jsk app event` - goes through
-`record.write_graphs` after the would-be record validates, in one update of the store. A write
-to the career lands with its log entry in that update; `jsk app freeze`, `jsk app event` and the builds
-write only an application's graphs and add no entry, since the log is the career's history.
-The SPARQL queries are not storage access: they ask a validated in-memory store about a career,
-and stay grouped by purpose (`queries`, `named`, `match`, `rules`).
+The real ports are bound to these use cases in one place, the composition root
+`adapters/cli/compose/`: the load over `career/store/` and the engine, the match and the
+selection over the engine's feature reads, an application's folder and its graphs.
 
-Outward, the package reaches seven places beyond the shared helpers `cliutil` and `paths`:
+**Its boundaries.** Only `infra/oxigraph/db.py` opens `career/store/`, and only
+`infra/oxigraph/record.py` calls `db.replace_graphs`; `tests/test_db.py` fails if anything else
+does. So every write - `jsk kb`'s verbs, `jsk kb new`, the posting and gaps builds, `jsk app
+freeze` and `jsk app event` - goes through `record.write_graphs` after the would-be record
+validates, in one update of the store. A write to the career lands with its log entry in that
+update; `jsk app freeze`, `jsk app event` and the builds write only an application's graphs and add
+no entry, since the log is the career's history. The SPARQL queries are not storage access: they
+ask a validated in-memory store about a career. Rule text and the named queries stay SPARQL over
+`Store.select`; a feature's read is a `RecordQueries` method, its text in
+`infra/oxigraph/queries.py`.
 
-| Target | For | From |
-|---|---|---|
-| `gates.report` | `Report` and `show`, the one way to print a finding | `store`, `kbcli`, `match` |
-| `gates.numbers` | the untraced-number check `jsk kb check` and `jsk tailor match` run over the career's bullets | `kbcli`, `match` |
-| `gates.check_ats` | `read_pdf`, for `jsk kb confirm --source` given a PDF | `kbcli` |
-| `resume.career` | `Career` | `export`, `select`, `match`, `kbcli` |
-| `resume.short` | reading a `resume.json` | `kbcli` |
-| `posting` | the advert's file name (`posting.md`) and `Refused` | `postingbuild` |
-| `cli` | `frozen_refusal`: one wording for "this application is frozen" | `kbcli` |
-
-All of them are lazy, inside the function that needs them, except three imports at the top of a
-module: `export.py` (`paths`, `resume.career`) and `postingbuild.py` (`posting`). The `cli`
-edge is the one upward edge: a library module importing the dispatcher. It stays lazy so it
-cannot become an import cycle, and moving `frozen_refusal` down into a shared module would
-remove it. `pyoxigraph` is imported only inside functions in every module.
-
-Inward, `resume/` builds from the store, `gates/` reads it, and `cli.py` finds the workspace
-with `kbcli.find_root`. Nothing in `render/` imports the graph package, and nothing in it imports
-`render/`.
+Which module may import which is the rings' rule, and `tests/test_layers.py` holds it: an import
+points at its own ring or one further in. Nothing in `render/` imports the record's modules but
+through the composition root's load, and nothing in them imports `render/`.
 
 ## The agent boundary
 
@@ -297,9 +287,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   paths.py                          where the packaged schema lives - stated once
   kb.py                             `jsk kb new` - hands over to adapters/cli/kb/new.py (the documented path)
   posting.py                        `jsk posting` - fetch an advert from a public board; extract, build
-  graph/                            the old module paths of four commands, each naming the one it became
-    kbcli.py  match.py  prepare.py  `jsk kb`, `jsk tailor match`, `jsk tailor prepare`
-    timeline.py                     `jsk app event`
   resume/                           career + resume.json -> the render plan
     short.py                        the short file: read, shape, ids, its workspace
     career.py                       the career graph as the builder, export and match read it
@@ -531,7 +518,7 @@ Both leave out the shared helpers `cliutil` and `paths`, which every CLI module 
 |---|---|---|---|
 | `render/`: rendering, preview and the page fitter, over the plan→document pipeline | **3**, all lazy and all from the two CLIs: `resume.build`, `resume.short`, `cli` (`frozen_refusal`) | 11 | **made** |
 | `gates/`: record, parse, prose, layout, letter | **11**: six `graph/` modules, three `resume/`, two `render/`. All lazy except `record.py`'s import of `graph.ontology`, which is standard library only | 10 | **fails the test today** (below) |
-| `graph/`: the career record, from format to assessment | **7** (see "Inside the graph package") | 202 | **made** |
+| `graph/`: the career record, from format to assessment | **7** when measured | 202 | **made**, and gone since: its modules are in the rings (see "The career record, across the rings") |
 | `resume/`: the short file, the career as read for a resume, the plan builder | **8**, into `graph/` and `render/` | 4 | **made as the seam**, not by this test: it is the one place the career meets the renderer, and keeping that join in one package is what keeps `graph/` and `render/` from importing each other |
 
 `gates/` passed the test when it held three gates. The record gate and the letter check have
@@ -561,14 +548,14 @@ directory named after what they have in common.
 | **How a document looks** | `src/jsk/render/emit_*.py` | never `build.py` |
 | **A palette, typeface or rule** | `src/jsk/render/themes.py` | `references/templates.md`, `tests/test_themes.py` |
 | Support for a new market | `data/schema/profiles/<code>.json` | `profile.schema.json`, `region` in `references/resume-format.md` |
-| **The career record's format** | `src/jsk/graph/ontology.py` | `references/kb-format.md` and `docs/ONTOLOGY.md` — the ontology is the format and the reference is its prose; a class, predicate or section in one and not the other is a defect. The writer and the tier-1 rules follow the ontology by themselves |
-| A rule across entries | `src/jsk/graph/rules.py` | a mutation in `tests/test_graph_rules.py` — a rule with no mutation fails the suite |
+| **The career record's format** | `src/jsk/domain/ontology.py` | `references/kb-format.md` and `docs/ONTOLOGY.md` — the ontology is the format and the reference is its prose; a class, predicate or section in one and not the other is a defect. The writer and the tier-1 rules follow the ontology by themselves |
+| A rule across entries | `src/jsk/domain/record/rules.py` | a mutation in `tests/test_graph_rules.py` — a rule with no mutation fails the suite |
 | The shipped vocabulary | `src/jsk/data/vocabulary.ttl` | technologies only, no `implies`; `tests/test_graph_vocabulary.py` |
-| The capability starter pack | `src/jsk/data/capabilities.ttl`, `src/jsk/graph/pack.py` | applied to the career as a changeset, never loaded as vocabulary; `tests/test_graph_pack.py` |
-| Where the record is stored, or how a write lands | `src/jsk/graph/db.py` (storage), `src/jsk/graph/record.py` (the write gate) | `tests/test_db.py`, which also fails a second module that opens the store or writes it |
+| The capability starter pack | `src/jsk/data/capabilities.ttl`, `src/jsk/infra/packs.py`, `src/jsk/domain/record/pack.py` | applied to the career as a changeset, never loaded as vocabulary; `tests/test_graph_pack.py` |
+| Where the record is stored, or how a write lands | `src/jsk/infra/oxigraph/db.py` (storage), `src/jsk/infra/oxigraph/record.py` (the write gate) | `tests/test_db.py`, which also fails a second module that opens the store or writes it |
 | What `jsk kb new` scaffolds | `src/jsk/kb.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
-| A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `postingbuild.py` and `gapsbuild.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
-| What the analyst may write | `graph/decisions.py` (`decisions.txt`), `graph/assessment.py` (`gaps.txt`) | the checks in `postingbuild.py` and `gapsbuild.py`; `agents/jsk-tailor-analyst.md` |
+| A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `application/posting/build.py` and `application/tailor/check_gaps.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
+| What the analyst may write | `domain/record/decisions.py` (`decisions.txt`), `domain/assessment/overlay.py` (`gaps.txt`) | the checks in `domain/posting/decide.py` and `domain/assessment/fold.py`; `agents/jsk-tailor-analyst.md` |
 | How the career's projects are ranked for a posting | `rank` in `src/jsk/domain/matching/rank.py`; the weights in `src/jsk/domain/matching/scoring.py` | `cover` in `cover.py` beside it, and `src/jsk/domain/selection/select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
 | What the record gate checks | `src/jsk/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
@@ -622,9 +609,9 @@ story:
    and CI on Windows and Linux. A workspace still laid out as `.ttl` files (before the store) is
    imported once with `jsk kb load .`; any other command there refuses, naming that fix.
 
-**The graph package and its boundaries** are what hold the third one: every write goes through
-`record.write_graphs` after the would-be record validates, and the package never imports `render/` nor
-is imported by it. See "Inside the graph package" above.
+**The career record and its boundaries** are what hold the third one: every write goes through
+`record.write_graphs` after the would-be record validates, and the record's modules never import
+`render/`. See "The career record, across the rings" above.
 
 A bundle from a version before 4.0 has one route: read it whole and build the record from it
 with `jsk kb new` and changesets - and a changeset cannot confirm, so it carries `needs-verification` and

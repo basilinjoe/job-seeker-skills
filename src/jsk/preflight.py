@@ -50,7 +50,7 @@ GRAPH_KB_FILENAME = "kb.ttl"
 # after every move. find_spec answers "is the code here" without importing the package, even
 # on a machine without the engine - the engine is its own check below.
 MODULES = ["cli", "cliutil", "paths", "domain", "ports", "application", "infra", "adapters"]
-GRAPH_MODULES = ["graph"]
+GRAPH_MODULES = ["domain.record", "application.record", "infra.oxigraph"]
 GATE_MODULES = ["gates"]
 # Rendering, the preview and the page fitter moved in here: they drive the
 # record->document pipeline and import nothing else, so a broken render package takes all
@@ -208,7 +208,7 @@ def gather(kb_arg=None):
     checks.append(Check(
         "graph record package", not missing_graph,
         disables=f"missing: {', '.join(missing_graph)}" if missing_graph
-                 else "", detail=os.path.join(HERE, "graph")))
+                 else "", detail=os.path.join(HERE, "domain", "record")))
 
     missing_gates = present(GATE_MODULES)
     checks.append(Check(

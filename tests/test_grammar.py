@@ -202,10 +202,6 @@ class TheModulePathsAreRetired(unittest.TestCase):
     PATHS = {
         "jsk.kb": "jsk kb new",
         "jsk.posting": "jsk posting",
-        "jsk.graph.kbcli": "jsk kb",
-        "jsk.graph.match": "jsk tailor match",
-        "jsk.graph.prepare": "jsk tailor prepare",
-        "jsk.graph.timeline": "jsk app event",
         "jsk.render.render_resume": "jsk resume render",
         "jsk.render.fit_pages": "jsk resume fit",
         "jsk.render.preview_templates": "jsk resume preview",
