@@ -477,6 +477,19 @@ class WithoutTheExtra(unittest.TestCase):
         self.assertEqual(proc.stderr.strip(), MISSING)
         self.assertEqual(proc.stdout, "")
 
+    def test_an_mcp_older_than_the_pin_exits_2_and_names_the_upgrade(self):
+        # mcp 1.4.1 sat in this author's global Python (2026-10-02): it imported, then the
+        # server died on FastMCP.tool(structured_output=...) with a traceback.
+        from jsk.adapters import mcp as entry
+
+        err = io.StringIO()
+        with mock.patch("importlib.metadata.version", return_value="1.4.1"), \
+                contextlib.redirect_stderr(err):
+            code = entry.main([])
+        self.assertEqual(code, 2)
+        self.assertIn("this Python has mcp 1.4.1: pip install -U 'jsk-resume[mcp]'",
+                      err.getvalue())
+
     def test_the_entry_point_imports_only_the_standard_library(self):
         # The layers test holds jsk.adapters.mcp to the standard library; this is its
         # behaviour: importing the package does not import the SDK.

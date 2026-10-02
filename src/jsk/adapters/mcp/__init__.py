@@ -12,6 +12,12 @@ import sys
 # What a plain install says when asked to serve: the one line that installs the extra.
 MISSING = "the MCP server needs the mcp extra: pip install 'jsk-resume[mcp]'"
 
+# The oldest mcp the server runs on: the pin in pyproject.toml's extra. An older SDK left in
+# the same interpreter by something else (1.4.1 on this author's machine, 2026-10-02) imports
+# fine and then fails on FastMCP.tool(structured_output=...) with a traceback, so the version
+# is checked before the import.
+OLDEST = (1, 30)
+
 USAGE = """usage: jsk mcp
   serve the career and its applications to an agent as MCP tools, over stdio.
   The workspace is the one around the current directory, or JSK_ROOT.
@@ -34,6 +40,11 @@ def main(argv):
     if argv:
         print(f"jsk mcp takes no arguments, not {' '.join(argv)}\n{USAGE}", file=sys.stderr)
         return 2
+    old = too_old()
+    if old:
+        print(f"the MCP server needs mcp {'.'.join(map(str, OLDEST))} or later, and this "
+              f"Python has mcp {old}: pip install -U 'jsk-resume[mcp]'", file=sys.stderr)
+        return 2
     try:
         from . import server
     except ImportError as e:
@@ -45,3 +56,19 @@ def main(argv):
         return 2
     server.serve()
     return 0
+
+
+def too_old():
+    """The installed mcp's version when it is older than OLDEST, else None - None too when it
+    is not installed at all, which the import's refusal reports instead."""
+    from importlib import metadata
+
+    try:
+        version = metadata.version("mcp")
+    except metadata.PackageNotFoundError:
+        return None
+    parts = []
+    for piece in version.split(".")[:2]:
+        digits = "".join(c for c in piece if c.isdigit())
+        parts.append(int(digits or 0))
+    return version if tuple(parts) < OLDEST else None
