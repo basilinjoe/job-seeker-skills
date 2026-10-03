@@ -21,6 +21,8 @@
     jsk letter check LETTER --record R   a cover letter's length, prose and numbers
     jsk app freeze APP --submitted DATE|false --channel TEXT   archive a sent application
       ... event APP KIND --date DATE      add a screen, an offer, a rejection to one
+      ... drop APP [--reason T] [--dry-run]   set an unsent one aside: graphs removed,
+                                folder kept under dropped/
     jsk mcp                     serve the career and its applications to an agent as MCP
                                 tools, over stdio (the mcp extra)
 
@@ -78,6 +80,13 @@ def app_freeze(args):
     return freeze(args)
 
 
+def app_drop(args):
+    """`jsk app drop` (adapters.cli.drop.main)."""
+    from .drop import main as drop
+
+    return drop(args)
+
+
 def doctor(args):
     """`jsk doctor` (adapters.cli.doctor.cmd_doctor)."""
     from .doctor import cmd_doctor
@@ -104,7 +113,7 @@ NOUNS = {
     "resume": {"check": resume_check, "render": "render_resume.py",
                "preview": "preview_templates.py", "fit": "fit_pages.py", "ship": resume_ship},
     "letter": {"check": letter_check},
-    "app": {"event": "timeline.py", "freeze": app_freeze},
+    "app": {"event": "timeline.py", "freeze": app_freeze, "drop": app_drop},
     "mcp": {},
 }
 
@@ -131,7 +140,8 @@ NOUN_USAGE = {
                "  check LETTER --record R   a cover letter's length, prose and numbers"),
     "app": ("usage: jsk app <verb> ...\n"
             "  event APP KIND --date D                      add what happened next\n"
-            "  freeze APP --submitted D|false --channel T   archive a sent application"),
+            "  freeze APP --submitted D|false --channel T   archive a sent application\n"
+            "  drop APP [--reason T] [--dry-run]            set an unsent application aside"),
 }
 
 # Commands that went, with what replaced them. Said by name rather than as an unknown

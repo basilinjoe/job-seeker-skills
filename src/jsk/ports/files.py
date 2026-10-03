@@ -52,6 +52,33 @@ class ApplicationFiles(Protocol):
         """
         ...
 
+    def is_dir(self, path: str) -> bool:
+        """Whether `path` is a directory there is."""
+        ...
+
+    def free_directory(self, folder: str, stem: str) -> str:
+        """The first of `stem`, `stem-2`, `stem-3`... that names nothing in `folder`."""
+        ...
+
+    def move_directory(self, old: str, new: str) -> None:
+        """Move the directory `old` to `new`, creating the folder `new` goes in.
+
+        Raises:
+            OSError: the move did not happen; `new` was there, or the disk refused.
+        """
+        ...
+
+    def write_new(self, folder: str, target: str, text: str) -> str:
+        """Write a new document, creating its folder; never over a file there is.
+
+        Returns:
+            `target`.
+
+        Raises:
+            FileExistsError: `target` is there.
+        """
+        ...
+
     def restore_directory(self, moved: str, back: str) -> bool:
         """Undo rename_directory: rename `moved` back to `back`, never raising.
 

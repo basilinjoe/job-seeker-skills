@@ -251,7 +251,7 @@ without the engine and `jsk doctor` can report on it.
 | `domain/posting/decide.py` · `application/posting/` | `decisions.txt` read; `jsk posting extract` and `build`, which write the posting graph from it |
 | `application/tailor/prepare.py` | `jsk tailor prepare`: the check, the match, the evidence, the person and the cover, in one digest |
 | `domain/assessment/` · `application/tailor/check_gaps.py` | the assessment: derived from the match with no model; the draft `gaps.txt`; `gaps.txt` read; the overlay checked, folded in, written as the gaps graph and printed |
-| `domain/record/view.py` · `application/timeline/` | `jsk kb view`; `jsk app freeze`'s application graph and `jsk app event` |
+| `domain/record/view.py` · `application/timeline/` | `jsk kb view`; `jsk app freeze`'s application graph, `jsk app event` and `jsk app drop` |
 
 The real ports are bound to these use cases in one place, the composition root
 `adapters/cli/compose/`: the load over `career/store/` and the engine, the match and the
@@ -260,7 +260,7 @@ selection over the engine's feature reads, an application's folder and its graph
 **Its boundaries.** Only `infra/oxigraph/db.py` opens `career/store/`, and only
 `infra/oxigraph/record.py` calls `db.replace_graphs`; `tests/test_db.py` fails if anything else
 does. So every write - `jsk kb`'s verbs, `jsk kb new`, the posting and gaps builds, `jsk app
-freeze` and `jsk app event` - goes through `record.write_graphs` after the would-be record
+freeze`, `jsk app event` and `jsk app drop` - goes through `record.write_graphs` after the would-be record
 validates, in one update of the store. A write to the career lands with its log entry in that
 update; `jsk app freeze`, `jsk app event` and the builds write only an application's graphs and add
 no entry, since the log is the career's history. The SPARQL queries are not storage access: they
@@ -478,6 +478,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     timeline/records.py             an application's record graphs: frozen, sent, written; the freeze sealed
     timeline/add_event.py           one event added to an application's record: minted, validated, written
     timeline/unsent.py              the applications made from files and not sent, which 6.0 no longer finishes
+    timeline/drop.py                an unsent application set aside: its graphs removed, its folder moved to dropped/
   infra/                            ring 4: what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root; a document written atomically, or new
     workspace.py                    the workspace a load reads: career/store/, the files beside it, the vocabulary
@@ -514,6 +515,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/ship.py                     `jsk resume ship`: its flags and refusals, each step captured, the summary
     cli/freeze.py                   `jsk app freeze`: its flags, the freeze run, its gates and what it wrote said
     cli/event.py                    `jsk app event`: its flags, the clock read once, the event added and its dates said
+    cli/drop.py                     `jsk app drop`: its flags, the clock read once, what was removed and moved said
     cli/kb/__init__.py              `jsk kb`: the verb table, its flags, the clock read once, and the dispatch
     cli/kb/read.py                  `jsk kb show`, `view`, `query`, `check`, `path` and `log`
     cli/kb/write.py                 `jsk kb apply`, and the logged write's diff every writing verb prints

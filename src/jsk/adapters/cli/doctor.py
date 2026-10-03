@@ -117,4 +117,4 @@ def unsent_lines(root, graphs):
             f"{'are' if many else 'is'} not sent, and jsk {RETIRES_IN} no longer finishes "
             f"{'them' if many else 'it'}",
             "           `jsk kb check` names each (or the app_list tool): send it with this "
-            "CLI before upgrading, or drop it"]
+            "CLI before upgrading, or drop it: `jsk app drop applications/<stem>`"]

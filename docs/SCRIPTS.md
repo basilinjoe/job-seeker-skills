@@ -44,6 +44,7 @@ jsk resume preview resume.json --out ./looks
 jsk resume ship resume.json --out .   # validate, render, gate
 jsk app freeze applications/<dir> --submitted 2026-09-08 --channel "Workday portal"
 jsk app event applications/<dir> screen-scheduled --date 2026-09-15   # what happened next
+jsk app drop applications/<dir> --reason "role filled"   # set an unsent one aside
 jsk mcp                          # the career and its applications as MCP tools, over stdio
 ```
 
@@ -96,7 +97,8 @@ the same WARN as a finding. An application made from files that is not sent - it
 of those files, its posting has no advert lines, and it was never frozen - has nothing to finish it
 after 6.0. `jsk kb check` names each (`file-made-unsent`), the `app_list` tool marks it
 `unsent: true` with the note, and `jsk doctor` counts them in an `info` line. Send each with this
-CLI before upgrading, or drop it. A frozen one stays readable in 6.0.
+CLI before upgrading, or drop it with `jsk app drop applications/<stem>` (below), which 6.0 keeps.
+A frozen one stays readable in 6.0.
 
 ## `jsk doctor`
 
@@ -355,7 +357,8 @@ FAIL, `the career is not what its log last recorded - written outside jsk`, rest
 `.jsk/backup.trig` into a new folder, or read with `jsk kb dump`. Only `check` asks it - it costs a
 full write of the career, and every other command loads the record on every run.
 Last, it names each application made from files and not sent, a WARN `file-made-unsent` with the
-fix: send it with this 5.x CLI before upgrading to 6.0, or drop it (see Retiring in 6.0 below).
+fix: send it with this 5.x CLI before upgrading to 6.0, or drop it: `jsk app drop applications/<stem>`
+(see Retiring in 6.0 below, and `jsk app drop`).
 
 **`path`** prints the workspace, `career/store/` and `applications/` as absolute paths - where
 to run from and write to, never files to read. It needs nothing but the folders.
@@ -1017,7 +1020,7 @@ Whether each sentence is true of the career is not checked; that would need a re
 
 ## `jsk app`
 
-An application once it is sent: what went out, and what happened next.
+An application once it is sent: what went out, and what happened next - or, never sent, set aside.
 
 ### `jsk app freeze`
 
@@ -1119,6 +1122,43 @@ gate as every other write. An application frozen as `application.md` is pointed 
 The stage is never stored: `jsk kb query pipeline` derives it from the latest dated event.
 
 Exit 0 added, 1 refused, 2 called wrong.
+
+### `jsk app drop`
+
+```bash
+jsk app drop applications/<stem> [--reason TEXT] [--dry-run] [--today YYYY-MM-DD]
+```
+
+Sets aside an application that was never frozen - made from files or graph-native - when it will
+not be sent. It removes every graph the store holds for it (`posting`, `review`, `gaps`,
+`resume`, whichever it has) in one update, after validating the workspace without them as every
+writer validates; then it moves the folder, files intact, to `dropped/<stem>/` beside
+`applications/` (`dropped/<stem>-2`, `-3` when that is taken) and writes a `DROPPED.txt` there
+with the day, the `--reason` and the graphs removed. A graph-native application with no render
+has no folder: its `dropped/<stem>/` holds the note alone. The stem alone works inside the
+workspace. Out of `applications/`, nothing counts it again: `jsk kb check`'s `file-made-unsent`,
+the `app_list` tool and `jsk doctor` stop naming it. Moving the folder back brings back the files,
+not the graphs.
+
+```
+ok    removed applications/contoso-platform/posting from career/store/
+ok    moved applications/contoso-platform/ -> dropped/contoso-platform/
+ok    wrote dropped/contoso-platform/DROPPED.txt
+dropped applications/contoso-platform - never frozen, so never sent; its files are in dropped/contoso-platform/
+```
+
+`--dry-run` prints the same lines as `would remove`, `would move` and `would write`, then
+`dry run: nothing was written or moved`, and writes nothing.
+
+It refuses - exit 1, `nothing was written or moved` - a **frozen application**, sent or held back
+(`--submitted false`): that is the archive of what went out, and the fix is an event, `jsk app
+event applications/<stem> withdrawn --date YYYY-MM-DD`. It refuses a removal the workspace would
+not validate without. A path that is no application - no folder under `applications/` and no graph
+for it - is exit 2. If the folder cannot be moved after the store was written, it says so (exit
+1); running it again finds no graphs and moves what is left. It has no MCP tool: setting an
+application aside is the person's decision. It is not a file verb, and 6.0 keeps it.
+
+Exit 0 dropped or a dry run, 1 refused, 2 called wrong.
 
 ## `jsk mcp`
 

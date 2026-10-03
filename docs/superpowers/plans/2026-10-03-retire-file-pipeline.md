@@ -33,6 +33,7 @@ dropped, before P2 ships. P1 makes that list visible.
 
 **Stays:** `jsk mcp`, `jsk kb new`, `jsk doctor`, `jsk kb dump|load`, `jsk kb check|show|view|query|log|path|pack|merge|apply|confirm <ids>`, `jsk resume check|ship <stem>`,
 `jsk resume check <dir> [--only ...]` (the verifier), `jsk resume fit TEX`, `jsk app event`,
+`jsk app drop` (not a file verb: it sets any unsent application aside, Ruling 5),
 `jsk app freeze` and `jsk letter check` on graph-native applications. The `tailor` and `posting`
 nouns go whole.
 
@@ -59,9 +60,18 @@ nouns go whole.
    person to copy `decisions.txt` or `gaps.txt` (`load.py:59`, `load_import.py:196`): only
    `posting.md` and the renders.
 5. **An unsent file-made application found after P2 is not stranded silently.** `app_list`,
-   `jsk doctor` and `kb check` name it with the fix "send it with the 5.x CLI before upgrading,
-   or drop it (`jsk kb apply` a changeset retiring its posting)". The CLI version that still
+   `jsk doctor` and `kb check` name it with the fix "send it with this 5.x CLI (jsk 5.1.0) before
+   upgrading to 6.0, or drop it: `jsk app drop applications/<stem>`". The CLI version that still
    finishes it is named in the message.
+
+   *Amended 2026-10-03:* the fix first read "or drop it (`jsk kb apply` a changeset retiring its
+   posting)". That could not be followed: a changeset writes only the career graph, never an
+   application's, and many unsent applications have no posting graph at all. `jsk app drop
+   <app-dir> [--reason TEXT] [--dry-run]` is the command now (`application/timeline/drop.py`):
+   for an application that is not frozen it removes every graph the store holds for it in one
+   validated update, then moves its folder, files intact, to `dropped/<stem>/` with a
+   `DROPPED.txt`. A frozen one, sent or held back, is refused as an archive. It is not a file
+   verb, so 6.0 keeps it (Stays, above).
 
 ## Phases
 

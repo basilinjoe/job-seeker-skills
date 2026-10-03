@@ -140,14 +140,16 @@ def warn(command, args):
 
 
 # Ruling 5's fix for an application made from files that is not sent. The version is this
-# CLI's, the last line of releases that can still finish one.
+# CLI's, the last line of releases that can still finish one. It named "`jsk kb apply` a
+# changeset retiring its posting" until 2026-10-03, which a changeset cannot do: it writes
+# the career graph alone, and many such applications have no posting graph. `jsk app drop`
+# is the command now (adapters/cli/drop.py).
 def unsent_note(stem):
     """(what is wrong with `applications/<stem>`, the fix) - an unsent file-made application."""
     return (f"applications/{stem} was made from files and is not sent; jsk {RETIRES_IN} "
             "no longer finishes such an application",
             f"send it with this {__version__.split('.')[0]}.x CLI (jsk {__version__}) before "
-            f"upgrading to {RETIRES_IN}, or drop it (`jsk kb apply` a changeset retiring its "
-            "posting)")
+            f"upgrading to {RETIRES_IN}, or drop it: `jsk app drop applications/{stem}`")
 
 
 def unsent_warning(stem):

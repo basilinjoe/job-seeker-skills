@@ -7,7 +7,9 @@ patches write_frozen here, and the freeze looks it up here at each call.
 `freeze_app` and `add_event` are `jsk app freeze` and `jsk app event` past their argument
 checks, bound and run in the record's turn: the CLI adapters and the MCP tools
 (adapters/mcp/server.py) call the same two, so a freeze or an event made either way is the
-same write (2026-10-03). Nothing here prints; a refusal is raised for the caller to say.
+same write (2026-10-03). `drop_app` is `jsk app drop`, which has no tool: setting an
+application aside is the person's call, not an agent's. Nothing here prints; a refusal is
+raised for the caller to say.
 """
 import os
 
@@ -290,3 +292,35 @@ def add_event(root, app_dir, kind, date, channel, note, due, today):
         return added(root, app_dir, kind, date, channel, note, due, today, load=load,
                      name_of=file_name, event_quads=events.event_quads,
                      write_graphs=R.write_graphs)
+
+
+def drop_app(app_dir, *, reason, today, dry_run):
+    """The Dropped result of setting an unsent application aside, inside this process's turn
+    (application.timeline.drop); a dry run takes no turn and writes nothing.
+
+    Args:
+        app_dir: the application's directory, `<workspace>/applications/<stem>`.
+        reason: why, for DROPPED.txt, or None.
+        today: the date the call runs on, read once at the edge.
+        dry_run: say what would be removed and moved, and write nothing.
+
+    Returns:
+        The Dropped result. Removes the graphs and moves the folder, unless `dry_run`.
+
+    Raises:
+        NotAnApplication, DropRefused, DropLanded: as application.timeline.drop.drop says.
+    """
+    from ....application.timeline.drop import NotAnApplication, drop
+    from ....infra import files
+    from ....infra.oxigraph import db
+    from ....infra.oxigraph import record as R
+    from .record import load
+
+    root = records().workspace_of_app(app_dir)[0]
+    if root is None or not db.exists(root):
+        raise NotAnApplication(f"{app_dir} is not an application in a workspace",
+                               "pass applications/<stem>, in the applications/ folder beside "
+                               "career/store/")
+    with R.turn(root, dry_run):
+        return drop(app_dir, reason=reason, today=today, dry_run=dry_run, load=load,
+                    records=records(), files=files, store_errors=(db.StoreError,))

@@ -241,7 +241,8 @@ class Unsent(unittest.TestCase):
         self.assertIn("WARN  file-made-unsent applications/contoso-platform was made from "
                       "files and is not sent", out)
         self.assertIn("send it with this 5.x CLI", out)
-        self.assertIn("or drop it (`jsk kb apply` a changeset retiring its posting)", out)
+        # It named a changeset until 2026-10-03, which cannot remove an application's graphs.
+        self.assertIn("or drop it: `jsk app drop applications/contoso-platform`", out)
         self.assertEqual(out.count("file-made-unsent"), 1, out)
         code, out, _ = jsk("kb", "check", "--root", self.root, "--only",
                            "applications/acme-native")

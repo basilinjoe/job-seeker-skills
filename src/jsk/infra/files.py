@@ -254,6 +254,47 @@ def rename_directory(old, new):
     os.rename(old, new)
 
 
+def is_dir(path):
+    """Whether `path` is a directory there is."""
+    return os.path.isdir(path)
+
+
+def free_directory(folder, stem):
+    """The first of `stem`, `stem-2`, `stem-3`... that names nothing in `folder` - where
+    `jsk app drop` sets an application aside without covering one dropped before it.
+
+    Args:
+        folder: the folder the name goes in; it need not exist yet.
+        stem: the name wanted.
+
+    Returns:
+        The free name. Reads only whether names exist.
+    """
+    name, n = stem, 1
+    while os.path.lexists(os.path.join(folder, name)):
+        n += 1
+        name = f"{stem}-{n}"
+    return name
+
+
+def move_directory(old, new):
+    """Move the directory `old` to `new`, creating the folder `new` goes in.
+
+    Args:
+        old: the directory as it is now.
+        new: where it goes; nothing may be there.
+
+    Raises:
+        OSError: the move did not happen - `old` is where it was.
+    """
+    os.makedirs(os.path.dirname(new), exist_ok=True)
+    if os.path.lexists(new):
+        # os.rename replaces an empty directory on POSIX without a word; a set-aside
+        # folder must never land on top of another one.
+        raise FileExistsError(f"{new} is there already")
+    os.rename(old, new)
+
+
 def restore_directory(moved, back):
     """Undo rename_directory once what the rename was for has failed.
 
