@@ -60,6 +60,22 @@ def workspace(root, edits=(), short=None, logged=True, stored=True):
     return str(root), str(path)
 
 
+def select(root, doc, name="test"):
+    """The general resume `resumes/<name>` holding `doc` as its selection graph, written
+    straight to the store as `resume_select` would leave it; returns its ref - the path the
+    render, the record gate and the gates take where a resume.json path went until 6.0
+    (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2). `doc` is written as
+    given, so a test of a bad selection can plant one the tool would refuse."""
+    import os
+
+    from jsk.domain.resume.selection import triples_of
+    from jsk.infra.oxigraph import record as R
+
+    R.write_graphs(str(root), {f"resumes/{name}/resume":
+                               triples_of(doc, "sel_cv_" + name.replace("-", "_"))})
+    return os.path.join(str(root), "resumes", name, "resume")
+
+
 def relog(root):
     """log.ttl made to agree with kb.ttl as edited, as if jsk had written it."""
     from jsk.infra.oxigraph import record as R

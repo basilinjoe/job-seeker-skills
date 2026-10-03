@@ -1,14 +1,19 @@
 """`jsk kb export`: its flags, the bullets chosen (application/tailor/export.py), what the
-choice left out and the checks it fails said, and the short resume.json printed or written."""
+choice left out and the checks it fails said, and the short resume.json printed.
+
+`--out` wrote the file until 6.0, which reads no resume.json path any more
+(docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2): it exits 2 naming
+`resume_select`, which stores a target's selection in the graph, and so does `--replace`."""
 import os
 import sys
 
+from ....application.guards import resume_json_refusal
 from ..presenters import refuse, show_findings, unclean, usage
 
 
 def cmd_export(args, flags, root, today):
     """jsk kb export [--select <id>...] [--from-match <app-dir> [--cover N] | --ranked]
-                     [--today YYYY-MM-DD] [--out resume.json [--replace]]
+                     [--today YYYY-MM-DD]
 
     The short resume.json an application starts from: the bullets it shows, in order,
     and its settings - `"resume": 2`, the region when a profile ships for the person's
@@ -35,10 +40,9 @@ def cmd_export(args, flags, root, today):
     number first. The scorer chooses rather than the model, as it does for a posting.
     --select adds to it.
 
-    --out writes the file, and then each chosen bullet as `id | its first 100 characters`
-    - what a survey of the projects would have read, one line a bullet. It never writes
-    over an existing file unless --replace is given: a re-export after a changeset is
-    the file the career now selects. Without --out the file is printed.
+    The file is printed: no command reads a resume.json path since 6.0. --out and
+    --replace, which wrote it, exit 2 naming the resume_select tool (jsk mcp), which keeps
+    a target's selection in the graph.
 
     A number in a chosen bullet that no current metric version holds is printed as a
     WARN: it is in the career, not in anything authored, so it is a question for the
@@ -76,8 +80,15 @@ def export_options(args, flags, today):
     if "--refresh" in flags:
         return usage("--refresh is gone: a short resume.json holds ids, and every render "
                      "builds from the career as it stands, so there is nothing to refresh")
-    out, posting, cover_text, today_text = (flags.get(f) for f in
-                                            ("--out", "--from-match", "--cover", "--today"))
+    for flag in ("--out", "--replace"):
+        if flag in flags:
+            print("\n".join(resume_json_refusal(
+                f"jsk kb export {flag}", "the resume_select tool (jsk mcp) stores a target's "
+                "selection - mode from_match or ranked; `jsk kb export` without it prints the "
+                "short file")))
+            return 2
+    posting, cover_text, today_text = (flags.get(f) for f in
+                                       ("--from-match", "--cover", "--today"))
     by_rank = "--ranked" in flags
     select = None
     if "--select" in flags:
@@ -86,7 +97,7 @@ def export_options(args, flags, today):
             return usage("--select needs one or more ids")
     if args:
         return usage("jsk kb export [--select <id>...] [--from-match <app-dir> | --ranked] "
-                     "[--out resume.json] - the short resume.json is the one format it writes")
+                     "- the short resume.json is the one format it prints")
     if posting and by_rank:
         return usage("--ranked is the selection with no posting, --from-match the one for a "
                      "posting - give one")
@@ -94,8 +105,6 @@ def export_options(args, flags, today):
         return usage("--cover goes with --from-match")
     if today_text and not (posting or by_rank):
         return usage("--today goes with --from-match or --ranked")
-    if "--replace" in flags and not out:
-        return usage("--replace goes with --out: it lets the export write over that file")
     try:
         chosen = tailor_options(cover_text or None, today_text or None, lambda: today)
     except BadOption as e:
@@ -104,7 +113,7 @@ def export_options(args, flags, today):
 
 
 def exported(root, flags, select, today, budget):
-    """Choose the bullets and print or write the short file. Returns the exit code."""
+    """Choose the bullets and print the short file. Returns the exit code."""
     import json
 
     from ....application.record.refusals import Failing, Refused, Unclean
@@ -118,7 +127,7 @@ def exported(root, flags, select, today, budget):
     from ..compose.match import posting_in
     from ..compose.record import load
 
-    out, posting = flags.get("--out"), flags.get("--from-match")
+    posting = flags.get("--from-match")
     app = None
     if posting:
         home, app = application(posting, "jsk kb export --from-match")
@@ -127,10 +136,10 @@ def exported(root, flags, select, today, budget):
             return 2
         if os.path.normcase(os.path.realpath(home)) != os.path.normcase(os.path.realpath(root)):
             return usage(f"{posting}: not an application of this workspace ({root})")
-    report = sys.stdout if out else sys.stderr
+    report = sys.stderr
     try:
-        store = E.opened(root, app, posting, out, "--replace" in flags, load=load,
-                         state=R.state, file_name=files.file_name, blocks=blocks)
+        store = E.opened(root, app, posting, load=load, state=R.state,
+                         file_name=files.file_name, blocks=blocks)
         chosen = E.selection(store, app, posting, select, "--ranked" in flags, today, budget,
                              selector=selector, posting_in=posting_in)
         if chosen is not None:
@@ -155,18 +164,7 @@ def exported(root, flags, select, today, budget):
               "before any word is retuned:", file=report)
         for line in doc.faults:
             print(f"        {line}", file=report)
-    text = json.dumps(doc.doc, indent=2, ensure_ascii=False) + "\n"
-    if not out:
-        sys.stdout.write(text)
-        return 0
-    written = E.write(store, out, text, doc.doc, state=R.state, write_text=write_text)
-    at = f" at r{written.revision}" if written.revision else ""
-    print(f"wrote {out}: {len(doc.doc['bullets'])} bullets chosen from the career{at}")
-    for b, words in written.bullets:
-        print(f"{b} | {words}")
-    print("next: order `bullets`, add a `summary` and set `pages` or `format` if this posting "
-          "wants them, then `jsk resume check` it - a reworded bullet goes into the career "
-          "(`jsk kb apply`), then export again with --replace")
+    sys.stdout.write(json.dumps(doc.doc, indent=2, ensure_ascii=False) + "\n")
     return 0
 
 
@@ -180,10 +178,3 @@ def said(chosen, report):
                   "name the bullet with --select, or confirm one", file=report)
     for gap in chosen.gaps:
         print(gap.line(), file=report)
-
-
-def write_text(path, text):
-    """Write `text` to `path` with LF line ends, its folder made first."""
-    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-    with open(path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)

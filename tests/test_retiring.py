@@ -55,8 +55,6 @@ def unwarned():
 # heavy verbs (render, preview, ship, confirm) are called on a resume.json that is not there:
 # the file form is in the name, and a refusal's exit code is as much a contract as a pass's.
 CALLS = {
-    "jsk kb export --out": ["kb", "export", "--from-match", "{app}", "--out",
-                            "{root}/draft/resume.json", "--root", "{root}"],
     "jsk resume check <resume.json>": ["resume", "check", "{short}"],
     "jsk resume render <resume.json>": ["resume", "render", "{root}/missing.json",
                                         "--out", "{root}/out"],
@@ -64,12 +62,6 @@ CALLS = {
                                          "--out", "{root}/out"],
     "jsk resume ship <resume.json>": ["resume", "ship", "{root}/missing.json",
                                       "--out", "{root}/out"],
-    "jsk kb confirm --summary <resume.json>": ["kb", "confirm", "--summary",
-                                               "{root}/missing.json", "--answer",
-                                               "Yes, that is my summary.", "--root", "{root}"],
-    "jsk kb confirm --headline <resume.json>": ["kb", "confirm", "--headline",
-                                                "{root}/missing.json", "--answer",
-                                                "Yes, that is my headline.", "--root", "{root}"],
     "jsk letter check --record <resume.json>": ["letter", "check", "{root}/letter.txt",
                                                 "--record", "{short}"],
     "jsk app freeze": ["app", "freeze", "{app}", "--submitted", TODAY, "--channel", "Workday"],
@@ -114,11 +106,11 @@ class FileVerbs(Workspaces):
                 self.assertEqual((code, out[len(warning):], err), before)
 
     def test_the_warn_says_ruling_1_s_words_and_names_its_replacement(self):
-        text, fix = retiring.warning("jsk kb export --out")
-        self.assertEqual(text, "jsk kb export --out serves applications made from files and "
+        text, fix = retiring.warning("jsk app freeze")
+        self.assertEqual(text, "jsk app freeze serves applications made from files and "
                                "retires in 6.0 - finish this application or drop it")
-        self.assertIn("resume_select", fix)
-        self.assertTrue(retiring.lines("jsk kb export --out").startswith("WARN  "))
+        self.assertIn("app_freeze", fix)
+        self.assertTrue(retiring.lines("jsk app freeze").startswith("WARN  "))
 
     def test_a_graph_native_form_prints_no_warn(self):
         root, _ = self.workspace()
@@ -136,9 +128,6 @@ class FileVerbs(Workspaces):
         self.assertEqual(form("resume", "check", ["r.json"]), "jsk resume check <resume.json>")
         self.assertIsNone(form("resume", "check", ["out", "--record", "r.json"]))
         self.assertIsNone(form("resume", "ship", ["acme", "--out", "x.json"]))
-        self.assertIsNone(form("kb", "export", ["--ranked"]))
-        self.assertIsNone(form("kb", "confirm", ["k:ach_x", "--answer", "yes"]))
-        self.assertIsNone(form("kb", "confirm", ["--summary", "acme", "--answer", "yes"]))
         self.assertIsNone(form("letter", "check", ["l.txt", "--record", "acme"]))
         self.assertIsNone(form("app", "freeze", ["applications/acme"]))
 

@@ -91,7 +91,7 @@ changeset to a file for later.
 |---|---|
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk kb new <path> --name "Name"` | an empty `career/store/` and `applications/` |
-| `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|path\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
+| `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|path\|export\|pack\|merge` | the career, changed and read; `export` prints a selection, `pack` and `merge` vocabulary changesets |
 | `jsk resume check <resume.json>\|<stem>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
 | `jsk resume render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex` and PDF |
 | `jsk resume preview <resume.json> --out DIR` | every template, with page counts |

@@ -21,7 +21,6 @@ import storekit
 from jsk import cli
 from jsk.adapters.cli.compose import tailor
 from jsk.application.tailor import export
-from jsk.domain.record import career
 from jsk.adapters.cli.compose import record
 from jsk.domain.resume import short
 
@@ -199,61 +198,23 @@ class Command(Workspace):
         self.assertEqual(json.loads(out)["bullets"],
                          ["ach_events_team", "ach_identity_sso", "ach_identity_events"])
 
-    def test_out_writes_the_short_file_and_says_what_is_next(self):
-        path = os.path.join(self.root, "applications", "x", "resume.json")
-        code, out, _ = self.kb("export", "--select", "prj_identity", "--out", path)
-        self.assertEqual(code, 0, out)
-        self.assertEqual(json.loads(Path(path).read_text(encoding="utf-8")),
-                         {"resume": 2, "pages": 2,
-                          "bullets": ["ach_identity_sso", "ach_identity_events"]})
-        self.assertIn("2 bullets", out)
-        self.assertIn("jsk resume check", out)
-
-    def test_out_lists_each_bullet_chosen_by_its_first_100_characters(self):
-        """The author read 42KB of `kb show --bullets` over 16 projects to learn what the
-        export then chose; these lines are that survey, one a bullet."""
-        path = os.path.join(self.root, "applications", "x", "resume.json")
-        code, out, _ = self.kb("export", "--select", "prj_identity", "prj_events", "--out", path)
-        self.assertEqual(code, 0, out)
-        lines = [line for line in out.splitlines() if " | " in line]
-        self.assertEqual([line.split(" | ")[0] for line in lines],
-                         json.loads(Path(path).read_text(encoding="utf-8"))["bullets"])
-        from jsk.domain import ontology as O
-        from jsk.infra.oxigraph import record as R
-
-        text = career.Career(store().graph(R.KB)).get(O.K + "ach_events_latency", "text")
-        self.assertIn(f"ach_events_latency | {text[:100]}", lines)
-        self.assertTrue(all(len(line.split(" | ", 1)[1]) <= 100 for line in lines))
-        after = out.index("wrote ")
-        self.assertTrue(all(out.index(line) > after for line in lines))
-
-    def test_out_never_replaces_a_resume(self):
+    def test_out_and_replace_are_retired_naming_resume_select(self):
+        # They wrote resume.json until 6.0 (docs/superpowers/plans/
+        # 2026-10-03-retire-file-pipeline.md, P2); a target's selection is a graph now.
         path = os.path.join(self.root, "resume.json")
-        Path(path).write_text("{}", encoding="utf-8")
-        code, out, _ = self.kb("export", "--out", path)
-        self.assertEqual(code, 1)
-        self.assertIn("REFUSED", out)
-        self.assertIn("pass --replace to export it again", out)
-        self.assertEqual(Path(path).read_text(encoding="utf-8"), "{}")
+        for argv in (["--out", path], ["--out", path, "--replace"], ["--replace"]):
+            with self.subTest(argv=argv):
+                code, out, _ = self.kb("export", "--select", "prj_identity", *argv)
+                self.assertEqual(code, 2, out)
+                self.assertIn("was retired in 6.0", out)
+                self.assertIn("resume_select", out)
+        self.assertFalse(os.path.exists(path))
 
-    def test_replace_writes_over_it(self):
-        """The Arrow author deleted resume.json by hand to export again after a changeset."""
-        path = os.path.join(self.root, "resume.json")
-        Path(path).write_text("{}", encoding="utf-8")
-        code, out, _ = self.kb("export", "--select", "prj_identity", "--out", path, "--replace")
-        self.assertEqual(code, 0, out)
-        self.assertEqual(json.loads(Path(path).read_text(encoding="utf-8"))["bullets"],
-                         ["ach_identity_sso", "ach_identity_events"])
-
-    def test_replace_without_out_is_a_usage_error(self):
-        self.assertEqual(self.kb("export", "--replace")[0], 2)
-
-    def test_an_unknown_id_exits_1_and_writes_nothing(self):
-        path = os.path.join(self.root, "resume.json")
-        code, out, _ = self.kb("export", "--select", "prj_nope", "--out", path)
+    def test_an_unknown_id_exits_1_and_prints_no_file(self):
+        code, out, _ = self.kb("export", "--select", "prj_nope")
         self.assertEqual(code, 1)
         self.assertIn("prj_nope", out)
-        self.assertFalse(os.path.exists(path))
+        self.assertNotIn('"resume": 2', out)
 
     def test_select_with_no_ids_is_a_usage_error(self):
         code, _, _ = self.kb("export", "--select")
@@ -277,12 +238,11 @@ class Command(Workspace):
         text = Path(path).read_text(encoding="utf-8")
         Path(path).write_bytes(text.replace("a team of 6 engineers",
                                             "a team of 6 engineers across 3 sites", 1).encode())
-        dest = os.path.join(self.root, "applications", "x", "resume.json")
-        code, out, _ = self.kb("export", "--select", "prj_events", "--out", dest)
+        code, out, err = self.kb("export", "--select", "prj_events")
         self.assertEqual(code, 0, out)
-        self.assertIn("WARN", out)
-        self.assertIn("ach_events_team", out)
-        self.assertIn("'3'", out)
+        self.assertIn("WARN", err)
+        self.assertIn("ach_events_team", err)
+        self.assertIn("'3'", err)
 
 
 class Removed(Workspace):

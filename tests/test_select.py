@@ -443,13 +443,6 @@ class Command(unittest.TestCase):
         self.assertEqual(doc["skills"][0], "skill_kubernetes")
         self.assertIn("GAP   tag-only    SQL Server (required)", err)
 
-    def test_with_out_the_gaps_go_to_stdout(self):
-        dest = os.path.join(self.root, "applications", "contoso-select", "resume.json")
-        code, out, _ = self.kb("export", "--from-match", self.posting, "--out", dest)
-        self.assertEqual(code, 0)
-        self.assertIn("GAP   uncovered   Rust (required): nothing carries it", out)
-        self.assertTrue(os.path.isfile(dest))
-
     def test_select_adds_to_the_match(self):
         code, out, _ = self.kb("export", "--from-match", self.posting,
                                "--select", "prj_game")
@@ -510,19 +503,18 @@ class Command(unittest.TestCase):
             '    j:necessity j:required ; j:quote "Rust is required." .\n')
         self.root = workspace(self, posting)
         self.posting = os.path.join(self.root, "applications", "contoso-select")
-        dest = os.path.join(self.posting, "resume.json")
-        code, out, _ = self.kb("export", "--from-match", self.posting, "--out", dest)
+        code, out, err = self.kb("export", "--from-match", self.posting)
         self.assertEqual(code, 1, out)
-        self.assertIn("GAP   uncovered   Rust (required)", out)
+        self.assertIn("GAP   uncovered   Rust (required)", err)
         self.assertIn("REFUSED", out)
-        self.assertFalse(os.path.exists(dest))
+        self.assertNotIn('"resume": 2', out)
 
     def test_an_application_with_no_posting_refuses(self):
         load(self.root)
         appkit.drop(self.root, "applications/contoso-select/posting")
         code, out, _ = self.kb("export", "--from-match", self.posting)
         self.assertEqual(code, 1, out)
-        self.assertIn("jsk posting build", out)
+        self.assertIn("posting_capture", out)
 
 
 if __name__ == "__main__":

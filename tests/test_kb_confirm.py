@@ -1,9 +1,11 @@
-"""`jsk kb confirm`, end to end: an answer, a source document, the summary."""
+"""`jsk kb confirm`, end to end: an answer, a source document, a selection's summary or
+headline."""
 import datetime
-import json
 import os
 import tempfile
 import unittest
+
+import careerkit
 from pathlib import Path
 
 from storekit import Workspace
@@ -202,34 +204,38 @@ class ConfirmFromSource(Workspace):
 
 
 class ConfirmSummary(Workspace):
-    """`--summary <resume.json>`: a summary is confirmed by the person's answer, kept in
-    resume.json with the text's hash - not by flipping its status."""
+    """`--summary <target>`: a summary is confirmed by the person's answer, kept in the
+    selection graph with the text's hash - not by flipping its status. A resume.json held it
+    until 6.0 (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2); that form
+    exits 2 naming the target form."""
 
     TEXT = "Architect who builds clinical event platforms other teams build on."
+    TARGET = "resumes/globex"
 
     def setUp(self):
         super().setUp()
-        app = self.path("applications/globex-architect")
-        app.mkdir()
-        self.file = app / "resume.json"
         self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"],
                     "summary": {"text": self.TEXT, "status": "inferred"}, "pages": 2})
 
-    def write(self, doc, path=None):
-        (path or self.file).write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    def write(self, doc):
+        self.seed()
+        careerkit.select(self.root, doc, "globex")
 
-    def confirm(self, answer="Yes, that is exactly what I do.", path=None):
-        return self.kb("confirm", "--summary", str(path or self.file), "--answer", answer)
+    def doc(self):
+        from jsk.adapters.cli.compose import selection
+
+        return selection.read(str(self.root), self.TARGET)
+
+    def confirm(self, answer="Yes, that is exactly what I do.", target=None):
+        return self.kb("confirm", "--summary", target or self.TARGET, "--answer", answer)
 
     def test_the_answer_and_the_text_s_hash_are_written(self):
         from jsk.domain.resume import short
 
         code, out = self.confirm()
         self.assertEqual(code, 0, out)
-        text = self.file.read_text(encoding="utf-8")
-        self.assertTrue(text.endswith("}\n") and '\n  "summary": {\n    "text"' in text, text)
-        doc = json.loads(text)
-        self.assertEqual(list(doc), ["resume", "bullets", "summary", "pages"])
+        self.assertIn(f"{self.TARGET}/resume", out, "the diff names the selection graph")
+        doc = self.doc()
         self.assertEqual(doc["summary"], {"text": self.TEXT, "status": "confirmed",
                                           "answer": "Yes, that is exactly what I do.",
                                           "text_sha256": short.digest(self.TEXT)})
@@ -244,88 +250,73 @@ class ConfirmSummary(Workspace):
             with self.subTest(said=said):
                 code, out = self.confirm(said)
                 self.assertEqual(code, 1, out)
-        self.assertEqual(json.loads(self.file.read_text(encoding="utf-8"))["summary"]["status"],
-                         "inferred")
+        self.assertEqual(self.doc()["summary"]["status"], "inferred")
 
     def test_no_summary_is_refused(self):
         self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"]})
         code, out = self.confirm()
         self.assertEqual(code, 1, out)
-        self.assertIn("no summary to confirm", out)
+        self.assertIn("has no summary to confirm", out)
 
-    def test_a_frozen_application_is_refused(self):
-        frozen = self.path("applications/acme-platform-engineer/resume.json")
-        self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"],
-                    "summary": {"text": self.TEXT, "status": "inferred"}}, frozen)
-        code, out = self.confirm(path=frozen)
-        self.assertEqual(code, 1, out)
-        self.assertIn("frozen", out)
-        self.assertIn("new dated directory", out)
-
-    @unittest.skipUnless(os.name == "nt", "drives are a Windows thing")
-    def test_a_resume_on_another_drive_is_refused(self):
-        code, out = self.confirm(path=other_drive(self.root) + "\\resume.json")
-        self.assertEqual(code, 1, out)
-        self.assertIn("not inside this workspace", out)
-
-    def test_an_edit_after_confirming_drops_it(self):
-        from jsk.domain.resume import short
-
-        self.assertEqual(self.confirm()[0], 0)
-        doc = json.loads(self.file.read_text(encoding="utf-8"))
-        doc["summary"]["text"] += " And more."
-        self.assertTrue(any("changed since it was confirmed" in f for f in short.shape(doc)))
-        self.write(doc)
-        code, out = self.confirm("Yes, the longer one is right too.")
-        self.assertEqual(code, 0, out)
-        self.assertEqual(short.shape(json.loads(self.file.read_text(encoding="utf-8"))), [])
+    def test_a_resume_json_is_retired_naming_the_target_form(self):
+        app = self.path("applications/globex-architect")
+        app.mkdir()
+        path = app / "resume.json"
+        path.write_text("{}", encoding="utf-8")
+        for flag in ("--summary", "--headline"):
+            with self.subTest(flag=flag):
+                code, out = self.kb("confirm", flag, str(path), "--answer", ANSWER)
+                self.assertEqual(code, 2, out)
+                self.assertIn(f"jsk kb confirm {flag} <resume.json> was retired in 6.0", out)
+                self.assertIn(f"fix:  jsk kb confirm {flag} <stem>", out)
+                self.assertIn("career_confirm", out)
+        self.assertEqual(path.read_text(encoding="utf-8"), "{}", "nothing written")
 
     def test_ids_with_summary_are_a_usage_error(self):
-        code, out = self.kb("confirm", "prj_site_onboarding", "--summary", str(self.file),
+        code, out = self.kb("confirm", "prj_site_onboarding", "--summary", self.TARGET,
                             "--answer", ANSWER)
         self.assertEqual(code, 2, out)
 
 
 class ConfirmHeadline(Workspace):
-    """`--headline <resume.json>`: the posting's title under the name, confirmed the way
-    the summary is - the person's answer and the text's hash, kept in resume.json."""
+    """`--headline <target>`: the posting's title under the name, confirmed the way the
+    summary is - the person's answer and the text's hash, kept in the selection graph."""
 
     TITLE = "Principal Clinical Platform Architect"
+    TARGET = "resumes/globex"
 
     def setUp(self):
         super().setUp()
-        app = self.path("applications/globex-architect")
-        app.mkdir()
-        self.file = app / "resume.json"
         self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"],
                     "headline": {"text": self.TITLE, "status": "inferred"}})
 
     def write(self, doc):
-        self.file.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+        self.seed()
+        careerkit.select(self.root, doc, "globex")
 
     def test_the_headline_is_confirmed_beside_its_answer(self):
+        from jsk.adapters.cli.compose import selection
         from jsk.domain.resume import short
 
-        code, out = self.kb("confirm", "--headline", str(self.file), "--answer",
+        code, out = self.kb("confirm", "--headline", self.TARGET, "--answer",
                             "Yes, that is the title I held at Globex.")
         self.assertEqual(code, 0, out)
         self.assertIn("confirmed the headline", out)
-        doc = json.loads(self.file.read_text(encoding="utf-8"))
+        doc = selection.read(str(self.root), self.TARGET)
         self.assertEqual(doc["headline"]["status"], "confirmed")
         self.assertEqual(doc["headline"]["text_sha256"], short.digest(self.TITLE))
         self.assertEqual(short.shape(doc), [])
 
-    def test_a_file_with_no_headline_is_refused(self):
+    def test_a_selection_with_no_headline_is_refused(self):
         self.write({"resume": 2, "bullets": ["ach_clinical_events_event_latency"]})
-        code, out = self.kb("confirm", "--headline", str(self.file), "--answer", ANSWER)
+        code, out = self.kb("confirm", "--headline", self.TARGET, "--answer", ANSWER)
         self.assertEqual(code, 1, out)
-        self.assertIn("no headline to confirm", out)
+        self.assertIn("has no headline to confirm", out)
 
     def test_summary_and_headline_together_are_a_usage_error(self):
-        code, out = self.kb("confirm", "--summary", str(self.file), "--headline",
-                            str(self.file), "--answer", ANSWER)
+        code, out = self.kb("confirm", "--summary", self.TARGET, "--headline",
+                            self.TARGET, "--answer", ANSWER)
         self.assertEqual(code, 2, out)
-
 
 
 if __name__ == "__main__":

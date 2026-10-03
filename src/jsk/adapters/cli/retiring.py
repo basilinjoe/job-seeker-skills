@@ -21,7 +21,6 @@ RETIRES_IN = "6.0"
 # with `(jsk mcp)` because a shell user reads the fix too; a target form is named where the
 # CLI keeps one.
 REPLACEMENTS = {
-    "jsk kb export --out": "the resume_select tool (jsk mcp)",
     "jsk resume check <resume.json>":
         "`jsk resume check <stem>`, on the application's stored selection",
     "jsk resume render <resume.json>":
@@ -30,12 +29,6 @@ REPLACEMENTS = {
         "`jsk resume preview <stem> --out DIR`, on the application's stored selection",
     "jsk resume ship <resume.json>":
         "`jsk resume ship <stem>`, or the resume_ship tool (jsk mcp)",
-    "jsk kb confirm --summary <resume.json>":
-        "the career_confirm tool with target and block (jsk mcp), or "
-        "`jsk kb confirm --summary <stem>`",
-    "jsk kb confirm --headline <resume.json>":
-        "the career_confirm tool with target and block (jsk mcp), or "
-        "`jsk kb confirm --headline <stem>`",
     "jsk letter check --record <resume.json>":
         "the letter_check tool with record=<stem> (jsk mcp), or "
         "`jsk letter check LETTER --record <stem>`",
@@ -85,13 +78,6 @@ def file_form(noun, verb, args):
         The command as REPLACEMENTS names it. `jsk app freeze` is never returned here: its
         file form is a property of the application, which the store says.
     """
-    if noun == "kb" and verb == "export" and "--out" in args:
-        return "jsk kb export --out"
-    if noun == "kb" and verb == "confirm":
-        for flag in ("--summary", "--headline"):
-            if is_record_file(value_of(args, flag)):
-                return f"jsk kb confirm {flag} <resume.json>"
-        return None
     if noun == "resume" and verb in ("check", "render", "preview", "ship"):
         return f"jsk resume {verb} <resume.json>" if is_record_file(target_of(args)) else None
     if noun == "letter" and verb == "check" and is_record_file(value_of(args, "--record")):

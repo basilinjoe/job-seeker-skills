@@ -24,7 +24,6 @@ forms are tests/test_posting.py's (FromAFile).
 Each command runs in a child interpreter, as a person runs it, so that a traceback is
 something the output would show rather than something the test runner would catch.
 """
-import json
 import shutil
 import tempfile
 import unittest
@@ -196,16 +195,6 @@ class KbConfirm(Forms):
         self.assertIn(f'From imports/prior-resume.md: \\"{QUOTE}\\"'.encode(),
                       found[PLAIN][2][DUMP])
 
-    def test_confirm_summary_reads_resume_json(self):
-        doc = {"resume": 2, "bullets": ["ach_clinical_events_event_latency"],
-               "summary": {"text": SUMMARY, "status": "inferred"}, "pages": 2}
-        found = self.check(
-            json.dumps(doc, indent=2, ensure_ascii=False) + "\n", graph_workspace,
-            lambda r: r / GLOBEX,
-            lambda r: ["kb", "confirm", "--summary", r / GLOBEX, "--answer",
-                       "Yes, that is exactly what I do.", "--root", r], "resume.json")
-        written = json.loads(found[PLAIN][2][GLOBEX.as_posix()])
-        self.assertEqual(written["summary"]["status"], "confirmed")
 
 
 if __name__ == "__main__":

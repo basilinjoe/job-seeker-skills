@@ -321,14 +321,19 @@ class Check(Workspace):
         self.assertIn("'3' appears in the text but in no metric", out)
 
     def test_export_names_the_bullets_its_draft_already_fails(self):
+        import contextlib
+        import io
+
         self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites")
-        out_file = self.path("applications/draft/resume.json")
-        code, out = self.kb("export", "--out", str(out_file))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code, out = self.kb("export")
         self.assertEqual(code, 0, out)
-        self.assertIn("WARN  ", out)
-        self.assertIn("a question for the person", out)
-        self.assertIn("'3'", out)
-        self.assertTrue(out_file.exists())
+        said = err.getvalue()
+        self.assertIn("WARN  ", said)
+        self.assertIn("a question for the person", said)
+        self.assertIn("'3'", said)
+        self.assertIn('"resume": 2', out)
 
     def test_a_career_written_outside_jsk_fails_its_hash(self):
         """The store holds what jsk wrote, unless something else wrote it: a provenance

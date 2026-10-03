@@ -280,11 +280,11 @@ log entry keeps the answer beside the ids. An answer that says nothing - `yes`, 
 `confirmed`, a placeholder - is refused, and one that reached the log by hand is flagged by
 `answer-placeholder`. This is an instruction with an audit trail, not a proof that anyone asked.
 
-`--summary <resume.json>` and `--headline <resume.json>` confirm the file's own prose instead:
-`resume.json` keeps the answer and the text's hash, and the career is not written or logged. The
-headline is the posting's title as `jsk kb export --from-match` set it; it renders under the name
-only once the person says it is a title they stand behind. Given a graph-native application's
-`<stem>` or `resumes/<name>` in place of the file, the block is confirmed in its selection graph.
+`--summary <stem>` and `--headline <stem>` (or `resumes/<name>`) confirm a selection's own
+prose instead: its selection graph keeps the answer and the text's hash, and the career is not
+written or logged. The headline is the posting's title as `resume_select` set it; it renders under
+the name only once the person says it is a title they stand behind. A `resume.json` in place of
+the target was read until 6.0 and exits 2 now, naming the target form.
 
 **`log`** is the history, newest first: each revision's number, day, the command that made it
 (`apply`, `confirm`, `new`, ...), its summary, and the ids it minted and touched. `--last N`, the
@@ -399,32 +399,32 @@ not open is restored the same way from `.jsk/backup.trig`.
 ### `jsk kb export`
 
 ```bash
-jsk kb export --from-match applications/2026-09-08-ashby --out applications/2026-09-08-ashby/resume.json
-jsk kb export --ranked --out resume.json
-jsk kb export --select prj_payments ach_ledger_cut_close pos_lead --out resume.json
+jsk kb export --from-match applications/2026-09-08-ashby
+jsk kb export --ranked
+jsk kb export --select prj_payments ach_ledger_cut_close pos_lead
 ```
 
-**`export`** writes the short `resume.json` - `"resume": 2`, the `bullets` chosen as `ach_` ids in
-order, `roles` shown with no bullet, `skills`, the `region` when a profile ships for the person's
-country, and `"pages": 2`. Nothing the career holds is copied: every render reads the words,
-numbers and dates from the career as it stands, so a changeset applied or a bullet confirmed
-afterwards is in the next render with nothing to update. `references/resume-format.md` in the
-skill has every key. `--out` never replaces an existing file ("edit it, or delete it to start
-again"); without it the file goes to stdout, the notes to stderr.
+**`export`** prints the short `resume.json` dict - `"resume": 2`, the `bullets` chosen as `ach_`
+ids in order, `roles` shown with no bullet, `skills`, the `region` when a profile ships for the
+person's country, and `"pages": 2` - to stdout, the notes to stderr. It is the selection
+`resume_select` stores for a target, chosen the same way; nothing reads a `resume.json` path since
+6.0, so `--out` and `--replace`, which wrote one, exit 2 naming `resume_select`. Nothing the career
+holds is copied: every render reads the words, numbers and dates from the career as it stands.
+`references/resume-format.md` in the skill has every key.
 
-**`--from-match <app-dir>`** makes the selection from `jsk tailor match`, the same way for the same
-posting every time; like `jsk tailor match`, it takes the application directory and refuses a
+**`--from-match <app-dir>`** makes the selection from the match of the application's posting, the
+same way for the same posting every time; it takes the application directory and refuses a
 `posting.ttl` path. A project carries a requirement only when a live, confirmed bullet shows it, so a tag is not
 enough. The export takes the smallest cover of the required requirements, then the rest of the
 ranking that carries anything, up to eight projects. It scores each confirmed bullet by what it
 shows (required ×3, preferred ×1, +1 for a metric with a current version) and gives positions 1-2
 up to five bullets, 3-5 up to two, and the rest one. The cover's requirements always get a bullet,
 even past that cap. Skills the posting names come first in `skills`. What the selection cannot
-close prints as `GAP` lines for `gaps.txt`: `tag-only`, `unconfirmed` (naming the bullet to
+close prints as `GAP` lines for the assessment: `tag-only`, `unconfirmed` (naming the bullet to
 confirm), `uncovered` and `unresolved`; a chosen project with no confirmed bullet is a `NOTE`.
-`--select` adds bullets (placed by what they show) and roles, `--cover N` and `--today` are
-`jsk tailor match`'s, and a failure in the posting's own directory refuses the export as it refuses the
-match.
+`--select` adds bullets (placed by what they show) and roles, `--cover N` is the most projects
+the cover may use and `--today` the date recency counts from, and a failure in the posting's own
+directory refuses the export.
 
 **`--ranked`** is the same selection with no posting, for a general rebuild, so the scorer rather
 than the model chooses there too. Projects score 2 × `j:strength` plus the recency points, ties by
@@ -440,17 +440,16 @@ Projects follow by recency. With none of these flags, the whole career. Retired 
 selecting one, an id the career lacks, or a metric is refused with the nearest id.
 
 A bullet whose project names no role is left out with a `NOTE`: it would render under no employer.
-A selection holding no bullet is refused, exit 1, and nothing is written. A career that fails its
+A selection holding no bullet is refused, exit 1, and nothing is printed. A career that fails its
 rules is refused: the resume would carry the failures. Last, the record gate's number check runs
 over the chosen bullets and prints each it refuses as a `WARN` - a number no current metric
 version holds is in the career, not in anything authored, so it is a question for the person,
 answered in the career before any word is retuned.
 
 `--urs` and `--refresh` are gone with the full record, each a usage error saying so: the short file
-is the one format, and it holds nothing to refresh. A full URS record from before is not converted:
-export a short one in its place.
+is the one format, and it holds nothing to refresh.
 
-Exit 0 written; 1 refused, with every reason; 2 called wrong.
+Exit 0 printed; 1 refused, with every reason; 2 called wrong.
 
 ## `jsk resume`
 

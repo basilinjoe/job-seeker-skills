@@ -1,11 +1,13 @@
-"""`jsk kb confirm`: the only way an entry becomes j:confirmed, and a resume.json's summary
-or headline with it.
+"""`jsk kb confirm`: the only way an entry becomes j:confirmed, and a selection's summary or
+headline with it.
 
 An answer is the person's words, or a document's quoted word for word; one that says
 nothing, or only names a document, is refused. Confirming ids is a logged write, planned
-here and written through WriteLogged; the summary lives in resume.json, not the career,
-so it is not logged. Where a quote's document and a resume.json are read and written is
-the caller's to give (`files`: infra.files; `read_pdf`: infra.pdf.read_pdf).
+here and written through WriteLogged; a summary lives in a selection graph, not the career,
+so it is not logged. Where a quote's document is read is the caller's to give (`files`:
+infra.files; `read_pdf`: infra.pdf.read_pdf). A resume.json's summary was confirmed in the
+file until 6.0 retired that form (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md,
+P2): no command reads or writes a resume.json path now.
 """
 import os
 from dataclasses import dataclass
@@ -218,89 +220,40 @@ def confirmation(store, texts, quote, today, *, state):
 
 @dataclass(frozen=True)
 class SummaryConfirmed:
-    """A resume.json's summary confirmed: the file's text before and after, or nothing to
-    change when it was confirmed already."""
+    """A selection's summary or headline confirmed: the selection as JSON text before and
+    after, or nothing to change when it was confirmed already."""
 
     old: str | None
     new: str | None
 
 
-def confirm_summary(path, answer, root, *, files=None, short=None, frozen=None,
-                    key="summary", ports=None):
-    """`jsk kb confirm --summary` (or `--headline`, `key`): the summary or the headline
-    confirmed in resume.json, beside the answer
-    and its text's hash. Not logged: a logged write stamps the career with a new revision,
-    and the summary is not in the career. resume.json holds the audit trail, and `jsk
-    freeze` hashes it into the application graph.
-
-    With `ports`, `path` is a graph-native target instead (`<stem>` or `resumes/<name>`),
-    and the block is confirmed in its selection graph (application.render.selection.
-    confirm): Ruling 6 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md
-    keeps the status, the answer and the hash there, and no resume.json exists to write.
-    The file branch stays for a legacy application.
+def confirm_summary(target, answer, root, *, key="summary", ports):
+    """`jsk kb confirm --summary` (or `--headline`, `key`) on a target: the block confirmed in
+    its selection graph, beside the answer and its text's hash (application.render.selection.
+    confirm). Not logged: a logged write stamps the career with a new revision, and the
+    summary is not in the career. Ruling 6 of
+    docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md keeps the status, the
+    answer and the hash in the selection graph, and a later freeze hashes it.
 
     Args:
-        path: the resume.json, or with `ports` the target.
+        target: `<stem>` or `resumes/<name>`.
         answer: the person's words.
         root: the workspace.
-        files: the workspace's files (infra.files): inside, read_text, write_document.
-        short: reads a resume.json (compose.resume.read).
-        frozen: what says a directory was frozen, or None (compose.timeline.frozen).
-        key: "summary" or "headline" - which of the file's two prose blocks.
-        ports: the selection's bound ports (compose.selection.Ports), for a target; the
-            caller holds the workspace's turn.
+        key: "summary" or "headline".
+        ports: the selection's bound ports (compose.selection.Ports); the caller holds the
+            workspace's turn.
 
     Returns:
-        SummaryConfirmed. Writes resume.json, or with `ports` the selection graph - old and
-        new are then the selection as JSON text.
+        SummaryConfirmed: the selection before and after as JSON text, both None when it
+        was confirmed already.
 
     Raises:
-        Refused: the answer says nothing, the file is outside the workspace or frozen,
-            it will not read, its summary is missing or malformed, or the write failed;
-            for a target, as application.render.selection.confirm refuses.
+        Refused: the answer says nothing, or as application.render.selection.confirm
+            refuses.
     """
-    import json
-
-    from ...domain.resume import short as shape_of
-    from ...domain.timeline.errors import Unwritable
-    from ..guards import frozen_refusal
-
     said_nothing(answer, f"write the {key} again with what the person said, and ask "
                          "them about the new words")
-    if ports is not None:
-        return confirmed_in_graph(path, answer, root, key, ports)
-    assert files is not None and short is not None and frozen is not None, \
-        "the file branch reads and writes resume.json: it needs files, short and frozen"
-    if not files.inside(path, root):
-        raise Refused([f"{path}: not inside this workspace"], "pass the application's resume.json")
-    if frozen_refusal(os.path.dirname(os.path.abspath(path)), frozen=frozen):
-        raise Refused([f"{path}: frozen - the record holds its application as it was sent"],
-                      "copy the application to a new dated directory to reuse it")
-    try:
-        doc = short(path)
-    except shape_of.ShortError as err:
-        raise Refused([str(err)], err.fix) from None
-    summary = doc.get(key)
-    if not isinstance(summary, dict):
-        raise Refused([f"{path} has no {key} to confirm"],
-                      f'write one first - "{key}": {{"text": "...", "status": "inferred"}} - '
-                      "and read it to the person")
-    # The block's own shape, less the unearned confirmation this is here to earn.
-    earned = shape_of.unearned(summary, key)
-    faults = [f for f in shape_of.shape({"resume": shape_of.VERSION, "bullets": ["ach_"],
-                                         key: summary}) if f not in earned]
-    if faults:
-        raise Refused(faults, f"fix the {key} in resume.json, then confirm it")
-    if summary.get("status") == "confirmed" and not earned:
-        return SummaryConfirmed(None, None)
-    doc[key] = shape_of.confirmed(summary, answer)
-    old = files.read_text(path, "resume.json")
-    text = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
-    try:
-        files.write_document(path, text)
-    except Unwritable as err:
-        raise Refused([str(err)], err.fix) from None
-    return SummaryConfirmed(old, text)
+    return confirmed_in_graph(target, answer, root, key, ports)
 
 
 def confirmed_in_graph(target, answer, root, key, ports):

@@ -123,6 +123,32 @@ def record_refusal(target):
     return None
 
 
+def is_resume_json(value):
+    """Whether `value` names a resume.json - by its name alone, so a file that is not there
+    is still told the form went, rather than that it is missing."""
+    return isinstance(value, str) and value.lower().endswith(".json")
+
+
+def resume_json_refusal(form, fix):
+    """[what went, the fix] for a resume.json given where 6.0 reads a target's selection.
+
+    docs/superpowers/plans/2026-10-03-retire-file-pipeline.md (Ruling 1, P2): every command
+    that read or wrote a resume.json path takes a target - `<stem>` or `resumes/<name>` -
+    instead, and says so by name, exit 2, never silently. The words are here once, so the
+    record gate, the render, the preview, the ship, the confirm, the letter gate and the
+    export say it alike.
+
+    Args:
+        form: the retired form, e.g. "jsk resume check <resume.json>".
+        fix: the command or tool that replaces it.
+
+    Returns:
+        The two lines to print.
+    """
+    return [f"{form} was retired in 6.0: a resume.json is no longer read - a target's "
+            "selection, in the store, is", f"fix:  {fix}"]
+
+
 # The line every command that took --view prints now. A resume.json is one resume: the
 # view that picked a slice of a 41KB record went with the record (2026-09-25), and a
 # shell history or an old mode file still passes it, so it is named, not "unknown flag".

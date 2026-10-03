@@ -20,10 +20,10 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   pack capabilities [--out FILE]       the capability starter pack, as a changeset of
                                        what the record lacks; not applied
   merge c:a --into c:b [--out FILE]    two concepts that are one, as a changeset; not applied
-  export [--select <id>...]            the short resume.json: the bullets to show, as ids;
-         [--from-match <app-dir>]      --from-match chooses them for an application,
-         [--ranked] [--cover N]        --ranked with none
-         [--today D] [--out FILE [--replace]]
+  export [--select <id>...]            the short resume.json, printed: the bullets to show,
+         [--from-match <app-dir>]      as ids; --from-match chooses them for an application,
+         [--ranked] [--cover N]        --ranked with none (resume_select stores a target's)
+         [--today D]
   check                               validate the workspace; exit 1 on a FAIL
   path                                 the workspace, career/store/ and applications/,
                                        as absolute paths

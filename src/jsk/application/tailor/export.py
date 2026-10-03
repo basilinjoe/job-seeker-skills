@@ -1,4 +1,5 @@
-"""`jsk kb export`: choosing the bullets a resume.json shows, forming it, and writing the file.
+"""`jsk kb export` and `resume_select`: choosing the bullets a resume shows, and forming the
+short resume.json's dict - printed by the one, stored as a selection graph by the other.
 
 `short_file` is the short resume.json: the ids a resume shows and its settings, and nothing
 the career holds - the render reads the words, the numbers and the dates from the career as
@@ -14,15 +15,16 @@ it is short, and the view decides what renders.
 Choosing is three steps, because the command says what each found before the next can
 refuse: the career is opened and checked (`opened`), the selection is made for a posting,
 by rank or not at all (`selection`), and the short file is formed from it with the
-numbers its bullets state checked (`short`). Writing it is `write`. Nothing here prints:
-adapters/cli/kb/export.py does.
+numbers its bullets state checked (`short`). Nothing here prints or writes:
+adapters/cli/kb/export.py prints, and application/render/selection.py stores. `write`, which
+wrote the file for `--out`, went in 6.0 with that flag
+(docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2).
 
 The pieces that read the career or the disk are given as parameters - the selection
 (`selector`), the posting lookup, which region profiles ship (`ships`) - so this imports
 nothing outside the application and the domain.
 """
 import difflib
-import os
 from dataclasses import dataclass
 
 from ...domain import ontology as O
@@ -266,15 +268,13 @@ def short_file(store, selection=None, select=None, notes=None, *, ships):
     return doc
 
 
-def opened(root, app, posting, out, replace, *, load, state, file_name, blocks):
+def opened(root, app, posting, *, load, state, file_name, blocks):
     """The career, loaded and checked for what would stop a resume.
 
     Args:
         root: the workspace.
         app: the application directory for --from-match, or None.
         posting: --from-match as given (truthy when there is one).
-        out: --out, or None.
-        replace: whether --replace was given.
         load: loads the workspace (compose.record.load).
         state: where the career and its log stand (infra.oxigraph.record.state).
         file_name: a path as a finding names it (infra.files.file_name).
@@ -286,7 +286,7 @@ def opened(root, app, posting, out, replace, *, load, state, file_name, blocks):
 
     Raises:
         Unclean: there is no career. Failing: the career (or the posting) has FAILs a
-            resume would carry. Refused: --out exists and --replace was not given.
+            resume would carry.
     """
     store = load(root)
     if KB not in store.parsed:
@@ -300,11 +300,6 @@ def opened(root, app, posting, out, replace, *, load, state, file_name, blocks):
         where = "the career and the posting have" if posting else "the career has"
         raise Failing(blocking, f"REFUSED  {where} {len(blocking)} failures - "
                                 "a resume would carry them:", written=False)
-    if out and os.path.exists(out) and not replace:
-        raise Refused([f"{out} exists - export writes a new resume.json, never over one "
-                       "unless told to"],
-                      "edit it, or pass --replace to export it again - it holds only ids and "
-                      "settings, and the career is read afresh at every render")
     return store
 
 
@@ -340,7 +335,7 @@ def selection(store, app, posting, select, by_rank, today, budget, *, selector, 
     post = posting_in(store, app)
     if post is None:
         raise Refused([f"{posting} holds no posting"],
-                      f"`jsk posting build {posting}` writes it from posting.md")
+                      "the `posting_capture` tool (jsk mcp) stores a graph-native posting")
     return selector.select(store, post, today, budget, extra)
 
 
@@ -438,34 +433,3 @@ def short(store, chosen, select, today, *, ships, queries, post=None, target=Non
                 queries.requirements(post), notes, target)
     faults = untraced_lines(store, queries, [O.K + b for b in doc["bullets"]])
     return Short(doc, tuple(notes), tuple(faults))
-
-
-@dataclass(frozen=True)
-class Written:
-    """A resume.json written: where, at which revision, and each bullet's first words."""
-
-    path: str
-    revision: int | None
-    bullets: tuple              # (id, its first 100 characters)
-
-
-def write(store, path, text, doc, *, state, write_text):
-    """Write the short file to `path`.
-
-    Args:
-        store: the loaded workspace the file was chosen from.
-        path: --out.
-        text: the file's text.
-        doc: the file as data.
-        state: where the career and its log stand (infra.oxigraph.record.state).
-        write_text: writes a text file, its folder made first.
-
-    Returns:
-        Written. Writes the file.
-    """
-    write_text(path, text)
-    revision = state(store).log_revision
-    career = Career(store.graph(KB))
-    bullets = tuple((b, " ".join((career.get(O.K + b, "text") or "").split())[:100])
-                    for b in doc["bullets"])
-    return Written(path, revision, bullets)

@@ -54,6 +54,12 @@ RETIRED_CALLS = [
     # Ruling 10 of the onion design retired `jsk match` for `jsk tailor match`; 6.0 retired
     # that too, so the older name now names the tool as well.
     (["match", "{app}"], "assessment_derive"),
+    (["kb", "export", "--from-match", "{app}", "--out", "{app}/resume.json"], "resume_select"),
+    (["kb", "export", "--ranked", "--out", "{app}/resume.json", "--replace"], "resume_select"),
+    (["kb", "confirm", "--summary", "{app}/resume.json", "--answer", "That is my summary."],
+     "jsk kb confirm --summary <stem>"),
+    (["kb", "confirm", "--headline", "{app}/resume.json", "--answer", "That is my title."],
+     "career_confirm"),
 ]
 
 
@@ -76,7 +82,8 @@ class Retired(unittest.TestCase):
                 before = tree(self.root)
                 code, out = jsk(*argv)
                 self.assertEqual(code, 2, out)
-                self.assertIn(" was retired: in 6.0", out)
+                self.assertTrue(" was retired: in 6.0" in out or " was retired in 6.0: " in out,
+                                out)
                 self.assertIn("fix:  ", out)
                 self.assertIn(names, out)
                 self.assertNotIn("unknown command", out)
