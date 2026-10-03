@@ -133,6 +133,7 @@ NOUN_USAGE = {
                "  check RESUME.json | RENDER | DIR   the record gate; parse and prose; "
                "or all four\n"
                "  render RESUME --out DIR [...]      one resume.json to a .tex and a PDF\n"
+               "  render <stem>|resumes/<name>       a target's selection, into its directory\n"
                "  preview RESUME --out DIR           the same resume in every template\n"
                "  fit TEX [--target-pages N]         fit a render to a page budget\n"
                "  ship RESUME --out DIR [...]        validate, render and gate, in one pass"),

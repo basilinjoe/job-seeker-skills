@@ -3,6 +3,7 @@
 Usage:
   jsk resume preview resume.json --out DIR [--region CC]
                                     [--ats-max] [--only NAME,NAME]
+  jsk resume preview <stem>|resumes/<name> --out DIR [...]
 
 Writes DIR/<template>.tex and DIR/<template>.pdf, plus DIR/<template>.png of the
 first page when `pymupdf` is installed. Prints the page count for each, because
@@ -47,7 +48,13 @@ def main(argv):
         # Asking for help is not calling the command wrong; only a real misuse is.
         return 0 if wants_help(argv) else 2
     src = argv[1]
-    if not os.path.exists(src):
+    from ...application.render.selection import parse_ref
+    from .compose.selection import ref_for
+
+    # A target names its selection graph, as `jsk resume render` reads one (P2 of
+    # docs/superpowers/plans/2026-10-03-retire-file-pipeline.md); no file is there to find.
+    src = ref_for(src, dirs=True) or src
+    if not os.path.exists(src) and not parse_ref(src):
         print(f"file not found: {src}")
         return 2
 
@@ -81,7 +88,7 @@ def main(argv):
     except PreviewStopped as stop:
         print(stopped(stop))
         return stop.code
-    return report(result, src, out_dir)
+    return report(result, argv[1], out_dir)
 
 
 def stopped(stop):

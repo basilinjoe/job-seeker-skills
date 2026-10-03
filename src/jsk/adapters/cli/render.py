@@ -2,6 +2,7 @@
 
 Usage:
   jsk resume render <resume.json> --out DIR [options]
+  jsk resume render <stem>|resumes/<name> [--out DIR] [options]
 
   --format F         latex | all                   (default: all; txt is retired)
   --region CC        override the file's region profile, e.g. AU, IN, AE
@@ -12,6 +13,9 @@ Usage:
   --list-templates   print the themes with what each is for, and exit
   --pdf              compile the .tex with whatever TeX engine is installed
   --name N           basename for the outputs (default: the person's name in the career)
+
+A target - an application's stem or a general resume - renders its selection graph, into
+its own directory unless --out names another.
 
 Exit 0 = rendered. Exit 1 = nothing written, or --pdf produced no PDF.
 Exit 2 = usage error.
@@ -59,6 +63,27 @@ def list_templates():
     print("  * = default. Every template extracts to identical text; the choice")
     print("      changes nothing a parser sees, only what a person sees.")
     return 0
+
+
+def targeted(argv):
+    """`argv` with a target's positional - `<stem>`, `applications/<stem>` or
+    `resumes/<name>` - read as its ref (compose.selection.ref_for), and --out its own
+    directory when none was given; any other argv unchanged.
+
+    P2 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: `check` and `ship`
+    took a target in P3b of the graph-native plan, and render and preview take one too
+    before the resume.json positional goes. A render of a target may still go elsewhere
+    with --out: `ship` keeps the application's own directory, a look at one need not.
+    """
+    if len(argv) < 2 or argv[1].startswith("--"):
+        return argv
+    from .compose.selection import ref_for
+
+    ref = ref_for(argv[1], dirs=True)
+    if ref is None or ref == argv[1]:
+        return argv
+    out = [] if "--out" in argv else ["--out", os.path.dirname(ref)]
+    return [argv[0], ref, *argv[2:], *out]
 
 
 def refused(argv):
@@ -142,6 +167,7 @@ def rendered(argv, *, tex, company_of):
     """
     if "--list-templates" in argv:
         return list_templates(), None
+    argv = targeted(argv)
     code = refused(argv)
     if code is not None:
         return code, None

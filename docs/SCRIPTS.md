@@ -836,7 +836,12 @@ jsk resume render resume.json --out DIR
 jsk resume render resume.json --out DIR --pdf
 jsk resume render resume.json --out DIR --region au
 jsk resume render resume.json --out DIR --pdf --ats-max
+jsk resume render <stem> --pdf                  # a target: into applications/<stem>/
+jsk resume render resumes/<name> --out DIR      # a general resume, rendered elsewhere
 ```
+
+A target - an application's stem or `resumes/<name>` - renders its selection graph, into its own
+directory unless `--out` names another (`jsk resume ship` keeps the target's own).
 
 One `resume.json`, built with the career it sits in (`domain/resume/plan.py`), to `.tex` (and PDF with
 `--pdf`). No `.txt` is written: the gates emit the plain text from the plan in memory, and
@@ -886,6 +891,7 @@ looked at — and it would look perfectly fine. See `references/templates.md`.
 ```bash
 jsk resume preview resume.json --out DIR
 jsk resume preview resume.json --out DIR --only meridian,ember
+jsk resume preview <stem>|resumes/<name> --out DIR
 ```
 
 The same resume rendered in every template, with the page count for each, so the look is chosen by

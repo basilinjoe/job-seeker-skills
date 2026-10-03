@@ -22,8 +22,7 @@ RETIRES_IN = "6.0"
 
 # command -> what replaces it, the table of the plan's "What retires". The MCP tools are named
 # with `(jsk mcp)` because a shell user reads the fix too; a target form is named where the
-# CLI keeps one. `jsk resume render` and `preview` have no target form until 6.0 (P2), so
-# their fix names what renders a graph-native application's resume today.
+# CLI keeps one.
 REPLACEMENTS = {
     "jsk posting fetch": "the posting_capture tool (jsk mcp)",
     "jsk posting extract": "the app_show tool, part lines (jsk mcp)",
@@ -35,10 +34,9 @@ REPLACEMENTS = {
     "jsk resume check <resume.json>":
         "`jsk resume check <stem>`, on the application's stored selection",
     "jsk resume render <resume.json>":
-        "`jsk resume ship <stem>`, or the resume_ship tool (jsk mcp)",
+        "`jsk resume render <stem>`, on the application's stored selection",
     "jsk resume preview <resume.json>":
-        "the resume_select tool (jsk mcp) chooses the resume; 6.0's "
-        "`jsk resume preview <stem>` previews it",
+        "`jsk resume preview <stem> --out DIR`, on the application's stored selection",
     "jsk resume ship <resume.json>":
         "`jsk resume ship <stem>`, or the resume_ship tool (jsk mcp)",
     "jsk kb confirm --summary <resume.json>":
