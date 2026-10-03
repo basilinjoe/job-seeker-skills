@@ -90,7 +90,8 @@ Each agent's `tools:` lists its MCP tools by name, which is what holds it to its
 that writes the career; no agent has `career_confirm`). The plan is
 `docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`. 6.0 retired the file-made pipeline
 (`jsk posting`, `jsk tailor`, every `resume.json` form; `docs/superpowers/plans/2026-10-03-retire-file-pipeline.md`):
-each exits 2 naming its replacement through `adapters/cli/main.py`'s `RETIRED`. A frozen file-made application stays
+each exits 2 naming its replacement - the two nouns through `adapters/cli/main.py`'s `RETIRED`, each `resume.json`
+form by its own verb's adapter (`application/guards.resume_json_refusal`). A frozen file-made application stays
 readable - `domain/record/advert_rules.py` checks its quotes against its `posting.md` - and an unsent one is named by
 `jsk kb check`, `app_list` and `jsk doctor` (`application/timeline/unsent.py`).
 
