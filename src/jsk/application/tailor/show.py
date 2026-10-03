@@ -15,7 +15,10 @@ what was chosen without a second call; it is the one part a general resume
 
 `show` refuses an application made from files (Ruling 11), one with no posting, a part it
 does not know, and an assessment not derived yet. `list_apps` reads every application:
-file-built ones too, with their stage from the `pipeline` query.
+file-built ones too, with their stage from the `pipeline` query, and marks `unsent` each made
+from files and not sent, which jsk 6.0 no longer finishes (Ruling 5 of
+docs/superpowers/plans/2026-10-03-retire-file-pipeline.md) - one whose folder holds only a
+resume.json and no graph is listed too, from the folder.
 """
 from dataclasses import dataclass
 
@@ -250,22 +253,27 @@ def list_apps(root, *, today, ports):
         ports: the bound ports (compose.native.Ports).
 
     Returns:
-        {applications: [{app, kind, posting, review, assessed, submitted, stage, since}],
-        resumes: [{name, graph}]}. `kind` is native, files (made from posting.md and
-        decisions.txt), or None for no posting; `posting` the posting's state - draft or
-        complete, `built` for one made from files, None for none.
+        {applications: [{app, kind, posting, review, assessed, submitted, stage, since,
+        unsent}], resumes: [{name, graph}]}. `kind` is native, files (made from posting.md
+        and decisions.txt), or None for no posting; `posting` the posting's state - draft or
+        complete, `built` for one made from files, None for none; `unsent` whether it is
+        made from files and not sent (application.timeline.unsent).
 
     Raises:
         Refused: there is no store at `root`.
     """
     from ..record.queries import pipeline
+    from ..timeline.unsent import file_made_unsent
 
     if not ports.has_store(root):
         raise Refused(f"no workspace (career/store/) at {root}",
                       "fix:  `jsk kb new` creates one, or run from inside a workspace")
     store = ports.load(root)
+    unsent = set(file_made_unsent({n: p.quads for n, p in store.parsed.items()},
+                                  ports.applications(store.root)))
     rels = sorted({n.rsplit("/", 1)[0] for n in store.parsed
-                   if n.startswith("applications/") and n.count("/") == 2})
+                   if n.startswith("applications/") and n.count("/") == 2}
+                  | {f"applications/{stem}" for stem in unsent})
     stages = {}
     for row in pipeline(store, today=today)[1]:
         home = store.file_of(O.K + row["application"].removeprefix("k:"))
@@ -290,12 +298,14 @@ def list_apps(root, *, today, ports):
             # Built from posting.md and decisions.txt: complete by construction, though its
             # graph holds no j:state (Ruling 3). `null` read as "no posting" (2026-10-02).
             state = state or "built"
-        out.append({"app": rel.split("/", 1)[1],
-                    "kind": "native" if native else "files" if quads is not None else None,
+        stem = rel.split("/", 1)[1]
+        out.append({"app": stem,
+                    "kind": "native" if native else
+                    "files" if quads is not None or stem in unsent else None,
                     "posting": state, "review": review_state,
                     "assessed": f"{rel}/gaps" in store.parsed,
                     "submitted": stage.get("submitted"), "stage": stage.get("stage") or None,
-                    "since": stage.get("since") or None})
+                    "since": stage.get("since") or None, "unsent": stem in unsent})
     resumes = sorted(n for n in store.parsed if n.startswith("resumes/"))
     return {"applications": out,
             "resumes": [{"name": n.split("/")[1], "graph": n} for n in resumes]}

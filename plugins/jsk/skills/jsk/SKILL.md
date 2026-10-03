@@ -32,7 +32,8 @@ hand-built documents stop agreeing the moment one is edited.
 | `applications/<stem>/` | what was rendered: the `.pdf` and the `.tex` | `resume_ship` |
 
 An application made from files (`posting.md`, `decisions.txt`, `gaps.txt`, `resume.json`) keeps
-them, and the commands still work it; the tools refuse it.
+them; the tools refuse it, and its commands retire in 6.0. `app_list` and `jsk kb check` name the
+unsent ones: send each first, or drop it.
 `applications/` is the directory beside `career/` — resolve it to an absolute path, never the
 working directory.
 
@@ -91,7 +92,7 @@ changeset to a file for later.
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk kb new <path> --name "Name"` | an empty `career/store/` and `applications/` |
 | `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|path\|export\|pack\|merge` | the career, changed and read; `export` drafts `resume.json`, `pack` and `merge` vocabulary changesets |
-| `jsk posting fetch`, `jsk tailor match\|prepare` | an application made from files: `posting.md`, its match |
+| `jsk posting fetch`, `jsk tailor match\|prepare` | an application made from files; retire in 6.0 |
 | `jsk resume check <resume.json>\|<stem>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
 | `jsk resume render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex` and PDF |
 | `jsk resume preview <resume.json> --out DIR` | every template, with page counts |

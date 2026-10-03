@@ -477,6 +477,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     timeline/freeze.py              an application frozen: checked, planned, gated, renamed to its day, written
     timeline/records.py             an application's record graphs: frozen, sent, written; the freeze sealed
     timeline/add_event.py           one event added to an application's record: minted, validated, written
+    timeline/unsent.py              the applications made from files and not sent, which 6.0 no longer finishes
   infra/                            ring 4: what touches a disk, a process, the network or the engine
     files.py                        the workspace on disk: find_root; a document written atomically, or new
     workspace.py                    the workspace a load reads: career/store/, the files beside it, the vocabulary
@@ -501,6 +502,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/cliutil.py                  one contract for --help and flags across the commands; a finding list printed
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
     cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
+    cli/retiring.py                 the file verbs retiring in 6.0: each one's WARN and replacement, said once
     cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
     cli/posting.py                  `jsk posting`: fetch, extract or build run, what it wrote said
     cli/match.py                    `jsk tailor match`: its flags, the match run and printed, or its assessment built

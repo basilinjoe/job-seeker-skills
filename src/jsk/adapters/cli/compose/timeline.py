@@ -51,6 +51,19 @@ def sent_day(app_dir, store=None):
     return T.sent_day(app_dir, store, records=records())
 
 
+def made_from_files(app_dir, store=None):
+    """Whether `app_dir` is an application made from files and not frozen: its posting graph,
+    if any, holds no advert lines (Ruling 11 of the graph-native plan), and it has no
+    application graph. What `jsk app freeze` and the `app_freeze` tool warn on (Ruling 1 of
+    docs/superpowers/plans/2026-10-03-retire-file-pipeline.md)."""
+    from ....application.posting.native import native_graphs
+    from ....domain.timeline.events import LEGACY
+
+    graphs = app_graphs(app_dir, store)
+    return ("application" not in graphs and not native_graphs(graphs)
+            and not os.path.isfile(os.path.join(app_dir, LEGACY)))
+
+
 def refuse_if_sent(app_dir, name, store=None, graph=False):
     """Raise Frozen when `name` must not change: the application was sent (records.refuse_if_sent)."""
     from ....application.timeline import records as T

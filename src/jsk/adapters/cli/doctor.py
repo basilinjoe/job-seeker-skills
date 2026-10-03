@@ -1,5 +1,8 @@
 """`jsk doctor`: the preflight, verifying end to end unless told otherwise, then the record's store.
 
+The store's report ends with an `info` line counting the applications made from files and not
+sent, when there are any: `jsk kb check` names each one (2026-10-03).
+
 Nothing here imports pyoxigraph until the store is asked about, so `python -m jsk doctor`
 runs on a machine without it and says so.
 """
@@ -68,19 +71,50 @@ def store_report(start=None):
     lines = [f"  ok    store    {db.path(root)}",
              f"           readable, at r{revision}" if revision is not None
              else "           readable, and it holds no career revision"]
+    return lines + backup_lines(root, revision) + unsent_lines(root, graphs), False
+
+
+def backup_lines(root, revision):
+    """The lines saying whether .jsk/backup.trig is there and at which revision, beside the
+    store's `revision`. Reads the backup; a backup that will not read back is a gap, never a
+    crash."""
+    from ...infra.files import read_text
+    from ...infra.oxigraph import db
+    from ...infra.oxigraph import record as R
+
     backup = os.path.join(root, R.BACKUP)
     if not os.path.isfile(backup):
-        lines += ["  gap   backup   no .jsk/backup.trig yet",
-                  "           the next write refreshes it; `jsk kb dump` writes one now"]
-        return lines, False
+        return ["  gap   backup   no .jsk/backup.trig yet",
+                "           the next write refreshes it; `jsk kb dump` writes one now"]
     try:
-        from ...infra.files import read_text
         at = R.header_revision(db.parse_dump(read_text(backup, R.BACKUP)).get(R.KB, []))
     except Exception as e:                   # noqa: BLE001 - reported, never a crash
-        lines += [f"  gap   backup   {backup} does not read back: {e}"]
-        return lines, False
-    lines.append(f"  ok    backup   {backup}")
-    lines.append(f"           at r{at}" + ("" if at == revision else
-                                          f" - one write behind the store's r{revision}; the "
-                                          "next write refreshes it"))
-    return lines, False
+        return [f"  gap   backup   {backup} does not read back: {e}"]
+    return [f"  ok    backup   {backup}",
+            f"           at r{at}" + ("" if at == revision else
+                                     f" - one write behind the store's r{revision}; the "
+                                     "next write refreshes it")]
+
+
+def unsent_lines(root, graphs):
+    """An `info` line counting the applications made from files and not sent, which jsk 6.0
+    no longer finishes (Ruling 5 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md),
+    and where they are named; none when there are none.
+
+    Args:
+        root: the workspace.
+        graphs: {graph name: triples} the store holds, as db.read returned them.
+    """
+    from ...application.timeline.unsent import file_made_unsent
+    from ...infra.files import application_listing
+    from .retiring import RETIRES_IN
+
+    unsent = file_made_unsent(graphs, application_listing(root))
+    if not unsent:
+        return []
+    many = len(unsent) != 1
+    return [f"  info  unsent   {len(unsent)} application{'s' if many else ''} made from files "
+            f"{'are' if many else 'is'} not sent, and jsk {RETIRES_IN} no longer finishes "
+            f"{'them' if many else 'it'}",
+            "           `jsk kb check` names each (or the app_list tool): send it with this "
+            "CLI before upgrading, or drop it"]

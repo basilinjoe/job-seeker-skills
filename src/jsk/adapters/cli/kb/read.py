@@ -145,10 +145,14 @@ def cmd_check(args, flags, root, today):
                     anywhere, since a FAIL still stops `jsk tailor match`. The JumpCloud run's
                     full check printed 40 KB of other applications' warnings to find its
                     own five.
+
+    An application made from files and not sent is a WARN `file-made-unsent`: jsk 6.0 no
+    longer finishes one, so it is sent with this CLI first, or dropped.
     """
     from ....application.record.check import check
     from ..cliutil import show
     from ..compose.record import load
+    from ..retiring import unsent_warning
     from ....infra import files
     from ....infra.oxigraph import record as R
     from ....infra.oxigraph.queries import OxigraphQueries
@@ -156,8 +160,11 @@ def cmd_check(args, flags, root, today):
     if args:
         return usage("jsk kb check takes no arguments but --only <path>")
     checked = check(root, flags.get("--only"), load=load, state=R.state,
-                    graph_name=files.graph_name, queries=OxigraphQueries)
+                    graph_name=files.graph_name, queries=OxigraphQueries,
+                    listing=files.application_listing)
     rep, st = checked.report, checked.state
+    for stem in checked.unsent:
+        rep.warn(unsent_warning(stem))
     print(f"record   {st.kind}" + (f" at r{st.log_revision}" if st.log_revision else "")
           + (f" - {st.detail}" if st.detail else ""))
     print(f"{len(rep.fails)} FAIL, {len(rep.warns)} WARN")

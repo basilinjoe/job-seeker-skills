@@ -6,6 +6,9 @@ touches the career or its log. `jsk app event` records what happens to the appli
 afterwards; this command only freezes what was sent. The freeze itself is
 application/timeline/freeze.py, bound and run by compose/timeline.py's freeze_app, which
 the `app_freeze` MCP tool calls too.
+
+An application made from files is still frozen in 5.x, under a WARN that `jsk app freeze`
+on one retires in 6.0 (adapters/cli/retiring.py, 2026-10-03).
 """
 import datetime
 import os
@@ -113,8 +116,11 @@ def main(args):
 
     from ... import cli
     from ...application.timeline import freeze as F
-    from .compose.timeline import freeze_app
+    from .compose.timeline import freeze_app, made_from_files
+    from .retiring import warn
 
+    if made_from_files(app_dir):
+        warn("jsk app freeze", args)
     try:
         result = freeze_app(app_dir, workspace, submitted, channel, named,
                             gated=lambda results: cli.print_results(f"gates: {app_dir}",

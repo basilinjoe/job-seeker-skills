@@ -85,6 +85,32 @@ def workspace_of_app(app_dir):
     return root, "applications/" + spelled(apps, os.path.basename(here))
 
 
+def application_listing(root):
+    """{stem: the names in applications/<stem>/} for each folder in the workspace's
+    applications/, as the disk spells them; {} when there is no applications/ folder.
+
+    What application/timeline/unsent.py reads to find the applications made from files and
+    not sent (Ruling 5 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md). A
+    folder that will not list is left out: the listing names what can be read, and the
+    store's checks say the rest.
+    """
+    apps = os.path.join(root, "applications")
+    try:
+        stems = os.listdir(apps)
+    except OSError:
+        return {}
+    out = {}
+    for stem in stems:
+        here = os.path.join(apps, stem)
+        if not os.path.isdir(here):
+            continue
+        try:
+            out[stem] = frozenset(os.listdir(here))
+        except OSError:
+            continue
+    return out
+
+
 def file_name(path, root):
     """How findings name a file: relative to the workspace, forward slashes, each part
     spelled as it is on disk (spelled). A file outside it - the shipped vocabulary - is

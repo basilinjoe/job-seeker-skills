@@ -8,14 +8,16 @@ tools, so the main session needs no shell for a jsk job. No agent's `tools:` nam
 Each tool calls what its command calls - compose/timeline.py's freeze_app and add_event,
 and the letter gate's own adapter - so a freeze or an event made either way is the same
 write, and like their commands they take an application made from files as well as a
-graph-native one. A call error the command would exit 2 on (a bad date, an unknown kind) is
-a FAIL with its fix here. They live apart from server.py, which registers them, only to keep
-each module under tests/test_sizes.py's limit.
+graph-native one - with a WARN until 6.0 retires that (adapters/cli/retiring.py). A call
+error the command would exit 2 on (a bad date, an unknown kind) is a FAIL with its fix here.
+They live apart from server.py, which registers them, only to keep each module under
+tests/test_sizes.py's limit.
 """
 import contextlib
 import io
 import os
 
+from ..cli.retiring import is_record_file, warning
 from .server import described, failed, plain, result
 
 
@@ -86,6 +88,10 @@ def freezes(srv, tools):
                 ("FAIL", "channel is required", "where it was sent, e.g. \"Workday portal\""))
             if bad:
                 return failed(bad)
+            # Ruling 1 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: one
+            # made from files still freezes in 5.x, and says that goes in 6.0.
+            made = T.made_from_files(app_dir)
+            legacy = [("WARN", *warning("jsk app freeze"))] if made else []
             steps = []
             nothing = dict(written=None, renamed_to=None, recordSha256=None, carried=[],
                            documents=[])
@@ -93,15 +99,16 @@ def freezes(srv, tools):
                 done = T.freeze_app(app_dir, root, submitted, channel.strip(), docs or None,
                                     gated=steps.extend)
             except F.FreezeRefused as refusal:
-                return result(gate_findings(steps) + [
+                return result(legacy + gate_findings(steps) + [
                     ("FAIL", refusal.lines[0], " ".join(refusal.lines[1:]) or None)],
                     **nothing, steps=plain(steps))
             except F.FreezeLanded as landed:
-                return result([("FAIL", f"the application's record was written, and then: "
-                                        f"{landed}", landed.fix)], **nothing,
+                return result(legacy + [("FAIL", "the application's record was written, "
+                                                  f"and then: {landed}", landed.fix)],
+                              **nothing,
                               steps=plain(steps))
             moved = done.final != done.app_dir
-            return result(written=done.written,
+            return result(legacy, written=done.written,
                           renamed_to=("applications/" + os.path.basename(done.final)
                                       if moved else None),
                           **T.frozen_record(root, done.written), steps=plain(steps))
@@ -185,6 +192,8 @@ def letters(srv, tools):
             lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
             found = [gate_line(severity, f) for severity, group
                      in (("FAIL", checked.fails), ("WARN", checked.warns)) for f in group]
+            if is_record_file(record):
+                found.insert(0, ("WARN", *warning("jsk letter check --record <resume.json>")))
             return result(found, verdict=lines[-1] if lines else None, exit=code,
                           output=output)
         return tools.call("letter_check", run)

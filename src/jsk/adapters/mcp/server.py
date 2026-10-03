@@ -334,10 +334,22 @@ def applications(srv, tools):
 
     tool, ports = described(srv), tools.session.ports
 
-    @tool("Every application and general resume: kind, posting and review state, stage.")
+    @tool("Every application and general resume: kind, posting and review state, stage; "
+          "unsent: made from files, not sent, and not finished by jsk 6.0.")
     def app_list() -> dict:
         def run(root, today):
-            return result(**fields(native.list_apps(root, today=today, ports=ports())))
+            from ..cli.retiring import unsent_note
+
+            listed = fields(native.list_apps(root, today=today, ports=ports()))
+            # Ruling 5 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: each
+            # carries the note, and a WARN says it once per application.
+            found = []
+            for app in listed["applications"]:
+                if app.get("unsent"):
+                    text, fix = unsent_note(app["app"])
+                    app["note"] = f"{text}: {fix}"
+                    found.append(("WARN", text, fix))
+            return result(found, **listed)
         return tools.call("app_list", run)
 
     @tool("One part of a graph-native application as JSON. lines pages by offset and limit.")

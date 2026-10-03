@@ -37,6 +37,7 @@ pyoxigraph for the graph record, and pymupdf to read a PDF.
 from ... import __version__
 from .cliutil import refused, wants_help
 from .dispatch import run_in_process, workspace_refusal
+from .retiring import file_form, warn
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
 # this file. Named once, here, and a test holds the docstring to it, so rewording that
@@ -236,6 +237,11 @@ def run(noun, verb, rest):
     refusal = workspace_refusal(noun, rest)
     if refusal:
         return refused(refusal)
+    # Ruling 1 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: a file verb
+    # still works in 5.x and says, first, that it goes in 6.0 and what replaces it.
+    retiring = None if wants_help(rest) else file_form(noun, verb, rest)
+    if retiring:
+        warn(retiring, rest)
     target = NOUNS[noun][verb]
     if callable(target):
         return target(rest)

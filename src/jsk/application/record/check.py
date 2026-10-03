@@ -1,5 +1,13 @@
 """`jsk kb check`: every rule over the whole workspace, the career's hash against its log,
-and the record gate's number check asked of every live bullet."""
+the record gate's number check asked of every live bullet, and the applications made from
+files that are not sent.
+
+That last is not a rule in domain/record/rules.py: the rules see the store, and an
+application made from files may have nothing in it but a folder holding a resume.json
+(application/timeline/unsent.py). Ruling 5 of
+docs/superpowers/plans/2026-10-03-retire-file-pipeline.md has `kb check` name each one; the
+adapter words them, with the CLI's version in the fix.
+"""
 import os
 from dataclasses import dataclass
 
@@ -53,9 +61,10 @@ class Checked:
 
     report: Report
     state: State
+    unsent: tuple = ()          # stems of the applications made from files and not sent
 
 
-def check(root, only, *, load, state, graph_name, queries):
+def check(root, only, *, load, state, graph_name, queries, listing=None):
     """Validate the workspace and say where the career and its log stand.
 
     Args:
@@ -65,6 +74,8 @@ def check(root, only, *, load, state, graph_name, queries):
         state: where the career and its log stand (infra.oxigraph.record.state).
         graph_name: the graph a path holds (infra.files.graph_name).
         queries: makes the RecordQueries over a loaded workspace.
+        listing: root -> {stem: the names in applications/<stem>/}
+            (infra.files.application_listing); None leaves `unsent` empty.
 
     Returns:
         Checked. Reads the record, and hashes the career once.
@@ -94,4 +105,11 @@ def check(root, only, *, load, state, graph_name, queries):
                  f"(r{st.log_revision})\n        fix: restore it from .jsk/backup.trig "
                  "(`jsk kb load .jsk/backup.trig` into a new workspace, --root), or `jsk kb "
                  "dump` to see what it holds")
-    return Checked(rep, st)
+    unsent = ()
+    if listing is not None:
+        from ..timeline.unsent import file_made_unsent
+
+        unsent = tuple(stem for stem in file_made_unsent(
+            {n: p.quads for n, p in store.parsed.items()}, listing(store.root))
+            if within(f"applications/{stem}"))
+    return Checked(rep, st, unsent)

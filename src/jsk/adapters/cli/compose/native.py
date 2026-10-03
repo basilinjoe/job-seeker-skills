@@ -52,6 +52,12 @@ class Ports:
 
         return os.path.isfile(path)
 
+    def applications(self, root):
+        """{stem: the names in applications/<stem>/} (infra.files.application_listing)."""
+        from ....infra.files import application_listing
+
+        return application_listing(root)
+
     def queries(self, store):
         """The feature reads over `store` (infra.oxigraph.queries.OxigraphQueries)."""
         from ....infra.oxigraph.queries import OxigraphQueries

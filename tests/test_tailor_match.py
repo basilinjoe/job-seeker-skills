@@ -49,7 +49,11 @@ class Match(unittest.TestCase):
     def test_json_is_the_same_result_structured(self):
         code, out = run(JSK, "tailor", "match", self.CONTOSO, "--json", "--today", "2026-09-24")
         self.assertEqual(code, 0, out)
-        r = json.loads(out)
+        # `run` joins stdout and stderr; the 6.0 retirement WARN is on stderr, after the
+        # JSON, so stdout still parses whole (docs/superpowers/plans/2026-10-03-retire-file-
+        # pipeline.md, Ruling 1).
+        r, end = json.JSONDecoder().raw_decode(out)
+        self.assertTrue(out[end:].strip().startswith("WARN  jsk tailor match"), out[end:])
         self.assertEqual(r["posting"], "k:post_contoso")
         self.assertEqual({q["asked"]: q["state"] for q in r["requirements"]}["Go"], "ambiguous")
 

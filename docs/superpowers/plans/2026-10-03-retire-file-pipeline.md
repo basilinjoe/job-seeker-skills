@@ -2,7 +2,7 @@
 
 ## Status (2026-10-03)
 
-Planned, not started. Waits on its precondition (below). Builds on
+P1 built (2026-10-03). P2 waits on its precondition (below). Builds on
 `2026-10-01-graph-native-applications-mcp.md`, whose Ruling 11 left the file pipeline in place
 "until a later plan's decision". This is that plan.
 

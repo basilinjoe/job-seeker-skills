@@ -65,6 +65,39 @@ Uniform across every subcommand:
 Nothing here passes quietly when it could not do its job. A page count nobody measured is a page
 count nobody knows.
 
+## Retiring in 6.0
+
+The commands that serve only applications made from files (`posting.md`, `decisions.txt`,
+`gaps.txt`, `resume.json`) retire in 6.0
+(`docs/superpowers/plans/2026-10-03-retire-file-pipeline.md`). In 5.x each still works, and prints
+one added line first when used in its file form - to stderr under `--json`, so the JSON still
+parses:
+
+```
+WARN  jsk posting build serves applications made from files and retires in 6.0 - finish this application or drop it
+      fix: the posting_decide and posting_complete tools (jsk mcp)
+```
+
+| Retires | Serves only | Replacement |
+|---|---|---|
+| `jsk posting fetch URL D` | `posting.md` | `posting_capture(app, url=)` |
+| `jsk posting extract D` | `posting.md` | `app_show(app, part="lines")` |
+| `jsk posting build D [decisions]` | `decisions.txt` | `posting_decide`, `posting_complete` |
+| `jsk tailor prepare D [--draft-gaps]` | `gaps.txt` digest/draft | `assessment_derive` |
+| `jsk tailor match D [--gaps F \| --draft-gaps F]` | `gaps.txt` | `assessment_derive`, `assessment_review`, `assessment_complete` |
+| `jsk kb export --from-match D --out R.json`, `--ranked --out R.json` | `resume.json` | `resume_select(target, mode)` |
+| `jsk resume check\|render\|preview\|ship <resume.json>` | `resume.json` | the same verbs on `<stem>` / `resumes/<name>` |
+| `jsk kb confirm --summary\|--headline <resume.json>` | `resume.json` | `career_confirm(target, block)` / `--summary <stem>` |
+| `jsk letter check L --record <resume.json>` | `resume.json` | `letter_check(letter, record=<stem>)` / `--record <stem>` |
+| `jsk app freeze D` on a file-made application | `resume.json` | `app_freeze` on a graph-native one |
+
+The `app_freeze` tool on a file-made application, and `letter_check` with a `resume.json`, carry
+the same WARN as a finding. An application made from files that is not sent - its folder holds one
+of those files, its posting has no advert lines, and it was never frozen - has nothing to finish it
+after 6.0. `jsk kb check` names each (`file-made-unsent`), the `app_list` tool marks it
+`unsent: true` with the note, and `jsk doctor` counts them in an `info` line. Send each with this
+CLI before upgrading, or drop it. A frozen one stays readable in 6.0.
+
 ## `jsk doctor`
 
 ```bash
@@ -93,7 +126,8 @@ under `extras`, apart from `checks`.
 
 Without `--kb` it searches three directories down for a workspace, and dot folders (`.jsk/`,
 `.git/`) are never searched. For the one it finds it reports the store: present, readable, its
-revision, and whether `.jsk/backup.trig` exists and at which revision. A `career/kb.ttl` with no
+revision, whether `.jsk/backup.trig` exists and at which revision, and - an `info` line, when
+there are any - how many applications made from files are not sent (Retiring in 6.0). A `career/kb.ttl` with no
 `career/store/` beside it is a workspace from before the store, reported with its fix, `jsk kb
 load .`. Searching by name rather than by a directory shape is deliberate — a bundle used to be
 recognised by the folders inside it, so a half-created one was invisible here and reported as
@@ -320,6 +354,8 @@ And it asks that the career is what its log's newest entry hashed (`kbSha256`): 
 FAIL, `the career is not what its log last recorded - written outside jsk`, restored from
 `.jsk/backup.trig` into a new folder, or read with `jsk kb dump`. Only `check` asks it - it costs a
 full write of the career, and every other command loads the record on every run.
+Last, it names each application made from files and not sent, a WARN `file-made-unsent` with the
+fix: send it with this 5.x CLI before upgrading to 6.0, or drop it (see Retiring in 6.0 below).
 
 **`path`** prints the workspace, `career/store/` and `applications/` as absolute paths - where
 to run from and write to, never files to read. It needs nothing but the folders.
