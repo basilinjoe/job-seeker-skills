@@ -72,8 +72,9 @@ Ports are `typing.Protocol`s. Infra implements them. `adapters/cli/compose/` is 
 real ports to use cases and reads the clock once. Root modules `cli.py`, `__main__.py` and `preflight.py` count as
 adapters, and `paths.py` counts as infra.
 
-**The render plan is the narrow waist.** `domain/resume/plan.py` builds the plan once from the career plus a short
-`resume.json`. That file holds bullet ids in order and settings, never a bullet's words. `domain/render/emit_latex.py`
+**The render plan is the narrow waist.** `domain/resume/plan.py` builds the plan once from the career plus a target's
+selection (`<stem>` or `resumes/<name>`), stored as a graph with `resume.json`'s keys. It holds bullet ids in order and
+settings, never a bullet's words; no command reads a `resume.json` file since 6.0. `domain/render/emit_latex.py`
 and `emit_text.py` turn the finished plan into markup and decide nothing, which is why the PDF and the text the gates
 read cannot disagree. No `.txt` is written: the gates read `emit_text.emit(plan)` in memory. Content selection goes
 in `plan.py`, never in an emitter.
@@ -86,9 +87,12 @@ and code writes and checks every triple:
 - a verdict can only be lowered from the match's, never raised.
 
 Each agent's `tools:` lists its MCP tools by name, which is what holds it to its boundary (the analyst has no tool
-that writes the career; no agent has `career_confirm`). An application made before this keeps its files
-(`decisions.txt`, `gaps.txt`, `resume.json`) and the file verbs; the two kinds refuse each other. The plan is
-`docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`.
+that writes the career; no agent has `career_confirm`). The plan is
+`docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`. 6.0 retired the file-made pipeline
+(`jsk posting`, `jsk tailor`, every `resume.json` form; `docs/superpowers/plans/2026-10-03-retire-file-pipeline.md`):
+each exits 2 naming its replacement through `adapters/cli/main.py`'s `RETIRED`. A frozen file-made application stays
+readable - `domain/record/advert_rules.py` checks its quotes against its `posting.md` - and an unsent one is named by
+`jsk kb check`, `app_list` and `jsk doctor` (`application/timeline/unsent.py`).
 
 **One write gate for the record.** Every career change goes through `jsk kb apply` changesets:
 validate → write → log. Writes land in `infra/oxigraph/record.py` and storage is in `infra/oxigraph/db.py`.
@@ -137,7 +141,7 @@ files under `src/`. Outside `src/`:
   A rule without one fails the suite.
 - **Frozen public surfaces:**
   - the `jsk` noun/verb/flag set;
-  - `resume.json`'s keys (`"resume": 2`, and an unknown key fails);
+  - a selection's keys - `resume.json`'s, the interchange shape (`"resume": 2`, and an unknown key fails);
   - the career format (`ontology.FORMAT`). Optional additions are fine. A rename, a removal, or a new required
     field needs a format revision and a migration.
 

@@ -117,9 +117,9 @@ jsk kb query pipeline            # every application's stage, and how long since
 
 ## The same, by hand
 
-The skill runs all of this for you, through `jsk mcp`'s tools. Underneath, the commands still work
-an application made from files (`posting.md`, `decisions.txt`, `resume.json`), from nothing to a
-sent one:
+The skill runs all of this for you, through `jsk mcp`'s tools - capturing the posting, matching
+it and choosing the resume are tools only. The commands do the rest, from nothing to a sent
+application:
 
 ```bash
 jsk kb new ./my-career --name "Your Name"     # career/store/: an empty career and its log, at r1
@@ -127,22 +127,19 @@ cd my-career
 jsk kb apply braindump.trig --dry-run         # what a changeset would change
 jsk kb apply braindump.trig                   # ... written and logged, as r2
 jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms to 200, from Grafana."
-jsk posting fetch <url> applications/<stem>   # the advert, as posting.md
-jsk posting extract applications/<stem>       # its lines, numbered: write decisions.txt from them
-jsk posting build applications/<stem>         # the requirements, from decisions.txt
-jsk tailor prepare applications/<stem> --draft-gaps   # the match, and gaps.txt drafted to fill in
-jsk tailor match applications/<stem> --gaps applications/<stem>/gaps.txt   # checked, the assessment
-jsk kb export --from-match applications/<stem> --out applications/<stem>/resume.json
-jsk resume ship applications/<stem>/resume.json --out applications/<stem>
+#   posting_capture, posting_decide, assessment_derive, resume_select ... (jsk mcp's tools)
+jsk kb export --from-match applications/<stem>   # the selection the posting earns, printed
+jsk resume check <stem>                       # the record gate on the stored selection
+jsk resume ship <stem>                        # rendered and gated into applications/<stem>/
 jsk app freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
 jsk app event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15   # freeze renamed it
 ```
 
 A changeset is a small TriG file; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new
-workspace as it stands. In an application made from files, `decisions.txt` (what the posting asks
-for), `gaps.txt` (the verdicts lowered and the questions) and `resume.json` (the bullets chosen,
-by id) are what the tailoring step writes. Through the tools it writes none of them: the posting,
-review, assessment and selection are graphs in the store.
+workspace as it stands. The tailoring step writes no file: the posting, review, assessment and
+selection are graphs in the store. Until 6.0 an application could be made from files
+(`posting.md`, `decisions.txt`, `gaps.txt`, `resume.json`); one left unsent is finished with jsk
+5.1.0, or set aside with `jsk app drop`.
 
 Already have a workspace from before the store, with `career/kb.ttl`? Run `jsk kb load .` in it,
 once. It checks the files as before, lists every number it rewrites, and imports them; the files

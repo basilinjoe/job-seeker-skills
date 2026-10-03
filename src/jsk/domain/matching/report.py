@@ -1,4 +1,4 @@
-"""What `jsk tailor match` says of a match beyond its buckets: the Verdict each bucket supports, the
+"""What the match says beyond its buckets: the Verdict each bucket supports, the
 question a number no metric backs is asked as, and which FAIL stops a match."""
 
 SOURCES = "dashboards, retros, release notes"

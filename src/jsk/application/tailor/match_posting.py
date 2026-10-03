@@ -170,7 +170,7 @@ def faults_in(queries, bullets):
 
 
 def result(store, queries, post, today, budget, elsewhere, select):
-    """Everything `jsk tailor match` reports, as plain data.
+    """Everything the match reports, as plain data.
 
     Args:
         store: the loaded workspace.

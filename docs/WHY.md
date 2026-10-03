@@ -23,9 +23,9 @@ edge. Every record is a named graph in one Oxigraph store (RocksDB on disk) at `
 `kb` for the career, `log` for its history, and for each application `applications/<stem>/`'s
 `posting` (the advert as numbered lines, and its requirements), `review`, `gaps`, `resume` (the
 selection) and, once sent, `application`. The only files beside them are what was rendered and sent
-- the PDF and the `.tex` - because those are documents, not the record. An application made before
-5.0.0 keeps its `posting.md`, `decisions.txt`, `gaps.txt` and `resume.json`, and the commands that
-made it still work it.
+- the PDF and the `.tex` - because those are documents, not the record. An application made from
+files before 6.0 keeps its `posting.md` and the rest; if it was sent, its quotes are still checked
+against that `posting.md`, and if not, `jsk kb check` names it for jsk 5.1.0 or `jsk app drop`.
 
 You read the career with `jsk kb view`, which prints it as Markdown in the order the knowledge base
 always had: Identity, Positioning, Work authorization and languages, Vocabulary, Organisations,
@@ -62,10 +62,11 @@ parsed from its files took 580 ms on the same machine; `tests/test_graph_budget.
 seconds, so there is no reason to check less than everything.
 
 **Every write goes through one gate.** `jsk kb apply`, `confirm`, `pack` and `merge` changesets,
-`jsk posting build`, `jsk app freeze` and `jsk app event` all end in the same function: it writes every
+the posting, review, assessment and selection tools, `jsk app freeze` and `jsk app event` all end
+in the same function: it writes every
 graph the change touches in one update - all of them or none - and refreshes `.jsk/backup.trig`.
 Every write to the career gets a log entry, in the same update; `jsk app freeze`, `jsk app event` and the
-posting and gaps builds write only an application's graphs and add none, because the log is the
+application tools write only an application's graphs and add none, because the log is the
 career's history; the one-time import adds one entry of its own (`by load`). A writing command
 takes the writer's turn (`career/store.lock`) before it reads the record, so what it validates is
 what it writes over. Two writers queue rather than one being turned away: the second prints
@@ -127,13 +128,13 @@ are real still:
 
 - **A dependency.** `pyoxigraph`, a graph engine, is now the one required package. It ships
   wheels for every platform jsk supports and has no dependencies of its own; the pin is one minor
-  version, and raising it reruns the Windows and Linux CI jobs. A machine without it still renders
-  and gates a resume from a `resume.json`, and `jsk doctor` says what it lost - but it cannot read
-  or change the career.
+  version, and raising it reruns the Windows and Linux CI jobs. A machine without it can still run
+  the parse and prose gates over a render, and `jsk doctor` says what it lost - but it cannot read
+  or change the career, or build a resume from it.
 - **A syntax.** Turtle is not Markdown. `k:prj_x j:name "..." ;` is learnable in a sitting, but it
   is punctuation a changeset has to get right, and a missing `;` is a parse error. In Turtle the same
   career was about 1.17 times its tokens in Markdown (measured on the P0 sample). Agents
-  read by id - `jsk kb show`, `jsk tailor match` - and never the whole record.
+  read by id - `jsk kb show`, `career_show`, the match - and never the whole record.
 - **A write path.** Nobody edits the career directly; a *changeset* goes to `jsk kb apply`, which
   merges it, validates the result and logs it. That is a command, a format, a log (`jsk kb log`)
   and a set of refusals to learn - exactly the kind of layer this project once removed.
@@ -161,11 +162,11 @@ cannot hold by itself. A simulation of twelve scenarios over the graph
 - **Versioned history.** A metric revised from 62% to 58% keeps both versions, dated; the version
   an application sent can never change, and `jsk kb query stale` names every application that sent
   a number since replaced.
-- **A record gate that joins by id.** A `resume.json` names career bullets by id, so "is every
+- **A record gate that joins by id.** A selection names career bullets by id, so "is every
   bullet one the career holds, live, under a project with a role, with numbers from the metric's
   current version" is a join, run inside `jsk resume check`, `jsk resume ship` and `jsk app freeze`. The
   simulation's seven planted defects were all caught - by the claims gate this replaced, when
-  `resume.json` was still a full copy of the career and wording could drift from it. The file
+  `resume.json` was still a full copy of the career and wording could drift from it. The selection
   holds no bullet's words now: one reworded for a posting is reworded in the career, where `jsk kb
   apply` drops it to `inferred` and the render withholds it until `jsk kb confirm` confirms the
   career's text.
@@ -195,9 +196,9 @@ not against a determined person with the file: someone who edits a dump and reco
 
 ## Every document is rendered from the career, never hand-built
 
-The LaTeX, the PDF and the plain text the gates read are all built from the career and a short
-[`resume.json`](../plugins/jsk/skills/jsk/references/resume-format.md) - about twenty lines naming
-the bullets chosen for one posting, by id, and its settings. Its one piece of prose is the summary.
+The LaTeX, the PDF and the plain text the gates read are all built from the career and a
+[selection](../plugins/jsk/skills/jsk/references/resume-format.md) - resume.json's keys, kept in the
+store since 6.0, naming the bullets chosen for one posting, by id, and its settings. Its one piece of prose is the summary.
 
 Two hand-built documents have to agree about every date, bullet and number, and they stop agreeing
 the moment one is edited; usually silently, usually in the copy that gets sent. One career with
@@ -233,7 +234,7 @@ third is why the prose gate exists at all.
 
 | Gate | Question | How |
 |---|---|---|
-| Record | Does `resume.json` name only live career entries, and does every number in a chosen bullet trace to a current metric? | `jsk resume check` on the `resume.json`, before anything renders |
+| Record | Does the selection name only live career entries, and does every number in a chosen bullet trace to a current metric? | `jsk resume check <stem>`, before anything renders |
 | Parse | Will an ATS read this without mangling it? | `jsk resume check --only parse`, on the PDF |
 | Prose | Does it obey the writing rules? | `jsk resume check --only prose`, on the `.tex` |
 | Render | Does it *look* right, and is it *true*? | Open the PDF and read every page |
@@ -266,17 +267,17 @@ the career, or the record gate fails before anything renders. A number the caree
 fails as superseded, and one no metric holds fails as untraced. It is the check that catches a
 rewritten bullet quietly inflating a figure - and the one a model must not "fix" by changing the
 number: on the ElevenLabs run "300-400 candidates" became "300-800" to match an unrelated metric.
-An untraced number is a question for the person. `jsk kb check` and `jsk tailor match` run the same check
+An untraced number is a question for the person. `jsk kb check` and the match run the same check
 over the career's bullets, so the question is asked before a resume is written.
 
 ## Tailoring cannot invent, structurally
 
-A tailored resume is a *selection*: `resume.json` names evidence by id and orders it, and holds no
+A tailored resume is a *selection*: it names evidence by id and orders it, and holds no
 bullet's words. The record gate fails an id the career does not hold, so a posting the career has no
 evidence for produces nothing to point at rather than a plausible new bullet.
 
 A posting's requirements are built into its posting graph, each with the advert's own words as a
-quote that is checked, verbatim, against `posting.md`. `jsk tailor match` joins them with the
+quote that is checked, verbatim, against the advert's stored line. The match joins them with the
 career through the vocabulary and **shows the path behind every match** - which project holds the
 concept, through which edge, how many hops, and whether a confirmed bullet shows it or only the
 project's tags say so. A score nobody can recompute would be worse than no score, and that is the

@@ -478,18 +478,25 @@ class TheProseSaysWhatTheGatesDo(unittest.TestCase):
     def test_a_file_outside_the_workspace_is_refused_not_passed(self):
         """The claims gate walked up from resume.json for career/kb.ttl, and a record
         saved elsewhere - an outputs folder - got NOT RUN while ship exited 0; the plugin
-        had to say never to freeze over one. The short file is built from the career, so
-        outside a workspace there is nothing to build: the record gate and the render
-        refuse it, exit 2, and no file may promise a NOT RUN that no longer exists."""
+        had to say never to freeze over one. The short file was then built from the career,
+        so outside a workspace there was nothing to build, and SKILL.md said to keep it
+        inside one. Changed on purpose in 6.0 (docs/superpowers/plans/
+        2026-10-03-retire-file-pipeline.md, P2): no command reads a resume.json, a selection
+        lives in its workspace's store and is never outside one, so SKILL.md no longer
+        names the file and ARCHITECTURE.md says the record gate and the render refuse one,
+        naming the target form. No file may promise a NOT RUN that no longer exists."""
         ship = self.ref("mode-ship.md")
-        for gone in ("NOT RUN", "claims gate", "Move `resume.json` into", "--view"):
+        for gone in ("NOT RUN", "claims gate", "Move `resume.json` into", "--view",
+                     "<resume.json>"):
             with self.subTest(gone=gone):
                 self.assertNotIn(gone, ship)
         skill = self.text(SKILL / "SKILL.md")
-        self.assertIn("Keep `resume.json` inside the workspace", skill)
+        self.assertNotIn("Keep `resume.json` inside the workspace", skill)
+        self.assertNotIn("<resume.json>", skill)
         self.assertNotIn("`NOT RUN`", skill)
         self.assertNotIn("**Claims**", skill)
-        self.assertIn("a `resume.json` outside a workspace has no career to build from",
+        self.assertIn("a `resume.json` is read nowhere since 6.0, so the record gate and the "
+                      "render both refuse one (exit 2), naming the target form",
                       self.doc("docs/ARCHITECTURE.md").split("## Releasing")[0][-1500:])
 
     def test_a_bundle_keeps_its_statuses(self):

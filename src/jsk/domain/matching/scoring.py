@@ -1,4 +1,4 @@
-"""The numbers `jsk tailor match` ranks by and `jsk kb query experience` adds up.
+"""The numbers the match ranks by and `jsk kb query experience` adds up.
 
 Standard library only, like ontology.py: importing this must not import pyoxigraph.
 """

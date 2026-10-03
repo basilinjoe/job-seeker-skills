@@ -3,7 +3,7 @@ from typing import Any, Protocol
 
 
 class PostingSource(Protocol):
-    """A board's API answered over the network; the one seam `jsk posting fetch` crosses."""
+    """A board's API answered over the network; the one seam `posting_capture` crosses."""
 
     def get(self, api_url: str) -> Any:
         """The board's JSON answer for `api_url`, parsed.

@@ -120,5 +120,4 @@ Present the files, say plainly which goes where, show the checker output. Then n
 weak — a missing certification, a thin metric, an unconfirmed claim.
 
 Tell them the selection is kept in the store: it makes the next resume cheap, and names each
-claim by its id in the career. A resume made earlier as a `resume.json` still renders with
-`jsk resume ship <resume.json> --out <dir>`.
+claim by its id in the career.

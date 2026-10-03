@@ -1,7 +1,7 @@
 {
   "name": "jsk",
   "displayName": "Job Seeker Skill",
-  "version": "5.1.0",
+  "version": "6.0.0",
   "description": "Keep a career as a validated graph record, changed only through reviewed changesets, and render verified ATS-safe resumes from it. Interview once; tailor forever.",
   "author": {
     "name": "Basilin Joe",

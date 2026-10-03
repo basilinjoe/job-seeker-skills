@@ -1,47 +1,23 @@
-"""A posting's decisions as data: decisions.txt's name, the seniority a title hints at,
-the header posting.md states, the necessity a line defaults to, and the posting graph's
-triples. Nothing here reads a file or the store: application/posting/ does.
+"""A posting's decisions as data: the header an advert states, the necessity a line defaults
+to, and the posting graph's triples. Nothing here reads a file or the store:
+application/posting/ does. decisions.txt's name and the title's seniority hint, which `jsk
+posting extract` printed for the analyst, went with that verb in 6.0
+(docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2).
 """
 import re
 
 from .advert import FIRST_LINE, REQUIRED_WORDS, squash
 from .errors import POSTING
 
-DECISIONS = "decisions.txt"
 SOFT_CAP = 20
 DATED = re.compile(r"\A\d{4}-\d{2}-\d{2}-")
-# Ruling 11: a title word, as a hint only - the analyst decides.
-SENIORITY_HINTS = (
-    (re.compile(r"\b(principal|staff|architect)\b", re.I), "architecture-ownership"),
-    (re.compile(r"\b(lead|manager)\b", re.I), "team-leadership"),
-    (re.compile(r"\bsenior\b", re.I), "hands-on-senior"),
-    (re.compile(r"\b(junior|graduate)\b", re.I), "junior"),
-)
-SHORT = {"qualification": "qual", "responsibility": "resp", "other": "other"}
-
-
-def seniority_hint(title):
-    """(the title word, the seniority it hints at), or (None, None): a hint only - the
-    analyst decides.
-
-    Args:
-        title: the posting's title.
-
-    Returns:
-        The first SENIORITY_HINTS pattern the title matches, as (word, level).
-    """
-    for pattern, level in SENIORITY_HINTS:
-        found = pattern.search(title or "")
-        if found:
-            return found.group(0).lower(), level
-    return None, None
 
 
 def advert_header(advert):
-    """(title, company, url) as posting.md states them: the `# ` heading, the first fact
-    of the `a · b · c` line under it, and a URL on line 1. With no `# ` heading the title
-    is the first line that is not the URL or `Source:`, and the company is blank - a guess extract
-    prints for the analyst to correct, where a blank title only made them type it."""
+    """(title, company, url) as an advert's text states them: the `# ` heading, the first
+    fact of the `a · b · c` line under it, and a URL on line 1. With no `# ` heading the title
+    is the first line that is not the URL or `Source:`, and the company is blank - a guess
+    posting_capture asks to be given when it cannot read one."""
     lines = advert.split("\n")
     first = next((x.strip() for x in lines if x.strip()), "")
     url = first if re.fullmatch(r"https?://\S+", first) else ""
@@ -74,16 +50,16 @@ def triples(post, stem, head, seniority, domains, captured, reqs, *, lines=None,
     """The posting graph's triples: the Posting, then each requirement - and, for a
     graph-native posting, the advert's lines.
 
-    Called without `lines`, it writes what `jsk posting build` always wrote, triple for
+    Called without `lines`, it writes what `jsk posting build` wrote until 6.0, triple for
     triple: a posting built from files keeps its advert in posting.md and its drops in
-    decisions.txt. With `lines` it writes Rulings 1-3 of
+    decisions.txt (a frozen one's graph is still that shape). With `lines` it writes Rulings 1-3 of
     docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md: the lines with
     their drops, each requirement's `j:line`, the posting's `j:state`, and no `j:advert`.
 
     Args:
         post: the posting's iri.
         stem: its stem, which the requirements' and lines' ids carry.
-        head: decisions.txt's header (company, title, url).
+        head: the header (company, title, url).
         seniority: the level, or empty.
         domains: the domains' iris.
         captured: the day the advert was saved, ISO.

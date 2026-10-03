@@ -142,7 +142,7 @@ def cmd_check(args, flags, root, today):
 
     --only <graph or path>  the findings in that graph or under that application (`kb`,
                     `applications/acme`, or the application's folder), plus every FAIL
-                    anywhere, since a FAIL still stops `jsk tailor match`. The JumpCloud run's
+                    anywhere, since a FAIL still stops the match. The JumpCloud run's
                     full check printed 40 KB of other applications' warnings to find its
                     own five.
 

@@ -18,10 +18,10 @@ Five things make it different:
   the diff shown - and nothing can be marked confirmed except by your own answer: a backup edited
   outside jsk is refused when it is loaded back.
 - **Nothing is hand-built.** The PDF and the text the checks read are both built from your knowledge
-  base and a short `resume.json` naming what this resume shows — so they cannot drift apart or
+  base and a selection naming what this resume shows — so they cannot drift apart or
   contradict each other.
 - **Gaps close first.** The posting, the gap assessment between it and your record, and the
-  `resume.json` that selects what renders all live in one directory per application. Tailoring closes the gaps
+  selection of what renders all live in the store, one set of graphs per application. Tailoring closes the gaps
   first and writes the resume last — there is no reason to author a document from a record you are
   about to change.
 - **Nothing is invented.** Tailoring is selection: a resume names your evidence by id and orders
@@ -109,8 +109,12 @@ my-career/                  `jsk kb new ./my-career --name "Your Name"` makes th
 requirements, the analyst's review, the assessment and the resume's selection are graphs the
 agents reach through `jsk mcp`'s tools, and the application's directory holds only the renders
 (`.pdf`, `.tex`) and any cover letter. A "no" you give ("never used Kafka") is kept, so the next posting does not ask it
-again for a year. Applications made before 5.0.0 keep their `posting.md`, `decisions.txt`,
-`gaps.txt` and `resume.json`, and the commands still work them.
+again for a year.
+
+**6.0.0** retires the file-made applications 5.x still worked (`posting.md`, `decisions.txt`,
+`gaps.txt`, `resume.json`): `jsk posting` and `jsk tailor` are gone, and no command reads a
+`resume.json`. Finish an unsent one with jsk 5.1.0 first, or set it aside with `jsk app drop`;
+`jsk kb check` names each. A sent one stays readable.
 
 One record for the career, and a frozen directory per application. The career holds identity,
 positioning, work rights, vocabulary, organisations, roles, projects, metrics, skills, education,
@@ -140,7 +144,7 @@ Back up the folder and the record goes with it; the dump is what outlives this t
 | [The knowledge base format](plugins/jsk/skills/jsk/references/kb-format.md) | Every section, class and predicate of the career, and what goes in each |
 | [The ontology](docs/ONTOLOGY.md) | The full model: every graph kind, class, predicate and enum, the vocabulary's semantics, provenance, matching and every validation rule |
 | [Architecture](docs/ARCHITECTURE.md) | For anyone editing this repo |
-| [The resume file](plugins/jsk/skills/jsk/references/resume-format.md) | `resume.json`: every key, and the rule that its only prose is the summary |
+| [The resume selection](plugins/jsk/skills/jsk/references/resume-format.md) | a selection: every key, and the rule that its only prose is the summary |
 
 ### Tests
 

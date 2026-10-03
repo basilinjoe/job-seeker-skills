@@ -70,8 +70,8 @@ it lives in the store as graphs: the advert as numbered lines and what it asks f
 analyst's review (`review`), the assessment (`gaps`), the bullets chosen (`resume`), and once sent,
 `application` - what was sent, the bullets that rendered and the metric versions they cite, and a
 timeline of what came back. Its directory, `applications/<stem>/`, holds only the files actually
-sent: the PDF and the `.tex`. An application made before 5.0.0 keeps its files (`posting.md`,
-`decisions.txt`, `gaps.txt`, `resume.json`) beside them, and the commands still work it.
+sent: the PDF and the `.tex`. One made from files before 6.0 (`posting.md`, `decisions.txt`,
+`gaps.txt`, `resume.json`) is read if it was sent, and named for jsk 5.1.0 or `jsk app drop` if not.
 *Why it matters:* it is frozen once the application goes out — `jsk app freeze` refuses until the gates
 pass, records the application and names the directory after the day it was sent; after that
 `jsk app event` adds what happened next, and nothing is edited. The career keeps moving, and an
@@ -81,8 +81,8 @@ application that pointed at a moving source could not answer what it was answeri
 
 **Selection** — one resume's choices: the bullets chosen, by id, in order, and settings - format,
 region, page budgets, the provenance floor, and the prose, a summary and a headline. It is a graph in
-the store (`resume_select` makes it from the match, `resume_update` changes it), with the same keys
-an older `resume.json` file holds. Names, dates, bullet text and
+the store (`resume_select` makes it from the match, `resume_update` changes it), with the keys a
+`resume.json` file held until 6.0. Names, dates, bullet text and
 metrics are read from the career every time it is built, so a bullet confirmed or corrected in the
 career is in the next render with nothing to update here.
 *Why it matters:* a selection that holds no bullet's words cannot invent one. Tailoring can
@@ -99,8 +99,8 @@ postgraduate qualification". Flattened one way it scores a master's holder as un
 the other, a bare degree passes. Both are wrong, so the boolean structure is modelled.
 
 **Assessment** — the join between a posting and your record, written to be read aloud: one verdict per
-requirement, the evidence behind it, and how far short it falls on a *named* axis. `jsk tailor match`
-computes the join - which project holds each requirement, through which vocabulary edge - and the
+requirement, the evidence behind it, and how far short it falls on a *named* axis. The match
+(`assessment_derive`) computes the join - which project holds each requirement, through which vocabulary edge - and the
 assessment is derived from it: the gaps graph, written by code, with the analyst's review holding
 only what the join cannot know - a verdict lowered, and why. A "no" you have confirmed ("never used
 Kafka") answers a requirement by itself, with no question, for a year (an **absence**).
@@ -128,7 +128,7 @@ different question:
 
 | Gate | Asks |
 |---|---|
-| Record | Does `resume.json` name only live career entries, and does every number in a chosen bullet trace to a current metric? (`jsk resume check resume.json`) |
+| Record | Does the selection name only live career entries, and does every number in a chosen bullet trace to a current metric? (`jsk resume check <stem>`) |
 | Parse | Will an ATS read this without mangling it? |
 | Prose | Does the writing obey the rules? |
 | Render | Does it *look* right, and is it *true*? |
@@ -137,8 +137,8 @@ different question:
 parses, not that it is correct — see [WHY.md](WHY.md) for the three real resumes that prove it.
 `jsk resume ship` runs the first three in one pass; the render gate is always a person reading the PDF.
 
-**Record gate** — `jsk resume check` on a `resume.json`, over it and the career bullets it selects: the file's
-shape; an id the career does not hold, has retired, or a bullet whose project has no role; a number
+**Record gate** — `jsk resume check` on a target, over its selection and the career bullets it selects: the
+selection's shape; an id the career does not hold, has retired, or a bullet whose project has no role; a number
 no current version of a metric the bullet cites holds; a career that does not validate; and a
 career out of sync with its log - written outside jsk, restored from `.jsk/backup.trig`. It runs
 first inside `jsk resume check` on a directory, `jsk resume ship` and `jsk app freeze`.

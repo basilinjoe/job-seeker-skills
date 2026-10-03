@@ -43,8 +43,8 @@ fixes it with a changeset before anything else.
 **once, end to end**. Then `career_log(last=20)` (`jsk kb log`): its entries date the last pass, and
 how long a question has been open. `career_show([id])` for an entry you need exactly as held.
 `rules/*.md` beside `career/`, if present — **their rules beat the skill's defaults**. `app_list()`
-names every application: one not yet sent that holds a selection gets `jsk resume check <stem>`,
-and a legacy one holding a `resume.json`, `jsk resume check <path>`; report the output verbatim.
+names every application: one not yet sent that holds a selection gets `jsk resume check <stem>`;
+report the output verbatim. One made from files and unsent is named `unsent`: say so.
 Their absence is not a finding.
 
 ## The assessment
@@ -92,7 +92,7 @@ drop the claim. Unmet requirement is the tailoring run's priority and has no mea
 The caller works through this one question at a time, so keep it short enough to act on.
 
 1. **Record health** — `jsk kb check` verbatim; roles, projects, metrics and the provenance mix,
-   counted; `jsk resume check` output if there was a selection or a `resume.json`.
+   counted; `jsk resume check` output if there was a selection.
 2. **Where the gap document is**, and its queue in the order above. Each item: the id, the exact
    quote or field, and **the question to ask**, ready to say aloud.
 3. **Claims to soften or cut** — no evidence and no plausible source. The most valuable list you

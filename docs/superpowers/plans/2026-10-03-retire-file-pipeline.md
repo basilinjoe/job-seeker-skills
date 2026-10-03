@@ -1,10 +1,39 @@
 # Retire the file-made application pipeline - implementation plan
 
-## Status (2026-10-03)
+## Status (2026-10-04)
 
-P1 built (2026-10-03). P2 waits on its precondition (below). Builds on
+P1 built (2026-10-03). P2 built (2026-10-04), 6.0.0, its precondition met that day (the
+author's workspace: `jsk kb check` clean, 22 unsent applications dropped with `jsk app drop`):
+
+- render and preview take a target - 4b7f5eb;
+- the posting noun retired - d1e2147;
+- the tailor noun retired - 2ed3082;
+- `kb export --out` and `kb confirm --summary|--headline <file>` retired - 5d4418d;
+- the resume, letter and freeze file forms retired, Rulings 2, 4 and 5 - b815eb8;
+- the prose, 6.0.0 and CI - the commit after b815eb8.
+
+P3 (the replay and the reviews) is not yet done. Builds on
 `2026-10-01-graph-native-applications-mcp.md`, whose Ruling 11 left the file pipeline in place
 "until a later plan's decision". This is that plan.
+
+### Amendments made while building (2026-10-04)
+
+- **`domain/record/decisions.py` stays**, against P2's list: Ruling 2's read path parses a
+  frozen file-made application's `decisions.txt` for the advert lines it drops
+  (`advert_rules.dropped_lines`). Nothing writes one. `Drop` did not need to move:
+  `check_gaps.render` reads the stored drops through `show.Drop`.
+- **`match_text.py`'s lines moved into `check_gaps.py`** (`ranking_lines`, `cover_lines`,
+  `question_line`); its `markdown` went with `jsk tailor match`.
+- **Ruling 2's guard** is the application graph: a file-made posting's quotes are checked
+  against its `posting.md` and `decisions.txt` only once it is frozen; an unsent one is not
+  judged and is named `file-made-unsent`.
+- **The shipped example carries its selection as Turtle**, `data/example/resumes/example/
+  resume.ttl`, which `jsk kb load` imports with the career (`resumes/*/resume.ttl`); doctor
+  renders `resumes/example`. The example's `resume.json` went: nothing reads one.
+- **Ruling 5's fix after 6.0** reads "send it with jsk 5.1.0, the last CLI that does
+  (`pip install 'jsk-resume==5.1.0'`), or drop it: `jsk app drop applications/<stem>`"
+  (`application/timeline/unsent.py`, `LAST_FILE_RELEASE`).
+- **`kb export` without `--out` stays**: it prints the selection a posting earns, read-only.
 
 **Spec:** none. This plan and its Rulings are the spec. The decision is the user's (2026-10-03):
 the CLI keeps what no tool does (setup, maintenance, CI, the verifier's tracing) and what

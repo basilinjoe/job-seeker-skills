@@ -129,11 +129,11 @@ career/store/
 | Kind | Head class (exactly one) | Sections, in order | Written by |
 |---|---|---|---|
 | `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `jsk kb apply`, `confirm`, `new`, `load` |
-| `log` | none | Log | Every write to the career, in the same update (`apply`, `confirm`, `new`), and the one-time import's one entry (`load`). `jsk app freeze`, `jsk app event` and the posting and gaps builds add none |
-| `posting` | Posting | Posting · Requirements · Advert lines | `jsk posting build`, from the analyst's `decisions.txt`; a graph-native posting's lines and rows, a row at a time |
-| `gaps` | Assessment | Assessment · Verdicts · Questions | `jsk tailor prepare` / `jsk tailor match --gaps`, derived from the match plus the analyst's `gaps.txt` (or the review graph) |
-| `review` | Review | Review · Rows · Items | the analyst's review of a graph-native application: what `gaps.txt` holds for a file-built one |
-| `resume` | Selection | Selection · Picks | a graph-native application's selection, or a general resume's: what `resume.json` holds for a file-built one |
+| `log` | none | Log | Every write to the career, in the same update (`apply`, `confirm`, `new`), and the one-time import's one entry (`load`). `jsk app freeze`, `jsk app event` and the application tools add none |
+| `posting` | Posting | Posting · Requirements · Advert lines | `posting_capture`, `posting_decide`, `posting_complete`: the advert's lines and the rows, a batch at a time (until 6.0 also `jsk posting build`, from `decisions.txt`, which a frozen file-made posting's graph still holds the shape of) |
+| `gaps` | Assessment | Assessment · Verdicts · Questions | `assessment_derive`, derived from the match with the review graph folded in |
+| `review` | Review | Review · Rows · Items | `assessment_review`: the analyst's review (what `gaps.txt` held for a file-made application until 6.0) |
+| `resume` | Selection | Selection · Picks | `resume_select` and `resume_update`: an application's selection, or a general resume's (what `resume.json` held until 6.0) |
 | `application` | Application | Application · Timeline | `jsk app freeze`, `jsk app event` |
 | `vocabulary` | none | Vocabulary | Shipped with the package |
 
@@ -416,7 +416,7 @@ id `k:ach_<slug>` (never positional) · section Projects · provenance yes
 | `j:shows` | → concept | 0..n | yes | what it is evidence of |
 
 Every number in `text` must match a current version of a metric the bullet `cites`. The record
-gate checks this at render time, and `jsk tailor match` asks about any bullet that fails it.
+gate checks this at render time, and the match asks about any bullet that fails it.
 
 #### Metric
 
@@ -553,8 +553,9 @@ questions, after the questions, because a new section would change the hash of e
 
 #### Posting
 
-A job advertisement. A file-built posting's text sits next to it, verbatim, in `posting.md`; a
-graph-native posting's is its `AdvertLine`s, and it has no `posting.md`.
+A job advertisement: its text is its `AdvertLine`s. A posting built from files before 6.0 kept
+its text beside it, verbatim, in `posting.md`; a frozen one still does, and its quotes are still
+checked against it.
 
 id `k:post_<slug>` · graph posting · section Posting · provenance no
 
@@ -570,8 +571,10 @@ id `k:post_<slug>` · graph posting · section Posting · provenance no
 | `j:state` | enum `progress` | 0..1 |  | `draft` while it is decided a row at a time, then `complete`; absent on a file-built posting, which is complete |
 
 A posting is graph-native when its graph holds `AdvertLine`s. `quote-verbatim` and
-`advert-uncovered` read those lines instead of `posting.md`, and skip a `draft` posting, which
-may be half-decided.
+`advert-uncovered` read those lines, and skip a `draft` posting, which may be half-decided. For a
+file-built posting they read `posting.md` and `decisions.txt` beside it - only once its
+application is frozen (Ruling 2 of `docs/superpowers/plans/2026-10-03-retire-file-pipeline.md`):
+an unsent one is not judged, and `jsk kb check` names it `file-made-unsent` instead.
 
 #### AdvertLine
 
@@ -606,7 +609,7 @@ id `k:req_<slug>` · graph posting · section Requirements · provenance no
 | `j:line` | → AdvertLine | 0..1 |  | the advert line it quotes, on a graph-native posting |
 
 On a graph-native posting `quote` is its `line`'s text, and a requirement whose quote differs
-from it FAILs (`quote-is-line`). `quote` must appear in `posting.md` word for word (`quote-verbatim`). The comparison ignores
+from it FAILs (`quote-is-line`). `quote` must appear in the advert word for word (`quote-verbatim`). The comparison ignores
 typography, whitespace and Markdown emphasis. A requirement is resolved to concepts through
 `asked` unless `concept` is given (§11). Leave `concept` out when `asked` resolves on its own.
 State it when the term is ambiguous, unknown, or lists alternatives ("AWS/GCP/Azure").
@@ -614,7 +617,7 @@ State it when the term is ambiguous, unknown, or lists alternatives ("AWS/GCP/Az
 #### Assessment
 
 A posting's gap assessment, written by code. `jsk` derives it from the match and folds in the
-analyst's `gaps.txt`, which may only lower a verdict and must give a reason.
+analyst's review, which may only lower a verdict and must give a reason.
 
 id `k:gap_<stem>` · graph gaps · section Assessment · provenance no
 
@@ -672,15 +675,15 @@ A requirement a standing absence answers is asked nothing, so it has no `Ask`.
 
 ### 5.2a The review and the selection: `review` and `resume`
 
-A graph-native application keeps in the store what a file-built one keeps in `gaps.txt` and
-`resume.json`. Both kinds are per application (`applications/<dir>/review`,
+An application keeps in the store what a file-built one kept in `gaps.txt` and `resume.json`
+until 6.0. Both kinds are per application (`applications/<dir>/review`,
 `applications/<dir>/resume`) and move with it when it is frozen; a general resume's selection
 is `resumes/<name>/resume`.
 
 #### Review
 
 The analyst's review of a posting's assessment. It survives what the gaps graph does not - a
-re-derivation, a posting rebuild - and reads back as the same overlay `gaps.txt` parses to.
+re-derivation, a re-decided posting - and reads back as the overlay `fold.check` judges.
 
 id `k:rvw_<stem>` · graph review · section Review · provenance no
 
@@ -693,7 +696,7 @@ id `k:rvw_<stem>` · graph review · section Review · provenance no
 
 #### ReviewRow
 
-One `gaps.txt` row: a flagged verdict kept, or a verdict lowered with its reason.
+One review row: a flagged verdict kept, or a verdict lowered with its reason.
 
 id `k:rvr_<stem>_<slug>` · graph review · section Rows · provenance no
 
@@ -722,7 +725,7 @@ id `k:rvi_<stem>_<kind>_<i>` · graph review · section Items · provenance no
 
 #### Selection
 
-A resume's selection and settings: `resume.json` as triples. Its keys stay the interchange
+A resume's selection and settings: resume.json's keys as triples. The keys stay the interchange
 format, and `selection.doc_of` gives the same dict back for `plan.build` to render.
 
 id `k:sel_app_<stem>` or `k:sel_cv_<name>` · graph resume · section Selection · provenance no
@@ -775,11 +778,11 @@ id `k:app_<slug>` · graph application · section Application · provenance no
 | Predicate | Object | Card. | Resets | Meaning |
 |---|---|---|---|---|
 | `j:posting` | → Posting | 1 |  | what it answered; must be the posting of the same application (`application-posting`) |
-| `j:view` | xsd:string | 0..1 |  | `"resume"` for a short resume.json; a legacy record's URS view |
+| `j:view` | xsd:string | 0..1 |  | `"resume"` for a selection (a short resume.json before 6.0); a legacy record's URS view |
 | `j:submitted` | xsd:date, or xsd:boolean `false` | 1 |  | the day it was sent, or false when held back |
 | `j:channel` | xsd:string | 0..1 |  | how it was sent |
 | `j:document` | xsd:string | 0..n |  | a file that was sent |
-| `j:recordSha256` | xsd:string `[0-9a-f]{64}` | 0..1 |  | the frozen resume.json's hash; for a graph-native application, the SHA-256 of its stored selection's canonical text (Ruling 7) |
+| `j:recordSha256` | xsd:string `[0-9a-f]{64}` | 0..1 |  | the SHA-256 of the stored selection's canonical text (Ruling 7); for one frozen from files before 6.0, its resume.json's |
 | `j:carried` | → Achievement | 0..n |  | bullets it sent |
 | `j:carriedVersion` | → MetricVersion | 0..n |  | metric versions it sent |
 
@@ -1047,7 +1050,7 @@ out explicitly (`FILTER(?g != j:derived)`).
 
 ## 11. Matching: requirements, evidence, verdicts
 
-`jsk tailor match` joins one posting's requirements to the career through the vocabulary. The steps
+The match (`assessment_derive`) joins one posting's requirements to the career through the vocabulary. The steps
 below are its semantics. Code: [`domain/matching/`](../src/jsk/domain/matching/),
 [`match_posting.py`](../src/jsk/application/tailor/match_posting.py), [`derive.py`](../src/jsk/domain/assessment/derive.py).
 
@@ -1091,7 +1094,7 @@ with a path to one of the requirement's concepts. The shortest path wins.
 | `ambiguous`, `candidate` | `indeterminate` |
 | `implicit` | none |
 
-The analyst's `gaps.txt` may **lower** a verdict and must give a `shortfall` when it does. It
+The analyst's review may **lower** a verdict and must give a `shortfall` when it does. It
 can never raise one. The standing verdict goes in `j:verdict`.
 
 **6. Rank projects.** Each live project scores: 3 per required requirement it carries, plus 1
@@ -1157,9 +1160,9 @@ SELECT naming `?focus`, and an optional post-processing step.
 | `inferred-unasked` | WARN | An inferred or needs-verification entry with no open question about it |
 | `retired-referenced` | WARN | A live entry points at a retired one (history references are exempt) |
 | `answered-before-asked` | FAIL | A question answered before it was asked |
-| `quote-verbatim` | FAIL | A requirement's quote is empty or missing from the advert: a graph-native posting's stored `AdvertLine`s, or for an application made from files `posting.md` (FAIL too when it is absent) |
+| `quote-verbatim` | FAIL | A requirement's quote is empty or missing from the advert: a graph-native posting's stored `AdvertLine`s, or for a frozen application made from files `posting.md` (FAIL too when it is absent) |
 | `necessity-wording` | WARN | A quote says "must" but is marked preferred, or says "nice to have" but is marked required |
-| `advert-uncovered` | WARN | A requirement-like line in the advert that no requirement quotes and the posting has not dropped (in `decisions.txt`, for one made from files). Eligibility lines are exempt, since they belong in the review's eligibility. |
+| `advert-uncovered` | WARN | A requirement-like line in the advert that no requirement quotes and the posting has not dropped (in `decisions.txt`, for a frozen one made from files). Eligibility lines are exempt, since they belong in the review's eligibility. |
 | `application-posting` | FAIL | An application points at another application's posting |
 | `event-before-submit` | WARN | An event dated before its application was submitted |
 | `answer-placeholder` | WARN | A confirm whose answer is empty, a placeholder, or a denial |

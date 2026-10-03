@@ -220,7 +220,7 @@ def record_faults(store, post, today, budget, ranked=None):
 
 
 def result(store, post, today, budget, elsewhere=0):
-    """Everything `jsk tailor match` reports, as plain data
+    """Everything the match reports, as plain data
     (application.tailor.match_posting.result over the engine's queries and this module's
     select).
 

@@ -1,4 +1,4 @@
-"""A posting matched against the career, through the vocabulary: what `jsk tailor match` prints.
+"""A posting matched against the career, through the vocabulary: what the match reports.
 
 Ported from the graph simulation (docs/superpowers/experiments/2026-09-24-graph-simulation/),
 where every rule here was proven by a scenario and then by a mutation that broke it. The

@@ -418,7 +418,7 @@ RULES = [
                                              else r["line"][:67].rstrip() + "…")
                    + " and no requirement quotes it",
          "write a requirement quoting it in the posting, or - if it is eligibility (work "
-         "rights, clearance, location) - it belongs in gaps.txt's eligibility: line and can stay "
+         "rights, clearance, location) - it belongs in the review's eligibility and can stay "
          "unquoted", uncovered),
     Rule("quote-is-line", FAIL,
          """SELECT ?focus ?q ?t ?n WHERE { ?focus a j:Requirement ; j:quote ?q ; j:line ?l .

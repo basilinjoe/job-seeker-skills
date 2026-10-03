@@ -47,6 +47,6 @@ parse gate, and
 installed on it.
 """
 
-__version__ = "5.1.0"
+__version__ = "6.0.0"
 
 __all__ = ["__version__"]

@@ -337,8 +337,8 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
     if posting is None:
         broken = [f.text() for f in store.findings if f.file == app_graph(rel, "posting")]
         return None, ([f"no posting in {app_dir}"] + broken +
-                      ["the application record names the posting it answered: "
-                       f"`jsk posting build {app_dir}` writes it from posting.md"])
+                      ["the application record names the posting it answered: the "
+                       "`posting_capture` tool (`jsk mcp`) stores one"])
     bullets, versions = carried_of(store)
     _, quads = application_quads(stem, posting, view, submitted, channel, documents,
                                  record_bytes, bullets, versions)

@@ -10,8 +10,8 @@ For reading the career and drafting a changeset. The record is named graphs in o
                              applications/<stem>/posting, review, gaps, resume, application;
                              resumes/<name>/resume
   .jsk/backup.trig           the whole record as TriG, after every write
-  applications/<stem>/       the .pdf and .tex a render left (one made from files also holds
-                             posting.md, decisions.txt, gaps.txt, resume.json)
+  applications/<stem>/       the .pdf and .tex a render left (one frozen from files before
+                             6.0 also holds posting.md, read to check its quotes)
 ```
 
 ## Sections

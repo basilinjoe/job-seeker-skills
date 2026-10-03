@@ -84,7 +84,7 @@ when asked for:
 
 ## What the parse gate verifies
 
-`jsk resume check` reads the `.pdf` (text via `pymupdf`), and the plain text `resume.json`'s plan
+`jsk resume check` reads the `.pdf` (text via `pymupdf`), and the plain text the selection's plan
 emits, in memory, `--strict`. First, that it is readable:
 
 | Signal | Meaning |

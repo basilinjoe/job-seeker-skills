@@ -31,9 +31,8 @@ hand-built documents stop agreeing the moment one is edited.
 | `career/store/` | the career and its history; each application's advert, requirements, review, assessment, selection and timeline | `jsk` only |
 | `applications/<stem>/` | what was rendered: the `.pdf` and the `.tex` | `resume_ship` |
 
-An application made from files (`posting.md`, `decisions.txt`, `gaps.txt`, `resume.json`) keeps
-them; the tools refuse it, and its commands retire in 6.0. `app_list` and `jsk kb check` name the
-unsent ones: send each first, or drop it.
+An unsent application made from files is finished only by jsk 5.1.0; `app_list` and `jsk kb
+check` name each - send it with 5.1.0, or `jsk app drop` it.
 `applications/` is the directory beside `career/` — resolve it to an absolute path, never the
 working directory.
 
@@ -92,12 +91,12 @@ changeset to a file for later.
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk kb new <path> --name "Name"` | an empty `career/store/` and `applications/` |
 | `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|path\|export\|pack\|merge` | the career, changed and read; `export` prints a selection, `pack` and `merge` vocabulary changesets |
-| `jsk resume check <resume.json>\|<stem>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
-| `jsk resume render <resume.json> --out DIR --pdf [--ats-max] [--template N]` | record to `.tex` and PDF |
-| `jsk resume preview <resume.json> --out DIR` | every template, with page counts |
-| `jsk resume ship <resume.json> --out DIR\|<stem> [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
+| `jsk resume check <stem>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
+| `jsk resume render <stem> --pdf [--ats-max] [--template N]` | a selection to `.tex` and PDF |
+| `jsk resume preview <stem> --out DIR` | every template, with page counts |
+| `jsk resume ship <stem> [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
 | `jsk resume fit <resume.tex> --target-pages 2` | fits the render to a page budget |
-| `jsk letter check <letter> --record R` | a cover letter's words and numbers |
+| `jsk letter check <letter> --record <stem>` | a cover letter's words and numbers |
 | `jsk app freeze <app-dir> --submitted DATE\|false --channel TEXT` | records what was sent, if the gates pass |
 | `jsk app event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |
 | `jsk app drop <app-dir>` | sets an unsent one aside |
@@ -154,10 +153,10 @@ wrote it), or `needs-verification`.
 - **Say why**, flag every inference, and offer options with a recommendation.
 - **Tell them where they fall short.** Being flattered costs interviews.
 
-A file-made application: Keep `resume.json` inside the workspace, where it finds its career. Copy
-only rendered files to an outputs folder (Cowork). Tell them the path.
+A `<stem>` above may be `resumes/<name>`. Copy only rendered files to an outputs folder
+(Cowork). Tell them the path.
 
 ## References, on demand
 
-Formats: `kb-format.md` (the career), `resume-format.md` (`resume.json`). Rules: `writing-rules.md`,
+Formats: `kb-format.md` (the career), `resume-format.md` (a selection). Rules: `writing-rules.md`,
 `ats-rules.md`, `templates.md`. `rationale.md` explains why any rule exists, for when someone asks.

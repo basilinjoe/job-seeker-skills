@@ -9,12 +9,10 @@ A selection that validates: an application's `<stem>`, or `resumes/<name>`. Ever
 default.
 
 ```
-/jsk:ship <stem>|resumes/<name>|<resume.json> [--template NAME] [--ats-max] [--pages N]
+/jsk:ship <stem>|resumes/<name> [--template NAME] [--ats-max] [--pages N]
 ```
 
-`$ARGUMENTS` names it. Empty → `app_list()`, and ask which if more than one is unsent. A
-`resume.json` is an application made from files: ship it with
-`jsk resume ship <resume.json> --out <its directory>`; the rest is the same.
+`$ARGUMENTS` names it. Empty → `app_list()`, and ask which if more than one is unsent.
 
 **Nothing here decides what the document says.** A gate failure is repaired in the career,
 through `career_apply`, or in the selection's ids and settings (`resume_update`), then
@@ -72,8 +70,8 @@ fonts, stranded headings, the date column, the paper and the page count; open th
       theirs to confirm — call the resume **unverified** until they have read it
 
 **`jsk-verifier`** is for a failed gate whose source you cannot see, or a second reading of the
-render gate. Hand it the skill directory, the output directory, the page budget, the stem (or
-`resume.json` path) and the workspace; it returns each verdict quoted and each defect traced to the id where it is fixed.
+render gate. Hand it the skill directory, the output directory, the page budget, the stem and
+the workspace; it returns each verdict quoted and each defect traced to the id where it is fixed.
 To re-check after one repair, `jsk resume check <dir>`, or `<file> --only parse|prose|layout` for
 one gate.
 

@@ -11,7 +11,7 @@ Two hand-built documents have to agree about every date, bullet and number. They
 moment one is edited — silently, usually in the copy that gets sent. One career with several emitters
 cannot drift, because no emitter decides what the document says.
 
-The builder reads the career and the short `resume.json` once — selection, ordering, provenance
+The builder reads the career and the selection once — selection, ordering, provenance
 filtering, region, ASCII folding, date formatting — into a plan, and the emitters translate that plan
 into markup without deciding anything.
 
@@ -36,7 +36,7 @@ The parse gate passed all three of these, correctly, because all three were outs
 3. A resume written **in the third person**. Not a parsing defect at all.
 
 The first two are why the render gate exists: somebody has to look at the page. The third is why the
-prose gate exists. The record gate checks, before anything renders, that `resume.json` names only
+prose gate exists. The record gate checks, before anything renders, that the selection names only
 live entries and that every number in a chosen bullet is a current metric's.
 
 **How to say it to someone:** *"The ATS checker tells you a robot can read it. It can't tell you the
@@ -55,7 +55,7 @@ nothing acts on.
 
 ## Why tailoring is selection and never invention
 
-A tailored resume is a *selection*: `resume.json` names evidence by id and orders it. Its one piece
+A tailored resume is a *selection*: it names evidence by id and orders it. Its one piece
 of prose is the summary; a bullet is in the career or nowhere, and the record gate fails an id the
 career does not hold.
 
@@ -69,7 +69,7 @@ done, it shows up as a gap, not as a sentence."*
 ## Why every numeral must trace to a metric
 
 Every numeral in a chosen bullet must appear in the current version of a metric it cites, or `jsk
-resume check` fails `resume.json` before anything renders.
+resume check` fails the selection before anything renders.
 
 It catches a bullet being rewritten for flow and the figure quietly moving with it — 30% becoming 40%
 because the sentence scanned better.

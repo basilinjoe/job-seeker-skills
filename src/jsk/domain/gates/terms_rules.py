@@ -61,9 +61,9 @@ def judge(text, title, requirements, target=None):
         title: the posting's j:title.
         requirements: [(asked, necessity, other names)] - the term as the advert wrote it,
             required, preferred or implicit, and the labels of the concepts it resolves to.
-        target: a graph-native application's stem, whose headline and review are changed
-            through the MCP tools, not resume.json and gaps.txt; None for files. The caller
-            says which - a rule here cannot tell.
+        target: the selection's name, whose headline and review are changed through the
+            MCP tools; None when the caller has none to give, and the advice names the
+            commands instead. The caller says which - a rule here cannot tell.
 
     Returns:
         (counts, report): counts is {necessity: (on the page, asked)} for the searched
@@ -76,9 +76,9 @@ def judge(text, title, requirements, target=None):
                     f'(`career_confirm`, target "{target}", block "headline")')
         gap = f'a short item in the review (`assessment_review` short, on "{target}")'
     else:
-        headline = ("set `headline` in resume.json and confirm it with the person "
-                    "(`jsk kb confirm --headline`)")
-        gap = "a short: line in gaps.txt"
+        headline = ("set the headline with `resume_update` and confirm it with the person "
+                    "(`jsk kb confirm --headline <stem>`)")
+        gap = "a short item in the review (`assessment_review` short)"
     if title and not occurrences(title, page):
         report.warn(f"the posting's title {title!r} is not on the page - a recruiter's search "
                     f"by title will not find it; {headline}")

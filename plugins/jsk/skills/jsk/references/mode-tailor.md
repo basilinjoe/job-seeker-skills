@@ -21,9 +21,8 @@ answers             career_apply / confirm  ──►  selection    authored onc
 
 Every step is a `jsk` tool; every part of the application is a graph in the store. Its stem,
 `<yyyy-mm-dd>-<company>-<role>`, cannot be renamed until `jsk app freeze`; the first render
-creates `<workspace>/applications/<stem>/`, for the renders and any cover letter. The tools refuse
-an application made from files (`posting.md`, `decisions.txt`); `app_list` marks one `unsent`.
-Finish it with `docs/SCRIPTS.md`'s file verbs before 6.0 retires them, or `jsk app drop` it.
+creates `<workspace>/applications/<stem>/`, for the renders and any cover letter. One made from
+files and unsent (`app_list` marks it) is finished by jsk 5.1.0, or `jsk app drop`.
 
 **Two agent passes, and the person in between.** One writes the assessment; one writes the resume
 after the questions are answered. The resume is written **last** — never from a career you are

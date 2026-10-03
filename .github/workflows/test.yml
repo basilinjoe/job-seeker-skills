@@ -177,6 +177,19 @@ jobs:
           # No TeX engine here, so BLOCKED (exit 1) is the expected verdict; a crash is not.
           if [ "$code" -gt 1 ]; then exit "$code"; fi
 
+      - name: A retired file verb exits 2 and names its replacement
+        working-directory: ${{ runner.temp }}
+        run: |
+          # 6.0 retired the file-made pipeline (Ruling 1 of
+          # docs/superpowers/plans/2026-10-03-retire-file-pipeline.md): never a silent shim.
+          set +e
+          said=$(wheelenv/bin/jsk posting build ws/applications/acme 2>&1)
+          code=$?
+          set -e
+          echo "$said"
+          test "$code" -eq 2
+          echo "$said" | grep -q "posting_decide"
+
       - name: jsk mcp without the extra names the install line
         working-directory: ${{ runner.temp }}
         run: |

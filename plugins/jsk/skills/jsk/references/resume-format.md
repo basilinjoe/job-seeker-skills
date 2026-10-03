@@ -6,8 +6,8 @@ a confirm or a corrected bullet is on the next render with nothing to update her
 
 A selection is a graph in the store — an application's (`<stem>`) or a general resume's
 (`resumes/<name>`). `resume_select` makes it, `resume_update` changes it key by key, and
-`app_show(target, "selection")` shows it as this dict. An application made from files holds the
-same keys as a `resume.json`.
+`app_show(target, "selection")` shows it as this dict, with resume.json's keys; no file holds
+it.
 
 ```json
 {
@@ -42,14 +42,14 @@ For one render, `resume_ship`'s `ats_max` overrides `format`.
 (`career_apply`, as `jsk kb apply`) and is named here by its id; an unknown key fails.
 `resume_update` takes `summary` and `headline` as text, and new text arrives `inferred`. Once the
 person confirms it, `career_confirm(target, block="summary", answer="…")` (`jsk kb confirm
---summary <stem>|<resume.json>`) marks it `confirmed` beside their answer and the text's hash; a
+--summary <stem>`) marks it `confirmed` beside their answer and the text's hash; a
 hand-set `confirmed`, or text changed since, fails. The headline likewise, `block="headline"`:
 `resume_select` with `from_match` sets it to the posting's title, and the person says whether they
 stand behind it.
 
-`jsk resume check <stem>|resumes/<name>|<resume.json>` is the record gate: it fails the shape, an
+`jsk resume check <stem>|resumes/<name>` is the record gate: it fails the shape, an
 id the career does not hold or has retired, a bullet whose project has no role, a number in a
 bullet that no current version of a metric it cites holds, a career that does not validate, and
 one out of sync with its log (written outside jsk: restore it from `.jsk/backup.trig`); it warns
-of labels, "N years of X" and brackets. A full URS record (`"urs"` key) is refused: write a short
-one with `jsk kb export`. A frozen application keeps its selection as the archive of what was sent.
+of labels, "N years of X" and brackets. A frozen application keeps its selection as the archive
+of what was sent.

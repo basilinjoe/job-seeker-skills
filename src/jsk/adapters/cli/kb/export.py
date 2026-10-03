@@ -26,12 +26,13 @@ def cmd_export(args, flags, root, today):
     Retired entries never come. With none of --select, --from-match or --ranked, the
     whole career.
 
-    --from-match chooses the bullets from `jsk tailor match` of the application (its directory,
+    --from-match chooses the bullets from the match of the application's posting (its directory,
     applications/<dir>): the projects that carry the posting with confirmed evidence,
     their bullets by what they show, the skills the posting asks for first - each skills
     row cut to the most a row renders, and a NOTE naming what each cut left out. What it
     cannot close prints as GAP lines - tag-only, unconfirmed, uncovered, unresolved - for
-    the assessment. --select adds to it; --cover and --today are jsk tailor match's. It also sets
+    the assessment. --select adds to it; --cover is the most projects the cover may use and
+    --today the day recency counts from. It also sets
     `headline` to the posting's title, inferred until `jsk kb confirm --headline`, and
     `names` for a skill the posting asks for by one of its aliases - each said in a NOTE.
 
@@ -144,7 +145,7 @@ def exported(root, flags, select, today, budget):
                              selector=selector, posting_in=posting_in)
         if chosen is not None:
             # The gaps first: when nothing is selected they are the reason, and a refusal
-            # printed without them would leave the author to run jsk tailor match to find out why.
+            # printed without them would leave the author to run the match to find out why.
             said(chosen, report)
         doc = E.short(store, chosen, select, today, ships=profiles.ships,
                       queries=OxigraphQueries(store),
