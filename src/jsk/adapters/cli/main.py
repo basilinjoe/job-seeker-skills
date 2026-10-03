@@ -4,8 +4,6 @@
     jsk kb new PATH --name NAME scaffold career/store/ - the career and its log at r1 -
                                 and applications/
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
-    jsk tailor match APP        a posting against the graph record, through the vocabulary
-      ... prepare APP           the match and everything an assessment reads, in one digest
     jsk resume check RESUME.json   the record gate, before anything renders
       ... check PDF [--strict]  the parse gate and the prose gate, both
       ...   --only parse|prose  one of them, for re-checking one repaired file
@@ -105,7 +103,6 @@ def mcp(args):
 NOUNS = {
     "doctor": {},
     "kb": {"new": "kb.py", **dict.fromkeys(KB_VERBS, "kbcli.py")},
-    "tailor": {"match": "match.py", "prepare": "prepare.py"},
     "resume": {"check": resume_check, "render": "render_resume.py",
                "preview": "preview_templates.py", "fit": "fit_pages.py", "ship": resume_ship},
     "letter": {"check": letter_check},
@@ -114,17 +111,13 @@ NOUNS = {
 }
 
 # The scripts that dispatch their own verbs, so they are handed the verb with its arguments.
-TAKES_VERB = {"kbcli.py", "prepare.py"}
+TAKES_VERB = {"kbcli.py"}
 
 # The nouns whose adapter prints its own usage, verbs and unknown-verb refusal.
 OWN_USAGE = {"kb": "kbcli.py"}
 
 # What `jsk <noun> --help` prints for the nouns that do not print their own.
 NOUN_USAGE = {
-    "tailor": ("usage: jsk tailor <verb> ...\n"
-               "  match APP [--cover N] [--json] [--today D]   a posting against the record\n"
-               "  prepare APP [--draft-gaps] [--cover N]       everything an assessment "
-               "reads, in one digest"),
     "resume": ("usage: jsk resume <verb> ...\n"
                "  check RESUME.json | RENDER | DIR   the record gate; parse and prose; "
                "or all four\n"
@@ -147,14 +140,16 @@ NOUN_USAGE = {
 # none were given); the call's own arguments are shown when there are some.
 RETIRED = {
     "index": "it read user-knowledgebase.md, and the career is career/store/ now.\n"
-             "fix:  `jsk tailor match applications/<dir>` ranks the career against a "
+             "fix:  the assessment_derive tool (jsk mcp) matches the career against a "
              "posting;\n      `jsk kb view` reads it",
     "migrate": "it moved a user-knowledgebase.md into the career, and jsk no longer reads "
                "the Markdown format.\n"
                "fix:  `jsk kb new PATH --name NAME` starts a career/store/; `jsk kb export` "
                "writes an application's short resume.json",
     "new": ("jsk kb new", "PATH --name NAME"),
-    "match": ("jsk tailor match", "applications/<dir>"),
+    "match": "in 6.0 - it matched a posting made from files, which jsk no longer makes.\n"
+             "fix:  the assessment_derive tool (jsk mcp) matches a graph-native "
+             "application's posting against the career",
     "validate": ("jsk resume check", "resume.json"),
     "check": ("jsk resume check", "resume.pdf"),
     "check --only letter": ("jsk letter check", "cover-letter.txt --record resume.json"),
@@ -182,11 +177,23 @@ RETIRED = {
     "posting build": "in 6.0 - it wrote a posting graph from decisions.txt.\n"
                      "fix:  the posting_decide and posting_complete tools (jsk mcp) write the "
                      "requirements and settle them",
+    "tailor": "in 6.0 - the tailor noun served applications made from files, which jsk no "
+              "longer makes.\n"
+              "fix:  the assessment_derive, assessment_review and assessment_complete tools "
+              "(jsk mcp) match, review and settle a graph-native application",
+    "tailor match": "in 6.0 - it matched a posting made from files and folded its gaps.txt "
+                    "in.\n"
+                    "fix:  the assessment_derive tool (jsk mcp) matches; assessment_review "
+                    "and assessment_complete take the review",
+    "tailor prepare": "in 6.0 - it gathered an assessment's digest and drafted gaps.txt for "
+                      "an application made from files.\n"
+                      "fix:  the assessment_derive tool (jsk mcp) returns the rows, flags and "
+                      "questions; app_show reads the rest",
 }
 
 # The nouns 6.0 retired whole, their verbs with them: `jsk posting build` is said as itself
 # when RETIRED names it, and as its noun otherwise.
-RETIRED_NOUNS = ("posting",)
+RETIRED_NOUNS = ("posting", "tailor")
 
 
 def without_only_letter(args):

@@ -249,7 +249,6 @@ without the engine and `jsk doctor` can report on it.
 | `domain/matching/scoring.py` | the numbers the match ranks by: seniority order, the requirement weights, recency points, months of experience. Standard library only |
 | `domain/selection/select.py` · `application/tailor/export.py` | what a resume for one posting selects (projects, bullets, skill order) and `jsk kb export`, which writes it as the short file |
 | `domain/posting/decide.py` · `application/posting/` | `decisions.txt` read; `jsk posting extract` and `build`, which write the posting graph from it |
-| `application/tailor/prepare.py` | `jsk tailor prepare`: the check, the match, the evidence, the person and the cover, in one digest |
 | `domain/assessment/` · `application/tailor/check_gaps.py` | the assessment: derived from the match with no model; the draft `gaps.txt`; `gaps.txt` read; the overlay checked, folded in, written as the gaps graph and printed |
 | `domain/record/view.py` · `application/timeline/` | `jsk kb view`; `jsk app freeze`'s application graph, `jsk app event` and `jsk app drop` |
 
@@ -379,7 +378,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     assessment/overlay.py           gaps.txt's format and its parser: the analyst's overlay
     assessment/derive.py            the gap assessment the match already knows, without a model
     assessment/fold.py              gaps.txt checked against the derived assessment and folded in; its triples
-    assessment/draft.py             the gaps.txt draft: a slot wherever the analyst's judgement is needed
     assessment/review.py            the analyst's overlay as the review graph's triples, and back
     posting/errors.py               posting.md's name, and how a posting step refuses
     posting/boards.py               which job board a URL is on, and its answer as a posting
@@ -443,10 +441,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/merge.py                 `jsk kb merge`: two concepts that are one, drafted on the logged revision
     record/scaffold.py              `jsk kb new`: the empty record written, or a record started over
     tailor/match_posting.py         one application's posting matched against the career, as plain data
-    tailor/match_text.py            the match as markdown; its sections, shared with the gaps draft
     tailor/check_gaps.py            gaps.txt checked, the assessment written from the match and rendered to print
-    tailor/draft_gaps.py            the gaps.txt draft: the advert, the drops and the person read, the draft made
-    tailor/prepare.py               the tailoring digest: the check, the match, the evidence, the assessment written
     tailor/export.py                `jsk kb export`: the bullets a resume.json shows chosen, the short file formed and written
     posting/fetch.py                an advert read off a job board or out of a file, for posting_capture
     posting/native.py               a graph-native application by its stem: its posting read back, the refusals both ways
@@ -495,15 +490,13 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     oxigraph/queries.py             the feature reads over a loaded record, as SPARQL
     oxigraph/applications.py        an application's folder and its graphs in career/store/, read and written
   adapters/                         ring 5, outermost: argv parsed, the real ports bound, a use case run, its result printed
-    cli/main.py                     the dispatcher: seven nouns, each verb run in process, the retired names
+    cli/main.py                     the dispatcher: six nouns, each verb run in process, the retired names
     cli/dispatch.py                 a verb's adapter found (ADAPTERS) and its main() called, contained
     cli/cliutil.py                  one contract for --help and flags across the commands; a finding list printed
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
     cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
     cli/retiring.py                 the file verbs retiring in 6.0: each one's WARN and replacement, said once
     cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
-    cli/match.py                    `jsk tailor match`: its flags, the match run and printed, or its assessment built
-    cli/tailor.py                   `jsk tailor prepare`: its flags, the digest run and printed section by section
     cli/resume.py                   `jsk resume check`: the gates its target calls for, by its kind
     cli/render.py                   `jsk resume render`: its flags, the render run, what it wrote said
     cli/preview.py                  `jsk resume preview`: its flags, every template previewed, the pages said
@@ -533,7 +526,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
     cli/compose/record.py           a workspace loaded over career/store/ and the engine; a changeset read
     cli/compose/match.py            the match and the selection, each asked of the engine's feature reads
-    cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads, the short file, the assessment's folder
+    cli/compose/tailor.py           the short file's form and the derived assessment, bound
     cli/compose/resume.py           a resume.json read from disk, its workspace found, its career loaded, its plan built
     cli/compose/render.py           `jsk resume render`'s TeX engine and PDF reader; the posting's employer
     cli/compose/preview.py          `jsk resume preview`'s TeX engine, looked up where a test patches it

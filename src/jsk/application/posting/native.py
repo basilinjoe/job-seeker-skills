@@ -23,13 +23,7 @@ from ...domain import ontology as O
 from ...domain.naming import app_graph
 from ...domain.posting.errors import POSTING, Refused
 
-# The MCP tools (Ruling 18's table) a file verb names when it refuses a graph-native
-# application: what does that verb's work for one whose record is all in the store.
-TOOLS = {"jsk tailor match": "assessment_derive",
-         "jsk tailor match --gaps": "assessment_review",
-         "jsk tailor match --draft-gaps": "assessment_derive",
-         "jsk tailor prepare --draft-gaps": "assessment_derive"}
-# How many projects the cover may use, as `jsk tailor match` defaults it.
+# How many projects the cover may use: the default the match has always had.
 COVER = 3
 
 
@@ -77,8 +71,8 @@ def app_of(root, stem):
 
     Args:
         root: the workspace root.
-        stem: the application's directory name, as `jsk tailor match applications/<stem>`
-            would name it; a leading date is not part of its ids.
+        stem: the application's directory name, as `applications/<stem>` names it; a
+            leading date is not part of its ids.
 
     Returns:
         The App.
@@ -145,36 +139,9 @@ def legacy_refusal(app):
                    "and jsk 6.0 no longer finishes such an application", f"fix:  {fix}")
 
 
-def native_refusal(rel, verb):
-    """(message, fix) for the file verb `verb` asked about a graph-native application.
-
-    Args:
-        rel: the application, `applications/<dir>`.
-        verb: the verb as TOOLS names it.
-    """
-    return (f"{rel} is graph-native: its advert, requirements and review are in the store, "
-            f"not in files, so `{verb}` does not apply",
-            f"fix:  use the `{TOOLS[verb]}` tool (`jsk mcp`) on {rel.split('/', 1)[-1]}")
-
-
 def native_graphs(graphs):
     """Whether an application's {kind: triples} make it graph-native (Ruling 11)."""
     return has_lines(graphs.get("posting") or ())
-
-
-def refused_verb(graphs, rel, verb):
-    """The two lines a file verb prints refusing a graph-native application, or None when
-    the application is not one.
-
-    Args:
-        graphs: the application's {kind: triples} (records.app_graphs).
-        rel: the application, `applications/<dir>`.
-        verb: the verb as TOOLS names it.
-    """
-    if not native_graphs(graphs):
-        return None
-    message, fix = native_refusal(rel, verb)
-    return f"FAIL  {message}\n      fix: {fix.removeprefix('fix:').strip()}"
 
 
 @dataclass

@@ -241,14 +241,14 @@ def gather(kb_arg=None):
 
     # REQUIRED: the career is in career/store/, which only it opens. Every render builds from
     # it, `jsk resume ship` runs the record gate against it before it renders, and `jsk kb` and
-    # `jsk tailor match` start there, so a machine without the engine cannot
+    # `jsk mcp` start there, so a machine without the engine cannot
     # produce a resume from the career at all. It is a dependency of jsk-resume, so a
     # missing one means the install skipped dependencies. find_spec, not an import -
     # this module stays standard-library only.
     checks.append(Check(
         "pyoxigraph", importlib.util.find_spec("pyoxigraph") is not None, key="pyoxigraph",
         disables="cannot open, read or validate the graph record (career/store/): `jsk kb`, "
-                 "`jsk tailor match` and every render and record gate cannot start"))
+                 "`jsk mcp` and every render and record gate cannot start"))
 
     kb, problem = resolve_kb(kb_arg)
     if kb and is_store(kb):

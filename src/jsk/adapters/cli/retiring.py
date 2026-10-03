@@ -21,9 +21,6 @@ RETIRES_IN = "6.0"
 # with `(jsk mcp)` because a shell user reads the fix too; a target form is named where the
 # CLI keeps one.
 REPLACEMENTS = {
-    "jsk tailor prepare": "the assessment_derive tool (jsk mcp)",
-    "jsk tailor match": "the assessment_derive, assessment_review and assessment_complete "
-                        "tools (jsk mcp)",
     "jsk kb export --out": "the resume_select tool (jsk mcp)",
     "jsk resume check <resume.json>":
         "`jsk resume check <stem>`, on the application's stored selection",
@@ -88,9 +85,6 @@ def file_form(noun, verb, args):
         The command as REPLACEMENTS names it. `jsk app freeze` is never returned here: its
         file form is a property of the application, which the store says.
     """
-    if noun == "tailor":
-        command = f"jsk {noun} {verb}"
-        return command if command in REPLACEMENTS else None
     if noun == "kb" and verb == "export" and "--out" in args:
         return "jsk kb export --out"
     if noun == "kb" and verb == "confirm":

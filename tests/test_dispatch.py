@@ -18,7 +18,7 @@ from test_resume_check import BODY, GOOD
 JSK = CLI
 
 
-SUBCOMMANDS = ["doctor", "kb", "tailor", "resume", "letter", "app"]
+SUBCOMMANDS = ["doctor", "kb", "resume", "letter", "app"]
 
 
 class Usage(unittest.TestCase):
@@ -77,12 +77,13 @@ class Usage(unittest.TestCase):
             self.assertIn(flag, out)
 
     def test_jsk_index_is_retired_and_says_what_replaced_it(self):
-        """It read user-knowledgebase.md. The career is career/kb.ttl now: `jsk match`
-        ranks it against a posting, `jsk kb view` reads it. A bare "unknown command" would
-        read as a broken install."""
+        """It read user-knowledgebase.md. The career is career/store/ now: the
+        assessment_derive tool matches it against a posting (`jsk tailor match` did until
+        6.0), `jsk kb view` reads it. A bare "unknown command" would read as a broken
+        install."""
         code, out = run(JSK, "index", "user-knowledgebase.md")
         self.assertEqual(code, 2, out)
-        for pointer in ("jsk tailor match", "jsk kb view"):
+        for pointer in ("assessment_derive", "jsk kb view"):
             self.assertIn(pointer, out)
         from jsk import cli
         self.assertNotIn("index", cli.NOUNS)

@@ -15,7 +15,6 @@ for the posting, as ids, and a summary - and carried to a document somebody can 
                                      r1 - and applications/
     jsk kb VERB [...]                the career record: apply, confirm, show, view, query,
                                      export, check
-    jsk tailor match APP             a posting against the career, through the vocabulary
     jsk resume check RESUME          the record gate: is the resume.json sound?
     jsk resume render RESUME --out D one resume.json to a .tex and a PDF
     jsk resume preview RESUME --out D  the same resume in every template, to pick a look

@@ -46,6 +46,14 @@ RETIRED_CALLS = [
     (["posting", "build", "{app}", "decisions.txt", "--replace"], "posting_complete"),
     (["posting"], "posting_capture"),
     (["posting", "--help"], "posting_capture"),
+    (["tailor", "match", "{app}"], "assessment_derive"),
+    (["tailor", "match", "{app}", "--gaps", "{app}/gaps.txt"], "assessment_review"),
+    (["tailor", "match", "{app}", "--draft-gaps", "{app}/gaps.txt"], "assessment_derive"),
+    (["tailor", "prepare", "{app}", "--draft-gaps"], "assessment_derive"),
+    (["tailor"], "assessment_complete"),
+    # Ruling 10 of the onion design retired `jsk match` for `jsk tailor match`; 6.0 retired
+    # that too, so the older name now names the tool as well.
+    (["match", "{app}"], "assessment_derive"),
 ]
 
 
@@ -79,8 +87,10 @@ class Retired(unittest.TestCase):
             with self.subTest(noun=noun):
                 self.assertNotIn(noun, M.NOUNS)
                 self.assertIn(noun, M.RETIRED)
-        for verb in ("fetch", "extract", "build"):
-            self.assertIn(f"posting {verb}", M.RETIRED)
+        for noun, verbs in (("posting", ("fetch", "extract", "build")),
+                            ("tailor", ("match", "prepare"))):
+            for verb in verbs:
+                self.assertIn(f"{noun} {verb}", M.RETIRED)
 
 
 if __name__ == "__main__":

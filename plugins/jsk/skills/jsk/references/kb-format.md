@@ -136,5 +136,5 @@ A posting holds `company` `title` `url`? `seniority`? `domain`* `captured` `adve
 requirement `posting` `asked` `necessity` `concept`* `quote` `line`?; an advert line (`line_`)
 `posting` `n` `section` `text` `optional`? `eligibility`? `dropped`?. `asked` is the advert's
 term; `quote` its words, verbatim from `posting.md` (or its `line`); `necessity` is `required`,
-`preferred` or `implicit`; `concept` when `jsk tailor match` calls the term ambiguous or unknown,
+`preferred` or `implicit`; `concept` when the match calls the term ambiguous or unknown,
 one per alternative ("AWS/GCP/Azure") - any one satisfies.

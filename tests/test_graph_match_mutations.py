@@ -58,7 +58,7 @@ MUTATIONS = {
         "src",
         'else "unevidenced")',
         'else "satisfied")'),
-    "gaps.txt may raise a verdict": (
+    "a review may raise a verdict": (
         "src",
         "return RANK[said] > RANK[matched]",
         "return False"),
@@ -75,8 +75,8 @@ def run(mutation=None):
         tmp = Path(tmp)
         shutil.copytree(SRC, tmp / "src", ignore=shutil.ignore_patterns("__pycache__"))
         (tmp / "tests").mkdir()
-        # appkit and storekit seed the store GapsFlags runs against; fixtures, which they
-        # import first, puts the copy's src/ on the path.
+        # appkit and storekit seed the stores the scenarios load; fixtures, which they import
+        # first, puts the copy's src/ on the path.
         for helper in ("test_graph_match.py", "appkit.py", "storekit.py", "fixtures.py"):
             shutil.copy(TESTS / helper, tmp / "tests")
         shutil.copytree(TESTS / "match_fixtures", tmp / "tests" / "match_fixtures")

@@ -23,7 +23,6 @@ from jsk.adapters.cli import main as M
 # (the old call, the new call it names). Ruling 10's table, row by row.
 MAPPING = [
     (["new", "my-career", "--name", "Priya"], ["kb", "new", "my-career", "--name", "Priya"]),
-    (["match", "applications/acme"], ["tailor", "match", "applications/acme"]),
     (["validate", "resume.json"], ["resume", "check", "resume.json"]),
     (["check", "resume.pdf", "--strict", "--only", "parse"],
      ["resume", "check", "resume.pdf", "--strict", "--only", "parse"]),
@@ -44,7 +43,7 @@ MAPPING = [
 ]
 
 # The commands Ruling 10 leaves as they were.
-UNCHANGED = [["kb", "view"], ["tailor", "prepare"], ["doctor"]]
+UNCHANGED = [["kb", "view"], ["doctor"]]
 
 
 def jsk(*argv):
@@ -112,7 +111,7 @@ class TheNouns(unittest.TestCase):
                     self.assertIn(verb, out)
 
     def test_a_noun_with_no_verb_is_a_usage_error(self):
-        for noun in ("tailor", "resume", "letter", "app"):
+        for noun in ("resume", "letter", "app"):
             with self.subTest(noun=noun):
                 code, out = jsk(noun)
                 self.assertEqual(code, 2, out)

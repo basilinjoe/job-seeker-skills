@@ -28,8 +28,9 @@ class UnloadedWorkspace(unittest.TestCase):
         return code, buf.getvalue()
 
     def test_a_command_given_a_path_in_it_is_refused_with_kb_load(self):
-        for args in (("tailor", "match", self.root / "applications" / "contoso"),
-                     ("tailor", "prepare", self.root / "applications" / "contoso")):
+        for args in (("resume", "check", self.root / "applications" / "contoso"),
+                     ("app", "event", self.root / "applications" / "contoso", "offer",
+                      "--date", "2026-10-01")):
             with self.subTest(args=args[0]):
                 code, out = self.jsk(*args)
                 self.assertEqual(code, 1, out)
@@ -60,8 +61,10 @@ class UnloadedWorkspace(unittest.TestCase):
         from appkit import seed
         seed(self.root)
         (self.root / "career" / "kb.ttl").write_text("# left by kb load\n", encoding="utf-8")
-        code, out = self.jsk("tailor", "match", self.root / "applications" / "contoso")
-        self.assertEqual(code, 0, out)
+        code, out = self.jsk("resume", "check", self.root / "applications" / "contoso")
+        # The gates find no render in it; what matters is that the workspace was let in.
+        self.assertNotIn("the career is still career/kb.ttl", out)
+        self.assertIn("--- record gate", out)
 
     def test_the_helper_the_kb_verbs_call(self):
         self.assertIsNotNone(cli.unloaded_refusal(str(self.root)))

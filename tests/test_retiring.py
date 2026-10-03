@@ -55,8 +55,6 @@ def unwarned():
 # heavy verbs (render, preview, ship, confirm) are called on a resume.json that is not there:
 # the file form is in the name, and a refusal's exit code is as much a contract as a pass's.
 CALLS = {
-    "jsk tailor prepare": ["tailor", "prepare", "{app}"],
-    "jsk tailor match": ["tailor", "match", "{app}"],
     "jsk kb export --out": ["kb", "export", "--from-match", "{app}", "--out",
                             "{root}/draft/resume.json", "--root", "{root}"],
     "jsk resume check <resume.json>": ["resume", "check", "{short}"],
@@ -116,19 +114,11 @@ class FileVerbs(Workspaces):
                 self.assertEqual((code, out[len(warning):], err), before)
 
     def test_the_warn_says_ruling_1_s_words_and_names_its_replacement(self):
-        text, fix = retiring.warning("jsk tailor match")
-        self.assertEqual(text, "jsk tailor match serves applications made from files and "
+        text, fix = retiring.warning("jsk kb export --out")
+        self.assertEqual(text, "jsk kb export --out serves applications made from files and "
                                "retires in 6.0 - finish this application or drop it")
-        self.assertIn("assessment_derive", fix)
-        self.assertTrue(retiring.lines("jsk tailor match").startswith("WARN  "))
-
-    def test_a_json_stdout_still_parses_and_the_warn_goes_to_stderr(self):
-        root, _ = self.workspace()
-        code, out, err = jsk("tailor", "match", Path(root) / "applications" / "contoso-platform",
-                             "--json")
-        self.assertEqual(code, 0, out)
-        self.assertEqual(json.loads(out)["posting"], "k:post_contoso_platform")
-        self.assertIn("WARN  jsk tailor match serves applications made from files", err)
+        self.assertIn("resume_select", fix)
+        self.assertTrue(retiring.lines("jsk kb export --out").startswith("WARN  "))
 
     def test_a_graph_native_form_prints_no_warn(self):
         root, _ = self.workspace()

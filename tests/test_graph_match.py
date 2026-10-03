@@ -219,16 +219,14 @@ class Scenarios(unittest.TestCase):
         qs = {q.requirement: q for q in match.questions(s, match.match(s, post("contoso")))}
         self.assertEqual([short(d) for d in qs["K3s"].detail], ["kubernetes"])
 
-    def test_the_match_prints_the_nearest_concepts_beside_an_unknown_term(self):
-        from jsk.adapters.cli.compose import match as M
-        from jsk.application.tailor import match_text
-        r = M.result(self.s, post("contoso"), TODAY, 2)
+    def test_the_question_names_the_nearest_concepts_beside_an_unknown_term(self):
+        # What `jsk tailor match` printed until 6.0; the derivation asks it in these words.
+        from jsk.application.tailor.check_gaps import question_line
         q = {"kind": "unknown-term", "requirement": "event streaming",
              "detail": ["c:event-driven-architecture"]}
-        r["questions"] = [q]
-        self.assertIn("- **unknown-term** event streaming: no concept has this label - nearest "
-                      "c:event-driven-architecture; name the one meant with j:concept, or add it "
-                      "to the vocabulary?", match_text.markdown(r))
+        self.assertEqual("- **unknown-term** event streaming: no concept has this label - nearest "
+                         "c:event-driven-architecture; name the one meant with j:concept, or add "
+                         "it to the vocabulary?", question_line(q))
 
 
 class Ranking(unittest.TestCase):
@@ -371,9 +369,10 @@ class RecordFaults(unittest.TestCase):
 
     def faults(self, s, name="contoso"):
         from jsk.adapters.cli.compose import match as M
-        from jsk.application.tailor import match_text as M_match_text
+        from jsk.application.tailor.check_gaps import question_line
         r = M.result(s, post(name), TODAY, 3)
-        return [q for q in r["questions"] if q["kind"] == "missing-metric"], M_match_text.markdown(r)
+        return ([q for q in r["questions"] if q["kind"] == "missing-metric"],
+                "\n".join(question_line(q) for q in r["questions"]))
 
     def test_a_selected_bullets_uncited_numbers_are_one_question(self):
         s = edited(self.TERRAFORM, "Wrote the platform's Terraform across a 300-400 module estate.")
@@ -385,8 +384,7 @@ class RecordFaults(unittest.TestCase):
                       "figures, and where do they come from (dashboards, retros, release "
                       "notes)? Or should the words change?", md)
         # Asked after the requirements' own questions.
-        kinds = [line.split("**")[1] for line in md.split("## Questions")[1].splitlines()
-                 if line.startswith("- **")]
+        kinds = [line.split("**")[1] for line in md.splitlines() if line.startswith("- **")]
         self.assertEqual(kinds[-len(qs):], ["missing-metric"] * len(qs))
         self.assertNotIn("missing-metric", kinds[:-len(qs)])
 
@@ -472,127 +470,24 @@ class Verdicts(unittest.TestCase):
     def test_one_confirmed_carrier_among_tags_satisfies(self):
         self.assertEqual(self.v[("contoso", "K8s")], "satisfied")
 
-    def test_the_table_prints_it(self):
-        from jsk.application.tailor import match_text as M
-        out = M.markdown(self.r["contoso"])
-        self.assertIn("| Requirement | Need | State | Verdict | Carried by | Evidence |", out)
-        self.assertIn("| Mentoring | implicit | implicit | - |", out)
-        self.assertIn("| EKS | preferred | near | partial |", out)
+    def test_a_review_may_lower_the_verdict_and_never_raise_it(self):
+        """.NET is carried only by tags: `satisfied` is a claim the record does not make.
+        `jsk tailor match --gaps` pinned it over gaps.txt until 6.0; the review is folded
+        by the same check (tests/test_graph_match_mutations.py breaks it)."""
+        from jsk.adapters.cli.compose import tailor
+        from jsk.domain.assessment import fold, overlay
 
-
-class GapsFlags(unittest.TestCase):
-    """`jsk match APP --gaps` / `--draft-gaps`: gaps.txt checked, the assessment written and
-    printed - no gaps.md. The rules themselves are tests/test_gaps_build.py's."""
-
-    GAPS = "applications/contoso/gaps"
-
-    def setUp(self):
-        from appkit import seed
-
-        self.tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
-        shutil.copytree(FIXTURES, self.tmp, dirs_exist_ok=True)
-        seed(self.tmp)
-        self.app = Path(self.tmp) / "applications" / "contoso"
-        self.txt = self.app / "gaps.txt"
-
-    def main(self, *argv, app=None):
-        import contextlib
-        import io
-
-        from jsk.adapters.cli import match as M
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = M.main([str(app or self.app), "--today", "2026-09-24", *map(str, argv)])
-        return code, out.getvalue()
-
-    def assessed(self):
-        import appkit
-        return appkit.has(self.tmp, self.GAPS)
-
-    def test_the_application_is_matched(self):
-        code, out = self.main()
-        self.assertEqual(code, 0, out)
-        self.assertIn("# Match - ", out)
-        self.assertFalse(self.assessed())                  # a plain match writes nothing
-
-    def test_a_posting_ttl_path_is_refused_with_the_application_form(self):
-        code, out = self.main(app=self.app / "posting.ttl")
-        self.assertEqual(code, 2, out)
-        self.assertIn("jsk tailor match takes the application now, not its posting.ttl", out)
-        self.assertIn(f"fix:  jsk tailor match {self.app}", out)
-
-    def test_a_folder_that_is_not_an_application_is_refused(self):
-        code, out = self.main(app=Path(self.tmp) / "career")
-        self.assertEqual(code, 2, out)
-        self.assertIn("not an application", out)
-
-    def test_draft_writes_the_derived_assessment_then_gaps_txt(self):
-        import appkit
-
-        code, out = self.main("--draft-gaps", self.txt)
-        self.assertEqual(code, 0, out)
-        self.assertIn(f"0 FAIL, 0 WARN - wrote {self.GAPS}\n", out)
-        self.assertIn(f"wrote {self.txt}: 10 requirements, 4 slots to fill", out)
-        # Printed after those lines, never written: no gaps.md (Ruling 24 of the plan).
-        self.assertIn("type: Gap Assessment", out.split("slots to fill", 1)[1])
-        self.assertTrue(self.assessed())
-        self.assertFalse((self.app / "gaps.ttl").exists())
-        self.assertFalse((self.app / "gaps.md").exists())
-        # The draft's slots are a FAIL, and a FAIL writes nothing - and prints no assessment.
-        before = appkit.facts(self.tmp, self.GAPS)
-        code, out = self.main("--gaps", self.txt)
-        self.assertEqual(code, 1)
-        self.assertIn("4 FAIL, 0 WARN - nothing written", out)
-        self.assertNotIn("type: Gap Assessment", out)
-        self.assertEqual(appkit.facts(self.tmp, self.GAPS), before)
-
-    def test_a_filled_gaps_txt_writes_the_graph_and_prints_the_assessment(self):
-        self.txt.write_text("fit: partial\neligibility: meets it\n"
-                            "k8s | partial | one AKS cluster\n", encoding="utf-8")
-        code, out = self.main("--gaps", self.txt)
-        verdict = f"{self.txt}: 0 FAIL, 0 WARN - wrote {self.GAPS}"
-        self.assertEqual(code, 0, out)
-        self.assertIn(verdict + "\n", out)
-        # The assessment comes after the verdict line: lines added, none reworded.
-        self.assertIn("partial (match: satisfied)", out.split(verdict, 1)[1])
-        self.assertFalse((self.app / "gaps.md").exists())
-
-    def test_a_raised_verdict_fails_and_writes_nothing(self):
-        """.NET is carried only by tags: `satisfied` is a claim the record does not make."""
-        self.txt.write_text("dotnet | satisfied | it is on the projects\n", encoding="utf-8")
-        code, out = self.main("--gaps", self.txt)
-        self.assertEqual(code, 1, out)
-        self.assertIn("FAIL  gaps.txt line 1: dotnet: satisfied, above the match's unevidenced",
-                      out)
-        self.assertIn("the career needs the tag or the confirmation", out)
-        self.assertFalse(self.assessed())
-
-    def test_draft_refuses_a_gaps_txt_that_exists(self):
-        self.txt.write_text("the analyst's work\n", encoding="utf-8")
-        code, out = self.main("--draft-gaps", self.txt)
-        self.assertEqual(code, 1)
-        self.assertIn("exists", out)
-        self.assertIn("fix:", out)
-        self.assertEqual(self.txt.read_text(encoding="utf-8"), "the analyst's work\n")
-
-    def test_a_gaps_md_is_refused(self):
-        code, out = self.main("--gaps", self.app / "gaps.md")
-        self.assertEqual(code, 1)
-        self.assertIn("gaps.md is an older assessment", out)
-
-    def test_another_directory_or_no_file_is_refused(self):
-        code, out = self.main("--gaps", Path(self.tmp) / "gaps.txt")
-        self.assertEqual(code, 1)
-        self.assertIn("not this application's gaps.txt", out)
-        code, out = self.main("--gaps", self.txt)
-        self.assertEqual(code, 1)
-        self.assertIn("no such file", out)
-
-    def test_gaps_and_draft_gaps_together_is_a_usage_error(self):
-        code, out = self.main("--gaps", self.txt, "--draft-gaps", self.txt)
-        self.assertEqual(code, 2)
-        self.assertIn("usage:", out)
+        s = load()
+        d = tailor.derive(self.r["contoso"], s)
+        raised = fold.check(d, overlay.Overlay(rows=[overlay.Row(
+            1, "dotnet", "satisfied", "it is on the projects")]))
+        self.assertEqual([(sev, text) for sev, text, _ in raised],
+                         [("FAIL", "gaps.txt line 1: dotnet: satisfied, above the match's "
+                                   "unevidenced")])
+        self.assertIn("the career needs the tag or the confirmation", raised[0][2])
+        lowered = fold.check(d, overlay.Overlay(rows=[overlay.Row(
+            1, "dotnet", "unsatisfied", "the tags are not the work")]))
+        self.assertEqual([f for f in lowered if f[0] == "FAIL"], [])
 
 
 if __name__ == "__main__":

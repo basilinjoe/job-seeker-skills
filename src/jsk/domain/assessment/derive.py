@@ -54,7 +54,7 @@ def derive(r, queries, ask, absences=(), today=None, counts_as=None):
         r: match.result's plain data for one posting.
         queries: a RecordQueries over the workspace the match ran on.
         ask: a match question (a dict of match.result's) -> its markdown list item, as
-            application.tailor.match_text.question_line writes it.
+            application.tailor.check_gaps.question_line writes it.
         absences: the career's [domain.record.absence.Absence]. Those the person confirmed
             and that have not lapsed by `today` answer a requirement whose every concept
             they deny (Ruling 9).

@@ -1,37 +1,83 @@
-"""The assessment: the derived assessment with the analyst's gaps.txt folded in.
+"""The assessment: the derived assessment with the review folded in, checked, and rendered.
 
-gaps.txt is the only file a model edits, and it holds only what the match cannot know: a
-lowered verdict with its reason, a flagged row kept or lowered, eligibility, fit, and the
-prose. Everything else is derived (domain/assessment/derive.py). `build` checks the overlay
-against the match (domain/assessment/fold.py), then writes the assessment as the
-application's gaps graph - part of the record, so SPARQL reaches it - and renders it as text
-for the person. No gaps.md is written (Ruling 24 of the graph-native plan): nothing read it
-back. It prints nothing: `jsk tailor match --gaps` and `jsk tailor prepare` say what it found
-and wrote, and print the rendered assessment.
+A graph-native application's overlay is its review graph (domain/assessment/review.py),
+checked against the match (domain/assessment/fold.py) and folded in; its questions are
+j:Ask nodes, and the assessment is the application's gaps graph - part of the record, so
+SPARQL reaches it - rendered as text for the person (Ruling 24 of
+docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md: no gaps.md). The
+derivation takes the career's confirmed "no"s (Ruling 9). application/tailor/review.py,
+assessment.py and show.py share what is here. It prints nothing.
 
-It is rebuilt on every run from the career as it stands, so there is no stale copy to warn
-about; once the application records the day it was sent, it is left as it was, because a
-sent assessment is what it said at the time.
-
-A graph-native application (Ruling 11 of
-docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md) has no gaps.txt and no
-gaps.md: its overlay is the review graph (domain/assessment/review.py), its questions are
-j:Ask nodes, and gaps.txt, decisions.txt and posting.md are never read for it (`native_*`,
-which application/tailor/review.py and assessment.py share). The derivation takes the
-career's confirmed "no"s for every application, file-built too (Ruling 9).
+Until 6.0 this also read an application's gaps.txt, decisions.txt and posting.md for
+`jsk tailor match --gaps` and `jsk tailor prepare`, and wrote their assessment (`build`);
+those verbs retired with the file-made pipeline (docs/superpowers/plans/
+2026-10-03-retire-file-pipeline.md, P2). The match's Ranking, Cover and question lines,
+which application/tailor/match_text.py printed for `jsk tailor match`, are here now: the
+rendered assessment and the derivation are what still read them.
 """
-import os
-
 from ...domain.assessment.fold import standing
-from .match_text import cover_lines, ranking_lines
 
-HEADER = "<!-- written by jsk from the assessment - edit gaps.txt, not this -->"
 # A graph-native assessment has no gaps.txt to edit: its overlay is the review graph,
 # changed through the tool (Ruling 4 of the graph-native plan).
-NATIVE_HEADER = ("<!-- rendered by jsk from the gaps graph - change the review with "
-                 "assessment_review, not this -->")
+HEADER = ("<!-- rendered by jsk from the gaps graph - change the review with "
+          "assessment_review, not this -->")
 KEPT = "kept after review"
 UNREVIEWED = "flagged, not yet reviewed"
+
+
+def number(x):
+    """`x` as a score prints: a whole number without its `.0`, anything else as it is."""
+    return str(int(x)) if float(x).is_integer() else str(x)
+
+
+def ranking_lines(r):
+    """The Ranking, as the rendered assessment prints it."""
+    out = ["Required ×3 · preferred ×1 · strength ×2 · recency +1 within 3 years, +0.5 at 4-6 · "
+           "seniority +1 at or above the posting's.", "",
+           "| Project | Score | Required | Preferred |", "|---|---|---|---|"]
+    for row in r["ranking"]:
+        out.append(f"| {row['project']} | {number(row['score'])} | {', '.join(row['required'])} | "
+                   f"{', '.join(row['preferred'])} |")
+    return out
+
+
+def cover_lines(r):
+    """The Cover, as the rendered assessment prints it."""
+    cov, out = r["cover"], []
+    if cov["projects"] is None:
+        out.append(f"No {cov['budget']} projects carry every required requirement that can be "
+                   f"carried; raise --cover or read the Ranking.")
+    elif cov["projects"]:
+        verb = "carries" if len(cov["projects"]) == 1 else "carry"
+        out.append(f"{', '.join(cov['projects'])} {verb} every required requirement that can be "
+                   f"carried.")
+    if cov["uncovered"]:
+        out.append(f"Nothing carries: {', '.join(cov['uncovered'])}.")
+    if cov["unresolved"]:
+        out.append(f"Unresolved, so not yet placed: {', '.join(cov['unresolved'])} - see Questions.")
+    if not cov["projects"] and not cov["uncovered"] and not cov["unresolved"]:
+        out.append("The posting has no required requirements.")
+    return out
+
+
+ASK = {"ambiguous": "which concept does it mean: {}?",
+       "unknown-term": "no concept has this label - add it to the vocabulary?",
+       "implied": "only implied, on {} - does the work really count?",
+       "broader-held": "only something broader is held, on {} - is there narrower work?",
+       "tag-only": "tagged on {}, but no confirmed bullet shows it"}
+
+
+def question_line(q):
+    """One of the match's questions as a list item: what the derivation asks with."""
+    if q["kind"] == "missing-metric":
+        return f"- **missing-metric** {q['bullet']}: {q['ask']}"
+    if q["kind"] == "unknown-term" and q["detail"]:
+        return (f"- **unknown-term** {q['requirement']}: no concept has this label - "
+                f"nearest {', '.join(q['detail'])}; name the one meant with j:concept, "
+                f"or add it to the vocabulary?")
+    return (f"- **{q['kind']}** {q['requirement']}: "
+            + ASK[q["kind"]].format(" or ".join(q["detail"]) if q["kind"] == "ambiguous"
+                                    else ", ".join(q["detail"])))
 
 
 def bare(curie):
@@ -40,7 +86,7 @@ def bare(curie):
 
 
 def cell(text):
-    """`text` as one gaps.md table cell: a `|` escaped, a newline a space."""
+    """`text` as one table cell: a `|` escaped, a newline a space."""
     return (text or "").replace("|", "\\|").replace("\n", " ")
 
 
@@ -50,8 +96,8 @@ def cut(text, n=80):
 
 
 def falls_short(a):
-    """The analyst's list, or - with no gaps.txt - the required requirements the verdicts
-    leave short, in the match's order: the agent-free assessment still says where it is weak."""
+    """The review's list, or - with none - the required requirements the verdicts leave
+    short, in the match's order: an unreviewed assessment still says where it is weak."""
     if a.short:
         return [f"- {x}" for x in a.short]
     out = [f"- **{v.row.asked}** ({v.row.necessity}): {v.verdict} - {v.row.basis}"
@@ -60,13 +106,13 @@ def falls_short(a):
 
 
 def new_terms(r, dropped, lines):
-    """gaps.md's New terms: each candidate requirement, and each advert line
-    decisions.txt dropped for a reason other than eligibility.
+    """The New terms: each candidate requirement, and each advert line dropped for a reason
+    other than eligibility.
 
     Args:
         r: the match's plain data.
-        dropped: decisions.txt's drops.
-        lines: posting.md's numbered lines.
+        dropped: the posting's drops, each with its line's `n` and its `reason`.
+        lines: the advert's numbered lines.
 
     Returns:
         The list items, or ["None."].
@@ -81,7 +127,7 @@ def new_terms(r, dropped, lines):
 
 
 def requirement_rows(a):
-    """gaps.md's Requirements table for the Assessment `a`, one row a verdict."""
+    """The Requirements table for the Assessment `a`, one row a verdict."""
     out = ["| Requirement | Need | Verdict | Evidence | Shortfall |", "|---|---|---|---|---|"]
     for v in a.verdicts:
         row = v.row
@@ -99,27 +145,24 @@ def requirement_rows(a):
     return out
 
 
-def render(r, a, today, lines=(), dropped=(), native=False):
-    """The assessment as the person reads it, from the assessment and the match - printed by
-    `jsk tailor match --gaps`/`--draft-gaps` and `jsk tailor prepare`, never written to a file.
+def render(r, a, today, lines=(), dropped=()):
+    """The assessment as the person reads it, from the assessment and the match - what
+    `app_show` gives as the assessment's markdown, never written to a file.
 
     Args:
         r: the match's plain data.
         a: the Assessment.
         today: the day it is dated.
-        lines: posting.md's numbered lines.
-        dropped: decisions.txt's drops.
-        native: a graph-native assessment, whose header names the review tool.
+        lines: the advert's numbered lines.
+        dropped: the posting's drops.
 
     Returns:
         The assessment's text.
     """
     out = ["---", "type: Gap Assessment", f"posting: {a.derived.posting}",
-           f"assessed: {today.isoformat()}", f"fit: {a.fit}", "---",
-           NATIVE_HEADER if native else HEADER, "",
+           f"assessed: {today.isoformat()}", f"fit: {a.fit}", "---", HEADER, "",
            "# Eligibility", "",
-           a.eligibility or ("Not judged: the review gives no eligibility (`assessment_review`)."
-                             if native else "Not judged: gaps.txt has no `eligibility:` line."),
+           a.eligibility or "Not judged: the review gives no eligibility (`assessment_review`).",
            "",
            "# Requirements", "", *requirement_rows(a), "",
            "# Ranking", "", *ranking_lines(r), "", *cover_lines(r), "",
@@ -129,128 +172,6 @@ def render(r, a, today, lines=(), dropped=(), native=False):
     out += ["# New terms", "", *new_terms(r, dropped, lines), "",
             "# Questions", "", *([f"- {q}" for q in a.questions] or ["None."])]
     return "\n".join(out) + "\n"
-
-
-def shown(written):
-    """How a written thing is named in a report: a file by its name, a graph by its own."""
-    return written if written.startswith("applications/") else os.path.basename(written)
-
-
-def gaps_refusal(app, path, drafting):
-    """Why `path` is not this application's gaps.txt, or None. No gaps.md is written now -
-    `jsk tailor match` prints the assessment - and nothing reads one: a gaps.md is an older
-    assessment.
-
-    Args:
-        app: the application's directory.
-        path: the gaps.txt --gaps or --draft-gaps named.
-        drafting: True for --draft-gaps, which refuses a file that exists.
-
-    Returns:
-        The refusal's two lines as one string, or None when `path` will do.
-    """
-    if path.endswith(".md"):
-        return (f"FAIL  {path}: gaps.md is an older assessment, read by people only - jsk "
-                f"prints the assessment now and reads no gaps.md\n"
-                f"      fix: pass the application's gaps.txt - --draft-gaps drafts one")
-    want = os.path.join(os.path.abspath(app), "gaps.txt")
-    if os.path.normcase(os.path.abspath(path)) != os.path.normcase(want):
-        return (f"FAIL  {path}: not this application's gaps.txt\n"
-                f"      fix: pass {want}")
-    if drafting and os.path.exists(path):
-        # The analyst's filled slots are its judgement; a re-run must not wipe them.
-        return (f"FAIL  {path} exists - the draft would overwrite it\n"
-                f"      fix: check it with --gaps, or delete it to draft again")
-    if not drafting and not os.path.isfile(path):
-        return (f"FAIL  {path}: no such file\n"
-                f"      fix: draft it with --draft-gaps, or let `jsk tailor prepare` write "
-                f"the assessment alone")
-    return None
-
-
-def build(app_dir, store, r, today, derived, *, folder):
-    """Write the assessment - the gaps graph - for the match `r` of the posting in `app_dir`,
-    and render it for the person to read. On a FAIL nothing is written; with no gaps.txt the
-    derived assessment is written alone - the path that needs no agent. No gaps.md is
-    written (Ruling 24 of the graph-native plan): the caller prints the rendered text.
-
-    Args:
-        app_dir: the application's directory.
-        store: the workspace, loaded inside the caller's turn (record.turn).
-        r: match_posting.result's plain data for the posting.
-        today: the day the assessment is dated, unless it has not changed.
-        derived: the Derived assessment, or None to derive it from `r`.
-        folder: the application's folder and record, as compose.tailor.Folder reads and
-            writes them.
-
-    Returns:
-        (what was written - graph names -, the (severity, text, fix) findings, and the
-        assessment rendered (render) or None when nothing was written). Writes the gaps
-        graph.
-    """
-    from ...domain.assessment import overlay as A
-    from ...domain.assessment.fold import assessed, check, fold, previous_verdicts
-    from ...domain.assessment.fold import same_triples, triples
-    from ...domain.naming import app_graph
-    from ...domain.record.decisions import DecisionsError
-    from ...domain.record.parsed import GraphError, Missing, Unreadable
-    from ...domain.timeline.errors import Unwritable
-
-    app_rel = folder.name_of(os.path.abspath(app_dir), store.root)
-    gaps = app_graph(app_rel, "gaps")
-    try:
-        day = folder.sent_day(app_dir, store)
-    except GraphError as e:
-        return [], [("FAIL", f"{app_graph(app_rel, 'application')}: {e}", e.fix)], None
-    if day:
-        return [], [("FAIL", f"{app_rel}: sent on {day} - its assessment and gaps.md are "
-                     "frozen", "a sent assessment is what it said at the time; nothing to "
-                     "rebuild")], None
-    derived = derived or folder.derive(r, store, today)
-    if native_posting(store, derived):
-        return native_build(app_dir, store, app_rel, r, derived, today, folder)
-    try:
-        text, reviewed = folder.read_text(os.path.join(app_dir, "gaps.txt"), "gaps.txt"), True
-    except Missing:
-        text, reviewed = "", False
-    except Unreadable as e:
-        return [], [("FAIL", str(e), e.fix)], None
-    try:
-        overlay = A.parse(text)
-    except A.AssessmentError as e:
-        return [], [("FAIL", f"gaps.txt: {e}", "correct that line")], None
-    previous = previous_verdicts(store, app_rel, derived.stem)
-    found = check(derived, overlay, text, previous, reviewed)
-    if any(s == "FAIL" for s, _, _ in found):
-        return [], found, None
-    a = fold(derived, overlay, previous)
-    # An assessment that has not changed keeps the day it was made: re-running prepare
-    # tomorrow must not rewrite it for its date alone.
-    before = assessed(store, app_rel)
-    if before and same_triples(triples(a, before), store.graph(gaps)):
-        today = before
-    try:
-        dropped = folder.drops(app_dir)
-        lines = folder.advert(os.path.join(app_dir, "posting.md"))
-    except DecisionsError as e:
-        return [], found + [("FAIL", f"decisions.txt: {e}",
-                             "correct that line; `jsk posting build` reads the same file")], None
-    except Unreadable as e:
-        return [], found + [("FAIL", str(e), e.fix)], None
-    try:
-        written = folder.write_graphs(app_dir, {"gaps": triples(a, today)}, store)
-    except Unwritable as e:         # locked, or the store refused the write
-        return [], found + [("FAIL", str(e), e.fix)], None
-    return written, found, render(r, a, today, lines, dropped)
-
-
-def native_posting(store, derived):
-    """Whether the posting `derived` assesses is graph-native: its lines are in the store
-    (Ruling 11 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md)."""
-    from ...domain import ontology as O
-    from ...domain.posting.lines import native
-
-    return O.K + derived.posting.removeprefix("k:") in native(store)
 
 
 def review_of(store, app_rel):
@@ -271,7 +192,7 @@ def review_of(store, app_rel):
 
 def native_assessed(store, app_rel, derived, overlay, reviewed):
     """(the Assessment, the findings), or (None, the findings) on a FAIL: the review's
-    overlay checked against the match and folded in, as gaps.txt's is.
+    overlay checked against the match and folded in.
 
     Args:
         store: the loaded workspace.
@@ -279,7 +200,7 @@ def native_assessed(store, app_rel, derived, overlay, reviewed):
         derived: the Derived assessment.
         overlay: the review's Overlay.
         reviewed: the review is complete, so a flag it has not answered FAILs; a draft's
-            waits, as a missing gaps.txt's does.
+            waits.
     """
     from ...domain.assessment.fold import check, fold, previous_verdicts
     from ...domain.assessment.review import restated
@@ -303,28 +224,3 @@ def native_triples(store, app_rel, a, today):
                                                         store.graph(gaps)):
         today = before
     return triples(a, today, native=True)
-
-
-def native_build(app_dir, store, app_rel, r, derived, today, folder):
-    """(the graph names written, the findings, the assessment rendered or None), as build's,
-    for a graph-native application: the overlay is the review graph's, never gaps.txt, and
-    the assessment is the gaps graph alone - no gaps.md (Ruling 24). The rendered text takes
-    the advert's lines and drops from the posting graph."""
-    from ...domain import ontology as O
-    from ...domain.posting.lines import lines_of
-    from ...domain.record.decisions import Drop
-    from ...domain.timeline.errors import Unwritable
-
-    overlay, reviewed = review_of(store, app_rel)
-    a, found = native_assessed(store, app_rel, derived, overlay, reviewed)
-    if a is None:
-        return [], found, None
-    try:
-        written = folder.write_graphs(app_dir, {"gaps": native_triples(store, app_rel, a,
-                                                                       today)}, store)
-    except Unwritable as e:
-        return [], found + [("FAIL", str(e), e.fix)], None
-    lines, drops = lines_of(store, O.K + derived.posting.removeprefix("k:"))
-    # Drop's first field is decisions.txt's line number; a stored drop has none.
-    dropped = [Drop(0, n, why) for n, why in sorted(drops.items())]
-    return written, found, render(r, a, today, lines, dropped, native=True)

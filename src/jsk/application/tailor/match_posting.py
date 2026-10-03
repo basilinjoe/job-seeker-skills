@@ -46,13 +46,13 @@ class MatchReport:
     rel: str                    # the application's folder relative to the workspace
 
 
-def application(arg, command="jsk tailor match"):
+def application(arg, command="jsk kb export --from-match"):
     """(workspace root, application directory) for the application `arg` names - its
     directory, applications/<dir> - or (None, [what is wrong, the fix]).
 
     Ruling 11 of the 2026-09-29 plan: the posting is a graph in career/store/ now, not a
-    file to point at, so every command takes the application, as `jsk posting build` and
-    `jsk app freeze` always did. A path to posting.ttl is how a shell history or an older
+    file to point at, so every command takes the application, as `jsk app freeze` always
+    did. A path to posting.ttl is how a shell history or an older
     agent file still calls it, so it is refused with the new form.
 
     Args:

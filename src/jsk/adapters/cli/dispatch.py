@@ -20,8 +20,6 @@ ADAPTERS = {
     "kb.py": "adapters.cli.kb.new",
     "kbcli.py": "adapters.cli.kb",
     "timeline.py": "adapters.cli.event",
-    "match.py": "adapters.cli.match",
-    "prepare.py": "adapters.cli.tailor",
     "render_resume.py": "adapters.cli.render",
     "preview_templates.py": "adapters.cli.preview",
     "fit_pages.py": "adapters.cli.fit",
@@ -36,8 +34,6 @@ ADAPTERS = {
 COMMANDS = {
     "kb.py": "jsk kb new",
     "kbcli.py": "jsk kb",
-    "match.py": "jsk tailor match",
-    "prepare.py": "jsk tailor",
     "timeline.py": "jsk app event",
     "render_resume.py": "jsk resume render",
     "preview_templates.py": "jsk resume preview",

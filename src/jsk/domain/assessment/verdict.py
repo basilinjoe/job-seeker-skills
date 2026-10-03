@@ -8,4 +8,5 @@ VERDICTS = ENUMS["verdict"]
 # satisfied 3 … unsatisfied 0; `indeterminate`, last, ranks nowhere.
 RANK = {v: len(VERDICTS) - 2 - n for n, v in enumerate(VERDICTS[:-1])}
 RAISE_FIX = ("lower it, or - if the record really shows it - the career needs the tag or the "
-             "confirmation, which the conversation makes; then re-run jsk tailor match")
+             "confirmation, which the conversation makes; then derive the assessment again "
+             "(`assessment_derive`)")

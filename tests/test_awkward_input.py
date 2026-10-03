@@ -15,11 +15,11 @@ a traceback.
 
 The record itself is no longer text: once it is in career/store/, kb.ttl and posting.ttl
 are read exactly once, by `jsk kb load` importing a workspace still laid out as files, so
-that is where their four forms are tried (Import). The texts that stay files - gaps.txt, a
-source document, resume.json - are tried against the command that reads each, over a
-workspace whose record is in its store. posting.md and decisions.txt left with `jsk posting`
-in 6.0: an advert in a file is read by `posting_capture`, whose four forms are
-tests/test_posting.py's (FromAFile).
+that is where their four forms are tried (Import). The texts that stay files - a source
+document, resume.json - are tried against the command that reads each, over a
+workspace whose record is in its store. posting.md, decisions.txt and gaps.txt left with the
+posting and tailor nouns in 6.0: an advert in a file is read by `posting_capture`, whose four
+forms are tests/test_posting.py's (FromAFile).
 
 Each command runs in a child interpreter, as a person runs it, so that a traceback is
 something the output would show rather than something the test runner would catch.
@@ -179,29 +179,6 @@ def graph_workspace(root):
     """The graph fixture with its record in career/store/, as jsk keeps one."""
     shutil.copytree(GRAPH, root, dirs_exist_ok=True)
     seed(root)
-
-
-# --- jsk match --gaps -----------------------------------------------------------------
-
-CONTOSO = Path("applications") / "contoso"
-
-
-def match_workspace(root):
-    shutil.copytree(MATCH, root, dirs_exist_ok=True)
-    seed(root)
-
-
-class MatchGaps(Forms):
-    def test_match_gaps_reads_gaps_txt(self):
-        found = self.check(
-            GAPS_TXT, match_workspace, lambda r: r / CONTOSO / "gaps.txt",
-            lambda r: ["tailor", "match", r / CONTOSO, "--gaps", r / CONTOSO / "gaps.txt",
-                       "--today", "2026-09-24"], "gaps.txt")
-        self.assertIn("applications/contoso/gaps", graphs(found[PLAIN]))
-        # The assessment is printed, not written to a gaps.md (Ruling 24 of the plan). The
-        # dash between is the child's console encoding's to spell; the words are the file's.
-        self.assertRegex(found[PLAIN][1], r"meets it \S+ based in Pune")
-        self.assertNotIn("applications/contoso/gaps.md", found[PLAIN][2])
 
 
 # --- jsk kb confirm -------------------------------------------------------------------

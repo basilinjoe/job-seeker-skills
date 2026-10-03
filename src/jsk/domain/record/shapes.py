@@ -160,7 +160,7 @@ HEAD_FIX = {
     "Posting": "one k:post_<stem> per application's posting; another posting gets its own "
                "directory",
     "Application": "one k:app_<stem> per application; another gets its own directory",
-    "Assessment": "one k:gap_<stem> per application's gaps; `jsk tailor prepare` writes it",
+    "Assessment": "one k:gap_<stem> per application's gaps; `assessment_derive` writes it",
     "Review": "one k:rvw_<stem> per application's review",
     "Selection": "one k:sel_app_<stem> or k:sel_cv_<name> per selection",
 }

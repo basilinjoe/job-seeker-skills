@@ -30,8 +30,6 @@ against the career. The rendering half carries either to a document somebody can
 jsk doctor                       # what works on this machine
 jsk kb new ./my-career --name "Your Name"  # career/store/ with the career and its log, at r1
 jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
-jsk tailor match applications/<dir>  # a posting against the career, through the vocabulary
-jsk tailor prepare applications/<dir> --draft-gaps   # the match and everything an assessment reads
 jsk resume check resume.json    # the record gate
 jsk kb export --from-match applications/<dir> --out applications/<dir>/resume.json
 jsk resume render resume.json --out . --pdf
@@ -453,102 +451,6 @@ is the one format, and it holds nothing to refresh. A full URS record from befor
 export a short one in its place.
 
 Exit 0 written; 1 refused, with every reason; 2 called wrong.
-
-## `jsk tailor`
-
-A posting against the record: what it asks for, what the career shows of it, and where it falls
-short.
-
-### `jsk tailor match`
-
-```bash
-jsk tailor match applications/<dir>            # the four sections, as Markdown
-jsk tailor match applications/<dir> --cover 2  # a cover of at most two projects
-jsk tailor match applications/<dir> --json --today 2026-09-24
-jsk tailor match applications/<dir> --gaps applications/<dir>/gaps.txt  # check, write the gaps graph, print the assessment
-```
-
-A posting's requirements joined with the career through the vocabulary - the shipped `jsk/data/vocabulary.ttl` and the knowledge base's own additions. It takes the
-application directory, as `jsk posting build` and `jsk app freeze` do; a path ending `posting.ttl` is
-refused with the directory form in the fix. Loads the whole record and validates it first; any
-FAIL is printed and nothing is matched. Needs pyoxigraph, a dependency of the package.
-
-**Requirements** puts each one in a bucket: `matched` (a project holds the concept, or a narrower
-one within two hops - `via c:aks, 1 hop`), `near` (only an `implies` path, for a required one, or
-only something broader), `missing`, `ambiguous` (the label names several concepts; the analyst
-answers with `j:concept`), `candidate` (it names none), `implicit`. A requirement naming several
-`j:concept`s - the advert's alternatives - is met by any one of them. Evidence per project is
-`confirmed` (a confirmed bullet shows it), `unconfirmed` or `tag` (only the project's tags say so).
-Each requirement's **Verdict** follows from both: matched with a confirmed carrier `satisfied`,
-matched on tags or unconfirmed bullets only `unevidenced`, `near` `partial`, `missing`
-`unsatisfied`, `ambiguous` or `candidate` `indeterminate`, `implicit` `-` (not assessed).
-**Ranking** scores by the table in `jsk-tailor-analyst.md` - required ×3, preferred ×1, strength
-×2, recency +1 within three years and +0.5 at four to six, seniority +1 at or above the posting's -
-the same arithmetic the retired `jsk index --rank` did, now over concepts rather than exact
-strings. **Cover** is the smallest set of projects, at most `--cover` (default 3), carrying every
-required requirement anything carries. **Questions** are derived from the gaps, never invented.
-
-Exit 0 with the result - missing requirements included, since this is an assessment, not a gate;
-1 when the workspace has a FAIL; 2 called wrong, or a path that is not an application directory
-with a posting.
-
-**The assessment** is two parts, each with one owner. The gaps graph (in the store, so SPARQL
-reaches it) is written by code, and printed as what the person reads - no `gaps.md` is written:
-derived from the match - per requirement the match's verdict, the projects behind it and a
-one-line basis - with the analyst's `gaps.txt` folded in. `gaps.txt` holds only what the match
-cannot know, one line each: `fit:`, `eligibility:`, `short:`, `surplus:` and `ask:` lines, and
-rows `slug | verdict | reason`, paired to requirements by slug. A
-satisfied requirement whose `asked` lists items (`Vector databases (Pinecone, Weaviate)`) that no
-confirmed evidence bullet names is **flagged**, and its row must be answered `keep` or lowered.
-Both are rebuilt on every run from the career as it stands; once the application graph records
-a submission date, they are frozen.
-
-**`--gaps <gaps.txt>`** prints no match: it checks the posting's own `gaps.txt`, then writes
-the gaps graph and prints the assessment after its verdict line. It FAILs, and writes nothing, on a verdict above the match's (satisfied
-> partial > unevidenced > unsatisfied; an `indeterminate` may become anything but satisfied or
-partial), a lowering with no reason, a flagged row with no
-row (once there is a gaps.txt - with none, the assessment marks it not yet reviewed), a slug that is not the posting's, and any `<!-- jsk: -->` slot still in the file. A row the
-match has since moved WARNs, as do `keep` on a row no flag asks about now and a row restating
-the match's verdict: each is the match's verdict already. Each row gets one finding at most. Lowering is always allowed; raising never is - when the match
-under-reads, the career needs the tag or the confirmed bullet, made in the conversation. A
-`gaps.md` is refused: it is an older assessment, and jsk reads none. Exit 1 on any FAIL, 0 otherwise.
-
-**`--draft-gaps <gaps.txt>`** writes the gaps graph from the match alone and prints it, then drafts
-`gaps.txt`, never over one already there: `fit:` at its default (poor when a required requirement
-is unsatisfied, strong when every one is satisfied, else partial), the person's eligibility facts
-as comments, a row slot for each flagged requirement, `decisions.txt`'s drops as comments, and the
-match's questions as `ask:` lines - with a `<!-- jsk: -->` slot wherever judgement is needed.
-`--gaps` then fails until every slot is filled.
-
-Validation also WARNs `advert-uncovered`: a list item of four words or more, under a heading that
-names requirements (requirements, qualifications, skills, experience, you'll bring, nice to have,
-…), that no requirement of the posting quotes. Benefits and responsibilities lists are skipped, and
-so are eligibility lines (work rights, visa, clearance, location, work mode), which belong in
-gaps.txt's `eligibility:`.
-
-### `jsk tailor prepare`
-
-```bash
-jsk tailor prepare applications/<dir>                  # the digest
-jsk tailor prepare applications/<dir> --draft-gaps     # and draft gaps.txt with slots to fill
-```
-
-Everything an assessment reads, in one process and one digest, where the analyst used to make
-about ten calls, each one a model turn. In order: the check, scoped to this application
-plus every FAIL anywhere (as `jsk kb check --only`); the match as `jsk tailor match` prints it; `jsk kb
-query evidence` for every `missing` and `candidate` term; `jsk kb query person`; the cover's
-projects (at most three, or the top-ranked that carry a requirement), bullets only; and what those
-projects hold unconfirmed; and the assessment - the gaps graph written on every run, with the
-flagged rows and the counts by verdict, then the assessment printed under `== assessment`. Every section has a size cap and prints
-`… N more cut` when it cuts. A `gaps.txt` the check refuses is reported there, not an exit 1:
-the analyst may be halfway through it.
-
-`--draft-gaps` also drafts `applications/<dir>/gaps.txt` as `jsk tailor match --draft-gaps` does, never
-over one already there, and not for an application already sent. `--cover N` and `--today` are `jsk tailor match`'s.
-
-Exit 0 digest printed; 1 a FAIL that stops the match (the career, the vocabulary or this
-application's own directory - one in another application does not), printed before it stops;
-2 called wrong, a `posting.ttl` path (it takes the directory), or no posting built for it yet.
 
 ## `jsk resume`
 

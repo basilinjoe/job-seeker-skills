@@ -13,12 +13,11 @@ application is graph-native or legacy, never both, each side refusing the other 
 From the 2026-10-02 review and replay: a derived gaps graph is validated before it is
 written (Ruling 14); a slug to remove that is not there is a FAIL; an ask keeps the
 requirement it is about, so it counts in `repeated`; a no covers what counts as its
-concept; app_list names a file-built posting `built`; and `jsk tailor match` on an
-application with no directory yet names the tool.
+concept; and app_list names a file-built posting `built`. Then, in `Checks` and
+`Assessed`, what `jsk posting build`, `jsk tailor match --gaps` and `jsk tailor prepare`
+pinned until 6.0 retired them, held for the batches and the review.
 """
-import contextlib
 import datetime
-import io
 import tempfile
 import unittest
 from pathlib import Path
@@ -428,6 +427,65 @@ class Flow(Workspace):
             self.assertIn("was sent on 2026-09-30", str(caught.exception))
 
 
+class Assessed(Workspace):
+    """What `jsk tailor match --gaps` and `jsk tailor prepare` pinned for an assessment made
+    from files (tests/test_gaps_build.py, test_tailor_prepare.py, test_tailor_match.py)
+    until 6.0 retired them (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2),
+    held for the derivation and the review."""
+
+    def test_the_rendered_assessment_has_every_section_in_order(self):
+        self.decided()
+        native.derive_assessment(self.root, STEM, today=TODAY)
+        md = self.show("assessment")["markdown"]
+        headings = [line for line in md.splitlines() if line.startswith("# ")]
+        self.assertEqual(headings, ["# Eligibility", "# Requirements", "# Ranking",
+                                    "# Where this falls short", "# New terms", "# Questions"])
+        self.assertNotIn("<!-- jsk:", md, "no slot is left for anyone to fill")
+        self.assertIn("assessment_review", md.splitlines()[6], "its header names the tool")
+
+    def test_a_rederivation_that_changes_nothing_keeps_its_day(self):
+        self.decided()
+        native.derive_assessment(self.root, STEM, today=TODAY)
+        first = appkit.facts(self.root, f"applications/{STEM}/gaps")
+        native.derive_assessment(self.root, STEM, today=TODAY + datetime.timedelta(days=3))
+        self.assertEqual(appkit.facts(self.root, f"applications/{STEM}/gaps"), first)
+        self.assertEqual(self.show("assessment")["assessed"], TODAY.isoformat())
+
+    def test_a_review_row_for_no_requirement_fails_and_writes_nothing(self):
+        self.decided()
+        native.derive_assessment(self.root, STEM, today=TODAY)
+        done = native.review(self.root, STEM, verdicts=[{"slug": "kotlin", "verdict": "partial",
+                                                         "reason": "never"}], today=TODAY)
+        self.assertTrue(any("'kotlin' is not a requirement" in t for t in fails(done.findings)),
+                        done.findings)
+        self.assertIsNone(self.graph("review"))
+
+    def test_what_the_review_refuses_of_a_row_from_its_text_alone(self):
+        # gaps.txt's parser refused these (tests/test_gaps_txt.py's Parse); the review does.
+        self.decided()
+        for kw, says in (({"fit": "great"}, "fit 'great' is not one of"),
+                         ({"verdicts": [{"slug": "Kafka", "verdict": "partial"}]},
+                          "slug 'Kafka' is not lowercase words"),
+                         ({"verdicts": [{"slug": "kafka", "verdict": "Partial"}]},
+                          "'Partial' is not keep or a verdict")):
+            with self.subTest(kw=kw):
+                done = native.review(self.root, STEM, today=TODAY, **kw)
+                self.assertTrue(any(says in t for t in fails(done.findings)), done.findings)
+                self.assertIsNone(self.graph("review"), "a FAIL writes nothing")
+
+    def test_a_fault_in_another_application_does_not_stop_the_derivation(self):
+        # tests/test_tailor_match.py and test_tailor_prepare.py pinned it for the file path.
+        self.decided()
+        appkit.put(self.root, "applications/globex/posting",
+                   "k:post_globex j:company \"Globex\" ; j:title \"Engineer\" ; "
+                   "j:captured \"2026-09-01\"^^xsd:date .\n"
+                   "k:req_globex_rust j:posting k:post_globex ; j:asked \"Rust\" ; "
+                   "j:necessity j:required ; j:concept c:no-such-concept .\n")
+        a = native.derive_assessment(self.root, STEM, today=TODAY)
+        self.assertEqual(fails(a.findings), [])
+        self.assertEqual(a.written, (f"applications/{STEM}/gaps",))
+
+
 class Absence(Workspace):
     """Ruling 9: the person's confirmed no answers the requirement, and is not asked again."""
 
@@ -526,36 +584,6 @@ class Legacy(Workspace):
             # fix named `jsk posting build` until 6.0 retired it.
             self.assertIn("jsk 5.1.0", caught.exception.fix)
 
-    def run_cli(self, main, argv):
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = main(argv)
-        return code, out.getvalue()
-
-    def native_app(self):
-        self.capture()
-        self.app.mkdir(parents=True)         # as the first render would leave it
-        return str(self.app)
-
-    def test_tailor_match_gaps_and_draft_gaps_refuse_a_graph_native_application(self):
-        from jsk.adapters.cli import match
-
-        app = self.native_app()
-        for flag, tool in (("--gaps", "assessment_review"), ("--draft-gaps", "assessment_derive")):
-            with self.subTest(flag=flag):
-                code, out = self.run_cli(match.main, [app, flag, str(self.app / "gaps.txt")])
-                self.assertEqual(code, 1, out)
-                self.assertIn(f"`{tool}`", out)
-        self.assertFalse((self.app / "gaps.txt").exists())
-
-    def test_tailor_prepare_draft_gaps_refuses_a_graph_native_application(self):
-        from jsk.adapters.cli import tailor
-
-        app = self.native_app()
-        code, out = self.run_cli(tailor.main, ["prepare", app, "--draft-gaps"])
-        self.assertEqual(code, 1, out)
-        self.assertIn("`assessment_derive`", out)
-
     def test_app_list_names_both_kinds(self):
         self.capture()
         apps = {a["app"]: a for a in native.list_apps(self.root, today=TODAY)["applications"]}
@@ -565,16 +593,6 @@ class Legacy(Workspace):
         self.assertEqual((apps["contoso-platform"]["kind"], apps["contoso-platform"]["posting"]),
                          ("files", "built"))
 
-    def test_tailor_match_on_a_graph_native_application_with_no_directory_names_the_tool(self):
-        from jsk.adapters.cli import match
-
-        self.capture()
-        self.assertFalse(self.app.exists())
-        code, out = self.run_cli(match.main, [str(self.app)])
-        self.assertEqual(code, 1, out)
-        self.assertIn("is graph-native", out)
-        self.assertIn("`assessment_derive`", out)
-        self.assertNotIn("posting.md", out)
 
 
 OTHER = ADVERT.replace("Acme Health", "Globex").replace("Kubernetes", "Kafka Streams")

@@ -241,7 +241,7 @@ def markdown(store, app, s, assessed, today, ports):
                       + "; ".join(text for sev, text, _ in found if sev == "FAIL"),
                       f"fix:  the `assessment_review` tool ({app.stem})")
     return render(r, a, datetime.date.fromisoformat(assessed), s.lines,
-                  [Drop(n, why) for n, why in sorted(s.drops.items())], native=True)
+                  [Drop(n, why) for n, why in sorted(s.drops.items())])
 
 
 def list_apps(root, *, today, ports):
