@@ -47,7 +47,7 @@ Promise.all([p.waitForEvent('download'),p.evaluate(()=>{const
 a=document.createElement('a');a.href=URL.createObjectURL(new
 Blob([document.documentElement.outerHTML]));a.download='p.html';a.click()})]);await
 d.saveAs('<scratch>/posting.html')}`; capture that file. When a fetch fails, say so and ask them
-to paste it — an ordinary outcome, not an error. Pasted: `posting_capture(text=…)`, **the
+to paste it — an ordinary outcome, not an error. Pasted: `posting_capture(app=<stem>, text=…)`, **the
 advertisement verbatim and nothing else**; **never paraphrase it**.
 
 ## 1b. Triage

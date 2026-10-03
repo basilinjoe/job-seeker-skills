@@ -10,9 +10,27 @@ author's workspace: `jsk kb check` clean, 22 unsent applications dropped with `j
 - the tailor noun retired - 2ed3082;
 - `kb export --out` and `kb confirm --summary|--headline <file>` retired - 5d4418d;
 - the resume, letter and freeze file forms retired, Rulings 2, 4 and 5 - b815eb8;
-- the prose, 6.0.0 and CI - the commit after b815eb8.
+- the prose, 6.0.0 and CI - 3f22877.
 
-P3 (the replay and the reviews) is not yet done. Builds on
+P3 done (2026-10-04): replayed on a scratch copy of the author's workspace - the retired
+commands exit 2 and write nothing; the frozen file-made applications validate (64
+advert-uncovered WARNs from their posting.md, as before); the full graph-native path, and a
+general resume shipped with real TeX. The replay, the code review and the prose review found
+defects, fixed in d267ce0 (code) and the docs commit after it:
+
+- a step recorded the day of `submitted` lost the pipeline stage to it (ordered by IRI);
+- a seven-word question heading ("What makes you perfect for the role?") opened no section;
+- `posting_complete` settled a posting with no requirement and its lines undecided;
+- `posting_decide` on a complete posting returned it to draft silently, and
+  `posting_capture(replace)` reported `replaced: []`;
+- `jsk resume render` made `--out` before refusing a non-target;
+- the advert rules did not count an `application.md` as frozen, as the timeline does;
+- `jsk resume check <file-made stem>` said "not a directory";
+- the letter's `record-unsound`, `DROPPED.txt` with no folder, `jsk kb load`'s note and the
+  render help still spoke of files 6.0 no longer reads or writes;
+- prose naming `resume.json`, `posting build` and deleted modules as current.
+
+Builds on
 `2026-10-01-graph-native-applications-mcp.md`, whose Ruling 11 left the file pipeline in place
 "until a later plan's decision". This is that plan.
 

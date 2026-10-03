@@ -7,8 +7,8 @@ Usage: jsk kb <verb> [arguments] [--root DIR]
   apply <changeset.trig> [--dry-run]   merge a changeset into the career; prints the diff
   confirm <id>... --answer "..."       confirm entries with the person's answer, logged;
           <id>... --source F --quote "..."  or with a document's own words;
-          --summary <resume.json> --answer "..."  or a resume.json's summary
-          --headline <resume.json> --answer "..."  or its headline
+          --summary <stem>|resumes/<name> --answer "..."  or a target's summary
+          --headline <stem>|resumes/<name> --answer "..."  or its headline
   show <id>... [--bullets]             entries as Turtle, and the op:base to use;
                                        --bullets, a project's name and bullets only
   view [--section NAME]                the whole career as Markdown, to read

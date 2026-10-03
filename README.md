@@ -114,7 +114,7 @@ again for a year.
 **6.0.0** retires the file-made applications 5.x still worked (`posting.md`, `decisions.txt`,
 `gaps.txt`, `resume.json`): `jsk posting` and `jsk tailor` are gone, and no command reads a
 `resume.json`. Finish an unsent one with jsk 5.1.0 first, or set it aside with `jsk app drop`;
-`jsk kb check` names each. A sent one stays readable.
+`jsk kb check` names each. A frozen one (sent or held back) stays readable.
 
 One record for the career, and a frozen directory per application. The career holds identity,
 positioning, work rights, vocabulary, organisations, roles, projects, metrics, skills, education,

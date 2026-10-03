@@ -45,7 +45,7 @@ from one of them.
 | **No blank nodes in the record** | Every node has an id, so every finding can name the thing it is about. The one `[]` allowed is a new bullet inside a changeset, and `jsk kb apply` mints its id. |
 | **A graph per record** | Each record - the career, the log, each application's posting, gaps and application - is its own named graph in the store, so a finding can say which graph and which entry it concerns. Queries run over the union of all of them. |
 | **Derived data is never written** | Types and the counts-as closure live in the `j:derived` graph, which exists only in memory. The store holds only what a person or `jsk` stated. |
-| **Numbers by value** | The store keeps an integer or decimal by value (`8.40` is `8.4`). A number written in any other spelling is refused rather than changed silently - in a changeset, a posting build or a dump `jsk kb load` reads (`changeset.numbers_as_kept`) - while the one-time import of `.ttl` files rewrites each one and lists it; a value whose zeros matter is a string. |
+| **Numbers by value** | The store keeps an integer or decimal by value (`8.40` is `8.4`). A number written in any other spelling is refused rather than changed silently - in a changeset or a dump `jsk kb load` reads (`changeset.numbers_as_kept`) - while the one-time import of `.ttl` files rewrites each one and lists it; a value whose zeros matter is a string. |
 | **Claims carry provenance** | An entry that makes a claim about the person holds `j:provenance`. Changing the claim drops it to `inferred`. Only `jsk kb confirm`, given the person's own answer, raises it back to `confirmed`. |
 | **A tag is not evidence** | `Project j:uses` says what a project involved. `Achievement j:shows` says what a bullet proves. Only the second counts as evidence in a verdict. |
 | **Numbers are versioned** | A metric's value lives on a `MetricVersion`. A value that an application already sent never changes; a new value becomes the next version. |
@@ -993,7 +993,7 @@ entry and is the audit trail. An answer that agrees without saying what was agre
 (`answer-placeholder`). A changeset may never write `j:confirmed`.
 
 **What reads it.** The resume selection draws only from entries at or above the provenance
-floor set in `resume.json`. A verdict can reach `satisfied` only through a *confirmed* bullet
+floor set in the selection (`j:floor`). A verdict can reach `satisfied` only through a *confirmed* bullet
 (§11).
 
 ## 9. Metrics and versions
@@ -1180,7 +1180,7 @@ it against.
 
 A number the store would rewrite (`8.40`, `007`, `+3`) is not a rule: tier 1 also runs on the
 files the import reads, where the number is rewritten and listed. It is a refusal in
-`changeset.py` (`numbers_as_kept`), applied to changesets, posting builds and dumps `jsk kb load`
+`changeset.py` (`numbers_as_kept`), applied to changesets and dumps `jsk kb load`
 reads, whose fix names the literal the store keeps (`write 8.4`; the decimal `8.0` is `write
 "8"^^xsd:decimal`).
 

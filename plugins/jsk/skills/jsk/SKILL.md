@@ -125,7 +125,7 @@ where they fall short stay with you and the person. Their output does not reach 
 
 | Gate | Question | How |
 |---|---|---|
-| **Record** | shaped right, every id live, every number traced to a metric? | `jsk resume check` on the `<stem>` or `.json` |
+| **Record** | shaped right, every id live, every number traced to a metric? | `jsk resume check` on the `<stem>` or `resumes/<name>` |
 | **Parse** | will an ATS read it? | `jsk resume check` on the PDF; on the directory, its text `--strict` too |
 | **Prose** | does it obey the writing rules? | `jsk resume check --only prose` on the `.tex` |
 | **Layout** | tofu, fonts, stranded headings, dates, paper? | `jsk resume check --only layout` on the PDF |

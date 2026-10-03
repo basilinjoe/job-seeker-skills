@@ -239,7 +239,7 @@ to be re-read. The header's `op:summary` becomes the log entry's.
 A number is written as the store keeps it: an integer or decimal whose spelling the store would
 rewrite (`8.40`, `007`, `+3`) is refused, with the fix naming the literal the store keeps - `write
 8.4`, or for the decimal `8.0`, `write "8"^^xsd:decimal`. This is a refusal in `changeset.py`, not a
-rule id; posting builds and dumps `jsk kb load` reads are held to it too. A grade whose zeros matter
+rule id; dumps `jsk kb load` reads are held to it too. A grade whose zeros matter
 (`3.80`) is a string, which `gradeValue` allows.
 
 What apply does unasked: a new bullet (a `[]` with `j:project`) gets its id,
@@ -580,7 +580,7 @@ measured from the PDF instead. Each failure names its fix:
   TeX Gyre Heros body with Adventor heads, `atrium` Pagella body with Heros heads. The checklist said
   "one family"; two templates were designed with two, so the check follows the templates. A third
   face, or a pair no template declares, is a substitution — a font package that is not installed.
-- **A stranded heading.** A section title `build.py` writes that is the last text on its page.
+- **A stranded heading.** A section title `domain/render/emit_latex.py` writes that is the last text on its page.
 - **The date column.** Every date range must end on the same right edge, within 1.5pt; every template
   right-aligns them with one `\hfill`, so the measured spread on our own renders is zero.
 - **Paper.** Neither A4 nor Letter fails; so does the wrong one for the region (Letter for US and

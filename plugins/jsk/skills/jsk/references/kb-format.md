@@ -125,7 +125,7 @@ Without pyoxigraph, draft the changeset into a file and say it waits for `jsk kb
 k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;
     j:url "https://…" ;
     j:seniority j:platform-design ;
-    j:captured "2026-09-08"^^xsd:date ; j:advert "posting.md" .
+    j:captured "2026-09-08"^^xsd:date ; j:state j:draft .
 
 k:req_acme_platform_k8s j:posting k:post_acme_platform ;
     j:asked "K8s" ; j:necessity j:required ; j:concept c:kubernetes ;
@@ -135,6 +135,6 @@ k:req_acme_platform_k8s j:posting k:post_acme_platform ;
 A posting holds `company` `title` `url`? `seniority`? `domain`* `captured` `advert`? `state`?; a
 requirement `posting` `asked` `necessity` `concept`* `quote` `line`?; an advert line (`line_`)
 `posting` `n` `section` `text` `optional`? `eligibility`? `dropped`?. `asked` is the advert's
-term; `quote` its words, verbatim from `posting.md` (or its `line`); `necessity` is `required`,
+term; `quote` its words, verbatim from its advert line (`line`); a frozen file-made posting's from `posting.md`; `necessity` is `required`,
 `preferred` or `implicit`; `concept` when the match calls the term ambiguous or unknown,
 one per alternative ("AWS/GCP/Azure") - any one satisfies.

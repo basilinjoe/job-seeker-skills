@@ -101,7 +101,7 @@ the record were each weighed and given up for it. What went with them:
   open can be loaded again from it the same way.
 - **Numbers are kept by value.** The store keeps `8.40` as `8.4` and `007` as `7`, so there is no
   parsed text left to recover the original spelling from. Rather than change a number silently, a
-  changeset, a posting build or a dump that holds one the store would rewrite is refused (`write
+  changeset or a dump that holds one the store would rewrite is refused (`write
   8.4`); the one-time import of a workspace of files rewrites each one and lists it. A grade whose
   zeros matter (`3.80`) is written as a string.
 

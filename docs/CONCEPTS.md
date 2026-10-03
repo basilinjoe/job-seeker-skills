@@ -71,7 +71,8 @@ analyst's review (`review`), the assessment (`gaps`), the bullets chosen (`resum
 `application` - what was sent, the bullets that rendered and the metric versions they cite, and a
 timeline of what came back. Its directory, `applications/<stem>/`, holds only the files actually
 sent: the PDF and the `.tex`. One made from files before 6.0 (`posting.md`, `decisions.txt`,
-`gaps.txt`, `resume.json`) is read if it was sent, and named for jsk 5.1.0 or `jsk app drop` if not.
+`gaps.txt`, `resume.json`) stays readable if it was frozen (sent or held back), and is named for
+jsk 5.1.0 or `jsk app drop` if not.
 *Why it matters:* it is frozen once the application goes out — `jsk app freeze` refuses until the gates
 pass, records the application and names the directory after the day it was sent; after that
 `jsk app event` adds what happened next, and nothing is edited. The career keeps moving, and an

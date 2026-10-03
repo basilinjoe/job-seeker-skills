@@ -629,7 +629,7 @@ and the runners into `application/gates/`, with the career's reads bound in
 | The capability starter pack | `src/jsk/data/capabilities.ttl`, `src/jsk/infra/packs.py`, `src/jsk/domain/record/pack.py` | applied to the career as a changeset, never loaded as vocabulary; `tests/test_graph_pack.py` |
 | Where the record is stored, or how a write lands | `src/jsk/infra/oxigraph/db.py` (storage), `src/jsk/infra/oxigraph/record.py` (the write gate) | `tests/test_db.py`, which also fails a second module that opens the store or writes it |
 | What `jsk kb new` scaffolds | `src/jsk/application/record/scaffold.py` | `tests/test_kb_new.py`, `references/mode-setup.md` |
-| A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `application/posting/build.py` and `application/tailor/check_gaps.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
+| A posting's or assessment's shape | `Posting`, `Requirement`, `Assessment` and `Verdict` in `ontology.py` | `application/posting/decide.py` (with `capture.py`) and `application/tailor/check_gaps.py`, which write them; `references/mode-tailor.md`, `agents/jsk-tailor-analyst.md` |
 | What the analyst may write | `adapters/mcp/schemas.py` (the batch rows) and its grant in `agents/jsk-tailor-analyst.md`; the review's shape in `domain/assessment/overlay.py` | the checks in `domain/posting/decide.py` and `domain/assessment/fold.py`; `agents/jsk-tailor-analyst.md` |
 | How the career's projects are ranked for a posting | `rank` in `src/jsk/domain/matching/rank.py`; the weights in `src/jsk/domain/matching/scoring.py` | `cover` in `cover.py` beside it, and `src/jsk/domain/selection/select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
 | What the record gate checks | `src/jsk/application/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
@@ -657,7 +657,7 @@ story:
    `jsk migrate` moved that file to the graph and now says the Markdown knowledge base is no longer
    read, naming `jsk kb new PATH --name NAME`. The short file retired flags the same way: `--urs` and `--refresh` on `jsk kb
    export` are usage errors naming what replaced them, and `--view` is gone from `render`, `ship`,
-   `gates` and `freeze` - a `resume.json` is one resume. The store retired `jsk kb adopt` and
+   `gates` and `freeze` - a `resume.json` was one resume (until 6.0, when no command reads one). The store retired `jsk kb adopt` and
    `jsk kb fmt` outright - there is no hand edit to adopt and no file layout to restore - and
    `jsk kb export --from-match` takes the application directory, refusing a `posting.ttl` path
    with the new form in the fix. The move to `jsk <noun> <verb>` retired every top-level command
