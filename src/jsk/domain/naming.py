@@ -30,6 +30,8 @@ def short_name(name):
     if head.startswith("applications/") and head.count("/") == 1 and \
             tail in ("posting.ttl", "application.ttl", "gaps.ttl"):
         return name[:-len(".ttl")]
+    if head.startswith("resumes/") and head.count("/") == 1 and tail == "resume.ttl":
+        return name[:-len(".ttl")]
     return name
 
 

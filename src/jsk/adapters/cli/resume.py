@@ -1,16 +1,16 @@
 """`jsk resume check TARGET`: the gates a target calls for, chosen by what it is.
 
-A resume.json gets the record gate, a render (.pdf, .tex, or a .txt named by hand) the parse and
-prose gates -
-`--only` narrowing that to one - and a render's directory all four
+A target's selection gets the record gate, a render (.pdf, .tex, or a .txt named by hand) the
+parse and prose gates - `--only` narrowing that to one - and a render's directory all four
 (adapters/cli/gates/check.py runs each). Ruling 10 of the onion design folds the three
 commands that did this - `validate`, `check` and `gates` - into this one, and a flag that
 does not fit the target's kind is a usage error naming the kind.
 
-A graph-native target - `<stem>` or `resumes/<name>`, with no file of that name - is a
-record: its selection graph gets the record gate, where a resume.json would (Ruling 12 of
-docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md). A directory that
-exists is still a directory.
+A target - `<stem>` or `resumes/<name>`, with no file of that name - is a record: its
+selection graph gets the record gate (Ruling 12 of
+docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md). A directory that exists
+is still a directory. A resume.json got the record gate until 6.0, which reads none: one is
+told the target form, exit 2.
 """
 import os
 
@@ -18,29 +18,30 @@ from .cliutil import wants_help
 from .gates.check import cmd_check, cmd_gates, cmd_validate
 
 RESUME_CHECK_USAGE = (
-    "usage: jsk resume check <resume.json> [--strict] [--max-findings N]\n"
+    "usage: jsk resume check <stem>|resumes/<name> [--strict] [--max-findings N]\n"
     "       jsk resume check <resume.pdf|.tex|.txt> [--strict] [--only parse|prose|layout]\n"
-    "       jsk resume check <out-dir> [--record <resume.json>] [--pages N] [--json] "
+    "       jsk resume check <out-dir> [--record <stem>] [--pages N] [--json] "
     "[--max-findings N]")
 
 # Every flag of `jsk resume check` that takes a value, the layout gate's included: what is
 # after one is its value, never the target.
 VALUE_FLAGS = ("--only", "--record", "--pages", "--max-findings", "--region")
 
-# A record file, or one the record gate turns away by name (guards.record_refusal).
+# A record file the record gate turns away by name (guards.record_refusal): a resume.json,
+# retired in 6.0, and the career's own formats.
 RECORD_SUFFIXES = (".json", ".md", ".ttl")
 
 # kind -> (what it is called, what it gets, the flags it takes, its usage line). A flag of
-# another kind's is a usage error that names the kind: `--pages` on a resume.json reads as a
+# another kind's is a usage error that names the kind: `--pages` on a target reads as a
 # typo for the directory, and ignoring it would read as a page budget that was checked.
 KINDS = {
-    "record": ("a resume.json", "the record gate", ("--strict", "--max-findings"),
-               "jsk resume check <resume.json> [--strict] [--max-findings N]"),
+    "record": ("a target", "the record gate", ("--strict", "--max-findings"),
+               "jsk resume check <stem>|resumes/<name> [--strict] [--max-findings N]"),
     "render": ("a render", "the parse and prose gates", ("--strict", "--only"),
                "jsk resume check <resume.pdf|.tex|.txt> [--strict] [--only parse|prose|layout]"),
     "directory": ("a render's directory", "all four gates",
                   ("--record", "--pages", "--json", "--max-findings"),
-                  "jsk resume check <out-dir> [--record <resume.json>] [--pages N] [--json] "
+                  "jsk resume check <out-dir> [--record <stem>] [--pages N] [--json] "
                   "[--max-findings N]"),
 }
 FLAGS = {flag for kind in KINDS.values() for flag in kind[2]} | {"--region"}
@@ -77,9 +78,9 @@ def kind_of(target):
 
     Returns:
         "directory" for a directory, or a name with no extension that is not there (which
-        the gates then refuse as not a directory); "record" for a resume.json, or a record
-        file the record gate turns away by name; "render" for anything else, which the
-        document gates read or report SKIPPED.
+        the gates then refuse as not a directory); "record" for a record file the record
+        gate turns away by name; "render" for anything else, which the document gates read
+        or report SKIPPED.
     """
     ext = os.path.splitext(target)[1].lower()
     if os.path.isdir(target) or (not ext and not os.path.exists(target)):
@@ -122,7 +123,7 @@ def misfit(args, kind):
 def cmd_resume_check(args):
     """`jsk resume check TARGET`: the gates its target calls for.
 
-    A resume.json gets the record gate (cmd_validate), a render the parse and prose gates
+    A target gets the record gate (cmd_validate), a render the parse and prose gates
     (cmd_check), and a render's directory all four (cmd_gates). A flag the kind does not
     take, and --only letter, are refused before anything runs.
 
@@ -142,6 +143,15 @@ def cmd_resume_check(args):
     if ref is not None:
         args = [ref if a is target else a for a in args]
     kind = "record" if ref is not None else kind_of(target)
+    if kind == "record" and ref is None:
+        # A resume.json, or a career file: told what to name instead, whatever the flags -
+        # a flag that does not fit a form 6.0 retired is not the thing to fix first.
+        from ...application.guards import record_refusal
+
+        refusal = record_refusal(target)
+        if refusal:
+            print("\n".join(refusal))
+            return 2
     if kind == "render" and only_of(args) == "letter":
         at = args.index("--only")
         rest = args[:at] + args[at + 2:]

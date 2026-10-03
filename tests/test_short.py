@@ -1,7 +1,8 @@
-"""The short resume.json: what one application chose, and nothing the career holds.
+"""The short resume.json's dict - a target's selection: what one resume chose, and nothing
+the career holds.
 
-Reading it, finding the workspace it belongs to, and the two ways it can be wrong -
-its own shape, and ids the career does not hold."""
+Reading it from its target, finding the workspace it belongs to, and the two ways it can be
+wrong - its own shape, and ids the career does not hold."""
 import json
 import tempfile
 import unittest
@@ -16,68 +17,42 @@ OK = {"resume": 2, "bullets": ["ach_events_latency", "ach_identity_sso"]}
 
 
 class Read(unittest.TestCase):
-    def test_a_short_file_reads(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root, path = careerkit.workspace(tmp, short=OK)
-            self.assertEqual(resume.read(path)["bullets"], OK["bullets"])
-            self.assertEqual(Path(resume.workspace(path)), Path(root))
+    """A selection is read from its target's graph. A resume.json was read as a file until
+    6.0 (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2): its parser's tests -
+    not JSON, a legacy URS record, cp1252, a BOM, another version, outside a workspace -
+    went with it, and one named now is told the target form."""
 
-    def test_a_legacy_record_points_at_export(self):
+    def test_a_selection_reads_from_its_target(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p = Path(tmp, "resume.json")
-            p.write_text(json.dumps({"urs": "1.0.0"}), encoding="utf-8")
-            with self.assertRaises(short.ShortError) as err:
-                resume.read(p)
-            # The file named: the short one is written over it.
-            self.assertIn(f"jsk kb export --select <id>... --out {p}", err.exception.fix)
+            root, ref = careerkit.workspace(tmp, short=OK)
+            self.assertEqual(resume.read(ref)["bullets"], OK["bullets"])
+            self.assertEqual(Path(resume.workspace(ref)), Path(root))
 
-    def test_not_json_and_missing_are_refused(self):
+    def test_a_resume_json_is_told_the_target_form(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p = Path(tmp, "resume.json")
-            p.write_text("{not json", encoding="utf-8")
-            with self.assertRaises(short.ShortError):
-                resume.read(p)
-            with self.assertRaises(short.ShortError):
-                resume.read(Path(tmp, "absent.json"))
-
-    def test_a_cp1252_file_is_refused_as_not_utf8(self):
-        """A person edits resume.json - a summary with a Windows editor's curly quote.
-        The fix is to save it as UTF-8, not to fix JSON that is fine."""
-        with tempfile.TemporaryDirectory() as tmp:
-            p = Path(tmp, "resume.json")
-            p.write_bytes(b'{"resume": 2, "summary": {"text": "\x93Led\x94 it"}}')
-            with self.assertRaises(short.ShortError) as err:
-                resume.read(p)
-            self.assertIn("not UTF-8", str(err.exception))
-            self.assertIn("UTF-8", err.exception.fix)
-
-    def test_a_bom_and_crlf_still_read(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            p = Path(tmp, "resume.json")
-            p.write_bytes(b'\xef\xbb\xbf' + json.dumps(OK, indent=2).encode().replace(b"\n", b"\r\n"))
-            self.assertEqual(resume.read(p)["bullets"], OK["bullets"])
-
-    def test_another_version_is_refused(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            p = Path(tmp, "resume.json")
-            p.write_text(json.dumps({"resume": 3, "bullets": []}), encoding="utf-8")
-            with self.assertRaises(short.ShortError):
-                resume.read(p)
-
-    def test_outside_a_workspace_is_refused_not_a_traceback(self):
-        with tempfile.TemporaryDirectory() as tmp:
+            careerkit.workspace(tmp, short=OK)
             p = Path(tmp, "resume.json")
             p.write_text(json.dumps(OK), encoding="utf-8")
+            for read in (resume.read, resume.workspace, resume.loaded_resume):
+                with self.subTest(read=read.__name__), \
+                        self.assertRaises(short.ShortError) as err:
+                    read(str(p))
+                self.assertIn("jsk 6.0 reads no resume.json", str(err.exception))
+                self.assertIn("<stem>` or `resumes/<name>`", err.exception.fix)
+
+    def test_a_target_with_no_selection_names_the_tool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, ref = careerkit.workspace(tmp)
             with self.assertRaises(short.ShortError) as err:
-                resume.workspace(p)
-            self.assertIn("career/store/", err.exception.fix)
+                resume.read(ref)
+            self.assertIn("resume_select", err.exception.fix)
 
     def test_a_workspace_named_career_is_found(self):
-        # The real one holds career/career/store/: the parent of the file's folder's
-        # parent is the wrong answer, so the walk up is the only right one.
+        # The real one holds career/career/store/: the workspace is the ref's own, never a
+        # parent worked out from a file's folder.
         with tempfile.TemporaryDirectory() as tmp:
-            root, path = careerkit.workspace(Path(tmp, "career"), short=OK)
-            self.assertEqual(Path(resume.workspace(path)), Path(root))
+            root, ref = careerkit.workspace(Path(tmp, "career"), short=OK)
+            self.assertEqual(Path(resume.workspace(ref)), Path(root))
 
 
 class Shape(unittest.TestCase):
@@ -177,11 +152,14 @@ class Shape(unittest.TestCase):
 
 
 class Example(unittest.TestCase):
-    """The workspace jsk doctor renders: a small career and a short file over it. It
-    ships as files, and doctor imports it into a store of its own before rendering, as
-    `jsk kb load` imports a person's (preflight.verify)."""
+    """The workspace jsk doctor renders: a small career and a general resume's selection
+    over it. It ships as files - the selection as resumes/example/resume.ttl since 6.0 - and
+    doctor imports both into a store of their own before rendering, as `jsk kb load` imports
+    a person's (preflight.verify)."""
 
     def stored(self):
+        """(the loaded store, the example resume's ref) in a stored copy of the example."""
+        import os
         import shutil
 
         from storekit import seed
@@ -193,16 +171,14 @@ class Example(unittest.TestCase):
         self.addCleanup(shutil.rmtree, tmp, True)
         shutil.copytree(paths.EXAMPLE_WORKSPACE, tmp, dirs_exist_ok=True)
         seed(tmp)
-        return record.load(tmp)
+        return record.load(tmp), os.path.join(tmp, *paths.EXAMPLE_TARGET.split("/"), "resume")
 
     def test_the_example_reads_and_every_id_is_held(self):
-        from jsk import paths
-
-        doc = resume.read(paths.EXAMPLE_SHORT)
+        store, ref = self.stored()
+        doc = resume.read(ref)
         self.assertEqual(short.shape(doc), [])
-        self.assertEqual(Path(resume.workspace(paths.EXAMPLE_SHORT)),
-                         Path(paths.EXAMPLE_WORKSPACE))
-        self.assertEqual(short.ids(doc, self.stored()), [])
+        self.assertEqual(doc["region"], "au")
+        self.assertEqual(short.ids(doc, store), [])
 
     def test_the_example_career_imports_clean(self):
         from jsk import paths
@@ -213,7 +189,7 @@ class Example(unittest.TestCase):
         self.assertEqual(imported.fails(), [])
         self.assertEqual(R.state(imported).kind, "clean")
         self.assertEqual(rewrites, [])          # doctor's import changes no number
-        store = self.stored()
+        store, _ = self.stored()
         self.assertEqual(store.fails(), [])
         self.assertEqual(R.state(store).kind, "clean")
 
@@ -272,8 +248,8 @@ class Ids(unittest.TestCase):
 
 
 class Main(unittest.TestCase):
-    """The short file's own check of one resume.json (adapters/cli/gates/short.py): its
-    shape and ids, with no gate behind it."""
+    """The short file's own check of one target's selection (adapters/cli/gates/short.py):
+    its shape and ids, with no gate behind it."""
 
     def main(self, *args):
         import contextlib
@@ -302,13 +278,15 @@ class Main(unittest.TestCase):
         self.assertIn("ach_events_terraform", out)
         self.assertNotIn("PASS", out)
 
-    def test_a_legacy_record_fails_with_the_fix(self):
+    def test_a_resume_json_fails_naming_the_target_form(self):
+        # A legacy URS record was refused naming `jsk kb export` until 6.0 read no file.
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp, "resume.json")
             p.write_text(json.dumps({"urs": "1.0.0"}), encoding="utf-8")
             code, out = self.main(p)
         self.assertEqual(code, 1, out)
-        self.assertIn("jsk kb export", out)
+        self.assertIn("jsk 6.0 reads no resume.json", out)
+        self.assertIn("resumes/<name>", out)
 
     def test_called_wrong_exits_two(self):
         self.assertEqual(self.main()[0], 2)

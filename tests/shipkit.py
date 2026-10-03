@@ -1,9 +1,13 @@
 """The fixtures `jsk resume ship`, `jsk app freeze` and `jsk app event` are tested on.
 
-ShipCase is a general resume at a workspace root, shipped with the TeX compile faked;
-GraphCase is graphsim's career in a store with the Contoso application rendered and
-ready to freeze; ShortCase is that application with a short resume.json. fake_compile
-and margin_compile stand in for the TeX engine.
+ShipCase is a general resume (`resumes/test`), shipped into its own directory with the TeX
+compile faked; GraphCase is graphsim's career in a store with the Contoso application made
+graph-native, its selection stored, rendered and ready to freeze; ShortCase is that
+application with another selection. fake_compile and margin_compile stand in for the TeX
+engine. Until 6.0 the record was a resume.json beside the render, and the Contoso
+application was made from files; 6.0 reads no resume.json and freezes no application made
+from files (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2), so the same
+tests run on a target.
 """
 import contextlib
 import io
@@ -81,21 +85,21 @@ class ShipCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-        # A general resume at the workspace root: no posting.ttl beside it, so the render
-        # is named for the person alone.
+        # A general resume: it answers no posting, so the render is named for the person
+        # alone, and it ships into its own directory, resumes/test/.
         root, _ = careerkit.workspace(self.tmp / "ws", edits=[CONTACTED])
-        self.record = Path(root) / "resume.json"
-        self.write(GOOD)
-        self.out = self.tmp / "out"
+        self.root = Path(root)
+        self.record = Path(careerkit.select(root, GOOD))
+        self.out = self.record.parent
 
     def write(self, doc):
-        self.record.write_text(json.dumps(doc), encoding="utf-8")
+        careerkit.select(self.root, doc)
 
     def ship(self, *extra, compile_pdf=None):
         """cli.main() in this interpreter, with the TeX compile faked."""
         from jsk import cli
         from jsk.adapters.cli.compose import render as render_resume
-        args = ["jsk", "resume", "ship", str(self.record), "--out", str(self.out)]
+        args = ["jsk", "resume", "ship", str(self.record)]
         buf = io.StringIO()
         with mock.patch.object(render_resume, "compile_pdf",
                                compile_pdf or fake_compile()), \
@@ -143,6 +147,39 @@ def margin_compile(fits_at=None, over=3, under=2):
 
 # --- the graph record: career/store/ ---------------------------------------------------
 
+# The Contoso posting as posting_capture stores it: the claims fixture's posting.md, made a
+# graph-native advert, its one requirement quoting its line.
+CONTOSO_ADVERT = ("# Platform Engineer\nContoso\n\n## Requirements\n\n"
+                  "- We run event platforms on Kubernetes. Production K8s experience "
+                  "required.\n")
+
+
+def graph_native(root, stem="contoso-platform"):
+    """The claims fixture's Contoso application, made from files, made graph-native in the
+    store at `root`: its posting graph replaced by the advert's lines and its requirement,
+    captured, decided and completed as the analyst's tools leave it, and its posting.md and
+    resume.json removed - a graph-native application keeps neither. The ids stay
+    k:post_contoso_platform and k:req_contoso_platform_kubernetes."""
+    import datetime
+
+    from jsk.adapters.cli.compose import native
+    from jsk.domain.posting.advert import advert_lines
+
+    day = datetime.date(2026, 9, 20)
+    root = str(root)
+    app = Path(root) / "applications" / stem
+    for name in ("posting.md", "resume.json"):
+        (app / name).unlink(missing_ok=True)
+    appkit.drop(root, f"applications/{stem}/posting")
+    native.capture(root, stem, text=CONTOSO_ADVERT, company="Contoso", title="Platform Engineer",
+                   captured=day.isoformat(), today=day)
+    [line] = [x.n for x in advert_lines(CONTOSO_ADVERT) if "K8s" in x.text]
+    done = native.decide(root, stem, rows=[{"n": line, "slug": "kubernetes", "asked": "K8s",
+                                            "need": "required"}], today=day)
+    assert not [f for f in done.findings if f[0] == "FAIL"], done.findings
+    done = native.complete_posting(root, stem, today=day)
+    assert done.state == "complete", done.findings
+
 class GraphCase(unittest.TestCase):
     """graphsim's career (tests/claims_fixtures) in a store, with the Contoso application
     rendered and ready to freeze - built without a TeX engine."""
@@ -170,6 +207,9 @@ class GraphCase(unittest.TestCase):
         careerkit.relog(self.root)
         appkit.seed(self.root)
         self.app = self.root / "applications" / "contoso-platform"
+        doc = json.loads((self.app / "resume.json").read_text(encoding="utf-8"))
+        graph_native(self.root)
+        self.selected(doc)
         self.render()
 
     def render(self, lines=None):
@@ -181,8 +221,22 @@ class GraphCase(unittest.TestCase):
             TEX_PREAMBLE + "\n".join("\\item " + l for l in lines) + "\n\\end{document}\n",
             encoding="utf-8")
 
-    def record(self, doc):
-        (self.app / "resume.json").write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    def selected(self, doc):
+        """`doc` stored as the application's selection, as resume_select and resume_update
+        leave one; the selection's ref is `self.short`. Named apart from `record`, which a
+        subclass may read as the application's record."""
+        from jsk.domain.resume.selection import triples_of
+        from jsk.infra.oxigraph import record as R
+
+        R.write_graphs(str(self.root), {appkit.name(self.app, "resume"):
+                                        triples_of(doc, "sel_app_contoso_platform")})
+
+    record = selected
+
+    @property
+    def short(self):
+        """The application's selection's ref: where a resume.json path went before 6.0."""
+        return self.app / "resume"
 
     def edit_career(self, old, new):
         """The career's words changed in the store, as `jsk kb apply` would change them:
@@ -248,7 +302,9 @@ class ShortCase(GraphCase):
 
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
-        root, path = careerkit.workspace(self._tmp.name, short=self.SHORT, edits=[CONTACTED])
-        self.root, self.short = Path(root), Path(path)
-        self.app = self.short.parent
+        root, _ = careerkit.workspace(self._tmp.name, edits=[CONTACTED])
+        self.root = Path(root)
+        self.app = self.root / "applications" / "contoso-platform"
+        graph_native(self.root)
+        self.selected(self.SHORT)
         self.render()

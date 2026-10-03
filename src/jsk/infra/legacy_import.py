@@ -35,7 +35,8 @@ def workspace_files(root, vocabulary=SHIPPED_VOCABULARY):
 
     Returns:
         The paths in a fixed order: the career, its log, each application's posting,
-        application and gaps files, then the vocabulary. Missing ones are absent.
+        application and gaps files, each general resume's selection, then the vocabulary.
+        Missing ones are absent.
     """
     found = [os.path.join(root, "career", "kb.ttl"), os.path.join(root, "career", "log.ttl")]
     for pattern in ("posting.ttl", "application.ttl", "gaps.ttl"):
@@ -43,6 +44,11 @@ def workspace_files(root, vocabulary=SHIPPED_VOCABULARY):
         # silently match no application at all.
         found += sorted(glob.glob(os.path.join(glob.escape(str(root)), "applications", "*",
                                                pattern)))
+    # A general resume's selection (resumes/<name>/resume.ttl): the shipped example carries
+    # its own since 6.0, which reads no resume.json, so `jsk doctor` imports a resume to
+    # render with the career (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2).
+    found += sorted(glob.glob(os.path.join(glob.escape(str(root)), "resumes", "*",
+                                           "resume.ttl")))
     found = [f for f in found if os.path.isfile(f)]
     if vocabulary and os.path.isfile(vocabulary):
         found.append(vocabulary)

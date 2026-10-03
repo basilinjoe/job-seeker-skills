@@ -1,21 +1,38 @@
 """6.0 retired the commands that served only applications made from files: P2 of
 docs/superpowers/plans/2026-10-03-retire-file-pipeline.md.
 
-Ruling 1: each retired command exits 2 through adapters/cli/main.py's retired table, names
-the tool or the target form that replaces it, and writes nothing - never a silent shim and
-never "unknown command", which reads as a broken install. A retired noun answers for every
-verb it had, and for --help.
+Ruling 1: each retired command, and each file form of a command that stays, exits 2 - through
+adapters/cli/main.py's retired table, or the command's own refusal - names the tool or the
+target form that replaces it, and writes nothing; never a silent shim and never "unknown
+command", which reads as a broken install. A retired noun answers for every verb it had, and
+for --help. The tools that took a file-made application (`app_freeze`, `letter_check` with a
+resume.json) say it as a FAIL finding.
+
+Ruling 2: a frozen application made from files stays readable - its quotes are still checked
+against the posting.md beside it on every load. Ruling 5: one made from files and not sent is
+named by `app_list`, `jsk doctor` and `jsk kb check`, with the release that still finishes
+one (5.1.0) and `jsk app drop`; its files are no longer judged, since nothing here can
+change them.
 """
 import contextlib
+import datetime
+import importlib.util
 import io
+import json
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
+import appkit
 import careerkit
 from jsk import cli
 from jsk.adapters.cli import main as M
+
+HAS_MCP = importlib.util.find_spec("mcp") is not None
+TODAY = "2026-10-03"
+LETTER = "Dear team,\n\nI build platforms.\n\nRegards,\nJane\n"
 
 
 def jsk(*argv):
@@ -37,7 +54,9 @@ def tree(root):
     return found
 
 
-# (the retired call, `{app}` its application, what the fix must name).
+# (the retired call, `{app}` the file-made application and `{root}` the workspace, what the
+# fix must name). A resume.json is named whether or not one is there: the form went, and
+# "file not found" would read as the fix.
 RETIRED_CALLS = [
     (["posting", "fetch", "https://jobs.lever.co/acme/6ed76ce8-4156-4b60-b120-403538bd66cd",
       "{app}"], "posting_capture"),
@@ -60,24 +79,39 @@ RETIRED_CALLS = [
      "jsk kb confirm --summary <stem>"),
     (["kb", "confirm", "--headline", "{app}/resume.json", "--answer", "That is my title."],
      "career_confirm"),
+    (["resume", "check", "{app}/resume.json"], "jsk resume check <stem>"),
+    (["resume", "render", "{app}/resume.json", "--out", "{root}/out"],
+     "jsk resume render <stem>"),
+    (["resume", "preview", "{app}/resume.json", "--out", "{root}/out"],
+     "jsk resume preview <stem>"),
+    (["resume", "ship", "{app}/resume.json", "--out", "{root}/out"], "jsk resume ship <stem>"),
+    (["resume", "check", "{root}", "--record", "{app}/resume.json"], "--record <stem>"),
+    (["letter", "check", "{root}/letter.txt", "--record", "{app}/resume.json"],
+     "--record <stem>"),
+    (["app", "freeze", "{app}", "--submitted", TODAY, "--channel", "Workday"],
+     "send it with jsk 5.1.0"),
 ]
 
 
-class Retired(unittest.TestCase):
-    """Each call in the claims workspace, whose contoso-platform was made from files."""
+class Workspace(unittest.TestCase):
+    """The claims fixture, stored: applications/contoso-platform is made from files and
+    unsent (posting.md and a posting graph built from decisions)."""
 
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        self.root, _ = careerkit.workspace(Path(tmp.name) / "ws", short=careerkit.short())
+        self.root, _ = careerkit.workspace(Path(tmp.name) / "ws")
         self.app = str(Path(self.root) / "applications" / "contoso-platform")
+        Path(self.root, "letter.txt").write_text(LETTER, encoding="utf-8")
         cwd = os.getcwd()
         os.chdir(self.root)
         self.addCleanup(os.chdir, cwd)
 
+
+class Retired(Workspace):
     def test_each_exits_2_names_its_replacement_and_writes_nothing(self):
         for argv, names in RETIRED_CALLS:
-            argv = [a.format(app=self.app) for a in argv]
+            argv = [a.format(app=self.app, root=self.root) for a in argv]
             with self.subTest(call=" ".join(argv[:2])):
                 before = tree(self.root)
                 code, out = jsk(*argv)
@@ -98,6 +132,188 @@ class Retired(unittest.TestCase):
                             ("tailor", ("match", "prepare"))):
             for verb in verbs:
                 self.assertIn(f"{noun} {verb}", M.RETIRED)
+
+    def test_the_target_forms_print_no_retirement(self):
+        # The same verbs on a target, or with no record named, are 6.0's forms.
+        for argv in (["resume", "check", "contoso-platform"],
+                     ["letter", "check", "letter.txt", "--record", "contoso-platform"],
+                     ["kb", "check", "--root", self.root],
+                     ["resume", "render", "--help"]):
+            with self.subTest(argv=argv):
+                _, out = jsk(*argv)
+                self.assertNotIn("retired in 6.0", out)
+
+
+def served(root):
+    """call(tool, **args) -> the tool's JSON result, from a server built over `root` and
+    called through the SDK's in-memory client, as tests/test_mcp_server.py calls one."""
+    import asyncio
+
+    from jsk.adapters.mcp import server, session
+
+    built = server.build(session.Session(root=root))
+
+    async def called(name, args):
+        from mcp.shared.memory import create_connected_server_and_client_session as connect
+
+        async with connect(built._mcp_server) as client:
+            r = await client.call_tool(name, args)
+            return json.loads(r.content[0].text)
+
+    return lambda name, **args: asyncio.run(called(name, args))
+
+
+@unittest.skipUnless(HAS_MCP, "the mcp extra is not installed")
+class Tools(Workspace):
+    """The tools that took a file-made application say what the command says, as a FAIL."""
+
+    def test_letter_check_with_a_resume_json_fails_naming_the_target_form(self):
+        found = served(self.root)("letter_check", letter="letter.txt",
+                                  record=os.path.join(self.app, "resume.json"))
+        fails = [f for f in found["findings"] if f["severity"] == "FAIL"]
+        self.assertIn("was retired in 6.0", fails[0]["text"])
+        self.assertIn("--record <stem>", fails[0]["fix"])
+        self.assertIsNone(found["verdict"])
+
+    def test_app_freeze_on_a_file_made_application_fails_with_ruling_5_s_fix(self):
+        before = tree(self.root)
+        found = served(self.root)("app_freeze", app="contoso-platform", submitted=TODAY,
+                                  channel="Workday")
+        self.assertFalse(found["ok"])
+        [fail] = found["findings"]
+        self.assertEqual(fail["severity"], "FAIL")
+        self.assertIn("was made from files", fail["text"])
+        self.assertIn("send it with jsk 5.1.0", fail["fix"])
+        self.assertIn("`jsk app drop applications/contoso-platform`", fail["fix"])
+        self.assertEqual(tree(self.root), before, "nothing frozen, nothing renamed")
+
+
+class FrozenArchive(unittest.TestCase):
+    """Ruling 2 over tests/graph_fixtures, whose acme-platform-engineer was made from files
+    and frozen: its application graph is in the store, its posting.md beside it."""
+
+    POSTING_MD = "applications/acme-platform-engineer/posting.md"
+    APPLICATION = "applications/acme-platform-engineer/application"
+    ASKED = "Deep, hands-on K8s experience in production."
+
+    def workspace(self, frozen=True, reworded=False):
+        from test_graph_shapes import FIXTURES
+
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root, True)
+        shutil.copytree(FIXTURES, root, dirs_exist_ok=True)
+        if reworded:
+            # The advert no longer says what the requirement quotes.
+            advert = root / self.POSTING_MD
+            text = advert.read_text(encoding="utf-8")
+            self.assertIn(self.ASKED, text)
+            advert.write_text(text.replace(self.ASKED, "Kubernetes."), encoding="utf-8")
+        appkit.seed(root)
+        if not frozen:
+            appkit.drop(root, self.APPLICATION)
+        return root
+
+    def findings(self, root):
+        from test_graph_shapes import load
+
+        return [f for f in load(root).findings if f.file.startswith("applications/")]
+
+    def test_a_frozen_file_made_application_still_validates(self):
+        root = self.workspace()
+        self.assertEqual([f.text() for f in self.findings(root) if f.severity == "FAIL"], [])
+        code, out = jsk("kb", "check", "--root", root)
+        self.assertNotIn("file-made-unsent", out, "a frozen one is no unsent one")
+
+    def test_its_quotes_are_still_checked_against_the_posting_md_beside_it(self):
+        # The archive is read, not trusted: an advert that no longer says a quote fails.
+        rules = {f.rule for f in self.findings(self.workspace(reworded=True))
+                 if f.severity == "FAIL"}
+        self.assertIn("quote-verbatim", rules)
+
+    def test_an_unsent_one_is_not_judged_and_is_named_instead(self):
+        root = self.workspace(frozen=False, reworded=True)
+        self.assertEqual([f.text() for f in self.findings(root)
+                          if f.rule in ("quote-verbatim", "advert-uncovered")], [])
+        code, out = jsk("kb", "check", "--root", root)
+        self.assertIn("WARN  file-made-unsent applications/acme-platform-engineer was made "
+                      "from files and is not sent", out)
+
+
+class Unsent(unittest.TestCase):
+    """One workspace holding all three kinds: the claims fixture's contoso-platform, made from
+    files and unsent; acme-sent, made from files and frozen; and acme-native, graph-native,
+    with a resume.json left beside it that is never read (Ruling 11)."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root, _ = careerkit.workspace(Path(tmp.name) / "ws", short=careerkit.short())
+        apps = Path(self.root) / "applications"
+        sent = apps / "acme-sent"
+        shutil.copytree(apps / "contoso-platform", sent)
+        posting = appkit.text(self.root, "applications/contoso-platform/posting")
+        appkit.put(self.root, "applications/acme-sent/posting", posting, prefixes=False)
+        appkit.put(self.root, "applications/acme-sent/application",
+                   'k:app_acme_sent j:posting k:post_contoso_platform ; '
+                   'j:submitted "2026-09-10"^^xsd:date ; j:channel "company site" .\n')
+        from jsk.adapters.cli.compose import native
+
+        native.capture(self.root, "acme-native", text="- Kubernetes in production.\n",
+                       company="Acme Health", title="Platform Engineer",
+                       today=datetime.date(2026, 10, 3))
+        (apps / "acme-native").mkdir()
+        (apps / "acme-native" / "resume.json").write_text("{}", encoding="utf-8")
+        (apps / "notes").mkdir()                     # a folder with no record file at all
+
+    def test_the_one_rule_finds_only_the_unsent_file_made_application(self):
+        from jsk.application.timeline.unsent import file_made_unsent
+        from jsk.infra.files import application_listing
+
+        found = file_made_unsent(appkit.graphs(self.root), application_listing(self.root))
+        self.assertEqual(found, ("contoso-platform",))
+
+    def test_a_folder_with_only_a_resume_json_and_no_graph_is_unsent_too(self):
+        from jsk.application.timeline.unsent import file_made_unsent
+
+        self.assertEqual(file_made_unsent({}, {"globex": {"resume.json"}}), ("globex",))
+        self.assertEqual(file_made_unsent({}, {"globex": {"resume.json", "application.md"}}),
+                         (), "an application.md is one frozen before the career was a graph")
+
+    def test_kb_check_warns_file_made_unsent_naming_it_and_the_fix(self):
+        code, out = jsk("kb", "check", "--root", self.root)
+        self.assertIn("WARN  file-made-unsent applications/contoso-platform was made from "
+                      "files and is not sent; jsk 6.0 no longer finishes such an application",
+                      out)
+        # The release that still finishes one is named: the reader runs one that cannot.
+        self.assertIn("send it with jsk 5.1.0, the last CLI that does", out)
+        # It named a changeset until 2026-10-03, which cannot remove an application's graphs.
+        self.assertIn("or drop it: `jsk app drop applications/contoso-platform`", out)
+        self.assertEqual(out.count("file-made-unsent"), 1, out)
+        code, out = jsk("kb", "check", "--root", self.root, "--only",
+                        "applications/acme-native")
+        self.assertNotIn("file-made-unsent", out)
+
+    def test_doctor_counts_them_in_an_info_line(self):
+        from jsk.adapters.cli.doctor import store_report
+
+        lines, broken = store_report(self.root)
+        self.assertFalse(broken)
+        self.assertIn("  info  unsent   1 application made from files is not sent, and jsk 6.0 "
+                      "no longer finishes it", lines)
+        self.assertTrue(any("`jsk kb check` names each" in line and "jsk 5.1.0" in line
+                            for line in lines), lines)
+
+    @unittest.skipUnless(HAS_MCP, "the mcp extra is not installed")
+    def test_app_list_marks_it_unsent_with_the_note(self):
+        found = served(self.root)("app_list")
+        apps = {a["app"]: a for a in found["applications"]}
+        self.assertTrue(apps["contoso-platform"]["unsent"])
+        self.assertIn("send it with jsk 5.1.0", apps["contoso-platform"]["note"])
+        self.assertFalse(apps["acme-sent"]["unsent"])
+        self.assertFalse(apps["acme-native"]["unsent"])
+        self.assertNotIn("notes", apps, "a folder with no record file is no application")
+        self.assertEqual([(f["severity"], f["text"].split(" ")[0]) for f in found["findings"]],
+                         [("WARN", "applications/contoso-platform")])
 
 
 if __name__ == "__main__":

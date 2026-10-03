@@ -54,16 +54,22 @@ def sent_day(app_dir, store=None):
 
 
 def made_from_files(app_dir, store=None):
-    """Whether `app_dir` is an application made from files and not frozen: its posting graph,
-    if any, holds no advert lines (Ruling 11 of the graph-native plan), and it has no
-    application graph. What `jsk app freeze` and the `app_freeze` tool warn on (Ruling 1 of
-    docs/superpowers/plans/2026-10-03-retire-file-pipeline.md)."""
+    """Whether `app_dir` is an application made from files and not frozen: a posting graph
+    with no advert lines (Ruling 11 of the graph-native plan), or no posting graph and a
+    file only the file pipeline wrote (application.timeline.unsent.FILE_MADE), and no
+    application graph. What `jsk app freeze` and the `app_freeze` tool refuse since 6.0
+    (Ruling 1 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md); an application
+    with neither is no file-made one, and is told it holds no posting."""
     from ....application.posting.native import native_graphs
+    from ....application.timeline.unsent import FILE_MADE
     from ....domain.timeline.events import LEGACY
 
     graphs = app_graphs(app_dir, store)
-    return ("application" not in graphs and not native_graphs(graphs)
-            and not os.path.isfile(os.path.join(app_dir, LEGACY)))
+    if "application" in graphs or native_graphs(graphs) or \
+            os.path.isfile(os.path.join(app_dir, LEGACY)):
+        return False
+    return "posting" in graphs or any(os.path.isfile(os.path.join(app_dir, name))
+                                      for name in FILE_MADE)
 
 
 def refuse_if_sent(app_dir, name, store=None, graph=False):
@@ -147,10 +153,15 @@ class Applications:
         from ....application.render.selection import REF
         from ....domain.resume.selection import doc_of
 
+        from ....infra.files import workspace_of_app
+
         graphs = app_graphs(app_dir)
         if not native_graphs(graphs):
             return None
-        ref = os.path.join(os.path.abspath(app_dir), REF)
+        # As the disk spells the folder: the graphs are named so, however it was typed.
+        root, rel = workspace_of_app(app_dir)
+        here = os.path.join(root, *rel.split("/")) if root and rel else app_dir
+        ref = os.path.join(os.path.abspath(here), REF)
         return ref, (doc_of(graphs["resume"]) if graphs.get("resume") else None)
 
     def freeze(self, root, app_dir, plan, short_bytes, submitted, channel, documents):

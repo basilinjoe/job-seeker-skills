@@ -319,7 +319,9 @@ class Ship(Workspace):
         self.assertIn(f"previewing {STEM}", out)
         self.assertTrue((out_dir / "monolith.pdf").exists(), out)
 
-    def test_a_resume_json_in_a_graph_native_application_is_refused_naming_the_tool(self):
+    def test_a_resume_json_in_a_graph_native_application_is_refused_naming_the_target(self):
+        # It was refused naming `resume_update` while a resume.json elsewhere was still
+        # read; since 6.0 every one is refused alike, naming the target form.
         from jsk import cli
 
         doc = self.selected().doc
@@ -332,7 +334,8 @@ class Ship(Workspace):
             with self.subTest(verb=verb[1]), contextlib.redirect_stdout(buf):
                 code = cli.main(["jsk", *verb])
                 self.assertEqual(code, 2, buf.getvalue())
-                self.assertIn("resume_update", buf.getvalue())
+                self.assertIn("was retired in 6.0", buf.getvalue())
+                self.assertIn(f"jsk resume {verb[1]} <stem>", buf.getvalue())
         self.assertFalse(list(self.app.glob("*.tex")), "nothing rendered")
 
 

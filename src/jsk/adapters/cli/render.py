@@ -1,12 +1,11 @@
-"""Render a short resume.json into a .tex (and PDF).
+"""Render a target's selection into a .tex (and PDF).
 
 Usage:
-  jsk resume render <resume.json> --out DIR [options]
   jsk resume render <stem>|resumes/<name> [--out DIR] [options]
 
   --format F         latex | all                   (default: all; txt is retired)
-  --region CC        override the file's region profile, e.g. AU, IN, AE
-  --profile P        override the file's format: presentation | ats-maximal | plaintext
+  --region CC        override the selection's region profile, e.g. AU, IN, AE
+  --profile P        override the selection's format: presentation | ats-maximal | plaintext
   --ats-max          shorthand for --profile ats-maximal: renders the PDF in the
                      ATS-maximal variant instead of the presentation one
   --template NAME    visual theme for the PDF (default: monolith)
@@ -15,14 +14,16 @@ Usage:
   --name N           basename for the outputs (default: the person's name in the career)
 
 A target - an application's stem or a general resume - renders its selection graph, into
-its own directory unless --out names another.
+its own directory unless --out names another. A resume.json was rendered until 6.0, which
+reads none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2): one exits 2
+naming the target form.
 
 Exit 0 = rendered. Exit 1 = nothing written, or --pdf produced no PDF.
 Exit 2 = usage error.
 
 Every content decision is made once, in domain/resume/plan.py, and the emitters translate
 that plan into markup without choosing anything. Which is the point: the PDF and
-the plain text the gates read from one resume.json cannot say different things.
+the plain text the gates read from one selection cannot say different things.
 
 There is one rendered deliverable, the PDF, and --ats-max chooses which variant
 it holds. The page count therefore describes the document actually being sent -
@@ -108,11 +109,20 @@ def refused(argv):
         print(TXT_RETIRED)
         return 2
     src = argv[1]
+    from ...application.guards import is_resume_json, resume_json_refusal
     from ...application.render.selection import parse_ref
 
+    if is_resume_json(src):
+        print("\n".join(resume_json_refusal(
+            "jsk resume render <resume.json>",
+            "jsk resume render <stem> (or resumes/<name>) [--out DIR] - the target's "
+            "stored selection")))
+        return 2
     # A graph-native target's ref names its selection graph; no file is there to find.
     if not os.path.exists(src) and not parse_ref(src):
-        print(f"file not found: {src}")
+        print(f"no such target: {src}")
+        print("fix:  name the target: <stem> or resumes/<name> - the resume_select tool "
+              "makes its selection")
         return 2
     os.makedirs(arg(argv, "--out", "."), exist_ok=True)
     try:
@@ -123,12 +133,11 @@ def refused(argv):
         # and it would look perfectly fine.
         print(f"usage: {e.args[0]}")
         return 2
-    if os.path.isdir(src):
-        # There is no bundle format any more, so a directory here is almost always
-        # somebody reaching for the old call. Say which file to pass rather than
-        # failing on a JSONDecodeError from a path that is not a file.
-        print(f"FAIL  cannot render a directory: {src}")
-        print("fix:  pass the short resume.json - applications/<stem>/resume.json")
+    if not parse_ref(src):
+        # A directory that is no target's, or a file: there is no bundle format, and a
+        # resume renders from a target's selection alone.
+        print(f"FAIL  cannot render {src}: it is no target")
+        print("fix:  name the target: <stem> or resumes/<name>")
         return 2
     if arg(argv, "--view"):
         # A resume.json is one resume: the view, which chose a slice of a full URS
@@ -139,7 +148,7 @@ def refused(argv):
 
 
 def main(argv):
-    """`jsk resume render`: render one resume.json and say what was written.
+    """`jsk resume render`: render one target's selection and say what was written.
 
     Args:
         argv: the whole argv, the program name first.
@@ -173,8 +182,7 @@ def rendered(argv, *, tex, company_of):
         return code, None
     src, out_dir = argv[1], arg(argv, "--out", ".")
 
-    # Built from the career the file sits in. A legacy URS record is refused by the load,
-    # with `jsk kb export` as the fix.
+    # Built from the career the target's workspace holds.
     from ...application.render.render_resume import RenderStopped, render_resume
     from ...domain.resume.short import ShortError
     from ...infra import outputs, pdf, profiles
@@ -214,7 +222,7 @@ def stopped(stop):
 TXT_RETIRED = ("--format txt is retired: the plain-text resume is no longer written.\n"
                "fix:  render with --format all (the .tex and, with --pdf, the PDF); the "
                "parse and terms gates\n      read the render's text in memory - "
-               "jsk resume check <out-dir> --record <resume.json>")
+               "jsk resume check <out-dir> --record <stem>")
 
 
 def report(result, out_dir):

@@ -1,6 +1,6 @@
 """Check how much of the posting's own wording a rendered resume carries.
 
-Usage: jsk resume check <out-dir> --record <applications/<dir>/resume.json>
+Usage: jsk resume check <out-dir> --record <stem>
        (runs after the layout gate whenever there is a record; it reads the render's
        plain text, emitted in memory from the record's plan)
 
@@ -21,7 +21,7 @@ def gate(args):
     """The terms gate over the arguments alone, as `jsk resume check` runs it.
 
     Args:
-        args: --record <resume.json>, whose plan's plain text is read in memory - or a .txt
+        args: --record <target's ref>, whose plan's plain text is read in memory - or a .txt
             passed by hand before it.
 
     Returns:
@@ -39,7 +39,7 @@ def gate(args):
         return 0, None
     parsed, _ = parse_flags(list(args), ("--record",), ())
     if parsed is None or len(parsed[0]) > 1 or "--record" not in parsed[1]:
-        print("usage: jsk resume check <out-dir> --record <resume.json>")
+        print("usage: jsk resume check <out-dir> --record <stem>")
         return 2, None
     record = parsed[1]["--record"]
     # The posting first: a general resume has nothing to cover, and emitting its text
@@ -57,7 +57,10 @@ def gate(args):
             result = unreadable(name, f"unreadable: {e}")
             return present.unreadable(result), result
     else:
-        name, text = f"plain text of {os.path.basename(record)} (in memory)", ""
+        from ....application.render.selection import shown_name
+
+        # Named as the parse gate names it: the selection's graph, not its ref's last part.
+        name, text = f"plain text of {shown_name(record)} (in memory)", ""
         if found is not None:
             try:
                 text = plan_text(record)
@@ -79,7 +82,7 @@ def report(result):
     """
     print(f"checking: {result.name}")
     if result.posting is None:
-        print("no posting beside the resume.json - nothing to cover; a general resume "
+        print("no posting for this selection - nothing to cover; a general resume "
               "is searched by whatever a recruiter types")
         print("\nPASS - no posting to cover")
         return 0

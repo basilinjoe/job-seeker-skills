@@ -402,7 +402,10 @@ class RenderCommand(unittest.TestCase):
 
     def test_a_short_file_renders_named_for_the_person_and_the_company(self):
         with tempfile.TemporaryDirectory() as tmp:
-            _, path = careerkit.workspace(Path(tmp, "ws"), short=short())
+            from test_render_resume import contoso
+
+            root, _ = careerkit.workspace(Path(tmp, "ws"))
+            path = contoso(root, short())
             out = Path(tmp, "out")
             code, text = self.render(path, "--out", str(out))
             self.assertEqual(code, 0, text)
@@ -425,15 +428,16 @@ class RenderCommand(unittest.TestCase):
             self.assertIn("Led a team of 6 engineers", text)
             self.assertTrue(all(ord(c) < 128 for c in text))
 
-    def test_outside_a_workspace_is_a_refusal_with_the_fix(self):
-        # Review Focus 1.
+    def test_a_resume_json_is_a_refusal_naming_the_target_form(self):
+        # Review Focus 1 refused one outside a workspace; 6.0 reads none anywhere.
         import json
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp, "resume.json")
             path.write_text(json.dumps(short()), encoding="utf-8")
             code, text = self.render(str(path), "--out", str(Path(tmp, "out")))
             self.assertEqual(code, 2)
-            self.assertIn("career/store/", text)
+            self.assertIn("was retired in 6.0", text)
+            self.assertIn("<stem>", text)
             self.assertNotIn("Traceback", text)
 
     def test_the_file_s_format_decides_the_variant_and_its_budget(self):
@@ -453,10 +457,13 @@ class RenderCommand(unittest.TestCase):
                 encoding="utf-8"))
 
     def test_a_frozen_application_is_not_rendered_over(self):
-        """Its resume.json now builds from today's career, so a render there would
+        """Its selection now builds from today's career, so a render there would
         overwrite the PDF that was sent with one that was not (final review)."""
+        from test_render_resume import contoso
+
         with tempfile.TemporaryDirectory() as tmp:
-            _, path = careerkit.workspace(Path(tmp, "ws"), short=short())
+            root, _ = careerkit.workspace(Path(tmp, "ws"))
+            path = contoso(root, short())
             app = Path(path).parent
             # Sent: the application graph is in the store (a file beside it freezes nothing).
             appkit.put(Path(tmp, "ws"), appkit.name(app, "application"),
@@ -485,7 +492,7 @@ class RenderCommand(unittest.TestCase):
             ws = Path(tmp, "example")
             shutil.copytree(paths.EXAMPLE_WORKSPACE, ws)
             seed(ws)
-            code, text = self.render(str(ws / "resume.json"), "--out", tmp)
+            code, text = self.render(str(ws / "resumes" / "example" / "resume"), "--out", tmp)
             self.assertEqual(code, 0, text)
             self.assertTrue(Path(tmp, "Priya_Raman_Resume.tex").exists())
 

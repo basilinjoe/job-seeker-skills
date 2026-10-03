@@ -1,4 +1,6 @@
-"""`jsk resume check`, by target kind: a resume.json, a render, a directory.
+"""`jsk resume check`, by target kind: a target's selection, a render, a directory. A
+resume.json was the record kind until 6.0 read none (docs/superpowers/plans/
+2026-10-03-retire-file-pipeline.md, P2): one named is told the target form.
 
 It is a convenience layer over the gates, and its one job is to be transparent: the
 same arguments, the same exit code, and the gate's own output. These tests pin that
@@ -70,10 +72,11 @@ class ValidateRouting(unittest.TestCase):
         self.assertEqual(code2, 2, out2)
         self.assertIn("unknown flag: --nonsense-flag", out2)
 
-    def test_missing_target_is_a_usage_error(self):
+    def test_a_resume_json_is_told_the_target_form(self):
         code, out = run(JSK, "resume", "check", self.tmp / "nope.json")
         self.assertEqual(code, 2, out)
-        self.assertIn("file not found", out)
+        self.assertIn("jsk resume check <resume.json> was retired in 6.0", out)
+        self.assertIn("fix:  jsk resume check <stem>", out)
 
     def test_unvalidatable_target_says_what_it_wanted(self):
         stray = self.tmp / "notes.json"
@@ -88,14 +91,14 @@ class ValidateRouting(unittest.TestCase):
         code, out = run(JSK, "resume", "check", self.tmp)
         self.assertEqual(code, 1, out)
         self.assertIn("--- record gate", out)
-        self.assertIn("resume.json", out)
+        self.assertIn("pass --record <stem>", out)
 
     def test_the_knowledge_base_is_refused_and_says_what_is_checked_instead(self):
         kb = self.tmp / "user-knowledgebase.md"
         kb.write_text("# Career knowledge base", encoding="utf-8")
         code, out = run(JSK, "resume", "check", kb)
         self.assertEqual(code, 2, out)
-        self.assertIn("resume.json", out)
+        self.assertIn("name the target", out)
         # The career is the record `jsk kb check` validates, not a Markdown file.
         self.assertNotIn("jsk migrate", out)
         self.assertIn("jsk kb check", out)
@@ -106,7 +109,7 @@ class ValidateRouting(unittest.TestCase):
         code, out = run(JSK, "resume", "check", kb)
         self.assertEqual(code, 2, out)
         self.assertIn("jsk kb check", out)
-        self.assertIn("resume.json", out)
+        self.assertIn("name the target", out)
 
     def test_validate_with_no_target(self):
         code, out = run(JSK, "resume", "check")
@@ -160,7 +163,9 @@ class Check(unittest.TestCase):
         prose result must not read as a finished resume."""
         code, out = run(JSK, "resume", "check", self.document())
         del code
-        self.assertIn("jsk resume check <record>.json", out)
+        # It named `<record>.json` until 6.0, which reads no resume.json: the record is a
+        # target's selection.
+        self.assertIn("jsk resume check <stem>", out)
         self.assertIn("PDF", out)
 
     def test_strict_reaches_the_parse_gate(self):
@@ -260,10 +265,10 @@ class GatesCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-        # A short resume.json reads its career, so both it and the render directory sit
-        # in a workspace - the render directory beside the application, not inside it.
+        # A selection is in its workspace's store, and the render directory sits in the
+        # workspace beside its target, not inside it.
         root, record = careerkit.workspace(self.tmp / "ws", short=GOOD, edits=[CONTACTED])
-        self.record = Path(record)
+        self.root, self.record = Path(root), Path(record)
         self.out = Path(root) / "out"
         self.out.mkdir()
 
@@ -274,8 +279,7 @@ class GatesCase(unittest.TestCase):
         rendered document untouched, so a test using it pins that one failing gate
         does not disturb the four that passed.
         """
-        self.record.write_text(json.dumps({**GOOD, "bullets": ["ach_nothing_like_it"]}),
-                               encoding="utf-8")
+        careerkit.select(self.root, {**GOOD, "bullets": ["ach_nothing_like_it"]})
 
     def render(self, paragraphs=None, pages=1):
         """The two files render_resume.py leaves behind, without needing a TeX engine: the
@@ -420,11 +424,13 @@ class GatesMissingInput(GatesCase):
         self.assertIn("SKIPPED", out)
         self.assertIn("A gate that did not run is not a gate that passed.", out)
 
-    def test_a_record_beside_the_render_is_found_without_being_named(self):
-        """The skill writes resume.json into the application directory it renders
-        into, so the ordinary call has nothing to point at it with."""
+    def test_a_target_s_own_directory_needs_no_record_named(self):
+        """A target renders into its own directory, so the ordinary call has nothing to
+        point at its record with: the directory's target's selection is the record. It was
+        a resume.json written beside the render until 6.0."""
+        self.out = self.record.parent
+        self.out.mkdir(parents=True)
         self.render()
-        (self.out / "resume.json").write_text(json.dumps(GOOD), encoding="utf-8")
         code, out = self.gates()
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)
@@ -506,8 +512,9 @@ class GatesOutput(GatesCase):
         self.render()
         code, out = self.gates("--record", self.record)
         del code
-        self.assertIn("check_ats.py resume.json --strict", out)
-        self.assertIn("plain text of resume.json (in memory)   mode: ATS-maximal (strict)", out)
+        self.assertIn("check_ats.py resume --strict", out)
+        self.assertIn("plain text of resumes/test/resume (in memory)   mode: ATS-maximal "
+                      "(strict)", out)
         self.assertIn("mode: presentation", out)
 
     def test_max_findings_reaches_the_record_gate(self):

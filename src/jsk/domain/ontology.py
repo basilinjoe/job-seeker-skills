@@ -504,6 +504,9 @@ HEADS = {"kb": "KB", "posting": "Posting", "application": "Application", "gaps":
 FILE_KINDS = {"kb.ttl": "kb", "log.ttl": "log", "posting.ttl": "posting",
               "application.ttl": "application", "gaps.ttl": "gaps",
               "vocabulary.ttl": "vocabulary",
+              # a general resume's selection, which the shipped example carries as a file
+              # since 6.0 (infra/legacy_import.py reads resumes/<name>/resume.ttl)
+              "resume.ttl": "resume",
               # ... and as the store names the graph each file became
               "kb": "kb", "log": "log", "posting": "posting", "application": "application",
               "gaps": "gaps", "vocabulary": "vocabulary",

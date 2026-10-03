@@ -1,4 +1,4 @@
-"""The record gate over one short resume.json: its career loaded, then every finding asked.
+"""The record gate over one target's selection: its career loaded, then every finding asked.
 
 It replaced two gates (2026-09-25). validate_urs checked a 41KB URS record against itself
 and claims.py checked that record against career/kb.ttl; the record was a copy of the
@@ -21,9 +21,11 @@ The label and years checks read prose, where a word can be a technology or not (
 so they warn, as they did in the claims gate. The rest read ids and numbers.
 
 The career's feature reads come in as `queries` (ports.queries.RecordQueries) and the
-career's standing with its log as `state`; this reads the file, loads its workspace and
+career's standing with its log as `state`; this reads the selection, loads its workspace and
 folds the warnings into the failures under --strict. It prints nothing:
-adapters/cli/gates/record.py says what it found.
+adapters/cli/gates/record.py says what it found. The record is a target's selection graph,
+the short file's dict as resume.json held it until 6.0
+(docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2), when the file went.
 """
 import re
 from dataclasses import dataclass
@@ -49,18 +51,18 @@ class RecordResult(GateResult):
 
 def record_gate(path, *, strict, read, workspace, has_engine, career, findings, state,
                 today):
-    """Check the short resume.json at `path` against the career it sits in.
+    """Check the selection a target's ref names against the career it sits in.
 
     Args:
-        path: the resume.json, or a graph-native target's ref
-            (application/render/selection.py), whose selection graph `read` gives.
+        path: the target's ref (application/render/selection.py), whose selection graph
+            `read` gives.
         strict: treat warnings as failures.
-        read: path -> the file as a dict (compose.resume.read).
-        workspace: path -> the workspace root around it (compose.resume.workspace).
+        read: ref -> the selection as a dict (compose.resume.read).
+        workspace: ref -> the workspace root it names (compose.resume.workspace).
         has_engine: () -> whether the graph engine can be imported.
         career: root -> the loaded workspace (compose.resume.career).
         findings: (doc, store, today, target) -> (fails, warns) (compose.gates.findings);
-            target names a graph-native selection, or is None for a file.
+            target names the selection, as the tools name it.
         state: store -> the career and its log's State (infra.oxigraph.record.state).
         today: the date the years claims are measured to.
 
@@ -68,22 +70,17 @@ def record_gate(path, *, strict, read, workspace, has_engine, career, findings, 
         A RecordResult. Loads the workspace.
 
     Raises:
-        ShortError: the file will not read, sits in no workspace, lies inside a
-            graph-native application (Ruling 11), or its store will not open - each
+        ShortError: no target's ref, no selection, or a store that will not open - each
             carrying .fix.
         GateStopped: "no-engine" (exit 1) when the graph engine is not installed.
     """
-    from ...domain.resume.short import ShortError
-    from ..render.selection import file_refusal, parse_ref, shown_name, target_name
+    from ..render.selection import shown_name, target_name
 
     doc = read(path)
     root = workspace(path)
     if not has_engine():
         raise GateStopped("no-engine", None, 1)
     store = career(root)
-    refused = file_refusal(path, root, store) if parse_ref(path) is None else None
-    if refused:
-        raise ShortError(*refused)
     fails, warns = findings(doc, store, today, target_name(path))
     if strict:
         fails, warns = fails + warns, []
@@ -158,10 +155,13 @@ def career_refusal(store, state):
     Returns:
         The FAIL line, or None.
     """
+    from ...domain.naming import is_own
     from ...domain.record.state import KB
 
-    broken = [f for f in store.fails() if f.rule != "log-sync"
-              and not f.file.startswith("applications/")]
+    # An application's or a general resume's own graph is not the career: a fault in a
+    # selection is that selection's, which the shape and id checks name. Only
+    # applications/ was left out until 6.0 made a general resume a record (2026-10-04).
+    broken = [f for f in store.fails() if f.rule != "log-sync" and not is_own(f.file)]
     if broken:
         return line("career-invalid", KB,
                     f"the career record has {len(broken)} failures, so nothing in this "

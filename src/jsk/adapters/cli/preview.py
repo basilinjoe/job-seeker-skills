@@ -1,9 +1,8 @@
-"""Render one resume.json in every template, so the choice can be made by looking.
+"""Render one target's selection in every template, so the choice can be made by looking.
 
 Usage:
-  jsk resume preview resume.json --out DIR [--region CC]
+  jsk resume preview <stem>|resumes/<name> --out DIR [--region CC]
                                     [--ats-max] [--only NAME,NAME]
-  jsk resume preview <stem>|resumes/<name> --out DIR [...]
 
 Writes DIR/<template>.tex and DIR/<template>.pdf, plus DIR/<template>.png of the
 first page when `pymupdf` is installed. Prints the page count for each, because
@@ -13,8 +12,8 @@ two-page resume where a one-page resume was possible is a decision, not a
 side effect.
 
 Exit 0 = every template rendered.  Exit 1 = at least one did not, or the
-application is frozen.  Exit 2 = usage error, a resume.json that does not load,
-or no TeX engine.
+application is frozen.  Exit 2 = usage error, a selection that does not load, a
+resume.json (read until 6.0, which reads none), or no TeX engine.
 
 This exists because `--list-templates` can only describe a template, and nobody
 picks a resume design from a sentence. The templates differ in what they
@@ -22,7 +21,7 @@ emphasise, and which emphasis is right depends on the employer - which is a
 judgement the person applying has to make with the pages in front of them.
 
 Nothing here decides anything about the document: application/render/preview_templates.py
-renders each template through the render use case, from the one loaded resume.json and
+renders each template through the render use case, from the one loaded selection and
 region, so the only variable is the look. The extracted text is identical in all of them,
 and `tests/test_themes.py` is what says so. This module parses the flags and prints.
 """
@@ -48,18 +47,28 @@ def main(argv):
         # Asking for help is not calling the command wrong; only a real misuse is.
         return 0 if wants_help(argv) else 2
     src = argv[1]
+    from ...application.guards import is_resume_json, resume_json_refusal
     from ...application.render.selection import parse_ref
     from .compose.selection import ref_for
+
+    if is_resume_json(src):
+        print("\n".join(resume_json_refusal(
+            "jsk resume preview <resume.json>",
+            "jsk resume preview <stem> --out DIR (or resumes/<name>) - the target's stored "
+            "selection")))
+        return 2
 
     # A target names its selection graph, as `jsk resume render` reads one (P2 of
     # docs/superpowers/plans/2026-10-03-retire-file-pipeline.md); no file is there to find.
     src = ref_for(src, dirs=True) or src
-    if not os.path.exists(src) and not parse_ref(src):
-        print(f"file not found: {src}")
+    if not parse_ref(src):
+        print(f"no such target: {src}")
+        print("fix:  name the target: <stem> or resumes/<name> - the resume_select tool "
+              "makes its selection")
         return 2
 
     if "--view" in argv:
-        # Before the TeX check: it is a call error on every machine. A resume.json is
+        # Before the TeX check: it is a call error on every machine. A selection is
         # one resume, and render_resume.py would refuse --view once per template.
         print("usage: a resume.json is one resume; drop --view")
         return 2

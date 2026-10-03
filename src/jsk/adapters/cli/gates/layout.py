@@ -1,8 +1,9 @@
 """The layout gate: what the render gate's checklist could measure, measured.
 
 Usage: jsk resume check resume.pdf --only layout [--record R] [--region CC] [--pages N]
-       --record R   the resume.json it rendered from: the region and page budget
-                    are read from it. Default: a resume.json beside the PDF
+       --record R   the target it rendered from (<stem> or resumes/<name>): the region
+                    and page budget are read from its selection. Default: the target
+                    whose directory holds the PDF
        --region CC  the region whose paper the PDF must be on, e.g. US, AU
        --pages N    the page budget, when the record is not the one to ask
 
@@ -69,11 +70,19 @@ def refused(argv):
     if pages_flag is not None and not pages_flag.isdigit():
         print(f"--pages needs a whole number of pages, got {pages_flag!r}")
         return 2
+    from ....application.guards import is_resume_json, resume_json_refusal
     from ....application.render.selection import parse_ref
+    from ..compose.selection import ref_for
 
-    if record is not None and not os.path.isfile(record) and not parse_ref(record):
-        print(f"not a record file: {record}")
-        print("fix:  --record takes the resume.json the PDF rendered from")
+    if is_resume_json(record):
+        print("\n".join(resume_json_refusal(
+            "jsk resume check <pdf> --only layout --record <resume.json>",
+            "--record <stem> (or resumes/<name>), or no --record for the PDF's own target")))
+        return 2
+    if record is not None and not parse_ref(ref_for(record, dirs=True) or record):
+        print(f"not a target: {record}")
+        print("fix:  --record takes the target the PDF rendered from: <stem> or "
+              "resumes/<name>")
         return 2
     return None
 
@@ -101,12 +110,18 @@ def gate(argv):
     from ..compose.gates import from_record
     from ....infra import pdf
 
+    from ..compose.selection import ref_for, selection_ref
+
     path = pdf_of(argv[0])
     pages_flag = arg(argv, "--pages")
+    record = arg(argv, "--record")
+    # The target named, as its ref; else the one whose directory holds the PDF.
+    record = (ref_for(record, dirs=True) or record if record is not None
+              else selection_ref(os.path.dirname(os.path.abspath(path))))
     try:
         result = check_layout(path, region=arg(argv, "--region"),
                               budget=int(pages_flag) if pages_flag else None,
-                              record=arg(argv, "--record"), available=pdf.available,
+                              record=record, available=pdf.available,
                               read_lines=pdf.lines, plan_of=from_record)
     except GateStopped as stop:
         print(f"SKIPPED - pymupdf is not installed, so {stop.detail} was not read.")

@@ -193,7 +193,8 @@ def validated(root, record, *, load, vocabulary):
     """The record as it would load, validated as for any write.
 
     As for any write: the career must validate, and an application's fault does not stop
-    it. An application's rules read the documents beside it (posting.md), so one loaded
+    it. A frozen application made from files has its rules read the posting.md beside it
+    (Ruling 2 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md), so one loaded
     into another workspace fails them until its folder is copied across.
 
     Args:

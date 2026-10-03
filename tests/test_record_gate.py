@@ -1,4 +1,5 @@
-"""The record gate: the short resume.json and the career bullets it selects.
+"""The record gate: a target's selection - the short resume.json's dict - and the career
+bullets it selects.
 
 It replaced two gates. validate_urs checked a 41KB copy of the career against itself and
 claims.py checked the copy against kb.ttl; with no copy there is one question left of a
@@ -339,7 +340,7 @@ class Validate(GateCase):
         _, path = self.workspace()
         code, out = run_cli("resume", "check", path)
         self.assertEqual(code, 0, out)
-        self.assertIn("checking: resume.json   against: career/store/ r1", out)
+        self.assertIn("checking: resumes/test/resume   against: career/store/ r1", out)
         self.assertIn("FAIL 0   WARN 0", out)
         self.assertIn("PASS - safe to render", out)
 
@@ -351,13 +352,16 @@ class Validate(GateCase):
         self.assertIn("  FAIL  bullets: ach_events_terraform was retired", out)
         self.assertIn("DO NOT RENDER", out)
 
-    def test_outside_a_workspace_is_refused_with_the_fix(self):
+    def test_a_resume_json_is_refused_naming_the_target_form(self):
+        # Outside a workspace or in one, a resume.json was the record until 6.0
+        # (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2).
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp, "resume.json")
             path.write_text(json.dumps(short()), encoding="utf-8")
             code, out = run_cli("resume", "check", path)
         self.assertEqual(code, 2, out)
-        self.assertIn("career/store/", out)
+        self.assertIn("was retired in 6.0", out)
+        self.assertIn("jsk resume check <stem>", out)
         self.assertNotIn("Traceback", out)
 
     def test_a_store_that_will_not_open_is_refused_with_the_fix(self):
@@ -373,16 +377,6 @@ class Validate(GateCase):
         self.assertEqual(code, 2, out)
         self.assertIn("career/store/ could not be opened", out)
         self.assertIn("fix:", out)
-        self.assertNotIn("Traceback", out)
-
-    def test_a_legacy_record_is_refused_with_export_as_the_fix(self):
-        # Nothing reads a full URS record now (spec ruling 6).
-        _, path = self.workspace()
-        legacy = Path(__file__).parent / "legacy_fixtures" / "contoso-resume.urs.json"
-        Path(path).write_bytes(legacy.read_bytes())
-        code, out = run_cli("resume", "check", path)
-        self.assertEqual(code, 2, out)
-        self.assertIn("jsk kb export", out)
         self.assertNotIn("Traceback", out)
 
     def test_view_is_a_usage_error(self):
@@ -403,11 +397,12 @@ class Ship(GateCase):
         from shipkit import fake_compile
 
         from jsk.adapters.cli.compose import render
-        out = Path(path).parent / "out"
+        # A target ships into its own directory, resumes/test/.
+        out = Path(path).parent
         patch = (mock.patch.object(render, "compile_pdf", fake_compile()) if fake
                  else contextlib.nullcontext())
         with patch:
-            code, text = run_cli("resume", "ship", path, "--out", out, *extra)
+            code, text = run_cli("resume", "ship", path, *extra)
         return code, text, out
 
     def heads(self, text):
@@ -431,9 +426,10 @@ class Ship(GateCase):
         self.assertIn("prose gate", heads)
         # The render leaves the .tex (and the PDF) and no plain-text file: the parse gate
         # reads the plan's text in memory (Ruling 23 of the graph-native plan).
-        self.assertTrue((out / "Test_Person_Contoso_Resume.tex").exists())
+        # A general resume answers no posting, so the render is named for the person.
+        self.assertTrue((out / "Test_Person_Resume.tex").exists(), text)
         self.assertEqual(list(out.glob("*.txt")), [])
-        self.assertIn("check_ats.py resume.json --strict", text)
+        self.assertIn("check_ats.py resume --strict", text)
 
     def test_view_is_refused_for_a_short_file(self):
         _, path = self.workspace()
@@ -445,13 +441,14 @@ class Ship(GateCase):
     def test_a_clean_file_compiles(self):
         _, path = self.workspace()
         code, text, out = self.ship(path, fake=False)
-        self.assertTrue((out / "Test_Person_Contoso_Resume.pdf").exists(), text)
+        self.assertTrue((out / "Test_Person_Resume.pdf").exists(), text)
         self.assertNotIn("UNVERIFIED - the render", text)
 
 
 class Gates(GateCase):
     def test_jsk_gates_runs_the_record_gate_and_no_claims_gate(self):
         _, path = self.workspace()
+        Path(path).parent.mkdir(parents=True)       # the target's directory, as a render left it
         code, out = run_cli("resume", "check", Path(path).parent)
         heads = [line[4:].split(":")[0] for line in out.splitlines() if line.startswith("--- ")]
         self.assertEqual(heads[0], "record gate", out)

@@ -19,7 +19,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # profile.schema.json and profiles/<region>.json.
 SCHEMA_DIR = os.path.join(HERE, "data", "schema")
 
-# A small career and a short resume.json over it: what `jsk doctor` renders, and what a
-# render test reaches for when any resume will do.
+# A small career and a general resume's selection over it: what `jsk doctor` renders, and
+# what a render test reaches for when any resume will do. The selection was a resume.json
+# until 6.0 read none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2); it
+# ships as the Turtle `jsk kb load` imports with the career.
 EXAMPLE_WORKSPACE = os.path.join(HERE, "data", "example")
-EXAMPLE_SHORT = os.path.join(EXAMPLE_WORKSPACE, "resume.json")
+EXAMPLE_TARGET = "resumes/example"
+EXAMPLE_SELECTION = os.path.join(EXAMPLE_WORKSPACE, "resumes", "example", "resume.ttl")

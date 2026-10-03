@@ -7,8 +7,9 @@ afterwards; this command only freezes what was sent. The freeze itself is
 application/timeline/freeze.py, bound and run by compose/timeline.py's freeze_app, which
 the `app_freeze` MCP tool calls too.
 
-An application made from files is still frozen in 5.x, under a WARN that `jsk app freeze`
-on one retires in 6.0 (adapters/cli/retiring.py, 2026-10-03).
+An application made from files exits 2: 6.0 retired freezing one from its resume.json
+(docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, Rulings 1 and 5), and the fix
+names the release that still finishes one, or `jsk app drop`.
 """
 import datetime
 import os
@@ -116,11 +117,16 @@ def main(args):
 
     from ... import cli
     from ...application.timeline import freeze as F
+    from ...application.timeline.unsent import note
     from .compose.timeline import freeze_app, made_from_files
-    from .retiring import warn
 
     if made_from_files(app_dir):
-        warn("jsk app freeze", args)
+        stem = os.path.basename(os.path.abspath(app_dir))
+        print(f"jsk app freeze on an application made from files was retired in 6.0: "
+              f"applications/{stem} keeps its record in files, and jsk freezes a "
+              "graph-native application's stored selection")
+        print(f"fix:  {note(stem)[1]}")
+        return 2
     try:
         result = freeze_app(app_dir, workspace, submitted, channel, named,
                             gated=lambda results: cli.print_results(f"gates: {app_dir}",

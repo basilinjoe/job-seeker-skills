@@ -1,12 +1,11 @@
-"""A workspace to test against: tests/claims_fixtures, copied, edited, with a short
-resume.json in its application.
+"""A workspace to test against: tests/claims_fixtures, copied, edited, with a general
+resume's selection in its store.
 
 The record went from a 41KB copy of the career to a short file naming what was chosen,
 so a test builds a career the way a person has one - Turtle a test can read, put in
 career/store/ - and says what it picks, rather than hand-writing the copy the renderer
 used to read.
 """
-import json
 import shutil
 from pathlib import Path
 
@@ -21,7 +20,7 @@ MERIDIAN = ["ach_events_latency", "ach_events_team", "ach_identity_sso"]
 
 
 def short(bullets=MERIDIAN, **keys):
-    """A resume.json: `bullets` in order, and any other keys as given."""
+    """A selection as resume.json's dict: `bullets` in order, and any other keys as given."""
     return {"resume": 2, "bullets": list(bullets), **keys}
 
 # ach_events_terraform, retired - an edit for workspace(edits=[RETIRE]).
@@ -31,15 +30,17 @@ RETIRE = ('    j:text "Wrote the platform\'s Terraform." ;\n    j:shows c:terraf
 
 
 def workspace(root, edits=(), short=None, logged=True, stored=True):
-    """(root, short_path): the fixture copied to `root`, each (old, new) replaced once in
-    career/kb.ttl, and `short` (a dict) written as the application's resume.json - the
-    fixture's own short file there is removed either way, so a test says what it picks.
+    """(root, ref): the fixture copied to `root`, each (old, new) replaced once in
+    career/kb.ttl, and `short` (a dict) stored as the general resume `resumes/test`'s
+    selection, its ref returned where a resume.json path was until 6.0 read none
+    (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2). The fixture's own
+    resume.json in its file-made application is removed either way.
 
     The edits stand for ones made with `jsk kb apply`. Then the record goes into
     career/store/ and the .ttl files go (`stored`, storekit.seed) - a workspace as jsk
     keeps one, where every write lands with its log entry and no hash is checked. Left as
     files (`stored=False`), log.ttl is made to agree with the edits (`logged`), as the
-    file loader checks it."""
+    file loader checks it, and no selection can be stored."""
     root = Path(root)
     shutil.copytree(FIXTURES, root, dirs_exist_ok=True)
     kb = root / "career" / "kb.ttl"
@@ -50,14 +51,16 @@ def workspace(root, edits=(), short=None, logged=True, stored=True):
     kb.write_text(text, encoding="utf-8", newline="\n")
     if edits and logged and not stored:
         relog(root)
-    path = root / APP / "resume.json"
-    path.unlink(missing_ok=True)
-    if short is not None:
-        path.write_text(json.dumps(short, indent=2) + "\n", encoding="utf-8", newline="\n")
+    (root / APP / "resume.json").unlink(missing_ok=True)
+    ref = str(root / "resumes" / "test" / "resume")
     if stored:
         from storekit import seed
         seed(root)
-    return str(root), str(path)
+        if short is not None:
+            ref = select(root, short)
+    else:
+        assert short is None, "a selection lives in the store: workspace(stored=True)"
+    return str(root), ref
 
 
 def select(root, doc, name="test"):

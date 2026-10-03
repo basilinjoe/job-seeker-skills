@@ -1,13 +1,13 @@
 """The letter check: a cover letter, against the resume it goes out beside.
 
-Usage: jsk letter check <cover-letter.txt|.md> --record <resume.json|app>
-       --record R    the application's resume.json, or a graph-native application's
-                     name (<stem> or applications/<stem>), whose stored selection and
-                     advert lines stand in for it; without it the number check is
-                     SKIPPED, and a gate that did not run is a failure
+Usage: jsk letter check <cover-letter.txt|.md> --record <stem>|resumes/<name>
+       --record R    the target the letter goes out beside (<stem>, applications/<stem>
+                     or resumes/<name>), whose stored selection and advert lines it is
+                     checked against; without it the number check is SKIPPED, and a gate
+                     that did not run is a failure
 
-Exit 0 = fit to send. Exit 1 = do not send this letter. Exit 2 = usage, or a
-resume.json outside a workspace.
+Exit 0 = fit to send. Exit 1 = do not send this letter. Exit 2 = usage, a target with
+no selection, or a resume.json (read until 6.0, which reads none).
 """
 import datetime
 import os
@@ -26,7 +26,7 @@ def parse(argv):
         (letter, record, problem): the letter, --record's value - a graph-native
         application's as its ref - or None, and what was wrong with the call, or None.
     """
-    no_value = "--record needs a value\nfix:  --record applications/<dir>/resume.json"
+    no_value = "--record needs a value\nfix:  --record <stem>"
     parsed, problem = parse_flags(argv, ("--record",), ())
     if parsed is None:
         return None, None, no_value if problem.kind == "missing" else \
@@ -36,12 +36,18 @@ def parse(argv):
     if record == "":
         return None, None, no_value
     if record is not None:
-        # A graph-native application keeps no resume.json (Ruling 11 of
+        # A target keeps no resume.json (Ruling 11 of
         # docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md): its name, or
         # its directory once a render made one, goes in --record and reads as the target's
-        # ref, which every reader of a record already takes. A file keeps the file path.
+        # ref, which every reader of a record takes. A resume.json was read until 6.0.
+        from ....application.guards import is_resume_json, resume_json_refusal
         from ..compose.selection import ref_for
 
+        if is_resume_json(record):
+            return None, None, "\n".join(resume_json_refusal(
+                "jsk letter check --record <resume.json>",
+                "jsk letter check LETTER --record <stem> (or resumes/<name>), or the "
+                "letter_check tool with record=<stem>"))
         record = ref_for(record, dirs=True) or record
     if len(positional) != 1:
         return None, None, docstring_usage(__doc__)
@@ -56,8 +62,8 @@ def gate(argv):
 
     Returns:
         (exit code, the LetterResult - the GateStopped when it stopped, None when the call
-        or the resume.json was wrong). Prints the verdict; reads the letter, and with a
-        record its career and the posting.md beside it.
+        or the record was wrong). Prints the verdict; reads the letter, and with a record
+        its career and its posting's advert lines.
     """
     if wants_help(argv):
         print(docstring_usage(__doc__))

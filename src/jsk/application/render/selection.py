@@ -21,6 +21,8 @@ the selection graph would have on disk, `<root>/<target>/resume`. No file is eve
 it is the one string the record gate, the render and the gates pass between them where a
 resume.json path used to go, so `jsk resume ship` runs every step on a target with no
 step knowing (`load_resume` and adapters/cli/compose/resume.py read it as the graph).
+Since 6.0 it is the only record they take (docs/superpowers/plans/
+2026-10-03-retire-file-pipeline.md, P2).
 
 It refuses an application made from files, one with no posting, a draft posting for
 `from_match`, a frozen application (sent or held back), an existing selection unless
@@ -127,8 +129,10 @@ def parse_ref(path):
     only the path's parts, never the disk.
 
     Args:
-        path: a record path as the render and the gates pass one.
+        path: a record path as the render and the gates pass one, a str or a PathLike.
     """
+    if isinstance(path, os.PathLike):
+        path = os.fspath(path)
     if not isinstance(path, str) or os.path.basename(path) != REF:
         return None
     here = os.path.dirname(os.path.abspath(path))
@@ -140,8 +144,8 @@ def parse_ref(path):
 
 def target_name(path):
     """The name the tools give the target whose ref `path` is - `<stem>` or
-    `resumes/<name>` - or None for a file: what a finding's fix names, so a graph-native
-    selection is never told to edit a resume.json (short.confirm_hint)."""
+    `resumes/<name>` - or None for a path that is no ref: what a finding's fix names
+    (short.confirm_hint)."""
     found = parse_ref(path)
     return found[1].removeprefix("applications/") if found else None
 
@@ -220,33 +224,6 @@ def read(root, target, *, ports):
     """
     t = target_of(root, target)
     return doc_in(loaded(root, ports), root, t.rel, ports)
-
-
-def file_refusal(path, root, store):
-    """The (message, fix) for a resume.json path inside a graph-native application, else
-    None. Ruling 11: such an application's selection is its graph, so a file beside it is
-    never what renders, and reading one would ship a choice nobody can see in the store.
-
-    Args:
-        path: the resume.json named.
-        root: its workspace.
-        store: that workspace, loaded.
-    """
-    here = os.path.dirname(os.path.abspath(path))
-    try:
-        rel = os.path.relpath(here, root).replace("\\", "/")
-    except ValueError:                          # another Windows drive: in no workspace
-        return None
-    if not rel.startswith("applications/") or rel.count("/") != 1:
-        return None
-    parsed = store.parsed.get(f"{rel}/posting")
-    if parsed is None or not N.has_lines(parsed.quads):
-        return None
-    stem = rel.split("/", 1)[1]
-    return (f"{rel} is graph-native: its selection is the graph {rel}/resume, and a "
-            f"resume.json in it is never read",
-            f"use the `resume_update` tool (`jsk mcp`) on {stem}, or `jsk resume ship {stem}`; "
-            f"remove {os.path.basename(path)} from {rel}")
 
 
 def write(t, store, doc, ports):

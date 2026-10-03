@@ -78,14 +78,17 @@ def frozen_refusal(*dirs, frozen, sent=None, native=False):
 FROZEN = (".posting.json", ".gaps.json")
 
 
-def record_refusal(target):
+def record_refusal(target, verb="check"):
     """Why `target` is not a record the record gate can read, or None if it is.
 
     Shared by `jsk resume check` and `jsk resume ship`, so that the two commands that start at a
-    record turn the same wrong file away in the same words.
+    record turn the same wrong file away in the same words. A record is a target's selection
+    since 6.0, which reads no resume.json: one named is told the target form (Ruling 1 of
+    docs/superpowers/plans/2026-10-03-retire-file-pipeline.md).
 
     Args:
         target: the path the command was given, or a graph-native target's ref.
+        verb: the `jsk resume` verb the fix names.
 
     Returns:
         The lines saying what is wrong and what to pass instead, or None. Asks only
@@ -97,10 +100,13 @@ def record_refusal(target):
         # A target's selection is a graph, not a file: the record gate reads it
         # (application/render/selection.py), and there is nothing on disk to look for.
         return None
+    if is_resume_json(target):
+        return resume_json_refusal(f"jsk resume {verb} <resume.json>",
+                                   f"jsk resume {verb} <stem> (or resumes/<name>) - the "
+                                   "target's stored selection")
     if os.path.isdir(target):
         return [f"FAIL  cannot validate a directory: {target}",
-                "fix:  there is no bundle format any more. Pass the application's",
-                "      resume.json - `jsk kb export` writes one"]
+                "fix:  name the target it renders: <stem> or resumes/<name>"]
     if not os.path.exists(target):
         return [f"file not found: {target}"]
     if target.endswith(FROZEN):
@@ -111,16 +117,14 @@ def record_refusal(target):
     if target.endswith(".md"):
         return [f"FAIL  cannot validate: {target}",
                 "fix:  the career is in career/store/, which `jsk kb check` validates. This",
-                "      gate reads an application's choice from the career - pass resume.json"]
+                "      gate reads a target's choice from the career - name the target"]
     if target.endswith(".ttl"):
         return [f"FAIL  cannot validate: {target}",
                 "fix:  the graph record is validated on every load - `jsk kb check`",
-                "      shows its findings. This gate reads an application's choice from",
-                "      it - pass resume.json"]
-    if not target.endswith(".json"):
-        return [f"FAIL  cannot validate: {target}",
-                "fix:  pass the application's resume.json"]
-    return None
+                "      shows its findings. This gate reads a target's choice from",
+                "      it - name the target: <stem> or resumes/<name>"]
+    return [f"FAIL  cannot validate: {target}",
+            "fix:  name the target: <stem> or resumes/<name>"]
 
 
 def is_resume_json(value):
@@ -149,9 +153,10 @@ def resume_json_refusal(form, fix):
             "selection, in the store, is", f"fix:  {fix}"]
 
 
-# The line every command that took --view prints now. A resume.json is one resume: the
-# view that picked a slice of a 41KB record went with the record (2026-09-25), and a
-# shell history or an old mode file still passes it, so it is named, not "unknown flag".
+# The line every command that took --view prints now. A resume.json - a selection now - is
+# one resume: the view that picked a slice of a 41KB record went with the record
+# (2026-09-25), and a shell history or an old mode file still passes it, so it is named,
+# not "unknown flag".
 VIEW_GONE = ["--view is gone: a resume.json is one resume", "fix:  drop --view"]
 
 

@@ -1,17 +1,18 @@
-"""The short file's own check of one resume.json: its shape and its ids, PASS or FAIL.
+"""The short file's own check of one target's selection: its shape and its ids, PASS or FAIL.
 
 The record gate (adapters/cli/gates/record.py) asks this and everything else of a
-resume.json; this is the check with no gate behind it, over domain/resume/short.py's rules
-and the file and career compose.resume reads.
+selection; this is the check with no gate behind it, over domain/resume/short.py's rules
+and the selection and career compose.resume reads. It read a resume.json until 6.0, which
+reads none.
 """
 from ..cliutil import utf8_stdout
 
 
 def main(argv):
-    """Check one resume.json's shape and ids against the career it sits in.
+    """Check one target's selection's shape and ids against the career it sits in.
 
     Args:
-        argv: the whole argv, the program name first, then the resume.json.
+        argv: the whole argv, the program name first, then the target's ref.
 
     Returns:
         The exit code: 0 PASS, 1 FAIL, 2 called wrong. Prints the verdict; loads the
@@ -22,7 +23,7 @@ def main(argv):
 
     args = argv[1:]
     if len(args) != 1 or args[0].startswith("-"):
-        print("usage: jsk resume check <resume.json>")
+        print("usage: jsk resume check <stem>|resumes/<name>")
         return 2
     path = args[0]
     utf8_stdout()

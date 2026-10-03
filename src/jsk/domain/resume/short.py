@@ -1,12 +1,14 @@
-"""The short resume.json as data: its shape, its ids against the career, its summary and
-headline.
+"""The short resume.json's dict as data: its shape, its ids against the career, its summary
+and headline.
 
-Pure: the file arrives as text and the career as a loaded store. Reading the file,
-finding its workspace and loading the career are application/render/load_resume.py's.
+Pure: the dict arrives as a selection graph gives it (domain/resume/selection.py) and the
+career as a loaded store; reading them is application/render/load_resume.py's. The shape
+is resume.json's, kept as the interchange shape when 6.0 stopped reading the file (Ruling 3
+of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md); its parser went with the
+file.
 """
 import difflib
 import hashlib
-import json
 import re
 
 VERSION = 2
@@ -29,14 +31,15 @@ def confirm_hint(key, target=None):
 
     Args:
         key: the block.
-        target: a graph-native selection's name (`<stem>` or `resumes/<name>`), whose
-            block is confirmed through the `career_confirm` tool, not a resume.json;
-            None for a file. The caller says which: nothing here can tell.
+        target: the selection's name (`<stem>` or `resumes/<name>`), whose block is
+            confirmed through the `career_confirm` tool; None when the caller has none to
+            name, and the hint names the target form.
     """
     if target is not None:
         return (f'confirm it with `career_confirm` (target "{target}", block "{key}") and '
                 "the person's own answer")
-    return f'confirm it with `jsk kb confirm --{key} <resume.json> --answer "their words"`'
+    return (f'confirm it with `jsk kb confirm --{key} <stem> --answer "their words"`, or '
+            "`career_confirm` with the target and the block")
 
 
 CONFIRM = confirm_hint("summary")
@@ -84,43 +87,11 @@ def summary_status(summary, key="summary"):
 
 
 class ShortError(Exception):
-    """A resume.json that cannot be used: the message says why, `.fix` what to do."""
+    """A selection that cannot be used: the message says why, `.fix` what to do."""
 
     def __init__(self, message, fix):
         super().__init__(message)
         self.fix = fix
-
-
-def parse(text, path):
-    """The file's text as a resume.json dict.
-
-    Args:
-        text: the file's text, as infra.files.read_text returns it.
-        path: how the messages name the file.
-
-    Returns:
-        The dict.
-
-    Raises:
-        ShortError: not JSON, not an object, a full URS record, or another version.
-    """
-    try:
-        doc = json.loads(text)
-    except ValueError as err:
-        raise ShortError(f"{path}: not readable JSON ({err})",
-                         "fix the file, or write it again with `jsk kb export`") from None
-    if not isinstance(doc, dict):
-        raise ShortError(f"{path}: not a resume.json", "write one with `jsk kb export`")
-    if "urs" in doc:
-        # A full record from before the career built the resume. A sent one stays as the
-        # archive of what was sent; an unsent one is written again from the career.
-        raise ShortError(f"{path} is a full URS record, which jsk no longer reads",
-                         "write a short one with `jsk kb export --select <id>... --out "
-                         f"{path}`")
-    if doc.get("resume") != VERSION:
-        raise ShortError(f"{path}: \"resume\" is {doc.get('resume')!r}, not {VERSION}",
-                         "write it again with `jsk kb export`")
-    return doc
 
 
 def shape(doc, target=None):

@@ -27,6 +27,7 @@ def record_files(root):
     found = [os.path.join(root, f) for f in RECORD_FILES]
     for name in APP_FILES:
         found += glob.glob(os.path.join(glob.escape(str(root)), "applications", "*", name))
+    found += glob.glob(os.path.join(glob.escape(str(root)), "resumes", "*", "resume.ttl"))
     return [f for f in found if os.path.isfile(f)]
 
 

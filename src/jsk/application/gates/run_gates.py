@@ -32,10 +32,9 @@ DOC_GATES = [
 # nothing else that happens to be sitting in the directory.
 RENDERED = "*_Resume*"
 
-# The name the skill writes beside a render, and what `--record` defaults to. Named
-# rather than searched: a directory holding two records has no way to say which one
-# the documents came from, and guessing would put a passing record gate against a
-# resume it never described.
+# The record a 5.x render wrote beside itself, and what `--record` defaulted to until 6.0
+# read no resume.json (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2). A
+# frozen file-made application still holds one, which its freeze hashed; nothing reads it.
 DEFAULT_RECORD = "resume.json"
 
 
@@ -204,7 +203,7 @@ def terms_steps(record, *, run):
     and the step is left out rather than reported as a pass that measured nothing.
 
     Args:
-        record: the resume.json, whose directory says which posting it answers.
+        record: the target's ref, whose target says which posting it answers.
         run: (script, args) -> (exit code, output, outcome), as run_gates takes it.
 
     Returns:
@@ -224,7 +223,7 @@ def text_step(record, *, run):
     always held to the ATS-maximal rules: by the run, not by `_ATS` in a file name.
 
     Args:
-        record: the resume.json, or None.
+        record: the target's ref, or None.
         run: (script, args) -> (exit code, output, outcome), as run_gates takes it.
 
     Returns:
@@ -233,7 +232,7 @@ def text_step(record, *, run):
     if record is None:
         return skipped_gate("parse gate", "check_ats.py",
                             "no record to emit the plain text from; pass --record "
-                            "<resume.json>.")
+                            "<stem>.")
     return step("parse gate", f"check_ats.py {os.path.basename(record)} --strict",
                 *run("check_ats.py", [record, "--strict"]))
 
@@ -253,7 +252,7 @@ def run_gates(out_dir, record, pages=None, limit=None, record_gate=True, only=No
 
     Args:
         out_dir: the render's directory.
-        record: the resume.json the documents rendered from, or None.
+        record: the ref of the target the documents rendered from, or None.
         pages: the page budget, or None.
         limit: --max-findings for the record gate, or None for its default.
         record_gate: run the record gate.
@@ -271,8 +270,8 @@ def run_gates(out_dir, record, pages=None, limit=None, record_gate=True, only=No
     if record_gate and record is None:
         steps.append(skipped_gate(
             "record gate", "record.py",
-            f"no record given, and no {DEFAULT_RECORD} in {out_dir}; "
-            f"pass --record <resume.json>."))
+            f"no record given, and {out_dir} is no target's directory; "
+            f"pass --record <stem>."))
     elif record_gate:
         record_args = [record] + (["--max-findings", str(limit)] if limit is not None
                                   else [])

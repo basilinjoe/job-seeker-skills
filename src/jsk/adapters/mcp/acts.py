@@ -7,9 +7,10 @@ tools, so the main session needs no shell for a jsk job. No agent's `tools:` nam
 
 Each tool calls what its command calls - compose/timeline.py's freeze_app and add_event,
 and the letter gate's own adapter - so a freeze or an event made either way is the same
-write, and like their commands they take an application made from files as well as a
-graph-native one - with a WARN until 6.0 retires that (adapters/cli/retiring.py). A call
-error the command would exit 2 on (a bad date, an unknown kind) is a FAIL with its fix here.
+write. Like their commands, app_freeze refuses an application made from files and
+letter_check a resume.json, each as a FAIL naming what replaces it (6.0, docs/superpowers/
+plans/2026-10-03-retire-file-pipeline.md). A call error the command would exit 2 on (a bad
+date, an unknown kind) is a FAIL with its fix here.
 They live apart from server.py, which registers them, only to keep each module under
 tests/test_sizes.py's limit.
 """
@@ -17,7 +18,6 @@ import contextlib
 import io
 import os
 
-from ..cli.retiring import is_record_file, warning
 from .server import described, failed, plain, result
 
 
@@ -88,10 +88,14 @@ def freezes(srv, tools):
                 ("FAIL", "channel is required", "where it was sent, e.g. \"Workday portal\""))
             if bad:
                 return failed(bad)
-            # Ruling 1 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: one
-            # made from files still freezes in 5.x, and says that goes in 6.0.
-            made = T.made_from_files(app_dir)
-            legacy = [("WARN", *warning("jsk app freeze"))] if made else []
+            # Rulings 1 and 5 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md:
+            # 6.0 freezes no application made from files.
+            if T.made_from_files(app_dir):
+                from ...application.timeline.unsent import note
+
+                text, fix = note(os.path.basename(str(app_dir)))
+                return failed(("FAIL", f"{text}; app_freeze freezes a graph-native one", fix))
+            legacy = []
             steps = []
             nothing = dict(written=None, renamed_to=None, recordSha256=None, carried=[],
                            documents=[])
@@ -171,7 +175,7 @@ def letters(srv, tools):
     """letter_check: `jsk letter check`, its verdict line and findings as JSON."""
 
     @described(srv)("`jsk letter check`: a cover letter against its resume. record: a stem "
-                    "or a resume.json.")
+                    "or resumes/<name>.")
     def letter_check(letter: str, record: str) -> dict:
         def run(root, today):
             from ...application.gates.letter import LetterResult
@@ -192,8 +196,6 @@ def letters(srv, tools):
             lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
             found = [gate_line(severity, f) for severity, group
                      in (("FAIL", checked.fails), ("WARN", checked.warns)) for f in group]
-            if is_record_file(record):
-                found.insert(0, ("WARN", *warning("jsk letter check --record <resume.json>")))
             return result(found, verdict=lines[-1] if lines else None, exit=code,
                           output=output)
         return tools.call("letter_check", run)

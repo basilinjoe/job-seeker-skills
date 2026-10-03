@@ -5,9 +5,12 @@ the directory renamed to the day it was sent, the archive written, and nothing i
 directory edited again. This does the first two and refuses whenever the third is already
 true or the documents would not survive their gates. It writes the application's record -
 what was sent, and the bullets and metric versions it carried - and later events go in with
-`jsk app event`. A graph-native application (Ruling 11 of
-docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md) has no resume.json: its
-record is the selection the store holds, hashed as Ruling 7 says (P5, 2026-10-02).
+`jsk app event`. An application's record is the selection the store holds (Ruling 11 of
+docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md), hashed as Ruling 7 says
+(P5, 2026-10-02). An application made from files was frozen from its resume.json until 6.0,
+which freezes none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2): it is
+refused with Ruling 5's fix, the release that still finishes one or `jsk app drop`. One
+frozen before then stays as it was.
 
 Four steps, each the adapter's to call in turn: check (the record it would freeze), plan
 (the documents and the name), gate (every document through a gate) and write (inside the
@@ -26,7 +29,6 @@ WORKING_FILES = ("gaps.txt", "decisions.txt")
 # no longer a document. Named with --doc it is still listed, and the letter gate reads it.
 RETIRED_TEXT = "_resume_ats.txt"
 DATED = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)$")
-RECORD = "resume.json"
 
 
 class FreezeRefused(Exception):
@@ -54,11 +56,11 @@ class FreezeLanded(Exception):
 
 @dataclass(frozen=True)
 class Checked:
-    """The application's record, as check() read it and the builder planned it: its
-    resume.json, or a graph-native application's stored selection."""
+    """The application's record, as check() read it and the builder planned it: its stored
+    selection."""
 
-    record: str                 # its path, or the selection's ref
-    record_bytes: bytes         # what the record's hash pins: the file, or canonical()'s text
+    record: str                 # the selection's ref
+    record_bytes: bytes         # what the record's hash pins: canonical()'s text
     plan: dict                  # the builder's plan: its `sent` names the bullets rendered
 
 
@@ -100,14 +102,14 @@ def check(app_dir, *, record, build):
         record: the application's record graphs (adapters/cli/freeze.py's Applications):
             `frozen`, `has_record`, and `selection` - None for an application made from
             files, else (its ref, its stored selection or None).
-        build: the builder over a resume.json's path or a ref, returning (plan, anything).
+        build: the builder over a ref, returning (plan, anything).
 
     Returns:
-        A Checked. Reads the directory's resume.json, or the stored selection, and the store.
+        A Checked. Reads the stored selection and the store.
 
     Raises:
-        FreezeRefused: frozen already, no posting, a resume.json that will not read or
-            build, or a graph-native application with no selection stored.
+        FreezeRefused: frozen already, no posting, an application made from files, or a
+            graph-native application with no selection stored or one that will not build.
     """
     # Frozen is what the record says: its application graph. An application.md is one
     # frozen before the career was a graph, and is as frozen as one.
@@ -119,31 +121,20 @@ def check(app_dir, *, record, build):
                             later)
 
     # company and title live in the posting; timeline.freeze() reads and checks it.
+    stem = os.path.basename(os.path.abspath(app_dir))
     if not record.has_record(app_dir, "posting"):
         raise FreezeRefused(f"no posting in {app_dir}",
-                            "the application's record names the posting it answered: "
-                            f"`jsk posting build {app_dir}` writes it from posting.md.")
+                            "the application's record names the posting it answered: the "
+                            f"`posting_capture` tool (`jsk mcp`) stores its advert for {stem}.")
 
     native = record.selection(app_dir)
-    if native is not None:
-        return selected(app_dir, native, build)
-    path = os.path.join(app_dir, RECORD)
-    try:
-        with open(path, "rb") as fh:
-            record_bytes = fh.read()
-    except OSError as exc:
-        raise FreezeRefused(f"cannot read the record {path}: {exc}",
-                            "the application's record keeps its hash, and its gate "
-                            "has to pass.") from None
-    # What was sent is what the builder renders from the short file now, over the career
-    # as it stands - the same build the PDF beside it came from. A legacy URS record is
-    # refused here with `jsk kb export` as the fix (short.read).
-    try:
-        plan, _ = build(path)
-    except ShortError as exc:
-        raise FreezeRefused(str(exc), f"fix: {exc.fix}",
-                            "nothing was renamed or written.") from None
-    return Checked(path, record_bytes, plan)
+    if native is None:
+        from .unsent import note
+
+        raise FreezeRefused(f"applications/{stem} was made from files, and jsk 6.0 no longer "
+                            "freezes such an application",
+                            f"fix: {note(stem)[1]}", "nothing was renamed or written.")
+    return selected(app_dir, native, build)
 
 
 def selected(app_dir, native, build):

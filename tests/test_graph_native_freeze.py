@@ -246,7 +246,7 @@ class Letter(Frozen):
 
         self.selected()
         ref = selection.ref_for(STEM, root=self.root)
-        text = advert(ref, resume.career(self.root), read=None)
+        text = advert(ref, resume.career(self.root))
         self.assertIn("Run the clinical event platform for forty hospitals.", text)
         self.assertIn("Rust experience required.", text)
         self.assertFalse((self.app / "posting.md").exists())

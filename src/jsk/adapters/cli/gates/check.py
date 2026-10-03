@@ -1,6 +1,6 @@
 """The three things `jsk resume check` does, by target, and how their steps print.
 
-cmd_validate is the record gate over one resume.json, cmd_check the two document gates
+cmd_validate is the record gate over one target's selection, cmd_check the two document gates
 over one render (or one gate, with --only), and cmd_gates all four over a render's
 directory (application/gates/run_gates.py) with the render gate said out loud after them.
 Each gate runs in this interpreter through its own adapter, contained the way
@@ -44,9 +44,10 @@ CHECK_ALONE = {"layout": "layout.py"}
 
 CHECK_USAGE = "usage: jsk resume check <resume.pdf> [--strict] [--only parse|prose|layout]"
 
-VALIDATE_USAGE = "usage: jsk resume check <resume.json> [--strict] [--max-findings N]"
+VALIDATE_USAGE = ("usage: jsk resume check <stem>|resumes/<name> [--strict] "
+                  "[--max-findings N]")
 
-GATES_USAGE = ("usage: jsk resume check <out-dir> [--record <resume.json>] "
+GATES_USAGE = ("usage: jsk resume check <out-dir> [--record <stem>|resumes/<name>] "
                "[--pages N] [--json] [--max-findings N]")
 
 GATES_VALUE_FLAGS = ("--record", "--pages", "--max-findings")
@@ -145,7 +146,7 @@ def through(script, args):
 
 
 def cmd_validate(args):
-    """`jsk resume check`: the record gate, over one short resume.json.
+    """`jsk resume check`: the record gate, over one target's selection.
 
     Args:
         args: the arguments after the command.
@@ -209,6 +210,8 @@ def cmd_check(args):
     Returns:
         The worst exit code. Prints each gate under its heading, then what did not run.
     """
+    from ..compose.selection import selection_ref
+
     only, args, code = only_gate(args)
     if code is not None:
         return code
@@ -233,10 +236,11 @@ def cmd_check(args):
             continue
         print(f"--- {label}: {script} {path}" + (" --strict" if strict and takes_strict else ""))
         gate_args = [path] + (["--strict"] if strict and takes_strict else [])
-        beside = os.path.join(os.path.dirname(os.path.abspath(path)), DEFAULT_RECORD)
-        if script == "check_ats.py" and path.lower().endswith(".pdf") and os.path.isfile(beside):
-            # The resume.json the skill writes beside its render: its plan's plain text is
-            # the order the PDF must extract in.
+        beside = selection_ref(os.path.dirname(os.path.abspath(path)))
+        if script == "check_ats.py" and path.lower().endswith(".pdf") and beside:
+            # The selection a target's directory holds in the store: its plan's plain text
+            # is the order the PDF must extract in. It was a resume.json beside the render
+            # until 6.0 read none.
             gate_args += ["--record", beside]
         worst = max(worst, through(script, gate_args))
         ran = label
@@ -251,7 +255,7 @@ def cmd_check(args):
             print(f"The {ran} passed. Three gates did not run:")
             # Padded to the same column as the two fixed lines below it.
             print(f"  {'jsk resume check ' + os.path.basename(target):<30} the other document gate")
-        print("  jsk resume check <record>.json before rendering")
+        print("  jsk resume check <stem>         before rendering")
         print("  open the PDF and read it       nobody else can do this one")
     return worst
 
@@ -316,21 +320,27 @@ def gates_call(args):
     # named nor sitting where the skill writes it is a missing input, which is
     # SKIPPED and a failure further down. The two are different mistakes and
     # reporting them the same way hides one of them.
+    from ....application.guards import is_resume_json, resume_json_refusal
     from ....application.render.selection import parse_ref
     from ..compose.selection import ref_for, selection_ref
 
     record = flags.get("--record")
     if record is not None:
-        record = ref_for(record) or record
-        if not os.path.isfile(record) and not parse_ref(record):
-            print(f"not a record file: {record}")
-            print("fix:  --record takes the resume.json the documents rendered from")
+        if is_resume_json(record):
+            print("\n".join(resume_json_refusal(
+                "jsk resume check <out-dir> --record <resume.json>",
+                "jsk resume check <out-dir> --record <stem> (or resumes/<name>)")))
+            return 2
+        record = ref_for(record, dirs=True) or record
+        if not parse_ref(record):
+            print(f"not a target: {record}")
+            print("fix:  --record takes the target the documents rendered from: <stem> "
+                  "or resumes/<name>")
             return 2
     else:
-        beside = os.path.join(out_dir, DEFAULT_RECORD)
-        # A graph-native application's directory holds no resume.json: its selection
-        # graph is the record (Ruling 6 of the graph-native plan).
-        record = beside if os.path.isfile(beside) else selection_ref(out_dir)
+        # The record is the selection the directory's target holds in the store (Ruling 6
+        # of the graph-native plan); a resume.json beside the render was read until 6.0.
+        record = selection_ref(out_dir)
 
     pages, problem = parse_pages(flags.get("--pages"))
     if problem:

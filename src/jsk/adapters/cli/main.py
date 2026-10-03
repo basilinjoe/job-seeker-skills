@@ -4,16 +4,17 @@
     jsk kb new PATH --name NAME scaffold career/store/ - the career and its log at r1 -
                                 and applications/
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
-    jsk resume check RESUME.json   the record gate, before anything renders
+    jsk resume check TARGET     the record gate, before anything renders - TARGET is an
+                                application's <stem> or resumes/<name>
       ... check PDF [--strict]  the parse gate and the prose gate, both
       ...   --only parse|prose  one of them, for re-checking one repaired file
       ...   --only layout       fonts, tofu, stranded headings, date column, paper
-      ... check DIR [--record R]  the record, parse, prose and layout gates over one render
-      ... render RESUME [...]   one resume.json to a .tex and a PDF
-      ... preview RESUME --out D  the same resume in every template, to pick a look
+      ... check DIR [--record TARGET]  the record, parse, prose and layout gates over a render
+      ... render TARGET [...]   its selection to a .tex and a PDF, in its own directory
+      ... preview TARGET --out D  the same resume in every template, to pick a look
       ... fit TEX [...]         fit a render to a page budget
-      ... ship RESUME --out D   validate, render and gate, in one pass
-    jsk letter check LETTER --record R   a cover letter's length, prose and numbers
+      ... ship TARGET           validate, render and gate, in one pass
+    jsk letter check LETTER --record TARGET   a cover letter's length, prose and numbers
     jsk app freeze APP --submitted DATE|false --channel TEXT   archive a sent application
       ... event APP KIND --date DATE      add a screen, an offer, a rejection to one
       ... drop APP [--reason T] [--dry-run]   set an unsent one aside: graphs removed,
@@ -24,17 +25,17 @@
 `jsk <noun> --help` lists a noun's verbs, and `jsk <noun> <verb> --help` its flags.
 
 The career is the graph record, in career/store/: changed through `jsk kb apply`, read with
-`jsk kb show` and `jsk kb view`, validated on every load. `jsk kb export` writes an
-application's short resume.json - the bullets chosen, as ids - out of it, every render
-builds from the career and that file, and `jsk resume check` checks the file and the bullets
-it selects before anything renders - the last point at which a mistake is still cheap.
+`jsk kb show` and `jsk kb view`, validated on every load. A target's selection - the bullets
+chosen, as ids, kept in the store by the resume_select tool - says what a resume shows;
+every render builds from the career and that selection, and `jsk resume check` checks it and
+the bullets it selects before anything renders - the last point at which a mistake is still
+cheap.
 
 pyoxigraph for the graph record, and pymupdf to read a PDF.
 """
 from ... import __version__
 from .cliutil import refused, wants_help
 from .dispatch import run_in_process, workspace_refusal
-from .retiring import file_form, warn
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
 # this file. Named once, here, and a test holds the docstring to it, so rewording that
@@ -119,15 +120,15 @@ OWN_USAGE = {"kb": "kbcli.py"}
 # What `jsk <noun> --help` prints for the nouns that do not print their own.
 NOUN_USAGE = {
     "resume": ("usage: jsk resume <verb> ...\n"
-               "  check RESUME.json | RENDER | DIR   the record gate; parse and prose; "
+               "  check TARGET | RENDER | DIR        the record gate; parse and prose; "
                "or all four\n"
-               "  render RESUME --out DIR [...]      one resume.json to a .tex and a PDF\n"
-               "  render <stem>|resumes/<name>       a target's selection, into its directory\n"
-               "  preview RESUME --out DIR           the same resume in every template\n"
+               "  render TARGET [--out DIR] [...]    a target's selection to a .tex and a PDF\n"
+               "  preview TARGET --out DIR           the same resume in every template\n"
                "  fit TEX [--target-pages N]         fit a render to a page budget\n"
-               "  ship RESUME --out DIR [...]        validate, render and gate, in one pass"),
+               "  ship TARGET [...]                  validate, render and gate, in one pass\n"
+               "  (TARGET: an application's <stem>, or resumes/<name>)"),
     "letter": ("usage: jsk letter <verb> ...\n"
-               "  check LETTER --record R   a cover letter's length, prose and numbers"),
+               "  check LETTER --record TARGET   a cover letter's length, prose and numbers"),
     "app": ("usage: jsk app <verb> ...\n"
             "  event APP KIND --date D                      add what happened next\n"
             "  freeze APP --submitted D|false --channel T   archive a sent application\n"
@@ -144,20 +145,20 @@ RETIRED = {
              "posting;\n      `jsk kb view` reads it",
     "migrate": "it moved a user-knowledgebase.md into the career, and jsk no longer reads "
                "the Markdown format.\n"
-               "fix:  `jsk kb new PATH --name NAME` starts a career/store/; `jsk kb export` "
-               "writes an application's short resume.json",
+               "fix:  `jsk kb new PATH --name NAME` starts a career/store/; the "
+               "resume_select tool (jsk mcp) chooses a resume from it",
     "new": ("jsk kb new", "PATH --name NAME"),
     "match": "in 6.0 - it matched a posting made from files, which jsk no longer makes.\n"
              "fix:  the assessment_derive tool (jsk mcp) matches a graph-native "
              "application's posting against the career",
-    "validate": ("jsk resume check", "resume.json"),
+    "validate": ("jsk resume check", "<stem>"),
     "check": ("jsk resume check", "resume.pdf"),
-    "check --only letter": ("jsk letter check", "cover-letter.txt --record resume.json"),
+    "check --only letter": ("jsk letter check", "cover-letter.txt --record <stem>"),
     "gates": ("jsk resume check", "<out-dir>"),
-    "render": ("jsk resume render", "resume.json --out DIR"),
-    "preview": ("jsk resume preview", "resume.json --out DIR"),
+    "render": ("jsk resume render", "<stem>"),
+    "preview": ("jsk resume preview", "<stem> --out DIR"),
     "fit": ("jsk resume fit", "resume.tex --target-pages 2"),
-    "ship": ("jsk resume ship", "resume.json --out DIR"),
+    "ship": ("jsk resume ship", "<stem>"),
     "event": ("jsk app event", "applications/<dir> KIND --date YYYY-MM-DD"),
     "freeze": ("jsk app freeze", "applications/<dir> --submitted YYYY-MM-DD --channel TEXT"),
     # 6.0 retired the pipeline that made an application from files (Ruling 1 of
@@ -272,11 +273,6 @@ def run(noun, verb, rest):
     refusal = workspace_refusal(noun, rest)
     if refusal:
         return refused(refusal)
-    # Ruling 1 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: a file verb
-    # still works in 5.x and says, first, that it goes in 6.0 and what replaces it.
-    retiring = None if wants_help(rest) else file_form(noun, verb, rest)
-    if retiring:
-        warn(retiring, rest)
     target = NOUNS[noun][verb]
     if callable(target):
         return target(rest)

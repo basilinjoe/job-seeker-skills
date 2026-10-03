@@ -1,5 +1,10 @@
 """`jsk app freeze`: it refuses to archive anything the gates would not pass, and
 what it archives is the application record of what was sent.
+
+The application is graph-native (tests/shipkit.py's GraphCase): its record is the stored
+selection, hashed as its canonical text. A file-made one was frozen from its resume.json
+until 6.0, which freezes none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md,
+P2); that refusal is tests/test_retired.py's.
 """
 import json
 import unittest
@@ -22,7 +27,10 @@ class FreezeGraph(GraphCase):
     def test_it_writes_application_ttl_with_what_it_carried(self):
         import hashlib
 
-        raw = (self.app / "resume.json").read_bytes()
+        from jsk.adapters.cli.compose import selection
+        from jsk.domain.resume.selection import canonical
+
+        raw = canonical(selection.read(str(self.root), "contoso-platform")).encode("utf-8")
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         self.assertFalse((self.sent / "application.md").exists())
@@ -60,7 +68,7 @@ class FreezeGraph(GraphCase):
         self.assertEqual([f.text() for f in s.fails()], [])
         self.assertEqual({k for k in s.parsed if k.startswith("applications/")},
                          {self.graph(self.sent, kind) for kind in
-                          ("posting", "gaps", "application")})
+                          ("posting", "gaps", "resume", "application")})
         self.assertEqual(appkit.facts(self.root, self.graph(self.sent, "posting")), posting)
 
     def test_a_store_that_refuses_the_write_leaves_the_directory_where_it_was(self):
@@ -145,13 +153,15 @@ class FreezeGraph(GraphCase):
         self.assertEqual(code, 0, out)
         self.assertTrue(self.sent.is_dir())
         self.assertEqual(sorted(g for g in appkit.graphs(self.root) if g.startswith("appl")),
-                         sorted(self.graph(self.sent, k) for k in ("posting", "application")))
+                         sorted(self.graph(self.sent, k)
+                                for k in ("posting", "resume", "application")))
 
     def test_the_record_gate_runs_and_its_output_is_shown(self):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         self.assertIn("--- record gate: record.py", out)
-        self.assertIn("checking: resume.json   against: career/store/", out)
+        self.assertIn("checking: applications/contoso-platform/resume   against: "
+                      "career/store/", out)
         self.assertNotIn("claims gate", out)
 
     def test_the_career_is_never_touched(self):
@@ -185,7 +195,7 @@ class FreezeGraph(GraphCase):
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
         self.assertIn("no posting in", out)
-        self.assertIn("jsk posting build", out)
+        self.assertIn("posting_capture", out)
         self.assertFalse(self.sent.exists())
 
     def test_a_frozen_application_is_never_refrozen(self):
@@ -213,10 +223,14 @@ class FreezeWrites(GraphCase):
         self.assertIn(str(self.sent), out)
 
     def test_a_directory_already_named_for_the_day_stays_where_it_is(self):
-        posting = appkit.triples(self.root, self.graph(self.app, "posting"))
         from jsk.infra.oxigraph import record as R
-        R.write_graphs(str(self.root), {self.graph(self.app, "posting"): None,
-                                        self.graph(self.sent, "posting"): posting})
+
+        moved = {}
+        for kind in ("posting", "resume"):
+            moved[self.graph(self.app, kind)] = None
+            moved[self.graph(self.sent, kind)] = appkit.triples(self.root,
+                                                                self.graph(self.app, kind))
+        R.write_graphs(str(self.root), moved)
         self.app.rename(self.sent)
         self.app = self.sent
         code, out = self.freeze()
@@ -295,15 +309,15 @@ class FreezeRefuses(Untouched, GraphCase):
         self.assertIn("never frozen", out)
         self.assertUntouched()
 
-    def test_a_legacy_record_is_never_frozen_and_is_pointed_at_export(self):
-        """Nothing reads a full URS record now; an unfrozen one is written again with
-        `jsk kb export`, and a frozen one is the archive and never rendered again."""
+    def test_a_resume_json_beside_it_is_never_read(self):
+        """A full URS record, or any resume.json, was the record a freeze read until 6.0;
+        a graph-native application's record is its stored selection (Ruling 11 of the
+        graph-native plan), so a file beside it changes nothing frozen."""
         legacy = Path(__file__).parent / "legacy_fixtures" / "contoso-resume.urs.json"
         (self.app / "resume.json").write_bytes(legacy.read_bytes())
         code, out = self.freeze()
-        self.assertEqual(code, 1, out)
-        self.assertIn("jsk kb export", out)
-        self.assertUntouched()
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("URS", out)
 
     def test_a_view_is_a_usage_error_naming_one_resume(self):
         code, out = self.freeze("--view", "view_nope")
@@ -350,7 +364,8 @@ class FreezeLetters(Untouched, GraphCase):
             LETTER.replace("the platform role", "the role at [COMPANY]"), encoding="utf-8")
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
-        self.assertIn("--- letter gate: letter.py cover-letter.txt --record resume.json", out)
+        self.assertIn("--- letter gate: letter.py cover-letter.txt --record contoso-platform",
+                      out)
         self.assertIn("[COMPANY]", out)
         self.assertIn("never frozen", out)
         self.assertUntouched()
@@ -484,7 +499,9 @@ class FreezeShort(ShortCase):
     def test_it_carries_only_the_bullets_that_rendered(self):
         import hashlib
 
-        raw = self.short.read_bytes()
+        from jsk.domain.resume.selection import canonical
+
+        raw = canonical(self.SHORT).encode("utf-8")
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         app, _ = self.application()
@@ -508,9 +525,8 @@ class FreezeShort(ShortCase):
         self.assertIn("drop --view", out)
         self.assertFalse(appkit.has(self.root, self.graph(self.app, "application")))
 
-    def test_a_file_that_does_not_build_is_never_frozen(self):
-        self.short.write_text(json.dumps({"resume": 2, "bullets": ["ach_nope"]}),
-                              encoding="utf-8")
+    def test_a_selection_that_does_not_build_is_never_frozen(self):
+        self.selected({"resume": 2, "bullets": ["ach_nope"]})
         code, out = self.freeze()
         self.assertEqual(code, 1, out)
         self.assertIn("ach_nope", out)

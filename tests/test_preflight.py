@@ -230,9 +230,10 @@ class CliBehaviour(unittest.TestCase):
             self.assertIn(step, out)
         self.assertNotIn("FAIL", out)
 
-    def test_verify_renders_the_example_workspace_s_short_file(self):
-        """doctor renders the resume the way a person's is rendered: a short resume.json
-        built from a career, not a record copied out of one."""
+    def test_verify_renders_the_example_workspace_s_general_resume(self):
+        """doctor renders the resume the way a person's is rendered: a target's selection
+        built from a career, not a record copied out of one - a resume.json until 6.0 read
+        none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2)."""
         from unittest import mock
 
         from jsk import paths, preflight
@@ -245,15 +246,15 @@ class CliBehaviour(unittest.TestCase):
         with mock.patch.object(preflight.subprocess, "run", fake):
             preflight.verify(str(self.tmp))
         render = next(c for c in calls if c[3:5] == ["resume", "render"])
-        # A copy beside the store the example was imported into, never the package's own.
-        self.assertIn(str(self.tmp / "example" / "resume.json"), render)
-        self.assertNotIn(paths.EXAMPLE_SHORT, render)
+        # The target in the store the example was imported into, never the package's files.
+        self.assertIn(str(self.tmp / "example" / "resumes" / "example"), render)
+        self.assertFalse(any(a.endswith(".json") for a in render), render)
         self.assertNotIn("--view", render)
         load = next(c for c in calls if "load" in c)
         self.assertEqual(load[-5:], ["kb", "load", paths.EXAMPLE_WORKSPACE, "--root",
                                      str(self.tmp / "example")])
 
-    def test_verify_validates_the_short_file_not_the_legacy_record(self):
+    def test_verify_validates_the_selection_it_renders(self):
         """The validate step read example.resume.json - a URS record nothing renders any
         more - so doctor passed a check on a file the render never touched."""
         from unittest import mock
@@ -268,7 +269,7 @@ class CliBehaviour(unittest.TestCase):
         with mock.patch.object(preflight.subprocess, "run", fake):
             steps = preflight.verify(str(self.tmp))
         check = next(c for c in calls if c[3:5] == ["resume", "check"])
-        self.assertIn(str(self.tmp / "example" / "resume.json"), check)
+        self.assertIn(str(self.tmp / "example" / "resumes" / "example"), check)
         self.assertFalse(any("validate_urs" in a for c in calls for a in c))
         self.assertEqual([s[0] for s in steps[:2]], ["load the example career into a store",
                                                      "validate the example resume"])

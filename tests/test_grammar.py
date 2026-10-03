@@ -73,7 +73,7 @@ class EveryOldNameIsRetired(unittest.TestCase):
     def test_a_retired_name_with_no_arguments_shows_what_to_pass(self):
         code, out = jsk("validate")
         self.assertEqual(code, 2, out)
-        self.assertIn("fix:  jsk resume check resume.json", out)
+        self.assertIn("fix:  jsk resume check <stem>", out)
 
     def test_each_new_call_runs(self):
         for _, new in MAPPING:
@@ -142,7 +142,7 @@ class ResumeCheckByTarget(unittest.TestCase):
         self.json = self.tmp / "resume.json"
         self.json.write_text("{}", encoding="utf-8")
 
-    def test_a_resume_json_gets_the_record_gate(self):
+    def test_a_target_gets_the_record_gate(self):
         code, out = jsk("resume", "check", example_short())
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)
@@ -164,7 +164,7 @@ class ResumeCheckByTarget(unittest.TestCase):
         self.assertIn("=== summary", out)
 
     def test_each_flag_that_does_not_fit_is_a_usage_error_naming_the_kind(self):
-        cases = [(self.json, flag, "a resume.json") for flag in
+        cases = [(example_short(), flag, "a target") for flag in
                  (["--pages", "2"], ["--record", "x.json"], ["--json"], ["--only", "parse"])]
         cases += [(self.txt, flag, "a render") for flag in
                   (["--pages", "2"], ["--record", "x.json"], ["--json"],

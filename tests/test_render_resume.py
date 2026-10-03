@@ -38,6 +38,21 @@ def reworded(text):
     return [(TEAM, f'"{text}"')]
 
 
+def contoso(root, doc):
+    """The ref of the claims fixture's Contoso application, made graph-native with `doc`
+    as its selection: the posting a render names its file for (shipkit.graph_native)."""
+    import shipkit
+    from jsk.domain.resume.selection import triples_of
+    from jsk.infra.oxigraph import record as R
+
+    shipkit.graph_native(root)
+    R.write_graphs(str(root), {"applications/contoso-platform/resume":
+                               triples_of(doc, "sel_app_contoso_platform")})
+    app = Path(root) / "applications" / "contoso-platform"
+    app.mkdir(parents=True, exist_ok=True)
+    return str(app / "resume")
+
+
 class PlanCase(BuildCase):
     """A plan over claims_fixtures with test_build's full person (Test Person, Melbourne)."""
 
@@ -110,7 +125,8 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         as `jsk resume check DIR` and `jsk doctor --verify` call it."""
         code, out = gate("check_ats.py", example_short(), "--strict")
         self.assertEqual(code, 0, out)
-        self.assertIn("plain text of resume.json (in memory)   mode: ATS-maximal (strict)", out)
+        self.assertIn("plain text of resumes/example/resume (in memory)   mode: ATS-maximal "
+                      "(strict)", out)
         self.assertIn("PASS", out)
 
     def test_one_record_yields_the_tex_and_no_plain_text_file(self):
@@ -154,13 +170,17 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.assertIn("a resume.json is one resume", out)
         self.assertEqual(list(self.tmp.glob("*")), [])
 
-    def test_a_legacy_record_is_refused_with_export_as_the_fix(self):
-        root, path = careerkit.workspace(self.tmp / "ws")
+    def test_a_resume_json_is_refused_naming_the_target_form(self):
+        # A legacy URS record was refused naming `jsk kb export` until 6.0 read no file
+        # (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2).
+        root, _ = careerkit.workspace(self.tmp / "ws")
         legacy = Path(__file__).parent / "legacy_fixtures" / "contoso-resume.urs.json"
-        Path(path).write_bytes(legacy.read_bytes())
+        path = Path(root) / "resume.json"
+        path.write_bytes(legacy.read_bytes())
         code, out = run(RENDER, path, "--out", self.tmp / "out")
         self.assertEqual(code, 2, out)
-        self.assertIn("jsk kb export", out)
+        self.assertIn("jsk resume render <resume.json> was retired in 6.0", out)
+        self.assertIn("fix:  jsk resume render <stem>", out)
         self.assertNotIn("Traceback", out)
 
     def rendered_as(self, path):
@@ -172,7 +192,8 @@ class RenderedFilesPassTheGates(unittest.TestCase):
     def test_the_company_is_the_posting_graphs(self):
         """Read from the application's posting in the store, which the render has loaded
         already - one SELECT. A posting.ttl file beside the record is not the record."""
-        root, path = careerkit.workspace(self.tmp / "ws", short=short())
+        root, _ = careerkit.workspace(self.tmp / "ws")
+        path = contoso(root, short())
         Path(path).with_name("posting.ttl").write_bytes(
             b'@prefix j: <https://jsk.dev/o#> .\nk:p j:company "Contoso \x93Labs\x94" .\n')
         self.assertEqual(self.rendered_as(path), ["Test_Person_Contoso_Resume.tex"])

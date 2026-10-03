@@ -28,7 +28,7 @@ import sys
 import tempfile
 
 from . import __version__
-from .paths import EXAMPLE_SHORT, EXAMPLE_WORKSPACE, SCHEMA_DIR as SCHEMA
+from .paths import EXAMPLE_SELECTION, EXAMPLE_TARGET, EXAMPLE_WORKSPACE, SCHEMA_DIR as SCHEMA
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -366,29 +366,29 @@ def verify(tmp):
                       (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]))
         return proc.returncode == 0
 
-    if not os.path.exists(EXAMPLE_SHORT):
+    if not os.path.exists(EXAMPLE_SELECTION):
         steps.append(("example document present", False,
-                      [f"{EXAMPLE_SHORT} missing"]))
+                      [f"{EXAMPLE_SELECTION} missing"]))
         return steps
 
     # The example ships as files - a package cannot carry a store, whose format is the
     # installed pyoxigraph's - so it is imported into a store of its own, as `jsk kb load`
-    # imports a person's, and everything after reads it from there, as a person's does.
+    # imports a person's, its general resume's selection with it, and everything after reads
+    # it from there, as a person's does.
     workspace = os.path.join(tmp, "example")
     os.makedirs(workspace, exist_ok=True)
-    short = os.path.join(workspace, os.path.basename(EXAMPLE_SHORT))
-    shutil.copyfile(EXAMPLE_SHORT, short)
     if not run("load the example career into a store",
                ["kb", "load", EXAMPLE_WORKSPACE, "--root", workspace]):
         return steps
-    # The file the render reads, not the old example.resume.json: validating a URS record
-    # the render no longer touched passed a check on the wrong file. The record gate, as
+    # The selection the render reads: validating a record the render did not touch passed
+    # a check on the wrong one, when the example was a URS record. The record gate, as
     # `jsk resume ship` runs it: shape, ids and every number traced in the example career.
-    run("validate the example resume", ["resume", "check", short])
+    target = os.path.join(workspace, *EXAMPLE_TARGET.split("/"))
+    run("validate the example resume", ["resume", "check", target])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the builder works and nothing about whether anything can be sent.
     ok = run("render the example to a PDF",
-             ["resume", "render", short, "--out", tmp, "--pdf"])
+             ["resume", "render", target, "--out", tmp, "--pdf"])
     if not ok:
         return steps
 
@@ -396,17 +396,18 @@ def verify(tmp):
     tex = os.path.join(tmp, "Priya_Raman_Resume.tex")
     run("parse gate, rendered PDF", ["resume", "check", pdf, "--only", "parse"])
     # No render writes the plain text: the parse gate emits it from the plan in memory, as
-    # `jsk resume check DIR` runs it. No command takes a resume.json to that one pass, so its
-    # adapter is spawned directly, from cold like the rest, with the arguments DIR gives it.
+    # `jsk resume check DIR` runs it. No command takes a selection to that one pass, so its
+    # adapter is spawned directly, from cold like the rest, with the record DIR gives it.
     entry = (f"import sys; from {__package__}.adapters.cli.gates.ats import main; "
              f"sys.exit(main(sys.argv[1:]))")
-    proc = subprocess.run([sys.executable, "-c", entry, short, "--strict"],
+    ref = os.path.join(target, "resume")
+    proc = subprocess.run([sys.executable, "-c", entry, ref, "--strict"],
                           capture_output=True, text=True, cwd=tmp)
     steps.append(("parse gate, plain text (strict)", proc.returncode == 0,
                   (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]))
     run("prose gate", ["resume", "check", tex, "--only", "prose"])
     # The record names the region, so the paper is checked against it, not warned about.
-    run("layout gate", ["resume", "check", pdf, "--only", "layout", "--record", short])
+    run("layout gate", ["resume", "check", pdf, "--only", "layout", "--record", target])
     return steps
 
 

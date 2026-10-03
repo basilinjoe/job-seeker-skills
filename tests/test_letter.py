@@ -1,4 +1,4 @@
-"""The letter check: a cover letter's length, prose and numbers, against its resume.json.
+"""The letter check: a cover letter's length, prose and numbers, against its selection.
 
 mode-tailor.md had the model write a letter nothing checked, beside a resume whose every
 number traces to a current metric version. These are the cases that asked it the same
@@ -41,12 +41,26 @@ def run(*argv):
 
 class LetterCase(unittest.TestCase):
     def workspace(self, edits=(), posting=None):
+        """The ref of the selection the letter goes out beside: a general resume's, or with
+        `posting` a graph-native application's whose advert it is - the posting.md beside a
+        resume.json until 6.0 read neither (docs/superpowers/plans/
+        2026-10-03-retire-file-pipeline.md, P2). Its directory is made, as a render would."""
+        import datetime
+
+        from jsk.adapters.cli.compose import native
+        from jsk.domain.resume.selection import triples_of
+        from jsk.infra.oxigraph import record as R
+
         tmp = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, tmp, True)
-        _, record = careerkit.workspace(Path(tmp, "ws"), edits=list(edits),
-                                        short={"resume": 2, "bullets": BULLETS})
+        doc = {"resume": 2, "bullets": BULLETS}
+        root, record = careerkit.workspace(Path(tmp, "ws"), edits=list(edits), short=doc)
         if posting is not None:
-            Path(record).with_name("posting.md").write_text(posting, encoding="utf-8")
+            native.capture(root, "acme", text=posting, company="Acme", title="Engineer",
+                           today=datetime.date(2026, 10, 1))
+            R.write_graphs(root, {"applications/acme/resume": triples_of(doc, "sel_app_acme")})
+            record = str(Path(root, "applications", "acme", "resume"))
+        Path(record).parent.mkdir(parents=True, exist_ok=True)
         return record
 
     def check(self, text, edits=(), posting=None, name="cover-letter.txt", record=True):

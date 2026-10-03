@@ -7,9 +7,10 @@ Usage: jsk resume check resume.pdf --only parse [--strict]
 Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
 Reading a PDF needs pymupdf; the .txt path is standard library only.
 
-A render writes no .txt. Its plain text is emitted in memory from the resume.json's plan:
-`jsk resume check <out-dir> --record <resume.json>` judges it --strict, and holds the PDF to
-its reading order. A resume.json beside a PDF checked alone is read for that order too.
+A render writes no .txt. Its plain text is emitted in memory from the selection's plan:
+`jsk resume check <out-dir> --record <stem>` judges it --strict, and holds the PDF to its
+reading order. The selection of the target whose directory holds a PDF checked alone is read
+for that order too.
 
 This used to read a .docx and check seven structural hazards inside its XML - a
 table, a text box, an image, a drawing, SmartArt, header content, a second
@@ -31,12 +32,12 @@ from . import present
 def gate(args):
     """The parse gate over the arguments alone, as `jsk resume check` runs it.
 
-    The document is a .pdf, a .txt passed by hand, or a resume.json - whose plan's plain text
-    is judged in memory, as no render writes it to disk. `--record <resume.json>` beside a
-    PDF holds the PDF to that text's reading order.
+    The document is a .pdf, a .txt passed by hand, or a target's ref - whose plan's plain
+    text is judged in memory, as no render writes it to disk. `--record <ref>` beside a PDF
+    holds the PDF to that text's reading order.
 
     Args:
-        args: the document, then --strict when asked for, then --record <resume.json>.
+        args: the document, then --strict when asked for, then --record <ref>.
 
     Returns:
         (exit code, the AtsResult or Unreadable - the GateStopped when it stopped, None
@@ -70,7 +71,8 @@ def gate(args):
 
     path = args[0]
     strict = "--strict" in args
-    # A graph-native target's ref is a record as a resume.json is, with no file to find.
+    # A target's ref is a record, with no file to find; a resume.json was one until 6.0, and
+    # is told so by the plan it cannot be read for.
     selected = parse_ref(path) is not None
     if not selected and not os.path.exists(path):
         print(f"file not found: {path}")

@@ -227,18 +227,20 @@ PLUGIN = REPO_ROOT / "plugins" / "jsk"
 RENDER_RESUME = f"{PACKAGE}.adapters.cli.render"
 CHECK_PROSE = f"{PACKAGE}.domain.gates.prose_rules"
 PREFLIGHT = f"{PACKAGE}.preflight"
-# The shipped example workspace's short resume.json: what `jsk doctor` renders, and what
-# a render test reaches for when any resume will do. (example.resume.json, the full URS
-# record it replaced, went on 2026-09-25.) It ships beside the career as files, which jsk
-# no longer reads: a test renders example_short(), as doctor renders its import.
-EXAMPLE_SHORT = SRC / PACKAGE / "data" / "example" / "resume.json"
+# The shipped example workspace's general resume: what `jsk doctor` renders, and what a
+# render test reaches for when any resume will do. Its selection was a short resume.json
+# until 6.0 read none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2); it
+# ships beside the career as resumes/example/resume.ttl, which `jsk kb load` imports.
+EXAMPLE = SRC / PACKAGE / "data" / "example"
+EXAMPLE_TARGET = "resumes/example"
 _EXAMPLE = []
 
 
 def example_short():
-    """The example's resume.json in a copy of the workspace whose career is in a store of
-    its own - as `jsk doctor` imports it (preflight.verify). Made once per test process and
-    only read, so every render test shares it; removed when the process exits."""
+    """The ref of the example's general resume, in a copy of the workspace whose career and
+    selection are in a store of their own - as `jsk doctor` imports them (preflight.verify).
+    Made once per test process and only read, so every render test shares it; removed when
+    the process exits. The ref goes wherever a resume.json path went before 6.0."""
     if not _EXAMPLE:
         import atexit
         import tempfile
@@ -247,9 +249,9 @@ def example_short():
 
         root = Path(tempfile.mkdtemp()) / "example"
         atexit.register(shutil.rmtree, root.parent, True)
-        shutil.copytree(EXAMPLE_SHORT.parent, root)
+        shutil.copytree(EXAMPLE, root)
         seed(root)
-        _EXAMPLE.append(root / EXAMPLE_SHORT.name)
+        _EXAMPLE.append(root / "resumes" / "example" / "resume")
     return _EXAMPLE[0]
 
 

@@ -3,7 +3,6 @@ parsing every noun shares.
 """
 import contextlib
 import io
-import json
 import os
 import tempfile
 import unittest
@@ -90,11 +89,12 @@ class Usage(unittest.TestCase):
 
     def test_jsk_migrate_is_retired_and_says_what_replaced_it(self):
         """It moved a user-knowledgebase.md to career/kb.ttl. The Markdown format is not
-        read any more: `jsk new` starts a record, `jsk kb export` writes a resume.json."""
+        read any more: `jsk kb new` starts a record, and the resume_select tool chooses a
+        resume - `jsk kb export --out` wrote a resume.json until 6.0."""
         code, out = run(JSK, "migrate", "user-knowledgebase.md")
         self.assertEqual(code, 2, out)
         self.assertIn("jsk migrate was retired", out)
-        for pointer in ("jsk kb new", "jsk kb export"):
+        for pointer in ("jsk kb new", "resume_select"):
             self.assertIn(pointer, out)
         from jsk import cli
         self.assertNotIn("migrate", cli.NOUNS)
@@ -252,18 +252,18 @@ class PreviewInProcess(unittest.TestCase):
         self.assertIn(f"FAILED: {broken}", out)
         self.assertIn("! Missing $", out)
 
-    def test_a_file_that_does_not_load_is_said_once_not_blamed_on_the_templates(self):
-        """A legacy record fails the same way in every template; five FAILED blocks and
-        "a template that does not build" sent the reader after the templates."""
-        Path(self.record).write_text(json.dumps({"urs": "1.0"}), encoding="utf-8")
+    def test_a_selection_that_does_not_load_is_said_once_not_blamed_on_the_templates(self):
+        """A record that does not load fails the same way in every template; five FAILED
+        blocks and "a template that does not build" sent the reader after the templates.
+        It was a legacy URS record until 6.0 read no file; a bullet the career lacks is."""
+        careerkit.select(Path(self.record).parents[2], {"resume": 2, "bullets": ["ach_nope"]})
 
         def never(tex_path, out_dir):
-            raise AssertionError("compiled a file that does not load")
+            raise AssertionError("compiled a selection that does not load")
 
         code, out = self.preview(never)
         self.assertEqual(code, 2, out)
-        self.assertEqual(out.count("full URS record"), 1, out)
-        self.assertIn("jsk kb export", out)
+        self.assertEqual(out.count("ach_nope"), 1, out)
         self.assertNotIn("FAILED", out)
         self.assertNotIn("template that does not build", out)
 

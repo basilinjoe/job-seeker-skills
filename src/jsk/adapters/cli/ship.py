@@ -4,8 +4,10 @@ Each step's output is what its own command prints - the record gate's, `jsk resu
 `jsk resume fit`'s, each gate's - captured as it runs, and the summary and --json are what
 `jsk resume check` prints over its steps.
 
-A graph-native target - `<stem>` or `resumes/<name>` - ships from its selection graph into
-its own directory, with no --out (compose.selection.ref_for reads the positional).
+A target - `<stem>` or `resumes/<name>` - ships from its selection graph into its own
+directory, with no --out (compose.selection.ref_for reads the positional). A resume.json was
+shipped with --out until 6.0, which reads none: one exits 2 naming the target form
+(docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2).
 """
 import contextlib
 import io
@@ -14,9 +16,7 @@ import os
 
 from .cliutil import parse_flags, wants_help
 
-SHIP_USAGE = ("usage: jsk resume ship <resume.json> --out DIR [--ats-max] "
-              "[--template N] [--pages N] [--no-fit] [--json]\n"
-              "       jsk resume ship <stem>|resumes/<name> [--ats-max] [--template N] "
+SHIP_USAGE = ("usage: jsk resume ship <stem>|resumes/<name> [--ats-max] [--template N] "
               "[--pages N] [--no-fit] [--json]")
 
 SHIP_VALUE_FLAGS = ("--out", "--template", "--pages")
@@ -68,7 +68,7 @@ def called(args):
             print("fix:  drop --out")
             return 2
         record, flags["--out"] = ref, home
-    refusal = record_refusal(record)
+    refusal = record_refusal(record, "ship")
     if refusal:
         print("\n".join(refusal))
         return 2

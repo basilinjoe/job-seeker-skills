@@ -7,13 +7,12 @@ warning, because a missing term is often a gap, never a word to add. And `jsk kb
 skill it names by an alias shown under that alias."""
 import contextlib
 import io
-import json
 import tempfile
 import unittest
 from pathlib import Path
 
 import careerkit
-from careerkit import APP, short
+from careerkit import short
 from jsk.domain.gates.terms_rules import STUFFED, judge, occurrences
 
 PAGE = """Test Person
@@ -93,9 +92,10 @@ class Judge(unittest.TestCase):
 
 
 class Gate(unittest.TestCase):
-    """The gate over a workspace: the posting found from the resume.json's directory, and the
-    page the plain text the record's plan emits in memory - no render writes a .txt (Ruling
-    23 of the graph-native plan) - or a .txt passed by hand."""
+    """The gate over a workspace: the posting found from the target's - an application's -
+    and the page the plain text the record's plan emits in memory - no render writes a .txt
+    (Ruling 23 of the graph-native plan) - or a .txt passed by hand. The record was a
+    resume.json, its posting the directory's, until 6.0 read none."""
 
     def run_gate(self, root, record, page=None):
         from jsk.adapters.cli.gates import terms
@@ -110,32 +110,34 @@ class Gate(unittest.TestCase):
             code, result = terms.gate(args)
         return code, out.getvalue(), result
 
-    def test_the_posting_beside_the_record_is_covered(self):
+    def test_the_application_s_posting_is_covered(self):
+        from test_render_resume import contoso
+
         with tempfile.TemporaryDirectory() as tmp:
-            root, path = careerkit.workspace(tmp, short=short())
-            code, out, result = self.run_gate(root, path)
+            root, _ = careerkit.workspace(tmp)
+            code, out, result = self.run_gate(root, contoso(root, short()))
         # The fixture's posting asks for "K8s"; the plan's text says Kubernetes.
         self.assertEqual(code, 0, out)
         self.assertEqual(result.posting, "Platform Engineer")
-        self.assertIn("checking: plain text of resume.json (in memory)", out)
+        self.assertIn("checking: plain text of applications/contoso-platform/resume (in memory)",
+                      out)
         self.assertIn("required: 0/1", out)
         self.assertIn("'K8s' is not on the page, but 'Kubernetes' is", out)
         self.assertIn("PASS - terms reported", out)
 
     def test_a_txt_passed_by_hand_is_still_read(self):
+        from test_render_resume import contoso
+
         with tempfile.TemporaryDirectory() as tmp:
-            root, path = careerkit.workspace(tmp, short=short())
-            code, out, result = self.run_gate(root, path, page=PAGE)
+            root, _ = careerkit.workspace(tmp)
+            code, out, result = self.run_gate(root, contoso(root, short()), page=PAGE)
         self.assertEqual(code, 0, out)
         self.assertEqual(result.name, "pasted.txt")
         self.assertIn("'K8s' is not on the page, but 'Kubernetes' is", out)
 
     def test_a_record_with_no_posting_has_nothing_to_cover(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root, _ = careerkit.workspace(tmp)
-            general = Path(root, "resume.json")
-            general.write_text('{"resume": 2, "bullets": ["ach_events_latency"]}\n',
-                               encoding="utf-8")
+            root, general = careerkit.workspace(tmp, short=short(["ach_events_latency"]))
             code, out, result = self.run_gate(root, general)
         self.assertEqual(code, 0, out)
         self.assertIsNone(result.posting)
@@ -146,17 +148,15 @@ class Gate(unittest.TestCase):
         from jsk.application.gates.run_gates import run_gates
         from jsk.adapters.cli.gates.check import contained
 
+        from test_render_resume import contoso
+
         with tempfile.TemporaryDirectory() as tmp:
-            root, _ = careerkit.workspace(tmp)
-            general = Path(root, "resume.json")
-            general.write_text('{"resume": 2, "bullets": ["ach_events_latency"]}\n',
-                               encoding="utf-8")
+            root, general = careerkit.workspace(tmp, short=short(["ach_events_latency"]))
             # No .txt on disk either way: the terms gate reads the plan's text in memory.
             steps = run_gates(root, str(general), record_gate=False, run=contained,
                               strict=lambda p: False, measure=lambda p: (None, None))
-            tailored = Path(root, APP)
-            Path(tailored, "resume.json").write_text(json.dumps(short()), encoding="utf-8")
-            with_posting = run_gates(str(tailored), str(tailored / "resume.json"),
+            tailored = contoso(root, short())
+            with_posting = run_gates(str(Path(tailored).parent), tailored,
                                      record_gate=False, run=contained,
                                      strict=lambda p: False, measure=lambda p: (None, None))
         self.assertNotIn("terms gate", [s.gate for s in steps])

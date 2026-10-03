@@ -103,7 +103,7 @@ class ShipStops(ShipCase):
         """render_section() names the PDF in the directory. After a stop that PDF is
         an earlier run's, and telling somebody to read it is telling them to check a
         document this ship never made."""
-        self.out.mkdir()
+        self.out.mkdir(parents=True)
         build_pdf(self.out / "Old_Resume.pdf", CLEAN_RESUME)
         self.write(BROKEN)
         code, out = self.ship()
@@ -339,10 +339,14 @@ class ShipUsage(ShipCase):
         self.assertIn("a resume.json is one resume", out)
         self.assertNotIn("--- record gate", out)
 
-    def test_the_out_directory_is_required(self):
-        code, out = run(JSK, "resume", "ship", self.record)
+    def test_a_target_ships_into_its_own_directory_and_no_other(self):
+        # A resume.json shipped with --out until 6.0 (docs/superpowers/plans/
+        # 2026-10-03-retire-file-pipeline.md, P2); a target has a directory of its own.
+        code, out = self.ship("--out", self.tmp / "elsewhere")
         self.assertEqual(code, 2, out)
-        self.assertIn("--out is required", out)
+        self.assertIn("renders into its own directory", out)
+        self.assertIn("fix:  drop --out", out)
+        self.assertFalse((self.tmp / "elsewhere").exists())
 
     def test_an_unknown_template_is_a_call_error_before_anything_runs(self):
         code, out = self.ship("--template", "nope")
@@ -359,7 +363,7 @@ class ShipUsage(ShipCase):
         kb.write_text("# Career knowledge base", encoding="utf-8")
         code, out = run(JSK, "resume", "ship", kb, "--out", self.out)
         self.assertEqual(code, 2, out)
-        self.assertIn("pass resume.json", out)
+        self.assertIn("name the target", out)
 
     def test_pages_must_be_a_number(self):
         code, out = self.ship("--pages", "two")
@@ -373,9 +377,8 @@ class ShipGraph(GraphCase):
     def ship(self):
         from jsk.adapters.cli.compose import render as render_resume
 
-        out_dir = self.root / "out"
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
-            return self.jsk("resume", "ship", self.app / "resume.json", "--out", out_dir)
+            return self.jsk("resume", "ship", self.short)
 
     def test_a_clean_record_ships_through_the_record_gate(self):
         code, out = self.ship()
@@ -391,7 +394,6 @@ class ShipGraph(GraphCase):
         self.assertIn("number-superseded ach_events_latency", out)
         self.assertIn("the record gate did not pass", out)
         self.assertNotIn("--- render:", out)
-        self.assertFalse((self.root / "out").exists())
 
 
 class ShipFrozen(ShortCase):
@@ -419,7 +421,8 @@ class ShipFrozen(ShortCase):
         # was sent" of every freeze until 2026-10-02.
         self.assertIn("re-rendering would overwrite what was frozen (held back, not sent)", out)
         self.assertIn("fix:", out)
-        self.assertIn("new dated directory", out)
+        # A graph-native application is reused by capturing its posting again.
+        self.assertIn("posting_capture", out)
         self.assertNotIn("--- ", out)                       # no step ran
         self.assertEqual((self.app / "Jane_Doe_Resume.pdf").read_bytes(), before)
 
@@ -428,30 +431,34 @@ class ShipFrozen(ShortCase):
         code, out = self.ship(self.short, "--out", self.app)
         self.assertEqual(code, 1, out)
         self.assertIn("re-rendering would overwrite what was sent", out)
-        self.assertIn("new dated directory", out)
+        self.assertIn("posting_capture", out)
 
     def test_a_stray_application_ttl_file_freezes_nothing_in_a_stored_workspace(self):
         """`jsk kb load` leaves the old files where they were; the store alone says."""
         (self.app / "application.ttl").write_text("# frozen\n", encoding="utf-8")
-        code, out = self.ship(self.short, "--out", self.root / "out")
+        code, out = self.ship(self.short)
         self.assertNotIn("frozen:", out)
 
     def test_it_refuses_a_record_from_a_frozen_directory_rendered_elsewhere(self):
+        # A ship keeps the target's own directory; a render may go elsewhere with --out,
+        # and is refused for a frozen target all the same.
+        from jsk.adapters.cli.compose import render as render_resume
+
         self.frozen()
         out_dir = self.root / "out"
-        code, out = self.ship(self.short, "--out", out_dir)
+        with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
+            code, out = self.jsk("resume", "render", self.short, "--out", out_dir)
         self.assertEqual(code, 1, out)
         self.assertIn("frozen:", out)
-        self.assertFalse(out_dir.exists())
+        self.assertFalse(list(out_dir.glob("*.tex")) if out_dir.exists() else [])
 
     def test_view_is_a_call_error(self):
-        code, out = self.ship(self.short, "--out", self.root / "out", "--view", "view_x")
+        code, out = self.ship(self.short, "--view", "view_x")
         self.assertEqual(code, 2, out)
         self.assertIn("drop --view", out)
-        self.assertFalse((self.root / "out").exists())
 
-    def test_a_short_file_needs_no_view(self):
-        code, out = self.ship(self.short, "--out", self.root / "out")
+    def test_a_selection_needs_no_view(self):
+        code, out = self.ship(self.short)
         self.assertNotIn("--view is required", out)
 
 

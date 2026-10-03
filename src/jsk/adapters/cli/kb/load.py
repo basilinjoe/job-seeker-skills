@@ -10,7 +10,7 @@ def cmd_load(args, flags, root, today):
     """jsk kb load <workspace folder | dump.trig>
 
     Fills this workspace's empty career/store/ - once. From a workspace still laid out as
-    files (career/kb.ttl, log.ttl, applications/*/*.ttl): they are read and validated as
+    files (career/kb.ttl, log.ttl, applications/*/*.ttl, resumes/*/resume.ttl): they are read and validated as
     they always were, every number is kept as the store keeps it (`8.40` becomes `8.4`, each
     one listed), and the files are left where they are - jsk stops reading them. Or from a
     `jsk kb dump` (or .jsk/backup.trig): the record as it was dumped.
@@ -56,8 +56,11 @@ def cmd_load(args, flags, root, today):
         print("note     career/kb.ttl and the other .ttl files are no longer read - the record "
               "is career/store/; `jsk kb dump` writes it out as text")
     for app in done.missing_apps:
-        print(f"note     {app}: its documents (posting.md, resume.json, the files "
-              f"sent) are not in this workspace - copy the folder into {root}")
+        # Ruling 4 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: a frozen
+        # file-made application's rules read its posting.md, and the renders are what was
+        # sent; nothing reads a resume.json, decisions.txt drafts or gaps.txt since 6.0.
+        print(f"note     {app}: its documents (posting.md and the files sent) are not in "
+              f"this workspace - copy the folder into {root}")
     if done.app_failures:
         print(f"note     {done.app_failures} failures in applications - `jsk kb check` lists them")
     return 0

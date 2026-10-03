@@ -1,11 +1,15 @@
 """Tier 2's reads of an advert: what quote-verbatim, necessity-wording and advert-uncovered
 compare a posting's requirements against.
 
-A posting built from files is checked against posting.md and decisions.txt beside it, read
-through the Reads rules.py is given; a graph-native posting against the lines its graph
-holds (Rulings 2 and 3 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md),
-and a draft one not at all - it may be half-decided. Split out of rules.py (2026-10-02) when
-the graph-native reads took it past its size; the rule rows stay there.
+A graph-native posting is checked against the lines its graph holds (Rulings 2 and 3 of
+docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md), and a draft one not at
+all - it may be half-decided. A posting built from files is checked against posting.md and
+decisions.txt beside it, read through the Reads rules.py is given - and since 6.0 only once
+it is frozen: Ruling 2 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md keeps
+that read path, read-only, for the archive of what was sent. An unsent one is not judged;
+`jsk kb check` names it `file-made-unsent` instead (Ruling 5), and nothing in this CLI can
+change it. Split out of rules.py (2026-10-02) when the graph-native reads took it past its
+size; the rule rows stay there.
 """
 from collections import defaultdict
 
@@ -18,6 +22,12 @@ def folder_of(file):
     """The folder a graph's name puts it in: `applications/acme` for
     `applications/acme/posting`, "" for a name with none."""
     return file.rpartition("/")[0]
+
+
+def frozen_folder(store, folder):
+    """Whether the application at `folder` is frozen - its application graph is in the
+    store, sent or held back - so its files are the archive Ruling 2 keeps reading."""
+    return f"{folder}/application" in store.parsed
 
 
 def unquoted(rows, store, reads):
@@ -55,6 +65,8 @@ def unquoted(rows, store, reads):
         if not file:
             continue
         advert = folder_of(file)
+        if not frozen_folder(store, advert):
+            continue                        # unsent and made from files: not judged (6.0)
         if advert not in adverts:
             # (text, None), or (None, why it could not be read) - the finding says which.
             try:
@@ -148,6 +160,8 @@ def uncovered(rows, store, reads):
             if not file:
                 continue
             folder = folder_of(file)
+            if not frozen_folder(store, folder):
+                continue                    # unsent and made from files: not judged (6.0)
             try:
                 advert = reads.adverts.advert(store.root, folder)
             except Unreadable:
