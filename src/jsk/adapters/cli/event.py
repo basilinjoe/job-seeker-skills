@@ -25,7 +25,8 @@ weekday; a --date after today is a WARN, since nothing has happened yet on it.
 
 Exit 0 added; 1 refused, with why; 2 called wrong.
 
-`jsk app event` is this module's main; the event is added by application/timeline/add_event.py.
+`jsk app event` is this module's main; the event is added by application/timeline/add_event.py,
+bound by compose/timeline.py's add_event, which the `app_event` MCP tool calls too.
 """
 import datetime
 import difflib
@@ -147,17 +148,11 @@ def add(root, app_dir, kind, date, channel, note, due, today):
     Returns:
         The exit code: 0 added, 1 refused or failed after the write.
     """
-    from ...application.timeline.add_event import EventLanded, EventRefused, add_event
-    from ...domain.timeline import events
-    from .compose.record import load
-    from ...infra.files import file_name
-    from ...infra.oxigraph import record as R
+    from ...application.timeline.add_event import EventLanded, EventRefused
+    from .compose.timeline import add_event
 
     try:
-        with R.turn(root):
-            result = add_event(root, app_dir, kind, date, channel, note, due, today,
-                               load=load, name_of=file_name,
-                               event_quads=events.event_quads, write_graphs=R.write_graphs)
+        result = add_event(root, app_dir, kind, date, channel, note, due, today)
     except EventRefused as e:
         return refuse(e.lines, e.fix)
     except EventLanded as e:

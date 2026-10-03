@@ -4,7 +4,8 @@ Archives one application directory: renames it to its day and writes its record 
 graph-native application's from the selection the store holds, not a resume.json. Never
 touches the career or its log. `jsk app event` records what happens to the application
 afterwards; this command only freezes what was sent. The freeze itself is
-application/timeline/freeze.py.
+application/timeline/freeze.py, bound and run by compose/timeline.py's freeze_app, which
+the `app_freeze` MCP tool calls too.
 """
 import datetime
 import os
@@ -29,94 +30,6 @@ def freeze_refusal(*lines):
     for line in lines[1:]:
         print("  " + line)
     return 1
-
-
-class Applications:
-    """An application's record graphs, as compose.timeline binds them, looked up at each call.
-
-    A test patches timeline.write_frozen, so the freeze is handed this rather than the
-    functions themselves: the patch is then what the freeze writes with.
-    """
-
-    def frozen(self, app_dir):
-        """What says `app_dir` was frozen, else None (timeline.frozen)."""
-        from .compose import timeline
-
-        return timeline.frozen(app_dir)
-
-    def has_record(self, app_dir, kind):
-        """Whether the application holds its `kind` graph (timeline.has_record)."""
-        from .compose import timeline
-
-        return timeline.has_record(app_dir, kind)
-
-    def selection(self, app_dir):
-        """None for an application made from files; for a graph-native one (its posting
-        graph holds the advert's lines, Ruling 11), its ref and its stored selection as
-        resume.json's dict, or None in the dict's place when it stores none."""
-        from ...application.posting.native import native_graphs
-        from ...application.render.selection import REF
-        from ...domain.resume.selection import doc_of
-        from .compose import timeline
-
-        graphs = timeline.app_graphs(app_dir)
-        if not native_graphs(graphs):
-            return None
-        ref = os.path.join(os.path.abspath(app_dir), REF)
-        return ref, (doc_of(graphs["resume"]) if graphs.get("resume") else None)
-
-    def freeze(self, root, app_dir, plan, short_bytes, submitted, channel, documents):
-        """(Sealed, None) or (None, the lines saying why not) (timeline.freeze)."""
-        from .compose import timeline
-
-        return timeline.freeze(root, app_dir, plan, short_bytes, submitted, channel,
-                               documents)
-
-    def write_frozen(self, root, sealed, final):
-        """Write what freeze() validated; the graph's name (timeline.write_frozen)."""
-        from .compose import timeline
-
-        return timeline.write_frozen(root, sealed, final)
-
-
-class Gates:
-    """jsk.cli's gate plumbing, as application.timeline.freeze.gate runs it.
-
-    Looked up in jsk.cli at each call, so `jsk app freeze`, `jsk resume check` and `jsk resume ship` run one
-    set of gates and not three copies of it.
-    """
-
-    def run(self, app_dir, record, only):
-        """Every `jsk resume check` result over the documents `only`, the render gate last."""
-        from ... import cli
-
-        return cli.gate_results(app_dir, record, only=only)
-
-    def read(self, app_dir, only):
-        """The paths of `only` that those gates read."""
-        from ... import cli
-
-        extensions = sorted({ext for _, _, exts in cli.DOC_GATES for ext in exts} | {".pdf"})
-        return cli.rendered_documents(app_dir, extensions, only)
-
-    def letter(self, path, record, name):
-        """The letter gate's result over `path`, against the application's resume.json or,
-        graph-native, its selection's ref."""
-        from ... import cli
-        from ...application.gates.run_gates import step
-        from ...application.render.selection import parse_ref
-        from .gates.check import Shown, contained
-
-        found = parse_ref(record)
-        against = found[1].split("/", 1)[1] if found else cli.DEFAULT_RECORD
-        return Shown(step("letter gate", f"letter.py {name} --record {against}",
-                          *contained("letter.py", [path, "--record", record])))
-
-    def failed(self, results):
-        """Whether any result is not a pass."""
-        from ... import cli
-
-        return bool(cli.worst_exit(results))
 
 
 def called(args):
@@ -200,26 +113,12 @@ def main(args):
 
     from ... import cli
     from ...application.timeline import freeze as F
-    from ...infra import files
-    from ...infra.oxigraph import db
-    from ...infra.oxigraph import record as R
-    from .compose.resume import from_path
+    from .compose.timeline import freeze_app
 
     try:
-        checked = F.check(app_dir, record=Applications(), build=from_path)
-        planned = F.plan(app_dir, submitted, named, checked, spelled=files.spelled)
-    except F.FreezeRefused as refusal:
-        return freeze_refusal(*refusal.lines)
-    gated = F.gate(planned, Gates())
-    cli.print_results(f"gates: {app_dir}", gated.results)
-    if gated.refusal:
-        return freeze_refusal(*gated.refusal)
-
-    try:
-        # The turn before the record is read: what freeze() validates is what it writes over.
-        with R.turn(workspace):
-            result = F.write(workspace, planned, submitted, channel, record=Applications(),
-                             files=files, store_errors=(db.StoreError,))
+        result = freeze_app(app_dir, workspace, submitted, channel, named,
+                            gated=lambda results: cli.print_results(f"gates: {app_dir}",
+                                                                    results))
     except F.FreezeRefused as refusal:
         return freeze_refusal(*refusal.lines)
     except F.FreezeLanded as landed:

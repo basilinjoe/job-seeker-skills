@@ -81,21 +81,18 @@ one gate.
 
 Only once every gate has passed.
 
-```bash
-jsk app freeze applications/<stem> --submitted <yyyy-mm-dd>|false --channel "<Workday portal>" [--doc FILE ...]
-```
+`app_freeze(app=<stem>, submitted=<yyyy-mm-dd>|"false", channel="<Workday portal>", docs=…)`.
 
 It re-runs the gates and refuses on a failure, or if the application is already frozen. It stores
 the application: the posting, date, channel, documents, the selection's hash, the bullets that
 rendered and the metric versions they cite — so `jsk kb query stale` can later name an application
 that sent a number since revised — and a `submitted` event. It renames the directory to the
-submitted date, moving its graphs in the store in the same write, and prints the new path —
-**use that path from here on**, for `jsk app event` too. Then:
+submitted date, moving its graphs in the same write — **use `renamed_to` from here on**. Then:
 
 - **Stop changing that application.** The `.pdf`, the `.tex` and its graphs in the store are the
   archive — it must still say what the application was answering; the tools refuse a sent one.
-- **Later events are `jsk app event <app-dir> <kind> --date …`** (`mode-pipeline.md`), add-only.
-- `--submitted false` is for an application deliberately held back: no `submitted` event, and that
+- **Later events are `app_event`** (`mode-pipeline.md`), add-only.
+- `submitted="false"` is for an application deliberately held back: no `submitted` event, and that
   is correct. **Never add a `submitted` event to clear a gap.**
 
 Feedback as it arrives is a `note` event; patterns in which evidence gets traction belong back in

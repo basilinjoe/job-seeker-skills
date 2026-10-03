@@ -7,13 +7,13 @@ first thing `mode-tailor.md` runs, before a posting is written down.
 
 ## Read the board
 
-The board is every frozen application in the store. `jsk app freeze` records each one with its
-`submitted` event; everything after that is `jsk app event`. **Read the whole board before saying
+The board is every frozen application in the store. `app_freeze` records each one with its
+`submitted` event; everything after that is `app_event`. **Read the whole board before saying
 anything:**
 
-```bash
-jsk kb query pipeline      # each application: stage, since, days, due, events
-jsk kb query stale         # any that sent a metric since revised
+```
+career_query(name="pipeline")   # each application: stage, since, days, due, events
+career_query(name="stale")      # any that sent a metric since revised
 ```
 
 There is no `outcome` and no stored status anywhere — the stage is derived from the events every
@@ -31,10 +31,10 @@ today, not the table read out. Cap it at about fifteen rows.
 
 ## Record what happened
 
-One command per event:
+One `app_event` call per event (`jsk app event` is the same):
 
-```bash
-jsk app event applications/<dir> screen-scheduled --date 2026-09-11 --channel email --due 2026-09-15 --note "Phone screen, 30 min"
+```
+app_event(app="<dir>", kind="screen-scheduled", date="2026-09-11", channel="email", due="2026-09-15", note="Phone screen, 30 min")
 ```
 
 **Add-only**: an event is never edited or removed — a correction is a new `note` event.
@@ -42,12 +42,12 @@ jsk app event applications/<dir> screen-scheduled --date 2026-09-11 --channel em
 - **Use the date it happened**, not the date you were told. "They called last Tuesday" is last
   Tuesday: read the weekday jsk echoes back against what they said.
 - **Use the vocabulary below exactly.** A kind outside it is refused, with the nearest suggested.
-- **Pass `--due` when someone commits to something.** "They'll come back by the 22nd" is a due date.
+- **Pass `due` when someone commits to something.** "They'll come back by the 22nd" is a due date.
 - **`follow-up-sent` when they chase.** It does not move the stage but restarts the clock, so the
   board stops nagging about work already done.
 
 An application frozen as `application.md` is from before the graph record. It is still frozen, and
-`jsk app event` refuses it: its events are the `# Timeline` table in that file.
+`app_event` refuses it: its events are the `# Timeline` table in that file.
 
 ### The event vocabulary
 

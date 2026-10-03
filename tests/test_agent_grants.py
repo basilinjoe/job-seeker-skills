@@ -50,7 +50,7 @@ def grant_faults(fm):
 
 def unknown_tools(text, registered, command=False):
     """The `mcp__plugin_jsk_graph__<x>` names in `text` that are not registered tools, in
-    order; a command (main session, all eighteen per Ruling 19) may use the wildcard."""
+    order; a command (main session, all twenty-one per Ruling 19) may use the wildcard."""
     found = []
     for name in re.findall(re.escape(MCP) + r"([A-Za-z_*]+)", text):
         if name in registered or (name == "*" and command) or name in found:
@@ -96,7 +96,7 @@ class AgentGrants(unittest.TestCase):
         return sorted(PLUGIN.joinpath("agents").glob("*.md"))
 
     def test_every_agent_lists_its_tools_by_name(self):
-        """An omitted `tools:` and a wildcard both hand an agent all eighteen tools,
+        """An omitted `tools:` and a wildcard both hand an agent all twenty-one tools,
         career_confirm among them."""
         for path in self.agents():
             with self.subTest(agent=path.name):
@@ -128,6 +128,16 @@ class AgentGrants(unittest.TestCase):
             with self.subTest(agent=path.name):
                 self.assertNotIn(MCP + "career_confirm", granted(frontmatter(path)))
 
+    def test_no_agent_can_freeze_record_an_event_or_check_a_letter(self):
+        """Ruling 21's amendment (2026-10-03): freezing and recording an event are the
+        person's acts, and the letter check is the main session's, so these three are tools
+        for the main session alone."""
+        for path in self.agents():
+            tools = granted(frontmatter(path))
+            for denied in ("app_freeze", "app_event", "letter_check"):
+                with self.subTest(agent=path.name, denied=denied):
+                    self.assertNotIn(MCP + denied, tools)
+
     def test_neither_authoring_agent_holds_a_shell(self):
         """The analyst and the author write only through tools, each checked; a shell
         would reach `jsk kb confirm` and every file in the workspace."""
@@ -152,7 +162,7 @@ class AgentGrants(unittest.TestCase):
         registered = server_tools()
         if registered is None:
             self.skipTest("the mcp extra is not installed")
-        self.assertEqual(len(registered), 18)
+        self.assertEqual(len(registered), 21)
         for path in sorted(PLUGIN.rglob("*.md")):
             with self.subTest(file=path.name):
                 self.assertEqual(unknown_tools(path.read_text(encoding="utf-8"), registered,
