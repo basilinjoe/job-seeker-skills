@@ -230,6 +230,11 @@ class GraphNative(unittest.TestCase):
                              for name in appkit.graphs(self.root)))
         note = (self.root / "dropped" / self.stem / "DROPPED.txt").read_text(encoding="utf-8")
         self.assertIn("no folder; this note is all there is", note)
+        # The P3 review (2026-10-04): it went on of files "as they were" and "moving this
+        # folder back", of a folder there never was.
+        self.assertIn("It had no folder, so no file was moved.", note)
+        self.assertNotIn("The files are as they were", note)
+        self.assertNotIn("moving", note)
 
 
 if __name__ == "__main__":

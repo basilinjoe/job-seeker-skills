@@ -123,6 +123,21 @@ class Retired(Workspace):
                 self.assertNotIn("unknown command", out)
                 self.assertEqual(tree(self.root), before, "a retired command writes nothing")
 
+    def test_a_refused_render_makes_no_out_directory(self):
+        # The P3 review (2026-10-04): render made --out before refusing a directory that is
+        # no target's and a --view, so a call that rendered nothing still wrote.
+        out_dir = os.path.join(self.root, "newdir")
+        for argv in (["resume", "render", self.root, "--out", out_dir],
+                     ["resume", "render", "contoso-platform", "--view", "x", "--out", out_dir],
+                     ["resume", "render", "contoso-platform", "--template", "nosuch",
+                      "--out", out_dir]):
+            with self.subTest(argv=argv[2:4]):
+                before = tree(self.root)
+                code, out = jsk(*argv)
+                self.assertEqual(code, 2, out)
+                self.assertFalse(os.path.exists(out_dir), out)
+                self.assertEqual(tree(self.root), before)
+
     def test_a_retired_noun_is_no_noun_and_every_verb_it_had_is_named(self):
         for noun in M.RETIRED_NOUNS:
             with self.subTest(noun=noun):
@@ -230,6 +245,18 @@ class FrozenArchive(unittest.TestCase):
                  if f.severity == "FAIL"}
         self.assertIn("quote-verbatim", rules)
 
+    def test_one_frozen_as_an_application_md_is_checked_like_one_frozen_as_a_graph(self):
+        # The P3 review (2026-10-04): records.frozen and file_made_unsent counted an
+        # application.md as frozen, the advert rules did not, so such a folder was neither
+        # unsent nor judged and a quote its posting.md no longer said passed.
+        root = self.workspace(frozen=False, reworded=True)
+        Path(root, "applications/acme-platform-engineer/application.md").write_text(
+            "---\nsubmitted: 2026-09-10\n---\n", encoding="utf-8")
+        rules = {f.rule for f in self.findings(root) if f.severity == "FAIL"}
+        self.assertIn("quote-verbatim", rules)
+        code, out = jsk("kb", "check", "--root", root)
+        self.assertNotIn("file-made-unsent", out)
+
     def test_an_unsent_one_is_not_judged_and_is_named_instead(self):
         root = self.workspace(frozen=False, reworded=True)
         self.assertEqual([f.text() for f in self.findings(root)
@@ -264,6 +291,26 @@ class Unsent(unittest.TestCase):
         (apps / "acme-native").mkdir()
         (apps / "acme-native" / "resume.json").write_text("{}", encoding="utf-8")
         (apps / "notes").mkdir()                     # a folder with no record file at all
+
+    def test_resume_check_on_a_file_made_stem_says_it_has_no_selection(self):
+        # The P3 replay (2026-10-04): "not a directory: acme-sent ... pass the directory jsk
+        # resume render --out wrote to" sent the person to render a frozen application.
+        cwd = os.getcwd()
+        os.chdir(self.root)
+        self.addCleanup(os.chdir, cwd)
+        code, out = jsk("resume", "check", "acme-sent")
+        self.assertEqual(code, 2, out)
+        self.assertIn("acme-sent names applications/acme-sent, a frozen application made "
+                      "from files: it has no selection to check", out)
+        self.assertIn("`jsk kb show k:post_contoso_platform` or the app_show tool", out)
+        self.assertNotIn("not a directory", out)
+        code, out = jsk("resume", "check", "contoso-platform")
+        self.assertEqual(code, 2, out)
+        self.assertIn("send it with jsk 5.1.0", out)
+        self.assertNotIn("not a directory", out)
+        # A name that is no application is still not a directory.
+        code, out = jsk("resume", "check", "no-such-thing")
+        self.assertIn("not a directory: no-such-thing", out)
 
     def test_the_one_rule_finds_only_the_unsent_file_made_application(self):
         from jsk.application.timeline.unsent import file_made_unsent

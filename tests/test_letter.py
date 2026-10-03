@@ -127,6 +127,22 @@ class Numbers(LetterCase):
         code, out = self.check(self.swap("since 2021", "for 9 years of Kafka"))
         self.assertIn("years-overstated letter - claims 9 years of Kafka", out)
 
+    def test_an_unsound_selection_names_the_target_form_not_a_resume_json(self):
+        # The P3 review (2026-10-04): it said "resume.json" and "run `jsk resume check` on
+        # it", a file 6.0 no longer reads.
+        from jsk.adapters.cli.compose.gates import number_lines
+        from jsk.adapters.cli.compose.resume import career
+
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, tmp, True)
+        root, _ = careerkit.workspace(Path(tmp, "ws"), short={"resume": 2, "bullets": BULLETS})
+        [found] = number_lines("Dear team,\n\nI cut it by 40.\n", {"resume": 2,
+                               "bullets": ["ach_no_such_bullet"]}, career(str(root)))
+        self.assertIn("record-unsound selection - the target's selection does not pass the "
+                      "record gate", found)
+        self.assertIn("run `jsk resume check <stem>` (or resumes/<name>)", found)
+        self.assertNotIn("resume.json", found)
+
     def test_without_a_record_the_number_check_is_skipped_and_a_failure(self):
         code, out = self.check(CLEAN, record=False)
         self.assertEqual(code, 1, out)

@@ -90,11 +90,16 @@ def note_text(rel, removed, today, reason, folder):
         lines += [f"  {name}" for name in removed]
     else:
         lines.append("removed from career/store/: nothing - it held no graph for this application")
-    lines += ["",
-              "Set aside by `jsk app drop`: it was never frozen, so nothing here was sent.",
-              "The files are as they were. The graphs above are gone from the store: moving",
-              "this folder back to applications/ brings back the files, not the graphs.",
-              ""]
+    lines += ["", "Set aside by `jsk app drop`: it was never frozen, so nothing here was sent."]
+    if folder:
+        lines += ["The files are as they were. The graphs above are gone from the store: moving",
+                  "this folder back to applications/ brings back the files, not the graphs."]
+    else:
+        # Until 2026-10-04 this case read "The files are as they were... moving this folder
+        # back", of a folder there never was (the P3 review).
+        lines += ["It had no folder, so no file was moved. The graphs above are gone from the",
+                  "store, and nothing here brings them back."]
+    lines.append("")
     return "\n".join(lines)
 
 

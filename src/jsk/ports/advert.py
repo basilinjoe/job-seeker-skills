@@ -23,6 +23,19 @@ class AdvertSource(Protocol):
         """
         ...
 
+    def legacy_frozen(self, root: str, folder: str) -> bool:
+        """Whether the application in `folder` was frozen as an application.md, the record
+        a frozen application kept before the career was a graph.
+
+        Args:
+            root: the workspace root.
+            folder: the application's folder, relative to `root`.
+
+        Returns:
+            True when application.md is there.
+        """
+        ...
+
     def decisions(self, root: str, folder: str) -> Any:
         """The decisions.txt in an application's folder, parsed.
 

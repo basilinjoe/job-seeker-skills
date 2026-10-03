@@ -30,7 +30,7 @@ class Captured:
     title: str
     lines: int                  # the advert's lines stored
     qualifications: int         # of them, the qualification lines a decision must answer
-    replaced: tuple             # the graphs a replace dropped, by name
+    replaced: tuple             # the graphs a replace wrote over or dropped, by name
 
 
 def capture(root, stem, *, url=None, text=None, company=None, title=None, captured=None,
@@ -99,6 +99,10 @@ def capture(root, stem, *, url=None, text=None, company=None, title=None, captur
     names, broken = N.write(app, store, graphs, ports)
     if broken:
         raise Refused.every([(text_, fix) for _, text_, fix in broken])
+    # The posting itself is named: its requirements and drops went with it, and a replace
+    # that reported `replaced: []` read as one that changed nothing (the P3 replay,
+    # 2026-10-04).
+    over = ["posting"] if found == "native" else []
     return Captured(names[0], stem, head["company"], head["title"], len(lines),
                     sum(x.section == "qualification" and not x.elig for x in lines),
-                    tuple(app.graph(k) for k in dropped))
+                    tuple(app.graph(k) for k in over + dropped))

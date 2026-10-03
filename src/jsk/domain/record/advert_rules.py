@@ -24,10 +24,22 @@ def folder_of(file):
     return file.rpartition("/")[0]
 
 
-def frozen_folder(store, folder):
+def frozen_folder(store, folder, adverts):
     """Whether the application at `folder` is frozen - its application graph is in the
-    store, sent or held back - so its files are the archive Ruling 2 keeps reading."""
-    return f"{folder}/application" in store.parsed
+    store, or an application.md is beside it, sent or held back - so its files are the
+    archive Ruling 2 keeps reading.
+
+    application.md counts as application/timeline/records.frozen and unsent.file_made_unsent
+    count it. Until 2026-10-04 only the graph counted here, so a folder frozen before the
+    career was a graph was frozen to `jsk kb check` and never judged (the P3 review).
+
+    Args:
+        store: the loaded workspace.
+        folder: the application's folder, as its graphs name it.
+        adverts: the AdvertSource (ports.advert) that says whether application.md is there.
+    """
+    return (f"{folder}/application" in store.parsed
+            or bool(adverts.legacy_frozen(store.root, folder)))
 
 
 def unquoted(rows, store, reads):
@@ -65,7 +77,7 @@ def unquoted(rows, store, reads):
         if not file:
             continue
         advert = folder_of(file)
-        if not frozen_folder(store, advert):
+        if not frozen_folder(store, advert, reads.adverts):
             continue                        # unsent and made from files: not judged (6.0)
         if advert not in adverts:
             # (text, None), or (None, why it could not be read) - the finding says which.
@@ -160,7 +172,7 @@ def uncovered(rows, store, reads):
             if not file:
                 continue
             folder = folder_of(file)
-            if not frozen_folder(store, folder):
+            if not frozen_folder(store, folder, reads.adverts):
                 continue                    # unsent and made from files: not judged (6.0)
             try:
                 advert = reads.adverts.advert(store.root, folder)

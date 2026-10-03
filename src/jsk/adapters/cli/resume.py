@@ -120,6 +120,31 @@ def misfit(args, kind):
     return next((a for a in args if a in FLAGS and a not in takes), None)
 
 
+def file_made_refusal(target):
+    """The lines refusing `jsk resume check` on an application made from files, or None
+    when `target` names none. It has no selection to check: frozen, its files are the
+    archive; unsent, Ruling 5's note says what still finishes it.
+
+    Args:
+        target: the positional, a name that is neither a target nor a directory.
+    """
+    from ...application.timeline.unsent import note
+    from .compose.selection import file_made
+
+    made = file_made(target)
+    if made is None:
+        return None
+    rel, frozen, post = made
+    if not frozen:
+        text, fix = note(rel.removeprefix("applications/"))
+        return [text, f"fix:  {fix}"]
+    show = f"`jsk kb show {post}` or " if post else ""
+    return [f"{target} names {rel}, a frozen application made from files: it has no "
+            "selection to check - its files are the archive of what was sent",
+            f"fix:  read it with {show}the app_show tool (jsk mcp); `jsk resume check DIR` "
+            "checks a render's directory"]
+
+
 def cmd_resume_check(args):
     """`jsk resume check TARGET`: the gates its target calls for.
 
@@ -149,6 +174,11 @@ def cmd_resume_check(args):
         from ...application.guards import record_refusal
 
         refusal = record_refusal(target)
+        if refusal:
+            print("\n".join(refusal))
+            return 2
+    if kind == "directory" and not os.path.isdir(target):
+        refusal = file_made_refusal(target)
         if refusal:
             print("\n".join(refusal))
             return 2

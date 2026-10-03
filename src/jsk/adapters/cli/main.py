@@ -10,7 +10,8 @@
       ...   --only parse|prose  one of them, for re-checking one repaired file
       ...   --only layout       fonts, tofu, stranded headings, date column, paper
       ... check DIR [--record TARGET]  the record, parse, prose and layout gates over a render
-      ... render TARGET [...]   its selection to a .tex and a PDF, in its own directory
+      ... render TARGET [...]   its selection to a .tex (a PDF too with --pdf), in its
+                                own directory
       ... preview TARGET --out D  the same resume in every template, to pick a look
       ... fit TEX [...]         fit a render to a page budget
       ... ship TARGET           validate, render and gate, in one pass
@@ -122,7 +123,8 @@ NOUN_USAGE = {
     "resume": ("usage: jsk resume <verb> ...\n"
                "  check TARGET | RENDER | DIR        the record gate; parse and prose; "
                "or all four\n"
-               "  render TARGET [--out DIR] [...]    a target's selection to a .tex and a PDF\n"
+               "  render TARGET [--out DIR] [...]    a target's selection to a .tex; --pdf "
+               "compiles it\n"
                "  preview TARGET --out DIR           the same resume in every template\n"
                "  fit TEX [--target-pages N]         fit a render to a page budget\n"
                "  ship TARGET [...]                  validate, render and gate, in one pass\n"

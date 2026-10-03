@@ -25,6 +25,7 @@ from ...domain.matching import resolve as matching
 from ...domain.matching.model import local
 from ...domain.ontology import SPARQL_PREFIX as PRE
 from ...domain.record.writer import curie
+from ...domain.timeline.events import pipeline_rank
 from . import likeness
 from .holdings import experience_of
 
@@ -168,7 +169,8 @@ def experience_query(store, concept, *, today):
 def pipeline(store, *, today):
     """Each application's stage. The stage is a query, never a stored field: the latest
     dated event of each application. An event dated `unknown` is the stage only when
-    nothing is dated.
+    nothing is dated. Events of one day are ordered by the pipeline (events.pipeline_rank),
+    and the store keeps no time of recording to order them further.
 
     Args:
         store: a loaded workspace.
@@ -188,7 +190,9 @@ def pipeline(store, *, today):
     for a in sorted(apps, key=lambda r: r["app"].value):
         app = a["app"].value
         evs = sorted(by.get(app, []), key=lambda r: (r["date"].value != "unknown",
-                                                     r["date"].value, r["e"].value))
+                                                     r["date"].value,
+                                                     pipeline_rank(local(r["kind"].value)),
+                                                     r["e"].value))
         last = evs[-1] if evs else None
         date = last["date"].value if last else ""
         days = ""

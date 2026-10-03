@@ -4,7 +4,8 @@ On the three tailoring runs made with the fast-tailor flow the analyst kept the 
 verdict on every row but seven, and each of the seven turned on meaning the triples do not
 carry: whom a person mentored, one cloud or several, a product the advert named that no
 bullet does. So everything else - the verdict, its evidence, why the match says it - comes
-from `match.result`, in milliseconds, and gaps.txt carries only what the analyst changes.
+from `match.result`, in milliseconds, and the review (gaps.txt until 6.0) carries only
+what the analyst changes.
 
 This is pure: a function of the match result and the career's queries, with no file I/O.
 adapters/cli/compose/tailor.py binds it to a loaded Store.
@@ -23,7 +24,7 @@ LIST_SPLIT = re.compile(r"\s*(?:,|/|\band\b|\bor\b)\s*", re.I)
 @dataclass(frozen=True)
 class Row:
     id: str                 # the requirement, as match gives it: "k:req_<stem>_<slug>"
-    slug: str               # <slug>: what gaps.txt names the row by
+    slug: str               # <slug>: what the review names the row by
     asked: str
     necessity: str          # required | preferred | implicit
     state: str              # the match's bucket: matched, near, missing, ambiguous, ...
@@ -134,16 +135,17 @@ def answered(r, absences, today, counts_as=None):
     if not said:
         return r, {}
     # A match question names its requirement by `asked` (matching/questions.py), which
-    # build keeps unique within a posting.
+    # posting_decide keeps unique within a posting (two requirements asking one term FAIL).
     questions = [x for x in r["questions"] if x.get("requirement") not in asked]
     return {**r, "requirements": reqs, "questions": questions}, said
 
 
 def slug_of(req, stem):
-    """The row's name in gaps.txt: `k:req_<stem>_<slug>` -> `<slug>`, as `jsk posting build`
-    mints them. A migrated posting's requirements need not carry its stem
-    (`post_elevenlabs_creative_studio` asks `req_elevenlabs_api_design`); theirs is the whole
-    id after `req_`, which is as unique as the id."""
+    """The row's name in the review and the assessment: `k:req_<stem>_<slug>` -> `<slug>`,
+    as posting_decide mints them (and `jsk posting build` did, until 6.0). A migrated
+    posting's requirements need not carry its stem (`post_elevenlabs_creative_studio` asks
+    `req_elevenlabs_api_design`); theirs is the whole id after `req_`, which is as unique
+    as the id."""
     local = req.removeprefix("k:req_")
     return local.removeprefix(f"{stem}_") if local.startswith(f"{stem}_") else local
 

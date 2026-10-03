@@ -135,7 +135,10 @@ class Capture(Workspace):
         appkit.put(self.root, f"applications/{STEM}/review",
                    f"k:rvw_{IDS} j:posting k:post_{IDS} .\n")
         done = self.capture(replace=True)
-        self.assertEqual(done.replaced, (f"applications/{STEM}/review",))
+        # The posting is named too: its requirements and drops went (the P3 replay,
+        # 2026-10-04, read `replaced: []` as a replace that changed nothing).
+        self.assertEqual(done.replaced, (f"applications/{STEM}/posting",
+                                         f"applications/{STEM}/review"))
         self.assertIsNone(self.graph("review"))
 
 
@@ -208,8 +211,32 @@ class Decide(Workspace):
     def test_a_completed_posting_decided_again_is_a_draft(self):
         self.decide(rows=ROWS, drops=DROPS)
         native.complete_posting(self.root, STEM, today=TODAY)
-        self.decide(rows=[{**ROWS[0], "need": "preferred"}])
+        done = self.decide(rows=[{**ROWS[0], "need": "preferred"}])
         self.assertEqual(self.show("posting")["state"], "draft")
+        # The P3 replay (2026-10-04): it went back to draft and said nothing, so the next
+        # derive was refused for a state nobody had been told of.
+        self.assertIn(("WARN", f"applications/{STEM}/posting was complete and is a draft "
+                               "again", f"posting_complete on {STEM} once its decisions hold"),
+                      done.findings)
+        # A draft decided again has lost nothing, and is told nothing.
+        done = self.decide(rows=[ROWS[0]])
+        self.assertEqual([f for f in done.findings if f[0] == "WARN"], [])
+
+    def test_a_posting_with_no_requirement_and_lines_undecided_is_not_completed(self):
+        """The P3 replay (2026-10-04): an advert with no qualification line passed the
+        coverage check vacuously and completed with nothing for the match to assess."""
+        stem = "acme-ops"
+        native.capture(self.root, stem, today=TODAY, text=ADVERT.split("## What you'll bring")[0])
+        done = native.complete_posting(self.root, stem, today=TODAY)
+        self.assertEqual(fails(done.findings), [
+            f"applications/{stem}/posting: no requirement decided, and advert lines 1, 2 "
+            "neither used nor dropped"])
+        self.assertEqual((done.target, self.show("posting", stem)["state"]), (None, "draft"))
+        # Every line dropped with its reason is a decision, as build took it.
+        native.decide(self.root, stem, drops=[{"n": n, "reason": "not this resume"} for n in (1, 2)],
+                      today=TODAY)
+        self.assertEqual(native.complete_posting(self.root, stem, today=TODAY).state,
+                         "complete")
 
 
 class Checks(Workspace):

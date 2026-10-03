@@ -40,7 +40,8 @@ REQUIRED_WORDS = re.compile(r"\b(must|required|essential)\b", re.I)
 # the person, and a warning on every line of one would teach the analyst to ignore this.
 HEADING_ASKS = re.compile(
     r"\b(requirements?|qualifications?|must|needs?|you have|you('ll| will)? bring|looking for|"
-    r"about you|who you are|skills|experience|nice to have|bonus|preferred|desirable)\b", re.I)
+    r"about you|who you are|skills|experience|nice to have|bonus|preferred|desirable|"
+    r"what makes you|(ideal|perfect|right) (candidate|fit|match|for)|to succeed)\b", re.I)
 HEADING_NOT = re.compile(r"\b(benefits?|perks|we offer|responsibilit\w*|what you('ll| will) do|"
                          r"compensation|salary)\b", re.I)
 # Eligibility is the assessment's `# Eligibility`, never a requirement, so it can never be quoted:
@@ -61,6 +62,12 @@ OFFERS_MORE = re.compile(r"(?i)what'?s in it for|\brewards?\b|why join|\bour (va
                          r"\babout us\b|\bperks\b")
 # A sentence's end. A closing `?` is allowed: "What's in it for me?" is a heading.
 TERMINAL = re.compile(r"[.!;,]\Z")
+# A heading asked as a question runs longer than one stated: "What makes you perfect for
+# the role?" is seven words, and under the six-word cap its list read as responsibilities
+# (the P3 replay, 2026-10-04). Only a wh-question qualifies, and only when it names a
+# section: "Do you have experience with Kubernetes and Terraform?" is a line of the advert.
+QUESTION = re.compile(r"(?i)(what|who|why|how|where|which)\b.*\?\Z")
+WORDS_STATED, WORDS_ASKED = 6, 10
 # Headings about the company or the role as a whole: they end a section, never sit in one.
 ABOUT = re.compile(r"(?i)about\b|(job description|(role |job )?overview|the role)\s*:?\Z")
 # posting.md's first line: the URL, or `Source: <file>` when it was fetched from a file.
@@ -70,6 +77,8 @@ FIRST_LINE = re.compile(r"https?://\S+|Source: .+")
 def bare_heading(text):
     """A heading without markup: short, no sentence end, and either in capitals (`HOW WE
     WORK`, not `AWS`) or worded as a heading. Words are letter-initial, so `&` is not one.
+    A wh-question naming a section may run to WORDS_ASKED words; anything else stops at
+    WORDS_STATED.
 
     Args:
         text: a line of the advert, stripped.
@@ -78,8 +87,12 @@ def bare_heading(text):
         Whether it reads as a heading.
     """
     words = re.findall(r"[A-Za-z][\w'/-]*", text)
-    if not words or len(words) > 6 or TERMINAL.search(text):
+    if not words or TERMINAL.search(text):
         return False
+    if len(words) > WORDS_STATED:
+        return len(words) <= WORDS_ASKED and bool(QUESTION.match(text)) and bool(
+            HEADING_ASKS.search(text) or HEADING_DOES.search(text)
+            or HEADING_OFFERS.search(text) or OFFERS_MORE.search(text))
     letters = re.sub(r"[^A-Za-z]", "", text)
     if len(words) >= 2 and len(letters) >= 3 and letters.isupper():
         return True

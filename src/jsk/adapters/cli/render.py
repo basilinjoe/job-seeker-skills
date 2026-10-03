@@ -95,7 +95,7 @@ def refused(argv):
 
     Returns:
         2 (0 for --help) after printing why, or None when the call can go ahead. Creates
-        --out's directory once the file is known to exist.
+        --out's directory once every refusal has passed.
     """
     if len(argv) < 2 or argv[1].startswith("--"):
         # Everything from the usage line down to the Windows note: paragraph [1] is
@@ -124,15 +124,6 @@ def refused(argv):
         print("fix:  name the target: <stem> or resumes/<name> - the resume_select tool "
               "makes its selection")
         return 2
-    os.makedirs(arg(argv, "--out", "."), exist_ok=True)
-    try:
-        themes.get(arg(argv, "--template"))
-    except KeyError as e:
-        # Failing here rather than at write time: an unknown template that
-        # quietly rendered the default would produce a resume nobody chose,
-        # and it would look perfectly fine.
-        print(f"usage: {e.args[0]}")
-        return 2
     if not parse_ref(src):
         # A directory that is no target's, or a file: there is no bundle format, and a
         # resume renders from a target's selection alone.
@@ -144,6 +135,17 @@ def refused(argv):
         # record, went with that record (2026-09-25).
         print("usage: a resume.json is one resume; drop --view")
         return 2
+    try:
+        themes.get(arg(argv, "--template"))
+    except KeyError as e:
+        # Failing here rather than at write time: an unknown template that
+        # quietly rendered the default would produce a resume nobody chose,
+        # and it would look perfectly fine.
+        print(f"usage: {e.args[0]}")
+        return 2
+    # Last, as preview.py does: a refused call writes nothing. Before 2026-10-04 --out was
+    # made ahead of the no-target and --view refusals (the P3 review).
+    os.makedirs(arg(argv, "--out", "."), exist_ok=True)
     return None
 
 

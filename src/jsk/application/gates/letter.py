@@ -154,9 +154,9 @@ def number_lines(text, doc, store, posting, today, *, queries, state):
 
     Args:
         text: the letter's body.
-        doc: the resume.json, as a dict.
+        doc: the target's selection, as a dict.
         store: the loaded workspace.
-        posting: posting.md's text, or None.
+        posting: the advert's stored lines, or None.
         today: the date the years claims are measured to.
         queries: a RecordQueries over `store`.
         state: store -> the career and its log's State (infra.oxigraph.record.state).
@@ -173,9 +173,11 @@ def number_lines(text, doc, store, posting, today, *, queries, state):
     refusal = career_refusal(store, state)
     unsound = [refusal] if refusal else short.shape(doc) or short.ids(doc, store)
     if unsound:
-        return [line("record-unsound", "resume.json",
-                     f"it does not pass the record gate ({len(unsound)} failures), so no number "
-                     "can be traced through it", "run `jsk resume check` on it and fix that first")]
+        # It named "resume.json" until 2026-10-04, which 6.0 no longer reads (the P3 review).
+        return [line("record-unsound", "selection",
+                     f"the target's selection does not pass the record gate ({len(unsound)} "
+                     "failures), so no number can be traced through it",
+                     "run `jsk resume check <stem>` (or resumes/<name>) and fix that first")]
     career = Career(store.graph(KB))
     floor = PROVENANCE_RANK.get(doc.get("floor", "confirmed"), 3)
 

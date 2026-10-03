@@ -13,6 +13,22 @@ from .. import ontology as O
 LEGACY = "application.md"
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
+# Side events say nothing about how far an application got, so on a day shared with a
+# step they rank under it: a referral and a recruiter's call come before the submission,
+# and a note or a follow-up beside an offer is not the stage. Every other kind follows
+# ontology ENUMS["eventKind"]'s order, which is the pipeline's. Before 2026-10-04 a
+# same-day tie went to the event IRI, so `acknowledged` or `rejected` recorded on the
+# day of `submitted` lost to it ("submitted" sorts after both).
+SIDE_KINDS = ("referral", "recruiter-contact", "note", "follow-up-sent")
+
+
+def pipeline_rank(kind):
+    """The place of an eventKind's local name in the pipeline, for ordering events of one
+    day: side kinds below every step, the rest by ontology order. An unknown kind ranks
+    with the side kinds."""
+    steps = [k for k in O.ENUMS["eventKind"] if k not in SIDE_KINDS]
+    return steps.index(kind) + 1 if kind in steps else 0
+
 
 def node(iri):
     """The IRI as a term.

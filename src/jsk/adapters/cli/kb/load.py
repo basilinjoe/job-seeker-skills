@@ -58,8 +58,11 @@ def cmd_load(args, flags, root, today):
     for app in done.missing_apps:
         # Ruling 4 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: a frozen
         # file-made application's rules read its posting.md, and the renders are what was
-        # sent; nothing reads a resume.json, decisions.txt drafts or gaps.txt since 6.0.
-        print(f"note     {app}: its documents (posting.md and the files sent) are not in "
+        # sent; nothing reads a resume.json, decisions.txt drafts or gaps.txt since 6.0. A
+        # graph-native one keeps its advert in the store and has no posting.md.
+        what = ("the files rendered for it" if app in done.native_apps
+                else "posting.md and the files sent")
+        print(f"note     {app}: its documents ({what}) are not in "
               f"this workspace - copy the folder into {root}")
     if done.app_failures:
         print(f"note     {done.app_failures} failures in applications - `jsk kb check` lists them")

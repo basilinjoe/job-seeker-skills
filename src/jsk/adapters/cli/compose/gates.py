@@ -75,9 +75,9 @@ def number_lines(text, doc, store, posting=None, today=None):
 
     Args:
         text: the letter's body.
-        doc: the resume.json, as a dict.
+        doc: the target's selection, as a dict.
         store: the loaded workspace.
-        posting: posting.md's text, or None.
+        posting: the advert's stored lines, or None.
         today: the date the years claims are measured to; by default today.
 
     Returns:

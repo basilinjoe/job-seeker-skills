@@ -173,6 +173,54 @@ def ref_for(arg, *, dirs=False, root=None):
     return t.ref
 
 
+def file_made(arg):
+    """(`applications/<stem>`, whether it is frozen, its posting's curie or None) when the
+    CLI argument `arg` names an application made from files, else None.
+
+    Such a name is no target (ref_for), and `jsk resume check` read it as a render's
+    directory that is not there - "not a directory", which sent the person to render
+    something a frozen application never will again (the P3 replay, 2026-10-04).
+
+    Args:
+        arg: the positional as given: `<stem>` or `applications/<stem>`, no file there.
+
+    Returns:
+        The triple, or None. Reads the store's graphs and the folder.
+    """
+    from ....application.timeline.unsent import FILE_MADE
+    from ....application.posting.native import has_lines
+    from ....domain import ontology as O
+    from ....domain.naming import app_graph
+    from ....domain.record.writer import curie
+    from ....domain.timeline.events import LEGACY
+    from ....infra import files
+    from ....infra.oxigraph import db
+
+    named = arg.replace("\\", "/").strip("/")
+    if os.path.exists(arg) or os.path.splitext(arg)[1] or named.count("/") > 1:
+        return None
+    rel = named if named.startswith("applications/") else f"applications/{named}"
+    if "/" in rel.removeprefix("applications/"):
+        return None
+    root = files.find_root(os.getcwd())
+    if root is None or not db.exists(root):
+        return None
+    folder = os.path.join(root, *rel.split("/"))
+    try:
+        names = set(os.listdir(folder))
+    except OSError:
+        return None
+    graphs = db.read(root)
+    posting = graphs.get(app_graph(rel, "posting")) or ()
+    if has_lines(posting) or not (names & set(FILE_MADE) or LEGACY in names
+                                  or app_graph(rel, "posting") in graphs):
+        return None
+    frozen = app_graph(rel, "application") in graphs or LEGACY in names
+    post = next((q.subject.value for q in posting
+                 if O.class_of(q.subject.value) == "Posting"), None)
+    return rel, frozen, curie(post) if post else None
+
+
 def selection_ref(out_dir):
     """The ref of the selection a render's directory holds in the store, or None: what `jsk
     resume check <dir>` reads as the record when no resume.json is beside the render."""

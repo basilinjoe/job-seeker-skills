@@ -25,6 +25,13 @@ class Adverts:
         """
         return read_text(os.path.join(root, folder, "posting.md"))
 
+    def legacy_frozen(self, root, folder):
+        """Whether application.md (domain.timeline.events.LEGACY) is in `folder` under
+        `root`: records.frozen and unsent.file_made_unsent count it as frozen too."""
+        from ..domain.timeline.events import LEGACY
+
+        return os.path.isfile(os.path.join(root, folder, LEGACY))
+
     def decisions(self, root, folder):
         """decisions.txt in `folder` under `root`, parsed.
 

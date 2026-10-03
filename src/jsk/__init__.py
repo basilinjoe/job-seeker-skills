@@ -18,7 +18,7 @@ carried to a document somebody can send:
                                      export, check
     jsk resume check TARGET          the record gate: is the selection sound? TARGET is an
                                      application's <stem>, or resumes/<name>
-    jsk resume render TARGET         its selection to a .tex and a PDF
+    jsk resume render TARGET         its selection to a .tex (a PDF too with --pdf)
     jsk resume preview TARGET --out D  the same resume in every template, to pick a look
     jsk resume check FILE            the parse gate and the prose gate
     jsk resume check DIR             the record, parse and prose gates over one render

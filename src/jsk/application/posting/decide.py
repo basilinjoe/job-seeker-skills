@@ -12,7 +12,7 @@ rules wait (domain/record/advert_rules.py). `complete` is where they run: every
 qualification line that is not eligibility used or dropped (build's coverage check), then
 the whole workspace validated with the posting as it would be, then `j:state complete`.
 
-A re-decide puts a completed posting back to draft. It drops the assessment, which was
+A re-decide puts a completed posting back to draft, and WARNs that it did. It drops the assessment, which was
 derived from the requirements it changes - `assessment_derive` writes it again - and keeps
 the review (Ruling 4), less any row about a requirement it removes, which would dangle.
 
@@ -21,8 +21,9 @@ not say; a slug not lowercase words, or used twice; two requirements asking one 
 necessity that is none; a concept the workspace does not know, or retired; a domain that is
 not a Domain; a header field that is not one; a line both dropped and quoted; a drop with
 no reason; a slug to remove that is not there. Its WARNs: a responsibility made required
-that its line does not call required; more requirements than the soft cap. `complete` adds
-the coverage FAIL and whatever the workspace's rules find in the posting. Each use case
+that its line does not call required; more requirements than the soft cap; a completed
+posting gone back to draft. `complete` adds the coverage FAIL, a FAIL for no requirement
+while a line is undecided, and whatever the workspace's rules find in the posting. Each use case
 refuses (raises Refused) an application made from files, one with no posting, and a frozen
 one, sent or held back. Nothing here prints.
 """
@@ -78,16 +79,7 @@ def decide(root, stem, header=None, rows=(), drops=(), remove=(), *, today, port
     known = queries.concepts() - queries.retired_concepts()
     retired, domains = queries.retired_concepts(), queries.domains()
     found = list(headed(s, header or {}, known, retired, domains))
-    gone = set()
-    for slug in remove or ():
-        if slug in s.reqs:
-            gone.add(slug)
-        else:
-            # A FAIL, not a WARN: a mistyped slug otherwise wrote the posting back as a
-            # draft with nothing removed, and a completed posting lost its state for a typo
-            # (the end-to-end replay, 2026-10-02).
-            found.append(("FAIL", f"remove: no requirement {slug!r} to remove",
-                          "fix:  the slug as app_show requirements names it"))
+    gone = removed(s, remove or (), found)
     kept = {slug: row for slug, row in s.reqs.items() if slug not in gone}
     batch, new_drops = [], {}
     for i, row in enumerate(rows or (), 1):
@@ -123,7 +115,33 @@ def decide(root, stem, header=None, rows=(), drops=(), remove=(), *, today, port
     names, broken = N.write(app, store, graphs, ports)
     if broken:
         return Decided(None, len(merged), s.state or "draft", N.clean(found + broken), ())
+    if s.state == "complete":
+        # The P3 replay (2026-10-04): a decide on a completed posting said nothing of the
+        # state it lost, and the next derive was refused for a draft nobody knew of.
+        found.append(("WARN", f"{app.graph('posting')} was complete and is a draft again",
+                      f"fix:  posting_complete on {app.stem} once its decisions hold"))
     return Decided(names[0], len(merged), "draft", N.clean(found), tuple(names))
+
+
+def removed(s, remove, found):
+    """The stored slugs of `remove` to delete; a FAIL in `found` for each that is not there.
+
+    Args:
+        s: the Stored posting.
+        remove: the slugs given.
+        found: the findings, appended to.
+    """
+    gone = set()
+    for slug in remove:
+        if slug in s.reqs:
+            gone.add(slug)
+        else:
+            # A FAIL, not a WARN: a mistyped slug otherwise wrote the posting back as a
+            # draft with nothing removed, and a completed posting lost its state for a typo
+            # (the end-to-end replay, 2026-10-02).
+            found.append(("FAIL", f"remove: no requirement {slug!r} to remove",
+                          "fix:  the slug as app_show requirements names it"))
+    return gone
 
 
 def complete(root, stem, *, today, ports):
@@ -155,6 +173,19 @@ def complete(root, stem, *, today, ports):
                           "fix:  a requirement for what it asks, or a drop with its reason "
                           f"(posting_decide on {app.stem})")]
         return Decided(None, len(s.reqs), s.state or "draft", N.clean(found), ())
+    # Build's coverage check is vacuous on an advert with no qualification line, and the P3
+    # replay (2026-10-04) completed such a posting with no requirement at all: nothing for
+    # the match to assess. Build had no other floor, so none is added when every line was
+    # answered - a posting whose lines were all dropped, each with its reason, is a
+    # decision. Only an undecided posting is refused.
+    undecided = [x.n for x in s.lines if not x.elig and x.n not in used]
+    if not s.reqs and undecided:
+        found = [("FAIL", f"{app.graph('posting')}: no requirement decided, and advert "
+                          f"line{'s' if len(undecided) > 1 else ''} "
+                          f"{', '.join(map(str, undecided))} neither used nor dropped",
+                  "fix:  decide at least one requirement, or drop every line with its "
+                  f"reason (posting_decide on {app.stem})")]
+        return Decided(None, 0, s.state or "draft", N.clean(found), ())
     names, broken = N.write(app, store, {"posting": N.triples(app, s, "complete")}, ports)
     if broken:
         return Decided(None, len(s.reqs), s.state or "draft", N.clean(broken), ())

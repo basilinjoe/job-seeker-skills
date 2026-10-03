@@ -228,6 +228,10 @@ class Loaded:
     legacy_files: bool          # career/kb.ttl is still there, and no longer read
     missing_apps: tuple         # applications whose documents are not in this workspace
     app_failures: int           # FAILs in applications, which do not stop the load
+    # Of missing_apps, the graph-native ones: their advert is in the store and they have no
+    # posting.md, so the note naming one sent the person looking for a file there never
+    # was (the P3 review, 2026-10-04).
+    native_apps: tuple = ()
 
 
 def written(root, record, after, *, gate, load, legacy):
@@ -249,7 +253,10 @@ def written(root, record, after, *, gate, load, legacy):
     """
     gate.write_graphs(root, record, create=True)
     st = gate.state(load(root))
+    from ..posting.native import has_lines
+
     apps = sorted({n.rsplit("/", 1)[0] for n in record if n.startswith("applications/")})
+    missing = tuple(a for a in apps if not os.path.isdir(os.path.join(root, a)))
     return Loaded(sum(map(len, record.values())), len(record), st.kb_revision, legacy(root),
-                  tuple(a for a in apps if not os.path.isdir(os.path.join(root, a))),
-                  sum(f.file.startswith("applications/") for f in after.fails()))
+                  missing, sum(f.file.startswith("applications/") for f in after.fails()),
+                  tuple(a for a in missing if has_lines(record.get(f"{a}/posting") or ())))

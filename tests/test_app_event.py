@@ -46,6 +46,21 @@ class Event(GraphCase):
                          ("k:app_contoso_platform", "screen-scheduled", "2026-09-26",
                           "2026-09-30", 2))
 
+    def test_a_step_on_the_day_of_submitted_is_the_stage(self):
+        """The P3 replay (2026-10-04): a same-day tie went to the event IRI, and
+        `..._submitted` sorts after `..._acknowledged` and `..._rejected`, so the stage
+        stayed `submitted`. A note that day is not the stage either."""
+        for kind in ("acknowledged", "rejected"):
+            with self.subTest(kind=kind):
+                code, out = self.event(kind, "--date", "2026-09-24")
+                self.assertEqual(code, 0, out)
+                code, out = self.event("note", "--date", "2026-09-24", "--note", kind)
+                self.assertEqual(code, 0, out)
+                code, out = self.jsk("kb", "query", "pipeline", "--json", "--root", self.root)
+                self.assertEqual(code, 0, out)
+                [row] = json.loads(out)
+                self.assertEqual((row["stage"], row["since"]), (kind, "2026-09-24"))
+
     def test_a_store_failing_after_the_event_landed_does_not_say_nothing_was_written(self):
         with appkit.failing_after_write():
             code, out = self.event("note", "--date", "2026-09-26", "--note", "chased")

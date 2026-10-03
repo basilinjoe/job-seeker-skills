@@ -189,6 +189,23 @@ class Load(unittest.TestCase):
         self.assertIn("failures in applications - `jsk kb check` lists them", out)
         self.assertEqual(self.kb(self.empty, "check")[0], 1)          # until it is copied
 
+    def test_a_graph_native_application_is_not_said_to_have_a_posting_md(self):
+        # The P3 review (2026-10-04): the note named posting.md for every application, and
+        # a graph-native one keeps its advert in the store, with no posting.md anywhere.
+        import datetime
+
+        from jsk.adapters.cli.compose import native
+
+        self.assertEqual(self.kb(self.files, "load", self.files)[0], 0)
+        native.capture(self.files, "acme-native", text="- Kubernetes in production.\n",
+                       company="Acme Health", title="Platform Engineer",
+                       today=datetime.date(2026, 10, 4))
+        code, out = self.kb(self.empty, "load", os.path.join(self.files, record.BACKUP))
+        self.assertEqual(code, 0, out)
+        self.assertIn("note     applications/acme-native: its documents (the files rendered for "
+                      "it) are not in this workspace - copy the folder into", out)
+        self.assertIn(f"note     {self.APP}: its documents (posting.md and the files sent)", out)
+
     def test_the_backup_every_write_leaves_is_a_dump(self):
         self.assertEqual(self.kb(self.files, "load", self.files)[0], 0)
         code, out = self.kb(self.empty, "load", os.path.join(self.files, record.BACKUP))

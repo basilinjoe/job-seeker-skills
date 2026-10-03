@@ -139,6 +139,36 @@ class BareHeadings(unittest.TestCase):
         self.assertEqual(rules.advert_lines("What's in it for you?\n\nA gym on site.\n"), [])
 
 
+class QuestionHeadings(unittest.TestCase):
+    """A heading asked as a question may run past the six-word cap. The P3 replay
+    (2026-10-04): "What makes you perfect for the role?" is seven words, and every line
+    under it read as a responsibility of the heading before."""
+
+    def lines_under(self, heading):
+        advert = (f"Key Responsibilities\nDesign the platform.\n\n{heading}\n"
+                  "Ten years of software engineering.\nDeep experience with Kafka.\n")
+        return [(x.section, x.text) for x in rules.advert_lines(advert)]
+
+    def test_a_question_heading_opens_the_qualifications(self):
+        for heading in ("What makes you perfect for the role?", "What you'll need to succeed",
+                        "Who you are", "What we are looking for in our ideal candidate?"):
+            with self.subTest(heading=heading):
+                self.assertEqual(self.lines_under(heading), [
+                    ("responsibility", "Design the platform."),
+                    ("qualification", "Ten years of software engineering."),
+                    ("qualification", "Deep experience with Kafka.")])
+
+    def test_a_long_line_that_is_no_wh_question_stays_a_line(self):
+        # Seven words naming `experience`: under the cap's old reading, still a line.
+        for text in ("Experience building distributed systems at large scale",
+                     "Do you have experience with Kubernetes and Terraform?",
+                     "Who you are matters to us more than where you studied?"):
+            with self.subTest(text=text):
+                self.assertFalse(rules.bare_heading(text))
+                lines = self.lines_under("Requirements\n" + text)
+                self.assertIn(("qualification", squash(text)), lines)
+
+
 class OneItemPerLine(unittest.TestCase):
     """Under a qualification or responsibility heading each line is its own item: joining
     them made one 600-character `asked` of Schneider's whole section."""
