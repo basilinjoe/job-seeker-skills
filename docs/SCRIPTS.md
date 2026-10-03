@@ -1131,7 +1131,7 @@ The tools refuse an application made from files, naming the file verb that still
 the file verbs refuse a graph-native one, naming the tool.
 
 The plugin (5.0.0) starts this server as `jsk`, so Claude Code names each tool
-`mcp__plugin_jsk_jsk__<tool>`. Each agent's `tools:` lists the ones it may call by name: the analyst
+`mcp__plugin_jsk_graph__<tool>`. Each agent's `tools:` lists the ones it may call by name: the analyst
 the career reads, `app_show`, `posting_*` and `assessment_*`; the author the career reads,
 `career_preview`, `career_apply`, `app_show`, `resume_select` and `resume_update`; the extractor
 the career reads and `career_preview`. No agent holds `career_confirm`: only the main session,

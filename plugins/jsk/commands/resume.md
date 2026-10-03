@@ -1,7 +1,7 @@
 ---
 description: Build a verified resume from the knowledge base - one PDF, through every gate
 argument-hint: 'Optional: region code (au, in, ae) or --ats-max'
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task, mcp__plugin_jsk_jsk__*
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task, mcp__plugin_jsk_graph__*
 ---
 
 # Resume

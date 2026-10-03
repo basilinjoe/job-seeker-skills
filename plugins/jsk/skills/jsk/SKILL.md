@@ -39,7 +39,7 @@ working directory.
 ## The `jsk` tools
 
 The plugin starts `jsk mcp` (`pip install 'jsk-resume[mcp]'`). Its tools —
-`mcp__plugin_jsk_jsk__` + `career_*`, `app_*`, `posting_*`, `assessment_*`, `resume_*` — take JSON
+`mcp__plugin_jsk_graph__` + `career_*`, `app_*`, `posting_*`, `assessment_*`, `resume_*` — take JSON
 and answer `ok` and findings, each with its fix. Prefer a tool to its command. `career_confirm`
 carries the person's words: only you call it, never an agent.
 

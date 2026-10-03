@@ -26,7 +26,7 @@ def frontmatter(path):
 
 # How Claude Code names the plugin's MCP tools: mcp__plugin_<plugin>_<server>__<tool>
 # (P0 results, docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md).
-MCP = "mcp__plugin_jsk_jsk__"
+MCP = "mcp__plugin_jsk_graph__"
 
 
 def granted(fm):
@@ -49,7 +49,7 @@ def grant_faults(fm):
 
 
 def unknown_tools(text, registered, command=False):
-    """The `mcp__plugin_jsk_jsk__<x>` names in `text` that are not registered tools, in
+    """The `mcp__plugin_jsk_graph__<x>` names in `text` that are not registered tools, in
     order; a command (main session, all eighteen per Ruling 19) may use the wildcard."""
     found = []
     for name in re.findall(re.escape(MCP) + r"([A-Za-z_*]+)", text):
@@ -88,7 +88,7 @@ class AgentGrants(unittest.TestCase):
 
     P0 measured Claude Code 2.1.280: an explicit `tools:` list holds a plugin subagent to
     exactly those tools; NO `tools:` line inherits every MCP tool of the session, and
-    `mcp__plugin_jsk_jsk__*` grants the whole server. So a grant is only a boundary when it
+    `mcp__plugin_jsk_graph__*` grants the whole server. So a grant is only a boundary when it
     names each tool, which is what these pin.
     """
 
@@ -106,7 +106,7 @@ class AgentGrants(unittest.TestCase):
         """The check above, planted: each way an agent ends up holding the whole server."""
         self.assertEqual(grant_faults({"name": "x"}), ["no tools: line"])
         self.assertEqual(grant_faults({"tools": f"Read, {MCP}*"}), [f"wildcard {MCP}*"])
-        self.assertEqual(grant_faults({"tools": "Read, mcp__plugin_jsk_jsk__app_show"}), [])
+        self.assertEqual(grant_faults({"tools": "Read, mcp__plugin_jsk_graph__app_show"}), [])
 
     def test_the_analyst_holds_no_tool_that_could_touch_the_career(self):
         """"**Never touch the career**" is true by construction: no Write or Edit, no shell
@@ -170,7 +170,7 @@ class AgentGrants(unittest.TestCase):
         names above are `mcp__plugin_<plugin>_<server>__<tool>`, so the server is `jsk`."""
         plugin = json.loads((PLUGIN / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
         self.assertEqual(plugin["name"], "jsk")
-        self.assertEqual(plugin["mcpServers"]["jsk"], {"command": "jsk", "args": ["mcp"]})
+        self.assertEqual(plugin["mcpServers"]["graph"], {"command": "jsk", "args": ["mcp"]})
 
 
 if __name__ == "__main__":

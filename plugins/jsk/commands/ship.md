@@ -1,7 +1,7 @@
 ---
 description: Render a validated resume selection, put it through every gate, and freeze what it was answering
 argument-hint: "An application's stem, resumes/<name>, or a resume.json. Add --template NAME, --ats-max, or --pages N."
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task, mcp__plugin_jsk_jsk__*
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task, mcp__plugin_jsk_graph__*
 ---
 
 # Ship

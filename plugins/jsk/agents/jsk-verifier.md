@@ -2,7 +2,7 @@
 name: jsk-verifier
 description: Use when a rendered Job Seeker Skill resume has failed one of the verification gates and the failure needs tracing back to the section it came from, when the render gate needs somebody to open the PDF and read every page, or when `jsk resume check DIR` is unavailable on this machine. A clean ship runs `jsk resume ship` (validate, render and gates in one process) instead and shows its output. Expects the skill directory, the output directory and the record path. Verifies only; it never edits a document.
 model: sonnet
-tools: Bash, Read, Glob, mcp__plugin_jsk_jsk__career_show, mcp__plugin_jsk_jsk__app_show
+tools: Bash, Read, Glob, mcp__plugin_jsk_graph__career_show, mcp__plugin_jsk_graph__app_show
 color: yellow
 ---
 

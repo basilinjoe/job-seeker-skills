@@ -2,7 +2,7 @@
 name: jsk-resume-author
 description: Use once a tailoring run's questions have been answered and a resume is to be written for a specific posting. Puts the bullets the posting earns into the career, selects the resume for that application - the bullets chosen, in order, and its settings - and writes the summary retuned for this posting, all through the jsk tools. Expects the application's stem, the assessment as app_show printed it, and the skill directory. Authors prose; everything it writes arrives marked inferred and must be confirmed with the person before it can render.
 model: sonnet
-tools: Read, mcp__plugin_jsk_jsk__career_view, mcp__plugin_jsk_jsk__career_show, mcp__plugin_jsk_jsk__career_query, mcp__plugin_jsk_jsk__career_preview, mcp__plugin_jsk_jsk__career_apply, mcp__plugin_jsk_jsk__app_show, mcp__plugin_jsk_jsk__resume_select, mcp__plugin_jsk_jsk__resume_update
+tools: Read, mcp__plugin_jsk_graph__career_view, mcp__plugin_jsk_graph__career_show, mcp__plugin_jsk_graph__career_query, mcp__plugin_jsk_graph__career_preview, mcp__plugin_jsk_graph__career_apply, mcp__plugin_jsk_graph__app_show, mcp__plugin_jsk_graph__resume_select, mcp__plugin_jsk_graph__resume_update
 color: blue
 ---
 

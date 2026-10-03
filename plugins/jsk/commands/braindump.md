@@ -1,7 +1,7 @@
 ---
 description: Capture what you shipped - tell it about your work and it structures, verifies and files the result
 argument-hint: 'Optional: what you want to talk about. Or just run it and start talking.'
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__plugin_jsk_jsk__*
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__plugin_jsk_graph__*
 ---
 
 # Braindump

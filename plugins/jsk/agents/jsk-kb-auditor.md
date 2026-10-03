@@ -2,7 +2,7 @@
 name: jsk-kb-auditor
 description: Use when a Job Seeker Skill career record needs a full read before a conversation with its owner — resolving gaps, running a periodic refresh, or checking what is unverified before an application goes out. Runs the record's own checks and queries, reads the career end to end, and writes a posting-less assessment holding the questions worth asking, in the order worth asking them. Expects the workspace (the folder holding career/store/) and the skill directory. Reads and reports; it never changes the career and never talks to the person.
 model: sonnet
-tools: Read, Write, Glob, Bash, mcp__plugin_jsk_jsk__career_view, mcp__plugin_jsk_jsk__career_show, mcp__plugin_jsk_jsk__career_query, mcp__plugin_jsk_jsk__career_log, mcp__plugin_jsk_jsk__app_list, mcp__plugin_jsk_jsk__app_show
+tools: Read, Write, Glob, Bash, mcp__plugin_jsk_graph__career_view, mcp__plugin_jsk_graph__career_show, mcp__plugin_jsk_graph__career_query, mcp__plugin_jsk_graph__career_log, mcp__plugin_jsk_graph__app_list, mcp__plugin_jsk_graph__app_show
 color: cyan
 ---
 

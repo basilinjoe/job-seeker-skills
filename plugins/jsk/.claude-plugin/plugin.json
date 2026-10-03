@@ -11,7 +11,7 @@
   "repository": "https://github.com/basilinjoe/job-seeker-skills",
   "license": "MIT",
   "mcpServers": {
-    "jsk": {
+    "graph": {
       "command": "jsk",
       "args": ["mcp"]
     }

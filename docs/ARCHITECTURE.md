@@ -275,9 +275,9 @@ through the composition root's load, and nothing in them imports the renderer.
 ## The agent boundary
 
 Five tasks are delegated to subagents, and the line between them is what each may call. Since
-5.0.0 every jsk call an agent makes is a `jsk mcp` tool (`mcp__plugin_jsk_jsk__<tool>`), and each
+5.0.0 every jsk call an agent makes is a `jsk mcp` tool (`mcp__plugin_jsk_graph__<tool>`), and each
 agent's `tools:` names its tools one by one: P0 measured that an explicit list holds a subagent to
-exactly those tools, while an omitted line or the `mcp__plugin_jsk_jsk__*` wildcard hands it all
+exactly those tools, while an omitted line or the `mcp__plugin_jsk_graph__*` wildcard hands it all
 eighteen (Ruling 19 of `docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`).
 
 | Agent | Has | Deliberately lacks |
@@ -555,7 +555,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     profiles/*.json                 region profiles: default, au, in, ae
     profile.schema.json             what a region profile must contain
 plugins/jsk/                        THE SKILL. markdown only - it ships no code
-  .claude-plugin/plugin.json        plugin manifest (carries a version; starts `jsk mcp` as server `jsk`)
+  .claude-plugin/plugin.json        plugin manifest (carries a version; starts `jsk mcp` as server `graph`)
   commands/                         slash commands
     setup|braindump|resume|...      thin delegations into the skill's modes; each procedure
                                     lives in references/mode-<name>.md
@@ -669,7 +669,7 @@ and the runners into `application/gates/`, with the career's reads bound in
 | How the career's projects are ranked for a posting | `rank` in `src/jsk/domain/matching/rank.py`; the weights in `src/jsk/domain/matching/scoring.py` | `cover` in `cover.py` beside it, and `src/jsk/domain/selection/select.py`, which keeps only confirmed evidence before choosing; `docs/ONTOLOGY.md` §11 |
 | What the record gate checks | `src/jsk/application/gates/record.py`, `numbers.py` | `docs/SCRIPTS.md`'s table of its checks, `tests/test_record_gate.py` |
 | A mode's procedure | `references/mode-<name>.md` | the routing table in `SKILL.md` |
-| What an agent may do | `plugins/jsk/agents/<name>.md`: its body, and its `tools:` naming each tool in full (`mcp__plugin_jsk_jsk__<tool>`), never the wildcard | the delegation note in every mode that calls it, the Agents table in `SKILL.md`, the agent table above; `AgentGrants` in `tests/test_agent_grants.py` |
+| What an agent may do | `plugins/jsk/agents/<name>.md`: its body, and its `tools:` naming each tool in full (`mcp__plugin_jsk_graph__<tool>`), never the wildcard | the delegation note in every mode that calls it, the Agents table in `SKILL.md`, the agent table above; `AgentGrants` in `tests/test_agent_grants.py` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
 | Where a new module goes, or what a ring may import | its path under `src/jsk/<ring>/`; the ring rules and `ROOT_ADAPTERS` / `ROOT_INFRA` in `tests/test_layers.py` | "What is a ring" above; a line in the repo layout, or `tests/test_plugin_surface.py` fails |
 | What a use case needs from outside | a Protocol in `src/jsk/ports/`, its implementation in `src/jsk/infra/` | bound to the use case in `src/jsk/adapters/cli/compose/`, the one composition root; a test passes a fake |

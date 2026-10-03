@@ -1,7 +1,7 @@
 ---
 description: Find and close what is missing - unconfirmed claims, missing metrics, roles with no evidence behind them
 argument-hint: 'Optional: the workspace, the folder holding career/'
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task, mcp__plugin_jsk_jsk__*
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task, mcp__plugin_jsk_graph__*
 ---
 
 # Gaps

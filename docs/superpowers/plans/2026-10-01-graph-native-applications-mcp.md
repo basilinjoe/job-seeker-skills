@@ -38,6 +38,8 @@ from this tree (`install-local`), reading the analyst's transcript for tool call
   `--record` flag (`--record <stem>`); no `--app` flag was added.
 - **A held-back freeze is frozen too:** every tool refuses an application whose application
   graph exists, sent or held back, as `ship_target`'s `frozen_refusal` always did.
+- **The server is named `graph`, not `jsk`** (2026-10-03, the user's call): a plugin's tools
+  are `mcp__plugin_<plugin>_<server>__<tool>`, and `jsk`/`jsk` read `mcp__plugin_jsk_jsk__`.
 - **A selection ships only with a summary.** The strict parse gate wants a summary heading,
   so the author sets one and the session confirms it before `resume_ship`.
 
@@ -111,7 +113,7 @@ D/<Name>_Resume.{pdf,tex,log}, <Name>_Resume_ATS.txt   render
 
 - A plugin bundles a server under `mcpServers` in `plugin.json` (or `.mcp.json` at the plugin
   root); it starts with the plugin, one process per session, shared by subagents.
-- Tool names: `mcp__plugin_<plugin>_<server>__<tool>` - here `mcp__plugin_jsk_jsk__<tool>`.
+- Tool names: `mcp__plugin_<plugin>_<server>__<tool>` - here `mcp__plugin_jsk_graph__<tool>`.
   Agent `tools:` and skill/command `allowed-tools` take that full name.
 - Tool output: warning at 10k tokens, cut at 25k (`MAX_MCP_OUTPUT_TOKENS`); larger results
   are saved to a file and referenced.
@@ -319,7 +321,7 @@ src/jsk/adapters/mcp/server.py         NEW  the 18 tools
 src/jsk/adapters/mcp/schemas.py        NEW  argument and result shapes
 src/jsk/adapters/mcp/session.py        NEW  workspace, revision cache, the clock per call
 src/jsk/adapters/cli/main.py                + `jsk mcp` noun
-plugins/jsk/.claude-plugin/plugin.json      + mcpServers.jsk = {command: jsk, args: [mcp]}
+plugins/jsk/.claude-plugin/plugin.json      + mcpServers.graph = {command: jsk, args: [mcp]}
 ```
 
 Every new module gets its line in ARCHITECTURE.md's layout in the same commit
@@ -338,9 +340,9 @@ classes named for the subject, methods that read as the rule, workspaces from `c
 In a scratch plugin with a three-tool stub server (Python, the `mcp` SDK), installed through
 `install-local`'s route:
 
-1. The tool names as Claude Code shows them (`mcp__plugin_jsk_jsk__x`).
+1. The tool names as Claude Code shows them (`mcp__plugin_jsk_graph__x`).
 2. A plugin subagent with an explicit `tools:` list naming two of the three tools sees
-   exactly those two. With `tools:` omitted - does it see all three? Does `mcp__plugin_jsk_jsk__*`
+   exactly those two. With `tools:` omitted - does it see all three? Does `mcp__plugin_jsk_graph__*`
    work in `tools:`?
 3. A command's `allowed-tools` with MCP names.
 4. The tool-call timeout: a tool that sleeps 10, 30, 60 s. Sets Ruling 20's default.
@@ -357,7 +359,7 @@ called. The plan says so in an amendment rather than pretending the grants hold.
 #### P0 results (2026-10-02, Claude Code 2.1.280, headless `claude -p --plugin-dir`, a stub plugin)
 
 1. Tool names are `mcp__plugin_<plugin>_<server>__<tool>`: the stub's showed as
-   `mcp__plugin_jskprobe_probe__alpha`. jsk's will be `mcp__plugin_jsk_jsk__<tool>`.
+   `mcp__plugin_jskprobe_probe__alpha`. jsk's will be `mcp__plugin_jsk_graph__<tool>`.
 2. **An explicit `tools:` list holds a plugin subagent to exactly those tools** - granted
    `alpha, beta`, the agent saw only those two (plus `SubagentHandback`). **No `tools:` line
    inherits every MCP tool** of the session. **`mcp__plugin_<p>_<s>__*` works** and grants the
@@ -490,7 +492,7 @@ P1 ships alone: it helps legacy applications too and depends on nothing below.
 
 ### P6 - the plugin
 
-- `plugin.json`: `mcpServers` (`jsk` → `jsk mcp`). Version bump to **5.0.0** in `plugin.json`,
+- `plugin.json`: `mcpServers` (`graph` → `jsk mcp`). Version bump to **5.0.0** in `plugin.json`,
   `marketplace.json` and `jsk.__version__` (`Manifests`): agents now need the extra.
 - Agent frontmatter per Ruling 19 (full tool names, or the wildcard if P0 proved it).
 - Agent bodies rewritten around tools:

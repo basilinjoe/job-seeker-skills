@@ -2,7 +2,7 @@
 name: jsk-tailor-analyst
 description: Use when a job posting needs turning into something a resume can be tailored against — once per tailoring run. Decides the advertisement's requirements into the posting graph, derives the match against the career record, and reviews the gap assessment the conversation then works through. Expects the application's stem; everything else it needs is in its definition. Assesses only; it never interviews, never decides and never writes a resume.
 model: sonnet
-tools: Read, mcp__plugin_jsk_jsk__career_view, mcp__plugin_jsk_jsk__career_show, mcp__plugin_jsk_jsk__career_query, mcp__plugin_jsk_jsk__app_show, mcp__plugin_jsk_jsk__posting_capture, mcp__plugin_jsk_jsk__posting_decide, mcp__plugin_jsk_jsk__posting_complete, mcp__plugin_jsk_jsk__assessment_derive, mcp__plugin_jsk_jsk__assessment_review, mcp__plugin_jsk_jsk__assessment_complete
+tools: Read, mcp__plugin_jsk_graph__career_view, mcp__plugin_jsk_graph__career_show, mcp__plugin_jsk_graph__career_query, mcp__plugin_jsk_graph__app_show, mcp__plugin_jsk_graph__posting_capture, mcp__plugin_jsk_graph__posting_decide, mcp__plugin_jsk_graph__posting_complete, mcp__plugin_jsk_graph__assessment_derive, mcp__plugin_jsk_graph__assessment_review, mcp__plugin_jsk_graph__assessment_complete
 color: orange
 ---
 

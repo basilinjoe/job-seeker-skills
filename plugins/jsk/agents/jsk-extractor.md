@@ -2,7 +2,7 @@
 name: jsk-extractor
 description: Use when a person's own account of their work - a braindump transcript saved under sources/ - or an imported document (an old resume, a bundle file) needs turning into one changeset of organisations, roles, metrics, projects and bullets for the career record. Reads what the career already holds, drafts the changeset, previews it through the jsk tools, and returns the changeset, the diff, every clause that is not the source's own words, the questions still open, and the confirm lines a document supports. Expects the workspace, the source file(s) and the skill directory. It never applies, never confirms and never talks to the person.
 model: sonnet
-tools: Read, Glob, mcp__plugin_jsk_jsk__career_view, mcp__plugin_jsk_jsk__career_show, mcp__plugin_jsk_jsk__career_query, mcp__plugin_jsk_jsk__career_preview
+tools: Read, Glob, mcp__plugin_jsk_graph__career_view, mcp__plugin_jsk_graph__career_show, mcp__plugin_jsk_graph__career_query, mcp__plugin_jsk_graph__career_preview
 color: green
 ---
 

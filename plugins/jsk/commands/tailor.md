@@ -1,7 +1,7 @@
 ---
 description: Tailor the resume to a specific job description - scores your evidence against the posting and tells you where you fall short
 argument-hint: "A posting URL, the job description pasted, or a path to a file. Add --rounds N to change the gap-round cap."
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task, mcp__plugin_jsk_jsk__*
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, Task, mcp__plugin_jsk_graph__*
 ---
 
 # Tailor
