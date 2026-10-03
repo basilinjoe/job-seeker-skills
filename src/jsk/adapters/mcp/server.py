@@ -1,10 +1,11 @@
 """The MCP tools: the career and graph-native applications, read and written as typed calls.
 
 Ruling 18 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md names the
-eighteen tools and their parameters; this module registers them on a FastMCP server and
-holds no logic a CLI test could not reach. Each tool binds through adapters/cli/compose/ -
-native.py for an application, career.py for the career - and turns what comes back into
-JSON.
+first eighteen tools and their parameters; Ruling 21's amendment (2026-10-03) adds
+app_freeze, app_event and letter_check (acts.py), for twenty-one. This module registers
+them on a FastMCP server and holds no logic a CLI test could not reach. Each tool binds
+through adapters/cli/compose/ - native.py for an application, career.py for the career,
+timeline.py for a freeze or an event - and turns what comes back into JSON.
 
 Ruling 16: every result is `{"ok": true, ...}` or `{"ok": false, "findings": [...]}`, each
 finding `{severity, text, fix}`. A refusal (application or record) is its findings, never a
@@ -197,11 +198,14 @@ def written_of(w):
 
 
 def build(session=None):
-    """The FastMCP server with its eighteen tools, over `session` (a fresh Session when None)."""
+    """The FastMCP server with its twenty-one tools, over `session` (a fresh Session when
+    None)."""
+    from .acts import events, freezes, letters
+
     tools = Tools(session or S.Session())
     srv = FastMCP("jsk")
     for register in (career_reads, career_writes, applications, postings, assessments,
-                     resumes):
+                     resumes, freezes, events, letters):
         register(srv, tools)
     return srv
 

@@ -42,6 +42,8 @@ from this tree (`install-local`), reading the analyst's transcript for tool call
   are `mcp__plugin_<plugin>_<server>__<tool>`, and `jsk`/`jsk` read `mcp__plugin_jsk_jsk__`.
 - **A selection ships only with a summary.** The strict parse gate wants a summary heading,
   so the author sets one and the session confirms it before `resume_ship`.
+- **Ruling 21 (2026-10-03):** freeze, event and letter check are tools too (`app_freeze`,
+  `app_event`, `letter_check`), granted to no agent; twenty-one tools in all.
 
 **Spec:** none. This plan and its Rulings are the spec. The decisions are the user's
 (2026-10-01), made in one conversation:
@@ -275,6 +277,9 @@ D/<Name>_Resume.{pdf,tex,log}, <Name>_Resume_ATS.txt   render
     `kb dump/load`, `resume check/render/preview/fit` over a directory. These are a person's
     acts or a verifier's tracing. `app freeze` and `letter check` learn to read a graph-native
     application (P5).
+    *Amended 2026-10-03:* freeze, event and letter check are tools too - `app_freeze`,
+    `app_event` and `letter_check`, each calling what its command calls - so the main session
+    needs no shell for a jsk job. They are granted to no agent.
 
 ### The render
 

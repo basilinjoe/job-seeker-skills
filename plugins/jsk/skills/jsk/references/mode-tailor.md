@@ -176,7 +176,7 @@ If the fit is genuinely poor, say so.
 ## Cover letter, if asked
 
 Under 250 words: best match first, one metric, the gap in a line. Write
-`applications/<stem>/cover-letter.txt`; show `jsk letter check <it> --record <stem>` passing.
+`applications/<stem>/cover-letter.txt`; show `letter_check(letter=<it>, record=<stem>)` passing.
 
 ## Running it inline
 

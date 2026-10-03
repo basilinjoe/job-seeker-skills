@@ -1125,21 +1125,27 @@ is held between calls. Reads share one loaded record until the store on disk mov
 | `resume_select(target, mode, replace?)` | `from_match` or `ranked`; the selection stored | `jsk kb export` |
 | `resume_update(target, bullets?, roles?, skills?, names?, format?, region?, pages?, ats_pages?, floor?, summary?, headline?)` | the selection changed; a changed summary or headline drops to inferred | `resume.json` edits |
 | `resume_ship(target, ats_max?, template?, pages?, fit?)` | record gate, render, fit, gates into the directory; each step as JSON | `jsk resume ship` |
+| `app_freeze(app, submitted, channel, docs?)` | every gate, then the application's record written and the directory renamed to the day sent (`submitted` is `YYYY-MM-DD` or `false`); `written`, `renamed_to`, `recordSha256`, `carried`, `documents` and each gate's step. A refusal writes nothing | `jsk app freeze` |
+| `app_event(app, kind, date, channel?, due?, note?)` | one event added to a frozen application's record; the event, and its dates with their weekday | `jsk app event` |
+| `letter_check(letter, record)` | a cover letter (a path in the workspace) against a stem's selection or a `resume.json`; the `verdict` line, each FAIL and WARN with its fix, and the output | `jsk letter check` |
 
 `app` is an application's stem (`applications/<stem>`); `target` is a stem or `resumes/<name>`.
 The tools refuse an application made from files, naming the file verb that still works on it;
-the file verbs refuse a graph-native one, naming the tool.
+the file verbs refuse a graph-native one, naming the tool. `app_freeze`, `app_event` and
+`letter_check` are the exceptions: like their commands, they take either kind.
 
 The plugin (5.0.0) starts this server as `jsk`, so Claude Code names each tool
 `mcp__plugin_jsk_graph__<tool>`. Each agent's `tools:` lists the ones it may call by name: the analyst
 the career reads, `app_show`, `posting_*` and `assessment_*`; the author the career reads,
 `career_preview`, `career_apply`, `app_show`, `resume_select` and `resume_update`; the extractor
 the career reads and `career_preview`. No agent holds `career_confirm`: only the main session,
-which talks to the person, confirms.
+which talks to the person, confirms. No agent holds `app_freeze`, `app_event` or `letter_check`
+either (2026-10-03): freezing and recording an event are the person's acts, done by the main
+session.
 
-What stays a command only: `jsk kb new`, `jsk doctor`, `jsk app freeze`, `jsk app event`,
-`jsk letter check`, `jsk kb dump` and `load`, and `jsk resume check`, `render`, `preview` and
-`fit` over a directory - a person's acts, or a verifier's tracing.
+What stays a command only: `jsk kb new`, `jsk doctor`, `jsk kb dump` and `load`, and `jsk
+resume check`, `render`, `preview` and `fit` over a directory - a person's acts, or a
+verifier's tracing.
 
 Exit 0 when the client closes the session, 2 for arguments or a missing extra.
 

@@ -278,7 +278,7 @@ Five tasks are delegated to subagents, and the line between them is what each ma
 5.0.0 every jsk call an agent makes is a `jsk mcp` tool (`mcp__plugin_jsk_graph__<tool>`), and each
 agent's `tools:` names its tools one by one: P0 measured that an explicit list holds a subagent to
 exactly those tools, while an omitted line or the `mcp__plugin_jsk_graph__*` wildcard hands it all
-eighteen (Ruling 19 of `docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`).
+twenty-one (Ruling 19 of `docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`).
 
 | Agent | Has | Deliberately lacks |
 |---|---|---|
@@ -289,7 +289,8 @@ eighteen (Ruling 19 of `docs/superpowers/plans/2026-10-01-graph-native-applicati
 | `jsk-resume-author` | Read; the career reads, `career_preview`, `career_apply`, `app_show`, `resume_select`, `resume_update` | Write, Edit, Bash and the review — it is the one that writes prose |
 
 No agent holds `career_confirm`: it carries the person's words, and only the main session talks to
-the person. `tests/test_agent_grants.py`'s `AgentGrants` pins every row.
+the person. Nor does any hold `app_freeze`, `app_event` or `letter_check` (Ruling 21's amendment,
+2026-10-03): freezing and recording an event are the person's acts. `tests/test_agent_grants.py`'s `AgentGrants` pins every row.
 
 **For the two authoring agents the anti-invention guarantee is a grant and a gate.**
 
@@ -539,12 +540,13 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/preview.py          `jsk resume preview`'s TeX engine, looked up where a test patches it
     cli/compose/fit.py              `jsk resume fit`'s TeX engine, looked up where a test patches it
     cli/compose/gates.py            the gates' career reads and its log's state bound; a resume.json's region and budget
-    cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze
+    cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze and an event, for the CLI and the tools
     cli/compose/native.py           a graph-native application's use cases bound, each write in its own turn
     cli/compose/career.py           the kb verbs' reads and logged writes as values, unprinted: what the MCP tools return
     cli/compose/selection.py        a selection's use cases bound; a target named on the command line; a ship by target
     mcp/__init__.py                 `jsk mcp`: stdlib only, so a plain install names the missing extra and exits 2
-    mcp/server.py                   the eighteen MCP tools: each a compose call, its result JSON, a refusal its findings
+    mcp/acts.py                     app_freeze, app_event and letter_check: the person's acts as tools, granted to no agent
+    mcp/server.py                   the twenty-one MCP tools: each a compose call, its result JSON, a refusal its findings
     mcp/schemas.py                  the batch rows the tools take (requirement, drop, verdict, ask), typed for the schema
     mcp/session.py                  the served workspace, the read cache keyed on the store's files, the clock per call
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
