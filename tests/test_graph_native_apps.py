@@ -213,6 +213,80 @@ class Decide(Workspace):
         self.assertEqual(self.show("posting")["state"], "draft")
 
 
+class Checks(Workspace):
+    """What `jsk posting build` checked in decisions.txt, which tests/test_posting_build.py
+    pinned until 6.0 retired the verb (docs/superpowers/plans/
+    2026-10-03-retire-file-pipeline.md, P2): each still holds for a batch of decisions."""
+
+    # A retired concept the career itself defines, so the fixture's vocabulary is untouched.
+    EDITS = (('c:go-game a j:Domain ; j:label "Go (board game)" .\n',
+              'c:go-game a j:Domain ; j:label "Go (board game)" .\n'
+              'c:cobol a j:Technology ; j:label "COBOL" ; j:retired "2026-01-01"^^xsd:date ; '
+              'j:reason "Replaced." .\n'),)
+
+    def setUp(self):
+        Workspace.setUp(self)
+        self.capture()
+
+    decide = Decide.decide
+    refused = Decide.refused
+
+    def requirements(self):
+        return {r["slug"]: r for r in self.show("requirements")["requirements"]}
+
+    def test_a_retired_concept_fails(self):
+        self.refused("c:cobol is retired", rows=[{**ROWS[0], "concepts": ["c:cobol"]}])
+
+    def test_a_domain_that_is_not_a_domain_fails(self):
+        self.refused("not a Domain", header={"domain": ["c:kubernetes"]})
+        done = self.decide(header={"domain": ["c:go-game"]})
+        self.assertEqual(fails(done.findings), [])
+
+    def test_a_bad_seniority_fails(self):
+        self.refused("seniority 'staff' is not a level", header={"seniority": "staff"})
+
+    def test_a_bad_capture_day_fails(self):
+        self.refused("captured 'last week' is not a day", header={"captured": "last week"})
+
+    def test_the_capture_day_defaults_to_today_and_a_header_day_holds(self):
+        self.assertEqual(self.show("posting")["captured"], TODAY.isoformat())
+        self.decide(header={"captured": "2026-09-01"})
+        self.assertEqual(self.show("posting")["captured"], "2026-09-01")
+
+    def test_the_default_need_follows_the_section(self):
+        self.decide(rows=ROWS + [{"n": TERRAFORM, "slug": "terraform", "asked": "Terraform"},
+                                 {"n": 2, "slug": "platform", "asked": "clinical event "
+                                  "platform"}])
+        need = {slug: r["need"] for slug, r in self.requirements().items()}
+        self.assertEqual((need["kubernetes"], need["terraform"], need["platform"]),
+                         ("required", "preferred", "implicit"))
+
+    def test_one_line_split_three_ways_quotes_that_line_three_times(self):
+        self.decide(rows=[{"n": KAFKA, "slug": "kafka", "asked": "Kafka"},
+                          {"n": KAFKA, "slug": "events", "asked": "event-driven"},
+                          {"n": KAFKA, "slug": "systems", "asked": "systems"}])
+        quotes = {r["quote"] for r in self.requirements().values()}
+        self.assertEqual(quotes, {"Kafka and event-driven systems."})
+        self.assertEqual(len(self.requirements()), 3)
+
+    def test_past_twenty_requirements_warns_and_twenty_does_not(self):
+        words = "Deep, hands-on Kubernetes experience in production.".split()
+        runs = [" ".join(words[a:b]) for a in range(len(words))
+                for b in range(a + 1, len(words) + 1)]
+        rows = [{"n": K8S, "slug": f"term_{i}", "asked": run} for i, run in enumerate(runs)]
+        done = self.decide(rows=rows[:20])
+        self.assertFalse([t for s, t, _ in done.findings if "soft cap" in t], done.findings)
+        done = self.decide(rows=rows[20:21])
+        self.assertIn("21 requirements, past the soft cap of 20",
+                      " ".join(t for s, t, _ in done.findings if s == "WARN"))
+
+    def test_a_dated_directory_name_is_not_part_of_the_ids(self):
+        dated = "2026-10-01-globex-platform"
+        native.capture(self.root, dated, text=ADVERT, today=TODAY)
+        self.assertIn(f"{O.K}post_globex_platform",
+                      {t.subject.value for t in self.graph("posting", stem=dated)})
+
+
 class Flow(Workspace):
     """capture, decide, complete, derive, review, complete - the analyst's calls in order."""
 
@@ -448,7 +522,9 @@ class Legacy(Workspace):
         for call in calls:
             with self.subTest(call=call), self.assertRaises(Refused) as caught:
                 call()
-            self.assertIn("jsk posting build", caught.exception.fix)
+            # Ruling 5 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: the
+            # fix named `jsk posting build` until 6.0 retired it.
+            self.assertIn("jsk 5.1.0", caught.exception.fix)
 
     def run_cli(self, main, argv):
         out = io.StringIO()
@@ -460,19 +536,6 @@ class Legacy(Workspace):
         self.capture()
         self.app.mkdir(parents=True)         # as the first render would leave it
         return str(self.app)
-
-    def test_posting_build_and_extract_refuse_a_graph_native_application(self):
-        from jsk.adapters.cli import posting
-
-        app = self.native_app()
-        before = appkit.facts(self.root, f"applications/{STEM}/posting")
-        for verb, tool in (("build", "posting_decide"), ("extract", "app_show")):
-            with self.subTest(verb=verb):
-                code, out = self.run_cli(posting.main, [verb, app])
-                self.assertEqual(code, 1, out)
-                self.assertIn("is graph-native", out)
-                self.assertIn(f"`{tool}", out)
-        self.assertEqual(appkit.facts(self.root, f"applications/{STEM}/posting"), before)
 
     def test_tailor_match_gaps_and_draft_gaps_refuse_a_graph_native_application(self):
         from jsk.adapters.cli import match

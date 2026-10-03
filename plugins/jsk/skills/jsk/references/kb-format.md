@@ -119,7 +119,7 @@ Without pyoxigraph, draft the changeset into a file and say it waits for `jsk kb
 
 ## The posting graph
 
-`posting_decide` writes it (from files, `jsk posting build`); `jsk kb show k:post_<stem>` prints it:
+`posting_decide` writes it; `jsk kb show k:post_<stem>` prints it:
 
 ```turtle
 k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;

@@ -5,10 +5,11 @@ show and list over career/store/ and the engine (docs/superpowers/plans/
 Each writing function takes the workspace's turn before it reads (Ruling 14): what it
 validates is what it writes over, and nothing is held between calls. The reads take none.
 The clock is not read here: every function takes `today`, which the caller read once at
-the edge (Ruling 17). `fetch_json` is looked up in compose.posting at each capture, because
-a test patches it there.
+the edge (Ruling 17). `fetch_json` is looked up here at each capture, because a test patches
+it here (it was compose/posting.py's until `jsk posting` retired in 6.0).
 """
 from ....infra.oxigraph import record as R
+from ....infra.posting_sources import fetch_json
 
 
 class Ports:
@@ -95,7 +96,7 @@ def capture(root, stem, *, url=None, text=None, company=None, title=None, captur
         captured: the day it was saved, ISO; `today` when None.
         replace: capture it again, dropping its requirements, review and assessment.
         today: the day the caller read from the clock.
-        get: api url -> the board's JSON answer; compose.posting.fetch_json by default.
+        get: api url -> the board's JSON answer; this module's fetch_json by default.
 
     Returns:
         The Captured.
@@ -105,12 +106,11 @@ def capture(root, stem, *, url=None, text=None, company=None, title=None, captur
     """
     from ....application.posting.capture import capture as captured_
     from ....infra.posting_sources import read_file
-    from . import posting
 
     with R.turn(root, dry_run=not Ports().has_store(root)):
         return captured_(root, stem, url=url, text=text, company=company, title=title,
                          captured=captured, replace=replace, today=today,
-                         get=get or posting.fetch_json, read_file=read_file, ports=Ports())
+                         get=get or fetch_json, read_file=read_file, ports=Ports())
 
 
 def decide(root, stem, header=None, rows=(), drops=(), remove=(), *, today):

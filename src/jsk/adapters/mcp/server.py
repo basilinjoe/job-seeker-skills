@@ -338,7 +338,7 @@ def applications(srv, tools):
           "unsent: made from files, not sent, and not finished by jsk 6.0.")
     def app_list() -> dict:
         def run(root, today):
-            from ..cli.retiring import unsent_note
+            from ...application.timeline.unsent import note as unsent_note
 
             listed = fields(native.list_apps(root, today=today, ports=ports()))
             # Ruling 5 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: each

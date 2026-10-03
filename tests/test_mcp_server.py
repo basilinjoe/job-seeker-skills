@@ -273,13 +273,13 @@ class Flow(Served):
         self.assertIn("replace", again["findings"][0]["fix"])
         self.assertTrue(self.call("posting_capture", app=STEM, text=ADVERT, replace=True)["ok"])
 
-    def test_a_legacy_application_is_refused_naming_the_file_verb(self):
+    def test_a_legacy_application_is_refused_naming_the_release_that_finishes_it(self):
         for tool, args in (("posting_decide", {"requirements": ROWS}),
                            ("assessment_derive", {}), ("app_show", {"part": "lines"})):
             with self.subTest(tool=tool):
                 got = self.call(tool, app="contoso-platform", **args)
                 self.assertFalse(got["ok"])
-                self.assertIn("jsk posting build", got["findings"][0]["fix"])
+                self.assertIn("send it with jsk 5.1.0", got["findings"][0]["fix"])
 
     def test_an_application_with_no_posting_is_told_to_capture_one(self):
         got = self.call("posting_complete", app="nobody-yet")

@@ -4,9 +4,6 @@
     jsk kb new PATH --name NAME scaffold career/store/ - the career and its log at r1 -
                                 and applications/
     jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
-    jsk posting fetch URL APP   an Ashby, Greenhouse or Lever posting, as APP/posting.md
-      ... extract APP           its lines, numbered, with the concepts each names
-      ... build APP             decisions.txt to APP's posting, every quote the advert's own
     jsk tailor match APP        a posting against the graph record, through the vocabulary
       ... prepare APP           the match and everything an assessment reads, in one digest
     jsk resume check RESUME.json   the record gate, before anything renders
@@ -108,7 +105,6 @@ def mcp(args):
 NOUNS = {
     "doctor": {},
     "kb": {"new": "kb.py", **dict.fromkeys(KB_VERBS, "kbcli.py")},
-    "posting": dict.fromkeys(("fetch", "extract", "build"), "posting.py"),
     "tailor": {"match": "match.py", "prepare": "prepare.py"},
     "resume": {"check": resume_check, "render": "render_resume.py",
                "preview": "preview_templates.py", "fit": "fit_pages.py", "ship": resume_ship},
@@ -118,10 +114,10 @@ NOUNS = {
 }
 
 # The scripts that dispatch their own verbs, so they are handed the verb with its arguments.
-TAKES_VERB = {"kbcli.py", "posting.py", "prepare.py"}
+TAKES_VERB = {"kbcli.py", "prepare.py"}
 
 # The nouns whose adapter prints its own usage, verbs and unknown-verb refusal.
-OWN_USAGE = {"kb": "kbcli.py", "posting": "posting.py"}
+OWN_USAGE = {"kb": "kbcli.py"}
 
 # What `jsk <noun> --help` prints for the nouns that do not print their own.
 NOUN_USAGE = {
@@ -169,7 +165,28 @@ RETIRED = {
     "ship": ("jsk resume ship", "resume.json --out DIR"),
     "event": ("jsk app event", "applications/<dir> KIND --date YYYY-MM-DD"),
     "freeze": ("jsk app freeze", "applications/<dir> --submitted YYYY-MM-DD --channel TEXT"),
+    # 6.0 retired the pipeline that made an application from files (Ruling 1 of
+    # docs/superpowers/plans/2026-10-03-retire-file-pipeline.md): each verb is named with the
+    # tool that does its work on a graph-native application, as 5.1's WARN named it.
+    "posting": "in 6.0 - the posting noun served applications made from files, which jsk no "
+               "longer makes.\n"
+               "fix:  the posting_capture, posting_decide and posting_complete tools (jsk mcp) "
+               "keep an application's advert and its requirements in the graph",
+    "posting fetch": "in 6.0 - it wrote an application's posting.md, and jsk no longer makes "
+                     "an application from files.\n"
+                     "fix:  the posting_capture tool (jsk mcp) stores the advert in the graph: "
+                     "posting_capture(app, url=)",
+    "posting extract": "in 6.0 - it numbered posting.md's lines for decisions.txt.\n"
+                       "fix:  the app_show tool (jsk mcp), part lines, shows a captured "
+                       "advert's numbered lines",
+    "posting build": "in 6.0 - it wrote a posting graph from decisions.txt.\n"
+                     "fix:  the posting_decide and posting_complete tools (jsk mcp) write the "
+                     "requirements and settle them",
 }
+
+# The nouns 6.0 retired whole, their verbs with them: `jsk posting build` is said as itself
+# when RETIRED names it, and as its noun otherwise.
+RETIRED_NOUNS = ("posting",)
 
 
 def without_only_letter(args):
@@ -294,6 +311,9 @@ def main(argv):
         print(f"unknown verb: jsk {noun} {verb}")
         print(f"fix:  one of {', '.join(verbs)} - or run jsk {noun} --help")
         return 2
+    if noun in RETIRED_NOUNS:
+        verb = f"{noun} {rest[0]}" if rest else noun
+        return retired(verb if verb in RETIRED else noun, rest[1:])
     if noun in RETIRED:
         return retired(noun, rest)
     print(f"unknown command: {noun}")

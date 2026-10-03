@@ -384,7 +384,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/errors.py               posting.md's name, and how a posting step refuses
     posting/boards.py               which job board a URL is on, and its answer as a posting
     posting/html_text.py            a board's or a saved page's HTML as text
-    posting/posting_md.py           posting.md as jsk writes it
     posting/advert.py               an advert's text squashed, and its lines numbered by section
     posting/decide.py               decisions.txt's name, a title's seniority hint, posting.md's header, the posting's triples
     posting/lines.py                an advert's lines as the posting graph stores them, and back
@@ -449,9 +448,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     tailor/draft_gaps.py            the gaps.txt draft: the advert, the drops and the person read, the draft made
     tailor/prepare.py               the tailoring digest: the check, the match, the evidence, the assessment written
     tailor/export.py                `jsk kb export`: the bullets a resume.json shows chosen, the short file formed and written
-    posting/fetch.py                an advert from a job board or a file, written as posting.md
-    posting/extract.py              the decisions.txt header and the advert's lines, numbered, for the analyst
-    posting/build.py                decisions.txt checked against the advert and written as the posting graph
+    posting/fetch.py                an advert read off a job board or out of a file, for posting_capture
     posting/native.py               a graph-native application by its stem: its posting read back, the refusals both ways
     posting/capture.py              `posting_capture`: an advert fetched or pasted, stored as a draft posting's lines
     posting/decide.py               `posting_decide` and `posting_complete`: rows upserted and checked, then settled
@@ -498,14 +495,13 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     oxigraph/queries.py             the feature reads over a loaded record, as SPARQL
     oxigraph/applications.py        an application's folder and its graphs in career/store/, read and written
   adapters/                         ring 5, outermost: argv parsed, the real ports bound, a use case run, its result printed
-    cli/main.py                     the dispatcher: eight nouns, each verb run in process, the retired names
+    cli/main.py                     the dispatcher: seven nouns, each verb run in process, the retired names
     cli/dispatch.py                 a verb's adapter found (ADAPTERS) and its main() called, contained
     cli/cliutil.py                  one contract for --help and flags across the commands; a finding list printed
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
     cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
     cli/retiring.py                 the file verbs retiring in 6.0: each one's WARN and replacement, said once
     cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
-    cli/posting.py                  `jsk posting`: fetch, extract or build run, what it wrote said
     cli/match.py                    `jsk tailor match`: its flags, the match run and printed, or its assessment built
     cli/tailor.py                   `jsk tailor prepare`: its flags, the digest run and printed section by section
     cli/resume.py                   `jsk resume check`: the gates its target calls for, by its kind
@@ -538,7 +534,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/record.py           a workspace loaded over career/store/ and the engine; a changeset read
     cli/compose/match.py            the match and the selection, each asked of the engine's feature reads
     cli/compose/tailor.py           the tailoring commands' ports bound: the digest's named reads, the short file, the assessment's folder
-    cli/compose/posting.py          `jsk posting`'s board API and file reader; extract and build's folder on disk, decisions.txt read
     cli/compose/resume.py           a resume.json read from disk, its workspace found, its career loaded, its plan built
     cli/compose/render.py           `jsk resume render`'s TeX engine and PDF reader; the posting's employer
     cli/compose/preview.py          `jsk resume preview`'s TeX engine, looked up where a test patches it

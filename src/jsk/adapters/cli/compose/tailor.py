@@ -108,11 +108,11 @@ def drops(post_dir):
     """
     import os
 
-    from ....infra.files import Missing
-    from .posting import read_decisions
+    from ....domain.record.decisions import parse
+    from ....infra.files import Missing, read_text
 
     try:
-        return read_decisions(os.path.join(post_dir, "decisions.txt"), "decisions.txt").drops
+        return parse(read_text(os.path.join(post_dir, "decisions.txt"), "decisions.txt")).drops
     except Missing:
         return []
 

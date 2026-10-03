@@ -18,7 +18,7 @@ from test_resume_check import BODY, GOOD
 JSK = CLI
 
 
-SUBCOMMANDS = ["doctor", "kb", "posting", "tailor", "resume", "letter", "app"]
+SUBCOMMANDS = ["doctor", "kb", "tailor", "resume", "letter", "app"]
 
 
 class Usage(unittest.TestCase):

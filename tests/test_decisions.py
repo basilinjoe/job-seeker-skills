@@ -1,4 +1,7 @@
-"""decisions.txt: the analyst's choices, read before `jsk posting build` writes anything."""
+"""decisions.txt: the analyst's choices for an application made from files. Nothing writes one
+since 6.0 retired `jsk posting build`; a frozen application's is still read, for the advert
+lines it drops (Ruling 2 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md), so its
+format is still pinned here."""
 import unittest
 
 import fixtures  # noqa: F401  (puts src/ on the path)

@@ -30,7 +30,6 @@ against the career. The rendering half carries either to a document somebody can
 jsk doctor                       # what works on this machine
 jsk kb new ./my-career --name "Your Name"  # career/store/ with the career and its log, at r1
 jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
-jsk posting fetch <url> applications/<dir>   # an Ashby, Greenhouse or Lever posting, as posting.md
 jsk tailor match applications/<dir>  # a posting against the career, through the vocabulary
 jsk tailor prepare applications/<dir> --draft-gaps   # the match and everything an assessment reads
 jsk resume check resume.json    # the record gate
@@ -454,62 +453,6 @@ is the one format, and it holds nothing to refresh. A full URS record from befor
 export a short one in its place.
 
 Exit 0 written; 1 refused, with every reason; 2 called wrong.
-
-## `jsk posting`
-
-A posting on a public job board, written as an application's `posting.md` - and then its
-requirements, written into the record as the application's posting graph.
-
-### `jsk posting fetch`
-
-```bash
-jsk posting fetch https://jobs.ashbyhq.com/<org>/<job-uuid> applications/<dir>
-jsk posting fetch https://boards.greenhouse.io/<org>/jobs/<id> applications/<dir>
-jsk posting fetch https://jobs.lever.co/<org>/<id> applications/<dir>
-```
-
-Reads the board's public JSON API - Ashby's job board, Greenhouse's boards API, Lever's
-postings API; no key, no browser - and writes `applications/<dir>/posting.md`, creating the
-directory if it is missing: the URL on line 1, `# <title>`, one line of the facts the board
-states (company, department and team, locations, workplace, employment type, `Published
-YYYY-MM-DD`), then the description verbatim. Ashby's `descriptionPlain` is used as it stands;
-HTML is turned into text with the standard library's parser - blocks to paragraphs, `<li>` to
-`- ` lines, entities unescaped - and nothing else is rewritten. Standard library only.
-
-Exit 0 with one line - the path, the title, the character count; 1 refused, with a `fix:` line:
-a URL on none of the three boards (fetch it with a browser tool instead), a job its board does not
-list (it may be closed), a network failure, or a `posting.md` already there - it never overwrites
-one, and it refuses that before touching the network; 2 called wrong.
-
-### `jsk posting extract` and `jsk posting build`
-
-```bash
-jsk posting extract applications/<dir>             # the advert's lines, numbered
-jsk posting build applications/<dir>               # decisions.txt -> the posting graph
-jsk posting build applications/<dir> my.txt --replace
-```
-
-The model decides; code writes the graph. `extract` prints a `decisions.txt` header (company,
-title, URL, a seniority hint from the title, today's date) and every line of `posting.md` a
-requirement could quote, numbered, with its section - `qual` under a heading that names
-requirements, `resp` under responsibilities, `other` for prose and anything else; benefits are
-left out - a flag (`opt` optional, `elig` eligibility) and the concepts whose whole label the line
-holds.
-
-`decisions.txt` is the header, then one `|`-separated row per requirement - `n | slug | asked |
-concepts | need`, `need` blank for the default - or a drop, `n | - | reason`. `build` writes
-the posting graph, `applications/<dir>/posting` in the store, with every `j:quote` the extracted
-line itself, so
-`quote-verbatim` and `advert-uncovered` cannot fail by construction (a dropped line is answered,
-not uncovered). Necessity defaults from the section: a qualification `required`, or `preferred`
-when optional; a responsibility or prose line `implicit`, unless its words say required. It
-refuses - writing nothing - an `asked` not in its line, an unknown or retired concept, a duplicate
-slug or asked term, a `qual` or `resp` line neither used nor dropped, a number the store would rewrite, and an
-existing posting graph without `--replace` (which keeps its posting id, and drops the old posting
-and gaps graphs in the same update that writes the new one). It WARNs past 20 requirements and on a
-responsibility set to `required` without required wording.
-
-Exit 0 written or printed; 1 refused, with a `fix:` line; 2 called wrong.
 
 ## `jsk tailor`
 

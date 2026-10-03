@@ -1,17 +1,19 @@
 """The name of an application's advertisement, and how a posting step refuses."""
 
-# The advertisement as fetched, beside the application's other files. Every posting step
-# finds it by this name, so the name is said once.
+# The advertisement of an application made from files, beside its other files: what marks
+# one as file-made, and what a frozen one's quotes are still checked against (Ruling 2 of
+# docs/superpowers/plans/2026-10-03-retire-file-pipeline.md). Said once.
 POSTING = "posting.md"
 
-# The fallback every fetch failure names: a posting jsk cannot read is still one a browser can.
-BROWSER_FIX = ("fix:  fetch it with a browser tool and write posting.md with the Write "
-               "tool - the advertisement verbatim, the URL on its first line")
+# The fallback every fetch failure names: a posting jsk cannot read is still one a browser
+# can. It said to write posting.md by hand until 6.0, when the file pipeline retired.
+BROWSER_FIX = ("fix:  open it in a browser and capture the advertisement verbatim as text "
+               "(`posting_capture` with text)")
 
 
 class Refused(Exception):
     """A refusal: its message, then the fix line. `problems` is every (message, fix) it
-    holds - several when `jsk posting build` found more than one, since a build that
+    holds - several when a batch of decisions has more than one, since a build that
     stopped at the first cost Schneider's run six builds."""
 
     def __init__(self, message, fix, problems=None):

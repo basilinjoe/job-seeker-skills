@@ -44,7 +44,7 @@ MAPPING = [
 ]
 
 # The commands Ruling 10 leaves as they were.
-UNCHANGED = [["kb", "view"], ["posting", "fetch"], ["tailor", "prepare"], ["doctor"]]
+UNCHANGED = [["kb", "view"], ["tailor", "prepare"], ["doctor"]]
 
 
 def jsk(*argv):

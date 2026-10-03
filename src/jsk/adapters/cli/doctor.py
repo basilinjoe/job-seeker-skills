@@ -105,16 +105,15 @@ def unsent_lines(root, graphs):
         root: the workspace.
         graphs: {graph name: triples} the store holds, as db.read returned them.
     """
-    from ...application.timeline.unsent import file_made_unsent
+    from ...application.timeline.unsent import LAST_FILE_RELEASE, file_made_unsent
     from ...infra.files import application_listing
-    from .retiring import RETIRES_IN
 
     unsent = file_made_unsent(graphs, application_listing(root))
     if not unsent:
         return []
     many = len(unsent) != 1
     return [f"  info  unsent   {len(unsent)} application{'s' if many else ''} made from files "
-            f"{'are' if many else 'is'} not sent, and jsk {RETIRES_IN} no longer finishes "
+            f"{'are' if many else 'is'} not sent, and jsk 6.0 no longer finishes "
             f"{'them' if many else 'it'}",
-            "           `jsk kb check` names each (or the app_list tool): send it with this "
-            "CLI before upgrading, or drop it: `jsk app drop applications/<stem>`"]
+            "           `jsk kb check` names each (or the app_list tool): send it with jsk "
+            f"{LAST_FILE_RELEASE}, or drop it: `jsk app drop applications/<stem>`"]

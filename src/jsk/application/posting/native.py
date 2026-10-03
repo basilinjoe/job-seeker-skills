@@ -4,8 +4,9 @@ graph holds, and the refusals every graph-native use case shares.
 Ruling 11 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md: an
 application is graph-native when its posting graph holds `j:AdvertLine`s, and legacy when
 its posting was built from files (a posting graph without lines, or a posting.md on disk).
-No application is both, so each side refuses the other, naming what the other side uses:
-the use cases here name `jsk posting build`, and the file verbs name the MCP tool (TOOLS).
+No application is both. The use cases here refuse a legacy one with Ruling 5's fix of
+docs/superpowers/plans/2026-10-03-retire-file-pipeline.md - jsk 6.0 retired the file verbs,
+so the fix names the release that still finishes one, or `jsk app drop`.
 Ruling 12: the application is `applications/<stem>`, and nothing here creates its
 directory - the first render does.
 
@@ -25,8 +26,6 @@ from ...domain.posting.errors import POSTING, Refused
 # The MCP tools (Ruling 18's table) a file verb names when it refuses a graph-native
 # application: what does that verb's work for one whose record is all in the store.
 TOOLS = {"jsk tailor match": "assessment_derive",
-         "jsk posting extract": "app_show (part: lines)",
-         "jsk posting build": "posting_decide",
          "jsk tailor match --gaps": "assessment_review",
          "jsk tailor match --draft-gaps": "assessment_derive",
          "jsk tailor prepare --draft-gaps": "assessment_derive"}
@@ -54,6 +53,25 @@ class App:
         return app_graph(self.rel, kind)
 
 
+def dir_stem(app_dir):
+    """post_<this>: the directory's name without a leading date, `-` as `_`.
+
+    It was `jsk posting extract`'s until that verb retired in 6.0; every id an application's
+    graphs carry is made from it, so a frozen file-made application's ids and a new one's are
+    made alike.
+
+    Args:
+        app_dir: the application's directory.
+
+    Returns:
+        The stem.
+    """
+    from ...domain.posting.decide import DATED
+
+    name = DATED.sub("", os.path.basename(os.path.abspath(app_dir))).lower()
+    return re.sub(r"[^a-z0-9]+", "_", name).strip("_")
+
+
 def app_of(root, stem):
     """The App for `applications/<stem>` in the workspace at `root`.
 
@@ -68,8 +86,6 @@ def app_of(root, stem):
     Raises:
         Refused: `stem` is a path, or gives no usable id.
     """
-    from .extract import dir_stem
-
     if not stem or re.search(r"[\\/:]", stem) or stem.strip(".") == "":
         raise Refused(f"{stem!r} is not an application's name",
                       "fix:  name it as applications/<stem> names it - lowercase words "
@@ -116,11 +132,17 @@ def kind(store, app, is_file):
 
 
 def legacy_refusal(app):
-    """The Refused for a graph-native tool asked about an application made from files."""
-    return Refused(f"{app.rel} was made from files (posting.md, decisions.txt, gaps.txt): "
-                   "its record stays on the file path",
-                   f"fix:  `jsk posting build {app.rel}` and `jsk tailor match {app.rel} "
-                   "--gaps` keep working on it; a new posting is a new application")
+    """The Refused for a graph-native tool asked about an application made from files.
+
+    Its fix named `jsk posting build` and `jsk tailor match --gaps` until 6.0 retired them;
+    it is Ruling 5's now (application/timeline/unsent.py), which names the release that
+    still finishes one and the command that sets it aside.
+    """
+    from ..timeline.unsent import note
+
+    _, fix = note(app.stem)
+    return Refused(f"{app.rel} was made from files (posting.md, decisions.txt, gaps.txt), "
+                   "and jsk 6.0 no longer finishes such an application", f"fix:  {fix}")
 
 
 def native_refusal(rel, verb):

@@ -6,16 +6,13 @@ file verb working and prints one WARN on each, used in its file form, naming the
 replaces it; release 6.0 makes each exit 2 through main.py's RETIRED table. The words and
 the verb -> replacement map are here and nowhere else, so P2 turns REPLACEMENTS into RETIRED
 entries rather than collecting them again from a dozen adapters. Ruling 5's note on an
-unsent file-made application is here too, so `app_list`, `jsk doctor` and `jsk kb check`
-say it in one set of words (application/timeline/unsent.py decides which ones they are).
+unsent file-made application is application/timeline/unsent.py's.
 
 It decides only from the arguments: whether `jsk app freeze`'s application was made from
 files needs the store, so adapters/cli/freeze.py and the `app_freeze` tool ask and then
 print warning("jsk app freeze") themselves. It never refuses and never changes an exit code.
 """
 import sys
-
-from ... import __version__
 
 # The release the file verbs leave in. Named once: P2 bumps it with the version.
 RETIRES_IN = "6.0"
@@ -24,9 +21,6 @@ RETIRES_IN = "6.0"
 # with `(jsk mcp)` because a shell user reads the fix too; a target form is named where the
 # CLI keeps one.
 REPLACEMENTS = {
-    "jsk posting fetch": "the posting_capture tool (jsk mcp)",
-    "jsk posting extract": "the app_show tool, part lines (jsk mcp)",
-    "jsk posting build": "the posting_decide and posting_complete tools (jsk mcp)",
     "jsk tailor prepare": "the assessment_derive tool (jsk mcp)",
     "jsk tailor match": "the assessment_derive, assessment_review and assessment_complete "
                         "tools (jsk mcp)",
@@ -94,7 +88,7 @@ def file_form(noun, verb, args):
         The command as REPLACEMENTS names it. `jsk app freeze` is never returned here: its
         file form is a property of the application, which the store says.
     """
-    if noun in ("posting", "tailor"):
+    if noun == "tailor":
         command = f"jsk {noun} {verb}"
         return command if command in REPLACEMENTS else None
     if noun == "kb" and verb == "export" and "--out" in args:
@@ -136,22 +130,3 @@ def warn(command, args):
     """
     print(lines(command), file=sys.stderr if "--json" in args else sys.stdout)
 
-
-# Ruling 5's fix for an application made from files that is not sent. The version is this
-# CLI's, the last line of releases that can still finish one. It named "`jsk kb apply` a
-# changeset retiring its posting" until 2026-10-03, which a changeset cannot do: it writes
-# the career graph alone, and many such applications have no posting graph. `jsk app drop`
-# is the command now (adapters/cli/drop.py).
-def unsent_note(stem):
-    """(what is wrong with `applications/<stem>`, the fix) - an unsent file-made application."""
-    return (f"applications/{stem} was made from files and is not sent; jsk {RETIRES_IN} "
-            "no longer finishes such an application",
-            f"send it with this {__version__.split('.')[0]}.x CLI (jsk {__version__}) before "
-            f"upgrading to {RETIRES_IN}, or drop it: `jsk app drop applications/{stem}`")
-
-
-def unsent_warning(stem):
-    """`jsk kb check`'s WARN line for an unsent file-made application, id first as every
-    finding there starts."""
-    text, fix = unsent_note(stem)
-    return f"file-made-unsent {text}\n        fix: {fix}"

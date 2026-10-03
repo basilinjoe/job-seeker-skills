@@ -128,10 +128,13 @@ class Select(Workspace):
             selection.select(self.root, "resumes/cv", mode="from_match", today=TODAY)
         self.assertIn("ranked", caught.exception.fix)
 
-    def test_a_legacy_application_is_refused_naming_the_file_path(self):
+    def test_a_legacy_application_is_refused_naming_the_release_that_finishes_it(self):
+        # Ruling 5 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: the fix
+        # named `jsk posting build` until 6.0 retired it.
         with self.assertRaises(Refused) as caught:
             selection.select(self.root, "contoso-platform", mode="ranked", today=TODAY)
-        self.assertIn("jsk posting build", caught.exception.fix)
+        self.assertIn("jsk 5.1.0", caught.exception.fix)
+        self.assertIn("`jsk app drop applications/contoso-platform`", caught.exception.fix)
 
     def test_a_sent_application_refuses_every_change(self):
         self.selected(headline="Senior Platform Engineer")

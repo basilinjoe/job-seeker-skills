@@ -100,11 +100,10 @@ def read_file(path):
     name = os.path.basename(path)
     kind = os.path.splitext(name)[1].lower()
     if kind not in FILE_KINDS:
-        raise Refused(f"{name}: a {kind or 'extensionless'} file is not one posting fetch "
+        raise Refused(f"{name}: a {kind or 'extensionless'} file is not one posting_capture "
                       f"reads",
-                      "fix:  save the posting as .docx, .html or .txt and fetch that file, "
-                      "or write posting.md with the Write tool - the advertisement "
-                      "verbatim, `Source: <file name>` on its first line")
+                      "fix:  save the posting as .docx, .html or .txt and capture that file, "
+                      "or capture the advertisement verbatim as text")
     try:
         with open(path, "rb") as fh:
             data = fh.read()
@@ -118,12 +117,12 @@ def read_file(path):
         except ValueError as exc:
             raise Refused(f"{name} is not a Word document this can read ({exc})",
                           "fix:  open it in Word and save it again as .docx, or save it "
-                          "as .txt and fetch that") from None
+                          "as .txt and capture that") from None
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:
         raise Refused(f"{name} is not UTF-8 text",
-                      "fix:  save it again as UTF-8 and fetch it again") from None
+                      "fix:  save it again as UTF-8 and capture it again") from None
     if kind in (".html", ".htm"):
         return "", html_to_text(text)
     return "", text.replace("\r\n", "\n").strip("\n")

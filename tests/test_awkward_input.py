@@ -15,9 +15,11 @@ a traceback.
 
 The record itself is no longer text: once it is in career/store/, kb.ttl and posting.ttl
 are read exactly once, by `jsk kb load` importing a workspace still laid out as files, so
-that is where their four forms are tried (Import). The texts that stay files - posting.md,
-decisions.txt, gaps.txt, a source document, resume.json - are tried against the command
-that reads each, over a workspace whose record is in its store.
+that is where their four forms are tried (Import). The texts that stay files - gaps.txt, a
+source document, resume.json - are tried against the command that reads each, over a
+workspace whose record is in its store. posting.md and decisions.txt left with `jsk posting`
+in 6.0: an advert in a file is read by `posting_capture`, whose four forms are
+tests/test_posting.py's (FromAFile).
 
 Each command runs in a child interpreter, as a person runs it, so that a traceback is
 something the output would show rather than something the test runner would catch.
@@ -32,7 +34,6 @@ from fixtures import AWKWARD, CLI, run, write_awkward
 from storekit import seed
 from test_kb_confirm import QUOTE, SOURCE
 from test_graph_shapes import FIXTURES as GRAPH
-from test_posting_build import ADVERT, HEADER, ROWS
 
 from jsk.infra.oxigraph import db
 
@@ -47,7 +48,6 @@ DUMP = "career/store (dumped)"
 GAPS_TXT = ("fit: poor\neligibility: meets it – based in Pune\n"
             "k8s | partial | one AKS cluster | never on call\n"
             "short: no on-call ownership\nask: Who ran it?\n")
-DECISIONS = HEADER + "\n# the analyst’s rows, one per line the advert asks for\n" + ROWS
 DOCUMENT = SOURCE.replace("# Prior resume", "# Prior résumé")
 SUMMARY = "Architect who builds clinical event platforms – the ones other teams build on."
 TITLE = ('j:title "Platform Engineer"', 'j:title "Platform Engineer – Core"')
@@ -175,47 +175,10 @@ class Import(Forms):
         self.assertIn("Platform Engineer – Core".encode(), found[PLAIN][2][DUMP])
 
 
-# --- jsk posting extract / build ------------------------------------------------------
-
-STEM = "acme-staff-platform"
-
-
-def posting_app(root):
-    return root / "applications" / STEM
-
-
 def graph_workspace(root):
     """The graph fixture with its record in career/store/, as jsk keeps one."""
     shutil.copytree(GRAPH, root, dirs_exist_ok=True)
     seed(root)
-
-
-def with_decisions(root):
-    graph_workspace(root)
-    write_awkward(posting_app(root) / "decisions.txt", DECISIONS, PLAIN)
-
-
-def with_advert(root):
-    graph_workspace(root)
-    write_awkward(posting_app(root) / "posting.md", ADVERT, PLAIN)
-
-
-class Posting(Forms):
-    def test_extract_reads_posting_md(self):
-        self.check(ADVERT, graph_workspace, lambda r: posting_app(r) / "posting.md",
-                   lambda r: ["posting", "extract", posting_app(r)], "posting.md")
-
-    def test_build_reads_posting_md(self):
-        found = self.check(ADVERT, with_decisions, lambda r: posting_app(r) / "posting.md",
-                           lambda r: ["posting", "build", posting_app(r),
-                                      posting_app(r) / "decisions.txt"], "posting.md")
-        self.assertIn(f"applications/{STEM}/posting", graphs(found[PLAIN]))
-
-    def test_build_reads_decisions_txt(self):
-        found = self.check(DECISIONS, with_advert, lambda r: posting_app(r) / "decisions.txt",
-                           lambda r: ["posting", "build", posting_app(r),
-                                      posting_app(r) / "decisions.txt"], "decisions.txt")
-        self.assertIn(f"applications/{STEM}/posting", graphs(found[PLAIN]))
 
 
 # --- jsk match --gaps -----------------------------------------------------------------

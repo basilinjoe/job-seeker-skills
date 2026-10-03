@@ -55,9 +55,6 @@ def unwarned():
 # heavy verbs (render, preview, ship, confirm) are called on a resume.json that is not there:
 # the file form is in the name, and a refusal's exit code is as much a contract as a pass's.
 CALLS = {
-    "jsk posting fetch": ["posting", "fetch", "https://example.com/jobs/1", "{app}"],
-    "jsk posting extract": ["posting", "extract", "{app}"],
-    "jsk posting build": ["posting", "build", "{app}"],
     "jsk tailor prepare": ["tailor", "prepare", "{app}"],
     "jsk tailor match": ["tailor", "match", "{app}"],
     "jsk kb export --out": ["kb", "export", "--from-match", "{app}", "--out",
@@ -119,11 +116,11 @@ class FileVerbs(Workspaces):
                 self.assertEqual((code, out[len(warning):], err), before)
 
     def test_the_warn_says_ruling_1_s_words_and_names_its_replacement(self):
-        text, fix = retiring.warning("jsk posting build")
-        self.assertEqual(text, "jsk posting build serves applications made from files and "
+        text, fix = retiring.warning("jsk tailor match")
+        self.assertEqual(text, "jsk tailor match serves applications made from files and "
                                "retires in 6.0 - finish this application or drop it")
-        self.assertIn("posting_decide", fix)
-        self.assertTrue(retiring.lines("jsk posting build").startswith("WARN  "))
+        self.assertIn("assessment_derive", fix)
+        self.assertTrue(retiring.lines("jsk tailor match").startswith("WARN  "))
 
     def test_a_json_stdout_still_parses_and_the_warn_goes_to_stderr(self):
         root, _ = self.workspace()
@@ -240,7 +237,7 @@ class Unsent(unittest.TestCase):
         code, out, _ = jsk("kb", "check", "--root", self.root)
         self.assertIn("WARN  file-made-unsent applications/contoso-platform was made from "
                       "files and is not sent", out)
-        self.assertIn("send it with this 5.x CLI", out)
+        self.assertIn("send it with jsk 5.1.0", out)
         # It named a changeset until 2026-10-03, which cannot remove an application's graphs.
         self.assertIn("or drop it: `jsk app drop applications/contoso-platform`", out)
         self.assertEqual(out.count("file-made-unsent"), 1, out)
@@ -262,7 +259,7 @@ class Unsent(unittest.TestCase):
         found = served(self.root)("app_list")
         apps = {a["app"]: a for a in found["applications"]}
         self.assertTrue(apps["contoso-platform"]["unsent"])
-        self.assertIn("send it with this 5.x CLI", apps["contoso-platform"]["note"])
+        self.assertIn("send it with jsk 5.1.0", apps["contoso-platform"]["note"])
         self.assertFalse(apps["acme-sent"]["unsent"])
         self.assertFalse(apps["acme-native"]["unsent"])
         self.assertNotIn("notes", apps, "a folder with no record file is no application")

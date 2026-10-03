@@ -147,12 +147,12 @@ def cmd_check(args, flags, root, today):
                     own five.
 
     An application made from files and not sent is a WARN `file-made-unsent`: jsk 6.0 no
-    longer finishes one, so it is sent with this CLI first, or dropped.
+    longer finishes one, so it is sent with jsk 5.1.0, or dropped.
     """
     from ....application.record.check import check
     from ..cliutil import show
     from ..compose.record import load
-    from ..retiring import unsent_warning
+    from ....application.timeline.unsent import warning as unsent_warning
     from ....infra import files
     from ....infra.oxigraph import record as R
     from ....infra.oxigraph.queries import OxigraphQueries

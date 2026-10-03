@@ -1,12 +1,14 @@
-"""`jsk posting fetch`: a public job board's posting, as an application's posting.md.
+"""A public job board's posting, or a file, read as the advert `posting_capture` stores:
+application/posting/fetch.py, which was `jsk posting fetch` until 6.0 retired the verb
+(docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2) and capture kept the reading.
 
 The ElevenLabs run (2026-09-25) fetched its Ashby posting through hand-written curl and
-inline Python, then assembled posting.md by hand. posting.md is the one input every
-requirement quotes, so these tests pin what the command must never do - paraphrase,
-trim, overwrite - and none of them touches the network: fetch_json() is the one call
-that does, and each test hands in its own.
+inline Python, then assembled the advert by hand. The advert is the one input every
+requirement quotes, so these tests pin what the reading must never do - paraphrase, trim -
+and none of them touches the network: fetch_json() is the one call that does, and each test
+hands in its own. That a captured advert is never written over without `replace` is
+tests/test_graph_native_apps.py's (Capture).
 """
-import contextlib
 import io
 import tempfile
 import unittest
@@ -16,9 +18,9 @@ from unittest import mock
 
 import fixtures  # noqa: F401 - puts the worktree's src first on sys.path
 
-from jsk.adapters.cli.compose import posting
+from jsk.application.posting import fetch
 from jsk.domain.posting import errors, html_text, boards
-from jsk.adapters.cli import posting as posting_cli
+from jsk.infra import posting_sources
 
 ASHBY_URL = "https://jobs.ashbyhq.com/elevenlabs/a571b8e4-8176-4e31-aab6-2287ee810236"
 GREENHOUSE_URL = "https://job-boards.greenhouse.io/anthropic/jobs/4461450008"
@@ -137,17 +139,17 @@ class HtmlToText(unittest.TestCase):
             "About\n\nText")
 
 
+def read(url, get):
+    """(title, text) of the advert at `url`, as posting_capture reads it, the board's API
+    answered by `get`."""
+    return fetch.advert(url, fetch.source(url), get=get, read_file=posting_sources.read_file)
+
+
 class Conversion(unittest.TestCase):
-    """The JSON each board returns, to posting.md - through fetch(), with the network
-    replaced."""
+    """The JSON each board returns, to the advert's text - with the network replaced."""
 
     def fetch(self, url, data):
-        with tempfile.TemporaryDirectory() as tmp:
-            app = Path(tmp) / "applications" / "acme"          # created if missing
-            target, title, count = posting.fetch(url, str(app), get=lambda api: data)
-            text = Path(target).read_text(encoding="utf-8")
-        self.assertEqual(count, len(text))
-        return title, text
+        return read(url, lambda api: data)
 
     def test_ashby(self):
         title, text = self.fetch(ASHBY_URL, ASHBY)
@@ -194,55 +196,49 @@ class Conversion(unittest.TestCase):
 
 
 class Refusals(unittest.TestCase):
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmp.cleanup)
-        self.app = Path(self._tmp.name) / "acme"
-
-    def main(self, url, data=None, error=None):
-        """`jsk posting fetch`, its fetch_json replaced by the board's answer."""
+    def read(self, url, data=None, error=None):
+        """The advert at `url`, its fetch_json replaced by the board's answer."""
         def get(api):
             if error:
                 raise error
             return data
-        buf = io.StringIO()
-        with mock.patch.object(posting, "fetch_json", get), contextlib.redirect_stdout(buf):
-            code = posting_cli.main(["fetch", url, str(self.app)])
-        return code, buf.getvalue()
+        return read(url, get)
+
+    def refused(self, url, data=None, error=None):
+        with self.assertRaises(errors.Refused) as caught:
+            self.read(url, data, error)
+        return str(caught.exception), caught.exception.fix
 
     def test_an_unknown_board_is_sent_to_the_browser(self):
-        code, out = self.main("https://careers.example.com/jobs/1", error=AssertionError())
-        self.assertEqual(code, 1, out)
-        self.assertIn("REFUSED - ", out)
-        self.assertIn("fix:  fetch it with a browser tool and write posting.md with the "
-                      "Write tool", out)
-        self.assertFalse(self.app.exists())
+        said, fix = self.refused("https://careers.example.com/jobs/1", error=AssertionError())
+        self.assertIn("is not an Ashby, Greenhouse or Lever posting URL", said)
+        # It said to write posting.md with the Write tool until 6.0: a graph-native
+        # application keeps no posting.md, and the pasted text is what capture takes.
+        self.assertEqual(fix, errors.BROWSER_FIX)
+        self.assertIn("posting_capture", fix)
+        self.assertNotIn("posting.md", fix)
 
     def test_a_job_not_on_the_board_may_be_closed(self):
-        code, out = self.main(ASHBY_URL, {"jobs": [ASHBY["jobs"][0]]})
-        self.assertEqual(code, 1, out)
-        self.assertIn("is not on the ashby board", out)
-        self.assertIn("fix:  the posting may be closed - check the URL in a browser", out)
-        self.assertFalse((self.app / "posting.md").exists())
+        said, fix = self.refused(ASHBY_URL, {"jobs": [ASHBY["jobs"][0]]})
+        self.assertIn("is not on the ashby board", said)
+        self.assertEqual(fix, "fix:  the posting may be closed - check the URL in a browser")
 
     def test_a_404_is_a_posting_not_on_the_board(self):
-        code, out = self.main(GREENHOUSE_URL, error=errors.NotOnBoard("404"))
-        self.assertEqual(code, 1, out)
-        self.assertIn("the posting may be closed", out)
+        _, fix = self.refused(GREENHOUSE_URL, error=errors.NotOnBoard("404"))
+        self.assertIn("the posting may be closed", fix)
 
     def test_a_network_failure_is_refused_with_its_reason(self):
-        code, out = self.main(LEVER_URL, error=errors.Refused(
+        said, fix = self.refused(LEVER_URL, error=errors.Refused(
             "could not read https://api.lever.co/...: timed out", "fix:  try again"))
-        self.assertEqual(code, 1, out)
-        self.assertIn("timed out", out)
-        self.assertIn("fix:", out)
+        self.assertIn("timed out", said)
+        self.assertTrue(fix.startswith("fix:"))
 
     def test_the_real_fetch_turns_a_network_error_into_a_refusal(self):
         import urllib.error
         with mock.patch("urllib.request.urlopen",
                         side_effect=urllib.error.URLError("no route to host")):
             with self.assertRaises(errors.Refused) as caught:
-                posting.fetch_json("https://api.lever.co/v0/postings/x/y")
+                posting_sources.fetch_json("https://api.lever.co/v0/postings/x/y")
         self.assertIn("no route to host", str(caught.exception))
         self.assertTrue(caught.exception.fix.startswith("fix:  "))
 
@@ -251,32 +247,7 @@ class Refusals(unittest.TestCase):
         err = urllib.error.HTTPError("https://x", 404, "Not Found", {}, None)
         with mock.patch("urllib.request.urlopen", side_effect=err):
             with self.assertRaises(errors.NotOnBoard):
-                posting.fetch_json("https://boards-api.greenhouse.io/v1/boards/x/jobs/1")
-
-    def test_an_existing_posting_md_is_never_overwritten_or_fetched_for(self):
-        self.app.mkdir()
-        (self.app / "posting.md").write_text("what was answered\n", encoding="utf-8")
-        code, out = self.main(ASHBY_URL, error=AssertionError("fetched"))
-        self.assertEqual(code, 1, out)
-        self.assertIn("already exists", out)
-        self.assertIn("fix:", out)
-        self.assertEqual((self.app / "posting.md").read_text(encoding="utf-8"),
-                         "what was answered\n")
-
-    def test_success_is_one_line(self):
-        code, out = self.main(ASHBY_URL, ASHBY)
-        self.assertEqual(code, 0, out)
-        [line] = out.splitlines()
-        self.assertIn("posting.md", line)
-        self.assertIn("Forward Deployed Engineer", line)
-        self.assertRegex(line, r"\d+ chars$")
-
-    def test_called_wrong_is_2(self):
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            self.assertEqual(posting_cli.main(["fetch", ASHBY_URL]), 2)
-            self.assertEqual(posting_cli.main(["get", ASHBY_URL, str(self.app)]), 2)
-        self.assertIn("usage: jsk posting fetch", buf.getvalue())
+                posting_sources.fetch_json("https://boards-api.greenhouse.io/v1/boards/x/jobs/1")
 
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -306,26 +277,27 @@ def docx(*paragraphs):
 
 
 class FromAFile(unittest.TestCase):
-    """The Arrow run (2026-09-29) unzipped its .docx with inline Python and typed
-    posting.md back out through the context: 2.5k output tokens, and its apostrophes
-    straightened on the way. A file is read where it is, and extract reads the result."""
+    """The Arrow run (2026-09-29) unzipped its .docx with inline Python and typed the
+    advert back out through the context: 2.5k output tokens, and its apostrophes
+    straightened on the way. A file is read where it is, and its lines are numbered."""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.tmp = Path(self._tmp.name)
-        self.app = self.tmp / "applications" / "acme"
 
     def fetch(self, name, data):
         path = self.tmp / name
         path.write_bytes(data)
-        target, title, count = posting.fetch(str(path), str(self.app))
-        text = Path(target).read_text(encoding="utf-8")
-        self.assertEqual(count, len(text))
-        return title, text
+        return read(str(path), get=None)
+
+    def refused(self, path):
+        with self.assertRaises(errors.Refused) as caught:
+            read(str(path), get=None)
+        return caught.exception
 
     def sections(self, text):
-        """{line text: (section, is an item)} as extract's line step reads posting.md."""
+        """{line text: section} as the advert's lines are numbered."""
         from jsk.domain.posting.advert import advert_lines
         return {x.text: x.section for x in advert_lines(text)}
 
@@ -373,7 +345,6 @@ class FromAFile(unittest.TestCase):
         _, text = self.fetch("advert.txt", b"Platform Engineer\r\n\r\nYou will:\r\n- ship\r\n")
         self.assertEqual(text, "Source: advert.txt\n\n# Platform Engineer\n\n"
                                "You will:\n- ship\n")
-        self.app = self.tmp / "applications" / "other"
         title, text = self.fetch("advert.md", "# Staff Engineer\n\n- Go\n".encode("utf-8"))
         self.assertEqual(title, "Staff Engineer")
         self.assertEqual(text, "Source: advert.md\n\n# Staff Engineer\n\n- Go\n")
@@ -381,36 +352,38 @@ class FromAFile(unittest.TestCase):
     def test_an_unknown_kind_of_file_is_refused_with_its_fix(self):
         path = self.tmp / "posting.pdf"
         path.write_bytes(b"%PDF-1.4")
-        with self.assertRaises(errors.Refused) as caught:
-            posting.fetch(str(path), str(self.app))
-        self.assertIn("a .pdf file is not one posting fetch reads", str(caught.exception))
-        self.assertIn(".docx, .html or .txt", caught.exception.fix)
-        self.assertFalse(self.app.exists())
+        caught = self.refused(path)
+        self.assertIn("a .pdf file is not one posting_capture reads", str(caught))
+        self.assertIn(".docx, .html or .txt", caught.fix)
 
     def test_a_broken_docx_and_a_missing_file_are_refused(self):
         path = self.tmp / "broken.docx"
         path.write_bytes(b"not a zip")
-        with self.assertRaises(errors.Refused) as caught:
-            posting.fetch(str(path), str(self.app))
-        self.assertIn("not a Word document", str(caught.exception))
-        with self.assertRaises(errors.Refused) as caught:
-            posting.fetch(str(self.tmp / "missing.docx"), str(self.app))
-        self.assertIn("neither a posting URL nor a file", str(caught.exception))
-        self.assertFalse(self.app.exists())
+        self.assertIn("not a Word document", str(self.refused(path)))
+        self.assertIn("neither a posting URL nor a file",
+                      str(self.refused(self.tmp / "missing.docx")))
 
-    def test_posting_md_is_never_overwritten_by_a_file(self):
-        self.app.mkdir(parents=True)
-        (self.app / "posting.md").write_text("what was answered\n", encoding="utf-8")
-        with self.assertRaises(errors.Refused) as caught:
-            self.fetch("advert.txt", b"Something else\n")
-        self.assertIn("already exists", str(caught.exception))
-        self.assertEqual((self.app / "posting.md").read_text(encoding="utf-8"),
-                         "what was answered\n")
+    def test_a_bom_or_crlf_reads_as_utf8_does_and_cp1252_is_refused_naming_it(self):
+        # tests/test_awkward_input.py tried posting.md's four forms through `jsk posting
+        # extract` and `build` until 6.0; an advert in a file is read here now.
+        from fixtures import AWKWARD, awkward_bytes
+
+        text = "# Platform Engineer\n\n- Kubernetes – in production\n"
+        plain, *same, cp1252 = AWKWARD
+        expected = self.fetch("advert.md", awkward_bytes(text, plain))
+        for form in same:
+            with self.subTest(form=form):
+                self.assertEqual(self.fetch("advert.md", awkward_bytes(text, form)), expected)
+        path = self.tmp / "advert.md"
+        path.write_bytes(awkward_bytes(text, cp1252))
+        caught = self.refused(path)
+        self.assertIn("advert.md is not UTF-8 text", str(caught))
+        self.assertIn("save it again as UTF-8", caught.fix)
 
     def test_only_urllib_at_import(self):
         import subprocess
         import sys
-        code = ("import sys, jsk.adapters.cli.compose.posting; "
+        code = ("import sys, jsk.application.posting.fetch, jsk.infra.posting_sources; "
                 "print(sorted(m for m in ('zipfile', 'xml.etree.ElementTree') "
                 "if m in sys.modules))")
         out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
