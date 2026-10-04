@@ -36,7 +36,6 @@ from test_graph_shapes import FIXTURES as GRAPH
 
 from jsk.infra.oxigraph import db
 
-MATCH = Path(__file__).parent / "match_fixtures"
 PLAIN, SAME, REFUSED = AWKWARD[0], AWKWARD[1:3], AWKWARD[3]
 # The store, as it is compared: its record dumped, since RocksDB's own files differ from
 # one write of the same record to the next (ids, logs, manifests).
@@ -44,9 +43,6 @@ DUMP = "career/store (dumped)"
 
 # Each authored text carries a character cp1252 writes above 0x7f, or its cp1252 form
 # would be plain ASCII and test nothing: write_awkward refuses one that does not.
-GAPS_TXT = ("fit: poor\neligibility: meets it – based in Pune\n"
-            "k8s | partial | one AKS cluster | never on call\n"
-            "short: no on-call ownership\nask: Who ran it?\n")
 DOCUMENT = SOURCE.replace("# Prior resume", "# Prior résumé")
 SUMMARY = "Architect who builds clinical event platforms – the ones other teams build on."
 TITLE = ('j:title "Platform Engineer"', 'j:title "Platform Engineer – Core"')
@@ -186,7 +182,6 @@ def graph_workspace(root):
 # --- the career_confirm tool ----------------------------------------------------------
 
 DOC = Path("imports") / "prior-resume.md"
-GLOBEX = Path("applications") / "globex-architect" / "resume.json"
 
 
 class KbConfirm(Forms):

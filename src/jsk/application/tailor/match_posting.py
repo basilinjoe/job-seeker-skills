@@ -1,12 +1,11 @@
 """Matching an application's posting against the career, through the vocabulary.
 
-The workspace is loaded and checked, the application's one posting found, and its
-requirements joined with the career into `result`'s plain data - the dict `jsk tailor match
---json` prints and the tests pin (Ruling 5 of the onion design keeps it a dict). It
-prints nothing: adapters/cli/match.py says what it found, and the gaps builds read it.
+The application's one posting is found and its requirements joined with the career into
+`result`'s plain data, the dict the tests pin (Ruling 5 of the onion design keeps it a dict).
+It prints nothing: application/tailor/assessment.py derives an assessment from it, which the
+assessment_derive tool (jsk mcp) returns. `jsk tailor match --json` printed it until 6.0
+retired the file-made pipeline.
 """
-from dataclasses import dataclass
-
 from ...domain.matching import questions as _questions
 from ...domain.matching import rank as _rank
 from ...domain.matching import resolve as _resolve
@@ -16,32 +15,8 @@ from ...domain.naming import app_graph
 from ...domain.record.shapes import curie
 from ...domain.record.state import KB
 
-COVER = 3
 # The top of the Ranking whose bullets are asked about as well as the selection's.
 TOP = 6
-
-
-class MatchStopped(Exception):
-    """A match that could not be made.
-
-    `kind` says why: "blocked" (`detail` is the blocking FAILs' lines, a syntax error
-    first) or "no-posting" (`detail` is the application as it was named).
-    """
-
-    def __init__(self, kind, detail):
-        super().__init__(f"{kind}: {detail}")
-        self.kind = kind
-        self.detail = detail
-
-
-@dataclass(frozen=True)
-class MatchReport:
-    """One match: the result as plain data, and what the gaps builds go on to read."""
-
-    result: dict                # result()'s dict, which --json prints as it is
-    store: object               # the loaded workspace (domain.record.store.Store)
-    post: str                   # the posting's iri
-    rel: str                    # the application's folder relative to the workspace
 
 
 def posting_in(store, rel):
