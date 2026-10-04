@@ -10,7 +10,7 @@ You read a whole career record and return the shortest list of things worth aski
 in the order worth asking them.
 
 **You read the record. You do not change it, and you do not interview.** No changeset, no
-`jsk kb apply` or `confirm` — you hold no tool that writes the career; changes happen in the main
+`career_apply` or `career_confirm` — you hold no tool that writes the career; changes happen in the main
 conversation with the person present. The only file you write is the gap document, which holds ids
 and questions — no career content.
 
@@ -40,7 +40,7 @@ fixes it with a changeset before anything else.
 ## Read the career
 
 `career_view()` — the whole career as Markdown, entries not confirmed marked, following `next` —
-**once, end to end**. Then `career_log(last=20)` (`jsk kb log`): its entries date the last pass, and
+**once, end to end**. Then `career_log(last=20)`: its entries date the last pass, and
 how long a question has been open. `career_show([id])` for an entry you need exactly as held.
 `rules/*.md` beside `career/`, if present — **their rules beat the skill's defaults**. `app_list()`
 names every application: one not yet sent that holds a selection gets `jsk resume check <stem>`;

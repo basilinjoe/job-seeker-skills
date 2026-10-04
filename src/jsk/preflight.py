@@ -77,6 +77,10 @@ INSTALL = {
                            "validates and queries it and the applications. A dependency "
                            "of jsk-resume, so a missing one "
                            "means the install skipped dependencies."},
+    "mcp": {"pip": "jsk-resume",
+            "note": "The SDK `jsk mcp` serves the career through: its tools are the only "
+                    "way to change a career since 6.0. A dependency of jsk-resume, so a "
+                    "missing one means the install skipped dependencies."},
 }
 
 
@@ -179,6 +183,20 @@ class Check:
         self.detail = detail
 
 
+# The two packages jsk-resume requires, and what a machine without each loses.
+#   pyoxigraph: the career is in career/store/, which only it opens. Every render builds from
+#     it, `jsk resume ship` runs the record gate against it before it renders, and `jsk kb`
+#     and `jsk mcp` start there, so without it no resume comes from the career at all.
+#   mcp: since 6.0 `jsk mcp`'s tools are the only way to change a career - the CLI's
+#     `jsk kb apply` and `confirm` went with them - so without the SDK nothing is written.
+DEPENDENCIES = {
+    "pyoxigraph": "cannot open, read or validate the graph record (career/store/): `jsk kb`, "
+                  "`jsk mcp` and every render and record gate cannot start",
+    "mcp": "`jsk mcp` cannot start, so the agents' graph tools are gone and with them every "
+           "way to change the career",
+}
+
+
 def gather(kb_arg=None):
     checks = []
 
@@ -239,16 +257,12 @@ def gather(kb_arg=None):
                  "and fit_pages.py cannot measure its pages, so the parse gate "
                  "and the page budget are both unverifiable"))
 
-    # REQUIRED: the career is in career/store/, which only it opens. Every render builds from
-    # it, `jsk resume ship` runs the record gate against it before it renders, and `jsk kb` and
-    # `jsk mcp` start there, so a machine without the engine cannot
-    # produce a resume from the career at all. It is a dependency of jsk-resume, so a
-    # missing one means the install skipped dependencies. find_spec, not an import -
-    # this module stays standard-library only.
-    checks.append(Check(
-        "pyoxigraph", importlib.util.find_spec("pyoxigraph") is not None, key="pyoxigraph",
-        disables="cannot open, read or validate the graph record (career/store/): `jsk kb`, "
-                 "`jsk mcp` and every render and record gate cannot start"))
+    # REQUIRED, and dependencies of jsk-resume, so a missing one means the install skipped
+    # dependencies (DEPENDENCIES says what each costs). find_spec, not an import - this
+    # module stays standard-library only.
+    for name, disables in DEPENDENCIES.items():
+        checks.append(Check(name, importlib.util.find_spec(name) is not None, key=name,
+                            disables=disables))
 
     kb, problem = resolve_kb(kb_arg)
     if kb and is_store(kb):
@@ -310,46 +324,14 @@ def resolve_kb(kb_arg=None):
 # would be telling someone their toolchain works when it does not.
 #
 # pyoxigraph is required for the same reason: the career is in its store, and every render
-# and the record gate `jsk resume ship` runs read it.
+# and the record gate `jsk resume ship` runs read it. mcp joined them in 6.0, when its tools
+# became the only way to change a career.
 REQUIRED = {"Python", "modules", "renderer package", "gates package", "graph record package",
-            "profile schema", "TeX engine", "pymupdf", "pyoxigraph"}
+            "profile schema", "TeX engine", "pymupdf", "pyoxigraph", "mcp"}
 
 
 def is_required(check):
     return any(check.name.startswith(r) for r in REQUIRED)
-
-
-# What an extra adds and what its absence costs. An extra is never a gap: the CLI does all
-# of its work without one, so a machine without it is as READY as one with it, and the line
-# only says what this install can also do. `mcp` is the SDK `jsk mcp` serves the graph to
-# agents through (P5 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md).
-EXTRAS = {"mcp": ("mcp extra (`jsk mcp`)",
-                  "not installed: `jsk mcp` cannot start, and the agents' graph tools with it. "
-                  "The CLI works without it - pip install 'jsk-resume[mcp]' adds it")}
-
-
-def extras():
-    """[(name, importable, what its absence costs)] for each optional extra. find_spec,
-    not an import: this module stays standard-library only, and the SDK is not loaded to
-    answer whether it is there."""
-    out = []
-    for module, (name, absent) in EXTRAS.items():
-        try:
-            found = importlib.util.find_spec(module) is not None
-        except (ImportError, ValueError):
-            # A half-installed package can raise from find_spec; it is not importable.
-            found = False
-        out.append((name, found, absent))
-    return out
-
-
-def print_extras(found):
-    """Each extra on its own line: `ok` when importable, else `info` and what is lost -
-    never FAIL or gap, so no verdict below changes."""
-    for name, ok, absent in found:
-        print(f"  {'ok  ' if ok else 'info'}  {name}")
-        if not ok:
-            print(f"           {absent}")
 
 
 def verify(tmp):
@@ -427,7 +409,6 @@ def main(argv):
             return 2
 
     checks, kb = gather(kb_arg)
-    found = extras()
     blocked = [c for c in checks if not c.ok and is_required(c)]
     degraded = [c for c in checks if not c.ok and not is_required(c)]
 
@@ -443,7 +424,6 @@ def main(argv):
             "checks": [{"name": c.name, "ok": c.ok, "required": is_required(c),
                         "disables": c.disables} for c in checks],
             "verify": [{"step": s[0], "ok": s[1]} for s in steps],
-            "extras": [{"name": n, "ok": ok, "disables": d} for n, ok, d in found],
         }, indent=2))
         return 1 if blocked or any(not s[1] for s in steps) else 0
 
@@ -457,7 +437,6 @@ def main(argv):
             print(f"           {c.detail}")
         if not c.ok and c.disables:
             print(f"           {c.disables}")
-    print_extras(found)
 
     # Only the gaps something can be installed for. The knowledge base is a gap with
     # no `key` and no install line, so it used to print this heading over nothing -

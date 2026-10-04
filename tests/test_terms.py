@@ -2,8 +2,8 @@
 
 ats-rules.md: recruiters search the ATS by the posting's words, so the title and each
 required term should be on the page as the posting wrote them - and every finding is a
-warning, because a missing term is often a gap, never a word to add. And `jsk kb export
---from-match` retunes the file to the posting: its title as an inferred headline, and a
+warning, because a missing term is often a gap, never a word to add.
+And the posting's selection (application/tailor/export.py) retunes the file to the posting: its title as an inferred headline, and a
 skill it names by an alias shown under that alias."""
 import contextlib
 import io
@@ -50,7 +50,7 @@ class Judge(unittest.TestCase):
     def test_the_title_missing_is_said(self):
         warns = self.warns([], title="Senior Product Manager")
         self.assertTrue(any("'Senior Product Manager' is not on the page" in w
-                            and "--headline" in w for w in warns), warns)
+                            and "the career_confirm tool (jsk mcp)" in w for w in warns), warns)
 
     def test_a_required_term_missing_is_a_warning_not_a_failure(self):
         counts, report = judge(PAGE, "Platform Engineer", [("Kafka", "required", [])])
@@ -193,7 +193,7 @@ class Retuned(unittest.TestCase):
         doc, notes = self.retune("Senior Platform Engineer", [])
         self.assertEqual(doc["headline"], {"text": "Senior Platform Engineer",
                                            "status": "inferred"})
-        self.assertTrue(any("--headline" in n for n in notes), notes)
+        self.assertTrue(any("the career_confirm tool (jsk mcp)" in n for n in notes), notes)
 
     def test_a_title_the_career_already_holds_sets_no_headline(self):
         doc, _ = self.retune("platform engineer", [])

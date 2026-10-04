@@ -194,7 +194,7 @@ def complete(root, stem, *, today, ports):
 
 def near(term):
     """The fix for a concept that is not one: how to find the nearest."""
-    return (f"fix:  `career_query` concepts --near \"{term}\" names the nearest; or leave "
+    return (f"fix:  career_query(\"concepts\", [\"{term}\"]) names the nearest; or leave "
             "the concepts out and let the match report the term")
 
 

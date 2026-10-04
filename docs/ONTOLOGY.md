@@ -5,7 +5,7 @@ one means. Read it to extend the format, write a tool that reads a workspace, or
 a finding fired.
 
 **The definition is code.** [`src/jsk/domain/ontology.py`](../src/jsk/domain/ontology.py) holds
-the format as data. The entry printer (`jsk kb show`) takes its order from those tables, and the
+the format as data. The entry printer (`career_show`) takes its order from those tables, and the
 tier-1 rules are generated from them. This document and the agent-facing
 [`references/kb-format.md`](../plugins/jsk/skills/jsk/references/kb-format.md) describe that
 file. Where either one disagrees with it, the code is right and the document has a defect. The
@@ -42,11 +42,11 @@ from one of them.
 | **One definition** | `ontology.py` is the only place a class or predicate is declared. The printer, the tier-1 validator and the documentation all follow it. It imports only the standard library, so it can be read without pyoxigraph. |
 | **Closed per class** | Each class accepts only the predicates listed for it. An unknown predicate is a FAIL (`closed`), and the finding suggests the nearest valid name. `j:note` is the escape hatch for anything the format has no field for. |
 | **Type comes from the id** | `k:prj_payments` is a Project because of its `prj_` prefix. Writing `a j:Project` is refused (`no-derived`), and the loader adds `rdf:type` itself. Concepts are the exception: `c:` ids carry no class in their shape, so a concept states `a j:Capability`, `j:Domain` or `j:Technology`. |
-| **No blank nodes in the record** | Every node has an id, so every finding can name the thing it is about. The one `[]` allowed is a new bullet inside a changeset, and `jsk kb apply` mints its id. |
+| **No blank nodes in the record** | Every node has an id, so every finding can name the thing it is about. The one `[]` allowed is a new bullet inside a changeset, and `career_apply` mints its id. |
 | **A graph per record** | Each record - the career, the log, each application's posting, gaps and application - is its own named graph in the store, so a finding can say which graph and which entry it concerns. Queries run over the union of all of them. |
 | **Derived data is never written** | Types and the counts-as closure live in the `j:derived` graph, which exists only in memory. The store holds only what a person or `jsk` stated. |
 | **Numbers by value** | The store keeps an integer or decimal by value (`8.40` is `8.4`). A number written in any other spelling is refused rather than changed silently - in a changeset or a dump `jsk kb load` reads (`changeset.numbers_as_kept`) - while the one-time import of `.ttl` files rewrites each one and lists it; a value whose zeros matter is a string. |
-| **Claims carry provenance** | An entry that makes a claim about the person holds `j:provenance`. Changing the claim drops it to `inferred`. Only `jsk kb confirm`, given the person's own answer, raises it back to `confirmed`. |
+| **Claims carry provenance** | An entry that makes a claim about the person holds `j:provenance`. Changing the claim drops it to `inferred`. Only `career_confirm`, given the person's own answer, raises it back to `confirmed`. |
 | **A tag is not evidence** | `Project j:uses` says what a project involved. `Achievement j:shows` says what a bullet proves. Only the second counts as evidence in a verdict. |
 | **Numbers are versioned** | A metric's value lives on a `MetricVersion`. A value that an application already sent never changes; a new value becomes the next version. |
 | **Retire, don't delete** | Every class accepts `j:retired` plus `j:reason`. A retired entry stays in the record, dated and explained, and drops out of matching and rendering. Deletion is only for entries that were wrong and that nothing points at. |
@@ -62,7 +62,7 @@ from one of them.
 | `op:` | `tag:jsk,2026:op#` | Changeset operations; appears in `.trig` changesets only |
 
 The IRIs use the `tag:` scheme (RFC 4151). They are names, not locations, and nothing
-dereferences them. `jsk kb show` and every changeset jsk drafts write the prefix block complete
+dereferences them. `career_show` and every changeset jsk drafts write the prefix block complete
 and in the order `j k c xsd`. Record graphs are named under `tag:jsk,2026:graph/`: `kb`, `log`,
 `applications/<dir>/posting`, and so on.
 
@@ -76,7 +76,7 @@ k:kb   k:person              the two singletons
 
 - The slug is lowercase ASCII words joined by `_`: `[a-z0-9]+(_[a-z0-9]+)*`.
 - An id is never positional. An Achievement whose id ends `_<digits>` is refused, because it
-  says where the bullet sits rather than what it says. `jsk kb apply` mints bullet ids from the
+  says where the bullet sits rather than what it says. `career_apply` mints bullet ids from the
   project and the bullet's content words: `ach_<project>_<two to four words>`.
 - An id is never reused. A retired entry keeps its id for good.
 - An id is defined in exactly one graph (`duplicate-id`).
@@ -128,16 +128,16 @@ career/store/
 
 | Kind | Head class (exactly one) | Sections, in order | Written by |
 |---|---|---|---|
-| `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `jsk kb apply`, `confirm`, `new`, `load` |
-| `log` | none | Log | Every write to the career, in the same update (`apply`, `confirm`, `new`), and the one-time import's one entry (`load`). `jsk app freeze`, `jsk app event` and the application tools add none |
+| `kb` | KB | Identity · Positioning · Work authorization and languages · Vocabulary · Organisations · Roles · Projects · Metrics · Skills · Education · Certifications · Open source · Open questions | `career_apply`, `career_confirm`, `jsk kb new`, `jsk kb load` |
+| `log` | none | Log | Every write to the career, in the same update (`apply`, `confirm`, `new`), and the one-time import's one entry (`load`). `app_freeze`, `app_event` and the application tools add none |
 | `posting` | Posting | Posting · Requirements · Advert lines | `posting_capture`, `posting_decide`, `posting_complete`: the advert's lines and the rows, a batch at a time (until 6.0 also `jsk posting build`, from `decisions.txt`, which a frozen file-made posting's graph still holds the shape of) |
 | `gaps` | Assessment | Assessment · Verdicts · Questions | `assessment_derive`, derived from the match with the review graph folded in |
 | `review` | Review | Review · Rows · Items | `assessment_review`: the analyst's review (what `gaps.txt` held for a file-made application until 6.0) |
 | `resume` | Selection | Selection · Picks | `resume_select` and `resume_update`: an application's selection, or a general resume's (what `resume.json` held until 6.0) |
-| `application` | Application | Application · Timeline | `jsk app freeze`, `jsk app event` |
+| `application` | Application | Application · Timeline | `app_freeze`, `app_event` |
 | `vocabulary` | none | Vocabulary | Shipped with the package |
 
-Sections are how `jsk kb view` groups the career, in this order, and how `jsk kb show` orders
+Sections are how `career_view` groups the career, in this order, and how `career_show` orders
 what it prints. A workspace from before the store held each kind as a `.ttl` file
 (`career/kb.ttl`, `applications/<dir>/posting.ttl`, ...); `jsk kb load .` imports it once.
 
@@ -248,7 +248,7 @@ How to read the tables:
 | `j:provenance` | enum `provenance` | 1 | *only on classes marked "provenance yes"* |
 
 Literal kinds used below: a plain string is `xsd:string`. "(long)" marks prose that may span
-lines, which `jsk kb show` prints as `"""…"""` and never reflows. Year-month values are strings
+lines, which `career_show` prints as `"""…"""` and never reflows. Year-month values are strings
 matching `YYYY` or `YYYY-MM`.
 
 ### 5.1 The career: `kb`
@@ -771,7 +771,7 @@ empty list is no list: the render reads both the same.
 
 #### Application
 
-A submission. `jsk app freeze` writes it, and after that it is never edited.
+A submission. `app_freeze` writes it, and after that it is never edited.
 
 id `k:app_<slug>` · graph application · section Application · provenance no
 
@@ -791,7 +791,7 @@ career has moved on. They are also why a sent metric version is never edited (§
 
 #### Event
 
-Something that happened to an application. `jsk app event` appends these.
+Something that happened to an application. `app_event` appends these.
 
 id `k:evt_<slug>` · graph application · section Timeline · provenance no
 
@@ -943,8 +943,8 @@ The three *counts-as* edges run one way, from narrower to broader:
 - A cycle through counts-as edges is a FAIL (`counts-as-cycle`). So is a `distinct` pair where
   one concept counts as the other through any path (`wall-crossed`).
 - A capability defined in the career with no label and no `isA`/`partOf` matches only its exact
-  id. That is one WARN for all such capabilities together (`concepts-bare`), and `jsk kb query
-  bare` lists them.
+  id. That is one WARN for all such capabilities together (`concepts-bare`), and `career_query("bare")`
+  lists them.
 
 ### 7.5 Narrowing the shipped vocabulary
 
@@ -980,14 +980,14 @@ marked **Resets** on a confirmed entry:
 
 1. the entry drops to `inferred`;
 2. a `q_` question opens about it;
-3. the entry shows up in `jsk kb query unconfirmed` until someone answers the question.
+3. the entry shows up in `career_query("unconfirmed")` until someone answers the question.
 
 The reset predicates are the claim predicates, plus the ones that *place* a claim (`PLACES` in
 `ontology.py`): `organisation`, `position`, `project`, `of`, `cites`, `start`, `end`, `field`,
 `level`, `gradeScheme`, `gradeValue` and `expires`. Moving "led a team of 6" to a different
 role changes what the person confirmed, even though the words stayed the same.
 
-**What raises it.** Only `jsk kb confirm <id> --answer "…"`. The answer is recorded on the log
+**What raises it.** Only `career_confirm`. The answer is recorded on the log
 entry and is the audit trail. An answer that agrees without saying what was agreed to ("yes",
 "ok", "done", "n/a") or that contradicts the claim ("no", "wrong") is a WARN
 (`answer-placeholder`). A changeset may never write `j:confirmed`.
@@ -1010,10 +1010,10 @@ k:met_latency.v2 j:of k:met_latency ; j:baseline 5 ; j:value 0.8 ;
   v1 with no gaps (`version-gap`, WARN).
 - Exactly one version is current, meaning it has no `validUntil` (`metric-open`).
 - **A sent version is frozen.** When a changeset sets `value`, `baseline`, `upper`,
-  `qualifier` or `kind` on a version an application `carriedVersion`, `jsk kb apply` writes the
+  `qualifier` or `kind` on a version an application `carriedVersion`, `career_apply` writes the
   new value to the next version and closes the old one. The new version inherits everything
   except `validFrom`, `validUntil`, `provenance`, `note`, `retired` and `reason`.
-- `jsk kb query stale` lists every application that sent a version which has since been
+- `career_query("stale")` lists every application that sent a version which has since been
   replaced.
 - Ranges and loose numbers: "15-20" is `j:value 15 ; j:upper 20`; "50+" is `j:value 50 ;
   j:qualifier j:at-least`. Two numbers in one sentence are two metrics.
@@ -1186,7 +1186,7 @@ reads, whose fix names the literal the store keeps (`write 8.4`; the decimal `8.
 
 ## 13. Changesets
 
-The career is changed with a TriG file handed to `jsk kb apply`. It contains four reserved
+The career is changed with a TriG changeset passed to `career_apply`. It contains four reserved
 graphs:
 
 | Graph | Effect |
@@ -1212,9 +1212,9 @@ example.
 
 The `log` graph holds one `LogEntry` per write to the career, numbered `k:rev_1`, `k:rev_2`, and
 so on, and the career's header records the revision it is at: `apply`, `confirm` and `new` each
-add one, and the one-time import adds one of its own (`by load`). `jsk app freeze`, `jsk app event` and
-the posting and gaps builds write only an application's graphs and add none. `jsk kb log [--last
-N]` prints it, newest first. Every write puts the change, the new revision and its entry in **one
+add one, and the one-time import adds one of its own (`by load`). `app_freeze`, `app_event` and
+the posting and gaps builds write only an application's graphs and add none. `career_log(last=N)`
+prints it, newest first. Every write puts the change, the new revision and its entry in **one
 update** of the store, so the two cannot disagree. A writing command takes its turn before it
 reads the record, so a writer queued behind another reads, validates and applies to what that one
 left, once it finishes; there is no retry, and a changeset whose ids that write changed is refused

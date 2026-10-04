@@ -1,4 +1,5 @@
-"""`jsk kb export`: the short resume.json an application starts from, out of the career.
+"""The short resume an application starts from, out of the career (`jsk kb export` until 6.0;
+now tailor.short_file and the resume_select tool).
 
 The short file names ids and settings only - what was chosen - so it cannot copy a
 number from an old version or a status the career no longer holds: the render reads both
@@ -6,9 +7,6 @@ from the career. (The URS draft `export.urs` wrote went on 2026-09-25; what it c
 numbers is tests/test_record_gate.py's now.)
 """
 import atexit
-import contextlib
-import io
-import json
 import os
 import shutil
 import tempfile
@@ -18,7 +16,6 @@ from pathlib import Path
 import appkit
 import storekit
 
-from jsk import cli
 from jsk.adapters.cli.compose import tailor
 from jsk.application.tailor import export
 from jsk.adapters.cli.compose import record
@@ -121,15 +118,6 @@ class Workspace(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.root, True)
         shutil.copytree(FIXTURES / "career", os.path.join(self.root, "career"))
 
-    def kb(self, *args):
-        if not os.path.isdir(os.path.join(self.root, "career", "store")):
-            appkit.seed(self.root)
-        out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = cli.main(["jsk", "kb", *args, "--root", self.root])
-        return code, out.getvalue(), err.getvalue()
-
-
 class ShortFile(unittest.TestCase):
     """export.short_file: what an application chose, as ids - the career stays in kb.ttl."""
 
@@ -179,58 +167,46 @@ class ShortFile(unittest.TestCase):
                                       'j:headline "Platform Engineer" ; j:country "AU" ;', 1))
         self.assertEqual(tailor.short_file(s)["region"], "au")
 
+    def test_select_takes_several_ids_in_either_spelling(self):
+        doc = tailor.short_file(store(), select=["prj_identity", "k:ach_events_team"])
+        self.assertEqual(doc["bullets"],
+                         ["ach_events_team", "ach_identity_sso", "ach_identity_events"])
+
     def test_a_bad_select_is_refused(self):
         with self.assertRaises(export.ExportError):
             tailor.short_file(store(), select=["prj_evnts"])
 
 
-class Command(Workspace):
-    def test_stdout_is_the_short_file(self):
-        code, out, _ = self.kb("export")
-        self.assertEqual(code, 0)
-        doc = json.loads(out)
-        self.assertEqual(doc["resume"], 2)
-        self.assertIn("ach_events_latency", doc["bullets"])
+class Selecting(Workspace):
+    """What `jsk kb export` did before 6.0 - draft a short resume from the career, refuse a
+    career that fails, warn of a number no metric holds - as the resume_select tool does it
+    (compose.selection.select, mode ranked). Its flags - --out, --replace, --urs, --refresh,
+    --json-resume, a bare --select - went with the command; test_retired.py pins the refusal."""
 
-    def test_select_takes_several_ids(self):
-        code, out, _ = self.kb("export", "--select", "prj_identity", "k:ach_events_team")
-        self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out)["bullets"],
-                         ["ach_events_team", "ach_identity_sso", "ach_identity_events"])
+    def select(self):
+        import datetime
 
-    def test_out_and_replace_are_retired_naming_resume_select(self):
-        # They wrote resume.json until 6.0 (docs/superpowers/plans/
-        # 2026-10-03-retire-file-pipeline.md, P2); a target's selection is a graph now.
-        path = os.path.join(self.root, "resume.json")
-        for argv in (["--out", path], ["--out", path, "--replace"], ["--replace"]):
-            with self.subTest(argv=argv):
-                code, out, _ = self.kb("export", "--select", "prj_identity", *argv)
-                self.assertEqual(code, 2, out)
-                self.assertIn("was retired in 6.0", out)
-                self.assertIn("resume_select", out)
-        self.assertFalse(os.path.exists(path))
+        from jsk.adapters.cli.compose import selection
 
-    def test_an_unknown_id_exits_1_and_prints_no_file(self):
-        code, out, _ = self.kb("export", "--select", "prj_nope")
-        self.assertEqual(code, 1)
-        self.assertIn("prj_nope", out)
-        self.assertNotIn('"resume": 2', out)
+        if not os.path.isdir(os.path.join(self.root, "career", "store")):
+            appkit.seed(self.root)
+        return selection.select(self.root, "resumes/draft", mode="ranked",
+                                today=datetime.date.today())
 
-    def test_select_with_no_ids_is_a_usage_error(self):
-        code, _, _ = self.kb("export", "--select")
-        self.assertEqual(code, 2)
+    def test_a_ranked_selection_is_the_short_file_of_the_career(self):
+        made = self.select()
+        self.assertEqual(made.doc["resume"], 2)
+        self.assertIn("ach_events_latency", made.doc["bullets"])
+        self.assertEqual(made.target, "resumes/draft/resume")
 
-    def test_another_format_is_a_usage_error(self):
-        code, _, _ = self.kb("export", "--json-resume")
-        self.assertEqual(code, 2)
-
-    def test_a_career_that_fails_is_refused(self):
+    def test_a_career_that_fails_is_refused_and_nothing_is_written(self):
         path = os.path.join(self.root, "career", "kb.ttl")
         text = Path(path).read_text(encoding="utf-8")
         Path(path).write_bytes(text.replace("j:rank 2 ;", "j:rank 0 ;", 1).encode())
-        code, out, _ = self.kb("export")
-        self.assertEqual(code, 1)
-        self.assertIn("REFUSED", out)
+        made = self.select()
+        self.assertIsNone(made.target)
+        self.assertEqual({severity for severity, _, _ in made.findings}, {"FAIL"})
+        self.assertIn("a resume would carry it", made.findings[0][1])
 
     def test_a_number_no_metric_holds_is_a_question_before_anything_is_authored(self):
         """The Everforth author found these one gate at a time, three changesets deep."""
@@ -238,32 +214,8 @@ class Command(Workspace):
         text = Path(path).read_text(encoding="utf-8")
         Path(path).write_bytes(text.replace("a team of 6 engineers",
                                             "a team of 6 engineers across 3 sites", 1).encode())
-        code, out, err = self.kb("export", "--select", "prj_events")
-        self.assertEqual(code, 0, out)
-        self.assertIn("WARN", err)
-        self.assertIn("ach_events_team", err)
-        self.assertIn("'3'", err)
-
-
-class Removed(Workspace):
-    """`--urs` and `--refresh` went with the copy: a short file holds ids, and the next
-    render reads kb.ttl as it stands, so there is nothing to refresh."""
-
-    def test_urs_is_a_usage_error_naming_what_replaced_it(self):
-        code, out, _ = self.kb("export", "--urs")
-        self.assertEqual(code, 2)
-        self.assertIn("--urs", out)
-        self.assertIn("short resume.json", out)
-
-    def test_refresh_is_a_usage_error_naming_what_replaced_it(self):
-        path = os.path.join(self.root, "resume.json")
-        Path(path).write_text('{"urs": "1.0.0"}', encoding="utf-8")
-        code, out, _ = self.kb("export", "--refresh", path)
-        self.assertEqual(code, 2)
-        self.assertIn("--refresh", out)
-        self.assertIn("builds from the career as it stands", out)
-        self.assertEqual(Path(path).read_text(encoding="utf-8"), '{"urs": "1.0.0"}')
-
+        warns = [t for severity, t, _ in self.select().findings if severity == "WARN"]
+        self.assertTrue(any("'3'" in w for w in warns), warns)
 
 
 OPEN_SOURCE = ('k:os_widget j:name "Widget" ; j:url "https://github.com/test/widget" ; '

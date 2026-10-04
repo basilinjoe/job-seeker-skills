@@ -97,7 +97,7 @@ MUTATIONS = {
                           "c:kafka", "keeps its class"),
     "concepts-bare": (KB_FILE, 'c:ai-platform-architecture a j:Capability ; '
                           'j:label "AI platform architecture" .',
-                      "c:ai-platform-architecture a j:Capability .", "k:kb", "jsk kb query bare"),
+                      "c:ai-platform-architecture a j:Capability .", "k:kb", "career_query tool"),
     "quote-verbatim": (POSTING_FILE, 'j:quote "Deep, hands-on K8s experience in production"',
                        'j:quote "Ten years of K8s experience in production"',
                        "k:req_acme_platform_engineer_kubernetes", "the advert's own words"),
@@ -306,7 +306,7 @@ class Findings(unittest.TestCase):
 
 class BareCapabilities(unittest.TestCase):
     """concepts-bare: a capability of kb.ttl's with no label and no place matches only its
-    own id. One finding for the lot; `jsk kb query bare` lists them."""
+    own id. One finding for the lot; `career_query` with `bare` lists them."""
 
     BARE = ('c:ai-platform-architecture a j:Capability ; j:label "AI platform architecture" .\n'
             'c:data-sovereignty a j:Capability ; j:label "data residency" .')

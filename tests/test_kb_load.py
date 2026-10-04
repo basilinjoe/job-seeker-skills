@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import recordkit
 import storekit
 from test_graph_shapes import FIXTURES
 
@@ -105,7 +106,7 @@ class Load(unittest.TestCase):
         self.assertIn("at r3", out)                 # the fixture's r2, and the import's entry
         self.assertNotIn("note", out)
         self.assertEqual(db.dump_text(db.read(self.empty)), db.dump_text(db.read(self.files)))
-        self.assertEqual(self.kb(self.empty, "view"), self.kb(self.files, "view"))
+        self.assertEqual(recordkit.view(self.empty), recordkit.view(self.files))
         self.assertEqual(self.kb(self.empty, "check")[0], 0)
 
     def test_the_import_is_logged_as_one_entry_of_its_own(self):
@@ -117,7 +118,7 @@ class Load(unittest.TestCase):
         s = S.load(self.empty)
         self.assertEqual(record.state(s).kind, "clean")
         self.assertIsNone(record.unrecorded(s.graph(record.KB), s.graph(record.LOG)))
-        code, out = self.kb(self.empty, "log", "--last", "1")
+        code, out = recordkit.log(self.empty, 1)
         self.assertRegex(out, r"^r3  \d{4}-\d\d-\d\d  load     Imported from the files by jsk kb "
                               r"load: 4 graphs, 0 numbers kept by value")
 
@@ -150,7 +151,7 @@ class Load(unittest.TestCase):
         out = self.refused_dump("<tag:jsk,2026:ns#provenance> <tag:jsk,2026:ns#inferred>",
                                 "<tag:jsk,2026:ns#provenance> <tag:jsk,2026:ns#confirmed>")
         self.assertIn("not what its log last recorded", out)
-        self.assertIn("jsk kb apply", out)
+        self.assertIn("career_apply tool", out)
 
     def test_a_dump_whose_number_was_changed_is_refused(self):
         out = self.refused_dump('<tag:jsk,2026:ns#value> 42 .', '<tag:jsk,2026:ns#value> 43 .')
@@ -210,7 +211,7 @@ class Load(unittest.TestCase):
         self.assertEqual(self.kb(self.files, "load", self.files)[0], 0)
         code, out = self.kb(self.empty, "load", os.path.join(self.files, record.BACKUP))
         self.assertEqual(code, 0, out)
-        self.assertEqual(self.kb(self.empty, "view"), self.kb(self.files, "view"))
+        self.assertEqual(recordkit.view(self.empty), recordkit.view(self.files))
 
     def test_a_dump_to_stdout_is_what_the_store_holds(self):
         self.assertEqual(self.kb(self.files, "load", self.files)[0], 0)

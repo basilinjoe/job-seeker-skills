@@ -38,7 +38,7 @@ def confirm_hint(key, target=None):
     if target is not None:
         return (f'confirm it with `career_confirm` (target "{target}", block "{key}") and '
                 "the person's own answer")
-    return (f'confirm it with `jsk kb confirm --{key} <stem> --answer "their words"`, or '
+    return (f'confirm it with the career_confirm tool (jsk mcp), or '
             "`career_confirm` with the target and the block")
 
 
@@ -62,7 +62,7 @@ def unearned(summary, key="summary", target=None):
 
     Flipping the status by hand confirmed a summary with no answer and no audit, and a
     later edit to the text kept it confirmed: the answer and the text's hash are what
-    only `jsk kb confirm --summary` (or `--headline`) writes, and a changed text drops out
+    only the career_confirm tool (jsk mcp) writes, and a changed text drops out
     of confirmed as a changed claim does in the career."""
     from ..record.rules import DENIAL, PLACEHOLDER
 
@@ -228,5 +228,5 @@ def renamed(doc, career, known):
         if name not in allowed:
             out.append(f"names: {ident} renders as {name!r}, which is neither its name nor an "
                        f"alias ({', '.join(repr(a) for a in allowed if a)}) - add the alias "
-                       "to the skill with `jsk kb apply` first")
+                       "to the skill with the career_apply tool (jsk mcp) first")
     return out

@@ -29,8 +29,7 @@ class UnloadedWorkspace(unittest.TestCase):
 
     def test_a_command_given_a_path_in_it_is_refused_with_kb_load(self):
         for args in (("resume", "check", self.root / "applications" / "contoso"),
-                     ("app", "event", self.root / "applications" / "contoso", "offer",
-                      "--date", "2026-10-01")):
+                     ("app", "drop", self.root / "applications" / "contoso", "--dry-run")):
             with self.subTest(args=args[0]):
                 code, out = self.jsk(*args)
                 self.assertEqual(code, 1, out)

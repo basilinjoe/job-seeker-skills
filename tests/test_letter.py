@@ -147,7 +147,7 @@ class Numbers(LetterCase):
         code, out = self.check(CLEAN, record=False)
         self.assertEqual(code, 1, out)
         self.assertIn("numbers-skipped letter - SKIPPED", out)
-        self.assertIn("against: nothing - no --record", out)
+        self.assertIn("against: nothing - no record", out)
 
 
 class Length(LetterCase):
@@ -222,15 +222,18 @@ class Files(LetterCase):
     def test_a_missing_letter_is_called_wrong(self):
         self.assertEqual(run("nowhere.txt")[0], 2)
 
-    def test_jsk_letter_check_runs_it(self):
+    def test_the_letter_check_tool_runs_it(self):
+        """What the letter_check tool calls (recordkit.letter), over a target's selection.
+        `jsk letter check` is retired and exits 2 naming the tool (tests/test_retired.py)."""
+        import recordkit
+
         record = self.workspace()
+        root = next(str(p) for p in Path(record).parents if (p / "career").is_dir())
         target = Path(record).with_name("cover-letter.txt")
         target.write_text(CLEAN, encoding="utf-8")
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "letter", "check", str(target), "--record", record])
-        self.assertEqual(code, 0, out.getvalue())
-        self.assertIn("PASS - fit to send", out.getvalue())
+        code, out = recordkit.letter(str(target), record, root)
+        self.assertEqual(code, 0, out)
+        self.assertIn("PASS - fit to send", out)
 
     def test_the_default_check_never_runs_it(self):
         self.assertNotIn("letter", [gate[0] for gate in cli.CHECK_GATES])

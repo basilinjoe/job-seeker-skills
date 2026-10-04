@@ -81,7 +81,7 @@ in `plan.py`, never in an emitter.
 
 **A model writes only decisions; code writes every graph.** A new application is graph-native: agents send their
 decisions to `jsk mcp` tools (`posting_capture` → `posting_decide` → `posting_complete` → `assessment_derive` →
-`assessment_review` → `assessment_complete` → `resume_select`/`resume_update` → `resume_ship` → `jsk app freeze`),
+`assessment_review` → `assessment_complete` → `resume_select`/`resume_update` → `resume_ship` → `app_freeze`),
 and code writes and checks every triple:
 - every quote is a stored line of the advert;
 - a verdict can only be lowered from the match's, never raised.
@@ -95,10 +95,12 @@ form by its own verb's adapter (`application/guards.resume_json_refusal`). A fro
 readable - `domain/record/advert_rules.py` checks its quotes against its `posting.md` - and an unsent one is named by
 `jsk kb check`, `app_list` and `jsk doctor` (`application/timeline/unsent.py`).
 
-**One write gate for the record.** Every career change goes through `jsk kb apply` changesets:
-validate → write → log. Writes land in `infra/oxigraph/record.py` and storage is in `infra/oxigraph/db.py`.
+**One write gate for the record.** Every career change goes through the `career_apply` and `career_confirm`
+tools (`jsk mcp`; 6.0 retired `jsk kb apply` and `confirm`), over one validate → write → log path. Writes land in
+`infra/oxigraph/record.py` and storage is in `infra/oxigraph/db.py`.
 `tests/test_db.py` fails if a second module opens or writes the store. New claims always arrive `j:inferred`, and only
-`jsk kb confirm` with the person's answer can raise them.
+`career_confirm` with the person's answer can raise them. `jsk kb pack` and `merge` draft changesets that are
+applied by passing their text to `career_preview`, then `career_apply`.
 
 **The format lives in two places.** `src/jsk/domain/ontology.py` *is* the record format. Its prose is in
 `plugins/jsk/skills/jsk/references/kb-format.md` and `docs/ONTOLOGY.md`. A class or predicate that appears in one and
@@ -147,9 +149,11 @@ files under `src/`. Outside `src/`:
     field needs a format revision and a migration.
 
   A retired command or flag exits 2 and names its replacement. It never gets a silent shim.
-- **Dependencies:** pyoxigraph is the only required one, pinned to one minor version because the store's on-disk
-  format follows it. It is imported inside functions, so `jsk doctor` and `preflight.py` stay standard-library only.
-  Everything else is optional and imported where it is used. Lazy imports (`PLC0415`) are deliberate.
+- **Dependencies:** two are required. pyoxigraph is pinned to one minor version because the store's on-disk
+  format follows it. `mcp` (the SDK behind `jsk mcp`) became required in 6.0, because its tools are the only way to
+  change a career; it is imported only inside `adapters/mcp`, and `jsk doctor` checks it like pyoxigraph. Both are
+  imported inside functions, so `jsk doctor` and `preflight.py` stay standard-library only. Everything else is
+  optional and imported where it is used. Lazy imports (`PLC0415`) are deliberate.
 - **Ruff** covers only `E,F,W,B,BLE`, with line length 100. Every `noqa: BLE001` states on its own line why nothing
   narrower will do.
 - **A failing test after a refactor means the refactor is wrong.** Don't edit a test to fit new behaviour unless that

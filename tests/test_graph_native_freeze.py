@@ -1,27 +1,26 @@
 """Freezing and letter-checking a graph-native application: P5 of
 docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md.
 
-The rules pinned: `jsk app freeze` on a graph-native application reads its record from the
+The rules pinned: app_freeze (`jsk app freeze` until 6.0) on a graph-native application reads its record from the
 stored selection, never a resume.json (Ruling 11), and its `recordSha256` is the SHA-256 of
 the selection's canonical text (Ruling 7); it renames the directory to the day it was sent
 and moves the posting, review, gaps and resume graphs with the application graph, so all
 five sit under the new name and none under the old (Ruling 10); afterwards the selection and
 the posting refuse every change and a re-ship into the frozen directory is refused - a
-held-back freeze (`--submitted false`) as much as a sent one, saying it was not sent; a
-graph-native application with no selection is refused naming `resume_select`; and `jsk
-letter check --record <stem>` traces a letter's numbers through the stored selection and
+held-back freeze (`submitted` false) as much as a sent one, saying it was not sent; a
+graph-native application with no selection is refused naming `resume_select`; and letter_check
+(`jsk letter check --record <stem>` until 6.0) traces a letter's numbers through the stored selection and
 reads its quotes from the stored advert lines, failing a number the career cannot back as it
 does for a resume.json.
 """
-import contextlib
 import hashlib
-import io
 import os
 import unittest
 from pathlib import Path
 from unittest import mock
 
 import appkit
+import recordkit
 import shipkit
 from jsk.adapters.cli.compose import native, selection
 from jsk.domain.posting.errors import Refused
@@ -48,16 +47,6 @@ class Frozen(Workspace):
         os.chdir(self.root)
         self.addCleanup(os.chdir, cwd)
 
-    def jsk(self, *args):
-        from jsk import cli
-        from jsk.adapters.cli.compose import render
-
-        buf = io.StringIO()
-        with mock.patch.object(render, "compile_pdf", shipkit.fake_compile()), \
-                contextlib.redirect_stdout(buf):
-            code = cli.main(["jsk", *map(str, args)])
-        return code, buf.getvalue()
-
     def shipped(self):
         from jsk.adapters.cli.compose import render
 
@@ -72,8 +61,7 @@ class Frozen(Workspace):
         self.assertTrue(list(self.app.glob("*.pdf")))
 
     def freeze(self, app=None):
-        return self.jsk("app", "freeze", app or self.app, "--submitted", SENT,
-                        "--channel", "Workday portal")
+        return recordkit.freeze(self.root, app or self.app, SENT, "Workday portal")
 
     @property
     def sent(self):
@@ -130,14 +118,13 @@ class Freeze(Frozen):
             self.assertIn(f"was sent on {SENT}", str(caught.exception))
 
     def test_a_held_back_freeze_refuses_every_change_and_says_it_was_not_sent(self):
-        """`--submitted false` freezes without sending: the guards keyed on the day it was
+        """`submitted` false freezes without sending: the guards keyed on the day it was
         sent let every tool keep writing under the record that froze it (2026-10-02)."""
         from jsk.adapters.cli.compose import render
         from jsk.application.record.refusals import Refused as ConfirmRefused
 
         self.shipped()
-        code, out = self.jsk("app", "freeze", self.app, "--submitted", "false",
-                             "--channel", "held back")
+        code, out = recordkit.freeze(self.root, self.app, "false", "held back")
         self.assertEqual(code, 0, out)
         self.assertTrue(self.app.is_dir(), "a held-back freeze keeps its name")
         names = [f"applications/{STEM}/{kind}" for kind in KINDS]
@@ -225,7 +212,7 @@ class Letter(Frozen):
 
     def test_a_clean_letter_passes_against_a_graph_native_application(self):
         self.selected()
-        code, out = self.jsk("letter", "check", self.letter(CLEAN_LETTER), "--record", STEM)
+        code, out = recordkit.letter(str(self.letter(CLEAN_LETTER)), STEM, self.root)
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - fit to send", out)
         self.assertIn(f"against: applications/{STEM}/resume", out)
@@ -233,7 +220,7 @@ class Letter(Frozen):
     def test_a_number_the_career_cannot_back_fails_as_it_does_for_a_file(self):
         self.selected()
         text = CLEAN_LETTER.replace("in detail.", "in detail, including 9137 tenants.")
-        code, out = self.jsk("letter", "check", self.letter(text), "--record", STEM)
+        code, out = recordkit.letter(str(self.letter(text)), STEM, self.root)
         self.assertEqual(code, 1, out)
         self.assertIn("'9137'", out)
         self.assertIn("DO NOT SEND", out)
@@ -253,7 +240,7 @@ class Letter(Frozen):
 
     def test_an_application_with_no_selection_is_refused_naming_the_tool(self):
         self.analysed()
-        code, out = self.jsk("letter", "check", self.letter(CLEAN_LETTER), "--record", STEM)
+        code, out = recordkit.letter(str(self.letter(CLEAN_LETTER)), STEM, self.root)
         self.assertEqual(code, 2, out)
         self.assertIn("resume_select", out)
 

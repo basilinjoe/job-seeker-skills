@@ -1,4 +1,4 @@
-"""Where a workspace's record is, and why it is not there when it is not: `jsk kb path`.
+"""Where a workspace's record is, and why it is not there when it is not: `jsk doctor`.
 
 It needs nothing but the folders - no store is opened, and pyoxigraph is not imported.
 """

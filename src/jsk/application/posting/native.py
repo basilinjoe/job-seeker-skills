@@ -246,7 +246,7 @@ REUSE = "fix:  capture the posting again under a new stem (`posting_capture`) to
 
 def refuse_if_frozen(app, store, ports):
     """Refuse a change to a frozen application before anything is built: one sent, or one
-    `jsk app freeze --submitted false` held back.
+    the app_freeze tool (jsk mcp) held back.
 
     The test is the one `resume_ship` makes (application.guards.frozen_refusal): the
     application graph exists. Keyed on the day it was sent alone, a held-back freeze kept

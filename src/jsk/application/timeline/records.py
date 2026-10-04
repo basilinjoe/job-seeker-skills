@@ -1,6 +1,6 @@
-"""An application's record graphs: what `jsk app freeze` writes, and what a sent application keeps.
+"""An application's record graphs: what the app_freeze tool (jsk mcp) writes, and what a sent application keeps.
 
-Two tests, both here so that no command writes its own. `frozen`: `jsk app freeze` has run,
+Two tests, both here so that no command writes its own. `frozen`: the app_freeze tool (jsk mcp) has run,
 so the documents and resume.json in the directory are what went out - a render or a
 confirm must not touch them. `sent_day`: the application's record holds the day it was
 sent, so the posting it answered and the assessment of it are what they said then. A
@@ -164,8 +164,8 @@ def refuse_if_sent(app_dir, name, store=None, graph=False, *, records):
 
 def write_app_graphs(app_dir, graphs, store=None, *, records):
     """Replace the application's graphs in its workspace's store, in one update. The posting
-    and the assessment come through here; the application graph is `jsk app freeze`'s and
-    `jsk app event`'s, which write to a sent application, and does not.
+    and the assessment come through here; the application graph is the app_freeze tool (jsk mcp)'s and
+    the app_event tool (jsk mcp)'s, which write to a sent application, and does not.
 
     Args:
         app_dir: the application directory.
@@ -234,7 +234,7 @@ def remove_app_file(app_dir, name, store=None, *, records):
 
 
 def sent_versions(queries, bullets):
-    """The current version of each metric the bullets cite - what `jsk kb query stale`
+    """The current version of each metric the bullets cite - what the career_query tool (jsk mcp)
     compares against when a metric is later revised.
 
     Args:
@@ -327,11 +327,11 @@ def write_application(root, app_dir, view, submitted, channel, documents, record
 
     store = load(root)
     # Asked again here, inside the turn: another freeze of this application may have
-    # landed since `jsk app freeze` asked, while this one waited.
+    # landed since the app_freeze tool (jsk mcp) asked, while this one waited.
     held = frozen(app_dir, store, records=records)
     if held:
         return None, [f"{held} already exists. A frozen application is never re-frozen.",
-                      "Later events are `jsk app event`, one each."]
+                      "Later events are the app_event tool (jsk mcp), one each."]
     rel = records.file_name(os.path.abspath(app_dir), store.root)
     posting, stem = posting_of(store, rel)
     if posting is None:

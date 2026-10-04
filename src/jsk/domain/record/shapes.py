@@ -147,7 +147,7 @@ def shipped_vocabulary(add, s, preds):
     for t in preds.get(O.RDF_TYPE, []):
         if t.value != O.J + "Technology":
             add("shipped-vocabulary", FAIL, s, f"the shipped vocabulary is technologies only, "
-                f"not {curie(t.value)}", "move it into the career, with `jsk kb apply`")
+                f"not {curie(t.value)}", "move it into the career, with the career_apply tool (jsk mcp)")
     for name in ("implies", "unlabel", "unlink"):
         if O.J + name in preds:
             add("shipped-vocabulary", FAIL, s, f"j:{name} does not belong in the shipped vocabulary",

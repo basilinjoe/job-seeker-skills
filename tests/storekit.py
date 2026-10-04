@@ -182,6 +182,48 @@ class Workspace(unittest.TestCase):
             code = cli.main(["jsk", "kb", *args, "--root", self.root])
         return code, out.getvalue()
 
+    # The record's reads and writes, as the career_* tools make them (recordkit): the
+    # `jsk kb apply|confirm|show|view|query|log` verbs were retired in 6.0.
+
+    def apply(self, path, dry_run=False, today=None):
+        """What career_apply (career_preview with `dry_run`) says of the changeset file at
+        `path`, read as UTF-8 text: (exit code, output)."""
+        import recordkit
+
+        self.seed()
+        with open(path, encoding="utf-8") as f:
+            return recordkit.apply(self.root, f.read(), dry_run=dry_run, today=today)
+
+    def confirm(self, *ids, **kw):
+        import recordkit
+
+        self.seed()
+        return recordkit.confirm(self.root, ids, **kw)
+
+    def show(self, *ids, **kw):
+        import recordkit
+
+        self.seed()
+        return recordkit.show(self.root, ids, **kw)
+
+    def view(self, section=None):
+        import recordkit
+
+        self.seed()
+        return recordkit.view(self.root, section)
+
+    def query(self, name, *args, **kw):
+        import recordkit
+
+        self.seed()
+        return recordkit.query(self.root, name, *args, **kw)
+
+    def log(self, last=10):
+        import recordkit
+
+        self.seed()
+        return recordkit.log(self.root, last)
+
     def loaded(self):
         from jsk.adapters.cli.compose import record as S
 

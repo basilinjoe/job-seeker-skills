@@ -461,12 +461,13 @@ class ExperienceQuery(unittest.TestCase):
     concept, an overlap counted once - 61 months of Kubernetes, so the
     clean summary's "5 years" passes and S8's "8 years" warns."""
 
-    def test_kb_query_experience_counts_overlaps_once(self):
+    def test_the_experience_query_counts_overlaps_once(self):
         tmp = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, tmp, True)
         root, _ = careerkit.workspace(tmp)
-        code, out = run_cli("kb", "query", "experience", "c:kubernetes", "--json",
-                            "--root", root)
+        import recordkit
+
+        code, out = recordkit.query(root, "experience", "c:kubernetes", json=True)
         self.assertEqual(code, 0, out)
         rows = json.loads(out)
         self.assertEqual([r["project"] for r in rows[:-1]], ["k:prj_data", "k:prj_events"])

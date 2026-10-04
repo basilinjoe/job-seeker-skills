@@ -1,21 +1,21 @@
 r"""jsk: the career record, and the rendering and verification toolchain behind it.
 
 The career lives in one validated graph store, `career/store/`, with its log beside it
-in the same store. It is changed only through `jsk kb apply` - a changeset merged,
-validated and logged - and read with `jsk kb show`, `jsk kb view` and `jsk kb query`.
+in the same store. It is changed only through the career_apply tool (jsk mcp) - a changeset
+merged, validated and logged - and read with the career_show, career_view and career_query
+tools.
 Each resume is built from it and a selection - the bullets chosen for a posting, as ids,
 and a summary, kept in the store as an application's or a general resume's graph - and
 carried to a document somebody can send:
 
     career/store/  +  a target's selection     ->  .tex -> .pdf   (the deliverable)
-      jsk kb apply      resume_select (jsk mcp),     \-> plain text (in memory: the
-                        then ordered                     parse and terms gates read it)
+      career_apply (jsk mcp)   resume_select (jsk mcp),     \-> plain text (in memory: the
+                               then ordered                     parse and terms gates read it)
 
     jsk doctor                       what works on this machine
     jsk kb new PATH --name NAME      scaffold career/store/ - the career and its log at
                                      r1 - and applications/
-    jsk kb VERB [...]                the career record: apply, confirm, show, view, query,
-                                     export, check
+    jsk kb VERB [...]                the career record: check, load, dump, pack, merge
     jsk resume check TARGET          the record gate: is the selection sound? TARGET is an
                                      application's <stem>, or resumes/<name>
     jsk resume render TARGET         its selection to a .tex (a PDF too with --pdf)
@@ -24,10 +24,10 @@ carried to a document somebody can send:
     jsk resume check DIR             the record, parse and prose gates over one render
     jsk resume fit TEX --target-pages  fit a render to a page budget
     jsk resume ship TARGET           validate, render and gate, in one pass
-    jsk app freeze APP ...           archive a sent application: its record, in the store
-    jsk app event APP KIND           add a screen, an offer, a rejection to one
-    jsk mcp                          the career and graph-native applications as MCP tools,
-                                     the plugin's agents' only way in (the `mcp` extra)
+    jsk app drop APP                 set an unsent application aside
+    jsk mcp                          the career and graph-native applications as MCP tools
+                                     (career_*, app_*, resume_*, letter_check), the plugin's
+                                     agents' only way in
 
 `jsk resume check` checks a selection before anything renders - every id it names is live
 in the career, and every number in a bullet it selects traces to a current version of a metric

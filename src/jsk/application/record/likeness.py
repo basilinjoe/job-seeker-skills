@@ -1,6 +1,6 @@
 """Live projects that look like one another, or like what some words describe.
 
-`jsk kb query similar` and `duplicates` (registered in application/record/queries.py): the
+the career_query tool (jsk mcp) and `duplicates` (registered in application/record/queries.py): the
 candidates a person judges when one project may have been told twice, scored on the content
 words and the concepts the projects share.
 """

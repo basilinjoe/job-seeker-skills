@@ -83,7 +83,7 @@ Only once every gate has passed.
 
 It re-runs the gates and refuses on a failure, or if the application is already frozen. It stores
 the application: the posting, date, channel, documents, the selection's hash, the bullets that
-rendered and the metric versions they cite — so `jsk kb query stale` can later name an application
+rendered and the metric versions they cite — so `career_query(name="stale")` can later name an application
 that sent a number since revised — and a `submitted` event. It renames the directory to the
 submitted date, moving its graphs in the same write — **use `renamed_to` from here on**. Then:
 

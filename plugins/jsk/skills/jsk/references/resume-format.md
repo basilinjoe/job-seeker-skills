@@ -39,10 +39,9 @@ it.
 For one render, `resume_ship`'s `ats_max` overrides `format`.
 
 **The summary and the headline are the only prose in it.** A reworded bullet goes into the career first
-(`career_apply`, as `jsk kb apply`) and is named here by its id; an unknown key fails.
+(`career_apply`) and is named here by its id; an unknown key fails.
 `resume_update` takes `summary` and `headline` as text, and new text arrives `inferred`. Once the
-person confirms it, `career_confirm(target, block="summary", answer="…")` (`jsk kb confirm
---summary <stem>`) marks it `confirmed` beside their answer and the text's hash; a
+person confirms it, `career_confirm(target, block="summary", answer="…")` marks it `confirmed` beside their answer and the text's hash; a
 hand-set `confirmed`, or text changed since, fails. The headline likewise, `block="headline"`:
 `resume_select` with `from_match` sets it to the posting's title, and the person says whether they
 stand behind it.

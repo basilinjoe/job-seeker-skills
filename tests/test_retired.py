@@ -76,7 +76,7 @@ RETIRED_CALLS = [
     (["kb", "export", "--from-match", "{app}", "--out", "{app}/resume.json"], "resume_select"),
     (["kb", "export", "--ranked", "--out", "{app}/resume.json", "--replace"], "resume_select"),
     (["kb", "confirm", "--summary", "{app}/resume.json", "--answer", "That is my summary."],
-     "jsk kb confirm --summary <stem>"),
+     "career_confirm"),
     (["kb", "confirm", "--headline", "{app}/resume.json", "--answer", "That is my title."],
      "career_confirm"),
     (["resume", "check", "{app}/resume.json"], "jsk resume check <stem>"),
@@ -87,9 +87,8 @@ RETIRED_CALLS = [
     (["resume", "ship", "{app}/resume.json", "--out", "{root}/out"], "jsk resume ship <stem>"),
     (["resume", "check", "{root}", "--record", "{app}/resume.json"], "--record <stem>"),
     (["letter", "check", "{root}/letter.txt", "--record", "{app}/resume.json"],
-     "--record <stem>"),
-    (["app", "freeze", "{app}", "--submitted", TODAY, "--channel", "Workday"],
-     "send it with jsk 5.1.0"),
+     "letter_check"),
+    (["app", "freeze", "{app}", "--submitted", TODAY, "--channel", "Workday"], "app_freeze"),
 ]
 
 
@@ -151,12 +150,94 @@ class Retired(Workspace):
     def test_the_target_forms_print_no_retirement(self):
         # The same verbs on a target, or with no record named, are 6.0's forms.
         for argv in (["resume", "check", "contoso-platform"],
-                     ["letter", "check", "letter.txt", "--record", "contoso-platform"],
                      ["kb", "check", "--root", self.root],
                      ["resume", "render", "--help"]):
             with self.subTest(argv=argv):
                 _, out = jsk(*argv)
                 self.assertNotIn("retired in 6.0", out)
+
+
+# 2026-10-04, docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md: the verbs the MCP
+# tools duplicate went too. Each call is a verb as the skill and the mode files used to run
+# it; the second item is what its refusal must name, and a "{changes}" argument is the
+# changeset file in the workspace.
+RETIRED_VERBS = [
+    (["kb", "apply", "{changes}"], "career_apply"),
+    (["kb", "apply", "{changes}", "--dry-run"], "career_preview"),
+    (["kb", "confirm", "prj_site_onboarding", "--answer", "42 sites, said the person."],
+     "career_confirm"),
+    (["kb", "confirm", "--summary", "contoso-platform", "--answer", "Yes, that is mine."],
+     "career_confirm"),
+    (["kb", "show", "prj_site_onboarding", "--bullets"], "career_show"),
+    (["kb", "view", "--section", "skills"], "career_view"),
+    (["kb", "query", "pipeline", "--json"], "career_query"),
+    (["kb", "log", "--last", "3"], "career_log"),
+    (["kb", "export", "--ranked"], "resume_select"),
+    (["kb", "path"], "jsk doctor"),
+    (["app", "freeze", "contoso-platform", "--submitted", TODAY, "--channel", "Workday"],
+     "app_freeze"),
+    (["app", "event", "contoso-platform", "submitted", "--date", TODAY], "app_event"),
+    (["letter", "check", "letter.txt", "--record", "contoso-platform"], "letter_check"),
+    (["letter"], "letter_check"),
+    (["letter", "--help"], "letter_check"),
+]
+
+
+class RetiredVerbs(Workspace):
+    """Ruling 2 of the retire-duplicated-cli plan: a retired verb exits 2, names its tool,
+    and writes nothing - even where its noun would otherwise hand off to its own adapter."""
+
+    def setUp(self):
+        super().setUp()
+        Path(self.root, "changes.trig").write_text("# a changeset\n", encoding="utf-8")
+
+    def test_each_exits_2_names_its_tool_and_leaves_the_store_as_it_was(self):
+        for argv, names in RETIRED_VERBS:
+            argv = [a.format(changes=os.path.join(self.root, "changes.trig")) for a in argv]
+            with self.subTest(call=" ".join(argv[:2])):
+                before = tree(self.root)
+                code, out = jsk(*argv)
+                self.assertEqual(code, 2, out)
+                self.assertIn(" was retired: in 6.0 - ", out)
+                self.assertIn("fix:  ", out)
+                self.assertIn(names, out)
+                self.assertNotIn("unknown", out)
+                self.assertNotIn("usage: jsk kb", out, "kb prints no usage of its own for one")
+                self.assertEqual(tree(self.root), before, "a retired verb writes nothing")
+
+    def test_a_retired_verb_is_refused_before_the_workspace_is_looked_for(self):
+        # Run from a folder that is no workspace: the refusal is not "no workspace here".
+        elsewhere = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, elsewhere, True)
+        os.chdir(elsewhere)
+        code, out = jsk("kb", "show", "prj_site_onboarding")
+        self.assertEqual(code, 2, out)
+        self.assertIn("career_show", out)
+        self.assertNotIn("no workspace", out)
+
+    def test_the_retired_verbs_are_out_of_the_nouns_and_the_help(self):
+        self.assertEqual(M.KB_VERBS, ("check", "load", "dump", "pack", "merge"))
+        self.assertNotIn("letter", M.NOUNS)
+        self.assertIn("letter", M.RETIRED_NOUNS)
+        self.assertEqual(M.NOUNS["app"].keys(), {"drop"})
+        _, help_text = jsk("--help")
+        for verb in ("kb apply", "kb confirm", "kb show", "kb view", "kb query", "kb log",
+                     "kb export", "kb path", "app freeze", "app event", "letter check"):
+            self.assertNotIn(f"jsk {verb}", help_text)
+        # `kb --help` may say the verbs went, but lists none of them as a verb.
+        _, help_text = jsk("kb", "--help")
+        for verb in ("apply <changeset", "confirm <id>", "show <id>", "view [--section",
+                     "query <name>", "export [--select", "log [--last", "path   "):
+            self.assertNotIn(f"  {verb}", help_text)
+        _, help_text = jsk("app", "--help")
+        self.assertNotIn("  freeze APP", help_text)
+        self.assertNotIn("  event APP", help_text)
+
+    def test_the_verbs_that_stay_still_run(self):
+        # kb check, dump and load are not retired: the refusal must not catch them.
+        code, out = jsk("kb", "check", "--root", self.root)
+        self.assertNotIn("was retired", out)
+        self.assertNotEqual(code, 2, out)
 
 
 def served(root):
@@ -187,7 +268,7 @@ class Tools(Workspace):
                                   record=os.path.join(self.app, "resume.json"))
         fails = [f for f in found["findings"] if f["severity"] == "FAIL"]
         self.assertIn("was retired in 6.0", fails[0]["text"])
-        self.assertIn("--record <stem>", fails[0]["fix"])
+        self.assertIn("record=<stem>", fails[0]["fix"])
         self.assertIsNone(found["verdict"])
 
     def test_app_freeze_on_a_file_made_application_fails_with_ruling_5_s_fix(self):
@@ -302,7 +383,7 @@ class Unsent(unittest.TestCase):
         self.assertEqual(code, 2, out)
         self.assertIn("acme-sent names applications/acme-sent, a frozen application made "
                       "from files: it has no selection to check", out)
-        self.assertIn("`jsk kb show k:post_contoso_platform` or the app_show tool", out)
+        self.assertIn("the career_show tool (jsk mcp) on k:post_contoso_platform or the app_show tool", out)
         self.assertNotIn("not a directory", out)
         code, out = jsk("resume", "check", "contoso-platform")
         self.assertEqual(code, 2, out)

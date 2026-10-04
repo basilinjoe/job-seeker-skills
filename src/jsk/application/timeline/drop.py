@@ -2,7 +2,7 @@
 dropped/.
 
 Ruling 5 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md first said an unsent
-file-made application is dropped by "`jsk kb apply` a changeset retiring its posting". A
+file-made application is dropped by "the career_apply tool (jsk mcp) a changeset retiring its posting". A
 changeset writes only the career graph, never an application's, and many such applications
 have no posting graph at all, so that fix could not be followed (amended 2026-10-03). This is
 the command the fix names now: `jsk app drop`.
@@ -182,8 +182,8 @@ def planned(app_dir, *, load, records, files):
     if held:
         raise DropRefused(f"{rel} is frozen ({held}): a frozen application is an archive of "
                           "what went out, sent or held back, and is never dropped",
-                          f"record what became of it instead: `jsk app event {rel} withdrawn "
-                          "--date YYYY-MM-DD`")
+                          "record what became of it instead: the app_event tool (jsk mcp), "
+                          f'app_event(app="{rel}", kind="withdrawn", date=<YYYY-MM-DD>)')
     graphs = app_graphs(app_dir, store, records=records)
     kinds = [kind for kind in MOVED if kind in graphs]
     folder = os.path.abspath(app_dir)
@@ -191,7 +191,7 @@ def planned(app_dir, *, load, records, files):
     if not kinds and not has_folder:
         raise NotAnApplication(f"{rel} is no application: no folder, and no graph for it in "
                                "career/store/",
-                               "`jsk kb query pipeline` and the app_list tool name the "
+                               "the career_query tool (jsk mcp) and the app_list tool name the "
                                "applications there are")
     removed = tuple(app_graph(rel, kind) for kind in kinds)
     if kinds:

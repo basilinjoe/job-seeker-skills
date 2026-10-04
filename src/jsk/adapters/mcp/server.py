@@ -244,7 +244,7 @@ def career_reads(srv, tools):
                               for e in shown.entries if not e.missing])
         return tools.call("career_show", run)
 
-    @tool("A named query (as `jsk kb query`): rows as JSON, paged by offset and limit. args: "
+    @tool("A named query: rows as JSON, paged by offset and limit. args: "
           "its arguments; for concepts, terms to find the nearest concepts to.")
     def career_query(name: str, args: list[str] | None = None, offset: int = 0,
                      limit: int = QUERY_PAGE) -> dict:

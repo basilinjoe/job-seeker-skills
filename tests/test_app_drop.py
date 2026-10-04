@@ -190,8 +190,9 @@ class FrozenIsRefused(unittest.TestCase):
                 self.assertEqual(code, 1, out)
                 self.assertIn(f"FAIL  applications/{stem} is frozen", out)
                 self.assertIn("a frozen application is an archive", out)
-                self.assertIn(f"fix:  record what became of it instead: `jsk app event "
-                              f"applications/{stem} withdrawn", out)
+                self.assertIn("fix:  record what became of it instead: the app_event tool "
+                              f'(jsk mcp), app_event(app="applications/{stem}", '
+                              'kind="withdrawn"', out)
                 self.assertEqual(snapshot(self.root), before)
                 self.assertFalse((self.root / "dropped").exists())
 

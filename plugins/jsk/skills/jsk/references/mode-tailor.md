@@ -20,7 +20,7 @@ answers             career_apply / confirm  ──►  selection    authored onc
 ```
 
 Every step is a `jsk` tool; every part of the application is a graph in the store. Its stem,
-`<yyyy-mm-dd>-<company>-<role>`, cannot be renamed until `jsk app freeze`; the first render
+`<yyyy-mm-dd>-<company>-<role>`, cannot be renamed until `app_freeze`; the first render
 creates `<workspace>/applications/<stem>/`, for the renders and any cover letter. One made from
 files and unsent (`app_list` marks it) is finished by jsk 5.1.0, or `jsk app drop`.
 
@@ -158,7 +158,7 @@ with `block="headline"`. Shortfalls it returns go into the review (`short`), the
 
 ## 6. Ship
 
-Follow `references/mode-ship.md`: `resume_ship`, the render gate, `jsk app freeze`. A failed gate
+Follow `references/mode-ship.md`: `resume_ship`, the render gate, `app_freeze`. A failed gate
 freezes nothing.
 
 ## 7. Tell them where they fall short

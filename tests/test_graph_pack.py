@@ -64,6 +64,15 @@ class Fixture(unittest.TestCase):
             code = cli.main(["jsk", "kb", *args, "--root", self.root])
         return code, out.getvalue(), err.getvalue()
 
+    def apply(self, path, dry_run=False):
+        """career_apply (career_preview with `dry_run`) on the changeset file at `path`, as
+        `kb` returns a verb's result: (exit code, output, stderr)."""
+        import recordkit
+
+        with open(path, encoding="utf-8") as f:
+            code, out = recordkit.apply(self.root, f.read(), dry_run=dry_run)
+        return code, out, ""
+
     def edit_kb(self, old, new):
         edit_career(self, self.root, old, new)
 
@@ -146,7 +155,7 @@ class InARecord(Fixture):
         text = self.path("pack.trig").read_text(encoding="utf-8")
         self.assertIn("op:changeset op:base 2 ;", text)
         self.assertIn("c:system-design a j:Capability", text)
-        code, out, _ = self.kb("apply", str(self.path("pack.trig")), "--dry-run")
+        code, out, _ = self.apply(str(self.path("pack.trig")), dry_run=True)
         self.assertEqual(code, 0, out)
         self.assertIn("dry run: r3 not written", out)
 
@@ -166,7 +175,7 @@ class InARecord(Fixture):
 
     def test_adopted_once_there_is_nothing_more_to_add(self):
         self.assertEqual(self.pack()[0], 0)
-        code, out, _ = self.kb("apply", str(self.path("pack.trig")))
+        code, out, _ = self.apply(str(self.path("pack.trig")))
         self.assertEqual(code, 0, out)
         self.assertEqual(self.kb("check")[0], 0)
         code, out = self.pack("again.trig")
@@ -196,7 +205,7 @@ class InARecord(Fixture):
         text = self.path("pack.trig").read_text(encoding="utf-8")
         self.assertNotIn("c:mentoring", text)
         self.assertNotIn("c:ai-agents", text)
-        self.assertEqual(self.kb("apply", str(self.path("pack.trig")), "--dry-run")[0], 0)
+        self.assertEqual(self.apply(str(self.path("pack.trig")), dry_run=True)[0], 0)
 
     def test_a_label_that_names_another_concept_is_skipped_and_said(self):
         self.edit_kb("c:healthcare a j:Domain .", "c:healthcare a j:Domain .\n"
@@ -209,7 +218,7 @@ class InARecord(Fixture):
         # An id is a name too: matching reads c:tech-lead as "tech lead".
         self.assertIn("skipped  label 'tech lead' on c:technical-leadership: it already names "
                       "c:tech-lead", out)
-        code, out, _ = self.kb("apply", str(self.path("pack.trig")))
+        code, out, _ = self.apply(str(self.path("pack.trig")))
         self.assertEqual(code, 0, out)
         self.assertEqual([f.text() for f in self.loaded().findings if f.rule == "label-clash"],
                          [])
@@ -222,7 +231,7 @@ class InARecord(Fixture):
         self.assertEqual(code, 0, out)
         self.assertIn("skipped  c:event-driven-architecture j:isA c:distributed-systems:", out)
         self.assertIn("they are distinct", out)
-        code, out, _ = self.kb("apply", str(self.path("pack.trig")))
+        code, out, _ = self.apply(str(self.path("pack.trig")))
         self.assertEqual(code, 0, out)
         self.assertEqual([f.text() for f in self.loaded().findings if f.rule == "wall-crossed"],
                          [])

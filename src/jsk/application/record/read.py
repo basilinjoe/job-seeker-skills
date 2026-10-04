@@ -1,6 +1,6 @@
 """Reading the record: entries by id as Turtle, the whole career as Markdown, the log.
 
-`jsk kb show`, `view` and `log`. Each loads the workspace through the `load` it is given
+the career_show, career_view and career_log tools. Each loads the workspace through the `load` it is given
 (adapters/cli/compose/record.py's) and returns what to print; adapters/cli/kb/read.py prints it.
 """
 import difflib
@@ -40,12 +40,12 @@ def unknown(iri, store):
     """
     near = difflib.get_close_matches(iri, list(store.homes), n=1)
     return (f"{curie(iri)} is not in the record",
-            f"did you mean {curie(near[0])}?" if near else "check the id: `jsk kb view` lists them")
+            f"did you mean {curie(near[0])}?" if near else "check the id: the career_view tool (jsk mcp) lists them")
 
 
 @dataclass(frozen=True)
 class Entry:
-    """One id `jsk kb show` was asked for: why it is missing, or where it is and its text."""
+    """One id the career_show tool (jsk mcp) was asked for: why it is missing, or where it is and its text."""
 
     text: str                   # the id as given
     missing: tuple | None       # (detail, fix) when the record has no such id
@@ -54,7 +54,7 @@ class Entry:
 
 @dataclass(frozen=True)
 class Shown:
-    """What `jsk kb show` found: the revision a changeset's op:base names, and each id."""
+    """What the career_show tool (jsk mcp) found: the revision a changeset's op:base names, and each id."""
 
     log_revision: int | None
     entries: tuple

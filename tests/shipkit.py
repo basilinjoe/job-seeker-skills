@@ -1,4 +1,4 @@
-"""The fixtures `jsk resume ship`, `jsk app freeze` and `jsk app event` are tested on.
+"""The fixtures `jsk resume ship` and the app_freeze and app_event tools are tested on.
 
 ShipCase is a general resume (`resumes/test`), shipped into its own directory with the TeX
 compile faked; GraphCase is graphsim's career in a store with the Contoso application made
@@ -239,7 +239,7 @@ class GraphCase(unittest.TestCase):
         return self.app / "resume"
 
     def edit_career(self, old, new):
-        """The career's words changed in the store, as `jsk kb apply` would change them:
+        """The career's words changed in the store, as the career_apply tool would change them:
         its log's newest entry holding the new career's hash."""
         import storekit
 
@@ -259,9 +259,12 @@ class GraphCase(unittest.TestCase):
             code = cli.main(["jsk", *map(str, args)])
         return code, buf.getvalue()
 
-    def freeze(self, *args, submitted="2026-09-24", channel="Workday portal"):
-        return self.jsk("app", "freeze", self.app, "--submitted", submitted, "--channel", channel,
-                        *args)
+    def freeze(self, *docs, submitted="2026-09-24", channel="Workday portal"):
+        """What the app_freeze tool does (tests/recordkit.py); `docs` name the documents to
+        carry, as the tool's `docs` argument does, or none to list the directory's."""
+        import recordkit
+
+        return recordkit.freeze(self.root, self.app, submitted, channel, list(docs) or None)
 
     @property
     def sent(self):

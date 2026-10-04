@@ -95,7 +95,7 @@ def check(root, only, *, load, state, graph_name, queries, listing=None):
         for line in untraced_lines(store, queries(store)):
             rep.warn(f"a record selecting it fails a gate: {line}\n        fix: record the "
                      "number as a metric version and cite it (j:cites), or correct the words, "
-                     "with `jsk kb apply` - every application selecting it pays this otherwise")
+                     "with the career_apply tool (jsk mcp) - every application selecting it pays this otherwise")
     st = state(store)
     # The one check of the career's hash: only jsk writes the store, and every write it
     # makes to the career logs the hash - so a mismatch is a write from outside. It costs a

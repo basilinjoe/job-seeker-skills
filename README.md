@@ -14,7 +14,7 @@ Five things make it different:
 
 - **The career checks itself.** Every entry has an id and every link is by id, so a bullet citing a
   metric that does not exist, or a role at an employer that is not there, is found the next time
-  anything runs. Changes go in through `jsk kb apply` - validated, written in one step, logged, with
+  anything runs. Changes go in through the `career_apply` tool - validated, written in one step, logged, with
   the diff shown - and nothing can be marked confirmed except by your own answer: a backup edited
   outside jsk is refused when it is loaded back.
 - **Nothing is hand-built.** The PDF and the text the checks read are both built from your knowledge
@@ -36,11 +36,11 @@ Five things make it different:
 The toolchain is a Python package, and the skill drives it:
 
 ```
-pip install 'jsk-resume[all,mcp]'
+pip install 'jsk-resume[all]'
 ```
 
-`mcp` is the extra the plugin needs: since 5.0.0 its agents work through `jsk mcp`, a server the
-plugin starts, rather than by writing files for the CLI to read. Then the plugin:
+`mcp` comes with the package (required since 6.0): the plugin starts `jsk mcp`, and Claude and its
+agents change and read your career through its tools rather than through files or commands. Then the plugin:
 
 ```
 /plugin marketplace add basilinjoe/job-seeker-skills
@@ -75,7 +75,7 @@ Describe what you want and the skill routes there by itself. Or say it directly:
 | `/jsk:braindump` | You have something to say about your work |
 | `/jsk:resume` | You need a resume — one verified PDF |
 | `/jsk:tailor` | You have a specific job posting - a loop that closes the gaps, then writes the resume |
-| `/jsk:ship` | A resume is finished and needs rendering, checking and filing — `resume_ship`, then `jsk app freeze` |
+| `/jsk:ship` | A resume is finished and needs rendering, checking and filing — `resume_ship`, then `app_freeze` |
 | `/jsk:refresh` | Periodic top-up: what changed, what numbers moved |
 | `/jsk:gaps` | Resolve unanswered questions and unverified claims |
 | `/jsk:pipeline` | What to chase this week: what has gone quiet, what is overdue |
@@ -114,21 +114,24 @@ again for a year.
 **6.0.0** retires the file-made applications 5.x still worked (`posting.md`, `decisions.txt`,
 `gaps.txt`, `resume.json`): `jsk posting` and `jsk tailor` are gone, and no command reads a
 `resume.json`. Finish an unsent one with jsk 5.1.0 first, or set it aside with `jsk app drop`;
-`jsk kb check` names each. A frozen one (sent or held back) stays readable.
+`jsk kb check` names each. A frozen one (sent or held back) stays readable. It also retires the
+`jsk` verbs the `jsk mcp` tools duplicate - `jsk kb apply`, `confirm`, `show`, `view`, `query`,
+`log`, `export` and `path`, `jsk app freeze` and `event`, `jsk letter check` - each exiting 2 and
+naming its tool (`docs/SCRIPTS.md` maps them), and makes `mcp` a required dependency.
 
 One record for the career, and a frozen directory per application. The career holds identity,
 positioning, work rights, vocabulary, organisations, roles, projects, metrics, skills, education,
 certifications, open source and the open questions — in fixed sections, in the order the format
 reference ([kb-format.md](plugins/jsk/skills/jsk/references/kb-format.md)) describes.
-`jsk app freeze` records what was sent once the gates pass and names the directory after the day
-it was sent; from then on it is an archive, and `jsk app event` adds what came back.
+`app_freeze` records what was sent once the gates pass and names the directory after the day
+it was sent; from then on it is an archive, and `app_event` adds what came back.
 
 It is a graph - every entry an id, every link between entries by id - because that is what lets a
 program check it on every load, match a posting one way through a vocabulary, keep every version of
 a number, and join a resume back to the career it claims. It lives in a store rather than a text
 file so that every change lands whole, through one gate that validates it and logs every change
 to the career. The cost is real: there is no file to open in an editor and no git history of the
-record. You read it with `jsk kb view` (the whole career as Markdown) and `jsk kb log`, and `jsk kb
+record. You read it through `career_view` (the whole career as Markdown) and `career_log`, and `jsk kb
 dump` writes all of it out as TriG. [Why it works this way](docs/WHY.md) has the whole argument, including what it costs.
 
 Back up the folder and the record goes with it; the dump is what outlives this tool.

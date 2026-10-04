@@ -1,8 +1,8 @@
 # The record: one store, read as Turtle
 
 For reading the career and drafting a changeset. The record is named graphs in one store,
-`career/store/`, that only `jsk` opens: you change it with `jsk kb apply`, and read it with
-`jsk kb show` (entries as Turtle, and the `op:base`), `view`, `query` and `log`.
+`career/store/`, that only `jsk` opens: you change it with the `career_apply` tool, and read it with
+`career_show` (entries as Turtle, and the `op:base`), `career_view`, `career_query` and `career_log`.
 
 ```
 <workspace>/
@@ -17,8 +17,8 @@ For reading the career and drafting a changeset. The record is named graphs in o
 ## Sections
 
 The career's header is `k:kb j:format 3 ; j:name … ; j:updated … ; j:revision N .` (`format`,
-`updated` and `revision` are jsk's to write). `jsk kb view` prints it in these sections, in this
-order; `--section` takes one name:
+`updated` and `revision` are jsk's to write). `career_view` prints it in these sections, in this
+order; its `section` argument takes one name:
 
 ```
 Identity
@@ -36,7 +36,7 @@ Open source
 Open questions
 ```
 
-Bullets sit under their project, versions under their metric. `kb show` prints prose in `"""…"""`.
+Bullets sit under their project, versions under their metric. `career_show` prints prose in `"""…"""`.
 
 ## Ids
 
@@ -81,7 +81,7 @@ project names must exist - in the shipped vocabulary or the career's own Vocabul
 Every entry except concepts, metrics, skills and questions carries `j:provenance`: `j:confirmed`,
 `j:inferred`, `j:needs-verification` or `j:disputed`. Changing a claim - text, a title, a date, a
 value, where it sits - drops the entry to `j:inferred` and opens a `q_` question. Only
-`jsk kb confirm <id> --answer "…"` raises it.
+`career_confirm(ids=["<id>"], answer="…")` raises it.
 
 ## Changesets
 
@@ -109,17 +109,17 @@ op:retire { k:prj_intranet j:reason "Too old to earn a line." . }
 - `op:add` adds; `op:set` replaces every value of each (entry, predicate) it names; `op:retire`
   keeps the entry, dated, with its reason; `op:delete` removes triples, or `k:x a op:Entry` the
   whole entry - only one that was wrong, never one anything points at.
-- `op:base` is the revision `jsk kb show` printed. A later write that touched nothing you name
+- `op:base` is the revision `career_show` returned. A later write that touched nothing you name
   does not stop it; a later change to what you touch is refused, naming the ids.
 - A new bullet is `[]` with `j:project` and `j:rank`. A new `j:value` on a metric version an
   application sent becomes the next version; the sent one never changes. Never write `j:confirmed`, `j:revision` or `j:updated`.
-- `--dry-run` first. Every refusal says what fixes it.
+- `career_preview` first. Every refusal says what fixes it.
 
-Without pyoxigraph, draft the changeset into a file and say it waits for `jsk kb apply`.
+With the jsk tools unavailable, draft the changeset into a file and say it waits for `career_apply`.
 
 ## The posting graph
 
-`posting_decide` writes it; `jsk kb show k:post_<stem>` prints it:
+`posting_decide` writes it; `career_show(ids=["k:post_<stem>"])` returns it:
 
 ```turtle
 k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;

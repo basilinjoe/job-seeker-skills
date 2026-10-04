@@ -11,6 +11,8 @@ write. Like their commands, app_freeze refuses an application made from files an
 letter_check a resume.json, each as a FAIL naming what replaces it (6.0, docs/superpowers/
 plans/2026-10-03-retire-file-pipeline.md). A call error the command would exit 2 on (a bad
 date, an unknown kind) is a FAIL with its fix here.
+The commands went on 2026-10-04 (docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md,
+Ruling 4): `jsk app freeze`, `jsk app event` and `jsk letter check` exit 2 naming these tools.
 They live apart from server.py, which registers them, only to keep each module under
 tests/test_sizes.py's limit.
 """
@@ -40,7 +42,7 @@ def app_dir_of(root, app):
 
 def submitted_problem(submitted):
     """The FAIL for a `submitted` that is neither YYYY-MM-DD nor "false", else None: the
-    check `jsk app freeze --submitted` makes."""
+    check app_freeze's `submitted` needs (`jsk app freeze --submitted` made it until 2026-10-04)."""
     from ...domain.timeline.events import is_date
 
     if submitted == "false" or is_date(submitted):
@@ -72,10 +74,10 @@ def said(output):
 
 
 def freezes(srv, tools):
-    """app_freeze: `jsk app freeze`, its gates' steps and what it wrote as JSON."""
+    """app_freeze: the freeze, its gates' steps and what it wrote as JSON."""
     from ..cli.compose import timeline as T
 
-    @described(srv)("`jsk app freeze`: gate, record and rename a shipped application. "
+    @described(srv)("Freeze a shipped application: gate, record and rename it. "
                     "submitted: YYYY-MM-DD or false.")
     def app_freeze(app: str, submitted: str, channel: str,
                    docs: list[str] | None = None) -> dict:
@@ -120,10 +122,10 @@ def freezes(srv, tools):
 
 
 def events(srv, tools):
-    """app_event: `jsk app event`, the event it added as JSON."""
+    """app_event: the event it added, as JSON."""
     from ..cli.compose import timeline as T
 
-    @described(srv)("`jsk app event`: one event on a frozen application. date: YYYY-MM-DD "
+    @described(srv)("One event on a frozen application. date: YYYY-MM-DD "
                     "or unknown.")
     def app_event(app: str, kind: str, date: str, channel: str | None = None,
                   due: str | None = None, note: str | None = None) -> dict:
@@ -159,7 +161,7 @@ def events(srv, tools):
                 return failed(*[("FAIL", line, e.fix) for line in e.lines])
             except EventLanded as e:
                 return failed(("FAIL", f"the event was written, and then: {e}", e.fix))
-            # A date after today is arithmetic gone wrong, as `jsk app event` warns.
+            # A date after today is arithmetic gone wrong, as the retired `jsk app event` warned.
             ahead = [("WARN", f"{done.date} is after today, and the date is the day it "
                               "happened", "a meeting still to come is the due of its "
                                       "-scheduled event; correct this one with a note event")
@@ -172,9 +174,9 @@ def events(srv, tools):
 
 
 def letters(srv, tools):
-    """letter_check: `jsk letter check`, its verdict line and findings as JSON."""
+    """letter_check: the letter gate's verdict line and findings as JSON."""
 
-    @described(srv)("`jsk letter check`: a cover letter against its resume. record: a stem "
+    @described(srv)("A cover letter against its resume. record: a stem "
                     "or resumes/<name>.")
     def letter_check(letter: str, record: str) -> dict:
         def run(root, today):

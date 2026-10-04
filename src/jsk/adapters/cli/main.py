@@ -3,7 +3,8 @@
     jsk doctor                  what works on this machine
     jsk kb new PATH --name NAME scaffold career/store/ - the career and its log at r1 -
                                 and applications/
-    jsk kb VERB [...]           the graph record: apply a changeset, confirm, show, check
+    jsk kb VERB [...]           the graph record: check, load, dump, pack, merge (the
+                                career_* tools read and change it)
     jsk resume check TARGET     the record gate, before anything renders - TARGET is an
                                 application's <stem> or resumes/<name>
       ... check PDF [--strict]  the parse gate and the prose gate, both
@@ -15,18 +16,15 @@
       ... preview TARGET --out D  the same resume in every template, to pick a look
       ... fit TEX [...]         fit a render to a page budget
       ... ship TARGET           validate, render and gate, in one pass
-    jsk letter check LETTER --record TARGET   a cover letter's length, prose and numbers
-    jsk app freeze APP --submitted DATE|false --channel TEXT   archive a sent application
-      ... event APP KIND --date DATE      add a screen, an offer, a rejection to one
-      ... drop APP [--reason T] [--dry-run]   set an unsent one aside: graphs removed,
+    jsk app drop APP [--reason T] [--dry-run]   set an unsent one aside: graphs removed,
                                 folder kept under dropped/
     jsk mcp                     serve the career and its applications to an agent as MCP
-                                tools, over stdio (the mcp extra)
+                                tools, over stdio: career_*, app_*, resume_*, letter_check
 
 `jsk <noun> --help` lists a noun's verbs, and `jsk <noun> <verb> --help` its flags.
 
-The career is the graph record, in career/store/: changed through `jsk kb apply`, read with
-`jsk kb show` and `jsk kb view`, validated on every load. A target's selection - the bullets
+The career is the graph record, in career/store/: changed through the career_apply tool, read
+with the career_show and career_view tools, validated on every load. A target's selection - the bullets
 chosen, as ids, kept in the store by the resume_select tool - says what a resume shows;
 every render builds from the career and that selection, and `jsk resume check` checks it and
 the bullets it selects before anything renders - the last point at which a mistake is still
@@ -45,8 +43,7 @@ HELP_ENDS_BEFORE = "\n\npyoxigraph for the graph record"
 
 # The kb adapter's verbs (adapters.cli.kb.VERBS), named here so that dispatching one does
 # not import it: `python -m jsk doctor` runs without pyoxigraph.
-KB_VERBS = ("apply", "confirm", "show", "view", "query", "export", "check", "log", "path",
-            "load", "dump", "pack", "merge")
+KB_VERBS = ("check", "load", "dump", "pack", "merge")
 
 
 def resume_check(args):
@@ -61,20 +58,6 @@ def resume_ship(args):
     from .ship import main as ship
 
     return ship(args)
-
-
-def letter_check(args):
-    """`jsk letter check LETTER --record R`: the letter gate, its arguments unchanged."""
-    from .gates.check import through
-
-    return through("letter.py", args)
-
-
-def app_freeze(args):
-    """`jsk app freeze` (adapters.cli.freeze.main)."""
-    from .freeze import main as freeze
-
-    return freeze(args)
 
 
 def app_drop(args):
@@ -107,8 +90,7 @@ NOUNS = {
     "kb": {"new": "kb.py", **dict.fromkeys(KB_VERBS, "kbcli.py")},
     "resume": {"check": resume_check, "render": "render_resume.py",
                "preview": "preview_templates.py", "fit": "fit_pages.py", "ship": resume_ship},
-    "letter": {"check": letter_check},
-    "app": {"event": "timeline.py", "freeze": app_freeze, "drop": app_drop},
+    "app": {"drop": app_drop},
     "mcp": {},
 }
 
@@ -129,12 +111,9 @@ NOUN_USAGE = {
                "  fit TEX [--target-pages N]         fit a render to a page budget\n"
                "  ship TARGET [...]                  validate, render and gate, in one pass\n"
                "  (TARGET: an application's <stem>, or resumes/<name>)"),
-    "letter": ("usage: jsk letter <verb> ...\n"
-               "  check LETTER --record TARGET   a cover letter's length, prose and numbers"),
     "app": ("usage: jsk app <verb> ...\n"
-            "  event APP KIND --date D                      add what happened next\n"
-            "  freeze APP --submitted D|false --channel T   archive a sent application\n"
-            "  drop APP [--reason T] [--dry-run]            set an unsent application aside"),
+            "  drop APP [--reason T] [--dry-run]   set an unsent application aside\n"
+            "  (a freeze and an event are the app_freeze and app_event tools, jsk mcp)"),
 }
 
 # Commands that went, with what replaced them. Said by name rather than as an unknown
@@ -144,7 +123,7 @@ NOUN_USAGE = {
 RETIRED = {
     "index": "it read user-knowledgebase.md, and the career is career/store/ now.\n"
              "fix:  the assessment_derive tool (jsk mcp) matches the career against a "
-             "posting;\n      `jsk kb view` reads it",
+             "posting;\n      the career_view tool (jsk mcp) reads it",
     "migrate": "it moved a user-knowledgebase.md into the career, and jsk no longer reads "
                "the Markdown format.\n"
                "fix:  `jsk kb new PATH --name NAME` starts a career/store/; the "
@@ -155,14 +134,18 @@ RETIRED = {
              "application's posting against the career",
     "validate": ("jsk resume check", "<stem>"),
     "check": ("jsk resume check", "resume.pdf"),
-    "check --only letter": ("jsk letter check", "cover-letter.txt --record <stem>"),
+    "check --only letter": "a cover letter is checked by a tool now.\n"
+                           "fix:  the letter_check tool (jsk mcp): letter_check(letter, "
+                           "record=<stem>)",
     "gates": ("jsk resume check", "<out-dir>"),
     "render": ("jsk resume render", "<stem>"),
     "preview": ("jsk resume preview", "<stem> --out DIR"),
     "fit": ("jsk resume fit", "resume.tex --target-pages 2"),
     "ship": ("jsk resume ship", "<stem>"),
-    "event": ("jsk app event", "applications/<dir> KIND --date YYYY-MM-DD"),
-    "freeze": ("jsk app freeze", "applications/<dir> --submitted YYYY-MM-DD --channel TEXT"),
+    "event": "in 6.0 - an event is added by a tool now.\n"
+             "fix:  the app_event tool (jsk mcp): app_event(app, kind, date)",
+    "freeze": "in 6.0 - a freeze is made by a tool now.\n"
+              "fix:  the app_freeze tool (jsk mcp): app_freeze(app, submitted, channel)",
     # 6.0 retired the pipeline that made an application from files (Ruling 1 of
     # docs/superpowers/plans/2026-10-03-retire-file-pipeline.md): each verb is named with the
     # tool that does its work on a graph-native application, as 5.1's WARN named it.
@@ -194,9 +177,46 @@ RETIRED = {
                       "questions; app_show reads the rest",
 }
 
+# 2026-10-04: the verbs the MCP tools duplicate went too (docs/superpowers/plans/
+# 2026-10-04-retire-duplicated-cli.md, Ruling 2). Each is keyed "<noun> <verb>", which main
+# checks before dispatch for any noun - `kb` hands the rest of its line to its own adapter -
+# and each names the tool that does its work. Nothing is written.
+RETIRED.update({
+    "kb apply": "in 6.0 - a changeset is merged by a tool now.\n"
+                "fix:  the career_preview tool (jsk mcp) returns a changeset's diff and writes "
+                "nothing; the career_apply tool validates, writes and logs it",
+    "kb confirm": "in 6.0 - an entry is confirmed by a tool now.\n"
+                  "fix:  the career_confirm tool (jsk mcp) confirms ids with the person's "
+                  "answer, or a source and its quote; with target and block it confirms a "
+                  "selection's summary or headline",
+    "kb show": "in 6.0 - entries are read by a tool now.\n"
+               "fix:  the career_show tool (jsk mcp) returns entries as Turtle, with the "
+               "revision a changeset's op:base names",
+    "kb view": "in 6.0 - the career is read by a tool now.\n"
+               "fix:  the career_view tool (jsk mcp) returns it as Markdown; `jsk kb dump` "
+               "writes the whole record as TriG",
+    "kb query": "in 6.0 - the named queries are a tool now.\n"
+                "fix:  the career_query tool (jsk mcp): career_query(name, args)",
+    "kb log": "in 6.0 - the record's history is a tool now.\n"
+              "fix:  the career_log tool (jsk mcp): career_log(last)",
+    "kb export": "in 6.0 - a selection is chosen and stored by a tool now.\n"
+                 "fix:  the resume_select tool (jsk mcp) chooses a target's bullets; the "
+                 "app_show tool prints the selection",
+    "kb path": "in 6.0 - `jsk doctor` names the workspace.\n"
+               "fix:  `jsk doctor`",
+    "app freeze": "in 6.0 - a freeze is made by a tool now.\n"
+                  "fix:  the app_freeze tool (jsk mcp): app_freeze(app, submitted, channel)",
+    "app event": "in 6.0 - an event is added by a tool now.\n"
+                 "fix:  the app_event tool (jsk mcp): app_event(app, kind, date)",
+    "letter": "in 6.0 - the letter noun had one verb, and a tool does its work.\n"
+              "fix:  the letter_check tool (jsk mcp): letter_check(letter, record=<stem>)",
+    "letter check": "in 6.0 - a cover letter is checked by a tool now.\n"
+                    "fix:  the letter_check tool (jsk mcp): letter_check(letter, record=<stem>)",
+})
+
 # The nouns 6.0 retired whole, their verbs with them: `jsk posting build` is said as itself
 # when RETIRED names it, and as its noun otherwise.
-RETIRED_NOUNS = ("posting", "tailor")
+RETIRED_NOUNS = ("posting", "tailor", "letter")
 
 
 def without_only_letter(args):
@@ -300,6 +320,8 @@ def main(argv):
         print(f"jsk {__version__}")
         return 0
     noun, rest = args[0], args[1:]
+    if rest and f"{noun} {rest[0]}" in RETIRED:
+        return retired(f"{noun} {rest[0]}", rest[1:])
     if noun == "doctor":
         return doctor(rest)
     if noun == "mcp":

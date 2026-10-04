@@ -12,7 +12,7 @@ is missing (the record is a pyoxigraph store). Exit 2 = called wrongly.
 It writes:
 
   career/store/     the record: the empty career - the header naming the person - at r1,
-                    and its log, k:rev_1 `j:by j:new` - so `jsk kb apply` works on it
+                    and its log, k:rev_1 `j:by j:new` - so the career_apply tool works on it
                     straight away
   applications/     with a README saying what each application directory holds
   resumes/          where a general resume, one answering no posting, renders
@@ -89,8 +89,8 @@ def scaffold(root, name, force=False, today=None):
     lines.append(attributes(done.attributes))
     lines.append("")
     lines.append("Next: a changeset adding k:person - j:fullName, an email and a phone - and")
-    lines.append("`jsk kb apply` it. Without an email and a phone the parse gate fails, so")
-    lines.append("nothing sendable renders. `jsk kb view` reads the record back.")
+    lines.append("apply it with the career_apply tool (jsk mcp). Without an email and a phone the")
+    lines.append("parse gate fails, so nothing sendable renders. The career_view tool reads the record back.")
     return 0, lines
 
 
@@ -119,7 +119,7 @@ def refusal(err):
                 "nothing was written"]
     if isinstance(err, N.Exists):
         return [f"REFUSED  already exists: {err.store}",
-                "        fix: change it with `jsk kb apply`; or --force to start over "
+                "        fix: change it with the career_apply tool (jsk mcp); or --force to start over "
                 "from the empty record (logged, the old record kept beside it as a "
                 "dump, career/kb.r<N>.trig)"]
     if isinstance(err, Unclean):

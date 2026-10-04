@@ -77,7 +77,7 @@ class Refusals(unittest.TestCase):
 
     def test_confirmed_provenance(self):
         self.assertRefused('op:set { k:prj_x j:provenance j:confirmed . }\n',
-                           "a changeset cannot confirm", "jsk kb confirm")
+                           "a changeset cannot confirm", "career_confirm tool")
 
     def test_a_blank_node_object(self):
         self.assertRefused('op:add { k:prj_x j:headlineMetric [ j:subject "x" ] . }\n',

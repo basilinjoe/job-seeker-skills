@@ -14,7 +14,7 @@ to its source, when the render gate needs someone to read the PDF, or when `jsk 
 is not available here. **Run every gate either way**, even if the caller names one.
 
 **You verify. You do not fix.** Every defect is repaired where it came from — an entry in
-the career, named by its id (`ach_…`, `met_….v2`, `pos_…`), through `jsk kb apply`; or the ids,
+the career, named by its id (`ach_…`, `met_….v2`, `pos_…`), through `career_apply`, by the caller; or the ids,
 summary or settings of the selection (the target's selection graph) — by the caller, who
 re-renders. You have no Write or Edit tool, and no tool that writes.
 

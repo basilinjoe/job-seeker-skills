@@ -1,4 +1,4 @@
-"""`jsk kb apply`, end to end, on a copy of the fixture workspace in its own store."""
+"""career_apply (`jsk kb apply` until 6.0), end to end, on a copy of the fixture workspace in its own store."""
 import datetime
 import unittest
 
@@ -32,9 +32,9 @@ op:add {
 class Apply(Workspace):
     def test_a_refusal_prints_its_line_then_its_fix_and_writes_nothing(self):
         # Pinned byte for byte: the refusals now travel with their fixes as fields
-        # (Problems, 2026-10-02), and the CLI must print what it printed before.
+        # (Problems, 2026-10-02), and the tool must print what the command printed before.
         before = self.record()
-        code, out = self.kb("apply", self.changeset(
+        code, out = self.apply(self.changeset(
             PFX + 'op:set { k:prj_nowhere j:name "x" . }\n'))
         self.assertEqual(code, 1, out)
         self.assertEqual(out, "REFUSED  k:prj_nowhere - op:set on an entry that does not exist\n"
@@ -43,7 +43,7 @@ class Apply(Workspace):
         self.assertEqual(self.record(), before)
 
     def test_a_braindump_becomes_a_valid_logged_record(self):
-        code, out = self.kb("apply", self.changeset(BRAINDUMP))
+        code, out = self.apply(self.changeset(BRAINDUMP))
         self.assertEqual(code, 0, out)
         s = self.loaded()
         self.assertEqual([f.text() for f in s.fails()], [])
@@ -61,10 +61,10 @@ class Apply(Workspace):
 
     def test_applying_the_same_changeset_twice_changes_nothing_the_second_time(self):
         path = self.changeset(BRAINDUMP.replace("op:base 2 ; ", ""))
-        self.assertEqual(self.kb("apply", path)[0], 0)
+        self.assertEqual(self.apply(path)[0], 0)
         # An agent that re-runs an apply it thought failed must not mint every bullet twice:
         # a new bullet with a live bullet's text, under the same project, is that bullet.
-        code, out = self.kb("apply", path)
+        code, out = self.apply(path)
         self.assertEqual(code, 0, out)
         self.assertIn("nothing to change", out)
         self.assertEqual(record.state(self.loaded()).log_revision, 3)
@@ -73,50 +73,29 @@ class Apply(Workspace):
         posting = self.path("applications/acme-platform-engineer/posting.ttl")
         posting.write_text(posting.read_text(encoding="utf-8").replace(
             "Deep, hands-on K8s experience in production", "Ten years of K8s"), encoding="utf-8")
-        code, out = self.kb("apply", self.changeset(BRAINDUMP))
+        code, out = self.apply(self.changeset(BRAINDUMP))
         self.assertEqual(code, 0, out)
 
     def test_a_label_that_clashes_is_a_warning_not_a_refusal(self):
-        code, out = self.kb("apply", self.changeset(
+        code, out = self.apply(self.changeset(
             PFX + 'op:add { c:payments a j:Domain ; j:label "Kafka" . }\n'))
         self.assertEqual(code, 0, out)
 
     def test_a_dry_run_writes_nothing(self):
         before = self.record()
         backup = self.path(record.BACKUP).read_bytes()
-        code, out = self.kb("apply", self.changeset(BRAINDUMP), "--dry-run")
+        code, out = self.apply(self.changeset(BRAINDUMP), dry_run=True)
         self.assertEqual(code, 0, out)
         self.assertIn("+k:prj_payments", out)
         self.assertIn("dry run: r3 not written", out)
         self.assertEqual((self.record(), self.path(record.BACKUP).read_bytes()), (before, backup))
-
-    def test_a_changeset_windows_powershell_wrote_is_read(self):
-        # PowerShell 5.1's `>` and Out-File write UTF-16 with a byte-order mark.
-        path = self.path("changes.trig")
-        path.write_bytes(BRAINDUMP.encode("utf-16"))
-        code, out = self.kb("apply", str(path))
-        self.assertEqual(code, 0, out)
-        self.assertIn("r3 written", out)
-
-    def test_a_changeset_in_another_encoding_is_refused_not_crashed(self):
-        path = self.path("changes.trig")
-        path.write_bytes((PFX + 'op:add { k:prj_x j:name "Café" . }\n').encode("cp1252"))
-        code, out = self.kb("apply", str(path))
-        self.assertEqual(code, 1, out)
-        self.assertIn("not UTF-8", out)
-        self.assertIn("save it as UTF-8", out)
-
-    def test_stdin_is_refused(self):
-        code, out = self.kb("apply", "-")
-        self.assertEqual(code, 2)
-        self.assertIn("stdin is refused", out)
 
     def test_a_store_written_outside_jsk_is_refused(self):
         s = self.loaded()
         record.write_graphs(self.root, {record.KB: record.stamp(
             s.graph(record.KB), 9, datetime.date.today())})
         before = self.record()
-        code, out = self.kb("apply", self.changeset(BRAINDUMP))
+        code, out = self.apply(self.changeset(BRAINDUMP))
         self.assertEqual(code, 1, out)
         self.assertIn("something outside jsk wrote career/store/", out)
         self.assertIn("backup.trig", out)
@@ -124,14 +103,14 @@ class Apply(Workspace):
 
     def test_a_change_that_breaks_the_record_is_refused_whole(self):
         before = self.record()
-        code, out = self.kb("apply", self.changeset(
+        code, out = self.apply(self.changeset(
             PFX + 'op:add { k:prj_half j:name "Half a project" . }\n'))
         self.assertEqual(code, 1)
         self.assertIn("j:strength is required", out)
         self.assertEqual(self.record(), before)
 
     def test_a_refusal_names_every_reason(self):
-        code, out = self.kb("apply", self.changeset(
+        code, out = self.apply(self.changeset(
             PFX + 'op:set { k:prj_clinical_events j:provenance j:confirmed ; j:strenght 4 . }\n'))
         self.assertEqual(code, 1)
         self.assertIn("a changeset cannot confirm", out)
@@ -139,9 +118,9 @@ class Apply(Workspace):
 
     def test_rewording_a_disputed_entry_leaves_it_disputed(self):
         # Rank 0 must not become rank 2 because somebody edited the words.
-        self.kb("apply", self.changeset(
+        self.apply(self.changeset(
             PFX + 'op:set { k:ach_clinical_events_led_migration j:provenance j:disputed . }\n'))
-        code, out = self.kb("apply", self.changeset(
+        code, out = self.apply(self.changeset(
             PFX + 'op:set { k:ach_clinical_events_led_migration j:text "Led 4 engineers." . }\n'))
         self.assertEqual(code, 0, out)
         self.assertNotIn("+    j:provenance j:inferred .", out)
@@ -152,15 +131,10 @@ class Apply(Workspace):
         self.assertEqual(pv, O.J + "disputed")
 
     def test_nothing_to_change_writes_nothing(self):
-        code, out = self.kb("apply", self.changeset(
+        code, out = self.apply(self.changeset(
             PFX + 'op:set { k:prj_clinical_events j:strength 5 . }\n'))
         self.assertEqual((code, record.state(self.loaded()).log_revision), (0, 2))
         self.assertIn("nothing to change", out)
-
-    def test_a_changeset_that_is_not_trig(self):
-        code, out = self.kb("apply", self.changeset("x", "changes.ttl"))
-        self.assertEqual(code, 2)
-        self.assertIn("not a .trig file", out)
 
 
 if __name__ == "__main__":

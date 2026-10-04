@@ -15,8 +15,7 @@ bullet you write.
 
 ## The three guardrails
 
-1. **Everything you author is `j:inferred`** — in the career, where `career_apply` (the tool form
-   of `jsk kb apply`) sets it, and on a summary the selection takes. Leave `floor` at its default,
+1. **Everything you author is `j:inferred`** — in the career, where `career_apply` sets it, and on a summary the selection takes. Leave `floor` at its default,
    `confirmed`: the render drops unconfirmed prose as `withheld …` warnings, each confirmed or cut
    before hand-over. Never mark your own work confirmed.
 2. **Every numeral traces to the current version of a metric the bullet cites.** Retune the

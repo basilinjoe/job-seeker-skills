@@ -42,7 +42,7 @@ class Gap:
     iri: str                     # the requirement, for the order
 
     def line(self):
-        """The gap as `jsk kb export` prints it: one GAP line."""
+        """The gap as the resume_select tool (jsk mcp) prints it: one GAP line."""
         return f"GAP   {self.kind:<11} {self.requirement} ({self.necessity}): {self.detail}"
 
 

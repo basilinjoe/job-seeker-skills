@@ -23,10 +23,10 @@ reads well.
 
 For a quick look without spawning anything, the queue is two queries:
 
-```bash
-jsk kb query unconfirmed      # every entry not confirmed, with its open question
-jsk kb query open             # every question not yet answered
-jsk kb query absences         # each "no" they gave; a due one is asked again
+```
+career_query(name="unconfirmed")  # every entry not confirmed, with its open question
+career_query(name="open")         # every question not yet answered
+career_query(name="absences")     # each "no" they gave; a due one is asked again
 ```
 
 They cannot miss one, and cannot judge one — that is what the auditor is for.
@@ -50,7 +50,7 @@ Order by what unblocks most:
 
 ## For inferred claims
 
-Quote it exactly (`jsk kb show <id>`), say where it came from, offer the exit:
+Quote it exactly (`career_show(ids=["<id>"])`), say where it came from, offer the exit:
 
 > "On the care-plan project I wrote that policy grounding was there to stop hallucinated guidance
 > reaching staff. You described the mechanism but not the reason — I supplied that. Is it right? If
@@ -88,18 +88,17 @@ awards, process changes, cost savings, and work that prevented a problem rather 
 
 ## Record and close
 
-Each answer is one of four moves (each command has its tool: `career_confirm`, `career_apply`,
-`career_show`):
+Each answer is one of four moves (`career_confirm`, `career_apply`, `career_show`):
 
-- **Confirmed as it stands**: `jsk kb confirm <id> --answer "their words"`. It answers the open
+- **Confirmed as it stands**: `career_confirm(ids=["<id>"], answer="their words")`. It answers the open
   questions about that entry too.
-- **Corrected, or a new number or title**: a changeset through `jsk kb apply` (`jsk kb show <id>`
-  first for the `op:base`). It comes back `inferred`; confirm it with the answer they just gave.
+- **Corrected, or a new number or title**: a changeset through `career_apply` (`career_show` first
+  for the `op:base`). It comes back `inferred`; confirm it with the answer they just gave.
 - **A "no"** — they have never done the thing ("never used Kafka"): `op:add { k:abs_kafka
   j:concept c:kafka ; j:said "<today>"^^xsd:date ; j:answer "their words" . }` (with
   `@prefix xsd: <http://www.w3.org/2001/XMLSchema#>`), then confirm it with the same words.
   Confirmed, it answers every posting that asks only that, with no question, for a year; then it
-  is due (`jsk kb query absences`) and asked again. A project that holds the concept is a WARN:
+  is due (`career_query(name="absences")`) and asked again. A project that holds the concept is a WARN:
   one of the two is stale.
 - **Unavailable**: soften the claim in a changeset, or `op:retire` it with a `j:reason` — a real
   outcome, never a question left pending forever.

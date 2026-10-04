@@ -270,7 +270,7 @@ def apply(store, cs, today):
             after -= {t for t in after if t[0] == s}
         elif (s, p, o) not in before:
             refuse(s, f"has no {curie(p.value)} {name_of(o)} to delete", "check it against "
-                   f"`jsk kb show {curie(s.value)}`")
+                   f"the career_show tool (jsk mcp) on {curie(s.value)}")
         else:
             after.discard((s, p, o))
 
@@ -399,7 +399,7 @@ def base_conflicts(store, cs, refuse):
     last = entries[-1][0] if entries else 0
     if cs.base > last:
         refuse(None, f"op:base r{cs.base} is ahead of the log, which ends at r{last}",
-               "draft against the record as it is: `jsk kb show` the entries again")
+               "draft against the record as it is: read the entries again with the career_show tool (jsk mcp)")
         return
     # `jsk kb new --force` replaced the whole career and logs no ids: a changeset drafted
     # before it was drafted against a record that is gone, whatever it names.
@@ -407,7 +407,7 @@ def base_conflicts(store, cs, refuse):
     if restart is not None and restart > cs.base:
         refuse(None, f"the career was started over at r{restart} (`jsk kb new --force`), after "
                      f"this changeset's op:base r{cs.base}",
-               "draft it again against the record as it is now: `jsk kb show` what it names")
+               "draft it again against the record as it is now: read what it names with the career_show tool (jsk mcp)")
         return
     named = {s.value for s, _, _ in cs.add + cs.set + cs.retire + cs.delete
              if isinstance(s, ox.NamedNode)}
@@ -415,7 +415,7 @@ def base_conflicts(store, cs, refuse):
         if rev > cs.base:
             for iri in sorted(named & ids):
                 refuse(node(iri), f"changed at r{rev}, after this changeset's op:base r{cs.base}",
-                       f"re-read it with `jsk kb show {curie(iri)}` and redraft against r{last}")
+                       f"re-read it with the career_show tool (jsk mcp) on {curie(iri)} and redraft against r{last}")
 
 
 def referenced(store, after, e, refuse):

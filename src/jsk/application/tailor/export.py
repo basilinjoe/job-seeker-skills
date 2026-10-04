@@ -1,4 +1,4 @@
-"""`jsk kb export` and `resume_select`: choosing the bullets a resume shows, and forming the
+"""The resume_select tool (and `jsk kb export` until 6.0): choosing the bullets a resume shows, and forming the
 short resume.json's dict - printed by the one, stored as a selection graph by the other.
 
 `short_file` is the short resume.json: the ids a resume shows and its settings, and nothing
@@ -74,7 +74,7 @@ def chosen(career, select):
             near = difflib.get_close_matches(iri, sorted(known), n=1)
             raise ExportError(f"{text} is not in the career",
                               f"did you mean {local(near[0])}?" if near
-                              else "`jsk kb view` lists the ids")
+                              else "the career_view tool (jsk mcp) lists the ids")
         cls = career.sub.cls[iri].name
         if cls == "OpenSource":
             # URS has no open-source section. On the ElevenLabs run the refusal below
@@ -102,7 +102,7 @@ def chosen(career, select):
                                   f"{career.get(home, 'retired')} "
                                   f"({career.get(home, 'reason', 'no reason given')})",
                                   "leave it out, or move it to a live "
-                                  f"{'project' if key == 'project' else 'role'} with `jsk kb apply`")
+                                  f"{'project' if key == 'project' else 'role'} with the career_apply tool (jsk mcp)")
             if not home:
                 break
         {"Project": projects, "Achievement": bullets, "Position": roles}[cls].add(iri)
@@ -356,7 +356,7 @@ def retuned(doc, career, title, requirements, notes, target=None):
     ATS matching is literal, and recruiters search by the advertised title: "Senior
     Product Manager" in the posting finds a resume that says it, not one that says
     "Product Lead". The headline arrives inferred, so it renders only once the person
-    confirms they stand behind it (`jsk kb confirm --headline`); an alias is the career's
+    confirms they stand behind it (the career_confirm tool (jsk mcp)); an alias is the career's
     own word for the skill, so it needs nothing.
 
     Args:
@@ -377,7 +377,7 @@ def retuned(doc, career, title, requirements, notes, target=None):
     if title and title.strip().casefold() != held.casefold():
         doc["headline"] = {"text": title.strip(), "status": "inferred"}
         confirm = (f'`career_confirm` (target "{target}", block "headline")' if target
-                   else "`jsk kb confirm --headline <resume.json>`")
+                   else "the career_confirm tool (jsk mcp)")
         notes.append(f"NOTE  headline is the posting's title {title.strip()!r}, inferred - ask "
                      f"the person whether it is a title they stand behind, then {confirm}; "
                      "until then the career's headline renders")

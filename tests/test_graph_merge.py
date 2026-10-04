@@ -55,9 +55,9 @@ class Merge(Fixture):
                               (c("people-management"), O.J + "label", "team leadership")}, new)
         self.assertIn((c("team-leadership"), O.RDF_TYPE, O.OP + "Entry"), gone)
         self.assertEqual(cs.retire, [])
-        code, dry, _ = self.kb("apply", str(self.path("merge.trig")), "--dry-run")
+        code, dry, _ = self.apply(str(self.path("merge.trig")), dry_run=True)
         self.assertEqual(code, 0, dry)
-        code, applied, _ = self.kb("apply", str(self.path("merge.trig")))
+        code, applied, _ = self.apply(str(self.path("merge.trig")))
         self.assertEqual(code, 0, applied)
         after = self.kb_quads()
         self.assertNotIn(c("team-leadership"), {s for s, _, _ in after})
@@ -69,7 +69,7 @@ class Merge(Fixture):
         code, out = self.merge("c:team-leadership", "c:people-management")
         self.assertEqual(code, 0, out)
         self.assertIn("re-confirm k:ach_clinical_events_led_migration\n", out)
-        self.kb("apply", str(self.path("merge.trig")))
+        self.apply(str(self.path("merge.trig")))
         self.assertIn((O.K + "ach_clinical_events_led_migration", O.J + "provenance",
                        O.J + "inferred"), self.kb_quads())
 
@@ -85,7 +85,7 @@ class Merge(Fixture):
         self.assertIn((c("kafka"), O.J + "isA", c("event-architecture")), new)
         self.assertIn((c("event-architecture"), O.J + "isA", c("ai-platform-architecture")), new)
         self.assertIn((c("event-architecture"), O.J + "label", "event driven architecture"), new)
-        self.assertEqual(self.kb("apply", str(self.path("merge.trig")))[0], 0)
+        self.assertEqual(self.apply(str(self.path("merge.trig")))[0], 0)
         self.assertEqual(self.kb("check")[0], 0)
 
     def test_a_concept_a_posting_still_names_is_retired_not_deleted(self):
@@ -102,7 +102,7 @@ class Merge(Fixture):
         gone = {(s.value, p.value, o.value) for s, p, o in cs.delete}
         self.assertNotIn((c("event-driven-architecture"), O.RDF_TYPE, O.OP + "Entry"), gone)
         self.assertIn((c("event-driven-architecture"), O.J + "label", "EDA"), gone)
-        code, dry, _ = self.kb("apply", str(self.path("merge.trig")))
+        code, dry, _ = self.apply(str(self.path("merge.trig")))
         self.assertEqual(code, 0, dry)
         store = S.load(self.root)
         self.assertEqual([f.text() for f in store.fails()], [])

@@ -1,8 +1,6 @@
 """select.py: what a resume for one posting selects, worked by hand in the plan
 (docs/superpowers/plans/2026-09-25-export-from-match.md, "Fixture")."""
-import contextlib
 import datetime
-import io
 import json
 import os
 import shutil
@@ -12,7 +10,6 @@ from pathlib import Path
 
 import appkit
 
-from jsk import cli
 from jsk.adapters.cli.compose import tailor
 from jsk.domain import ontology as O
 from jsk.adapters.cli.compose import match
@@ -22,6 +19,7 @@ from jsk.domain.resume import short
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
 TODAY = datetime.date(2026, 9, 25)
+NL = chr(10)
 POST = O.K + "post_contoso_select"
 POSTING = """@prefix j: <tag:jsk,2026:ns#> .
 @prefix k: <tag:jsk,2026:id/> .
@@ -421,100 +419,107 @@ class SkillAliases(unittest.TestCase):
         self.assertEqual(self.order(label=False), ["skill_dotnet", "skill_kubernetes"])
 
 
+def native_workspace(test, posting=POSTING, stem="contoso-select"):
+    """The career with `posting`'s requirements as a graph-native application: the advert
+    captured, each requirement decided against the line it quotes and the posting completed,
+    as the analyst's tools leave it. resume_select reads only such an application."""
+    import re
+
+    from jsk.adapters.cli.compose import native
+    from jsk.domain.posting.advert import advert_lines
+
+    root = tempfile.mkdtemp()
+    test.addCleanup(shutil.rmtree, root, True)
+    shutil.copytree(FIXTURES / "career", os.path.join(root, "career"))
+    appkit.seed(root)
+    os.makedirs(os.path.join(root, "applications", stem))
+    asks = re.findall(r'k:req_sel_(\w+) j:posting .*? j:asked "([^"]+)" ;\s+'
+                      r'j:necessity j:(\w+) ; j:quote "([^"]+)"', posting)
+    advert = "# Platform Engineer\nContoso\n\n## Requirements\n\n" + "".join(
+        f"- {quote}\n" for _, _, _, quote in asks)
+    day = datetime.date(2026, 9, 20)
+    native.capture(root, stem, text=advert, company="Contoso", title="Platform Engineer",
+                   captured=day.isoformat(), today=day)
+    lines = {x.text.removeprefix("- "): x.n for x in advert_lines(advert)}
+    rows = [{"n": lines[quote], "slug": slug, "asked": asked, "need": need}
+            for slug, asked, need, quote in asks]
+    done = native.decide(root, stem, rows=rows, today=day)
+    assert not [f for f in done.findings if f[0] == "FAIL"], done.findings
+    done = native.complete_posting(root, stem, today=day)
+    assert done.state == "complete", done.findings
+    return root
+
+
 class Command(unittest.TestCase):
+    """The resume_select tool's selection (compose.selection.select, which the tool calls) and
+    the short file's form (compose.tailor.short_file, which it forms the file with).
+
+    `jsk kb export` printed this file until 2026-10-04 and is retired
+    (docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md). Its flag parsing (`--cover`,
+    `--today`, `--ranked` with `--from-match`, a `posting.ttl` path, another workspace's
+    application) is not tested. The tool takes no `--select`, so what that flag did lives in
+    match.select's `extra` (class Extra) and short_file's `select`; the NOTE the command
+    printed for a project added with no confirmed bullet was its own and is gone with it.
+    """
+
+    STEM = "contoso-select"
+
     def setUp(self):
-        self.root = workspace(self)
-        # --from-match takes the application (Ruling 11), not its posting.ttl.
-        self.posting = os.path.join(self.root, "applications", "contoso-select")
+        self.root = native_workspace(self)
 
-    def kb(self, *args):
-        load(self.root)
-        out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = cli.main(["jsk", "kb", *args, "--root", self.root])
-        return code, out.getvalue(), err.getvalue()
+    def selected(self, mode="from_match", replace=False):
+        from jsk.adapters.cli.compose import selection
 
-    def test_from_match_prints_the_short_file_and_the_gaps(self):
-        code, out, err = self.kb("export", "--from-match", self.posting,
-                                 "--today", "2026-09-25")
-        self.assertEqual(code, 0)
-        doc = json.loads(out)
-        self.assertEqual(doc["resume"], 2)
-        self.assertEqual(doc["skills"][0], "skill_kubernetes")
-        self.assertIn("GAP   tag-only    SQL Server (required)", err)
+        return selection.select(self.root, self.STEM, mode=mode, replace=replace, today=TODAY)
 
-    def test_select_adds_to_the_match(self):
-        code, out, _ = self.kb("export", "--from-match", self.posting,
-                               "--select", "prj_game")
-        self.assertEqual(code, 0)
-        self.assertIn("ach_game_players", json.loads(out)["bullets"])
+    def test_from_match_forms_the_short_file_and_the_gaps(self):
+        done = self.selected()
+        self.assertEqual([f for f in done.findings if f[0] == "FAIL"], [])
+        self.assertEqual(done.doc["resume"], 2)
+        self.assertEqual(done.doc["skills"][0], "skill_kubernetes")
+        self.assertIn("GAP   tag-only    SQL Server (required)", NL.join(done.gaps))
+        self.assertTrue(appkit.has(self.root, f"applications/{self.STEM}/resume"))
 
-    def test_a_project_added_with_no_confirmed_bullet_is_named(self):
-        code, _, err = self.kb("export", "--from-match", self.posting,
-                               "--select", "prj_data")
-        self.assertEqual(code, 0)
-        self.assertIn("NOTE  k:prj_data has no confirmed bullet", err)
+    def test_a_path_outside_applications_is_not_an_application(self):
+        from jsk.adapters.cli.compose import selection
+        from jsk.domain.posting.errors import Refused
 
-    def test_a_folder_outside_applications_is_a_usage_error(self):
-        code, out, _ = self.kb("export", "--from-match", os.path.join(self.root, "career"))
-        self.assertEqual(code, 2, out)
-        self.assertIn("not an application", out)
-
-    def test_a_posting_ttl_path_is_refused_with_the_application_form(self):
-        code, out, _ = self.kb("export", "--from-match",
-                               os.path.join(self.posting, "posting.ttl"))
-        self.assertEqual(code, 2, out)
-        self.assertIn(f"fix:  jsk kb export --from-match {self.posting}", out)
-
-    def test_an_application_of_another_workspace_is_a_usage_error(self):
-        other = workspace(self)
-        theirs = os.path.join(other, "applications", "contoso-select")
-        self.assertEqual(self.kb("export", "--from-match", theirs)[0], 2)
-
-    def test_cover_and_today_need_from_match(self):
-        self.assertEqual(self.kb("export", "--cover", "2")[0], 2)
-        self.assertEqual(self.kb("export", "--today", "2026-09-25")[0], 2)
+        for outside in (os.path.join(self.root, "career"), "../career"):
+            with self.subTest(target=outside), self.assertRaises(Refused):
+                selection.select(self.root, outside, mode="from_match", today=TODAY)
 
     def test_ranked_with_no_posting(self):
-        code, out, err = self.kb("export", "--ranked", "--today", "2026-09-25",
-                                 "--select", "pos_lakeside_contractor")
-        self.assertEqual(code, 0, err)
-        doc = json.loads(out)
+        store = load(self.root)
+        doc = tailor.short_file(store, selection=match.ranked(store, TODAY),
+                                select=["pos_lakeside_contractor"])
         self.assertNotIn("ach_data_ingestion", doc["bullets"])
         self.assertNotIn("skills", doc)
         self.assertEqual(doc["roles"], ["pos_lakeside_contractor"])
-        self.assertIn("NOTE  k:prj_data has no confirmed bullet", err)
-        self.assertNotIn("GAP", err)
 
-    def test_ranked_and_from_match_is_a_usage_error(self):
-        self.assertEqual(self.kb("export", "--ranked", "--from-match", self.posting)[0], 2)
-
-    def test_cover_needs_from_match_even_with_ranked(self):
-        self.assertEqual(self.kb("export", "--ranked", "--cover", "2")[0], 2)
-
-    def test_bad_cover_and_today(self):
-        for flag, value in (("--cover", "0"), ("--cover", "x"), ("--today", "soon")):
-            self.assertEqual(self.kb("export", "--from-match", self.posting,
-                                     flag, value)[0], 2, (flag, value))
+    def test_ranked_selects_a_general_resume_and_says_no_gap(self):
+        done = self.selected("ranked")
+        self.assertEqual(done.gaps, ())
+        self.assertNotIn("skills", done.doc)
 
     def test_a_posting_nothing_carries_writes_nothing_and_says_why(self):
         posting = POSTING.split("k:req_sel_k8s")[0] + (
             'k:req_sel_rust j:posting k:post_contoso_select ; j:asked "Rust" ;\n'
             '    j:necessity j:required ; j:quote "Rust is required." .\n')
-        self.root = workspace(self, posting)
-        self.posting = os.path.join(self.root, "applications", "contoso-select")
-        code, out, err = self.kb("export", "--from-match", self.posting)
-        self.assertEqual(code, 1, out)
-        self.assertIn("GAP   uncovered   Rust (required)", err)
-        self.assertIn("REFUSED", out)
-        self.assertNotIn('"resume": 2', out)
+        self.root = native_workspace(self, posting)
+        done = self.selected()
+        self.assertIn("GAP   uncovered   Rust (required)", NL.join(done.gaps))
+        self.assertIsNone(done.target)
+        self.assertEqual(done.written, ())
+        self.assertIn("FAIL", [f[0] for f in done.findings])
+        self.assertFalse(appkit.has(self.root, f"applications/{self.STEM}/resume"))
 
     def test_an_application_with_no_posting_refuses(self):
-        load(self.root)
+        from jsk.domain.posting.errors import Refused
+
         appkit.drop(self.root, "applications/contoso-select/posting")
-        code, out, _ = self.kb("export", "--from-match", self.posting)
-        self.assertEqual(code, 1, out)
-        self.assertIn("posting_capture", out)
+        with self.assertRaises(Refused) as caught:
+            self.selected()
+        self.assertIn("posting_capture", str(caught.exception.fix) + str(caught.exception))
 
 
 if __name__ == "__main__":

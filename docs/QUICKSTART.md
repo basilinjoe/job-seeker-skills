@@ -7,13 +7,12 @@ From nothing to a verified resume. Ten minutes, most of it spent talking about y
 The toolchain is a Python package, and the skill drives it:
 
 ```
-pip install 'jsk-resume[all,mcp]'
+pip install 'jsk-resume[all]'
 ```
 
-The `mcp` extra is what the plugin needs (`pip install 'jsk-resume[mcp]'` adds it to an existing
-install): since 5.0.0 the plugin starts `jsk mcp`, and its agents read and write your record through
-that server's tools rather than through files. Restart Claude Code after installing it. Then the
-plugin:
+`mcp` comes with the package (a required dependency since 6.0): the plugin starts `jsk mcp`, and
+Claude and its agents read and write your record through that server's tools rather than through
+files or commands. Restart Claude Code after installing it. Then the plugin:
 
 ```
 /plugin marketplace add basilinjoe/job-seeker-skills
@@ -55,18 +54,18 @@ Setup interviews you. Ramble — unstructured is fine, and it is easier to struc
 to make you produce structure. It will push you for numbers roughly twice per accomplishment, and let
 go if you do not have them.
 
-What you say goes into your record as changesets: the skill drafts one, `jsk kb apply` checks and
-writes it and prints the diff, and everything you said is marked *inferred* until you confirm it.
-When the skill reads a line back and you say "yes, that's right - 800 ms before, 200 after", it runs
-`jsk kb confirm` with your words.
+What you say goes into your record as changesets: the skill drafts one, shows you the diff (`career_preview`), and writes it (`career_apply`)
+once you agree; everything you said is marked *inferred* until you confirm it. When the skill reads
+a line back and you say "yes, that's right - 800 ms before, 200 after", it calls `career_confirm`
+with your words.
 
 ## 4. You now have two things
 
 **Your career record** — your whole career in `career/store/`, a store in your own folder that
 `jsk` reads and writes. It is the source of truth from here on: identity, roles, projects, every
 verified number, the vocabulary you are matched on, and a log of every change. It is not a text
-file to open in an editor: `jsk kb view` prints the whole career as Markdown to read, `jsk kb log`
-the history, and `jsk kb dump` writes all of it out as text. Every change also refreshes a copy in
+file to open in an editor: ask Claude to show it (`career_view` returns the whole career as Markdown, `career_log`
+the history), or run `jsk kb dump` to write all of it out as text. Every change also refreshes a copy in
 `.jsk/backup.trig`, so back up the folder and you have backed up the record.
 
 **A resume** — a PDF, rendered from the career together with the plain text the checks read, so
@@ -94,48 +93,38 @@ for, the analyst's review, the assessment and the bullets chosen for it are all 
 its folder under `applications/` holds only the PDF and `.tex` it rendered and any cover letter. A "no" you give ("never
 used Kafka") is recorded too, so the next posting that asks gets your answer without asking you.
 
-`/jsk:ship` is the end of that loop, and it is two steps:
+`/jsk:ship` is the end of that loop, and it is two steps: `resume_ship` (the same as running
+`jsk resume ship <stem>` yourself), then `app_freeze` with the day you sent it and the channel
+("Workday portal").
 
-```bash
-jsk resume ship <stem>               # what the skill's resume_ship tool runs
-jsk app freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
-```
-
-`jsk resume ship` checks the chosen bullets against your career first - every id live, every number traced to
+`resume_ship` checks the chosen bullets against your career first - every id live, every number traced to
 a current metric - and renders nothing if that fails, then renders the PDF and checks it and its plain text, printing every
 verdict. It reports the page count but leaves the last check to you: open the PDF and read every
-page. `jsk app freeze` refuses until the checks pass, then records in your record what was sent,
+page. `app_freeze` refuses until the checks pass, then records in your record what was sent,
 when, and which bullets rendered and the metric versions they cite, and names the directory after the
-submission date. Use `--submitted false` for an application you worked through and decided not to
+submission date. Pass `submitted="false"` for an application you worked through and decided not to
 send. When something comes back, `/jsk:pipeline` records it - against the directory's new name,
-which `jsk app freeze` prints:
+which `app_freeze` returns: it calls `app_event` (kind `screen-scheduled`, date `2026-09-15`), and
+`career_query("pipeline")` shows every application's stage and how long since.
 
-```bash
-jsk app event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15
-jsk kb query pipeline            # every application's stage, and how long since
-```
+## What runs where
 
-## The same, by hand
-
-The skill runs all of this for you, through `jsk mcp`'s tools - capturing the posting, matching
-it and choosing the resume are tools only. The commands do the rest, from nothing to a sent
-application:
+The skill drives all of this through `jsk mcp`'s tools; since 6.0 changing the career, capturing
+a posting, choosing a resume, freezing and recording an event are tools only, with no shell verb.
+The commands that remain:
 
 ```bash
 jsk kb new ./my-career --name "Your Name"     # career/store/: an empty career and its log, at r1
 cd my-career
-jsk kb apply braindump.trig --dry-run         # what a changeset would change
-jsk kb apply braindump.trig                   # ... written and logged, as r2
-jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms to 200, from Grafana."
-#   posting_capture, posting_decide, assessment_derive, resume_select ... (jsk mcp's tools)
-jsk kb export --from-match applications/<stem>   # the selection the posting earns, printed
+jsk kb check                                  # every rule over the record
+#   career_apply, posting_capture, posting_decide, assessment_derive, resume_select,
+#   career_confirm ... (jsk mcp's tools, called by Claude)
 jsk resume check <stem>                       # the record gate on the stored selection
 jsk resume ship <stem>                        # rendered and gated into applications/<stem>/
-jsk app freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
-jsk app event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15   # freeze renamed it
+jsk kb dump --out record.trig                 # the whole record as TriG, a backup
 ```
 
-A changeset is a small TriG file; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new
+A changeset is TriG text passed to `career_apply`; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new
 workspace as it stands. The tailoring step writes no file: the posting, review, assessment and
 selection are graphs in the store. Until 6.0 an application could be made from files
 (`posting.md`, `decisions.txt`, `gaps.txt`, `resume.json`); one left unsent is finished with jsk

@@ -60,5 +60,6 @@ def pack(root, name, *, load, state, packs):
     what = f"{len(d.added)} concepts added, {len(d.enriched)} enriched"
     text = trig(base, f"Adopted the {name} pack: {what}.", {"add": d.add},
                 comments=[f"jsk kb pack {name}: {what}, {len(d.skipped)} skipped.",
-                          "Read it with `jsk kb apply <this file> --dry-run` before applying."])
+                          "Read its diff with the career_preview tool (jsk mcp) before applying it with "
+                          "career_apply."])
     return Drafted(text, what, tuple(d.skipped))

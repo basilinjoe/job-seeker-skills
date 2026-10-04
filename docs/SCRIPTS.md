@@ -7,7 +7,7 @@ the same entry point where it is importable but not on PATH, and on Windows use 
 in place of `python3`.
 
 Every command is `jsk <noun> <verb>`: the noun is what you work on, the verb what you do to it.
-There are four nouns - `kb`, `resume`, `letter`, `app` - and `jsk doctor` and `jsk mcp` beside
+There are three nouns - `kb`, `resume`, `app` - and `jsk doctor` and `jsk mcp` beside
 them. `jsk --help` lists the nouns, `jsk <noun> --help` a noun's verbs, and
 `jsk <noun> <verb> --help` one verb's flags. This page has one section per noun and, under it, one
 per verb. `jsk` is the only door: the `python -m jsk.<module>` paths of earlier releases are
@@ -15,9 +15,11 @@ retired, and each one prints the command that replaced it and exits 2.
 
 **The career is in `career/store/`**, the graph record: named graphs in one Oxigraph store -
 `kb`, `log`, and each application's `posting`, `review`, `gaps`, `resume` and `application` -
-read and written only through `jsk`, and validated on every run. `jsk kb` changes it (through
-changesets) and reads it back, `jsk mcp`'s tools capture a posting, match the career against it and
-choose a resume, and `jsk app freeze` and `jsk app event` record what was sent and what came back.
+read and written only through `jsk`, and validated on every run. Since 6.0 the `jsk mcp` tools
+change it (through changesets), read it back, capture a posting, match the career against it,
+choose a resume, and record what was sent and what came back; `jsk kb` keeps `new`, `check`,
+`load`, `dump`, `pack` and `merge`. The tools are called by Claude, not typed: where this page
+describes one, it is for reading what the agent was told and why a write was refused.
 The renders are files in `applications/<stem>/` (or `resumes/<name>/` for a general resume). A
 resume is built from the career and a selection - the bullets chosen for one posting, by id, and
 its settings: the `resume` graph, written by `resume_select`. A **target** names a selection: an
@@ -29,18 +31,14 @@ can send.
 ```bash
 jsk doctor                       # what works on this machine
 jsk kb new ./my-career --name "Your Name"  # career/store/ with the career and its log, at r1
-jsk kb apply changes.trig        # change the graph record; `jsk kb --help` lists the rest
+jsk kb check                     # every rule over the record; `jsk kb --help` lists the rest
 jsk resume check <stem>         # the record gate, on a target's selection
-jsk kb export --from-match applications/<stem>   # the selection a posting earns, printed
 jsk resume render <stem> --pdf  # into applications/<stem>/
 jsk resume check resume.pdf     # both document gates, one pass
-jsk letter check cover-letter.txt --record <stem>   # a cover letter's words and numbers
 jsk resume check applications/<stem>   # record, parse, prose and layout gates
 jsk resume fit resume.tex --target-pages 2
 jsk resume preview <stem> --out ./looks
 jsk resume ship <stem>           # validate, render, gate
-jsk app freeze applications/<dir> --submitted 2026-09-08 --channel "Workday portal"
-jsk app event applications/<dir> screen-scheduled --date 2026-09-15   # what happened next
 jsk app drop applications/<dir> --reason "role filled"   # set an unsent one aside
 jsk mcp                          # the career and its applications as MCP tools, over stdio
 ```
@@ -76,10 +74,10 @@ count nobody knows.
 | `jsk posting build D [decisions]` | `decisions.txt` | `posting_decide`, `posting_complete` |
 | `jsk tailor prepare D [--draft-gaps]` | `gaps.txt` digest/draft | `assessment_derive` |
 | `jsk tailor match D [--gaps F \| --draft-gaps F]` | `gaps.txt` | `assessment_derive`, `assessment_review`, `assessment_complete` |
-| `jsk kb export --out R.json [--replace]` | `resume.json` | `resume_select(target, mode)`; `jsk kb export` prints |
+| `jsk kb export --out R.json [--replace]` | `resume.json` | `resume_select(target, mode)`; `app_show(app, part="selection")` prints it |
 | `jsk resume check\|render\|preview\|ship <resume.json>` | `resume.json` | the same verbs on `<stem>` / `resumes/<name>` |
-| `jsk kb confirm --summary\|--headline <resume.json>` | `resume.json` | `career_confirm(target, block)` / `--summary <stem>` |
-| `jsk letter check L --record <resume.json>` | `resume.json` | `letter_check(letter, record=<stem>)` / `--record <stem>` |
+| `jsk kb confirm --summary\|--headline <resume.json>` | `resume.json` | `career_confirm(target, block)` |
+| `jsk letter check L --record <resume.json>` | `resume.json` | `letter_check(letter, record=<stem>)` |
 | `jsk app freeze D` on a file-made application | `resume.json` | `app_freeze` on a graph-native one |
 
 `jsk posting` and `jsk tailor` are gone whole: every verb they had, and `--help`, says so. The
@@ -90,6 +88,31 @@ CLI to finish it: `jsk kb check` names each (`file-made-unsent`), the `app_list`
 `unsent: true` with the note, and `jsk doctor` counts them in an `info` line. Send each with jsk
 5.1.0, the last CLI that does, or drop it with `jsk app drop applications/<stem>` (below). A frozen
 one stays readable: its quotes are still checked against the `posting.md` beside it on every load.
+
+### Retired with the duplicated verbs
+
+The same release retired the verbs the `jsk mcp` tools duplicate
+(`docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md`). Each exits 2, names its tool and
+writes nothing; the `letter` noun is gone whole.
+
+| Retired | Replacement |
+|---|---|
+| `jsk kb apply changes.trig [--dry-run]` | `career_preview(changeset)`, then `career_apply(changeset)`; the changeset is passed as text |
+| `jsk kb confirm <ids> --answer\|--source --quote` | `career_confirm(ids, answer=)` or `career_confirm(ids, source=, quote=)` |
+| `jsk kb show <ids> [--bullets]` | `career_show(ids, bullets=)` |
+| `jsk kb view [--section S]` | `career_view(section=)`; `jsk kb dump` writes the whole record as TriG |
+| `jsk kb query <name> [args]` | `career_query(name, args=)` |
+| `jsk kb log [--last N]` | `career_log(last=)` |
+| `jsk kb export --from-match\|--ranked\|--select` | `resume_select(target, mode)`; `app_show(app, part="selection")` prints the selection |
+| `jsk kb path` | `jsk doctor`, which names the workspace |
+| `jsk app freeze D --submitted --channel` | `app_freeze(app, submitted, channel, docs=)` |
+| `jsk app event D KIND --date` | `app_event(app, kind, date, channel=, due=, note=)` |
+| `jsk letter check L --record R` | `letter_check(letter, record)` |
+
+`jsk kb pack` and `jsk kb merge` stay: they draft a changeset to stdout or `--out`. Pass its text
+to `career_preview`, then `career_apply`. There is no shell path to apply or confirm any more; a
+person who wants to change the record by hand asks Claude, or runs the tools through any MCP
+client. `jsk kb dump` stays for a TriG backup, and `jsk kb load` restores one.
 
 ## `jsk doctor`
 
@@ -111,11 +134,9 @@ is present but failed its own gates — that is a bug in the skill, not in your 
 Gaps are reported by what they *disable*, not by package name. Runs on a bare Python: a preflight
 that needs installing first is not a preflight.
 
-One line is neither a check nor a gap: whether the `mcp` extra is importable. It is marked `ok`
-when it is, and `info` when it is not, with what that costs (`jsk mcp` cannot start) and its
-install line, `pip install 'jsk-resume[mcp]'`. It never changes
-the verdict or the exit code: the CLI does all of its work without the extra. `--json` lists it
-under `extras`, apart from `checks`.
+`mcp` is a required check beside pyoxigraph since 6.0: its tools are the only way to change a
+career, so a missing one is `FAIL` and the verdict `BLOCKED`. Both are dependencies of
+`jsk-resume`, so either missing means the install skipped dependencies.
 
 Without `--kb` it searches three directories down for a workspace, and dot folders (`.jsk/`,
 `.git/`) are never searched. For the one it finds it reports the store: present, readable, its
@@ -152,7 +173,7 @@ for git, so a person who backs the workspace up with git commits a `jsk kb dump 
 too: the store's own files are not text a diff can read, and the backup is not committed.
 
 Both graphs go in through the same write gate every `jsk kb` write uses, in one update, so the
-record is **clean at r1** and `jsk kb apply` works on it straight away. It needs pyoxigraph, a
+record is **clean at r1** and `career_apply` works on it straight away. It needs pyoxigraph, a
 dependency of the package, as every `jsk kb` verb does: without it there is no store to create.
 
 The empty record holds no identity: `k:person` arrives with the first changeset, like any other
@@ -172,15 +193,12 @@ refused afterwards, whatever it names: its `op:base` is older than the newest `b
 What each section holds is the format reference's job (`references/kb-format.md` in the skill),
 and every refused write names what it refused.
 
-### `jsk kb apply`
+### Changesets: `career_preview` and `career_apply`
 
-```bash
-jsk kb apply changes.trig --dry-run      # the diff it would make, nothing written
-jsk kb apply changes.trig                # merged, validated, written, logged
-```
-
-**`apply`** is how an agent changes the career: a changeset, in TriG, with four graphs. A
-changeset is input - a file you write, say `changes/2026-09-08-payments.trig` - never storage. A
+`career_preview(changeset)` shows the diff a changeset would make and writes nothing;
+`career_apply(changeset)` merges, validates, writes and logs it. (`jsk kb apply` did the same
+from a file until 6.0.) A changeset is how an agent changes the career: TriG text, with four
+graphs, passed as the tool's argument. It is input, never storage. A
 first braindump into the empty record `jsk kb new` writes (r1) - it applies as it stands:
 
 ```trig
@@ -242,7 +260,7 @@ rewrite (`8.40`, `007`, `+3`) is refused, with the fix naming the literal the st
 rule id; dumps `jsk kb load` reads are held to it too. A grade whose zeros matter
 (`3.80`) is a string, which `gradeValue` allows.
 
-What apply does unasked: a new bullet (a `[]` with `j:project`) gets its id,
+What `career_apply` does unasked: a new bullet (a `[]` with `j:project`) gets its id,
 `ach_<project>_<three words of its text>`, never one the record has used. An entry whose claims
 changed drops to `j:inferred`, and every entry left inferred gets a `q_` question unless one is
 open. A metric version an application sent never changes: a new `j:value` becomes the next
@@ -250,7 +268,7 @@ version, and the one it replaces is closed. A changeset cannot confirm anything,
 another file, cannot use blank nodes except for a new bullet, and cannot name a predicate the
 ontology does not have (it suggests the nearest).
 
-The command takes its **turn** before it reads the record: a writer that finds another jsk write
+The tool takes its **turn** before it reads the record: a writer that finds another jsk write
 in progress prints `waiting for another jsk write to finish` and waits, in arrival order, rather
 than being refused, and reads the record only once the one ahead of it has finished - so it
 validates and applies to what that one left. There is no retry: a changeset naming an id that
@@ -259,74 +277,56 @@ in the career refuses it with the command that fixes it - and the record it woul
 anything is written. Then the career, its log entry and the revision go into the store in **one
 update** - all of it lands or none does - and `.jsk/backup.trig` is overwritten with the whole
 record as TriG (best effort; read only by `jsk kb load`). A process that dies holding its turn
-gives it up with its file handle. Stdin (`-`) is refused: a pipe that never closes hangs the command.
+gives it up with its file handle. 
+### `career_confirm` and `career_log`
 
-### `jsk kb confirm` and `jsk kb log`
-
-```bash
-jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms before, 200 after, from the Grafana board."
-jsk kb log --last 5                      # the newest five revisions: day, command, summary, ids
+```
+career_confirm(ids=["k:ach_payments_cut_settlement_latency"], answer="Yes: 800 ms before, 200 after, from the Grafana board.")
+career_log(last=5)                       # the newest five revisions: day, command, summary, ids
 ```
 
-**`confirm`** is the only way an entry becomes `j:confirmed`, and it takes the person's answer in
+**`career_confirm`** (`jsk kb confirm` until 6.0) is the only way an entry becomes `j:confirmed`, and it takes the person's answer in
 their words: each id named is confirmed, every open question about it is answered today, and the
 log entry keeps the answer beside the ids. An answer that says nothing - `yes`, `ok`,
 `confirmed`, a placeholder - is refused, and one that reached the log by hand is flagged by
 `answer-placeholder`. This is an instruction with an audit trail, not a proof that anyone asked.
 
-`--summary <stem>` and `--headline <stem>` (or `resumes/<name>`) confirm a selection's own
-prose instead: its selection graph keeps the answer and the text's hash, and the career is not
+`target=<stem>` (or `resumes/<name>`) with `block="summary"` or `block="headline"` confirms a
+selection's own prose instead, with no ids: its selection graph keeps the answer and the text's hash, and the career is not
 written or logged. The headline is the posting's title as `resume_select` set it; it renders under
 the name only once the person says it is a title they stand behind. A `resume.json` in place of
 the target was read until 6.0 and exits 2 now, naming the target form.
 
-**`log`** is the history, newest first: each revision's number, day, the command that made it
-(`apply`, `confirm`, `new`, ...), its summary, and the ids it minted and touched. `--last N`, the
+**`career_log`** is the history, newest first: each revision's number, day, the command that made it
+(`apply`, `confirm`, `new`, ...), its summary, and the ids it minted and touched. `last=N`, the
 newest N (default 10). It is how the history is read - there is no log file to open.
 
-### `jsk kb show`, `view`, `query`, `pack`, `merge`, `check` and `path`
+### Reading the career: `career_show`, `career_view` and `career_query`
 
-```bash
-jsk kb show prj_payments met_settlement  # the entries, and the op:base to draft against
-jsk kb view --section Projects           # the career as Markdown, to read
-jsk kb query unconfirmed --json          # open | unconfirmed | holds <concept> | stale
-jsk kb query experience c:kubernetes     # | experience <concept> | pipeline
-jsk kb query evidence GraphQL "React Native" BFF  # each term: holders, then text naming it
-jsk kb query person                      # location, work mode, rights to work, ongoing roles
-jsk kb query concepts                    # every concept: labels, counts as, projects holding it
-jsk kb query bare                        # the career's capabilities with no label and no isA/partOf
-jsk kb pack capabilities --out pack.trig # the capability starter pack, drafted as a changeset
-jsk kb merge c:a --into c:b --out m.trig # two concepts that are one, drafted as a changeset
-jsk kb query similar "event pipeline Kafka"  # the closest live projects, words and concepts shared
-jsk kb query duplicates                  # pairs of projects that look like one told twice
-jsk kb query demand                      # | shortfalls | drops | outcomes | repeated | absences
-jsk kb show prj_payments --bullets       # a project's name and bullets, without its notes
-jsk kb path                              # the workspace, career/store/, applications/
-jsk kb check                             # every rule, and the record's state
-jsk kb check --only applications/<dir>   # that application's findings, and every FAIL anywhere
-jsk kb query concepts --near "event mesh"  # what a term names, then the closest few concepts
+```
+career_show(ids=["prj_payments", "met_settlement"])   # the entries, and the op:base to draft against
+career_show(ids=["prj_payments"], bullets=true)       # a project's name and bullets, without its notes
+career_view(section="Projects")                       # the career as Markdown, paged
+career_query(name="unconfirmed")                      # open | unconfirmed | holds <concept> | stale
+career_query(name="experience", args=["c:kubernetes"])   # | experience <concept> | pipeline
+career_query(name="evidence", args=["GraphQL", "React Native", "BFF"])  # each term: holders, then text naming it
+career_query(name="person")                           # location, work mode, rights to work, ongoing roles
+career_query(name="concepts")                         # every concept: labels, counts as, projects holding it
+career_query(name="concepts", args=["event mesh"])    # what a term names, then the closest few concepts
+career_query(name="bare")                             # the career's capabilities with no label and no isA/partOf
+career_query(name="similar", args=["event pipeline Kafka"])  # the closest live projects, words and concepts shared
+career_query(name="duplicates")                       # pairs of projects that look like one told twice
+career_query(name="demand")                           # | shortfalls | drops | outcomes | repeated | absences
 ```
 
-**`pack`** and **`merge`** draft a changeset and never apply it: it is read with `apply --dry-run`
-and applied like any other. `pack capabilities` offers `src/jsk/data/capabilities.ttl` - about 120
-capabilities and domains, their labels and `isA` edges, never loaded as vocabulary, because an edge
-between capabilities is a judgement the person answers for. It adds only what the record lacks and
-reports what it skipped: a concept the record classes differently, a label that already names
-another concept, an edge that would cross a `distinct` wall or loop. Run again after applying, it
-has nothing to add. `merge c:a --into c:b` points every reference to `c:a` at `c:b`, moves its
-labels and edges, and deletes `c:a` - retires it, when a posting's `j:concept` still names it. It
-refuses a shipped concept, different classes and a `distinct` pair, and lists the bullets whose
-`j:shows` it rewrites: they come back `inferred`, to be confirmed again. The `concepts-bare` WARN,
-once per record, counts the capabilities `query bare` lists: they match only their exact id.
+These replace `jsk kb show`, `view`, `query` and `log` (retired in 6.0).
 
-**`show`** prints entries as Turtle, each under the graph that holds it (`# kb`,
+**`career_show`** prints entries as Turtle, each under the graph that holds it (`# kb`,
 `# applications/<dir>/posting`) - a project with its bullets, a metric with its versions, a
 concept from the vocabulary and from the career - under a first line naming the revision to put in
-`op:base`. It is the shape a changeset is drafted in. **`view`** is the whole career as Markdown in
-the career's section order, entries not confirmed and retired ones marked; it goes to stdout and
-never to a file, so it cannot drift from the record. Together with `query` and `log` they are the
-only way to read the record: nothing under `career/` is meant to be opened. **`query`** answers a named question as a table or
-`--json`: `open` questions, `unconfirmed` entries with the question open about each, the projects
+`op:base`. It is the shape a changeset is drafted in. **`career_view`** is the whole career as Markdown in
+the career's section order, entries not confirmed and retired ones marked; it is returned, never written to a file, so it cannot drift from the record. Together with `career_query` and `career_log` they are the
+only way to read the record: nothing under `career/` is meant to be opened. **`career_query`** answers a named question as rows of JSON: `open` questions, `unconfirmed` entries with the question open about each, the projects
 that `holds` a concept (or one that counts as it, with the evidence), `stale` - applications
 that sent a metric version since replaced - `experience` of a concept (the months the roles
 behind the projects holding it cover, overlaps once: what the record gate compares "N years
@@ -338,6 +338,27 @@ verdicts it got), `shortfalls` (concepts left unsatisfied, partial or unevidence
 (applications by assessed fit and stage), `repeated` (concepts asked about in more than one
 application's questions) and `absences` (each "no": live, due a year after it was said, or
 unconfirmed). `drops` and `repeated` read what only graph-native applications store.
+### `jsk kb pack`, `merge` and `check`
+
+```bash
+jsk kb pack capabilities --out pack.trig # the capability starter pack, drafted as a changeset
+jsk kb merge c:a --into c:b --out m.trig # two concepts that are one, drafted as a changeset
+jsk kb check                             # every rule, and the record's state
+jsk kb check --only applications/<dir>   # that application's findings, and every FAIL anywhere
+```
+
+**`pack`** and **`merge`** draft a changeset and never apply it: its text is read with
+`career_preview` and applied with `career_apply`, like any other. `pack capabilities` offers `src/jsk/data/capabilities.ttl` - about 120
+capabilities and domains, their labels and `isA` edges, never loaded as vocabulary, because an edge
+between capabilities is a judgement the person answers for. It adds only what the record lacks and
+reports what it skipped: a concept the record classes differently, a label that already names
+another concept, an edge that would cross a `distinct` wall or loop. Run again after applying, it
+has nothing to add. `merge c:a --into c:b` points every reference to `c:a` at `c:b`, moves its
+labels and edges, and deletes `c:a` - retires it, when a posting's `j:concept` still names it. It
+refuses a shipped concept, different classes and a `distinct` pair, and lists the bullets whose
+`j:shows` it rewrites: they come back `inferred`, to be confirmed again. The `concepts-bare` WARN,
+once per record, counts the capabilities `career_query(name="bare")` lists: they match only their exact id.
+
 **`check`** runs every rule over the workspace and says at
 which revision the record stands; exit 1 on a FAIL. A finding names the graph (`kb`,
 `applications/<dir>/posting`) and the entry's id - the record has no lines to number.
@@ -350,9 +371,6 @@ full write of the career, and every other command loads the record on every run.
 Last, it names each application made from files and not sent, a WARN `file-made-unsent` with the
 fix: send it with jsk 5.1.0, the last CLI that does, or drop it: `jsk app drop applications/<stem>`
 (see Retired in 6.0 above, and `jsk app drop`).
-
-**`path`** prints the workspace, `career/store/` and `applications/` as absolute paths - where
-to run from and write to, never files to read. It needs nothing but the folders.
 
 ### `jsk kb dump` and `jsk kb load`
 
@@ -372,7 +390,7 @@ no workspace, without `--root`, it is exit 2, "no workspace here". From a dump i
 as it was dumped - and refuses a dump that was edited: one holding a number in a spelling the
 store would rewrite, named, or whose career is not what its log's newest entry hashed
 (`kbSha256`) - a provenance raised, a number changed. Load an unedited dump, and change the record
-through `jsk kb apply` once it is loaded. From a folder still laid out as files - `career/kb.ttl`,
+through `career_apply` once it is loaded. From a folder still laid out as files - `career/kb.ttl`,
 `career/log.ttl`, `applications/*/posting.ttl`, `application.ttl`, `gaps.ttl`, the layout before
 the store, and `resumes/*/resume.ttl`, a general resume's selection (the shipped example has one) -
 it validates them exactly as the file loader always did and refuses on any FAIL,
@@ -392,45 +410,40 @@ beside the record, not in it, and the load names each one missing.
 the old version, then that load with the new one - never an upgrade in place. A store that will
 not open is restored the same way from `.jsk/backup.trig`.
 
-### `jsk kb export`
+### How a selection is chosen: `resume_select`
 
-```bash
-jsk kb export --from-match applications/2026-09-08-ashby
-jsk kb export --ranked
-jsk kb export --select prj_payments ach_ledger_cut_close pos_lead
+```
+resume_select(target="2026-09-08-ashby", mode="from_match")
+resume_select(target="resumes/general", mode="ranked")
 ```
 
-**`export`** prints the short `resume.json` dict - `"resume": 2`, the `bullets` chosen as `ach_`
-ids in order, `roles` shown with no bullet, `skills`, the `region` when a profile ships for the
-person's country, and `"pages": 2` - to stdout, the notes to stderr. It is the selection
-`resume_select` stores for a target, chosen the same way; nothing reads a `resume.json` path since
-6.0, so `--out` and `--replace`, which wrote one, exit 2 naming `resume_select`. Nothing the career
+`jsk kb export` printed the choice; since 6.0 `resume_select` stores it and `app_show(app,
+part="selection")` prints it. The choice is the short `resume.json` dict - `"resume": 2`, the
+`bullets` chosen as `ach_` ids in order, `roles` shown with no bullet, `skills`, the `region` when
+a profile ships for the person's country, and `"pages": 2` - and the notes come back as findings.
+Nothing reads a `resume.json` path since 6.0. Nothing the career
 holds is copied: every render reads the words, numbers and dates from the career as it stands.
 `references/resume-format.md` in the skill has every key.
 
-**`--from-match <app-dir>`** makes the selection from the match of the application's posting, the
+**`from_match`** makes the selection from the match of the application's posting, the
 same way for the same posting every time; it takes the application directory and refuses a
 `posting.ttl` path. A project carries a requirement only when a live, confirmed bullet shows it, so a tag is not
-enough. The export takes the smallest cover of the required requirements, then the rest of the
+enough. It takes the smallest cover of the required requirements, then the rest of the
 ranking that carries anything, up to eight projects. It scores each confirmed bullet by what it
 shows (required ×3, preferred ×1, +1 for a metric with a current version) and gives positions 1-2
 up to five bullets, 3-5 up to two, and the rest one. The cover's requirements always get a bullet,
 even past that cap. Skills the posting names come first in `skills`. What the selection cannot
 close prints as `GAP` lines for the assessment: `tag-only`, `unconfirmed` (naming the bullet to
 confirm), `uncovered` and `unresolved`; a chosen project with no confirmed bullet is a `NOTE`.
-`--select` adds bullets (placed by what they show) and roles, `--cover N` is the most projects
-the cover may use and `--today` the date recency counts from, and a failure in the posting's own
-directory refuses the export.
+A failure in the posting's own graph refuses the selection.
 
-**`--ranked`** is the same selection with no posting, for a general rebuild, so the scorer rather
+**`ranked`** is the same selection with no posting, for a general rebuild, so the scorer rather
 than the model chooses there too. Projects score 2 × `j:strength` plus the recency points, ties by
 strength, recency and id, up to eight; each gets the same bands, a bullet citing a metric with a
 current version scoring and the rest filling only to the band's floor, confirmed bullets only.
-There are no `GAP` lines and no `skills`, so every skill renders in the builder's order. `--select`
-adds to it and `--today` sets the date recency counts from; it and `--from-match` exclude each
-other, and `--cover` is `--from-match`'s alone.
+There are no `GAP` lines and no `skills`, so every skill renders in the builder's order.
 
-**`--select`** alone names what to show: `prj_` a project and every live bullet of it by `j:rank`,
+**`jsk kb export --select`** named what to show (`resume_update`'s `bullets` and `roles` do now): `prj_` a project and every live bullet of it by `j:rank`,
 `ach_` one bullet (narrowing its project to the bullets named), `pos_` a role with no bullet.
 Projects follow by recency. With none of these flags, the whole career. Retired entries never come;
 selecting one, an id the career lacks, or a metric is refused with the nearest id.
@@ -442,10 +455,9 @@ over the chosen bullets and prints each it refuses as a `WARN` - a number no cur
 version holds is in the career, not in anything authored, so it is a question for the person,
 answered in the career before any word is retuned.
 
-`--urs` and `--refresh` are gone with the full record, each a usage error saying so: the short file
-is the one format, and it holds nothing to refresh.
-
-Exit 0 printed; 1 refused, with every reason; 2 called wrong.
+The old `--urs` and `--refresh` went with the full record: the short file is the one format, and it
+holds nothing to refresh. A selection holding no bullet, or a career that fails its rules, is
+refused with every reason.
 
 ## `jsk resume`
 
@@ -469,7 +481,7 @@ prose and layout gates over the render inside it. Each kind keeps its own flags 
 for the layout gate) for a render; `--record`, `--pages`, `--json` and `--max-findings` for a
 directory - and a flag that does not fit the target, such as `--pages` on a target, is a usage
 error, exit 2, that names the target kind. A cover letter is not a resume: it is
-`jsk letter check`, and `--only letter` here points there.
+the `letter_check` tool, and `--only letter` here points there.
 
 #### A target: the record gate
 
@@ -503,13 +515,13 @@ longest label is read first, so ".NET Framework" is never read as ".NET". A shap
 id checks: until the shape is right the ids may not be lists of ids.
 
 An untraced number is the one finding never to "fix" by changing the number: it is in the career, so
-it is a question for the person, answered with `jsk kb apply` (the figure, cited from the bullet)
+it is a question for the person, answered with `career_apply` (the figure, cited from the bullet)
 or by changing the words. `jsk kb check` and the match ask the same of the career's bullets.
 
 It replaced two gates. `validate_urs` checked a 30-47KB URS record against itself and the claims
 gate checked that record against the career; most of what the two asked was whether the copy had
 drifted, and with no copy there is nothing to drift. `jsk resume check` - on a target or on a
-directory - `jsk resume ship` and `jsk app freeze` all run this one.
+directory - `jsk resume ship` and `app_freeze` all run this one.
 
 A `.md`, a `.ttl` or a `resume.json` is exit 2 with the target to name instead. A directory is
 not a target: it gets all four gates, below.
@@ -816,7 +828,7 @@ rendered, instead of pointing at a PDF an earlier run left in `DIR`. The page co
 the renderer's own line, and `--pages N`'s — and never failed, fitted or not: a render still over
 at the floors is `OVER BUDGET` in the fit step, and exits as it would have before ship fitted.
 
-Last of all, as under `jsk resume check` on a directory and `jsk app freeze`, an `=== summary` block: one line a step with
+Last of all, as under `jsk resume check` on a directory and `app_freeze`, an `=== summary` block: one line a step with
 its status and the step's own `FAIL n   WARN n`, the render's page counts, the lines it withheld
 below the floor, each named (`withheld 1 below the floor: ach_…`), the fit's last line, then the
 verdict. Nothing in it is a new verdict - each count is
@@ -826,19 +838,17 @@ every gate. `--json` has no summary; `steps[]` already is one.
 Exit `0` only if every step passed, `1` on any failure, `2` called wrong. `--json` carries every
 step in `steps[]` in the shape `jsk resume check --json` gives a directory, the render gate last and `UNVERIFIED`.
 
-## `jsk letter`
+## The letter check: `letter_check`
 
 A cover letter, beside the selection it goes out with - an application's or a general resume's,
 as the store holds it.
 
-### `jsk letter check`
-
-```bash
-jsk letter check applications/<stem>/cover-letter.txt --record <stem>
-jsk letter check cover-letter.txt --record resumes/<name>
+```
+letter_check(letter="applications/<stem>/cover-letter.txt", record="<stem>")
+letter_check(letter="cover-letter.txt", record="resumes/<name>")
 ```
 
-`--record` takes the target: an application's name (`<stem>` or `applications/<stem>`, or its
+`jsk letter check` did this until 6.0; the `letter` noun is gone. `record` takes the target: an application's name (`<stem>` or `applications/<stem>`, or its
 directory once a render has made it) or `resumes/<name>`. The record is the selection the store
 holds (`applications/<stem>/resume`) and the advert is the posting graph's stored lines, so the
 number check and the quotation rule below read those. A target with no selection stored exits 2,
@@ -855,7 +865,7 @@ The **letter check** — a cover letter (`.txt` or `.md`) against the resume it 
   states it, `number-superseded` when only a replaced version of a cited metric holds it, and
   `number-untraced` otherwise. "N years of X" is asked of the roles behind X, as the record gate
   does. A numeral inside quotation marks that one of the stored advert lines holds verbatim is
-  the posting's words and is skipped. Without `--record` the number check is SKIPPED, and fails.
+  the posting's words and is skipped. The tool requires `record`: a letter's numbers are traced to a selection or not checked.
 - **Prose.** From the prose gate: placeholders, a sentence that stops before its object, the
   cut-on-sight phrases (a warning). Its own: enthusiasm padding — "passionate", "excited",
   "thrilled" — fails. The prose gate's resume-only rules do not apply: a letter is written in the
@@ -866,17 +876,18 @@ Whether each sentence is true of the career is not checked; that would need a re
 ## `jsk app`
 
 An application once it is sent: what went out, and what happened next - or, never sent, set aside.
+Only `jsk app drop` is still a command; the freeze and the event are tools.
 
-### `jsk app freeze`
+### Freezing: `app_freeze`
 
-```bash
-jsk app freeze <app-dir> --submitted YYYY-MM-DD|false --channel TEXT [--doc FILE ...]
+```
+app_freeze(app="applications/<dir>", submitted="2026-09-08", channel="Workday portal", docs=[...])
 ```
 
-Freezes one `applications/<yyyy-mm-dd>-<company>-<role>/` directory the way `references/mode-ship.md`
+`app_freeze` (`jsk app freeze` until 6.0) freezes one `applications/<yyyy-mm-dd>-<company>-<role>/` directory the way `references/mode-ship.md`
 describes: renames it to the day it was sent, if its leading date says otherwise, and records what
 was sent as the application graph, `applications/<dir>/application` in the store, as
-`jsk kb show k:app_acme_platform` prints it:
+`career_show(ids=["k:app_acme_platform"])` returns it:
 
 ```turtle
 k:app_acme_platform j:posting k:post_acme_platform ; j:view "resume" ;
@@ -896,8 +907,8 @@ frozen selection's canonical text (below). `carried` is every bullet that render
 the floor is not carried - and `carriedVersion` is the current version, now, of every metric those
 bullets cite. No copy of the content is written: the PDF and `.tex` beside it, and any letter,
 are the words sent. That is what makes a later
-revision visible: `jsk kb apply` never changes a sent version - a new number becomes the next
-one - and `jsk kb query stale` names every application that sent the old. The graph is validated
+revision visible: `career_apply` never changes a sent version - a new number becomes the next
+one - and `career_query(name="stale")` names every application that sent the old. The graph is validated
 with the whole record before anything is renamed or written, and goes in through the same write
 gate as every other write. It adds no log entry: the log is the career's history, and the career
 itself is never touched. A graph is named by its directory, so when the directory is renamed its
@@ -905,13 +916,13 @@ posting, assessment, review and selection graphs - whichever it holds - move to 
 the same update that writes the application graph - all of them land, or none does and the
 directory is renamed back.
 
-The documents are the `--doc` files, or every `.pdf` and every `.txt` letter in the
+The documents are the `docs` files, or every `.pdf` and every `.txt` letter in the
 directory - the PDFs and the letters; a render writes no `.txt`, and the `<Name>_Resume_ATS.txt` an
 earlier one left is not listed. The final path is printed.
 
 A **graph-native application** (its posting graph holds the advert's lines) has no `resume.json`,
-and one beside it is never read. Since 6.0 it is the only kind frozen: one made from files exits
-2, naming jsk 5.1.0 and `jsk app drop` (Retired in 6.0). Its record is the selection the store
+and one beside it is never read. Since 6.0 it is the only kind frozen: one made from files is refused
+with a FAIL, naming jsk 5.1.0 and `jsk app drop` (Retired in 6.0). Its record is the selection the store
 holds,
 `applications/<dir>/resume`: `recordSha256` is the SHA-256 of that selection's canonical text
 (`json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`, UTF-8), and
@@ -919,44 +930,44 @@ holds,
 against the selection, a letter's with `--record <stem>`. The rename moves all five of its graphs -
 `posting`, `review`, `gaps`, `resume` and the new `application` - in one update. After it, the
 `resume_update`, `posting_decide` and every other writing tool refuse it as sent, and `jsk resume
-ship <stem>` refuses the frozen directory. A held-back freeze (`--submitted false`) is refused
+ship <stem>` refuses the frozen directory. A held-back freeze (`submitted="false"`) is refused
 alike, the refusal saying it was frozen, not sent, and naming `posting_capture` under a new stem
 as the way to reuse it. With no selection stored it refuses: `no resume stored for <dir>`, naming
 the `resume_select` tool.
 
-It refuses — exit 1, saying why, with nothing renamed and nothing written — when:
+It refuses - a FAIL saying why, with nothing renamed and nothing written — when:
 
 - **the application is already frozen** - the store holds its application graph, or the
   directory holds an `application.md` from before the graph record. A frozen application is
-  never re-frozen; later events are `jsk app event`.
+  never re-frozen; later events are `app_event`.
 - **any mechanical gate fails.** It runs what `jsk resume check <app-dir>` runs - the record gate
   first - in process, and prints it. A failing document is never frozen.
 - a graph-native application has no selection stored (`no resume stored for <dir>`).
 - no posting graph was captured for it, there is nothing to list as documents, the renamed directory
   would land on one that already exists, or the application graph it would write does not validate.
 
-`--submitted false` is for an application worked through and deliberately held back: it writes
+`submitted="false"` is for an application worked through and deliberately held back: it writes
 `submitted false`, leaves the directory's name alone, and records **no `submitted` event** — an
 accurate blank rather than a false green. It never touches the career.
 
-### `jsk app event`
+### Events: `app_event`
 
-```bash
-jsk app event applications/2026-09-08-acme-platform screen-scheduled --date 2026-09-15 --due 2026-09-18
-jsk app event applications/2026-09-08-acme-platform rejected --date 2026-10-02 --channel email
-jsk app event applications/2026-09-08-acme-platform note --date unknown --note "Recruiter said Q4."
+```
+app_event(app="2026-09-08-acme-platform", kind="screen-scheduled", date="2026-09-15", due="2026-09-18")
+app_event(app="2026-09-08-acme-platform", kind="rejected", date="2026-10-02", channel="email")
+app_event(app="2026-09-08-acme-platform", kind="note", date="unknown", note="Recruiter said Q4.")
 ```
 
-Adds one event to a frozen application's graph: `k:evt_<stem>_<date>_<kind>`, with
-`--channel`, `--note` and `--due` when given. The kind is the closed pipeline vocabulary -
+`app_event` (`jsk app event` until 6.0) adds one event to a frozen application's graph: `k:evt_<stem>_<date>_<kind>`, with
+`channel`, `note` and `due` when given. The kind is the closed pipeline vocabulary -
 `submitted`, `acknowledged`, `screen-scheduled`, `screen-done`, `interview-scheduled`,
 `interview-done`, `onsite-scheduled`, `onsite-done`, `offer`, `offer-accepted`, `rejected`,
 `withdrawn`, `no-response`, `offer-declined`, `follow-up-sent`, `note`, `referral`,
 `recruiter-contact` - and a kind outside it is exit 2 with the nearest one suggested. The date is
 `YYYY-MM-DD` or `unknown`: the day it happened (a `-scheduled` event's is the day it was booked; the
-meeting is its `--due`). Both are printed back with weekday and distance - `recorded
+meeting is its `due`). Both are printed back with weekday and distance - `recorded
 screen-scheduled on 2026-09-22 (Tuesday, 4 days ago)` - so date arithmetic gone wrong shows as the
-wrong weekday; a `--date` after today is a WARN. `--today` fixes the day, for tests.
+wrong weekday; a `date` after today is a WARN.
 
 Add-only: it never edits or removes an event. A second event of the same kind on the same day -
 another note, a round-2 `interview-done`, a second `unknown`-dated contact - is minted
@@ -966,9 +977,7 @@ event in it and validated before anything is written, and the event goes in thro
 gate as every other write. An application frozen as `application.md` is pointed at its
 `# Timeline` table.
 
-The stage is never stored: `jsk kb query pipeline` derives it from the latest dated event.
-
-Exit 0 added, 1 refused, 2 called wrong.
+The stage is never stored: `career_query(name="pipeline")` derives it from the latest dated event.
 
 ### `jsk app drop`
 
@@ -998,8 +1007,8 @@ dropped applications/contoso-platform - never frozen, so never sent; its files a
 `dry run: nothing was written or moved`, and writes nothing.
 
 It refuses - exit 1, `nothing was written or moved` - a **frozen application**, sent or held back
-(`--submitted false`): that is the archive of what went out, and the fix is an event, `jsk app
-event applications/<stem> withdrawn --date YYYY-MM-DD`. It refuses a removal the workspace would
+(`submitted="false"`): that is the archive of what went out, and the fix is an event, `app_event(app="<stem>", kind="withdrawn",
+date="YYYY-MM-DD")`. It refuses a removal the workspace would
 not validate without. A path that is no application - no folder under `applications/` and no graph
 for it - is exit 2. If the folder cannot be moved after the store was written, it says so (exit
 1); running it again finds no graphs and moves what is left. It has no MCP tool: setting an
@@ -1010,7 +1019,6 @@ Exit 0 dropped or a dry run, 1 refused, 2 called wrong.
 ## `jsk mcp`
 
 ```bash
-pip install 'jsk-resume[mcp]'
 jsk mcp                          # serves until the client closes stdin
 JSK_ROOT=~/my-career jsk mcp     # a workspace other than the one around the current directory
 ```
@@ -1018,25 +1026,26 @@ JSK_ROOT=~/my-career jsk mcp     # a workspace other than the one around the cur
 Serves the career and graph-native applications to an agent as MCP tools, over stdio - the
 plugin starts it, one process per session. It takes no arguments. The workspace is `JSK_ROOT`
 when set, else the one around the directory it started in; a call made with none answers with
-the `jsk kb new` fix. Without the `mcp` extra it prints
-`the MCP server needs the mcp extra: pip install 'jsk-resume[mcp]'` and exits 2.
+the `jsk kb new` fix. `mcp` is a required dependency since 6.0 (`pip install jsk-resume`); a
+Python that holds an old `mcp` another package pinned makes `jsk mcp` name the version it needs and
+exit 2. The `[mcp]` extra remains as an alias, so `pip install 'jsk-resume[mcp]'` still works.
 
 Every result is JSON: `{"ok": true, "findings": [...], ...}`, or `{"ok": false, "findings":
 [...]}` with each finding `{severity, text, fix}`. A refusal is its findings, never a traceback;
 an unexpected error is one `FAIL` naming the tool, its traceback on the server's stderr, and the
 server keeps serving. A write tool takes the writers' turn for that call alone, exactly as a
-command does, so a tool write and a `jsk kb apply` in another shell queue for each other; nothing
+command does, so two tool writes, or a tool write and a `jsk kb new --force` in another shell, queue for each other; nothing
 is held between calls. Reads share one loaded record until the store on disk moves.
 
-| Tool | Does | Wraps |
+| Tool | Does | Replaces |
 |---|---|---|
-| `career_view(section?, offset?, limit?)` | the career as Markdown, paged (`next`) | `jsk kb view` |
-| `career_show(ids, bullets?)` | entries as Turtle, with the revision for `op:base` | `jsk kb show` |
-| `career_query(name, args?, offset?, limit?)` | any named query, rows as JSON, 50 a page with `total` and `next`; `concepts` with terms finds the nearest | `jsk kb query` |
-| `career_log(last?)` | the history, newest first | `jsk kb log` |
-| `career_preview(changeset)` | a TriG changeset dry-run: the diff, findings; nothing written | `jsk kb apply --dry-run` |
-| `career_apply(changeset)` | apply it: validated, written, logged; new claims arrive inferred | `jsk kb apply` |
-| `career_confirm(ids?, target?, block?, answer?, source?, quote?)` | confirm entries with the person's answer or a document's quote; or a selection's summary or headline, returning that block alone | `jsk kb confirm` |
+| `career_view(section?, offset?, limit?)` | the career as Markdown, paged (`next`) | retired `jsk kb view` |
+| `career_show(ids, bullets?)` | entries as Turtle, with the revision for `op:base` | retired `jsk kb show` |
+| `career_query(name, args?, offset?, limit?)` | any named query, rows as JSON, 50 a page with `total` and `next`; `concepts` with terms finds the nearest | retired `jsk kb query` |
+| `career_log(last?)` | the history, newest first | retired `jsk kb log` |
+| `career_preview(changeset)` | a TriG changeset dry-run: the diff, findings; nothing written | retired `jsk kb apply --dry-run` |
+| `career_apply(changeset)` | apply it: validated, written, logged; new claims arrive inferred | retired `jsk kb apply` |
+| `career_confirm(ids?, target?, block?, answer?, source?, quote?)` | confirm entries with the person's answer or a document's quote; or a selection's summary or headline, returning that block alone | retired `jsk kb confirm` |
 | `app_list()` | every application and general resume: kind (`native` or `files`), posting state (`draft`, `complete`, or `built` from files), review state, stage | `jsk kb query pipeline` |
 | `app_show(app, part, offset?, limit?)` | `posting`, `lines` (paged), `requirements`, `review`, `assessment`, `selection` | the graphs |
 | `posting_capture(app, url? \| text?, company?, title?, captured?, replace?)` | an advert fetched or pasted, stored as a draft posting's lines | the board readers |
@@ -1045,12 +1054,12 @@ is held between calls. Reads share one loaded record until the store on disk mov
 | `assessment_derive(app)` | match, fold the stored review, write the assessment; rows, fit, questions | the match |
 | `assessment_review(app, fit?, eligibility?, verdicts?, short?, surplus?, asks?)` | the review upserted, each verdict checked against the match; an ask's `about` (a requirement's slug) is kept, so its question carries that requirement's concepts | the fold |
 | `assessment_complete(app)` | every flag answered, no FAIL; the review `complete` | |
-| `resume_select(target, mode, replace?)` | `from_match` or `ranked`; the selection stored | `jsk kb export` |
+| `resume_select(target, mode, replace?)` | `from_match` or `ranked`; the selection stored | retired `jsk kb export` |
 | `resume_update(target, bullets?, roles?, skills?, names?, format?, region?, pages?, ats_pages?, floor?, summary?, headline?)` | the selection changed; a changed summary or headline drops to inferred | the shape and id checks |
 | `resume_ship(target, ats_max?, template?, pages?, fit?)` | record gate, render, fit, gates into the directory; each step as JSON | `jsk resume ship` |
-| `app_freeze(app, submitted, channel, docs?)` | every gate, then the application's record written and the directory renamed to the day sent (`submitted` is `YYYY-MM-DD` or `false`); `written`, `renamed_to`, `recordSha256`, `carried`, `documents` and each gate's step. A refusal writes nothing | `jsk app freeze` |
-| `app_event(app, kind, date, channel?, due?, note?)` | one event added to a frozen application's record; the event, and its dates with their weekday | `jsk app event` |
-| `letter_check(letter, record)` | a cover letter (a path in the workspace) against a target's selection; the `verdict` line, each FAIL and WARN with its fix, and the output | `jsk letter check` |
+| `app_freeze(app, submitted, channel, docs?)` | every gate, then the application's record written and the directory renamed to the day sent (`submitted` is `YYYY-MM-DD` or `false`); `written`, `renamed_to`, `recordSha256`, `carried`, `documents` and each gate's step. A refusal writes nothing | retired `jsk app freeze` |
+| `app_event(app, kind, date, channel?, due?, note?)` | one event added to a frozen application's record; the event, and its dates with their weekday | retired `jsk app event` |
+| `letter_check(letter, record)` | a cover letter (a path in the workspace) against a target's selection; the `verdict` line, each FAIL and WARN with its fix, and the output | retired `jsk letter check` |
 
 `app` is an application's stem (`applications/<stem>`); `target` is a stem or `resumes/<name>`.
 The tools refuse an application made from files, naming jsk 5.1.0, the last CLI that finishes
@@ -1065,11 +1074,11 @@ which talks to the person, confirms. No agent holds `app_freeze`, `app_event` or
 either (2026-10-03): freezing and recording an event are the person's acts, done by the main
 session.
 
-What stays a command only: `jsk kb new`, `jsk doctor`, `jsk kb dump` and `load`, and `jsk
-resume check`, `render`, `preview` and `fit` over a directory - a person's acts, or a
-verifier's tracing.
+What stays a command only: `jsk kb new`, `check`, `load`, `dump`, `pack` and `merge`, `jsk doctor`,
+`jsk app drop`, and `jsk resume check`, `render`, `preview` and `fit` over a directory - a person's
+acts, or a verifier's tracing.
 
-Exit 0 when the client closes the session, 2 for arguments or a missing extra.
+Exit 0 when the client closes the session, 2 for arguments or an unusable `mcp`.
 
 ## What is not here any more
 
@@ -1078,15 +1087,15 @@ Exit 0 when the client closes the session, 2 for arguments or a missing extra.
 `python -m jsk.<module>` path behind each subcommand - left on 2026-10-01 for `jsk <noun> <verb>`.
 `new` is `jsk kb new`; `match` was `jsk tailor match`, itself retired in 6.0 (the
 `assessment_derive` tool); `validate`, `check` and `gates` are all
-`jsk resume check`, which picks the gates from its target; `check --only letter` is
-`jsk letter check`; `render`, `preview`, `fit` and `ship` are `jsk resume`'s; `event` and `freeze`
-are `jsk app`'s. The flags did not change. Each old command, and each module path, exits 2 naming
+`jsk resume check`, which picks the gates from its target; `check --only letter` was
+`jsk letter check` (now the `letter_check` tool); `render`, `preview`, `fit` and `ship` are `jsk resume`'s; `event` and `freeze`
+were `jsk app`'s (now the `app_event` and `app_freeze` tools). The flags did not change. Each old command, and each module path, exits 2 naming
 its replacement: none of them keeps running, because two names for one thing is what the change
 removed. `python -m jsk` stays, for a machine without `jsk` on its PATH.
 
 **`jsk index`** read `user-knowledgebase.md`: an overview with line ranges, and `--rank` against
 a posting's frontmatter. The career is a graph record now - the `assessment_derive` tool ranks it
-against a posting, `jsk kb view` and `jsk kb show` read it - and `jsk index` says so and exits 2.
+against a posting, `career_view` and `career_show` read it - and `jsk index` says so and exits 2.
 
 **`jsk migrate`** moved a `user-knowledgebase.md` to `career/kb.ttl`, once. The Markdown knowledge
 base is no longer read: `jsk migrate` says so, naming `jsk kb new PATH --name NAME` to start a
@@ -1098,7 +1107,7 @@ files went `jsk kb adopt` (log a hand edit), `jsk kb fmt` (restore the canonical
 `hand-edited`, `torn` and `unlogged` states of a stored record, and `.jsk/kb.last.ttl`: there is
 no file to edit by hand, no layout to restore and no second file to tear. (Each log entry still
 carries `kbSha256`, the hash of the career as the writer lays it out; `jsk kb load` of a dump and `jsk kb check` check it.) So did git
-diffs of the record and opening it in an editor - `jsk kb view`, `show`, `log` and `dump` read it
+diffs of the record and opening it in an editor - `career_view`, `career_show`, `career_log` and `jsk kb dump` read it
 instead ([WHY.md](WHY.md) says what that cost). `jsk kb load .` imports such a workspace, once.
 
 **The URS record** - the full `resume.json` copied out of the career, with its views, its 11KB
@@ -1106,11 +1115,11 @@ specification and its claims gate - left on 2026-09-25. The short file named wha
 shows and the career supplied the rest, until 6.0 moved that selection into the store and stopped
 reading the file at all (Retired in 6.0); a frozen application keeps its own as the archive of
 what was sent. `--view` went from `render`,
-`preview`, `gates`, `ship` and `freeze`, and `--urs` and `--refresh` from `jsk kb export`.
+`preview`, `gates`, `ship` and `freeze`, and `--urs` and `--refresh` from the old `kb export`.
 
 The `okf` commands left with the bundle format, in 4.0. The graph record brings back a write path -
-see [WHY.md](WHY.md) for why that is not the same decision made twice - but one generic verb,
-`jsk kb apply`, whose coverage is the ontology, not a command per noun.
+see [WHY.md](WHY.md) for why that is not the same decision made twice - but one generic write,
+`career_apply` (once `jsk kb apply`), whose coverage is the ontology, not a command per noun.
 
 ---
 

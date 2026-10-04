@@ -241,7 +241,7 @@ def run_gates(out_dir, record, pages=None, limit=None, record_gate=True, only=No
               run, strict, measure):
     """Every `jsk resume check` step over one directory, the render gate last.
 
-    `jsk resume ship` and `jsk app freeze` run these gates rather than a second copy of them:
+    `jsk resume ship` and the app_freeze tool (jsk mcp) run these gates rather than a second copy of them:
     three commands that each decided what "the mechanical gates" meant would be three
     chances to disagree about it.
 

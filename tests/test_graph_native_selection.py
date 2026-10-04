@@ -194,7 +194,7 @@ class Update(Workspace):
 
 
 class Confirm(Workspace):
-    def test_a_headline_is_confirmed_in_the_graph_through_kb_confirm(self):
+    def test_a_headline_is_confirmed_in_the_graph(self):
         self.selected(headline="Senior Platform Engineer")
         done = selection.confirm(self.root, STEM, "headline", "Yes, that is my title.")
         self.assertIsNotNone(done.new)
@@ -209,15 +209,13 @@ class Confirm(Workspace):
         with self.assertRaises(ConfirmRefused):
             selection.confirm(self.root, STEM, "headline", "yes")
 
-    def test_the_cli_confirms_a_target_where_it_took_a_resume_json(self):
-        from jsk import cli
+    def test_the_confirm_tool_confirms_a_target_where_it_took_a_resume_json(self):
+        import recordkit
 
         self.selected(headline="Senior Platform Engineer")
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = cli.main(["jsk", "kb", "confirm", "--headline", STEM, "--answer",
-                             "It is the title I hold.", "--root", self.root])
-        self.assertEqual(code, 0, buf.getvalue())
+        code, out = recordkit.confirm(self.root, target=STEM, block="headline",
+                                      answer="It is the title I hold.")
+        self.assertEqual(code, 0, out)
         self.assertEqual(selection.read(self.root, STEM)["headline"]["status"], "confirmed")
 
 

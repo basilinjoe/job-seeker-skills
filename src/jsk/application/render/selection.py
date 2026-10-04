@@ -5,12 +5,12 @@ bullets and settings, kept as the graph `applications/<stem>/resume` or
 Ruling 6 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md: the
 selection is a graph, and domain/resume/selection.py turns it into the resume.json dict and
 back, so short.shape, short.ids and plan.build read it unchanged. `select` makes it the way
-`jsk kb export` makes a file - `from_match` the selection for the application's posting
+the resume_select tool (jsk mcp) makes a file - `from_match` the selection for the application's posting
 (`--from-match`), `ranked` the one for no posting (`--ranked`) - through
 application/tailor/export.py's `short`, so the two paths choose alike. `update` changes
 given fields and checks the whole dict again; a summary or headline whose text changes
 drops to inferred, its answer and hash with it, as a changed claim does in the career
-(Ruling 6, the plan's P3). `confirm` is `jsk kb confirm --summary`'s graph-native branch
+(Ruling 6, the plan's P3). `confirm` is the career_confirm tool (jsk mcp)'s graph-native branch
 (application/record/confirm.py calls it). Every write is validated as P3a's are: the
 workspace loaded with the candidate standing in, and only what it newly breaks refused.
 
@@ -40,7 +40,7 @@ from ...domain.resume import selection as S
 from ..posting import native as N
 
 # The two ways a selection is first made: for the posting (the analyst's match) or by the
-# career's own ranking, with no posting - `jsk kb export --from-match` and `--ranked`.
+# career's own ranking, with no posting - the resume_select tool (jsk mcp) and `--ranked`.
 MODES = ("from_match", "ranked")
 # The pseudo-file a target's selection goes by where a resume.json path used to: the last
 # part of its graph's name. Nothing writes a file of that name.

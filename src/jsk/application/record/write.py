@@ -1,4 +1,4 @@
-"""The one gate every `jsk kb` write goes through, and `jsk kb apply`.
+"""The one gate every `jsk kb` write goes through, and the career_apply tool (jsk mcp).
 
 A write is logged: the career is stamped with the next revision, the log gains the entry
 naming what the write touched and minted, and both are validated as the record they would

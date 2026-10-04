@@ -26,7 +26,15 @@ keywords = [
 # first spike measured before the dependency was taken. The pin is one minor: raising it
 # means rerunning the Windows and Linux CI jobs - the lesson LadybugDB taught, whose
 # Windows wheels were broken for five releases while Linux passed.
-dependencies = ["pyoxigraph>=0.5.11,<0.6"]
+#
+# mcp is the other (2026-10-04, docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md,
+# Ruling 3): with `jsk kb apply` and `jsk kb confirm` retired, the MCP tools are the only way
+# to change a career, so a plain install needs them. 1.30 is the floor P0 measured on Python
+# 3.10-3.13 (docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md); a 2.x is a
+# new API. It is still imported only inside adapters/mcp, so `jsk doctor` and preflight.py
+# stay standard-library only, and `jsk mcp` still says so when a global Python holds an old
+# mcp that another package pinned.
+dependencies = ["pyoxigraph>=0.5.11,<0.6", "mcp>=1.30,<2"]
 
 [project.optional-dependencies]
 # What it buys is spelt out in `jsk doctor`, which reports a missing package as the
@@ -40,8 +48,9 @@ dependencies = ["pyoxigraph>=0.5.11,<0.6"]
 # and the Markdown knowledge base it read. pyyaml stays in `dev` only: the plugin
 # surface tests read the skill files' frontmatter with it.
 pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
-# `jsk mcp`, the tools agents call. 1.30 is the floor P0 measured on Python 3.10-3.13
-# (docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md); a 2.x is a new API.
+# An alias since 2026-10-04: mcp is a required dependency now (see `dependencies`), and the
+# extra stays so that `pip install 'jsk-resume[mcp]'`, which every document before 6.0 told
+# people to run, still works.
 mcp = ["mcp>=1.30,<2"]
 all = ["pymupdf"]
 dev = ["pymupdf", "pyyaml", "pytest", "pytest-xdist", "ruff", "pyright==1.1.414",

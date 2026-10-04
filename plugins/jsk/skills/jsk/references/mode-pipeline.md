@@ -31,7 +31,7 @@ today, not the table read out. Cap it at about fifteen rows.
 
 ## Record what happened
 
-One `app_event` call per event (`jsk app event` is the same):
+One `app_event` call per event:
 
 ```
 app_event(app="<dir>", kind="screen-scheduled", date="2026-09-11", channel="email", due="2026-09-15", note="Phone screen, 30 min")
@@ -79,7 +79,7 @@ file does not.
 ## Companies
 
 When an application is to an employer already in the career (`org_`), recruiters, referrers and
-hiring managers you learn about go on that organisation as a `j:note`, through `jsk kb apply`.
+hiring managers you learn about go on that organisation as a `j:note`, through `career_apply`.
 Applying somewhere they once worked is one organisation with `j:relationship j:both`, not two.
 
 ## Close the loop

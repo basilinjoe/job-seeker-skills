@@ -38,7 +38,7 @@ working directory.
 
 ## The `jsk` tools
 
-The plugin starts `jsk mcp` (`pip install 'jsk-resume[mcp]'`). Its tools —
+The plugin starts `jsk mcp` (`mcp` comes with `pip install jsk-resume`). Its tools —
 `mcp__plugin_jsk_graph__` + `career_*`, `app_*`, `posting_*`, `assessment_*`, `resume_*`,
 `letter_check` — take JSON and answer `ok` and findings, each with its fix. Prefer a tool to its
 command. `career_confirm` (the person's words), `app_freeze`, `app_event` and `letter_check` are
@@ -72,12 +72,12 @@ different things.
 
 ## Changing the career
 
-**One rule: `career_apply`, or change it with `jsk kb apply <changeset.trig>`**: a TriG changeset
-of `op:add`, `op:set`, `op:retire`; `career_preview` (`--dry-run`) shows the diff. Read with
+**One rule: change it with `career_apply(changeset)`**: a TriG changeset of `op:add`, `op:set`,
+`op:retire`, passed as text; `career_preview(changeset)` shows the diff first. Read with
 `career_show(ids)` (it gives the `op:base`), `career_view`, `career_query`, `career_log`, before
-adding anything: people re-tell one project months apart in other words. **Confirm through
-`career_confirm`. Confirm only with `jsk kb confirm <id> --answer "their words"` in a shell.** `references/kb-format.md` has the format, for a
-changeset you are unsure of.
+adding anything: people re-tell one project months apart in other words. **Confirm only through
+`career_confirm`, with the person's own answer** (`answer="their words"`, or a document's `source`
+and `quote`). `references/kb-format.md` has the format, for a changeset you are unsure of.
 
 **Never open anything under `career/`** — only `jsk` reads the store. No pyoxigraph → draft the
 changeset to a file for later.
@@ -90,17 +90,17 @@ changeset to a file for later.
 |---|---|
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk kb new <path> --name "Name"` | an empty `career/store/` and `applications/` |
-| `jsk kb apply\|confirm\|show\|view\|query\|log\|check\|path\|export\|pack\|merge` | the career, changed and read; `export` prints a selection, `pack` and `merge` vocabulary changesets |
+| `jsk kb check\|load\|dump\|pack\|merge` | the record's rules; a legacy `career/kb.ttl` loaded once; a TriG backup; `pack` and `merge` write vocabulary changesets, which `career_preview` then `career_apply` apply |
 | `jsk resume check <stem>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
 | `jsk resume render <stem> --pdf [--ats-max] [--template N]` | a selection to `.tex` and PDF |
 | `jsk resume preview <stem> --out DIR` | every template, with page counts |
 | `jsk resume ship <stem> [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
 | `jsk resume fit <resume.tex> --target-pages 2` | fits the render to a page budget |
-| `jsk letter check <letter> --record <stem>` | a cover letter's words and numbers |
-| `jsk app freeze <app-dir> --submitted DATE\|false --channel TEXT` | records what was sent, if the gates pass |
-| `jsk app event <app-dir> <kind> --date DATE` | a screen, an offer, a rejection |
 | `jsk app drop <app-dir>` | sets an unsent one aside |
-| `jsk mcp` | the career and graph-native applications as MCP tools, over stdio (`mcp` extra) |
+| `jsk mcp` | the career and graph-native applications as MCP tools, over stdio |
+
+Retired in 6.0, each exiting 2 with its tool named: the `kb` verbs apply, confirm, show, view,
+query, log, export and path; `app freeze`, `app event`; `letter check`. `docs/SCRIPTS.md` maps each.
 
 Exit codes: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are required — the
 PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.

@@ -1,4 +1,4 @@
-"""`jsk kb confirm`: the only way an entry becomes j:confirmed, and a selection's summary or
+"""the career_confirm tool (jsk mcp): the only way an entry becomes j:confirmed, and a selection's summary or
 headline with it.
 
 An answer is the person's words, or a document's quoted word for word; one that says
@@ -109,8 +109,8 @@ def answer_of(answer, source, quote, root, *, files, read_pdf):
     """The answer the log keeps: the person's words, or the quote checked in its document.
 
     Args:
-        answer: --answer, or None with --source.
-        source, quote: --source and --quote, or None.
+        answer: the person's answer, or None with a source.
+        source, quote: a document and its words, or None.
         root: the workspace.
         files, read_pdf: as quoted_answer takes them.
 
@@ -123,10 +123,10 @@ def answer_of(answer, source, quote, root, *, files, read_pdf):
     if answer is None:
         return quoted_answer(source, quote, root, files=files, read_pdf=read_pdf)
     said_nothing(answer, "record what they said is wrong: op:set the entry's "
-                         "j:provenance j:disputed, or correct it with `jsk kb apply`")
+                         "j:provenance j:disputed, or correct it with the career_apply tool (jsk mcp)")
     if DOCUMENT_ONLY.fullmatch(answer):
         raise Refused([f"{answer!r} names a document and says nothing else"],
-                      'confirm from a document with --source <file> --quote "its words"')
+                      'confirm from a document with source="<file>" and quote="its words"')
     return answer
 
 
@@ -147,13 +147,13 @@ def problem_of(text, iri, quads, in_kb, store, quote):
     if quote is not None and (missing := unquoted_numbers(quads, iri, quote)):
         return (f"{text} says {quoted(missing)}, which the quote does not",
                 "quote the document's sentence that states it - or, if the "
-                "document does not, ask the person and confirm with --answer")
+                "document does not, ask the person and confirm with their answer")
     if quote is not None and (missing := unquoted_words(quads, iri, quote)):
         return (f"{text} says {', '.join(repr(w) for w in missing[:6])}, which the "
                 "quote does not",
                 "quote the document's sentence that says all of it - words it "
                 "does not have are the session's, so ask the person and "
-                "confirm with --answer")
+                "confirm with their answer")
     return None
 
 
@@ -172,7 +172,7 @@ def confirmation(store, texts, quote, today, *, state):
     Args:
         store: the record as it stands, read inside the command's turn.
         texts: the ids as typed.
-        quote: --quote when confirming from a document, else None: then every number and
+        quote: the quote when confirming from a document, else None: then every number and
             most words of each entry's claims must be in it.
         today: the day each open question about them is answered.
         state: where the career and its log stand (infra.oxigraph.record.state).
@@ -228,7 +228,7 @@ class SummaryConfirmed:
 
 
 def confirm_summary(target, answer, root, *, key="summary", ports):
-    """`jsk kb confirm --summary` (or `--headline`, `key`) on a target: the block confirmed in
+    """the career_confirm tool (jsk mcp) (or `--headline`, `key`) on a target: the block confirmed in
     its selection graph, beside the answer and its text's hash (application.render.selection.
     confirm). Not logged: a logged write stamps the career with a new revision, and the
     summary is not in the career. Ruling 6 of

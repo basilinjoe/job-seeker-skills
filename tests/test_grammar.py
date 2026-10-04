@@ -26,8 +26,6 @@ MAPPING = [
     (["validate", "resume.json"], ["resume", "check", "resume.json"]),
     (["check", "resume.pdf", "--strict", "--only", "parse"],
      ["resume", "check", "resume.pdf", "--strict", "--only", "parse"]),
-    (["check", "letter.txt", "--only", "letter", "--record", "resume.json"],
-     ["letter", "check", "letter.txt", "--record", "resume.json"]),
     (["gates", "out", "--record", "resume.json", "--pages", "2", "--json"],
      ["resume", "check", "out", "--record", "resume.json", "--pages", "2", "--json"]),
     (["render", "resume.json", "--out", "out"], ["resume", "render", "resume.json", "--out", "out"]),
@@ -36,14 +34,21 @@ MAPPING = [
     (["fit", "resume.tex", "--target-pages", "2"],
      ["resume", "fit", "resume.tex", "--target-pages", "2"]),
     (["ship", "resume.json", "--out", "out"], ["resume", "ship", "resume.json", "--out", "out"]),
-    (["event", "applications/acme", "offer", "--date", "2026-10-01"],
-     ["app", "event", "applications/acme", "offer", "--date", "2026-10-01"]),
-    (["freeze", "applications/acme", "--submitted", "false"],
-     ["app", "freeze", "applications/acme", "--submitted", "false"]),
+]
+
+# The old calls whose work is a tool since 2026-10-04 (docs/superpowers/plans/
+# 2026-10-04-retire-duplicated-cli.md, Ruling 2): (the old call, what it is called now in
+# the message, the tool its fix names). Not a `jsk <noun> <verb>` any more, so no new call
+# runs - `jsk app freeze`, `jsk app event` and `jsk letter check` are retired themselves.
+TOOLS = [
+    (["check", "letter.txt", "--only", "letter", "--record", "resume.json"],
+     "jsk check --only letter", "letter_check"),
+    (["event", "applications/acme", "offer", "--date", "2026-10-01"], "jsk event", "app_event"),
+    (["freeze", "applications/acme", "--submitted", "false"], "jsk freeze", "app_freeze"),
 ]
 
 # The commands Ruling 10 leaves as they were.
-UNCHANGED = [["kb", "view"], ["doctor"]]
+UNCHANGED = [["kb", "check"], ["doctor"]]
 
 
 def jsk(*argv):
@@ -69,6 +74,21 @@ class EveryOldNameIsRetired(unittest.TestCase):
                 self.assertEqual(code, 2, out)
                 self.assertIn(" was retired: it is jsk " + " ".join(new[:2]), out)
                 self.assertIn("fix:  jsk " + " ".join(new), out)
+
+    def test_a_name_whose_work_is_a_tool_now_names_the_tool(self):
+        for old, said, tool in TOOLS:
+            with self.subTest(old=" ".join(old)):
+                code, out = jsk(*old)
+                self.assertEqual(code, 2, out)
+                self.assertIn(f"{said} was retired", out)
+                self.assertIn(f"fix:  the {tool} tool (jsk mcp)", out)
+
+    def test_the_letter_noun_is_retired_whole(self):
+        code, out = jsk("letter")
+        self.assertEqual(code, 2, out)
+        self.assertIn("jsk letter was retired", out)
+        self.assertIn("the letter_check tool (jsk mcp)", out)
+        self.assertNotIn("letter", M.NOUNS)
 
     def test_a_retired_name_with_no_arguments_shows_what_to_pass(self):
         code, out = jsk("validate")
@@ -111,7 +131,7 @@ class TheNouns(unittest.TestCase):
                     self.assertIn(verb, out)
 
     def test_a_noun_with_no_verb_is_a_usage_error(self):
-        for noun in ("resume", "letter", "app"):
+        for noun in ("resume", "app"):
             with self.subTest(noun=noun):
                 code, out = jsk(noun)
                 self.assertEqual(code, 2, out)
@@ -186,7 +206,7 @@ class ResumeCheckByTarget(unittest.TestCase):
     def test_only_letter_points_at_letter_check(self):
         code, out = jsk("resume", "check", self.txt, "--only", "letter", "--record", self.json)
         self.assertEqual(code, 2, out)
-        self.assertIn(f"fix:  jsk letter check {self.txt} --record {self.json}", out)
+        self.assertIn("fix:  the letter_check tool (jsk mcp)", out)
 
     def test_no_target_is_the_usage_of_all_three(self):
         code, out = jsk("resume", "check")

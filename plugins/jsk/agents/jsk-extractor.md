@@ -72,7 +72,7 @@ missing `j:rank`; fix the changeset and preview again until it passes.
    trade-off; how much was theirs. Then each suspected mishearing, and each project you were unsure
    was one already held.
 4. **For an imported document only**, the confirm lines you believe it supports, one per claim:
-   `jsk kb confirm <ids> --source sources/<file> --quote "<its exact words>"`. Each is checked: the
+   `career_confirm(ids=[...], source="sources/<file>", quote="<its exact words>")`. Each is checked: the
    quote must be in the document word for word, every number the entry holds must be in the quote,
    and four in five of a bullet's words. Propose none you doubt; a bullet you reworded is one the
    quote will not carry. Use the ids the preview's `minted` list returned. From a bundle, one for

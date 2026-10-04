@@ -213,7 +213,7 @@ def check(where, s, p, o, refuse):
         return False
     if "kb" not in O.BY_NAME[cls].kinds:
         home = " or ".join(k + ".ttl" for k in O.BY_NAME[cls].kinds)
-        refuse(name(s), f"{article(cls)} lives in {home}", "`jsk kb apply` writes the career only")
+        refuse(name(s), f"{article(cls)} lives in {home}", "the career_apply tool (jsk mcp) writes the career only")
         return False
     if where == "delete" and p.value == O.RDF_TYPE and o == ox.NamedNode(OP + "Entry"):
         return True
@@ -259,7 +259,7 @@ def predicate(where, cls, s, p, o, refuse):
         return False
     if pname == "provenance" and where in ("add", "set") and o == ox.NamedNode(O.J + "confirmed"):
         refuse(focus, "a changeset cannot confirm", "confirm with the person, then "
-               "`jsk kb confirm <id> --answer \"what they said\"`; leave provenance out or "
+               "the career_confirm tool (jsk mcp); leave provenance out or "
                "state j:inferred")
         return False
     if where == "retire" and pname != "reason":

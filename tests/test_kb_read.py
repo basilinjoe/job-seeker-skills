@@ -1,22 +1,16 @@
-"""The verbs of `jsk kb` that read the record: show, view, query, check, path, log."""
-import contextlib
+"""What reads the record: career_show, career_view, career_query and career_log (the `jsk kb`
+verbs they replaced in 6.0), and `jsk kb check`."""
 import datetime
-import io
 import json
-import os
 import re
-import shutil
-import tempfile
 import unittest
 from pathlib import Path
 
-import storekit
 from storekit import Workspace
 from test_graph_changeset import PFX
 from test_graph_shapes import FIXTURES
 from test_kb_write import BRAINDUMP
 
-from jsk import cli
 from jsk.infra.oxigraph import record
 from jsk.domain import ontology as O
 from jsk.adapters.cli.compose import record as S
@@ -24,7 +18,7 @@ from jsk.adapters.cli.compose import record as S
 
 class Show(Workspace):
     def test_a_project_is_shown_with_its_bullets_and_the_base_to_draft_against(self):
-        code, out = self.kb("show", "prj_clinical_events")
+        code, out = self.show("prj_clinical_events")
         self.assertEqual(code, 0, out)
         self.assertTrue(out.startswith("# r2 - op:base 2\n"))
         first = out.index("k:ach_clinical_events_event_latency j:project")
@@ -33,24 +27,24 @@ class Show(Workspace):
         self.assertLess(first, second)
 
     def test_a_metric_is_shown_with_its_versions(self):
-        code, out = self.kb("show", "k:met_event_latency")
+        code, out = self.show("k:met_event_latency")
         self.assertLess(out.index("k:met_event_latency.v1"), out.index("k:met_event_latency.v2"))
 
     def test_a_shipped_concept_is_shown_from_the_vocabulary(self):
-        code, out = self.kb("show", "c:kafka")
+        code, out = self.show("c:kafka")
         self.assertEqual(code, 0, out)
         self.assertIn("\n# vocabulary\n", out)
         self.assertIn("\n# kb\n", out)                # the career extends it
 
     def test_an_unknown_id_names_the_nearest(self):
-        code, out = self.kb("show", "prj_clinical_event")
+        code, out = self.show("prj_clinical_event")
         self.assertEqual(code, 1)
         self.assertIn("did you mean k:prj_clinical_events?", out)
 
 
 class View(Workspace):
     def test_the_whole_career_in_section_order(self):
-        code, out = self.kb("view")
+        code, out = self.view()
         self.assertEqual(code, 0, out)
         at = [out.index(f"## {s}\n") for s in O.SECTIONS["kb"]]
         self.assertEqual(at, sorted(at))
@@ -60,50 +54,50 @@ class View(Workspace):
         self.assertIn("    problem: The legacy scheduler", out)
 
     def test_one_section(self):
-        code, out = self.kb("view", "--section", "skills")
+        code, out = self.view("skills")
         self.assertIn("## Skills", out)
         self.assertNotIn("## Projects", out)
 
     def test_it_writes_nothing(self):
         before = self.record()
-        self.assertEqual(self.kb("view")[0], 0)
+        self.assertEqual(self.view()[0], 0)
         self.assertEqual(self.record(), before)
 
 
 class Query(Workspace):
     def test_open_questions(self):
-        code, out = self.kb("query", "open")
+        code, out = self.query("open")
         self.assertIn("| k:q_sites_bullet | k:ach_site_onboarding_sites_one_platform | 2026-09-01 |", out)
         self.assertNotIn("q_team_size", out)          # answered
 
     def test_a_question_about_several_entries_is_one_row(self):
         self.edit_kb("k:q_sites_confirm j:about k:prj_site_onboarding ;",
                      "k:q_sites_confirm j:about k:prj_clinical_events, k:prj_site_onboarding ;")
-        rows = [r for r in json.loads(self.kb("query", "open", "--json")[1])
+        rows = [r for r in json.loads(self.query("open", json=True)[1])
                 if r["question"] == "k:q_sites_confirm"]
         self.assertEqual([r["about"] for r in rows],
                          ["k:prj_clinical_events, k:prj_site_onboarding"])
 
     def test_unconfirmed_entries(self):
-        code, out = self.kb("query", "unconfirmed", "--json")
+        code, out = self.query("unconfirmed", json=True)
         rows = json.loads(out)
         self.assertEqual([r["entry"] for r in rows],
                          ["k:ach_site_onboarding_sites_one_platform", "k:prj_site_onboarding"])
 
     def test_what_holds_a_concept(self):
-        code, out = self.kb("query", "holds", "c:azure")
+        code, out = self.query("holds", "c:azure")
         self.assertIn("| k:prj_clinical_events | c:azure-ai-foundry | 1 | False | tag |", out)
 
     def test_a_revised_metric_makes_the_application_that_sent_it_stale(self):
-        code, _ = self.kb("query", "stale")
-        self.kb("apply", self.changeset(PFX + "op:set { k:met_team.v1 j:value 7 . }\n"))
-        code, out = self.kb("query", "stale")
+        code, _ = self.query("stale")
+        self.apply(self.changeset(PFX + "op:set { k:met_team.v1 j:value 7 . }\n"))
+        code, out = self.query("stale")
         today = datetime.date.today().isoformat()
         self.assertIn(f"| k:app_acme_platform_engineer | k:met_team.v1 | {today} | k:met_team.v2 |",
                       out)
 
     def evidence(self, *terms):
-        code, out = self.kb("query", "evidence", *terms, "--json")
+        code, out = self.query("evidence", *terms, json=True)
         self.assertEqual(code, 0, out)
         return json.loads(out)
 
@@ -139,7 +133,7 @@ class Query(Workspace):
     def test_evidence_answers_every_term_in_one_call_and_needs_one(self):
         rows = self.evidence("Kafka", "Haskell")
         self.assertEqual({r["term"] for r in rows}, {"Kafka", "Haskell"})
-        self.assertEqual(self.kb("query", "evidence")[0], 2)
+        self.assertEqual(self.query("evidence")[0], 2)
 
     def test_evidence_shows_fewer_text_hits_when_the_term_names_a_concept(self):
         from jsk.application.record import queries as named
@@ -154,23 +148,23 @@ class Query(Workspace):
         self.assertIn("more - a narrower term finds them", rows[-1]["via"])
 
     def test_the_vocabulary_as_one_table(self):
-        rows = {r["concept"]: r for r in json.loads(self.kb("query", "concepts", "--json")[1])}
+        rows = {r["concept"]: r for r in json.loads(self.query("concepts", json=True)[1])}
         self.assertEqual(rows["c:event-driven-architecture"]["labels"], "EDA, event-driven")
         self.assertEqual(rows["c:kafka"]["counts as"], "c:event-driven-architecture")
         self.assertEqual(rows["c:kafka"]["held"], 1)
         self.assertEqual(rows["c:terraform"]["held"], "")     # shipped, held by no project
 
     def test_concepts_near_a_term_is_what_it_names_then_the_closest(self):
-        code, out = self.kb("query", "concepts", "--near", "Apache Kafka", "--json")
+        code, out = self.query("concepts", "Apache Kafka", json=True)
         self.assertEqual(code, 0, out)
-        # Keyed by term, since --near takes several (2026-09-29-tailor-time Ruling 2).
+        # Keyed by term, since concepts takes several (2026-09-29-tailor-time Ruling 2).
         rows = [r["concept"] for r in json.loads(out)["Apache Kafka"]]
         self.assertEqual(rows[0], "c:kafka")
         self.assertLessEqual(len(rows), 6)
 
     def test_concepts_near_several_terms_is_a_table_each(self):
-        """The analyst ran --near 21 times in a shell loop; one call takes every term."""
-        code, out = self.kb("query", "concepts", "--near", "Apache Kafka", "Terraform")
+        """The analyst ran `concepts --near` 21 times in a shell loop; one call takes every term."""
+        code, out = self.query("concepts", "Apache Kafka", "Terraform")
         self.assertEqual(code, 0, out)
         self.assertEqual([x for x in out.splitlines() if x.startswith("== ")],
                          ["== Apache Kafka", "== Terraform"])
@@ -178,28 +172,18 @@ class Query(Workspace):
         self.assertIn("c:kafka", kafka)
         self.assertIn("c:terraform", terraform)
 
-    def test_concepts_near_needs_a_term(self):
-        code, out = self.kb("query", "concepts", "--near")
-        self.assertEqual(code, 2)
-        self.assertIn("one or more terms", out)
-
-    def test_near_is_only_for_concepts(self):
-        code, out = self.kb("query", "person", "--near", "Kafka")
-        self.assertEqual(code, 2)
-        self.assertIn("--near is for", out)
-
     def test_bare_lists_the_unlabelled_capabilities_most_held_first(self):
         self.edit_kb('c:data-sovereignty a j:Capability ; j:label "data residency" .',
                      "c:api-design a j:Capability .\nc:data-sovereignty a j:Capability .")
-        code, out = self.kb("query", "bare", "--json")
+        code, out = self.query("bare", json=True)
         self.assertEqual(code, 0, out)
         self.assertEqual(json.loads(out), [
             {"concept": "c:data-sovereignty", "held": 1, "shown by": 0},
             {"concept": "c:api-design", "held": 0, "shown by": 0}])    # labelled ones absent
 
     def test_show_bullets_prints_a_project_s_name_and_bullets_only(self):
-        full = self.kb("show", "prj_site_onboarding")[1]
-        code, out = self.kb("show", "prj_site_onboarding", "--bullets")
+        full = self.show("prj_site_onboarding")[1]
+        code, out = self.show("prj_site_onboarding", bullets=True)
         self.assertEqual(code, 0, out)
         self.assertIn("# k:prj_site_onboarding - Care-site onboarding", out)
         self.assertIn("k:ach_site_onboarding_sites_one_platform j:project", out)
@@ -207,7 +191,7 @@ class Query(Workspace):
         self.assertLess(len(out), len(full))
 
     def test_the_person_behind_eligibility(self):
-        code, out = self.kb("query", "person")
+        code, out = self.query("person")
         self.assertEqual(code, 0, out)
         self.assertIn("| location | Sydney, AU | k:person | confirmed |", out)
         self.assertIn("| work mode | hybrid | k:person | confirmed |", out)
@@ -216,7 +200,7 @@ class Query(Workspace):
                       "since 2023-07 (employment) | k:pos_meridian_principal | confirmed |", out)
 
     def test_an_unknown_query(self):
-        code, out = self.kb("query", "everything")
+        code, out = self.query("everything")
         self.assertEqual(code, 2)
         self.assertIn("open, unconfirmed, holds, stale", out)
 
@@ -240,8 +224,8 @@ k:ach_care_streaming_one j:project k:prj_care_streaming ; j:rank 1 ;
 
 
 class Similar(Workspace):
-    def query(self, *args):
-        code, out = self.kb("query", *args, "--json")
+    def rows(self, *args):
+        code, out = self.query(*args, json=True)
         self.assertEqual(code, 0, out)
         return json.loads(out)
 
@@ -249,38 +233,38 @@ class Similar(Workspace):
         self.edit_kb("k:prj_site_onboarding j:name", RETOLD + "k:prj_site_onboarding j:name")
 
     def test_similar_finds_a_project_by_the_words_that_describe_it(self):
-        rows = self.query("similar", "moving", "every", "residential", "site", "onto", "templates")
+        rows = self.rows("similar", "moving", "every", "residential", "site", "onto", "templates")
         self.assertEqual(set(rows[0]), {"project", "name", "score", "words", "concepts"})
         self.assertEqual(rows[0]["project"], "k:prj_site_onboarding")
         self.assertEqual(rows[0]["words"], "residential, site, templates")   # templated
 
     def test_similar_finds_a_project_by_a_concept_its_text_never_names(self):
         """Kafka counts as event-driven architecture; the pipeline's prose says neither."""
-        [row] = self.query("similar", "EDA")
+        [row] = self.rows("similar", "EDA")
         self.assertEqual((row["project"], row["words"], row["concepts"]),
                          ("k:prj_clinical_events", "", "c:event-driven-architecture"))
 
     def test_similar_ranks_the_retelling_first(self):
         self.retold()
-        rows = self.query("similar", "streaming care plan changes to every site with Kafka")
+        rows = self.rows("similar", "streaming care plan changes to every site with Kafka")
         self.assertEqual([r["project"] for r in rows][:2],
                          ["k:prj_care_streaming", "k:prj_clinical_events"])
         self.assertIn("c:kafka", rows[1]["concepts"])
 
     def test_nothing_similar_is_the_answer(self):
-        code, out = self.kb("query", "similar", "React Native mobile app")
+        code, out = self.query("similar", "React Native mobile app")
         self.assertEqual(code, 0, out)
         self.assertIn("nothing similar", out)
         self.assertNotIn("k:prj_", out)
-        self.assertEqual(self.kb("query", "similar")[0], 2)
+        self.assertEqual(self.query("similar")[0], 2)
 
     def test_a_retired_project_is_never_a_candidate(self):
-        rows = self.query("similar", "intranet refresh")
+        rows = self.rows("similar", "intranet refresh")
         self.assertEqual(rows[0]["name"], "nothing similar")
 
     def test_duplicates_finds_the_retelling(self):
         self.retold()
-        [row] = self.query("duplicates")
+        [row] = self.rows("duplicates")
         self.assertEqual(set(row), {"a", "b", "score", "names", "why"})
         self.assertEqual((row["a"], row["b"]), ("k:prj_care_streaming", "k:prj_clinical_events"))
         self.assertIn("concepts c:azure-ai-foundry, c:healthcare, c:kafka", row["why"])
@@ -320,21 +304,18 @@ class Check(Workspace):
         self.assertIn("a record selecting it fails a gate:", out)
         self.assertIn("'3' appears in the text but in no metric", out)
 
-    def test_export_names_the_bullets_its_draft_already_fails(self):
-        import contextlib
-        import io
+    def test_a_selection_names_the_bullets_its_draft_already_fails(self):
+        # The draft a ranked selection makes warns of a number no metric holds, before
+        # the record gate would fail the bullet (this was `jsk kb export`'s stderr).
+        from jsk.adapters.cli.compose import selection
 
         self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites")
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            code, out = self.kb("export")
-        self.assertEqual(code, 0, out)
-        said = err.getvalue()
-        self.assertIn("WARN  ", said)
-        self.assertIn("a question for the person", said)
-        self.assertIn("'3'", said)
-        self.assertIn('"resume": 2', out)
-
+        self.seed()
+        made = selection.select(self.root, "resumes/draft", mode="ranked",
+                                today=datetime.date.today())
+        warns = [text for severity, text, _ in made.findings if severity == "WARN"]
+        self.assertTrue(any("the career cannot back" in w and "'3'" in w for w in warns), warns)
+        self.assertEqual(made.doc["resume"], 2)
     def test_a_career_written_outside_jsk_fails_its_hash(self):
         """The store holds what jsk wrote, unless something else wrote it: a provenance
         raised there would render as confirmed, and only the log's hash notices."""
@@ -390,63 +371,10 @@ class Check(Workspace):
         self.assertIn("0 FAIL, 0 WARN", out)
 
 
-class KbPath(unittest.TestCase):
-    """`jsk kb path` - where the record is, printed rather than worked out."""
-
-    def setUp(self):
-        # A workspace that is itself named `career`: the store sits at career/career/store/.
-        self.outer = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.outer)
-        self.root = os.path.join(self.outer, "career")
-        shutil.copytree(FIXTURES, self.root)
-        storekit.seed(self.root)
-
-    def run_path(self, *args, cwd=None):
-        here = os.getcwd()
-        if cwd:
-            os.chdir(cwd)
-            self.addCleanup(os.chdir, here)
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "kb", "path", *args])
-        return code, out.getvalue()
-
-    def test_it_prints_the_absolute_paths(self):
-        code, out = self.run_path("--root", self.root)
-        self.assertEqual(code, 0, out)
-        self.assertEqual(out, f"workspace     {self.root}\n"
-                              f"store         {os.path.join(self.root, 'career', 'store')}\n"
-                              f"applications  {os.path.join(self.root, 'applications')}\n")
-
-    def test_it_finds_the_workspace_from_an_application_directory(self):
-        code, out = self.run_path(cwd=os.path.join(self.root, "applications"))
-        self.assertEqual(code, 0, out)
-        self.assertIn(os.path.join(self.root, "career", "store"), out)
-
-    def test_the_career_folder_itself_is_named_as_the_mistake(self):
-        inner = os.path.join(self.root, "career")
-        code, out = self.run_path("--root", inner)
-        self.assertEqual(code, 1)
-        self.assertIn(f"no career/store/ under {inner}", out)
-        self.assertIn(f"the workspace is {self.root}", out)
-
-    def test_a_workspace_still_laid_out_as_files_is_told_to_load(self):
-        files = os.path.join(self.outer, "files")
-        shutil.copytree(FIXTURES, files)
-        code, out = self.run_path("--root", files)
-        self.assertEqual(code, 1)
-        self.assertIn("`jsk kb load .`", out)
-
-    def test_it_takes_no_arguments(self):
-        code, out = self.run_path("kb.ttl", "--root", self.root)
-        self.assertEqual(code, 2)
-        self.assertIn("takes no arguments", out)
-
-
 class Log(Workspace):
     def test_the_history_newest_first(self):
-        self.assertEqual(self.kb("apply", self.changeset(BRAINDUMP))[0], 0)
-        code, out = self.kb("log")
+        self.assertEqual(self.apply(self.changeset(BRAINDUMP))[0], 0)
+        code, out = self.log()
         self.assertEqual(code, 0, out)
         revs = re.findall(r"^r(\d+) ", out, re.M)
         self.assertEqual(revs, ["3", "2", "1"])
@@ -456,13 +384,13 @@ class Log(Workspace):
         self.assertRegex(out, r"    minted   c:payments, k:ach_payments_cut_settlement_latency")
 
     def test_last_n(self):
-        self.assertEqual(self.kb("apply", self.changeset(BRAINDUMP))[0], 0)
-        code, out = self.kb("log", "--last", "1")
+        self.assertEqual(self.apply(self.changeset(BRAINDUMP))[0], 0)
+        code, out = self.log(1)
         self.assertEqual(code, 0, out)
         self.assertEqual(re.findall(r"^r(\d+) ", out, re.M), ["3"])
-        for bad in ("0", "x", "-1"):
+        for bad in (0, -1):
             with self.subTest(last=bad):
-                self.assertEqual(self.kb("log", "--last", bad)[0], 2)
+                self.assertEqual(self.log(bad)[0], 2)
 
 
 if __name__ == "__main__":

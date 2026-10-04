@@ -15,7 +15,7 @@ The builder reads the career and the selection once — selection, ordering, pro
 filtering, region, ASCII folding, date formatting — into a plan, and the emitters translate that plan
 into markup without deciding anything.
 
-It is also what makes a resume answerable a year later. `jsk app freeze` records the bullets that
+It is also what makes a resume answerable a year later. `app_freeze` records the bullets that
 rendered and the metric versions they cite, so "what did this application claim, and where did that
 come from" has an answer.
 

@@ -34,9 +34,9 @@ and a TeX distribution can be several gigabytes.
   single self-contained binary; MiKTeX or TeX Live only if they already wanted them.
 - **`pymupdf` is required** — the parse gate reads the PDF through it and the fitter measures pages
   through it. One `pip install`.
-- **`pyoxigraph`** comes with the package; without it the career can be neither changed nor matched.
-- **The `mcp` extra is required for the agents** — every one works through the `jsk mcp` tools the
-  plugin starts: `pip install 'jsk-resume[mcp]'`, then restart Claude Code.
+- **`pyoxigraph` and `mcp`** come with the package; without them the career can be neither changed
+  nor matched, and every agent works through the `jsk mcp` tools the plugin starts. If the tools are
+  missing after an install, restart Claude Code.
 
 Re-run the doctor after any install.
 
@@ -59,8 +59,8 @@ jsk kb new <path> --name "Their Name"
 ```
 
 That creates `career/store/`, holding an empty career and its log at revision 1, and
-`applications/`. Everything after that goes in through `jsk kb apply`. On a new record there is
-nothing for `jsk kb show` to show: `op:base` is 1.
+`applications/`. Everything after that goes in through `career_apply`. On a new record there is
+nothing for `career_show` to show: `op:base` is 1.
 
 **Fill the identity first — email and phone** on `k:person`. The parse gate fails a resume without
 them; it is the most common thing left empty.
@@ -83,15 +83,15 @@ then read it critically and note:
 Send `jsk-extractor` the workspace, the document (`sources/prior-resume.md`) and the skill
 directory: it extracts roles, employers, dates, projects and metrics into one changeset and
 previews it. Show them the diff, then apply the changeset it returns (`career_apply`). It lands `inferred`; then run the confirm lines the
-agent proposed for what the document states — `jsk kb confirm <ids> --source <file> --quote "its
-exact words"`, each number in the quote — and ask about every clause it quoted as its own. No
+agent proposed for what the document states — `career_confirm(ids=[...], source="<file>", quote="its
+exact words")`, each number in the quote — and ask about every clause it quoted as its own. No
 agents? Do the same inline (`references/kb-format.md` has the shapes).
 
 An older **bundle** (`projects/` and `resume-generation/`) has no migration command: read it whole
 and build the record from it like a resume — `jsk kb new`, then `jsk-extractor` per bundle file, each
 changeset shown and applied through `career_apply`. A changeset cannot confirm, so it carries
 `j:needs-verification` and `j:disputed` as the bundle held them and everything else lands `inferred`;
-then `jsk kb confirm <every id the bundle held confirmed> --source <bundle file> --quote "…"`.
+then `career_confirm(ids=[every id the bundle held confirmed], source="<bundle file>", quote="…")`.
 Keep the bundle until they confirm the record is complete.
 
 ### Then go deeper
@@ -123,7 +123,7 @@ If the PDF step reports the resume **unverified**, say so plainly.
 Tell them, in plain language and without the framework vocabulary:
 
 - **Where the record is**, and that it is theirs — `career/store/`, opened only through `jsk`.
-  `jsk kb view` shows it as a document; `jsk kb dump` writes it all out as text, and every write
+  Ask `career_view` to show it as a document; `jsk kb dump` writes it all out as text, and every write
   refreshes a copy in `.jsk/backup.trig`. Back the workspace up.
 - **What works and what does not**, naming any gap left open and what it costs them.
 - **The rhythm.** Something ships → `braindump`, while they still remember the details. Every quarter

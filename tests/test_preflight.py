@@ -400,10 +400,11 @@ class TheGraphRecord(unittest.TestCase):
         self.assertEqual(preflight.MIN_PYTHON, (3, 10))
 
 
-class TheMcpExtra(unittest.TestCase):
-    """P5 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md: doctor says
-    whether the `mcp` extra is importable, and its absence is information, never a FAIL or
-    a gap - the CLI does all of its work without it."""
+class TheMcpDependency(unittest.TestCase):
+    """docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md, Ruling 3: `mcp` is required
+    since 6.0 - its tools are the only way to change a career - so doctor checks it like
+    pyoxigraph, and a missing one blocks. It was an `info` line, never a gap, while the CLI
+    could still write a career without it."""
 
     def doctor(self, *args, mcp=True):
         import contextlib
@@ -422,29 +423,25 @@ class TheMcpExtra(unittest.TestCase):
             code = preflight.main(["--quick", *args])
         return code, buf.getvalue()
 
-    def test_an_installed_extra_is_an_ok_line(self):
+    def test_an_installed_one_is_an_ok_check(self):
         code, out = self.doctor(mcp=True)
-        self.assertIn("  ok    mcp extra (`jsk mcp`)", out)
+        self.assertIn("  ok    mcp", out)
+        self.assertNotIn("mcp extra", out, "it is no extra any more")
 
-    def test_a_missing_extra_is_an_info_line_and_changes_no_verdict(self):
-        with_it, said_with = self.doctor(mcp=True)
-        without, said_without = self.doctor(mcp=False)
-        self.assertIn("  info  mcp extra (`jsk mcp`)", said_without)
-        self.assertIn("pip install 'jsk-resume[mcp]'", said_without)
-        # The same exit and the same verdict line: a missing extra is no gap.
-        self.assertEqual(with_it, without)
-        verdict = [line for line in said_with.splitlines()
-                   if line.startswith(("READY", "BLOCKED", "BROKEN"))]
-        self.assertEqual(verdict, [line for line in said_without.splitlines()
-                                   if line.startswith(("READY", "BLOCKED", "BROKEN"))])
-        self.assertNotIn("FAIL  mcp", said_without)
-        self.assertNotIn("gap   mcp", said_without)
+    def test_a_missing_one_fails_and_blocks(self):
+        code, out = self.doctor(mcp=False)
+        self.assertIn("  FAIL  mcp", out)
+        self.assertIn("every way to change the career", out)
+        self.assertTrue(any(line.startswith("BLOCKED") for line in out.splitlines()), out)
+        self.assertEqual(code, 1, out)
 
-    def test_the_json_report_lists_it_apart_from_the_checks(self):
+    def test_the_json_report_lists_it_among_the_required_checks(self):
         code, out = self.doctor("--json", mcp=False)
         report = json.loads(out)
-        self.assertEqual(report["extras"][0]["ok"], False)
-        self.assertFalse([c for c in report["checks"] if c["name"].startswith("mcp")])
+        check = next(c for c in report["checks"] if c["name"] == "mcp")
+        self.assertEqual((check["ok"], check["required"]), (False, True))
+        self.assertNotIn("extras", report)
+        self.assertFalse(report["ok"])
 
 
 if __name__ == "__main__":

@@ -119,4 +119,9 @@ These stay, because no tool does their job and agents with Bash run them:
 
 ## Status
 
-- P1-P4: not started.
+- P1 (code): done, uncommitted.
+- P2 (tests): in progress.
+- P3 (prose): done, uncommitted. The plugin, `docs/` (SCRIPTS, ARCHITECTURE, QUICKSTART, ONTOLOGY, CONCEPTS,
+  WHY), `README.md`, `CLAUDE.md`, `test_plugin_surface.py` and `test_budget.py` name tools. The repo has no
+  `CHANGELOG.md`; the 6.0.0 notes live in `README.md`, which now lists the retired verbs.
+- P4: not started.

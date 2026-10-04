@@ -203,7 +203,7 @@ class TheWritePathStaysCheap(unittest.TestCase):
     There was no write layer over one Markdown file, so the read became legitimate
     again - `kb-spec.md` was how anybody knew what a project block looked like.
 
-    The graph record has one write command again, `jsk kb apply`, but its input is a
+    The graph record has one write tool again, `career_apply` (`jsk kb apply` until 6.0), but its input is a
     changeset in the record's own format, so the reference - now `kb-format.md` - is
     still the thing that says what an entry looks like. What is asserted stays the
     honest statement: it is not MANDATED, because the mode shows the changeset it needs
@@ -283,7 +283,7 @@ class TheWritePathStaysCheap(unittest.TestCase):
         # each. kb-format.md describes the Turtle file a model must read and draft: the
         # banners, one table row per class with every predicate, provenance, and a
         # changeset. Smaller because the predicates are a table, not an example per
-        # section; `jsk kb apply`'s refusals carry what an example used to.
+        # section; `career_apply`'s refusals carry what an example used to.
         # Held for the store (2026-09-29): 1,883 -> 1,905. The file tree became the store's
         # graphs, the banners the view's section names, "Hand edits" left, and the
         # canonical-number rule and the rebase-or-refuse `op:base` came in.
@@ -304,7 +304,7 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
     the same content read twenty times through greps, each one a round trip.
 
     The graph record answers both with a query. `jsk match` does the selection a
-    whole read was for, and `jsk kb show <ids>` reads exactly the entries it selected,
+    whole read was for, and `career_show(ids)` (`jsk kb show` until 6.0) reads exactly the entries it selected,
     so neither writing agent reads the career whole any more.
     """
 

@@ -8,17 +8,20 @@ If they named a period, cover that. Otherwise start from the record's own state:
 
 ```bash
 jsk kb check                  # the record is clean, and at which revision
-jsk kb query open             # questions not yet answered, oldest first
-jsk kb query unconfirmed      # what is still inferred, with the question on each
-jsk kb query stale            # applications that sent a number since revised
-jsk kb query absences         # each "no" they gave; a due one lapsed a year after it was said
+```
+
+```
+career_query(name="open")         # questions not yet answered, oldest first
+career_query(name="unconfirmed")  # what is still inferred, with the question on each
+career_query(name="stale")        # applications that sent a number since revised
+career_query(name="absences")     # each "no" they gave; a due one lapsed a year after it was said
 ```
 
 Each **due absence** is a question again: "In March last year you said you had never used Kafka —
 still true?" Still no: `op:set` its `j:said` to today and `j:answer` to their words, then confirm.
 Now yes: `op:retire` it with a `j:reason`, and record the work.
 
-`jsk kb log` dates every change; its newest entries say when the last update happened. For more
+`career_log` dates every change; its newest entries say when the last update happened. For more
 than a quick top-up, send `jsk-kb-auditor` the workspace first — it finds stale headline metrics and
 questions open for months, the two things a refresh exists to catch.
 
@@ -38,7 +41,7 @@ pre-sales, hiring, architecture review, on-call ownership.
 
 **Numbers on existing projects** — the most valuable and most overlooked question. A platform serving
 200 users at launch may serve 5,000 now. Walk each live project's headline metric
-(`jsk kb view --section Metrics`) and ask whether it has moved.
+(`career_view(section="Metrics")`) and ask whether it has moved.
 
 **Credentials** — certifications passed or started, courses, degrees.
 
@@ -49,7 +52,7 @@ tool everyone quietly depends on, a process they changed.
 
 ## Write it up
 
-One changeset for the session, `jsk kb show <ids>` first for the `op:base`:
+One changeset for the session, `career_show(ids)` first for the `op:base`, then `career_preview` and `career_apply`:
 
 | What happened | In the changeset |
 |---|---|
@@ -59,11 +62,11 @@ One changeset for the session, `jsk kb show <ids>` first for the `op:base`:
 | a job that ended | `op:set` `j:end` and `j:state j:ended` on that role |
 | work being dropped | `op:retire` it with a `j:reason` — **never delete it** |
 | a new capability term | `op:add` it under the vocabulary, in the same changeset that first uses it |
-| `concepts-bare` in `jsk kb check` | `jsk kb pack capabilities --out pack.trig`, dry-run, apply; then label the top of `jsk kb query bare` |
-| two concepts that are one | re-point any unfrozen posting's `c:a` to `c:b` first (`posting_decide` on its row; `jsk app drop` an unsent one made from files), or `c:a` is only retired; `jsk kb merge c:a --into c:b --out merge.trig`, dry-run, apply; confirm the bullets it lists |
+| `concepts-bare` in `jsk kb check` | `jsk kb pack capabilities --out pack.trig`, then its text through `career_preview` and `career_apply`; then label the top of `career_query(name="bare")` |
+| two concepts that are one | re-point any unfrozen posting's `c:a` to `c:b` first (`posting_decide` on its row; `jsk app drop` an unsent one made from files), or `c:a` is only retired; `jsk kb merge c:a --into c:b --out merge.trig`, then its text through `career_preview` and `career_apply`; confirm the bullets it lists |
 
 A changed claim comes back `inferred` with a question, by itself — a number updated from memory is
-not re-confirmed. **Ask, then `jsk kb confirm <ids> --answer "…"`.** An answered question closes
+not re-confirmed. **Ask, then `career_confirm(ids=[...], answer="…")`.** An answered question closes
 with the confirm; one that cannot be answered means softening or retiring the claim.
 
 A career ladder that changed shape — a new levelling scheme, a title that means something different

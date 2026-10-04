@@ -90,14 +90,14 @@ class Shape(unittest.TestCase):
         self.assertEqual(len(summary["text_sha256"]), 12)
         self.assertEqual(self.check(summary=summary), [])
         flipped = self.check(summary={"text": "Platform engineer.", "status": "confirmed"})
-        self.assertTrue(any("records no answer" in f and "jsk kb confirm --summary" in f
+        self.assertTrue(any("records no answer" in f and "the career_confirm tool (jsk mcp)" in f
                             for f in flipped), flipped)
         for said in ("yes", "ok", "No."):
             with self.subTest(said=said):
                 self.assertTrue(self.check(summary={**summary, "answer": said}))
         edited = self.check(summary={**summary, "text": "Platform engineer and leader."})
         self.assertTrue(any("changed since it was confirmed" in f
-                            and "jsk kb confirm --summary" in f for f in edited), edited)
+                            and "the career_confirm tool (jsk mcp)" in f for f in edited), edited)
         self.assertTrue(any("text_sha256" in f for f in self.check(
             summary={k: v for k, v in summary.items() if k != "text_sha256"})))
         # An inferred summary needs neither.
@@ -123,14 +123,14 @@ class Shape(unittest.TestCase):
         self.assertEqual(self.check(headline=headline), [])
         flipped = self.check(headline={**headline, "status": "confirmed"})
         self.assertTrue(any("headline is confirmed but records no answer" in f
-                            and "jsk kb confirm --headline" in f for f in flipped), flipped)
+                            and "the career_confirm tool (jsk mcp)" in f for f in flipped), flipped)
         earned = short.confirmed(headline, "Yes, that is the title I hold.")
         self.assertEqual(self.check(headline=earned), [])
         self.assertTrue(self.check(headline={"text": "Two\nlines", "status": "inferred"}))
         self.assertTrue(self.check(headline={"text": "x", "status": "inferred", "why": "?"}))
 
     def test_a_graph_native_selection_is_told_to_confirm_through_the_tool(self):
-        # A selection is a graph: `jsk kb confirm --headline <resume.json>` names a file
+        # A selection is a graph: a hint naming a `resume.json` path names a file
         # that is never there (2026-10-02). The caller names the target.
         flipped = short.shape({**OK, "headline": {"text": "Senior Platform Engineer",
                                                   "status": "confirmed"}}, "acme-platform")

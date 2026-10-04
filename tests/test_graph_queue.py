@@ -1,11 +1,13 @@
 """Writers queue, and a write that queued behind another rebases onto what it left.
 
-Each test runs `jsk kb` as a person's session would - `python -m jsk.cli kb ...` in its
-own process - against one workspace's career/store/. Ruling 7: nobody is refused for
+Each test runs the write as a session would - the career_apply and career_confirm tools'
+compose layer (recordkit), or `python -m jsk.cli kb pack` - in its own process, against one
+workspace's career/store/. Ruling 7: nobody is refused for
 being second; a write drafted at an op:base the record has since moved past lands when
 it names no id changed since, and is refused - by the base check, or by the rules run
 again over the record as it now is - when it would silently undo or break what landed.
 """
+import json
 import os
 import re
 import shutil
@@ -24,6 +26,35 @@ from jsk.domain.record import edit
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record as R
 from jsk.adapters.cli.compose import record
+
+
+TESTS = os.path.dirname(os.path.abspath(__file__))
+
+# What a session's tool call is, in a process of its own: recordkit calls the compose
+# function the career_apply and career_confirm tools call, so the queue it takes its turn
+# in (record.turn) is the one under test, in separate interpreters as it is in a session.
+CHILD = (
+    "import json, sys\n"
+    "sys.path.insert(0, sys.argv[1])\n"
+    "import recordkit\n"
+    "root, verb, payload = sys.argv[2], sys.argv[3], json.loads(sys.argv[4])\n"
+    "if verb == 'apply':\n"
+    "    with open(payload['path'], encoding='utf-8') as f:\n"
+    "        code, out = recordkit.apply(root, f.read())\n"
+    "else:\n"
+    "    code, out = recordkit.confirm(root, payload['ids'], answer=payload['answer'])\n"
+    "sys.stdout.reconfigure(encoding='utf-8')\n"
+    "sys.stdout.write(out)\n"
+    "sys.exit(code)\n"
+)
+
+
+def tool(root, verb, **payload):
+    """Start the `apply` or `confirm` tool's compose function in a process of its own."""
+    return subprocess.Popen([sys.executable, "-c", CHILD, TESTS, str(root), verb,
+                             json.dumps(payload)],
+                            env=child_env(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True, encoding="utf-8")
 
 
 def jsk(root, *args):
@@ -54,7 +85,7 @@ class Workspace(unittest.TestCase):
         return path
 
     def apply(self, body):
-        return done(jsk(self.root, "apply", self.changeset(body)))
+        return done(tool(self.root, "apply", path=self.changeset(body)))
 
     def record(self):
         return db.dump_text(db.read(self.root))
@@ -89,7 +120,7 @@ class Queue(Workspace):
 
     def test_four_writers_drafted_at_one_base_all_land_as_consecutive_revisions(self):
         paths = [self.changeset(body) for body in self.DISJOINT]
-        procs = [jsk(self.root, "apply", p) for p in paths]        # started together
+        procs = [tool(self.root, "apply", path=p) for p in paths]        # started together
         results = [done(p) for p in procs]
         self.assertEqual([code for code, _ in results], [0, 0, 0, 0],
                          "\n\n".join(out for _, out in results))
@@ -108,7 +139,7 @@ class Queue(Workspace):
         paths = [self.changeset("op:changeset op:base 2 .\n"
                                 f"op:set {{ k:prj_clinical_events j:strength {n} . }}\n")
                  for n in (4, 3)]
-        procs = [jsk(self.root, "apply", p) for p in paths]
+        procs = [tool(self.root, "apply", path=p) for p in paths]
         results = [done(p) for p in procs]
         codes = sorted(code for code, _ in results)
         self.assertEqual(codes, [0, 1], "\n\n".join(out for _, out in results))
@@ -136,9 +167,9 @@ class Queue(Workspace):
                               "op:add { [] j:project k:prj_clinical_events ; j:rank 3 ;\n"
                               '    j:text "Counted 3 standalone things." ; '
                               "j:cites k:met_standalone . }\n")
-        self.assertEqual(done(jsk(self.root, "apply", drop))[0], 0)
+        self.assertEqual(done(tool(self.root, "apply", path=drop))[0], 0)
         before = self.record()
-        code, out = done(jsk(self.root, "apply", cite))
+        code, out = done(tool(self.root, "apply", path=cite))
         self.assertEqual(code, 1, out)
         self.assertIn("j:cites k:met_standalone: nothing defines it", out)
         self.assertNotIn("after this changeset's op:base", out)
@@ -190,8 +221,8 @@ op:add {
          'op:retire { k:prj_site_onboarding j:reason "Folded into the platform work." . }\n'
          "op:delete { k:q_team_size a op:Entry . }\n"),
         ("confirm", "confirmed, answering the open questions",
-         ("k:ach_clinical_events_led_migration", "k:met_team.v2",
-          "--answer", "Yes - six engineers then, seven once the team grew.")),
+         (["k:ach_clinical_events_led_migration", "k:met_team.v2"],
+          "Yes - six engineers then, seven once the team grew.")),
     )
 
     def subjects(self, graph):
@@ -205,8 +236,11 @@ op:add {
                 before = record.load(self.root)
                 was = self.subjects(before.graph(R.KB))
                 rev = R.state(before).log_revision
-                args = (self.changeset(body),) if verb == "apply" else body
-                code, out = done(jsk(self.root, verb, *args))
+                if verb == "apply":
+                    proc = tool(self.root, verb, path=self.changeset(body))
+                else:
+                    proc = tool(self.root, verb, ids=body[0], answer=body[1])
+                code, out = done(proc)
                 self.assertEqual(code, 0, out)
                 after = record.load(self.root)
                 self.assertEqual(R.state(after).log_revision, rev + 1, out)
@@ -223,7 +257,7 @@ op:add {
         code, out = done(jsk(self.root, "pack", "capabilities", "--out", pack))
         self.assertEqual(code, 0, out)
         before = self.subjects(record.load(self.root).graph(R.KB))
-        code, out = done(jsk(self.root, "apply", pack))
+        code, out = done(tool(self.root, "apply", path=pack))
         self.assertEqual(code, 0, out)
         changed = {s for s, _, _ in before ^ self.subjects(record.load(self.root).graph(R.KB))}
         self.assertEqual(self.entries()[3][1], changed)

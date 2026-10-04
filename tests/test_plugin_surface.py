@@ -141,8 +141,9 @@ class AgentFrontmatter(unittest.TestCase):
         shape. Over one Markdown file both came to hold Edit, and the guarantee became
         only as good as the sentence stating it. So the sentence is asserted.
 
-        The graph record has a write command again, `jsk kb apply`, and it cannot
-        confirm anything. While the analyst held Bash it could run apply; since 5.0.0 it
+        The graph record has a write tool again, `career_apply`, and it cannot
+        confirm anything. While the analyst held Bash it could run `jsk kb apply` (retired in
+        6.0 for the tool); since 5.0.0 it
         works through the `jsk mcp` tools and holds none that writes the career, so the
         sentence is also true by construction (AgentGrants pins the grant). The sentence
         stays asserted: a grant widened later must still meet the rule in writing.
@@ -154,7 +155,7 @@ class AgentFrontmatter(unittest.TestCase):
         """The author's boundary is different from the analyst's, because it does write
         into the career - bullets belong in the project they are about, so the next
         application can reuse them. What holds it is the status: a bullet it adds
-        through `jsk kb apply` arrives `j:inferred` whatever the changeset says (apply
+        through `career_apply` arrives `j:inferred` whatever the changeset says (apply
         refuses one that says confirmed), and the short file's `floor`, `confirmed` by
         default, means the render withholds it. The short file holds ids, never a
         bullet's words, so there is no copy for a confirmation to be raised in - the
@@ -162,11 +163,11 @@ class AgentFrontmatter(unittest.TestCase):
 
         That is enforcement rather than instruction, which is why the author may run
         apply and the analyst's rule has to be a sentence. Since 5.0.0 it applies through
-        `career_apply`, the tool form of `jsk kb apply`, and the body names both.
+        `career_apply`, and the body names it (6.0 retired the `jsk kb apply` form).
         """
         body = (PLUGIN / "agents" / "jsk-resume-author.md").read_text(encoding="utf-8")
         self.assertIn("`j:inferred`", body)
-        self.assertIn("jsk kb apply", body)
+        self.assertIn("`career_apply`", body)
         self.assertIn("Leave `floor` at its default, `confirmed`", " ".join(body.split()))
         self.assertNotIn("provenance_floor", body)
 
@@ -177,7 +178,7 @@ class AgentFrontmatter(unittest.TestCase):
         before it lands, and the agent never talks to them.
 
         Changed on purpose in 5.0.0: it held Write for one changeset file under changes/
-        and Bash for `jsk kb apply <file> --dry-run`. It passes the changeset's text to
+        and Bash for `jsk kb apply <file> --dry-run` (retired in 6.0). It passes the changeset's text to
         `career_preview` now and returns it whole, so it holds neither - and no
         `career_apply`, which is the stop made a grant. The stop is still a sentence,
         asserted."""
@@ -196,13 +197,13 @@ class AgentFrontmatter(unittest.TestCase):
 
     def test_the_modes_that_extract_send_the_extractor(self):
         """The braindump keeps the person's words as a file - the agent needs a source,
-        and `jsk kb confirm --source --quote` can then check a confirmation against what
+        and `career_confirm`'s `source` and `quote` can then check a confirmation against what
         they actually said. Both extracting modes apply only after showing the diff."""
         refs = SKILL / "references"
         braindump = " ".join((refs / "mode-braindump.md").read_text(encoding="utf-8").split())
         setup = " ".join((refs / "mode-setup.md").read_text(encoding="utf-8").split())
         self.assertIn("`<workspace>/sources/<yyyy-mm-dd>-braindump.md`", braindump)
-        self.assertIn("--source sources/<that file> --quote", braindump)
+        self.assertIn('source="sources/<that file>", quote=', braindump)
         for name, text in (("braindump", braindump), ("setup", setup)):
             with self.subTest(mode=name):
                 self.assertIn("jsk-extractor", text)
@@ -225,14 +226,14 @@ class AgentFrontmatter(unittest.TestCase):
 
 
 class TheSectionsAndTheFormatAgree(unittest.TestCase):
-    """`jsk kb view` prints the sections; `kb-format.md` lists them for a model.
+    """`career_view` prints the sections; `kb-format.md` lists them for a model.
 
     This used to check that `jsk new`'s Markdown headings and `kb-spec.md` named the
     same sections, then that the writer's `# == <Section>` banners in kb.ttl matched
     the format reference. The career is in a store now and has no file layout, but the
-    sections survive one level up: `ontology.SECTIONS["kb"]` is the order `jsk kb view`
-    prints the career in and the names `--section` takes. A section missing from the
-    format reference, or listed in another order, sends a model to a `--section` that
+    sections survive one level up: `ontology.SECTIONS["kb"]` is the order `career_view`
+    prints the career in and the names its `section` argument takes. A section missing from the
+    format reference, or listed in another order, sends a model to a `section` that
     is not there - or has it look for one the view never prints.
     """
 
@@ -251,7 +252,7 @@ class TheSectionsAndTheFormatAgree(unittest.TestCase):
         self.assertEqual(self.sections(), list(SECTIONS["kb"]))
 
     def test_the_view_prints_the_sections_as_the_format_shows_them(self):
-        """The shape, not only the names: an empty career rendered by `jsk kb view`
+        """The shape, not only the names: an empty career rendered by `career_view`
         carries exactly the section headings kb-format.md lists."""
         from jsk.domain.record import view
 
@@ -273,7 +274,7 @@ class TheSectionsAndTheFormatAgree(unittest.TestCase):
 
 
 class TheLogIsWrittenByJskAlone(unittest.TestCase):
-    """The history is the store's `log` graph, written by jsk and read with `jsk kb log`.
+    """The history is the store's `log` graph, written by jsk and read with the `career_log` tool.
 
     It moved out of the knowledge base into `log.md` because nothing that tailors or
     authors a resume reads the history, then became `log.ttl` when every change started
@@ -294,10 +295,10 @@ class TheLogIsWrittenByJskAlone(unittest.TestCase):
 
     def test_the_agents_that_date_a_pass_read_the_log_through_jsk(self):
         """The auditor and the refresh mode read the history to date the last pass; with
-        no file to open, `jsk kb log` is the only way, so each names it."""
-        self.assertIn("jsk kb log", (PLUGIN / "agents" / "jsk-kb-auditor.md").read_text(
+        no file to open, `career_log` is the only way, so each names it."""
+        self.assertIn("career_log", (PLUGIN / "agents" / "jsk-kb-auditor.md").read_text(
             encoding="utf-8"))
-        self.assertIn("jsk kb log", (SKILL / "references" / "mode-refresh.md").read_text(
+        self.assertIn("career_log", (SKILL / "references" / "mode-refresh.md").read_text(
             encoding="utf-8"))
 
 
@@ -343,7 +344,7 @@ class AgentsNeverReadRecordFiles(unittest.TestCase):
 
 
 class ChangesetsRouteThroughApply(unittest.TestCase):
-    """The P6 rule, asserted where it can be: the career changes through `jsk kb apply`,
+    """The P6 rule, asserted where it can be: the career changes through `career_apply`,
     and no mode or agent tells a model to grep, sed or Edit it by hand.
 
     With the record in career/store/ there is no hand edit to make, and `jsk kb adopt`
@@ -376,8 +377,7 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
         self.assertIsNotNone(row, "SKILL.md has no `jsk kb` row")
         listed = row.group(1).replace("\\", "").split("|")
         self.assertEqual(sorted(listed), sorted(
-            ["apply", "confirm", "show", "view", "query", "log", "check", "path", "export",
-             "pack", "merge"]))
+            ["check", "load", "dump", "pack", "merge"]))
         self.assertIn("jsk kb load .", text)
 
     def plugin_texts(self):
@@ -399,8 +399,8 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
 
     def test_SKILL_md_states_the_one_rule(self):
         text = " ".join((SKILL / "SKILL.md").read_text(encoding="utf-8").split())
-        self.assertIn("change it with `jsk kb apply <changeset.trig>`", text)
-        self.assertIn("Confirm only with `jsk kb confirm <id> --answer", text)
+        self.assertIn("change it with `career_apply(changeset)`", text)
+        self.assertIn("Confirm only through `career_confirm`, with the person's own answer", text)
         self.assertIn("Never open anything under `career/`", text)
         self.assertNotIn("## Editing the knowledge base", text)
 
@@ -460,7 +460,7 @@ class TheProseSaysWhatTheGatesDo(unittest.TestCase):
         self.assertNotIn("record gate refuses to render it", self.doc("docs/ARCHITECTURE.md"))
 
     def test_reworded_text_is_confirmed_in_the_career_not_on_the_old_words(self):
-        """`jsk kb confirm <id>` confirms the career's text. A bullet retuned only in the
+        """`career_confirm` of an id confirms the career's text. A bullet retuned only in the
         record and then confirmed by id sends words nobody confirmed, at `confirmed`."""
         author = self.agent("jsk-resume-author.md")
         self.assertNotIn("Retune from what is there", author)
@@ -503,15 +503,15 @@ class TheProseSaysWhatTheGatesDo(unittest.TestCase):
         """A changeset cannot write `confirmed`, so a bundle written as changesets alone
         loses every status. The plugin ships no shape for the old Markdown file, so
         mode-setup.md builds the record with changesets and then raises what the bundle
-        held confirmed through `jsk kb confirm`, quoting the bundle file - an --answer that
+        held confirmed through `career_confirm`, quoting the bundle file - an --answer that
         only named it was checked by nothing."""
         setup = self.ref("mode-setup.md")
         arch = self.doc("docs/ARCHITECTURE.md")
         self.assertNotIn("carrying every status across unchanged", setup)
         self.assertNotIn("write a `user-knowledgebase.md`", setup)
         self.assertIn("A changeset cannot confirm", setup)
-        self.assertIn("`jsk kb confirm <every id the bundle held confirmed> --source <bundle "
-                      "file> --quote", " ".join(setup.split()))
+        self.assertIn("`career_confirm(ids=[every id the bundle held confirmed], "
+                      "source=\"<bundle file>\", quote=", " ".join(setup.split()))
         self.assertNotIn("--answer` naming", setup)
         self.assertIn("a changeset cannot confirm", arch)
 

@@ -27,7 +27,7 @@ selection) and, once sent, `application`. The only files beside them are what wa
 files before 6.0 keeps its `posting.md` and the rest; if it was sent, its quotes are still checked
 against that `posting.md`, and if not, `jsk kb check` names it for jsk 5.1.0 or `jsk app drop`.
 
-You read the career with `jsk kb view`, which prints it as Markdown in the order the knowledge base
+You read the career with `career_view`, which prints it as Markdown in the order the knowledge base
 always had: Identity, Positioning, Work authorization and languages, Vocabulary, Organisations,
 Roles, Projects, Metrics, Skills, Education, Certifications, Open source, Open questions. `jsk kb
 show <id>` prints entries as Turtle, bullets under their project and versions under their metric,
@@ -61,11 +61,12 @@ read out of the store and validated in 441-519 ms on a Windows desktop, where th
 parsed from its files took 580 ms on the same machine; `tests/test_graph_budget.py` fails past 1.2
 seconds, so there is no reason to check less than everything.
 
-**Every write goes through one gate.** `jsk kb apply`, `confirm`, `pack` and `merge` changesets,
-the posting, review, assessment and selection tools, `jsk app freeze` and `jsk app event` all end
+**Every write goes through one gate.** `career_apply` and `career_confirm`, and the `jsk kb pack` and `merge` changesets applied through
+`career_apply`,
+the posting, review, assessment and selection tools, `app_freeze` and `app_event` all end
 in the same function: it writes every
 graph the change touches in one update - all of them or none - and refreshes `.jsk/backup.trig`.
-Every write to the career gets a log entry, in the same update; `jsk app freeze`, `jsk app event` and the
+Every write to the career gets a log entry, in the same update; `app_freeze`, `app_event` and the
 application tools write only an application's graphs and add none, because the log is the
 career's history; the one-time import adds one entry of its own (`by load`). A writing command
 takes the writer's turn (`career/store.lock`) before it reads the record, so what it validates is
@@ -84,13 +85,13 @@ top to bottom, with every application's graphs as `.ttl` files beside it. Moving
 was the project owner's decision (2026-09-29), and git history, diffs, hand edits and plain text as
 the record were each weighed and given up for it. What went with them:
 
-- **No text to open.** There is no file to read in an editor. `jsk kb view` prints the whole career
-  as Markdown; `jsk kb show` prints entries as Turtle; `jsk kb dump` writes everything out as TriG.
+- **No text to open.** There is no file to read in an editor. `career_view` prints the whole career
+  as Markdown; `career_show` prints entries as Turtle; `jsk kb dump` writes everything out as TriG.
   Each is a command to run, not a file that is simply there.
-- **No hand edits.** Fixing a typo is a changeset through `jsk kb apply`, never a save in an
+- **No hand edits.** Fixing a typo is a changeset through `career_apply`, never a save in an
   editor. A person who could once correct their own record by opening it now needs `jsk` to.
 - **No git history of the record.** A store's files are not text a diff can read, so `git log` on
-  the workspace no longer says what changed in the career. `jsk kb log` does - every revision, its
+  the workspace no longer says what changed in the career. `career_log` does - every revision, its
   day, the command, its summary and the ids it minted and touched - but only inside jsk.
 - **A format tied to one library.** The files under `career/store/` are RocksDB as the pinned
   pyoxigraph writes it, and a later version may not open them. The escape hatch is the dump: raising
@@ -134,9 +135,9 @@ are real still:
 - **A syntax.** Turtle is not Markdown. `k:prj_x j:name "..." ;` is learnable in a sitting, but it
   is punctuation a changeset has to get right, and a missing `;` is a parse error. In Turtle the same
   career was about 1.17 times its tokens in Markdown (measured on the P0 sample). Agents
-  read by id - `jsk kb show`, `career_show`, the match - and never the whole record.
-- **A write path.** Nobody edits the career directly; a *changeset* goes to `jsk kb apply`, which
-  merges it, validates the result and logs it. That is a command, a format, a log (`jsk kb log`)
+  read by id - `career_show`, the match - and never the whole record.
+- **A write path.** Nobody edits the career directly; a *changeset* goes to `career_apply`, which
+  merges it, validates the result and logs it. That is a command, a format, a log (`career_log`)
   and a set of refusals to learn - exactly the kind of layer this project once removed.
 
 ### Why the earlier decision was right, and why it no longer holds
@@ -160,15 +161,15 @@ cannot hold by itself. A simulation of twelve scenarios over the graph
   edges, walked at most two hops and never across a `distinct` wall, does not: matching scored
   precision 1.000 and recall 0.958 against 0.792 and 0.792 for fuzzy string matching.
 - **Versioned history.** A metric revised from 62% to 58% keeps both versions, dated; the version
-  an application sent can never change, and `jsk kb query stale` names every application that sent
+  an application sent can never change, and `career_query("stale")` names every application that sent
   a number since replaced.
 - **A record gate that joins by id.** A selection names career bullets by id, so "is every
   bullet one the career holds, live, under a project with a role, with numbers from the metric's
-  current version" is a join, run inside `jsk resume check`, `jsk resume ship` and `jsk app freeze`. The
+  current version" is a join, run inside `jsk resume check`, `jsk resume ship` and `app_freeze`. The
   simulation's seven planted defects were all caught - by the claims gate this replaced, when
   `resume.json` was still a full copy of the career and wording could drift from it. The selection
-  holds no bullet's words now: one reworded for a posting is reworded in the career, where `jsk kb
-  apply` drops it to `inferred` and the render withholds it until `jsk kb confirm` confirms the
+  holds no bullet's words now: one reworded for a posting is reworded in the career, where `career_apply`
+  drops it to `inferred` and the render withholds it until `career_confirm` confirms the
   career's text.
 
 None of those needs the career to be large. All of them need it to be structured data with ids.
@@ -181,11 +182,11 @@ graph record keeps a write path, so each failure needs an answer:
 | What went wrong with `okf` | How the graph record answers it |
 |---|---|
 | The skill named about thirty verbs, costing 5,128 tokens resident in every session | Three new top-level verbs: `kb`, `match`, `event`. Sub-verbs live in `--help` and in each refusal's `fix:` line, not in the skill's entry point |
-| A missing verb meant hand-authoring the file; the CLI's coverage was the agent's ceiling | One generic `jsk kb apply`, whose coverage is the **ontology**: anything the format can say, a changeset can say. `j:note` on every class is a relief valve for anything it cannot. There is no file to hand-author, so there is nothing to route around the verb to |
-| Unsafe defaults: a `--status confirmed` flag; `--body -` reading stdin and hanging | There is no status flag. A changeset asserting `confirmed` is refused. Stdin (`-`) is refused. The only way to confirm is `jsk kb confirm <id> --answer "..."`, with the person's words logged |
+| A missing verb meant hand-authoring the file; the CLI's coverage was the agent's ceiling | One generic `career_apply`, whose coverage is the **ontology**: anything the format can say, a changeset can say. `j:note` on every class is a relief valve for anything it cannot. There is no file to hand-author, so there is nothing to route around the verb to |
+| Unsafe defaults: a `--status confirmed` flag; `--body -` reading stdin and hanging | There is no status flag. A changeset asserting `confirmed` is refused. Stdin (`-`) is refused. The only way to confirm is `career_confirm`, with the person's words logged |
 | Cross-file atomicity was claimed and not real | Real now. Every write is one update of the store: the career, its log entry and any application graph it touches change together or not at all. The file record before it wrote `kb.ttl` then `log.ttl` and could only **detect** a write torn between them |
-| Surgical writes were promised, and a person's file got redumped | There is no file layout to redump. `jsk kb show` prints entries in one fixed shape, so what an agent reads is what it drafts against |
-| This page said a person must be able to read and correct their record end to end | Read: `jsk kb view` prints the whole career as Markdown to stdout, never a second copy that could drift. Correct: through a changeset, not by opening the record - the part of that promise the store gave up |
+| Surgical writes were promised, and a person's file got redumped | There is no file layout to redump. `career_show` prints entries in one fixed shape, so what an agent reads is what it drafts against |
+| This page said a person must be able to read and correct their record end to end | Read: `career_view` prints the whole career as Markdown to stdout, never a second copy that could drift. Correct: through a changeset, not by opening the record - the part of that promise the store gave up |
 
 Three limits, stated rather than hidden. The store can be read only through `jsk`: a person
 without it, or without pyoxigraph, has `.jsk/backup.trig` and nothing more readable. `jsk kb
@@ -212,7 +213,7 @@ never read it - they read the render plan - so the copy went (2026-09-25): the c
 file build the plan directly, and a bullet confirmed or corrected in the career is on the next
 render with nothing to update.
 
-It is also what makes a resume answerable a year later. `jsk app freeze` records in the application's graph
+It is also what makes a resume answerable a year later. `app_freeze` records in the application's graph
 which bullets rendered and which metric versions they cite, beside the PDF that was
 sent, so "what did this application claim, and where did that come from" has an answer.
 
@@ -326,7 +327,7 @@ behalf is not yours until you agree with it. The danger is precisely that it rea
 well-written, and indefensible when an interviewer asks a follow-up.
 
 So the write path cannot confirm anything. A changed claim drops to `inferred` and gets a question;
-`jsk kb confirm` is the only way up, and it takes your answer in your words and keeps it in the log.
+`career_confirm` is the only way up, and it takes your answer in your words and keeps it in the log.
 
 ## The same career renders correctly in different markets
 

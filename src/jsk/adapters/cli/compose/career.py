@@ -1,5 +1,5 @@
-"""The career's reads and logged writes, bound and returned as values: what `jsk kb view`,
-`show`, `query`, `log`, `apply` and `confirm` do, without the printing.
+"""The career's reads and logged writes, bound and returned as values: what the career_view, career_show, career_query, career_log, career_apply and
+career_confirm tools do, without the printing.
 
 The kb adapter (adapters/cli/kb/) prints as it goes - the diff before the write, a refusal
 as REFUSED lines - so its verbs cannot be called for a result. The MCP server
@@ -74,7 +74,7 @@ def query(root, name, args=(), *, today, load=None):
     Args:
         root: the workspace.
         name: the query's name.
-        args: its arguments, as `jsk kb query` takes them after the name. For `concepts`,
+        args: its arguments, as the career_query tool takes them after the name. For `concepts`,
             terms: each answered as `--near <term>` answers it.
         today: the day a dated query counts to.
         load: as view takes it.
@@ -127,7 +127,7 @@ def logged(root, store, quads, by, summary, *, touched=(), minted=(), answer=Non
 
 
 def apply_changeset(root, text, *, dry_run=False, today, name="changeset.trig"):
-    """A changeset's TriG merged into the career and logged, as `jsk kb apply` does.
+    """A changeset's TriG merged into the career and logged, as the career_apply tool does.
 
     Args:
         root: the workspace.
@@ -160,13 +160,13 @@ def apply_changeset(root, text, *, dry_run=False, today, name="changeset.trig"):
 
 def confirm_ids(root, ids, *, answer=None, source=None, quote=None, today):
     """The entries `ids` confirmed with the person's answer, or a document's quote, and
-    logged, as `jsk kb confirm <id>...` does.
+    logged, as the career_confirm tool does.
 
     Returns:
         The Written, or None when every one of them is confirmed already.
 
     Raises:
-        Refused, Problems, Failing, Unclean: as `jsk kb confirm` refuses; nothing written.
+        Refused, Problems, Failing, Unclean: as the career_confirm tool refuses; nothing written.
         RecordError: the store refused the write.
     """
     from ....application.record import confirm as C

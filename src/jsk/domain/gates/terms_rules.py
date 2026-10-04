@@ -77,7 +77,7 @@ def judge(text, title, requirements, target=None):
         gap = f'a short item in the review (`assessment_review` short, on "{target}")'
     else:
         headline = ("set the headline with `resume_update` and confirm it with the person "
-                    "(`jsk kb confirm --headline <stem>`)")
+                    "(the career_confirm tool (jsk mcp))")
         gap = "a short item in the review (`assessment_review` short)"
     if title and not occurrences(title, page):
         report.warn(f"the posting's title {title!r} is not on the page - a recruiter's search "

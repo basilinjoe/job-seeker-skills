@@ -4,10 +4,10 @@ and career/store/ (infra.oxigraph.applications.StoredApplications).
 Each function keeps the signature its callers use, with no `records` to pass. A test
 patches write_frozen here, and the freeze looks it up here at each call.
 
-`freeze_app` and `add_event` are `jsk app freeze` and `jsk app event` past their argument
-checks, bound and run in the record's turn: the CLI adapters and the MCP tools
-(adapters/mcp/server.py) call the same two, so a freeze or an event made either way is the
-same write (2026-10-03). `drop_app` is `jsk app drop`, which has no tool: setting an
+`freeze_app` and `add_event` are the app_freeze and app_event tools (adapters/mcp/acts.py)
+past their argument checks, bound and run in the record's turn. The CLI's own `jsk app freeze`
+and `jsk app event` were retired on 2026-10-04, so the tools are the only callers
+(docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md). `drop_app` is `jsk app drop`, which has no tool: setting an
 application aside is the person's call, not an agent's. Nothing here prints; a refusal is
 raised for the caller to say.
 """
@@ -57,7 +57,7 @@ def made_from_files(app_dir, store=None):
     """Whether `app_dir` is an application made from files and not frozen: a posting graph
     with no advert lines (Ruling 11 of the graph-native plan), or no posting graph and a
     file only the file pipeline wrote (application.timeline.unsent.FILE_MADE), and no
-    application graph. What `jsk app freeze` and the `app_freeze` tool refuse since 6.0
+    application graph. What the app_freeze tool refuses since 6.0
     (Ruling 1 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md); an application
     with neither is no file-made one, and is told it holds no posting."""
     from ....application.posting.native import native_graphs
@@ -176,7 +176,7 @@ class Applications:
 class Gates:
     """jsk.cli's gate plumbing, as application.timeline.freeze.gate runs it.
 
-    Looked up in jsk.cli at each call, so `jsk app freeze`, `jsk resume check` and `jsk
+    Looked up in jsk.cli at each call, so the app_freeze tool, `jsk resume check` and `jsk
     resume ship` run one set of gates and not three copies of it.
     """
 
@@ -283,7 +283,7 @@ def add_event(root, app_dir, kind, date, channel, note, due, today):
     Args:
         root: the workspace root.
         app_dir: the application directory.
-        kind, date, channel, note, due: the event, as `jsk app event`'s flags give it.
+        kind, date, channel, note, due: the event, as the app_event tool's parameters give it.
         today: the date the call runs on, read once at the edge.
 
     Returns:

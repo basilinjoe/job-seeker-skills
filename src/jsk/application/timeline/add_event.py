@@ -114,14 +114,14 @@ def add_event(root, app_dir, kind, date, channel, note, due, today, *, load, nam
     app = next((q.subject.value for q in parsed.quads
                 if O.class_of(q.subject.value) == "Application"), None)
     if app is None:
-        raise EventRefused([f"{rel} holds no application"], "`jsk app freeze` writes one")
+        raise EventRefused([f"{rel} holds no application"], "the app_freeze tool (jsk mcp) writes one")
     stem = app[len(O.K) + len("app_"):]
     iri, quads = event_quads(app, stem, date, kind, channel, note, due)
     iri, same = free_iri(store, iri, quads)
     if same:
         raise EventRefused([f"{curie(same)} is already recorded: this {kind} on {date}, with "
                             "the same channel, note and due"],
-                           f"`jsk kb show {curie(same)}`; an event is never edited - add a "
+                           f"the career_show tool (jsk mcp) on {curie(same)}; an event is never edited - add a "
                            "`note` event to say more")
     iri, quads = event_quads(app, stem, date, kind, channel, note, due, iri=iri)
     new = list(parsed.quads) + quads

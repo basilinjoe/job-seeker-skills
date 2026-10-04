@@ -1,21 +1,20 @@
-"""`jsk app freeze`: it refuses to archive anything the gates would not pass, and
+"""The app_freeze tool (recordkit.freeze calls what it calls): it refuses to archive anything the gates would not pass, and
 what it archives is the application record of what was sent.
 
 The application is graph-native (tests/shipkit.py's GraphCase): its record is the stored
 selection, hashed as its canonical text. A file-made one was frozen from its resume.json
 until 6.0, which freezes none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md,
-P2); that refusal is tests/test_retired.py's.
+P2); that refusal is tests/test_retired.py's. `jsk app freeze` itself is retired
+(docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md): its flag parsing is gone with it.
 """
 import json
 import unittest
 from pathlib import Path
 
 import appkit
-from fixtures import CLI, CLEAN_RESUME, build_pdf, run
+import recordkit
+from fixtures import CLEAN_RESUME, build_pdf
 from shipkit import BAD, D1, GraphCase, ShortCase
-
-
-JSK = CLI
 
 
 def k(*ids):
@@ -171,7 +170,7 @@ class FreezeGraph(GraphCase):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         self.assertEqual([appkit.facts(self.root, g) for g in ("kb", "log")], before)
-        self.assertIn("jsk app event", out)
+        self.assertIn("app_event", out)
 
     def test_held_back_has_no_submitted_event(self):
         code, out = self.freeze(submitted="false")
@@ -207,10 +206,10 @@ class FreezeGraph(GraphCase):
 
     def test_it_says_what_is_true_afterwards(self):
         """It used to end, in a Markdown workspace, with "append the row to log.md" -
-        a file nothing writes now. Later events are `jsk event`."""
+        a file nothing writes now. Later events are the app_event tool."""
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
-        self.assertIn("jsk app event", out)
+        self.assertIn("app_event", out)
         self.assertNotIn("log.md", out)
 
 
@@ -243,7 +242,7 @@ class FreezeWrites(GraphCase):
         build_pdf(self.app / "Jane_Doe_Resume_ATS.pdf", CLEAN_RESUME)
         (self.app / "Jane_Doe_Resume_ATS.tex").write_text(
             (self.app / "Jane_Doe_Resume.tex").read_text(encoding="utf-8"), encoding="utf-8")
-        code, out = self.freeze("--doc", "Jane_Doe_Resume_ATS.pdf")
+        code, out = self.freeze("Jane_Doe_Resume_ATS.pdf")
         self.assertEqual(code, 0, out)
         self.assertNotIn("check_ats.py Jane_Doe_Resume.pdf", out)
         app, _ = self.application()
@@ -283,13 +282,15 @@ class FreezeRefuses(Untouched, GraphCase):
     def test_an_applications_folder_away_from_the_career_is_refused(self):
         """A session once wrote its applications relative to its working directory.
         The been-here-before check looks beside the career, so a round frozen anywhere
-        else is one no later round can see."""
+        else is one no later round can see. The app_freeze tool only reaches a directory
+        under its workspace, so "away from the career" is a workspace with no store: the
+        retired command's own "no career/store/ beside" check is gone with it, and the
+        refusal is the one the missing record gives."""
         import shutil
         shutil.rmtree(self.root / "career" / "store")
         code, out = self.freeze()
-        self.assertEqual(code, 2, out)
-        self.assertIn("no career/store/ beside", out)
-        self.assertIn("fix:", out)
+        self.assertEqual(code, 1, out)
+        self.assertIn("REFUSED", out)
         self.assertUntouched()
 
     def test_an_application_md_is_as_frozen_as_an_application_record(self):
@@ -319,12 +320,6 @@ class FreezeRefuses(Untouched, GraphCase):
         self.assertEqual(code, 0, out)
         self.assertNotIn("URS", out)
 
-    def test_a_view_is_a_usage_error_naming_one_resume(self):
-        code, out = self.freeze("--view", "view_nope")
-        self.assertEqual(code, 2, out)
-        self.assertIn("a resume.json is one resume", out)
-        self.assertUntouched()
-
     def test_a_directory_with_nothing_sendable_is_refused(self):
         (self.app / "Jane_Doe_Resume.pdf").unlink()
         code, out = self.freeze()
@@ -340,7 +335,7 @@ class FreezeRefuses(Untouched, GraphCase):
         self.assertFalse([g for g in appkit.graphs(self.root) if g.endswith("/application")])
 
     def test_a_named_document_that_is_not_there_is_refused(self):
-        code, out = self.freeze("--doc", "Cover_Letter.pdf")
+        code, out = self.freeze("Cover_Letter.pdf")
         self.assertEqual(code, 1, out)
         self.assertIn("Cover_Letter.pdf", out)
         self.assertUntouched()
@@ -381,7 +376,7 @@ class FreezeLetters(Untouched, GraphCase):
     def test_a_pdf_letter_no_gate_reads_is_refused(self):
         """Named with --doc: two PDFs in the directory are otherwise a question first."""
         build_pdf(self.app / "Cover_Letter.pdf", LETTER.splitlines())
-        code, out = self.freeze("--doc", "Jane_Doe_Resume.pdf", "--doc", "Cover_Letter.pdf")
+        code, out = self.freeze("Jane_Doe_Resume.pdf", "Cover_Letter.pdf")
         self.assertEqual(code, 1, out)
         self.assertIn("Cover_Letter.pdf", out)
         self.assertIn("send the letter's .txt beside it, or leave it out with --doc", out)
@@ -391,8 +386,7 @@ class FreezeLetters(Untouched, GraphCase):
         """The cost Ruling 5 names: one extra file, and it is what the letter gate reads."""
         build_pdf(self.app / "Cover_Letter.pdf", LETTER.splitlines())
         (self.app / "Cover_Letter.txt").write_text(LETTER, encoding="utf-8")
-        code, out = self.freeze("--doc", "Jane_Doe_Resume.pdf",
-                                "--doc", "Cover_Letter.pdf", "--doc", "Cover_Letter.txt")
+        code, out = self.freeze("Jane_Doe_Resume.pdf", "Cover_Letter.pdf", "Cover_Letter.txt")
         self.assertEqual(code, 0, out)
         app, _ = self.application()
         self.assertIn("Cover_Letter.pdf", app["document"])
@@ -437,8 +431,10 @@ class FreezeMarkdownWorkspace(GraphCase):
 
     def test_it_is_refused_for_want_of_the_record(self):
         code, out = self.freeze()
-        self.assertEqual(code, 2, out)
-        self.assertIn("no career/store/", out)
+        # The command said "no career/store/" and exited 2; the tool refuses on the record
+        # it cannot find (exit 1 here), and still names no migration.
+        self.assertEqual(code, 1, out)
+        self.assertIn("REFUSED", out)
         self.assertNotIn("jsk migrate", out)
         self.assertTrue(self.app.exists())
         self.assertFalse(self.sent.exists())
@@ -447,27 +443,21 @@ class FreezeMarkdownWorkspace(GraphCase):
 
 
 class FreezeUsage(GraphCase):
-    def test_submitted_is_required(self):
-        code, out = self.jsk("app", "freeze", self.app, "--channel", "email")
-        self.assertEqual(code, 2, out)
-        self.assertIn("--submitted is required", out)
-
     def test_submitted_must_be_a_date_or_false(self):
         for bad in ("yesterday", "2026-9-8", "2026-02-30", "no"):
             with self.subTest(submitted=bad):
                 code, out = self.freeze(submitted=bad)
                 self.assertEqual(code, 2, out)
 
-    def test_channel_is_required(self):
-        code, out = self.jsk("app", "freeze", self.app, "--submitted", "false")
+    def test_a_channel_is_required(self):
+        code, out = self.freeze(channel=" ")
         self.assertEqual(code, 2, out)
-        self.assertIn("--channel is required", out)
+        self.assertIn("channel is required", out)
 
     def test_a_directory_that_does_not_exist_is_a_call_error(self):
-        code, out = run(JSK, "app", "freeze", self.root / "nowhere", "--submitted", "false",
-                        "--channel", "email")
+        code, out = recordkit.freeze(self.root, self.root / "nowhere", "false", "email")
         self.assertEqual(code, 2, out)
-        self.assertIn("fix:", out)
+        self.assertIn("no application directory", out)
 
 
 class Stale(GraphCase):
@@ -479,15 +469,15 @@ class Stale(GraphCase):
 
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
-        code, out = self.jsk("kb", "query", "stale", "--json", "--root", self.root)
+        code, out = recordkit.query(self.root, "stale", json=True)
         self.assertEqual((code, json.loads(out)), (0, []))
         change = self.root / "revise.trig"
         change.write_text(PFX + 'op:changeset op:base 1 ; op:summary "Re-measured." .\n'
                           'op:set { k:met_latency.v2 j:value 350 . }\n', encoding="utf-8")
-        code, out = self.jsk("kb", "apply", change, "--root", self.root)
+        code, out = recordkit.apply(self.root, change.read_text(encoding="utf-8"))
         self.assertEqual(code, 0, out)
         self.assertIn("the new number is k:met_latency.v3", out)
-        code, out = self.jsk("kb", "query", "stale", "--json", "--root", self.root)
+        code, out = recordkit.query(self.root, "stale", json=True)
         self.assertEqual(code, 0, out)
         self.assertEqual(json.loads(out), [{
             "application": "k:app_contoso_platform", "sent": "k:met_latency.v2",
@@ -518,12 +508,6 @@ class FreezeShort(ShortCase):
         code, out = self.freeze()
         self.assertEqual(code, 0, out)
         self.assertEqual([f.text() for f in self.store().fails()], [])
-
-    def test_view_is_a_call_error(self):
-        code, out = self.freeze("--view", "view_contoso")
-        self.assertEqual(code, 2, out)
-        self.assertIn("drop --view", out)
-        self.assertFalse(appkit.has(self.root, self.graph(self.app, "application")))
 
     def test_a_selection_that_does_not_build_is_never_frozen(self):
         self.selected({"resume": 2, "bullets": ["ach_nope"]})

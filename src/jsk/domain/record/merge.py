@@ -4,7 +4,7 @@ Every career triple pointing at c:a points at c:b instead - a project's j:uses a
 j:domain, an organisation's j:industry, a bullet's j:shows, another concept's edges. c:a's
 labels and former labels move to c:b, and so does its id as words ("ai agent design"),
 so wording that found c:a finds c:b. Its own edges move with it, unless one would make a
-cycle or cross a distinct wall. Nothing is applied: `jsk kb apply --dry-run` reads it.
+cycle or cross a distinct wall. Nothing is applied: the career_preview tool (jsk mcp) reads it.
 
 A bullet whose j:shows changes is a claim changed, so applying it drops the bullet to
 j:inferred and asks about it: those bullets are the re-confirm list, printed with it.
@@ -55,7 +55,7 @@ def draft(store, a, b):
     for c in dict.fromkeys((a, b)):
         if c not in store.homes:
             problems.append((f"{cur(c)} is not in the record",
-                             "check the id: `jsk kb query concepts` lists them"))
+                             "check the id: the career_query tool (jsk mcp) lists them"))
     if problems:
         raise Refused(problems)
     if [f for f in store.definitions[a] if f != KB]:

@@ -10,8 +10,10 @@ written; a legacy application is refused naming the file verb (Ruling 11); a cal
 workspace says how to make one (Ruling 15); an exception inside a use case is one FAIL and
 the next call still works; the read cache sees a CLI write made in another process
 (Ruling 14); a tool write waits for a CLI writer's turn, then lands, holding nothing
-between calls; the server answers over stdio as `python -m jsk mcp`; and a plain install
-says the extra is missing, exits 2, and names the install line (Ruling 13). From the
+between calls; the server answers over stdio as `python -m jsk mcp`; and an interpreter
+without the SDK, or with an old one, exits 2 and says to reinstall jsk-resume, which now
+requires mcp (Ruling 13, as Ruling 3 of docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md
+amended it). From the
 2026-10-02 review: career_query pages its rows with a total, a refused changeset gives each
 refusal its own fix, an ask's `about` is kept, and career_confirm on a selection returns
 the confirmed block alone.
@@ -51,14 +53,15 @@ TOOLS = {"career_view", "career_show", "career_query", "career_log", "career_pre
 PFX = ("@prefix j: <tag:jsk,2026:ns#> .\n@prefix k: <tag:jsk,2026:id/> .\n"
        "@prefix c: <tag:jsk,2026:concept/> .\n@prefix op: <tag:jsk,2026:op#> .\n")
 RENAME = PFX + 'op:set { k:prj_portal j:name "Customer portal" . }\n'
-MISSING = "the MCP server needs the mcp extra: pip install 'jsk-resume[mcp]'"
+MISSING = ("the MCP server needs the mcp package, which jsk-resume requires: "
+           "pip install -U jsk-resume")
 
 
 def fails(result):
     return [f["text"] for f in result["findings"] if f["severity"] == "FAIL"]
 
 
-@unittest.skipUnless(HAS_MCP, "the mcp extra is not installed")
+@unittest.skipUnless(HAS_MCP, "the mcp package is not installed")
 class Served(unittest.TestCase):
     """The claims fixture, stored, served by a server built over it."""
 
@@ -395,9 +398,12 @@ class Cache(Served):
         self.assertEqual(self.session.loads, 1, "two reads, one load")
         path = Path(self.root) / "rename.trig"
         path.write_text(RENAME, encoding="utf-8")
-        cli = subprocess.run([sys.executable, "-m", "jsk", "kb", "apply", str(path),
-                              "--root", self.root], env=child_env(), capture_output=True,
-                             text=True, timeout=120)
+        # `jsk kb apply` is retired: another process writes through what career_apply calls.
+        write = ("import sys, datetime; from jsk.adapters.cli.compose import career; "
+                 "career.apply_changeset(sys.argv[1], open(sys.argv[2], encoding='utf-8').read(),"
+                 " today=datetime.date.today())")
+        cli = subprocess.run([sys.executable, "-c", write, str(self.root), str(path)],
+                             env=child_env(), capture_output=True, text=True, timeout=120)
         self.assertEqual(cli.returncode, 0, cli.stdout + cli.stderr)
         self.assertIn("Customer portal", self.call("career_view", limit=10 ** 6)["text"])
         self.assertEqual(self.session.loads, 2)
@@ -438,7 +444,7 @@ class Turn(Served):
         self.assertIsNotNone(self.graph("posting"))
 
 
-@unittest.skipUnless(HAS_MCP, "the mcp extra is not installed")
+@unittest.skipUnless(HAS_MCP, "the mcp package is not installed")
 class Stdio(unittest.TestCase):
     """The server as an agent's client starts it: `python -m jsk mcp`, over stdio."""
 
@@ -467,11 +473,11 @@ class Stdio(unittest.TestCase):
         self.assertIn("contoso-platform", [a["app"] for a in listed["applications"]])
 
 
-class WithoutTheExtra(unittest.TestCase):
-    """Ruling 13: a plain install says the extra is missing; it never fails an import."""
+class WithoutTheSdk(unittest.TestCase):
+    """Ruling 13: an interpreter without the SDK says to reinstall; it never fails an import."""
 
     def test_jsk_mcp_without_the_sdk_exits_2_and_names_the_install_line(self):
-        # `mcp` made unimportable, as in a wheel installed without the extra.
+        # `mcp` made unimportable, as in a global Python that never got the dependency.
         script = ("import sys\nsys.modules['mcp'] = None\n"
                   "from jsk.adapters.cli.main import main\nsys.exit(main(['jsk', 'mcp']))\n")
         proc = subprocess.run([sys.executable, "-c", script], env=child_env(),
@@ -490,7 +496,7 @@ class WithoutTheExtra(unittest.TestCase):
                 contextlib.redirect_stderr(err):
             code = entry.main([])
         self.assertEqual(code, 2)
-        self.assertIn("this Python has mcp 1.4.1: pip install -U 'jsk-resume[mcp]'",
+        self.assertIn("this Python has mcp 1.4.1: pip install -U jsk-resume",
                       err.getvalue())
 
     def test_the_entry_point_imports_only_the_standard_library(self):
@@ -501,6 +507,37 @@ class WithoutTheExtra(unittest.TestCase):
         proc = subprocess.run([sys.executable, "-c", script], env=child_env(),
                               capture_output=True, text=True, timeout=120)
         self.assertEqual((proc.returncode, proc.stdout.strip()), (0, MISSING), proc.stderr)
+
+
+class Unloaded(Served):
+    """A workspace still laid out as files - career/kb.ttl, no career/store/ - is refused by
+    every tool with the one fix that imports it. The retire-duplicated-cli plan (2026-10-04)
+    made the tools the only path to the career, so this is where the refusal is pinned now;
+    tests/test_doctor.py pins it for the verbs that stay."""
+
+    def setUp(self):
+        import shutil
+
+        from jsk.adapters.mcp import server, session
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        shutil.copytree(Path(__file__).parent / "match_fixtures", self.root,
+                        dirs_exist_ok=True)
+        self.server = server.build(session.Session(root=str(self.root)))
+
+    def test_a_read_and_a_write_are_refused_naming_kb_load_and_nothing_is_made(self):
+        for tool, args in (("career_view", {}),
+                           ("career_apply", {"changeset": "# nothing\n"})):
+            with self.subTest(tool=tool):
+                said = self.call(tool, **args)
+                self.assertFalse(said["ok"], said)
+                [finding] = said["findings"]
+                self.assertIn("the career is still career/kb.ttl", finding["text"])
+                self.assertIn("jsk kb load .", finding["fix"])
+        # A refused write made no store: the import is still the person's to run.
+        self.assertFalse((self.root / "career" / "store").exists())
 
 
 if __name__ == "__main__":

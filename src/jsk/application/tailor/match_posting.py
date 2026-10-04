@@ -46,12 +46,12 @@ class MatchReport:
     rel: str                    # the application's folder relative to the workspace
 
 
-def application(arg, command="jsk kb export --from-match"):
+def application(arg, command="the resume_select tool (jsk mcp)"):
     """(workspace root, application directory) for the application `arg` names - its
     directory, applications/<dir> - or (None, [what is wrong, the fix]).
 
     Ruling 11 of the 2026-09-29 plan: the posting is a graph in career/store/ now, not a
-    file to point at, so every command takes the application, as `jsk app freeze` always
+    file to point at, so every command takes the application, as the app_freeze tool (jsk mcp) always
     did. A path to posting.ttl is how a shell history or an older
     agent file still calls it, so it is refused with the new form.
 
@@ -102,12 +102,12 @@ def record_faults(store, queries, post, today, budget, ranked, select):
     one entry per bullet, in the draft's order - as questions for round 1.
 
     On the ElevenLabs run kb.ttl held six such bullets ("a 300-400 candidate drive" citing
-    nothing). `jsk kb export --urs` found them only mid-authoring, and the author "fixed"
+    nothing). the resume_select tool (jsk mcp) found them only mid-authoring, and the author "fixed"
     one by moving 300-400 to 300-800 to fit an unrelated metric: a factual change the
     person had to undo. The number is the person's to give, so it is asked here, before
     anyone writes.
 
-    The draft is the one `jsk kb export --from-match` writes for this posting - select.py's
+    The draft is the one the resume_select tool (jsk mcp) writes for this posting - select.py's
     projects (the cover, then the ranked projects that carry a requirement) and the
     bullets it picks under each - because those are exactly the bullets the author starts
     from. The whole Ranking would be every live project, and a fault in a bullet no draft

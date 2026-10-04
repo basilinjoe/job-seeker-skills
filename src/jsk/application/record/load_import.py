@@ -67,7 +67,7 @@ def hand_edit(before, src, *, state, files, parse_text):
     raised = upgrades(was, after)
     lines = [f"raised   {line}" for line in raised]
     if raised:
-        lines.append("         check each with the person; `jsk kb confirm <id> --answer` "
+        lines.append("         check each with the person; the career_confirm tool (jsk mcp) "
                      "records it")
     return lines, {q.subject.value for q in set(was) ^ set(after)}
 
@@ -145,7 +145,7 @@ def edited_dump(record, name, *, numbers_as_kept):
     from ...domain.record.state import unrecorded
 
     fix = ("load the dump as `jsk kb dump` wrote it (or .jsk/backup.trig), then change the "
-           "record through `jsk kb apply`")
+           "record through the career_apply tool (jsk mcp)")
     found = []
     for graph, triples in sorted(record.items()):
         numbers_as_kept([ox.Quad(t.subject, t.predicate, t.object) for t in triples],

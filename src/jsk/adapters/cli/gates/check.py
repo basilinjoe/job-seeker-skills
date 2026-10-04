@@ -61,7 +61,7 @@ ADAPTERS = {"record.py": "record", "check_ats.py": "ats", "check_prose.py": "pro
 COMMANDS = {"record.py": "jsk resume check", "check_ats.py": "jsk resume check --only parse",
             "check_prose.py": "jsk resume check --only prose",
             "layout.py": "jsk resume check --only layout",
-            "terms.py": "jsk resume check <out-dir> --record", "letter.py": "jsk letter check"}
+            "terms.py": "jsk resume check <out-dir> --record", "letter.py": "the letter_check tool (jsk mcp) with the same arguments"}
 
 
 def gate_target(path, accepts):
@@ -444,7 +444,7 @@ def measure(pdf):
 def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only=None):
     """Every `jsk resume check` step over one directory, the render gate last, as Shown dicts.
 
-    `jsk resume ship` and `jsk app freeze` call this too (application.gates.run_gates.run_gates says
+    `jsk resume ship` and the app_freeze tool call this too (application.gates.run_gates.run_gates says
     why), and print and serialise what it returns beside steps of their own.
 
     Returns:

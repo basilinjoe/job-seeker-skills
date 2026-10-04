@@ -79,10 +79,10 @@ def check_letter(path, record, *, read, read_short, workspace, has_engine, caree
     fails += more
     if record is None:
         fails.append(line("numbers-skipped", "letter",
-                          "SKIPPED - no --record, so no number in it was traced. A gate that "
+                          "SKIPPED - no record, so no number in it was traced. A gate that "
                           "did not run is not a gate that passed",
-                          "pass --record <stem> - the target it goes out beside"))
-        against = "nothing - no --record"
+                          "pass record=<stem> - the target it goes out beside"))
+        against = "nothing - no record"
     else:
         doc = read_short(record)
         root = workspace(record)
@@ -143,8 +143,7 @@ def years_lines(store, text, today, queries):
             out.append(line("years-overstated", "letter",
                             f"claims {claimed} years of {label}; the roles behind the projects "
                             f"holding it cover {months // 12}y{months % 12}m",
-                            f"state what the roles cover (`jsk kb query experience "
-                            f"{curie(sorted(concepts)[0])}`)"))
+                            f"state what the roles cover (the career_query tool (jsk mcp))"))
         text = text[:m.start()] + " " * (m.end() - m.start()) + text[m.end():]
     return out, text
 
@@ -234,13 +233,13 @@ def numeral_lines(text, career, rendered, unsure, queries):
             out.append(line("number-unconfirmed", "letter",
                             f"'{shown}' is only in {ident}, which the resume does not render "
                             f"(provenance '{career.status(whose)}')",
-                            f"confirm {ident} with the person (`jsk kb confirm`) before any "
+                            f"confirm {ident} with the person (the career_confirm tool (jsk mcp)) before any "
                             "letter or resume states it - or cut the number"))
         elif old:
             until, v = old[-1]
             out.append(line("number-superseded", "letter",
                             f"'{shown}' is {curie(v)}'s number, replaced on {until}",
-                            f"state the current number - `jsk kb show {curie(v.rsplit('.v', 1)[0])}`"))
+                            f"state the current number - the career_show tool (jsk mcp) on {curie(v.rsplit('.v', 1)[0])}"))
         else:
             out.append(line("number-untraced", "letter",
                             f"'{shown}' is in no current metric version a bullet on the resume "

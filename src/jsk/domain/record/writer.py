@@ -6,7 +6,7 @@ triples it was given. pyoxigraph's own serializer is neither (P0), so it is used
 parse and query.
 
 Nothing jsk keeps is written with it any more - the record is career/store/ - but every
-place a graph is shown as text is: `jsk kb show`'s entries, a write's diff, and the text
+place a graph is shown as text is: the career_show tool (jsk mcp)'s entries, a write's diff, and the text
 the log entry's kbSha256 hashes.
 
 Layout comes from ontology.py: sections in SECTIONS order, subjects by their natural key,

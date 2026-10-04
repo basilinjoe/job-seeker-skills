@@ -89,7 +89,7 @@ class Forms(unittest.TestCase):
     def forms(self, text, build, target, command):
         """{form: (exit code, output, files after less the authored file, every file
         before, every file after)}. `build(root)` makes the workspace, `target(root)` is
-        the authored file, `command(root)` the arguments."""
+        the authored file, `command(root)` the arguments or a callable that runs it."""
         found = {}
         for form in AWKWARD:
             root = Path(tempfile.mkdtemp())
@@ -97,7 +97,10 @@ class Forms(unittest.TestCase):
             build(root)
             written = write_awkward(target(root), text, form)
             before = snapshot(root)
-            code, out = run(CLI, *command(root))
+            ran = command(root)
+            # A command is the jsk arguments, or a callable returning (code, output): what a
+            # retired verb's tool does, called in-process (tests/recordkit.py).
+            code, out = ran() if callable(ran) else run(CLI, *ran)
             found[form] = (code, scrubbed(out, root), snapshot(root, written), before,
                            snapshot(root))
         return found
@@ -180,18 +183,23 @@ def graph_workspace(root):
     seed(root)
 
 
-# --- jsk kb confirm -------------------------------------------------------------------
+# --- the career_confirm tool ----------------------------------------------------------
 
 DOC = Path("imports") / "prior-resume.md"
 GLOBEX = Path("applications") / "globex-architect" / "resume.json"
 
 
 class KbConfirm(Forms):
+    """`jsk kb confirm` is retired; career_confirm reads its source document the same way."""
+
     def test_confirm_reads_its_source_document(self):
+        import recordkit
+
         found = self.check(
             DOCUMENT, graph_workspace, lambda r: r / DOC,
-            lambda r: ["kb", "confirm", "k:ach_site_onboarding_sites_one_platform",
-                       "--source", r / DOC, "--quote", QUOTE, "--root", r], "prior-resume.md")
+            lambda r: lambda: recordkit.confirm(
+                r, ["k:ach_site_onboarding_sites_one_platform"], source=str(r / DOC),
+                quote=QUOTE), "prior-resume.md")
         self.assertIn(f'From imports/prior-resume.md: \\"{QUOTE}\\"'.encode(),
                       found[PLAIN][2][DUMP])
 

@@ -1,4 +1,4 @@
-"""`jsk new`: a graph workspace from nothing, that `jsk kb apply` can write to at once.
+"""`jsk new`: a graph workspace from nothing, that career_apply can write to at once.
 
 P3's Ruling 9: writes need a clean record, so a workspace has to start logged. These
 tests hold `jsk new` to that - the scaffold is a store that loads with no finding, clean at
@@ -49,16 +49,11 @@ class Scaffold(unittest.TestCase):
             code = cli.main(["jsk", "kb", "new", self.root, "--name", "Priya Raman", *args])
         return code, out.getvalue()
 
-    def kb(self, *args):
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "kb", *args, "--root", self.root])
-        return code, out.getvalue()
-
     def apply(self, text):
-        cs = self.path("changes.trig")
-        cs.write_text(text, encoding="utf-8")
-        return self.kb("apply", str(cs))
+        """career_apply on the new workspace (`jsk kb apply` until 6.0)."""
+        import recordkit
+
+        return recordkit.apply(self.root, text)
 
     def record(self):
         """The whole record as its dump: what a refusal must leave as it was."""
@@ -186,7 +181,7 @@ class Refusals(Scaffold):
         code, out = self.new()
         self.assertEqual(code, 1)
         self.assertIn("REFUSED  already exists", out)
-        self.assertIn("jsk kb apply", out)
+        self.assertIn("career_apply tool", out)
         self.assertIn("career/kb.r<N>.trig", out)
         self.assertNotRegex(out, r"\bgit\b")
         self.assertEqual(self.record(), before)

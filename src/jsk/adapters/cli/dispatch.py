@@ -19,7 +19,6 @@ PACKAGE = __name__.split(".")[0]
 ADAPTERS = {
     "kb.py": "adapters.cli.kb.new",
     "kbcli.py": "adapters.cli.kb",
-    "timeline.py": "adapters.cli.event",
     "render_resume.py": "adapters.cli.render",
     "preview_templates.py": "adapters.cli.preview",
     "fit_pages.py": "adapters.cli.fit",
@@ -34,7 +33,6 @@ ADAPTERS = {
 COMMANDS = {
     "kb.py": "jsk kb new",
     "kbcli.py": "jsk kb",
-    "timeline.py": "jsk app event",
     "render_resume.py": "jsk resume render",
     "preview_templates.py": "jsk resume preview",
     "fit_pages.py": "jsk resume fit",

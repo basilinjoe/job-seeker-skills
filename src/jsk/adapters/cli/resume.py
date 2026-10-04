@@ -138,7 +138,7 @@ def file_made_refusal(target):
     if not frozen:
         text, fix = note(rel.removeprefix("applications/"))
         return [text, f"fix:  {fix}"]
-    show = f"`jsk kb show {post}` or " if post else ""
+    show = f"the career_show tool (jsk mcp) on {post} or " if post else ""
     return [f"{target} names {rel}, a frozen application made from files: it has no "
             "selection to check - its files are the archive of what was sent",
             f"fix:  read it with {show}the app_show tool (jsk mcp); `jsk resume check DIR` "
@@ -183,10 +183,9 @@ def cmd_resume_check(args):
             print("\n".join(refusal))
             return 2
     if kind == "render" and only_of(args) == "letter":
-        at = args.index("--only")
-        rest = args[:at] + args[at + 2:]
-        print("--only letter left jsk resume check: a cover letter is jsk letter check now")
-        print(f"fix:  jsk letter check {' '.join(rest)}")
+        print("--only letter left jsk resume check: a cover letter is checked by the "
+              "letter_check tool now")
+        print("fix:  the letter_check tool (jsk mcp): letter_check(letter, record=<stem>)")
         return 2
     flag = misfit(args, kind)
     if flag:

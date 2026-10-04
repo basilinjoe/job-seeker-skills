@@ -70,7 +70,7 @@ def has(root, graph):
 
 
 def text(root, graph):
-    """The graph laid out as Turtle, as `jsk kb show` prints entries; None when absent."""
+    """The graph laid out as Turtle, as the career_show tool prints entries; None when absent."""
     from jsk.domain.record.writer import write
 
     found = triples(root, graph)

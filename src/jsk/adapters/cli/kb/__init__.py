@@ -1,44 +1,28 @@
-"""jsk kb - the career record: changed through changesets, read by id.
+"""jsk kb - the career record: scaffolded, checked, loaded, dumped and drafted here; read and
+changed through the career_* tools (jsk mcp).
 
 Usage: jsk kb <verb> [arguments] [--root DIR]
 
   new <path> --name "Name" [--force]   scaffold a workspace: career/store/ at r1, and
                                        applications/ (no --root: the path is the workspace)
-  apply <changeset.trig> [--dry-run]   merge a changeset into the career; prints the diff
-  confirm <id>... --answer "..."       confirm entries with the person's answer, logged;
-          <id>... --source F --quote "..."  or with a document's own words;
-          --summary <stem>|resumes/<name> --answer "..."  or a target's summary
-          --headline <stem>|resumes/<name> --answer "..."  or its headline
-  show <id>... [--bullets]             entries as Turtle, and the op:base to use;
-                                       --bullets, a project's name and bullets only
-  view [--section NAME]                the whole career as Markdown, to read
-  query <name> [args] [--json]         open | unconfirmed | holds <concept> | stale |
-                                       experience <concept> | pipeline |
-                                       evidence <term>... | person |
-                                       similar <words>... | duplicates |
-                                       concepts | bare
   pack capabilities [--out FILE]       the capability starter pack, as a changeset of
                                        what the record lacks; not applied
   merge c:a --into c:b [--out FILE]    two concepts that are one, as a changeset; not applied
-  export [--select <id>...]            the short resume.json, printed: the bullets to show,
-         [--from-match <app-dir>]      as ids; --from-match chooses them for an application,
-         [--ranked] [--cover N]        --ranked with none (resume_select stores a target's)
-         [--today D]
   check                               validate the workspace; exit 1 on a FAIL
-  path                                 the workspace, career/store/ and applications/,
-                                       as absolute paths
   load <workspace | dump.trig>         fill an empty career/store/, once: from a workspace
                                        still laid out as .ttl files, or from a dump
   dump [--out FILE]                    the whole record as TriG: a backup, and what load reads
-  log [--last N]                       the record's history, newest first
 
 --root is the workspace, the folder holding career/; by default the nearest one above
 the current directory. `jsk kb <verb> --help` says more about one verb.
 
-The record lives in career/store/ and is read and written only through jsk. Every write
-goes through the same gate: it waits its turn behind any other write, the workspace
-validates, and the record it would write validates too. Then the career and its log
-entry change in one update - both, or neither - and the diff is printed.
+The record lives in career/store/ and is read and written only through jsk. A changeset is
+merged by the career_apply tool (career_preview shows its diff first), an entry confirmed by
+career_confirm, and the record read by career_show, career_view, career_query and career_log;
+`jsk kb apply|confirm|show|view|query|log|export|path` were retired in 6.0 and exit 2 naming
+them (adapters/cli/main.py's RETIRED). Every write goes through the same gate: it waits its
+turn behind any other write, the workspace validates, and the record it would write
+validates too. Then the career and its log entry change in one update - both, or neither.
 
 Exit 0 done (or nothing to do), 1 refused, 2 called wrong.
 """
@@ -50,29 +34,20 @@ import sys
 from ..cliutil import docstring_usage, parse_flags, wants_help
 from ....infra.files import find_root
 from ..presenters import usage
-from . import confirm, draft, export, load, read, write
+from . import draft, load, read
 
-# The verbs that can write the career: each runs inside its turn (record.turn).
-WRITES = {"apply", "confirm", "load"}
+# The verbs that can write the career: each runs inside its turn (record.turn). Only the import
+# is left: 6.0 moved every other write to the career_* tools.
+WRITES = {"load"}
 
 # verb -> (its handler, flags taking a value, switches, flags taking a list), beside --root,
 # which every verb takes. main parses them, so an unknown flag is refused by name.
 TABLE = {
-    "apply": (write.cmd_apply, (), ("--dry-run",), ()),
     "pack": (draft.cmd_pack, ("--out",), (), ()),
     "merge": (draft.cmd_merge, ("--out", "--into"), (), ()),
-    "confirm": (confirm.cmd_confirm, ("--answer", "--summary", "--headline", "--source",
-                                    "--quote"), (), ()),
-    "show": (read.cmd_show, (), ("--bullets",), ()),
-    "view": (read.cmd_view, ("--section",), (), ()),
-    "export": (export.cmd_export, ("--out", "--from-match", "--cover", "--today"),
-               ("--ranked", "--replace", "--urs", "--refresh"), ("--select",)),
-    "query": (read.cmd_query, (), ("--json",), ("--near",)),
     "check": (read.cmd_check, ("--only",), (), ()),
-    "path": (read.cmd_path, (), (), ()),
     "load": (load.cmd_load, (), (), ()),
     "dump": (load.cmd_dump, ("--out",), (), ()),
-    "log": (read.cmd_log, ("--last",), (), ()),
 }
 VERBS = {name: row[0] for name, row in TABLE.items()}
 FLAGS = {name: row[1:] for name, row in TABLE.items()}
@@ -110,8 +85,6 @@ def main(argv=None):
     if root is None or not os.path.isdir(root):
         return usage("no workspace here: run it inside one, or pass --root DIR "
                      "(the folder holding career/)")
-    if name == "path":
-        return read.cmd_path(rest, flags, os.path.abspath(root), today)
     if name != "load":
         # `load` is the import itself; every other verb would answer from, or write to, a
         # record jsk no longer keeps.

@@ -18,7 +18,7 @@ from ...domain.naming import app_graph
 from ...domain.timeline.events import LEGACY
 from ..posting.native import has_lines
 
-# What only the file pipeline leaves in an application's folder: `jsk kb export --out`'s
+# What only the file pipeline leaves in an application's folder: the resume_select tool (jsk mcp)'s
 # resume.json, `jsk posting build`'s decisions.txt and `jsk posting fetch`'s posting.md. A
 # graph-native application keeps its record in the store, and a resume.json beside one is
 # never read (Ruling 11), so the posting graph's lines settle a folder holding both.
@@ -55,7 +55,7 @@ def file_made_unsent(graphs, listing):
     return tuple(sorted(out))
 
 
-# The fix named "`jsk kb apply` a changeset retiring its posting" until 2026-10-03, which a
+# The fix named "the career_apply tool (jsk mcp) a changeset retiring its posting" until 2026-10-03, which a
 # changeset cannot do: it writes the career graph alone, and many such applications have no
 # posting graph. `jsk app drop` is the command (application/timeline/drop.py).
 def note(stem):

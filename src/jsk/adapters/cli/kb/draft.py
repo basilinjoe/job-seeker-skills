@@ -15,7 +15,8 @@ def drafted(text, out, what):
     with open(out, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
     print(f"wrote {out}: {what}")
-    print(f"next: `jsk kb apply {out} --dry-run`, read the diff, then apply it")
+    print("next: the career_preview tool (jsk mcp) with that file's text, read the diff, "
+          "then the career_apply tool")
     return 0
 
 
@@ -45,7 +46,8 @@ def cmd_pack(args, flags, root, today):
     same class gets the missing labels and edges. A concept the record has with another
     class, a label that already names another concept, and an edge whose target is
     missing or that would make a cycle or cross a distinct wall are skipped, each one
-    said. Nothing is applied: read it with `jsk kb apply FILE --dry-run`, then apply it.
+    said. Nothing is applied: read its diff with the career_preview tool (jsk mcp), then apply
+    it with career_apply.
     The changeset goes to stdout, or --out; what was skipped to stderr, or stdout with --out.
     """
     from ....application.record.pack import pack
@@ -90,7 +92,7 @@ def cmd_merge(args, flags, root, today):
 
     A bullet whose j:shows changes is a changed claim: applying drops it to j:inferred.
     Those bullets are printed as the re-confirm list. Nothing is applied: read it with
-    `jsk kb apply FILE --dry-run`, then apply it.
+    the career_preview tool (jsk mcp), then apply it with career_apply.
     """
     from ....application.record.merge import merge
     from ....application.record.refusals import Problems, Unclean
@@ -121,5 +123,5 @@ def cmd_merge(args, flags, root, today):
     if m["reconfirm"]:
         print(f"re-confirm {curies(m['reconfirm'])}", file=report)
         print("         applying drops them to inferred: read each again with the person, "
-              "then `jsk kb confirm <ids> --answer \"...\"`", file=report)
+              "then the career_confirm tool (jsk mcp) with their answer", file=report)
     return drafted(merged.text, out, merged.summary)

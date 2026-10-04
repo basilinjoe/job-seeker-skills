@@ -9,7 +9,7 @@ explains what it needs as it goes. Read it when a word turns up and you want it 
 sections: identity, positioning, work authorization and languages, vocabulary, organisations,
 roles, projects, metrics, skills, education, certifications, open source and open questions. Every
 entry has an id - `prj_payments`, `ach_payments_cut_settlement_latency`, `met_settlement` - and
-every link between entries is by id. `jsk kb view` prints it as Markdown to read end to end.
+every link between entries is by id. `career_view` prints it as Markdown to read end to end.
 *Why it matters:* it is the source of truth. A resume is one rendering of it, not the original.
 
 **The store** — `career/store/`, where the record lives: the career, its log and each
@@ -20,7 +20,7 @@ copy in `.jsk/backup.trig`.
 *Why it matters:* every write lands whole - every graph it touches, or none - and goes through one
 gate, so nothing can change the career without being validated and logged.
 
-**Turtle** — the text format a changeset is written in, and the one `jsk kb show` prints entries
+**Turtle** — the text format a changeset is written in, and the one `career_show` prints entries
 in: `k:prj_payments j:name "Payments platform" ;`. Any graph library parses it.
 *Why it matters:* unlike Markdown, a program can check it - and a dump in it outlives any single
 tool, including this one.
@@ -39,12 +39,12 @@ names.
 confirm anything on your behalf.
 
 **Log** — the `log` graph: one entry per change, numbered (`r1`, `r2`, ...), with its day, the
-command, its summary and the ids it touched. `jsk kb log` prints it. It is written in the same
+command, its summary and the ids it touched. `career_log` prints it. It is written in the same
 update as the change it records, so the two cannot disagree.
 
 **Provenance status** — every claim carries one: `confirmed` (you said it), `inferred` (drafted for
 you, not yet signed off), `needs-verification` (a known gap), `disputed`. Changing a claim drops it
-to `inferred` and opens a question; `jsk kb confirm <id> --answer "..."` is the only way back up,
+to `inferred` and opens a question; `career_confirm` is the only way back up,
 and it keeps your answer.
 *Why it matters:* inferred text is the dangerous kind. It reads well, which is exactly why it must
 never reach a resume before you agree with it.
@@ -63,7 +63,7 @@ edges do not.
 **Metric version** — a number, with where it came from and when it was true. `met_settlement.v1`
 says 200 ms; a later measurement becomes `v2` rather than overwriting it.
 *Why it matters:* an application that sent the old number still says what it sent, and
-`jsk kb query stale` names every application that sent a number since revised.
+`career_query("stale")` names every application that sent a number since revised.
 
 **Application** — one submission, named by its stem, `<yyyy-mm-dd>-<company>-<role>`. Since 5.0.0
 it lives in the store as graphs: the advert as numbered lines and what it asks for (`posting`), the
@@ -73,9 +73,9 @@ timeline of what came back. Its directory, `applications/<stem>/`, holds only th
 sent: the PDF and the `.tex`. One made from files before 6.0 (`posting.md`, `decisions.txt`,
 `gaps.txt`, `resume.json`) stays readable if it was frozen (sent or held back), and is named for
 jsk 5.1.0 or `jsk app drop` if not.
-*Why it matters:* it is frozen once the application goes out — `jsk app freeze` refuses until the gates
+*Why it matters:* it is frozen once the application goes out — `app_freeze` refuses until the gates
 pass, records the application and names the directory after the day it was sent; after that
-`jsk app event` adds what happened next, and nothing is edited. The career keeps moving, and an
+`app_event` adds what happened next, and nothing is edited. The career keeps moving, and an
 application that pointed at a moving source could not answer what it was answering.
 
 ## The rendering
@@ -142,7 +142,7 @@ parses, not that it is correct — see [WHY.md](WHY.md) for the three real resum
 selection's shape; an id the career does not hold, has retired, or a bullet whose project has no role; a number
 no current version of a metric the bullet cites holds; a career that does not validate; and a
 career out of sync with its log - written outside jsk, restored from `.jsk/backup.trig`. It runs
-first inside `jsk resume check` on a directory, `jsk resume ship` and `jsk app freeze`.
+first inside `jsk resume check` on a directory, `jsk resume ship` and `app_freeze`.
 
 **Unverified** — what a resume is called until somebody has read every rendered page, and what it
 stays when no PDF renderer was available to produce one.

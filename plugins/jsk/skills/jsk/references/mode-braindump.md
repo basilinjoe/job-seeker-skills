@@ -2,7 +2,7 @@
 
 They talk. You structure. This mode fails if you interrupt.
 
-Everything goes into the career, through one `jsk kb apply`. The only other file written is
+Everything goes into the career, through one `career_apply`. The only other file written is
 their words, kept verbatim under `sources/`.
 
 ## Let them finish
@@ -39,12 +39,12 @@ without one; set `j:noneQuantified true` on the project if nothing is measurable
 
 ## Is it already there?
 
-```bash
-jsk kb query similar "<their words>"  # first: the closest projects, and why
-jsk kb query holds c:<concept>        # then: the projects holding one concept
+```
+career_query(name="similar", args=["<their words>"])  # first: the closest projects, and why
+career_query(name="holds", args=["c:<concept>"])      # then: the projects holding one concept
 ```
 
-If it turns up, **extend the project that exists** (`jsk kb show <id>`) rather than adding a rival:
+If it turns up, **extend the project that exists** (`career_show(ids=["<id>"])`) rather than adding a rival:
 two entries for one project split its evidence so neither reads as strong.
 
 ## Write it up
@@ -59,17 +59,17 @@ every clause that is not their words, quoted with its id, and the questions stil
 **Show them the diff and the quoted clauses** — names, not Turtle — and ask about each. Then
 `career_apply` the changeset it returned, corrected as they said. Everything lands `inferred`:
 only what they said in so many words gets
-`jsk kb confirm <ids> --answer "…"`, or `--source sources/<that file> --quote "their words"`,
+`career_confirm(ids=[...], answer="…")`, or `source="sources/<that file>", quote="their words"`,
 checked against what you saved. **Tell them which parts were inferred**, every time.
 
 No agents available? Run `agents/jsk-extractor.md`'s procedure inline: one changeset — the
 organisation, role, metric and its version, then the project and its bullets —
-`references/kb-format.md` for the shapes, `--dry-run` first.
+`references/kb-format.md` for the shapes, `career_preview` first.
 
 ## Close out
 
 Say back what was written — the ids apply minted, the metrics, what is `inferred`, what is still open
-(`jsk kb query open`). Show names, not Turtle, unless they want it.
+(`career_query(name="open")`). Show names, not Turtle, unless they want it.
 
 ## Look for what they undersold
 

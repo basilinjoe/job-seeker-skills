@@ -17,7 +17,7 @@ career, where the judgement is theirs.
   is skipped - `counts-as-cycle` and `wall-crossed` would fail on it.
 
 Everything skipped is said, so the person can decide it by hand. Nothing is applied:
-the changeset goes through `jsk kb apply --dry-run` like any other.
+the changeset goes through the career_preview and career_apply tools (jsk mcp) like any other.
 
 Where the pack file is and reading it are infra/packs.py's; this is the pack's logic.
 """

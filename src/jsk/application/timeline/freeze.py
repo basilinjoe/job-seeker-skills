@@ -5,7 +5,7 @@ the directory renamed to the day it was sent, the archive written, and nothing i
 directory edited again. This does the first two and refuses whenever the third is already
 true or the documents would not survive their gates. It writes the application's record -
 what was sent, and the bullets and metric versions it carried - and later events go in with
-`jsk app event`. An application's record is the selection the store holds (Ruling 11 of
+the app_event tool (jsk mcp). An application's record is the selection the store holds (Ruling 11 of
 docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md), hashed as Ruling 7 says
 (P5, 2026-10-02). An application made from files was frozen from its resume.json until 6.0,
 which freezes none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2): it is
@@ -116,7 +116,7 @@ def check(app_dir, *, record, build):
     held = record.frozen(app_dir)
     if held:
         later = ("It was frozen as Markdown before the career was a graph."
-                 if held.endswith(APPLICATION) else "Later events are `jsk app event`, one each.")
+                 if held.endswith(APPLICATION) else "Later events are the app_event tool (jsk mcp), one each.")
         raise FreezeRefused(f"{held} already exists. A frozen application is never re-frozen.",
                             later)
 

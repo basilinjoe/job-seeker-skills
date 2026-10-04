@@ -1,7 +1,7 @@
 """The refusals several commands share, returned as lines and never printed.
 
 A command that refuses says why in the same words wherever it runs: `jsk resume render`,
-`jsk resume preview`, `jsk resume ship` and `jsk kb confirm` all turn a frozen application away, and every
+`jsk resume preview`, `jsk resume ship` and the career_confirm tool (jsk mcp) all turn a frozen application away, and every
 command that reads the record turns away a workspace still laid out as files. The wording
 lives here once; each adapter prints it.
 """

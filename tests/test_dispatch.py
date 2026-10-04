@@ -17,7 +17,7 @@ from test_resume_check import BODY, GOOD
 JSK = CLI
 
 
-SUBCOMMANDS = ["doctor", "kb", "resume", "letter", "app"]
+SUBCOMMANDS = ["doctor", "kb", "resume", "app", "mcp"]
 
 
 class Usage(unittest.TestCase):
@@ -78,11 +78,11 @@ class Usage(unittest.TestCase):
     def test_jsk_index_is_retired_and_says_what_replaced_it(self):
         """It read user-knowledgebase.md. The career is career/store/ now: the
         assessment_derive tool matches it against a posting (`jsk tailor match` did until
-        6.0), `jsk kb view` reads it. A bare "unknown command" would read as a broken
+        6.0), the career_view tool reads it (`jsk kb view` did until 2026-10-04). A bare "unknown command" would read as a broken
         install."""
         code, out = run(JSK, "index", "user-knowledgebase.md")
         self.assertEqual(code, 2, out)
-        for pointer in ("assessment_derive", "jsk kb view"):
+        for pointer in ("assessment_derive", "career_view"):
             self.assertIn(pointer, out)
         from jsk import cli
         self.assertNotIn("index", cli.NOUNS)
@@ -283,8 +283,8 @@ class ParseFlags(unittest.TestCase):
                          (([], {"--quote": "-40% cost"}), None))
 
     def test_a_lone_dash_is_positional_only_where_asked(self):
-        """kb apply answers `-` (stdin is refused); jsk gates or ship reading `-` as a
-        path would fail further in, on a file that is not there."""
+        """A command that answers `-` (stdin is refused) asks for it; jsk gates or ship reading
+        `-` as a path would fail further in, on a file that is not there."""
         self.assertEqual(self.parse("-", dash=True), ((["-"], {}), None))
         self.assertEqual(self.parse("-"), (None, "unknown flag: -"))
 
@@ -297,7 +297,7 @@ class ParseFlags(unittest.TestCase):
                          ("--answer given twice - pass it once", "repeated", "--answer"))
 
     def test_after_a_double_dash_everything_is_positional(self):
-        """So `jsk kb query similar -- -40% cost cut` can say what it means."""
+        """So an argument that starts with a dash (`-40% cost cut`) can say what it means."""
         self.assertEqual(self.parse("similar", "--", "-40%", "--json"),
                          ((["similar", "-40%", "--json"], {}), None))
 

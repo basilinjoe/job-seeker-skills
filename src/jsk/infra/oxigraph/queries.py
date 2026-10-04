@@ -294,7 +294,7 @@ class OxigraphQueries:
             PRE + f"SELECT ?v WHERE {{ ?v j:of <{metric}> FILTER NOT EXISTS {{ ?v j:validUntil ?u }} }}"))
 
     def cited_current_versions(self, bullets):
-        """The current version of each metric the bullets cite - what `jsk kb query stale`
+        """The current version of each metric the bullets cite - what the career_query tool (jsk mcp)
         compares against when a metric is later revised.
 
         Args:

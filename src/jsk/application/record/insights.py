@@ -4,7 +4,7 @@ questions keep coming back, and each "no" the person gave.
 
 They read what a graph-native application puts in the store (docs/superpowers/plans/
 2026-10-01-graph-native-applications-mcp.md, P3) - questions no file could answer - and
-register into application/record/queries.py's QUERIES with its `@query`, as `jsk kb query`
+register into application/record/queries.py's QUERIES with its `@query`, as the career_query tool (jsk mcp)
 verbs. Split from queries.py (2026-10-02), which they would have taken past its size.
 """
 from ...domain import ontology as O

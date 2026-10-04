@@ -1,9 +1,9 @@
-"""The named queries `jsk kb query` runs: questions an agent asks the record by name.
+"""The named queries the career_query tool (jsk mcp) runs: questions an agent asks the record by name.
 
 Each returns (columns, rows), rows as dicts, so the same answer prints as a table or as
 JSON. A query is here because an agent would otherwise work it out by reading the whole
 file - which is the reading the graph exists to save. `experience` and `pipeline` came
-with the claims gate and `jsk app event` (P5); the roadmap's `inconsistent` is not here yet.
+with the claims gate and the app_event tool (jsk mcp) (P5); the roadmap's `inconsistent` is not here yet.
 `demand`, `shortfalls`, `drops`, `outcomes`, `repeated` and `absences` read what a
 graph-native application puts in the store (docs/superpowers/plans/
 2026-10-01-graph-native-applications-mcp.md, P3): questions across applications that no
@@ -33,7 +33,7 @@ QUERIES = {}
 
 
 def query(name, args="", doc="", reads=False, dated=False):
-    """Register the function it decorates as the `jsk kb query` verb `name`.
+    """Register the function it decorates as the career_query tool's query `name`.
 
     Args:
         name: the verb.
@@ -401,7 +401,7 @@ def person(store):
     """What eligibility and logistics are judged against: location and work mode, each
     work authorization, and every ongoing role - a second job is a constraint on the
     first. Anything not recorded says so. Willingness to relocate or keep other hours
-    lives in prose: `jsk kb query evidence relocate remote` finds it.
+    lives in prose: the career_query tool (jsk mcp) finds it.
 
     Args:
         store: a loaded workspace.

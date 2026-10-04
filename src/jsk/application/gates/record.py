@@ -203,7 +203,7 @@ def numbers_lines(queries, bullets):
             out.append(line("number-superseded", ident,
                             f"'{s['number']}' is {curie(s['version'])}'s number, replaced on "
                             f"{s['until']} (current: {current})",
-                            f"state the current number - `jsk kb show {curie(metric)}` - or, "
+                            f"state the current number - the career_show tool (jsk mcp) on {curie(metric)} - or, "
                             "if the old one is still true, record that in the career first"))
         if f.numbers:
             names = ", ".join(curie(m) for m in f.cites) or "no metric - it cites none"
@@ -212,7 +212,7 @@ def numbers_lines(queries, bullets):
                             f"{quoted(f.numbers)} {'are' if many else 'is'} in no current "
                             f"version of what it cites ({names})",
                             "ask the person for the figure and its source, record it with "
-                            "`jsk kb apply` and cite it (j:cites) from the bullet - or change "
+                            "the career_apply tool (jsk mcp) and cite it (j:cites) from the bullet - or change "
                             "the words; never borrow another metric's number"))
     return out
 
@@ -270,7 +270,7 @@ def label_lines(store, career, bullets, vocabulary):
                 out.append(line("label-unheld", b[len(O.K):],
                                 f"names {label!r} ({names}), which {curie(project)} does not "
                                 "hold", f"drop it from the bullet, or add it to {curie(project)} "
-                                "with `jsk kb apply` if the work really used it"))
+                                "with the career_apply tool (jsk mcp) if the work really used it"))
     return out
 
 
@@ -304,9 +304,8 @@ def years_lines(store, texts, vocabulary, today):
                 out.append(line("years-overstated", where,
                                 f"claims {claimed} years of {label}; the roles behind the "
                                 f"projects holding it cover {months // 12}y{months % 12}m",
-                                f"state what the roles cover (`jsk kb query experience "
-                                f"{curie(sorted(concepts)[0])}`), or add the work that makes up "
-                                "the rest with `jsk kb apply`"))
+                                f"state what the roles cover (the career_query tool (jsk mcp)), or add the work that makes up "
+                                "the rest with the career_apply tool (jsk mcp)"))
     return out
 
 

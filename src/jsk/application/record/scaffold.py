@@ -30,13 +30,13 @@ the day it was sent. Each holds the whole of that application:
 
 What the posting asks for, the assessment of the career against it (`jsk tailor match`
 prints it), and what was sent - the bullets and metric versions it carried, and every
-event since (`jsk app event`) - are kept in the record, career/store/, beside the career.
+event since (the app_event tool (jsk mcp)) - are kept in the record, career/store/, beside the career.
 
 **Everything in here is frozen at submission.** The career keeps moving; an application
 that pointed at a moving record could not answer what it was answering.
 
 An application worked through and then held back is still a real application:
-`jsk app freeze <dir> --submitted false`.
+the app_freeze tool (jsk mcp).
 """
 
 

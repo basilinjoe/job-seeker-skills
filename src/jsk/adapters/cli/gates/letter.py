@@ -1,6 +1,8 @@
 """The letter check: a cover letter, against the resume it goes out beside.
 
-Usage: jsk letter check <cover-letter.txt|.md> --record <stem>|resumes/<name>
+Usage: letter.py <cover-letter.txt|.md> --record <stem>|resumes/<name>
+       (the letter_check tool, jsk mcp, calls this module's `gate`; `jsk letter check` was
+       retired on 2026-10-04 and exits 2 naming the tool)
        --record R    the target the letter goes out beside (<stem>, applications/<stem>
                      or resumes/<name>), whose stored selection and advert lines it is
                      checked against; without it the number check is SKIPPED, and a gate
@@ -45,9 +47,8 @@ def parse(argv):
 
         if is_resume_json(record):
             return None, None, "\n".join(resume_json_refusal(
-                "jsk letter check --record <resume.json>",
-                "jsk letter check LETTER --record <stem> (or resumes/<name>), or the "
-                "letter_check tool with record=<stem>"))
+                "the letter_check tool with record=<resume.json>",
+                "the letter_check tool (jsk mcp) with record=<stem> (or resumes/<name>)"))
         record = ref_for(record, dirs=True) or record
     if len(positional) != 1:
         return None, None, docstring_usage(__doc__)
@@ -122,7 +123,7 @@ def report(result):
 
 
 def main(argv):
-    """`jsk letter check`, as an exit code.
+    """The letter check (the letter_check tool's gate), as an exit code.
 
     Args:
         argv: the arguments alone.

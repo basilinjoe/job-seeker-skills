@@ -182,7 +182,7 @@ def ship(record, out_dir, *, ats_max=False, template=None, pages=None, fit=True,
          run, render, fitter, tex_engine, page_count, outputs, rel, strict, measure):
     """Record gate, render, fit, mechanical gates - stopping at a failure.
 
-    A legacy URS record is turned away by the record gate itself, with `jsk kb export`
+    A legacy URS record is turned away by the record gate itself, with the resume_select tool (jsk mcp)
     as the fix, before anything renders.
 
     Args:
