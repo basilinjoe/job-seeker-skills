@@ -5,18 +5,16 @@ requirements joined with the career into `result`'s plain data - the dict `jsk t
 --json` prints and the tests pin (Ruling 5 of the onion design keeps it a dict). It
 prints nothing: adapters/cli/match.py says what it found, and the gaps builds read it.
 """
-import os
 from dataclasses import dataclass
 
 from ...domain.matching import questions as _questions
 from ...domain.matching import rank as _rank
 from ...domain.matching import resolve as _resolve
 from ...domain.matching.cover import cover, unresolved
-from ...domain.matching.report import blocks, fault_question, verdict
+from ...domain.matching.report import fault_question, verdict
 from ...domain.naming import app_graph
 from ...domain.record.shapes import curie
 from ...domain.record.state import KB
-from ...domain.record.store import Store
 
 COVER = 3
 # The top of the Ranking whose bullets are asked about as well as the selection's.
@@ -44,39 +42,6 @@ class MatchReport:
     store: object               # the loaded workspace (domain.record.store.Store)
     post: str                   # the posting's iri
     rel: str                    # the application's folder relative to the workspace
-
-
-def application(arg, command="the resume_select tool (jsk mcp)"):
-    """(workspace root, application directory) for the application `arg` names - its
-    directory, applications/<dir> - or (None, [what is wrong, the fix]).
-
-    Ruling 11 of the 2026-09-29 plan: the posting is a graph in career/store/ now, not a
-    file to point at, so every command takes the application, as the app_freeze tool (jsk mcp) always
-    did. A path to posting.ttl is how a shell history or an older
-    agent file still calls it, so it is refused with the new form.
-
-    Args:
-        arg: the application as the caller named it.
-        command: the command the fix names.
-
-    Returns:
-        (root, the application's absolute directory), or (None, the two lines to print).
-    """
-    here = os.path.abspath(arg)
-    if os.path.basename(here) == "posting.ttl":
-        folder = os.path.dirname(arg.rstrip("/\\")) or "."
-        return None, [f"{arg}: {command} takes the application now, not its posting.ttl",
-                      f"fix:  {command} {folder}"]
-    apps = os.path.dirname(here)
-    root = os.path.dirname(apps)
-    career = os.path.join(root, "career")
-    if not os.path.isdir(here) or os.path.basename(apps) != "applications" or not (
-            os.path.isdir(os.path.join(career, "store"))
-            or os.path.isfile(os.path.join(career, "kb.ttl"))):
-        return None, [f"{arg}: not an application - a folder in the applications/ of a "
-                      "workspace", f"fix:  {command} applications/<dir>, the folder "
-                      "holding posting.md"]
-    return root, here
 
 
 def posting_in(store, rel):
@@ -224,38 +189,3 @@ def result(store, queries, post, today, budget, elsewhere, select):
     }
 
 
-def match_posting(root, app, named, today, budget, *, load, queries, select, name_of):
-    """Load the workspace, check it, find the application's posting and match it.
-
-    The caller holds the workspace's turn (Ruling 5): a match that goes on to write the
-    assessment validates what it writes over.
-
-    Args:
-        root: the workspace root.
-        app: the application's absolute directory.
-        named: the application as the caller named it, for the refusal.
-        today: the date recency is measured from.
-        budget: the most projects the cover may use.
-        load: root -> the loaded, validated workspace (a domain.record.store.Store).
-        queries: store -> its feature reads (ports.queries.RecordQueries).
-        select: (store, post, today, budget) -> the posting's Selection.
-        name_of: (path, root) -> the path as findings name it (infra.files.file_name).
-
-    Returns:
-        The MatchReport.
-
-    Raises:
-        MatchStopped: a FAIL blocks the match, or the application holds no posting.
-    """
-    store = load(root)
-    rel = name_of(app, store.root)
-    here = rel + "/"
-    blocking = [f for f in store.fails() if blocks(f, here)]
-    if blocking:
-        raise MatchStopped("blocked", Store(store.root, findings=blocking).report().fails)
-    post = posting_in(store, rel)
-    if post is None:
-        raise MatchStopped("no-posting", named)
-    r = result(store, queries(store), post, today, budget, len(store.fails()) - len(blocking),
-               select)
-    return MatchReport(r, store, post, rel)

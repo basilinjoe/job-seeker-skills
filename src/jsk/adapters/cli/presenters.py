@@ -99,19 +99,3 @@ def unwritten(error):
     return 1
 
 
-def table(columns, rows):
-    """A named query's rows as a Markdown table; `|` in a value is escaped so the row keeps
-    its cells.
-
-    Args:
-        columns: the column names, in order.
-        rows: dicts holding a value for each column.
-
-    Returns:
-        The table's text, without a trailing newline.
-    """
-    def cell(v):
-        return str(v).replace("|", "\\|").replace("\n", " ")
-    out = ["| " + " | ".join(columns) + " |", "|" + "---|" * len(columns)]
-    out += ["| " + " | ".join(cell(r[c]) for c in columns) + " |" for r in rows]
-    return "\n".join(out)

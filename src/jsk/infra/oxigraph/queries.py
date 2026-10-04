@@ -325,18 +325,6 @@ class OxigraphQueries:
             <{post}> j:company ?company ; j:title ?title }}""")[0]
         return head["company"].value, head["title"].value
 
-    def posting_captured(self, post):
-        """The day a posting says it was saved.
-
-        Args:
-            post: the posting's iri.
-
-        Returns:
-            The j:captured value, or None.
-        """
-        found = self.store.select(PRE + f"SELECT ?d WHERE {{ <{post}> j:captured ?d }}")
-        return found[0]["d"].value if found else None
-
     def domains(self):
         """Every concept typed a j:Domain.
 

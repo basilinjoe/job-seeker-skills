@@ -99,10 +99,6 @@ class RecordQueries(Protocol):
         """A posting's (company, title); IndexError when it states none."""
         ...
 
-    def posting_captured(self, post: str) -> str | None:
-        """The day a posting says it was saved, or None."""
-        ...
-
     def domains(self) -> set[str]:
         """Every concept typed a j:Domain."""
         ...

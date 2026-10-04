@@ -14,10 +14,6 @@ class PdfInspector(Protocol):
         """Whether a PDF reader is installed."""
         ...
 
-    def text_and_fonts(self, path: str) -> tuple[str, list[str]]:
-        """(the pages' text joined by newlines, the sorted embedded font names)."""
-        ...
-
     def keywords(self, path: str) -> str:
         """The document's keywords metadata; "" when it has none."""
         ...

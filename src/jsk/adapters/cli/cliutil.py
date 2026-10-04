@@ -44,23 +44,6 @@ def refused(refusal) -> int:
     return 1
 
 
-def retired_path(module: str, command: str) -> int:
-    """Say that `python -m <module>` no longer runs its command, and what does.
-
-    `jsk` is the only door (Ruling 10 of the onion design). A module left importable but
-    silent would exit 0, which a script reads as success, so it says what replaced it.
-
-    Args:
-        module: the dotted path that was run.
-        command: the `jsk <noun> <verb>` that replaced it.
-
-    Returns:
-        2, the exit code of a call made wrongly. Prints one line.
-    """
-    print(f"python -m {module} was retired: it is {command} now")
-    return 2
-
-
 def wants_help(argv) -> bool:
     """Did the caller actually ask for help, rather than call the thing wrongly?"""
     return any(a in HELP_FLAGS for a in argv)

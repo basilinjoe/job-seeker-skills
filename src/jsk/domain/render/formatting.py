@@ -91,10 +91,3 @@ def fmt_grade(grade):
     return text
 
 
-def fmt_quantity(q):
-    if not q:
-        return ""
-    value = q.get("value")
-    shown = f"{value:,.0f}" if isinstance(value, (int, float)) and value == int(value) else str(value)
-    bits = [b for b in (q.get("currency"), shown, q.get("unit")) if b]
-    return " ".join(bits)

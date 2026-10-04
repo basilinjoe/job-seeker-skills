@@ -382,7 +382,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
   ports/                            ring 2: what the application needs from outside, as Protocols
     engine.py                       the graph engine a loaded record runs on
     record.py                       the record on disk: its graphs read, the writer's turn, one write
-    codec.py                        Turtle and TriG in and out of the engine's terms
     queries.py                      the feature reads over a loaded record, by name
     workspace.py                    a workspace as loading it needs it
     files.py                        the texts people and agents write, and an application's files
@@ -393,7 +392,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     pdf.py                          a rendered PDF read: text, fonts, pages
     posting_source.py               a job board's API, or a file
     profiles.py                     the region profiles
-    clock.py                        today, read once at the edge and passed down
   application/                      ring 3, the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
     ship.py                         `jsk resume ship`: the record gate, render, fit and gates, stopping at a failure
@@ -407,7 +405,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/holdings.py              what each live project holds; the months of experience behind a concept
     record/likeness.py              projects that look like one another, or like what some words describe
     record/check.py                 `jsk kb check`: every rule, the career's hash, the untraced numbers
-    record/store_status.py          where a workspace's record is, and what is there instead
     record/dump.py                  `jsk kb dump`: the whole record as TriG
     record/load_import.py           `jsk kb load`: files or a dump read, validated, written once
     record/pack.py                  `jsk kb pack`: a starter pack drafted on the logged revision
@@ -467,7 +464,6 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/dispatch.py                 a verb's adapter found (ADAPTERS) and its main() called, contained
     cli/cliutil.py                  one contract for --help and flags across the commands; a finding list printed
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
-    cli/options.py                  --cover and --today, which the tailoring commands share, parsed once
     cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
     cli/resume.py                   `jsk resume check`: the gates its target calls for, by its kind
     cli/render.py                   `jsk resume render`: its flags, the render run, what it wrote said

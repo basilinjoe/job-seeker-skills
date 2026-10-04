@@ -42,9 +42,6 @@ def confirm_hint(key, target=None):
             "`career_confirm` with the target and the block")
 
 
-CONFIRM = confirm_hint("summary")
-
-
 def digest(text):
     """The summary text's hash as confirm records it: the first 12 hex digits of sha256."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]

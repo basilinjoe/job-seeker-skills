@@ -15,8 +15,8 @@ The SPARQL stays here, over Store.select: the query text is the verb (Ruling 3 o
 design). `@query` registers each verb in QUERIES, the kb's read vocabulary; the few that
 resolve a term through the vocabulary are registered as `reads` and take the record's
 feature reads (ports.queries.RecordQueries) as `queries`, and the few that count to a day
-as `dated`, taking the day the command read from the clock as `today`. How the rows print
-is the CLI's (adapters/cli/presenters.table).
+as `dated`, taking the day the command read from the clock as `today`. The rows go out as
+data: the career_query tool returns them as they are.
 """
 import datetime
 

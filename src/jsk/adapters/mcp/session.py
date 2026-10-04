@@ -29,7 +29,7 @@ ROOT_ENV = "JSK_ROOT"
 
 def today():
     """The day, read from the clock. Ruling 17: the server calls this once per tool call and
-    passes the day down, as adapters/cli/options.py does for a command; nothing below reads
+    passes the day down, as each command's adapter does; nothing below reads
     the clock, and a test patches this one function."""
     return datetime.date.today()
 
