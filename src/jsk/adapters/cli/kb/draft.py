@@ -1,5 +1,10 @@
-"""`jsk kb pack` and `jsk kb merge`: changesets drafted (application/record/pack.py,
-merge.py) and printed, or written to --out - never applied."""
+"""The kb pack and kb merge verbs: changesets drafted (application/record/pack.py, merge.py)
+and printed, or written to --out - never applied.
+
+They are the entry points the career_pack and career_merge tools call, reading the changeset
+from stdout (adapters/mcp/upkeep.py). `jsk kb pack` and `jsk kb merge` were retired on
+2026-10-04 (docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 4) and exit 2 naming the
+tool."""
 import os
 import sys
 
@@ -30,12 +35,12 @@ def draft_out(flags):
 
 def unlogged(state):
     """Refuse drafting against a record with no logged revision. Returns the exit code."""
-    message, fix = GUIDE.get(state.kind, (state.detail, "`jsk kb check` says what is wrong"))
+    message, fix = GUIDE.get(state.kind, (state.detail, "the career_check tool (jsk mcp) says what is wrong"))
     return refuse([message or state.detail], fix)
 
 
 def cmd_pack(args, flags, root, today):
-    """jsk kb pack capabilities [--out FILE.trig]
+    """pack capabilities [--out FILE.trig] (the career_pack tool)
 
     Drafts a changeset adopting the capability starter pack (data/capabilities.ttl):
     capabilities and domains with the wordings postings use, and the counts-as edges
@@ -60,7 +65,7 @@ def cmd_pack(args, flags, root, today):
     if code is not None:
         return code
     if len(args) != 1 or args[0] not in P.PACKS:
-        return usage(f"jsk kb pack takes one of: {', '.join(P.PACKS)}")
+        return usage(f"career_pack takes one of: {', '.join(P.PACKS)}")
     try:
         d = pack(root, args[0], load=load, state=R.state, packs=P)
     except Unclean as err:
@@ -76,7 +81,7 @@ def cmd_pack(args, flags, root, today):
 
 
 def cmd_merge(args, flags, root, today):
-    """jsk kb merge c:a --into c:b [--out FILE.trig]
+    """merge c:a --into c:b [--out FILE.trig] (the career_merge tool)
 
     Drafts a changeset making two concepts one. Every career triple pointing at c:a -
     j:uses, j:domain, j:industry, j:shows, another concept's edges - points at c:b; c:a's
@@ -105,7 +110,7 @@ def cmd_merge(args, flags, root, today):
         return code
     into = flags.get("--into")
     if len(args) != 1 or into is None:
-        return usage("jsk kb merge c:a --into c:b - the concept to merge away, and the one "
+        return usage("career_merge(concept, into) - the concept to merge away, and the one "
                      "it becomes")
     try:
         merged = merge(root, args[0], into, load=load, state=R.state)

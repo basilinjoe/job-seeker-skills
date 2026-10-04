@@ -174,9 +174,16 @@ class Workspace(unittest.TestCase):
         return str(self.path(name))
 
     def kb(self, *args):
+        """(exit code, stdout) of `kb <args> --root`: check, pack and merge as the career_check,
+        career_pack and career_merge tools run them (`jsk kb` refuses those three), the rest
+        through `jsk kb`."""
         from jsk import cli
+        import recordkit
 
         self.seed()
+        if args and args[0] in ("check", "pack", "merge"):
+            code, out, _ = recordkit.kb_verb(self.root, *args)
+            return code, out
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             code = cli.main(["jsk", "kb", *args, "--root", self.root])

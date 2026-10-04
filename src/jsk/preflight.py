@@ -185,7 +185,7 @@ class Check:
 
 # The two packages jsk-resume requires, and what a machine without each loses.
 #   pyoxigraph: the career is in career/store/, which only it opens. Every render builds from
-#     it, `jsk resume ship` runs the record gate against it before it renders, and `jsk kb`
+#     it, the resume_ship tool runs the record gate against it before it renders, and `jsk kb`
 #     and `jsk mcp` start there, so without it no resume comes from the career at all.
 #   mcp: since 6.0 `jsk mcp`'s tools are the only way to change a career - the CLI's
 #     `jsk kb apply` and `confirm` went with them - so without the SDK nothing is written.
@@ -244,7 +244,7 @@ def gather(kb_arg=None):
         f"TeX engine ({engine})" if engine else "TeX engine", bool(engine), key="tex",
         disables="no PDF at all. The PDF is the only rendered deliverable, so "
                  "without an engine there is nothing to send, nothing to check "
-                 "and nothing to measure - jsk resume render --pdf reports "
+                 "and nothing to measure - the resume_render tool with pdf=True reports "
                  "UNVERIFIED and exits non-zero",
         detail=path or ""))
 
@@ -324,7 +324,7 @@ def resolve_kb(kb_arg=None):
 # would be telling someone their toolchain works when it does not.
 #
 # pyoxigraph is required for the same reason: the career is in its store, and every render
-# and the record gate `jsk resume ship` runs read it. mcp joined them in 6.0, when its tools
+# and the record gate the resume_ship tool runs read it. mcp joined them in 6.0, when its tools
 # became the only way to change a career.
 REQUIRED = {"Python", "modules", "renderer package", "gates package", "graph record package",
             "profile schema", "TeX engine", "pymupdf", "pyoxigraph", "mcp"}
@@ -338,15 +338,35 @@ def verify(tmp):
     """Render the shipped example and run every gate that can run here."""
     steps = []
 
-    # Spawned, not imported: doctor proves each `jsk` command runs from cold. Run in the
-    # scratch directory, so the workspace around the caller's own directory is not asked
-    # whether it is loaded: the example is the only workspace these commands read.
-    def run(label, args):
-        proc = subprocess.run([sys.executable, "-m", __package__] + args, capture_output=True,
+    # Spawned, not imported: doctor proves each entry point runs from cold. The resume_*
+    # tools are not commands since 2026-10-04 (docs/superpowers/plans/2026-10-04-mcp-first.md),
+    # so a step runs the entry point the tool calls, in an interpreter of its own, and `jsk kb
+    # load` is still a command. Run in the scratch directory, so the workspace around the
+    # caller's own directory is not asked whether it is loaded: the example is the only
+    # workspace these steps read.
+    def spawn(args, prefix):
+        proc = subprocess.run([sys.executable, *prefix, *args], capture_output=True,
                               text=True, cwd=tmp)
-        steps.append((label, proc.returncode == 0,
-                      (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]))
-        return proc.returncode == 0
+        return proc.returncode == 0, (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]
+
+    def run(label, args):
+        ok, tail = spawn(args, ["-m", __package__])
+        steps.append((label, ok, tail))
+        return ok
+
+    # What resume_check and resume_render call (adapters/mcp/rendering.py), by the name the
+    # tool has, so that a step reads as the tool call it proves.
+    entries = {
+        "resume_check": f"import sys; from {__package__}.adapters.cli.resume import "
+                        f"cmd_resume_check; sys.exit(cmd_resume_check(sys.argv[1:]))",
+        "resume_render": f"import sys; from {__package__}.adapters.cli.render import main; "
+                         f"sys.exit(main(['render_resume.py'] + sys.argv[1:]))",
+    }
+
+    def run_tool(label, tool, args):
+        ok, tail = spawn(args, ["-c", entries[tool]])
+        steps.append((label, ok, tail))
+        return ok
 
     if not os.path.exists(EXAMPLE_SELECTION):
         steps.append(("example document present", False,
@@ -364,21 +384,21 @@ def verify(tmp):
         return steps
     # The selection the render reads: validating a record the render did not touch passed
     # a check on the wrong one, when the example was a URS record. The record gate, as
-    # `jsk resume ship` runs it: shape, ids and every number traced in the example career.
+    # the resume_ship tool runs it: shape, ids and every number traced in the example career.
     target = os.path.join(workspace, *EXAMPLE_TARGET.split("/"))
-    run("validate the example resume", ["resume", "check", target])
+    run_tool("validate the example resume", "resume_check", [target])
     # --pdf, because the PDF is the deliverable: a render that stops at the .tex
     # proves the builder works and nothing about whether anything can be sent.
-    ok = run("render the example to a PDF",
-             ["resume", "render", target, "--out", tmp, "--pdf"])
+    ok = run_tool("render the example to a PDF", "resume_render",
+                  [target, "--out", tmp, "--pdf"])
     if not ok:
         return steps
 
     pdf = os.path.join(tmp, "Priya_Raman_Resume.pdf")
     tex = os.path.join(tmp, "Priya_Raman_Resume.tex")
-    run("parse gate, rendered PDF", ["resume", "check", pdf, "--only", "parse"])
+    run_tool("parse gate, rendered PDF", "resume_check", [pdf, "--only", "parse"])
     # No render writes the plain text: the parse gate emits it from the plan in memory, as
-    # `jsk resume check DIR` runs it. No command takes a selection to that one pass, so its
+    # the resume_check tool runs it. No command takes a selection to that one pass, so its
     # adapter is spawned directly, from cold like the rest, with the record DIR gives it.
     entry = (f"import sys; from {__package__}.adapters.cli.gates.ats import main; "
              f"sys.exit(main(sys.argv[1:]))")
@@ -387,9 +407,10 @@ def verify(tmp):
                           capture_output=True, text=True, cwd=tmp)
     steps.append(("parse gate, plain text (strict)", proc.returncode == 0,
                   (proc.stdout + proc.stderr).strip().splitlines()[-1:] or [""]))
-    run("prose gate", ["resume", "check", tex, "--only", "prose"])
+    run_tool("prose gate", "resume_check", [tex, "--only", "prose"])
     # The record names the region, so the paper is checked against it, not warned about.
-    run("layout gate", ["resume", "check", pdf, "--only", "layout", "--record", target])
+    run_tool("layout gate", "resume_check",
+             [pdf, "--only", "layout", "--record", target])
     return steps
 
 

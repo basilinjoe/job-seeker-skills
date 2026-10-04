@@ -1,6 +1,7 @@
 """Check how much of the posting's own wording a rendered resume carries.
 
-Usage: jsk resume check <out-dir> --record <stem>
+Usage: resume_check(<out-dir>, record=<stem>)
+       as arguments: <out-dir> --record <stem>
        (runs after the layout gate whenever there is a record; it reads the render's
        plain text, emitted in memory from the record's plan)
 
@@ -18,7 +19,7 @@ from . import present
 
 
 def gate(args):
-    """The terms gate over the arguments alone, as `jsk resume check` runs it.
+    """The terms gate over the arguments alone, as the resume_check tool runs it.
 
     Args:
         args: --record <target's ref>, whose plan's plain text is read in memory - or a .txt
@@ -39,7 +40,7 @@ def gate(args):
         return 0, None
     parsed, _ = parse_flags(list(args), ("--record",), ())
     if parsed is None or len(parsed[0]) > 1 or "--record" not in parsed[1]:
-        print("usage: jsk resume check <out-dir> --record <stem>")
+        print("usage: resume_check(<out-dir>, record=<stem>)")
         return 2, None
     record = parsed[1]["--record"]
     # The posting first: a general resume has nothing to cover, and emitting its text

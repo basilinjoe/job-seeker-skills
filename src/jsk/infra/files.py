@@ -261,7 +261,7 @@ def is_dir(path):
 
 def free_directory(folder, stem):
     """The first of `stem`, `stem-2`, `stem-3`... that names nothing in `folder` - where
-    `jsk app drop` sets an application aside without covering one dropped before it.
+    The app_drop tool sets an application aside without covering one dropped before it.
 
     Args:
         folder: the folder the name goes in; it need not exist yet.

@@ -158,7 +158,7 @@ def check(pages, type3, region=None):
                     other[1] > middle for _, other, _ in lines if other is not bbox):
                 fails.append(f"heading {text!r} is the last text on page {number} - its "
                              f"content starts overleaf\n"
-                             f"        fix: `jsk resume fit` to the budget, or cut a bullet above "
+                             f"        fix: the resume_fit tool to the budget, or cut a bullet above "
                              f"it in resume.json, and re-render")
 
     # --- dates out of their column ---

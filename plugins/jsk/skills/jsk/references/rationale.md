@@ -49,7 +49,7 @@ looked at a rendered page, so the render gate did not run — it did not pass.
 
 An unverified resume the person knows about is fine. One they think was checked is not.
 
-So `jsk resume render --pdf` **exits non-zero** when no PDF came out, and `jsk doctor` reports a missing
+So `resume_render(pdf=True)` **answers `ok: false`** when no PDF came out, and `jsk doctor` reports a missing
 engine as BLOCKED rather than a gap. A warning that does not change the exit code is a warning
 nothing acts on.
 
@@ -120,7 +120,7 @@ JSON Resume is a JSON container around unstructured prose:
 The career is a graph instead: a bullet carries an id and a provenance and cites a metric version,
 and a promotion is two roles at one employer.
 
-## Why `jsk resume fit` refuses rather than shrinking further
+## Why `resume_fit` refuses rather than shrinking further
 
 It applies density levers in a fixed order — spacing, bullet spacing, margins, font size — and stops
 at the 10pt and 0.5" floors.

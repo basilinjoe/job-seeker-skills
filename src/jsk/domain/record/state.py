@@ -80,7 +80,7 @@ def stored_state(store):
     """The same, for a record in career/store/: every write puts the career and its log
     entry in one update, so the two agree unless something outside jsk wrote the store.
     Nothing can be hand-edited or torn. The career's hash is not re-checked here - it
-    costs a full write of the career on every load; `jsk kb check` asks it (unrecorded)."""
+    costs a full write of the career on every load; the career_check tool asks it (unrecorded)."""
     if KB not in store.parsed:
         return State("missing")
     kb_rev = header_revision(store.parsed[KB].quads)

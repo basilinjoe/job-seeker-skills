@@ -11,14 +11,12 @@ surfaces.
 The rest are the rules `themes.py` states in prose, made enforceable: contrast
 floors, the accent budget, guarded font loads, and the fitter's reach.
 """
-import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import (PARSE_GATE, PROSE_GATE, RENDER, child_env, example_pdf,
+from fixtures import (PARSE_GATE, PROSE_GATE, RENDER, example_pdf,
                       example_short, has_pymupdf, render_module, run)
 from jsk.adapters.cli.compose import resume
 from test_build import BuildCase, LEAD_TITLE, short
@@ -179,10 +177,8 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
         a claim, and check_ats.py is the thing that answers it."""
         for name in themes.names():
             pdf = self.render(name)
-            proc = subprocess.run([sys.executable, "-m", *PARSE_GATE, str(pdf)],
-                                      capture_output=True, text=True,
-                                      env=child_env())
-            self.assertEqual(proc.returncode, 0, f"{name}:\n{proc.stdout}")
+            code, out = run(PARSE_GATE, pdf)
+            self.assertEqual(code, 0, f"{name}:\n{out}")
 
     def test_no_template_emits_something_the_prose_gate_reads_as_a_placeholder(self):
         r"""check_prose.py reads the .tex, not the PDF, so LaTeX a template emits
@@ -202,10 +198,8 @@ class NoThemeTouchesTheTextLayer(unittest.TestCase):
                                 "--template", name, "--format", "latex")
                 self.assertEqual(code, 0, out)
                 tex_file = next(Path(tmp).glob("*.tex"))
-                proc = subprocess.run(
-                    [sys.executable, "-m", *PROSE_GATE, str(tex_file)],
-                    capture_output=True, text=True, env=child_env())
-                self.assertNotIn("unresolved placeholder", proc.stdout,
+                _, text = run(PROSE_GATE, tex_file)
+                self.assertNotIn("unresolved placeholder", text,
                                  f"{name} emitted LaTeX the prose gate reads as text")
 
     @unittest.skipUnless(ENGINE and has_pymupdf(), "needs a TeX engine and pymupdf")

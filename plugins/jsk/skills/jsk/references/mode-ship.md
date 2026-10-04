@@ -54,7 +54,7 @@ word to add.
 
 **Ship fits itself**, stopping at the floors (0.5in, 10pt), and gates the fitted
 render. `fit: …, N pages` is done: 0.6in margins are a fit, not a compromise. Never re-run
-`jsk resume fit`, `tectonic` or `jsk resume check <dir>` after it.
+`resume_fit`, `tectonic` or `resume_check` on the directory after it.
 
 **Cut evidence only on `over by ~N lines at the floors`**: nothing was changed. Cut about N lines of
 the lowest-ranked bullets from `bullets` (`resume_update`), telling the person why, and re-ship.
@@ -72,8 +72,8 @@ fonts, stranded headings, the date column, the paper and the page count; open th
 **`jsk-verifier`** is for a failed gate whose source you cannot see, or a second reading of the
 render gate. Hand it the skill directory, the output directory, the page budget, the stem and
 the workspace; it returns each verdict quoted and each defect traced to the id where it is fixed.
-To re-check after one repair, `jsk resume check <dir>`, or `<file> --only parse|prose|layout` for
-one gate.
+To re-check after one repair, `resume_check(target=<dir>)`, or `resume_check(target=<file>,
+only="parse"|"prose"|"layout")` for one gate.
 
 ## 5. Freeze the application
 

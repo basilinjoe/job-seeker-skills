@@ -1,4 +1,4 @@
-"""The fixtures `jsk resume ship` and the app_freeze and app_event tools are tested on.
+"""The fixtures the resume_ship, app_freeze and app_event tools are tested on.
 
 ShipCase is a general resume (`resumes/test`), shipped into its own directory with the TeX
 compile faked; GraphCase is graphsim's career in a store with the Contoso application made
@@ -9,8 +9,6 @@ application was made from files; 6.0 reads no resume.json and freezes no applica
 from files (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2), so the same
 tests run on a target.
 """
-import contextlib
-import io
 import json
 import re
 import tempfile
@@ -56,6 +54,25 @@ D1 = ("Cut p95 event latency from 5 s to 400 ms on AKS with Kafka.",
 TEX_PREAMBLE = "\\documentclass{article}\n\\begin{document}\n"
 
 
+def tool_run(root, tool, *args):
+    """(exit code, what it printed) of the entry point a resume tool calls, run inside `root`
+    as the tool runs it (adapters/mcp/captured.py): resume_ship's front end, resume_render's
+    script, resume_check's gates. Tests assert on the printed words, which the tool carries
+    word for word in its `output` and `verdict`; test_mcp_rendering holds its JSON shape."""
+    from jsk.adapters.cli import ship
+    from jsk.adapters.cli.resume import cmd_resume_check
+    from jsk.adapters.mcp import captured
+
+    args = [str(a) for a in args]
+    if tool == "resume_ship":
+        return captured.called(str(root), ship.main, args)
+    if tool == "resume_check":
+        return captured.called(str(root), cmd_resume_check, args)
+    scripts = {"resume_render": "render_resume.py", "resume_fit": "fit_pages.py",
+               "resume_preview": "preview_templates.py"}
+    return captured.ran(str(root), scripts[tool], args)
+
+
 def fake_compile(pages=1, fail=False):
     """A compile_pdf that writes a PDF without a TeX engine.
 
@@ -96,16 +113,12 @@ class ShipCase(unittest.TestCase):
         careerkit.select(self.root, doc)
 
     def ship(self, *extra, compile_pdf=None):
-        """cli.main() in this interpreter, with the TeX compile faked."""
-        from jsk import cli
+        """The entry point resume_ship's pipeline prints through, in this interpreter, with
+        the TeX compile faked."""
         from jsk.adapters.cli.compose import render as render_resume
-        args = ["jsk", "resume", "ship", str(self.record)]
-        buf = io.StringIO()
         with mock.patch.object(render_resume, "compile_pdf",
-                               compile_pdf or fake_compile()), \
-                contextlib.redirect_stdout(buf):
-            code = cli.main(args + [str(a) for a in extra])
-        return code, buf.getvalue()
+                               compile_pdf or fake_compile()):
+            return tool_run(self.root, "resume_ship", self.record, *extra)
 
     def headings(self, out):
         return [line[4:].split(":")[0] for line in out.splitlines()
@@ -251,13 +264,9 @@ class GraphCase(unittest.TestCase):
     def graph(self, where, kind):
         return appkit.name(where, kind)
 
-    def jsk(self, *args):
-        from jsk import cli
-
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = cli.main(["jsk", *map(str, args)])
-        return code, buf.getvalue()
+    def tool(self, name, *args):
+        """(exit code, output) of the entry point the tool `name` calls, inside this workspace."""
+        return tool_run(self.root, name, *args)
 
     def freeze(self, *docs, submitted="2026-09-24", channel="Workday portal"):
         """What the app_freeze tool does (tests/recordkit.py); `docs` name the documents to

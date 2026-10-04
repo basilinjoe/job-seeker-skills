@@ -1,4 +1,4 @@
-"""`jsk resume preview`'s TeX engine, bound.
+"""The resume_preview tool's TeX engine, bound.
 
 The preview is application/render/preview_templates.py and the command
 adapters/cli/preview.py. A test patches `compile_pdf` and `available_engine` here, so the

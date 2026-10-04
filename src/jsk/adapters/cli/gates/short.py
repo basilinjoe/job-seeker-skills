@@ -23,7 +23,7 @@ def main(argv):
 
     args = argv[1:]
     if len(args) != 1 or args[0].startswith("-"):
-        print("usage: jsk resume check <stem>|resumes/<name>")
+        print("usage: resume_check(<stem>|resumes/<name>)")
         return 2
     path = args[0]
     utf8_stdout()

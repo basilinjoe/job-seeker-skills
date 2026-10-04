@@ -1,4 +1,4 @@
-"""`jsk resume render`'s ports, bound: the TeX engine, the PDF reader, and the posting's
+"""The resume_render tool's ports, bound: the TeX engine, the PDF reader, and the posting's
 employer read from the workspace the render loaded.
 
 The render is application/render/render_resume.py and the command adapters/cli/render.py.

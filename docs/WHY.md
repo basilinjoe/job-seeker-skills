@@ -25,7 +25,7 @@ edge. Every record is a named graph in one Oxigraph store (RocksDB on disk) at `
 selection) and, once sent, `application`. The only files beside them are what was rendered and sent
 - the PDF and the `.tex` - because those are documents, not the record. An application made from
 files before 6.0 keeps its `posting.md` and the rest; if it was sent, its quotes are still checked
-against that `posting.md`, and if not, `jsk kb check` names it for jsk 5.1.0 or `jsk app drop`.
+against that `posting.md`, and if not, `career_check` names it for jsk 5.1.0 or `app_drop`.
 
 You read the career with `career_view`, which prints it as Markdown in the order the knowledge base
 always had: Identity, Positioning, Work authorization and languages, Vocabulary, Organisations,
@@ -61,7 +61,7 @@ read out of the store and validated in 441-519 ms on a Windows desktop, where th
 parsed from its files took 580 ms on the same machine; `tests/test_graph_budget.py` fails past 1.2
 seconds, so there is no reason to check less than everything.
 
-**Every write goes through one gate.** `career_apply` and `career_confirm`, and the `jsk kb pack` and `merge` changesets applied through
+**Every write goes through one gate.** `career_apply` and `career_confirm`, and the `career_pack` and `career_merge` changesets applied through
 `career_apply`,
 the posting, review, assessment and selection tools, `app_freeze` and `app_event` all end
 in the same function: it writes every
@@ -120,7 +120,7 @@ the record were each weighed and given up for it. What went with them:
 - **One gate.** Every jsk write goes through the rules, the log and the lock. The way in from
   outside - `jsk kb load` of a dump - is refused when the dump's career is not what its log last
   hashed (`kbSha256`, the career as the writer lays it out), so an edited provenance or number
-  does not slip in unlogged; `jsk kb check` asks the same of the store itself.
+  does not slip in unlogged; `career_check` asks the same of the store itself.
 
 ### What the graph costs
 
@@ -165,7 +165,7 @@ cannot hold by itself. A simulation of twelve scenarios over the graph
   a number since replaced.
 - **A record gate that joins by id.** A selection names career bullets by id, so "is every
   bullet one the career holds, live, under a project with a role, with numbers from the metric's
-  current version" is a join, run inside `jsk resume check`, `jsk resume ship` and `app_freeze`. The
+  current version" is a join, run inside `resume_check`, `resume_ship` and `app_freeze`. The
   simulation's seven planted defects were all caught - by the claims gate this replaced, when
   `resume.json` was still a full copy of the career and wording could drift from it. The selection
   holds no bullet's words now: one reworded for a posting is reworded in the career, where `career_apply`
@@ -235,12 +235,12 @@ third is why the prose gate exists at all.
 
 | Gate | Question | How |
 |---|---|---|
-| Record | Does the selection name only live career entries, and does every number in a chosen bullet trace to a current metric? | `jsk resume check <stem>`, before anything renders |
-| Parse | Will an ATS read this without mangling it? | `jsk resume check --only parse`, on the PDF |
-| Prose | Does it obey the writing rules? | `jsk resume check --only prose`, on the `.tex` |
+| Record | Does the selection name only live career entries, and does every number in a chosen bullet trace to a current metric? | `resume_check(<stem>)`, before anything renders |
+| Parse | Will an ATS read this without mangling it? | `resume_check(only="parse")`, on the PDF |
+| Prose | Does it obey the writing rules? | `resume_check(only="prose")`, on the `.tex` |
 | Render | Does it *look* right, and is it *true*? | Open the PDF and read every page |
 
-`jsk resume ship` runs the first three in one process — the record gate first, and nothing renders if it
+`resume_ship` runs the first three in one process — the record gate first, and nothing renders if it
 fails — and exits 0 only if all of them passed. It then says, in its own
 output, that the render gate has not been run, because no command can run it. A tool that exited
 green without saying so would teach everyone who used it that the fourth gate is decorative.
@@ -268,7 +268,7 @@ the career, or the record gate fails before anything renders. A number the caree
 fails as superseded, and one no metric holds fails as untraced. It is the check that catches a
 rewritten bullet quietly inflating a figure - and the one a model must not "fix" by changing the
 number: on the ElevenLabs run "300-400 candidates" became "300-800" to match an unrelated metric.
-An untraced number is a question for the person. `jsk kb check` and the match run the same check
+An untraced number is a question for the person. `career_check` and the match run the same check
 over the career's bullets, so the question is asked before a resume is written.
 
 ## Tailoring cannot invent, structurally
@@ -350,7 +350,7 @@ version, and a promotion is two roles at one employer.
 
 ## Fitting a page budget without lying about it
 
-`jsk resume fit` renders the document, measures which block spilled and how much room the page actually
+`resume_fit` renders the document, measures which block spilled and how much room the page actually
 had, then applies density levers in a fixed order — spacing, bullet spacing, margins, font size —
 stopping at the 10pt and 0.5" floors instead of crossing them. If two pages are unreachable without a
 breach it exits non-zero and says so, because the remedy then is to cut evidence, not to shrink type.

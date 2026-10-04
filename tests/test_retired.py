@@ -10,9 +10,14 @@ resume.json) say it as a FAIL finding.
 
 Ruling 2: a frozen application made from files stays readable - its quotes are still checked
 against the posting.md beside it on every load. Ruling 5: one made from files and not sent is
-named by `app_list`, `jsk doctor` and `jsk kb check`, with the release that still finishes
-one (5.1.0) and `jsk app drop`; its files are no longer judged, since nothing here can
+named by `app_list`, `jsk doctor` and the career_check tool, with the release that still
+finishes one (5.1.0) and the app_drop tool; its files are no longer judged, since nothing here can
 change them.
+
+2026-10-04, docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 4: `jsk kb check|pack|merge`,
+`jsk resume check|render|preview|fit|ship`, `jsk app drop` and the nouns `resume` and `app` went
+too. Each exits 2, says it was retired, names its tool and writes nothing; `validate`, `check`,
+`gates`, `render`, `preview`, `fit` and `ship` name the tool, not another retired command.
 """
 import contextlib
 import datetime
@@ -79,13 +84,11 @@ RETIRED_CALLS = [
      "career_confirm"),
     (["kb", "confirm", "--headline", "{app}/resume.json", "--answer", "That is my title."],
      "career_confirm"),
-    (["resume", "check", "{app}/resume.json"], "jsk resume check <stem>"),
-    (["resume", "render", "{app}/resume.json", "--out", "{root}/out"],
-     "jsk resume render <stem>"),
-    (["resume", "preview", "{app}/resume.json", "--out", "{root}/out"],
-     "jsk resume preview <stem>"),
-    (["resume", "ship", "{app}/resume.json", "--out", "{root}/out"], "jsk resume ship <stem>"),
-    (["resume", "check", "{root}", "--record", "{app}/resume.json"], "--record <stem>"),
+    (["resume", "check", "{app}/resume.json"], "resume_check"),
+    (["resume", "render", "{app}/resume.json", "--out", "{root}/out"], "resume_render"),
+    (["resume", "preview", "{app}/resume.json", "--out", "{root}/out"], "resume_preview"),
+    (["resume", "ship", "{app}/resume.json", "--out", "{root}/out"], "resume_ship"),
+    (["resume", "check", "{root}", "--record", "{app}/resume.json"], "resume_check"),
     (["letter", "check", "{root}/letter.txt", "--record", "{app}/resume.json"],
      "letter_check"),
     (["app", "freeze", "{app}", "--submitted", TODAY, "--channel", "Workday"], "app_freeze"),
@@ -122,21 +125,6 @@ class Retired(Workspace):
                 self.assertNotIn("unknown command", out)
                 self.assertEqual(tree(self.root), before, "a retired command writes nothing")
 
-    def test_a_refused_render_makes_no_out_directory(self):
-        # The P3 review (2026-10-04): render made --out before refusing a directory that is
-        # no target's and a --view, so a call that rendered nothing still wrote.
-        out_dir = os.path.join(self.root, "newdir")
-        for argv in (["resume", "render", self.root, "--out", out_dir],
-                     ["resume", "render", "contoso-platform", "--view", "x", "--out", out_dir],
-                     ["resume", "render", "contoso-platform", "--template", "nosuch",
-                      "--out", out_dir]):
-            with self.subTest(argv=argv[2:4]):
-                before = tree(self.root)
-                code, out = jsk(*argv)
-                self.assertEqual(code, 2, out)
-                self.assertFalse(os.path.exists(out_dir), out)
-                self.assertEqual(tree(self.root), before)
-
     def test_a_retired_noun_is_no_noun_and_every_verb_it_had_is_named(self):
         for noun in M.RETIRED_NOUNS:
             with self.subTest(noun=noun):
@@ -146,15 +134,6 @@ class Retired(Workspace):
                             ("tailor", ("match", "prepare"))):
             for verb in verbs:
                 self.assertIn(f"{noun} {verb}", M.RETIRED)
-
-    def test_the_target_forms_print_no_retirement(self):
-        # The same verbs on a target, or with no record named, are 6.0's forms.
-        for argv in (["resume", "check", "contoso-platform"],
-                     ["kb", "check", "--root", self.root],
-                     ["resume", "render", "--help"]):
-            with self.subTest(argv=argv):
-                _, out = jsk(*argv)
-                self.assertNotIn("retired in 6.0", out)
 
 
 # 2026-10-04, docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md: the verbs the MCP
@@ -181,6 +160,42 @@ RETIRED_VERBS = [
     (["letter"], "letter_check"),
     (["letter", "--help"], "letter_check"),
 ]
+
+# 2026-10-04, docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 4: the verbs the rendering
+# and upkeep tools duplicate went as well, with the nouns they left empty, and the top-level
+# names that pointed at them now name the tool rather than another retired command.
+RETIRED_TOOLS = [
+    (["kb", "check"], "career_check"),
+    (["kb", "check", "--only", "applications/acme"], "career_check"),
+    (["kb", "pack", "capabilities", "--out", "pack.trig"], "career_pack"),
+    (["kb", "merge", "c:team-leadership", "--into", "c:people-management"], "career_merge"),
+    (["resume", "check", "contoso-platform"], "resume_check"),
+    (["resume", "render", "contoso-platform", "--pdf"], "resume_render"),
+    (["resume", "preview", "contoso-platform", "--out", "previews"], "resume_preview"),
+    (["resume", "fit", "resume.tex", "--target-pages", "2"], "resume_fit"),
+    (["resume", "ship", "contoso-platform"], "resume_ship"),
+    (["app", "drop", "contoso-platform", "--dry-run"], "app_drop"),
+    (["resume"], "resume_ship"),
+    (["resume", "--help"], "resume_check"),
+    (["app"], "app_drop"),
+    (["app", "--help"], "app_drop"),
+    (["validate", "contoso-platform"], "resume_check"),
+    (["check", "resume.pdf"], "resume_check"),
+    (["gates", "out"], "resume_check"),
+    (["render", "contoso-platform"], "resume_render"),
+    (["preview", "contoso-platform", "--out", "previews"], "resume_preview"),
+    (["fit", "resume.tex"], "resume_fit"),
+    (["ship", "contoso-platform"], "resume_ship"),
+]
+RETIRED_VERBS += RETIRED_TOOLS
+
+
+def kbcheck(root, *extra):
+    """(exit code, output) of the kb adapter's check verb, as the career_check tool runs it:
+    `jsk kb check` is refused before it gets there."""
+    from jsk.adapters.mcp.captured import ran
+
+    return ran(root, "kbcli.py", ["check", "--root", root, *extra])
 
 
 class RetiredVerbs(Workspace):
@@ -216,10 +231,11 @@ class RetiredVerbs(Workspace):
         self.assertNotIn("no workspace", out)
 
     def test_the_retired_verbs_are_out_of_the_nouns_and_the_help(self):
-        self.assertEqual(M.KB_VERBS, ("check", "load", "dump", "pack", "merge"))
-        self.assertNotIn("letter", M.NOUNS)
-        self.assertIn("letter", M.RETIRED_NOUNS)
-        self.assertEqual(M.NOUNS["app"].keys(), {"drop"})
+        self.assertEqual(M.KB_VERBS, ("load", "dump"))
+        for noun in ("letter", "resume", "app"):
+            self.assertNotIn(noun, M.NOUNS)
+            self.assertIn(noun, M.RETIRED_NOUNS)
+        self.assertEqual(set(M.NOUNS), {"doctor", "kb", "mcp"})
         _, help_text = jsk("--help")
         for verb in ("kb apply", "kb confirm", "kb show", "kb view", "kb query", "kb log",
                      "kb export", "kb path", "app freeze", "app event", "letter check"):
@@ -229,15 +245,44 @@ class RetiredVerbs(Workspace):
         for verb in ("apply <changeset", "confirm <id>", "show <id>", "view [--section",
                      "query <name>", "export [--select", "log [--last", "path   "):
             self.assertNotIn(f"  {verb}", help_text)
-        _, help_text = jsk("app", "--help")
-        self.assertNotIn("  freeze APP", help_text)
-        self.assertNotIn("  event APP", help_text)
+        # What stays is listed, and what went is not a command in it.
+        _, help_text = jsk("--help")
+        for kept in ("jsk doctor", "jsk kb new", "jsk kb load", "jsk kb dump", "jsk mcp"):
+            self.assertIn(kept, help_text)
+        for gone in ("jsk resume", "jsk app", "jsk kb check", "jsk kb pack", "jsk kb merge"):
+            self.assertNotIn(gone, help_text)
+        for tool in ("career_check", "career_pack", "career_merge", "resume_ship", "app_drop"):
+            self.assertIn(tool, help_text)
+
+    def test_a_top_level_name_names_a_tool_and_not_another_retired_command(self):
+        for name in ("validate", "check", "gates", "render", "preview", "fit", "ship"):
+            with self.subTest(name=name):
+                code, out = jsk(name, "x")
+                self.assertEqual(code, 2, out)
+                self.assertNotIn("jsk resume", out)
+                self.assertIn("(jsk mcp)", out)
+        # `new` is still a command's old name: kb new stays.
+        self.assertIn("jsk kb new", jsk("new", "p")[1])
+
+    def test_the_kb_adapter_keeps_check_pack_and_merge_for_the_tools(self):
+        from jsk.adapters.cli import kb
+
+        self.assertLessEqual({"check", "pack", "merge"}, set(kb.VERBS))
+        code, out = kbcheck(self.root)
+        self.assertNotIn("was retired", out)
+        self.assertEqual(code, 0, out)
 
     def test_the_verbs_that_stay_still_run(self):
-        # kb check, dump and load are not retired: the refusal must not catch them.
-        code, out = jsk("kb", "check", "--root", self.root)
+        # kb dump and load are not retired: the refusal must not catch them.
+        code, out = jsk("kb", "dump", "--root", self.root, "--out",
+                        os.path.join(self.root, "backup.trig"))
         self.assertNotIn("was retired", out)
-        self.assertNotEqual(code, 2, out)
+        self.assertEqual(code, 0, out)
+        self.assertTrue(os.path.isfile(os.path.join(self.root, "backup.trig")))
+        # An unknown kb verb still reaches the adapter's own usage, not an unknown-command.
+        code, out = jsk("kb", "nosuchverb")
+        self.assertEqual(code, 2, out)
+        self.assertIn("usage: jsk kb", out)
 
 
 def served(root):
@@ -280,7 +325,7 @@ class Tools(Workspace):
         self.assertEqual(fail["severity"], "FAIL")
         self.assertIn("was made from files", fail["text"])
         self.assertIn("send it with jsk 5.1.0", fail["fix"])
-        self.assertIn("`jsk app drop applications/contoso-platform`", fail["fix"])
+        self.assertIn('the app_drop tool (jsk mcp), app_drop(app="contoso-platform")', fail["fix"])
         self.assertEqual(tree(self.root), before, "nothing frozen, nothing renamed")
 
 
@@ -317,7 +362,7 @@ class FrozenArchive(unittest.TestCase):
     def test_a_frozen_file_made_application_still_validates(self):
         root = self.workspace()
         self.assertEqual([f.text() for f in self.findings(root) if f.severity == "FAIL"], [])
-        code, out = jsk("kb", "check", "--root", root)
+        code, out = kbcheck(root)
         self.assertNotIn("file-made-unsent", out, "a frozen one is no unsent one")
 
     def test_its_quotes_are_still_checked_against_the_posting_md_beside_it(self):
@@ -335,14 +380,14 @@ class FrozenArchive(unittest.TestCase):
             "---\nsubmitted: 2026-09-10\n---\n", encoding="utf-8")
         rules = {f.rule for f in self.findings(root) if f.severity == "FAIL"}
         self.assertIn("quote-verbatim", rules)
-        code, out = jsk("kb", "check", "--root", root)
+        code, out = kbcheck(root)
         self.assertNotIn("file-made-unsent", out)
 
     def test_an_unsent_one_is_not_judged_and_is_named_instead(self):
         root = self.workspace(frozen=False, reworded=True)
         self.assertEqual([f.text() for f in self.findings(root)
                           if f.rule in ("quote-verbatim", "advert-uncovered")], [])
-        code, out = jsk("kb", "check", "--root", root)
+        code, out = kbcheck(root)
         self.assertIn("WARN  file-made-unsent applications/acme-platform-engineer was made "
                       "from files and is not sent", out)
 
@@ -373,24 +418,28 @@ class Unsent(unittest.TestCase):
         (apps / "acme-native" / "resume.json").write_text("{}", encoding="utf-8")
         (apps / "notes").mkdir()                     # a folder with no record file at all
 
+    @unittest.skipUnless(HAS_MCP, "the mcp extra is not installed")
     def test_resume_check_on_a_file_made_stem_says_it_has_no_selection(self):
         # The P3 replay (2026-10-04): "not a directory: acme-sent ... pass the directory jsk
         # resume render --out wrote to" sent the person to render a frozen application.
-        cwd = os.getcwd()
-        os.chdir(self.root)
-        self.addCleanup(os.chdir, cwd)
-        code, out = jsk("resume", "check", "acme-sent")
+        check = served(self.root)
+
+        def checked(target):
+            found = check("resume_check", target=target)
+            return found["exit"], found["output"]
+
+        code, out = checked("acme-sent")
         self.assertEqual(code, 2, out)
         self.assertIn("acme-sent names applications/acme-sent, a frozen application made "
                       "from files: it has no selection to check", out)
         self.assertIn("the career_show tool (jsk mcp) on k:post_contoso_platform or the app_show tool", out)
         self.assertNotIn("not a directory", out)
-        code, out = jsk("resume", "check", "contoso-platform")
+        code, out = checked("contoso-platform")
         self.assertEqual(code, 2, out)
         self.assertIn("send it with jsk 5.1.0", out)
         self.assertNotIn("not a directory", out)
         # A name that is no application is still not a directory.
-        code, out = jsk("resume", "check", "no-such-thing")
+        code, out = checked("no-such-thing")
         self.assertIn("not a directory: no-such-thing", out)
 
     def test_the_one_rule_finds_only_the_unsent_file_made_application(self):
@@ -408,17 +457,16 @@ class Unsent(unittest.TestCase):
                          (), "an application.md is one frozen before the career was a graph")
 
     def test_kb_check_warns_file_made_unsent_naming_it_and_the_fix(self):
-        code, out = jsk("kb", "check", "--root", self.root)
+        code, out = kbcheck(self.root)
         self.assertIn("WARN  file-made-unsent applications/contoso-platform was made from "
                       "files and is not sent; jsk 6.0 no longer finishes such an application",
                       out)
         # The release that still finishes one is named: the reader runs one that cannot.
         self.assertIn("send it with jsk 5.1.0, the last CLI that does", out)
         # It named a changeset until 2026-10-03, which cannot remove an application's graphs.
-        self.assertIn("or drop it: `jsk app drop applications/contoso-platform`", out)
+        self.assertIn('or drop it: the app_drop tool (jsk mcp), app_drop(app="contoso-platform")', out)
         self.assertEqual(out.count("file-made-unsent"), 1, out)
-        code, out = jsk("kb", "check", "--root", self.root, "--only",
-                        "applications/acme-native")
+        code, out = kbcheck(self.root, "--only", "applications/acme-native")
         self.assertNotIn("file-made-unsent", out)
 
     def test_doctor_counts_them_in_an_info_line(self):
@@ -428,7 +476,7 @@ class Unsent(unittest.TestCase):
         self.assertFalse(broken)
         self.assertIn("  info  unsent   1 application made from files is not sent, and jsk 6.0 "
                       "no longer finishes it", lines)
-        self.assertTrue(any("`jsk kb check` names each" in line and "jsk 5.1.0" in line
+        self.assertTrue(any("the career_check tool names each" in line and "jsk 5.1.0" in line
                             for line in lines), lines)
 
     @unittest.skipUnless(HAS_MCP, "the mcp extra is not installed")

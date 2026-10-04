@@ -10,14 +10,15 @@ from pathlib import Path
 from unittest import mock
 
 import careerkit
-from fixtures import CLI, CLEAN_RESUME, SCRIPTS, build_pdf, build_text, resume_with, run
+from fixtures import (CLI, CLEAN_RESUME, SCRIPTS, build_pdf, build_text, gate, resume_with, run,
+                      tool_entry)
 from test_resume_check import BODY, GOOD
 
 
 JSK = CLI
 
 
-SUBCOMMANDS = ["doctor", "kb", "resume", "app", "mcp"]
+SUBCOMMANDS = ["doctor", "kb", "mcp"]
 
 
 class Usage(unittest.TestCase):
@@ -46,12 +47,12 @@ class Usage(unittest.TestCase):
         code, out = run(JSK, "--help")
         self.assertEqual(code, 0, out)
         self.assertNotIn("markdown-it-py", out)
-        self.assertIn("jsk resume check", out)
+        self.assertIn("resume_check", out)
 
     def test_bare_invocation_is_help(self):
         code, out = run(JSK)
         self.assertEqual(code, 2, out)
-        self.assertIn("jsk resume check", out)
+        self.assertIn("resume_check", out)
 
     def test_every_subcommand_answers_help_the_same_way(self):
         """One contract across the surface, whichever kind of command you reached.
@@ -65,15 +66,6 @@ class Usage(unittest.TestCase):
                 code, out = run(JSK, sub, "--help")
                 self.assertEqual(code, 0, f"jsk {sub} --help exited {code}: {out}")
                 self.assertTrue(out.strip(), f"jsk {sub} --help printed nothing")
-
-    def test_render_help_names_its_flags(self):
-        """`jsk render --help` printed the two-line invocation and stopped, so the
-        flags SKILL.md sends a reader here to look up were documented nowhere the
-        command itself would show them."""
-        code, out = run(JSK, "resume", "render", "--help")
-        self.assertEqual(code, 0, out)
-        for flag in ("--pdf", "--ats-max", "--template"):
-            self.assertIn(flag, out)
 
     def test_jsk_index_is_retired_and_says_what_replaced_it(self):
         """It read user-knowledgebase.md. The career is career/store/ now: the
@@ -144,13 +136,14 @@ class InProcessDispatch(unittest.TestCase):
     def test_check_spawns_no_child(self):
         doc = build_text(self.tmp / "resume.txt", CLEAN_RESUME)
         with mock.patch("subprocess.Popen", side_effect=AssertionError("spawned")):
-            code, out = in_process("resume", "check", doc)
+            code, out = tool_entry("resume_check", doc)
         self.assertEqual(code, 0, out)
 
     def test_each_heading_is_above_the_output_it_introduces(self):
         """The ordering a child interpreter needed a flush for. A heading printed
         after its gate's output would put every verdict under the wrong section."""
-        code, out = run(JSK, "resume", "check", build_text(self.tmp / "resume.txt", CLEAN_RESUME))
+        code, out = tool_entry("resume_check",
+                               build_text(self.tmp / "resume.txt", CLEAN_RESUME))
         self.assertEqual(code, 0, out)
         parse = out.index("--- parse gate")
         prose = out.index("--- prose gate")
@@ -161,7 +154,7 @@ class InProcessDispatch(unittest.TestCase):
     def test_a_failing_gate_keeps_its_exit_code_in_process(self):
         bad = build_text(self.tmp / "resume.txt",
                          resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
-        code, out = in_process("resume", "check", bad)
+        code, out = tool_entry("resume_check", bad)
         self.assertEqual(code, 1, out)
         self.assertIn("DO NOT SEND", out)
 
@@ -176,23 +169,24 @@ class InProcessDispatch(unittest.TestCase):
         self.assertEqual(code, 0)
 
     def test_fit_help_still_names_its_own_program(self):
-        """In process, sys.argv[0] is jsk's, and argparse would have printed that as
-        the program name in fit_pages.py's usage line."""
-        code, out = run(JSK, "resume", "fit", "--help")
+        """In process, sys.argv[0] is the server's or jsk's, and argparse would have printed
+        that as the program name in fit_pages.py's usage line; the resume_fit tool's entry
+        point pins its own."""
+        code, out = gate("fit_pages.py", "--help")
         self.assertEqual(code, 0, out)
-        self.assertIn("usage: jsk resume fit", out)
+        self.assertIn("usage: resume_fit", out)
 
     def test_a_script_that_raises_is_reported_not_propagated(self):
         fake = mock.Mock(main=mock.Mock(side_effect=RuntimeError("boom")))
         with mock.patch("importlib.import_module", return_value=fake):
-            code, out = in_process("resume", "render", "x.json")
+            code, out = gate("render_resume.py", "x.json")
         self.assertEqual(code, 2, out)
         self.assertIn("render_resume.py raised RuntimeError: boom", out)
-        self.assertIn("jsk resume render x.json", out)
+        self.assertIn("the resume_render tool (jsk mcp) again", out)
 
 
 class PreviewInProcess(unittest.TestCase):
-    """`jsk preview` renders every template in this interpreter and compiles them
+    """The resume_preview tool's entry point renders every template in this interpreter and compiles them
     at once. The compile is faked here, so none of this needs a TeX engine: what is
     pinned is the plumbing - separate stages, and a report in template order however
     the compiles happen to finish."""
@@ -210,7 +204,7 @@ class PreviewInProcess(unittest.TestCase):
                                return_value="fake"), \
                 mock.patch.object(preview, "compile_pdf", compile_pdf), \
                 mock.patch("subprocess.Popen", side_effect=AssertionError("spawned")):
-            return in_process("resume", "preview", self.record, "--out", self.out)
+            return gate("preview_templates.py", self.record, "--out", self.out)
 
     def test_the_report_is_in_template_order_whatever_finishes_first(self):
         """The first template is made the slowest to compile. A report that followed

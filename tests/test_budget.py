@@ -530,12 +530,12 @@ class TheMainThreadBudget(unittest.TestCase):
 
 
 class TheToolDefinitions(unittest.TestCase):
-    """`jsk mcp`'s twenty-one tool definitions ride in every session that loads the plugin, as
+    """`jsk mcp`'s twenty-nine tool definitions ride in every session that loads the plugin, as
     SKILL.md does, before anyone has asked for a tool (tool search defers them, but a
     session that searches reads them all). Counted as `tools/list` hands them to the client:
     name, description and input schema, as JSON."""
 
-    def test_the_twenty_one_definitions_stay_small(self):
+    def test_the_twenty_nine_definitions_stay_small(self):
         import asyncio
         import importlib.util
         import json
@@ -554,14 +554,17 @@ class TheToolDefinitions(unittest.TestCase):
         tools = asyncio.run(listed())
         size = sum(len(json.dumps({"name": t.name, "description": t.description,
                                    "inputSchema": t.inputSchema})) for t in tools) // 4
-        self.assertEqual(len(tools), 21)
+        self.assertEqual(len(tools), 29)
         # 3350 when P4 landed (2026-10-02). Measured: 3,047 - under the plan's 4500 guess,
         # with the batch rows' docstrings in the schema as descriptions: the fields of a
         # requirement row are what an agent would otherwise get wrong on its first call.
         # 3800 from 2026-10-03, when app_freeze, app_event and letter_check were added
         # (Ruling 21's amendment). Measured: 3,463 with their descriptions cut to one line
         # each; the three cost ~380 between them, so the old cap could not hold.
-        self.assertLess(size, 3800)
+        # 4500 from 2026-10-04, for the eight tools of docs/superpowers/plans/2026-10-04-mcp-first.md
+        # (career_check, career_pack, career_merge, app_drop, resume_check, resume_render,
+        # resume_preview, resume_fit). Measured: 4,300, each description one line.
+        self.assertLess(size, 4500)
 
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
-"""`jsk resume ship` as a use case: the record gate, the render, the fit and the gates, in that order.
+"""The resume_ship tool as a use case: the record gate, the render, the fit and the gates, in that order.
 
 The three commands mode-ship.md used to have an agent run by hand - validate, render with
 --pdf, gates - in one process, each stopping the next. A record that fails its gate is
 never rendered: rendering it would produce a PDF that looks sendable and is not.
 
 Every step is an existing use case run through the adapter that prints it, so none of
-their verdicts is restated here: the record gate is what `jsk resume check` runs, the render
-`jsk resume render`'s, the fit `jsk resume fit`'s and the gates run_gates'. What ship reads of them - the
+their verdicts is restated here: the record gate is what the resume_check tool runs, the render
+the resume_render tool's, the fit the resume_fit tool's and the gates run_gates'. What ship reads of them - the
 files the render wrote, its page counts, the levers the fit applied - it reads off the
 RenderResult and the FitResult, never off what they printed. It prints nothing:
 adapters/cli/ship.py does.
@@ -92,7 +92,7 @@ def fit_one(tex, budget, count, out_dir, *, fitter, tex_engine, page_count, outp
         budget: the page budget to fit it to.
         count: the pages the render counted.
         out_dir: where the render compiled, which the fitted .tex compiles into too.
-        fitter: (args) -> (exit code, output, FitResult or None) for `jsk resume fit`'s arguments.
+        fitter: (args) -> (exit code, output, FitResult or None) for the resume_fit tool's arguments.
         tex_engine: compiles the fitted .tex as the render compiled its own
             (ports.tex.TexCompiler).
         page_count: pdf -> its pages, or None.
@@ -141,8 +141,8 @@ def fit_one(tex, budget, count, out_dir, *, fitter, tex_engine, page_count, outp
 def fit_steps(wrote, rendered, pages, out_dir, **ports):
     """The fit step: each PDF the render put over its budget, fitted. [] when none is.
 
-    The Arrow run (2026-09-29) spent 3 minutes and 13 turns here by hand: `jsk resume fit`
-    three times, three confirmed bullets cut, then `mv`, `tectonic` and `jsk resume check`.
+    The Arrow run (2026-09-29) spent 3 minutes and 13 turns here by hand: the resume_fit tool
+    three times, three confirmed bullets cut, then `mv`, `tectonic` and the resume_check tool.
     The first fit had already reached 2 pages at 0.6in margins, inside the 0.5in floor.
 
     The fitter is deterministic and writes one file, `<stem>-fitted.tex`, and only when
@@ -194,9 +194,9 @@ def ship(record, out_dir, *, ats_max=False, template=None, pages=None, fit=True,
         fit: fit each render over its budget before the gates read it.
         run: (script, args) -> (exit code, output, outcome) for one gate, as run_gates
             takes it.
-        render: (args) -> (exit code, output, RenderResult or None) for `jsk resume render`'s
+        render: (args) -> (exit code, output, RenderResult or None) for the resume_render tool's
             arguments.
-        fitter: (args) -> (exit code, output, FitResult or None) for `jsk resume fit`'s.
+        fitter: (args) -> (exit code, output, FitResult or None) for the resume_fit tool's.
         tex_engine: recompiles a fitted .tex (ports.tex.TexCompiler).
         page_count: pdf -> its pages, or None.
         outputs: moves a fit over the render (ports.outputs.RenderOutputs).

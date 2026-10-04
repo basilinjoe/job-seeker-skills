@@ -1,4 +1,5 @@
-"""`jsk kb merge c:a --into c:b`: two concepts made one, as a changeset to review."""
+"""The career_merge tool: two concepts made one, as a changeset to review. The tool calls the kb
+adapter's `merge c:a --into c:b`, which these tests call the same way (recordkit.merge)."""
 import unittest
 
 from test_graph_pack import Fixture

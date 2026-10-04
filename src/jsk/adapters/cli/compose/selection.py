@@ -3,7 +3,7 @@ career/store/, and a ship by target (application/render/selection.py, applicatio
 docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md, P3).
 
 Each writing function takes the workspace's turn before it reads (Ruling 14), as
-compose/native.py's do. `ship_target` is `jsk resume ship` on a target: the same ship
+compose/native.py's do. `ship_target` is the resume_ship tool on a target: the same ship
 run, bound to the ports adapters/cli/ship.py binds (adapter to adapter, Ruling 20), into
 the target's own directory, with each step's output captured as the CLI prints it.
 `ref_for` is how the CLI reads a positional that names a target rather than a file.
@@ -131,7 +131,7 @@ def ref_for(arg, *, dirs=False, root=None):
 
     Args:
         arg: the positional as given.
-        dirs: an existing directory may name a target (`jsk resume ship`).
+        dirs: an existing directory may name a target (the resume_ship tool).
         root: the workspace, or None to find it from the argument or the working directory.
 
     Returns:
@@ -177,7 +177,7 @@ def file_made(arg, root=None):
     """(`applications/<stem>`, whether it is frozen, its posting's curie or None) when the
     CLI argument `arg` names an application made from files, else None.
 
-    Such a name is no target (ref_for), and `jsk resume check` read it as a render's
+    Such a name is no target (ref_for), and the resume_check tool read it as a render's
     directory that is not there - "not a directory", which sent the person to render
     something a frozen application never will again (the P3 replay, 2026-10-04).
 
@@ -239,7 +239,7 @@ def selection_ref(out_dir):
 
 def ship_target(root, target, *, ats_max=False, template=None, pages=None, fit=True,
                 today=None):
-    """`jsk resume ship` on a target: record gate, render, fit and gates into the target's
+    """The resume_ship tool on a target: record gate, render, fit and gates into the target's
     own directory (application.ship.ship over adapters/cli/ship.py's ports).
 
     Args:
@@ -249,7 +249,7 @@ def ship_target(root, target, *, ats_max=False, template=None, pages=None, fit=T
         template: the visual theme, or None for the default.
         pages: the page budget, or None for the selection's own.
         fit: fit a render over its budget before the gates read it.
-        today: unused - the render dates its declaration as `jsk resume render` does;
+        today: unused - the render dates its declaration as the resume_render tool does;
             kept so every use case is called alike.
 
     Returns:
@@ -281,8 +281,8 @@ def ship_target(root, target, *, ats_max=False, template=None, pages=None, fit=T
         try:
             themes.get(template)
         except KeyError as exc:
-            raise Refused(str(exc.args[0]), "fix:  `jsk resume render --list-templates` "
-                                            "names them") from None
+            raise Refused(str(exc.args[0]), "fix:  pass one of the names above as the template argument; the "
+                                            "resume_preview tool (jsk mcp) renders each") from None
     return ship(t.ref, t.out_dir, ats_max=ats_max, template=template, pages=pages, fit=fit,
                 run=contained, render=cli.render, fitter=cli.fit, tex_engine=bound.Tex(),
                 page_count=bound.page_count, outputs=outputs, rel=rel, strict=strict_for,

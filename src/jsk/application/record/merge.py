@@ -1,4 +1,4 @@
-"""`jsk kb merge`: two concepts that are one, drafted as a changeset against the revision
+"""The career_merge tool: two concepts that are one, drafted as a changeset against the revision
 the log last recorded. Nothing is applied."""
 from dataclasses import dataclass
 
@@ -48,5 +48,5 @@ def merge(root, away, into, *, load, state):
         raise Problems(err.reasons) from None
     summary = M.summary(a, b, m)
     text = trig(base, summary, {"delete": m["delete"], "add": m["add"], "retire": m["retire"]},
-                entries=m["entries"], comments=[f"jsk kb merge {curies([a])} --into {curies([b])}"])
+                entries=m["entries"], comments=[f"career_merge {curies([a])} into {curies([b])}"])
     return Merged(a, b, m, text, summary)

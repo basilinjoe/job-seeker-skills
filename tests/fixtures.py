@@ -30,14 +30,21 @@ CLI = f"{PACKAGE}.cli"
 CHECK_ATS = f"{PACKAGE}.adapters.cli.gates.ats"
 FIT_PAGES = f"{PACKAGE}.domain.render.fit_levers"
 
-# The commands the tests drive, as the argv of `python -m jsk ...`: `jsk` is the only door
-# (Ruling 10 of the onion design), so a module above is imported, never run.
-PARSE_GATE = (PACKAGE, "resume", "check", "--only", "parse")
-PROSE_GATE = (PACKAGE, "resume", "check", "--only", "prose")
-RECORD_GATE = (PACKAGE, "resume", "check")
-RENDER = (PACKAGE, "resume", "render")
-FIT = (PACKAGE, "resume", "fit")
+# What the tests drive. DOCTOR is a command, the argv of `python -m jsk ...`. The rest were
+# `jsk resume check|render|fit` until 2026-10-04, when those became the resume_check,
+# resume_render and resume_fit tools (docs/superpowers/plans/2026-10-04-mcp-first.md): each is
+# now the tool's name and the flags it passes, and run() calls the entry point that tool calls,
+# in this interpreter, inside the working directory - as the tool runs it inside the workspace.
+PARSE_GATE = ("resume_check", "--only", "parse")
+PROSE_GATE = ("resume_check", "--only", "prose")
+RECORD_GATE = ("resume_check",)
+RENDER = ("resume_render",)
+FIT = ("resume_fit",)
 DOCTOR = (PACKAGE, "doctor", "--quick")
+
+# The documented script name each tool runs through dispatch.call_gate (adapters/mcp/rendering.py);
+# resume_check calls adapters/cli/resume.cmd_resume_check instead, which has none.
+TOOL_SCRIPTS = {"resume_render": "render_resume.py", "resume_fit": "fit_pages.py"}
 
 
 def load_script(name):
@@ -155,18 +162,43 @@ def child_env():
 
 
 def run(module, *args):
-    """Run a command as the CLI does, in a child interpreter.
+    """(exit code, combined output) of a command, or of the entry point a tool calls.
 
-    `module` is a module name, or a tuple naming a `jsk` command (PARSE_GATE, RENDER, ...).
-    Returns (exit_code, combined_output). `-m` rather than a file path, because these
-    modules live in a package and their relative imports need the package context.
+    `module` is a module name, a tuple naming a `jsk` command (DOCTOR), or a tuple naming a
+    tool and its flags (PARSE_GATE, RENDER, ...). A command runs in a child interpreter, with
+    `-m` rather than a file path, because these modules live in a package and their relative
+    imports need the package context. A tool's entry point runs in this one (tool_entry).
     """
+    if isinstance(module, tuple) and module[0] in ("resume_check", *TOOL_SCRIPTS):
+        return tool_entry(module[0], *module[1:], *args)
     command = list(module) if isinstance(module, tuple) else [str(module)]
     proc = subprocess.run(
         [sys.executable, "-m", *command] + [str(a) for a in args],
         capture_output=True, text=True, env=child_env(),
     )
     return proc.returncode, proc.stdout + proc.stderr
+
+
+def tool_entry(tool, *args):
+    """(exit code, what it printed to stdout and stderr) of the entry point `tool` calls, with
+    `args` as its argv, run inside the working directory through adapters/mcp/captured.py -
+    the call the tool makes, less the JSON it wraps the answer in. stderr is kept, as a child
+    interpreter's was, so an assertion on a warning printed there still sees it.
+    """
+    import contextlib   # noqa: PLC0415 - test helper
+    import io           # noqa: PLC0415 - test helper
+
+    from jsk.adapters.mcp import captured   # noqa: PLC0415 - test helper
+
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        if tool == "resume_check":
+            from jsk.adapters.cli.resume import cmd_resume_check   # noqa: PLC0415
+
+            code, out = captured.called(os.getcwd(), cmd_resume_check, args)
+        else:
+            code, out = captured.ran(os.getcwd(), TOOL_SCRIPTS[tool], args)
+    return code, out + err.getvalue()
 
 
 def gate(script, *args):

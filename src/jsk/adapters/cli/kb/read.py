@@ -1,4 +1,6 @@
-"""`jsk kb check`: the verb that validates the record and says where it stands.
+"""The kb check verb: it validates the record and says where it stands. It is the entry point
+the career_check tool calls (adapters/mcp/upkeep.py); `jsk kb check` itself was retired on
+2026-10-04 (docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 4) and exits 2 naming the tool.
 
 It parses its arguments, runs its use case (application/record/check.py) with the real record
 bound in, and prints what it returns. 6.0 retired `show`, `view`, `query`, `log` and `path`
@@ -10,7 +12,7 @@ from ..presenters import usage
 
 
 def cmd_check(args, flags, root, today):
-    """jsk kb check [--only <path>]
+    """check [--only <path>] (the career_check tool)
 
     Validates the whole workspace - every rule, every graph - and says where the career
     and its log stand. Exit 1 on any FAIL; a WARN is printed and passes.
@@ -37,7 +39,7 @@ def cmd_check(args, flags, root, today):
     from ....infra.oxigraph.queries import OxigraphQueries
 
     if args:
-        return usage("jsk kb check takes no arguments but --only <path>")
+        return usage("career_check takes no arguments but --only <path>")
     checked = check(root, flags.get("--only"), load=load, state=R.state,
                     graph_name=files.graph_name, queries=OxigraphQueries,
                     listing=files.application_listing)

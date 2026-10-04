@@ -51,14 +51,14 @@ def record_faults(store, queries, post, today, budget, ranked, select):
     projects (the cover, then the ranked projects that carry a requirement) and the
     bullets it picks under each - because those are exactly the bullets the author starts
     from. The whole Ranking would be every live project, and a fault in a bullet no draft
-    selects is a question nobody needs answered for this posting; `jsk kb check` asks
+    selects is a question nobody needs answered for this posting; the career_check tool asks
     those across the career. numbers.untraced is called on the bullets themselves: this
     used to export a URS record and read the numerals back out of the record and claims
     gates' lines with three regexes, which broke whenever a gate reworded a line.
 
     The selection is not enough on its own. It picks from confirmed evidence, and on the
     ElevenLabs career as it stood before the run - nine requirements unresolved terms, the
-    rest carried by tags - it picked nothing, so this asked nothing while `jsk kb check`
+    rest carried by tags - it picked nothing, so this asked nothing while the career_check tool
     named six faults. The author then read the top of the Ranking and exported those by
     hand. So every live bullet of the top-ranked projects that carry a requirement is
     asked about too, by rank: the ones the assessment cites and the author reads (`ranked`, `TOP`).

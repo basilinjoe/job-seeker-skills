@@ -113,11 +113,16 @@ again for a year.
 
 **6.0.0** retires the file-made applications 5.x still worked (`posting.md`, `decisions.txt`,
 `gaps.txt`, `resume.json`): `jsk posting` and `jsk tailor` are gone, and no command reads a
-`resume.json`. Finish an unsent one with jsk 5.1.0 first, or set it aside with `jsk app drop`;
-`jsk kb check` names each. A frozen one (sent or held back) stays readable. It also retires the
+`resume.json`. Finish an unsent one with jsk 5.1.0 first, or set it aside with the `app_drop` tool;
+`career_check` names each. A frozen one (sent or held back) stays readable. It also retires the
 `jsk` verbs the `jsk mcp` tools duplicate - `jsk kb apply`, `confirm`, `show`, `view`, `query`,
 `log`, `export` and `path`, `jsk app freeze` and `event`, `jsk letter check` - each exiting 2 and
-naming its tool (`docs/SCRIPTS.md` maps them), and makes `mcp` a required dependency.
+naming its tool (`docs/SCRIPTS.md` maps them), and makes `mcp` a required dependency. It then retires
+every other everyday verb the same way: `jsk kb check`, `pack` and `merge`, `jsk resume check`, `render`,
+`preview`, `fit` and `ship`, and `jsk app drop` become the `career_check`, `career_pack`, `career_merge`,
+`resume_check`, `resume_render`, `resume_preview`, `resume_fit`, `resume_ship` and `app_drop` tools. Five
+commands stay, for a machine where the server cannot start: `jsk doctor`, `jsk kb new`, `jsk kb load`,
+`jsk kb dump` and `jsk mcp`.
 
 One record for the career, and a frozen directory per application. The career holds identity,
 positioning, work rights, vocabulary, organisations, roles, projects, metrics, skills, education,

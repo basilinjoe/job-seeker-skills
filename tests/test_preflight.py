@@ -245,7 +245,8 @@ class CliBehaviour(unittest.TestCase):
 
         with mock.patch.object(preflight.subprocess, "run", fake):
             preflight.verify(str(self.tmp))
-        render = next(c for c in calls if c[3:5] == ["resume", "render"])
+        # The resume_render tool is not a command: the step runs the entry point the tool calls.
+        render = next(c for c in calls if c[1] == "-c" and "cli.render import" in c[2])
         # The target in the store the example was imported into, never the package's files.
         self.assertIn(str(self.tmp / "example" / "resumes" / "example"), render)
         self.assertFalse(any(a.endswith(".json") for a in render), render)
@@ -268,7 +269,7 @@ class CliBehaviour(unittest.TestCase):
 
         with mock.patch.object(preflight.subprocess, "run", fake):
             steps = preflight.verify(str(self.tmp))
-        check = next(c for c in calls if c[3:5] == ["resume", "check"])
+        check = next(c for c in calls if c[1] == "-c" and "cmd_resume_check" in c[2])
         self.assertIn(str(self.tmp / "example" / "resumes" / "example"), check)
         self.assertFalse(any("validate_urs" in a for c in calls for a in c))
         self.assertEqual([s[0] for s in steps[:2]], ["load the example career into a store",
@@ -385,7 +386,7 @@ class TheGraphRecord(unittest.TestCase):
         self.assertTrue(graph.ok, graph.disables)
 
     def test_the_engine_is_required(self):
-        """The career is in career/store/ and `jsk ship` runs the record gate against it
+        """The career is in career/store/ and the resume_ship tool runs the record gate against it
         before it renders, so a machine without the engine cannot produce a resume from the
         career. It used to be reported as a gap."""
         checks, _ = preflight.gather()

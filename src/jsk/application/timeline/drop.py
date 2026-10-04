@@ -5,7 +5,7 @@ Ruling 5 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md first said
 file-made application is dropped by "the career_apply tool (jsk mcp) a changeset retiring its posting". A
 changeset writes only the career graph, never an application's, and many such applications
 have no posting graph at all, so that fix could not be followed (amended 2026-10-03). This is
-the command the fix names now: `jsk app drop`.
+the tool the fix names now: app_drop.
 
 Only an application that is not frozen is dropped - made from files or graph-native. A frozen
 one, sent or held back, is the archive of what went out, and is refused. The order is the
@@ -90,7 +90,7 @@ def note_text(rel, removed, today, reason, folder):
         lines += [f"  {name}" for name in removed]
     else:
         lines.append("removed from career/store/: nothing - it held no graph for this application")
-    lines += ["", "Set aside by `jsk app drop`: it was never frozen, so nothing here was sent."]
+    lines += ["", "Set aside by the app_drop tool: it was never frozen, so nothing here was sent."]
     if folder:
         lines += ["The files are as they were. The graphs above are gone from the store: moving",
                   "this folder back to applications/ brings back the files, not the graphs."]
@@ -142,7 +142,7 @@ def drop(app_dir, *, reason, today, dry_run, load, records, files, store_errors=
             raise DropRefused(str(e), e.fix) from None
         except store_errors as e:
             raise DropRefused(f"{rel}: not written - {e}", "run the command again") from None
-    again = f"run `jsk app drop {rel}` again - it moves what is left"
+    again = f'call the app_drop tool again, app_drop(app="{rel}") - it moves what is left'
     if folder:
         try:
             files.move_directory(folder, to)

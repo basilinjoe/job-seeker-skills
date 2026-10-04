@@ -22,7 +22,7 @@ answers             career_apply / confirm  ──►  selection    authored onc
 Every step is a `jsk` tool; every part of the application is a graph in the store. Its stem,
 `<yyyy-mm-dd>-<company>-<role>`, cannot be renamed until `app_freeze`; the first render
 creates `<workspace>/applications/<stem>/`, for the renders and any cover letter. One made from
-files and unsent (`app_list` marks it) is finished by jsk 5.1.0, or `jsk app drop`.
+files and unsent (`app_list` marks it) is finished by jsk 5.1.0, or set aside with `app_drop` once the person agrees.
 
 **Two agent passes, and the person in between.** One writes the assessment; one writes the resume
 after the questions are answered. The resume is written **last** — never from a career you are
@@ -152,7 +152,7 @@ with their words and one changeset for the corrections. Confirm confirms the car
 text, never on the strength of the old text. If the selection (`app_show(stem, "selection")`)
 holds a summary, `career_confirm(target=<stem>, block="summary", answer=…)`; a headline, the same
 with `block="headline"`. Shortfalls it returns go into the review (`short`), then
-`assessment_complete`. Then `jsk resume check <stem>`. This step is yours, not delegable.
+`assessment_complete`. Then `resume_check(target=<stem>)`. This step is yours, not delegable.
 
 **A selection references content; it cannot contain it.** What the career lacks, say out loud.
 

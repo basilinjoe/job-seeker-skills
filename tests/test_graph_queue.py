@@ -1,7 +1,7 @@
 """Writers queue, and a write that queued behind another rebases onto what it left.
 
 Each test runs the write as a session would - the career_apply and career_confirm tools'
-compose layer (recordkit), or `python -m jsk.cli kb pack` - in its own process, against one
+compose layer (recordkit), or the pack the career_pack tool drafts (recordkit.pack) - in its own process, against one
 workspace's career/store/. Ruling 7: nobody is refused for
 being second; a write drafted at an op:base the record has since moved past lands when
 it names no id changed since, and is refused - by the base check, or by the rules run
@@ -16,8 +16,9 @@ import sys
 import tempfile
 import unittest
 
+import recordkit
 import storekit
-from fixtures import CLI, child_env
+from fixtures import child_env
 from test_graph_changeset import PFX
 from test_graph_shapes import FIXTURES
 
@@ -53,13 +54,6 @@ def tool(root, verb, **payload):
     """Start the `apply` or `confirm` tool's compose function in a process of its own."""
     return subprocess.Popen([sys.executable, "-c", CHILD, TESTS, str(root), verb,
                              json.dumps(payload)],
-                            env=child_env(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, encoding="utf-8")
-
-
-def jsk(root, *args):
-    """Start `jsk kb <args> --root root` in a process of its own."""
-    return subprocess.Popen([sys.executable, "-m", CLI, "kb", *map(str, args), "--root", root],
                             env=child_env(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, encoding="utf-8")
 
@@ -254,7 +248,7 @@ op:add {
 
     def test_a_pack_applied_logs_every_concept_it_added_or_enriched(self):
         pack = os.path.join(self.root, "pack.trig")
-        code, out = done(jsk(self.root, "pack", "capabilities", "--out", pack))
+        code, out, _ = recordkit.pack(self.root, "capabilities", "--out", pack)
         self.assertEqual(code, 0, out)
         before = self.subjects(record.load(self.root).graph(R.KB))
         code, out = done(tool(self.root, "apply", path=pack))

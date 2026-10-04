@@ -1,5 +1,6 @@
 """What reads the record: career_show, career_view, career_query and career_log (the `jsk kb`
-verbs they replaced in 6.0), and `jsk kb check`."""
+verbs they replaced in 6.0), and the career_check tool, whose entry point the Check tests call
+(storekit.Workspace.kb, as the tool runs it)."""
 import datetime
 import json
 import re

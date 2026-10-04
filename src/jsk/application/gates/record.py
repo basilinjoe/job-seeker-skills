@@ -165,7 +165,7 @@ def career_refusal(store, state):
     if broken:
         return line("career-invalid", KB,
                     f"the career record has {len(broken)} failures, so nothing in this "
-                    "resume can be checked against it", "`jsk kb check` lists them")
+                    "resume can be checked against it", "the career_check tool lists them")
     st = state(store)
     if st.kind == "clean":
         return None

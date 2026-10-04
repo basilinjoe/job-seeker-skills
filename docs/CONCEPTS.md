@@ -53,7 +53,7 @@ never reach a resume before you agree with it.
 technologies. `jsk` ships the technologies; your career adds your own terms and how they relate -
 `c:kafka` *is a* `c:event-driven-architecture`, `c:aged-care` is *part of* `c:healthcare`.
 Matching follows those edges one way, at most two hops. Capability edges are judgement, so none
-ship in the vocabulary: `jsk kb pack capabilities` drafts a starter set as a changeset you read and
+ship in the vocabulary: `career_pack` drafts a starter set as a changeset you read and
 apply, and then it is yours. A tailoring answer that names a concept becomes one of its labels, so
 the next posting is not asked again.
 *Why it matters:* Kubernetes experience counts toward "container orchestration"; a mention of
@@ -72,7 +72,7 @@ analyst's review (`review`), the assessment (`gaps`), the bullets chosen (`resum
 timeline of what came back. Its directory, `applications/<stem>/`, holds only the files actually
 sent: the PDF and the `.tex`. One made from files before 6.0 (`posting.md`, `decisions.txt`,
 `gaps.txt`, `resume.json`) stays readable if it was frozen (sent or held back), and is named for
-jsk 5.1.0 or `jsk app drop` if not.
+jsk 5.1.0 or `app_drop` if not.
 *Why it matters:* it is frozen once the application goes out — `app_freeze` refuses until the gates
 pass, records the application and names the directory after the day it was sent; after that
 `app_event` adds what happened next, and nothing is edited. The career keeps moving, and an
@@ -129,20 +129,20 @@ different question:
 
 | Gate | Asks |
 |---|---|
-| Record | Does the selection name only live career entries, and does every number in a chosen bullet trace to a current metric? (`jsk resume check <stem>`) |
+| Record | Does the selection name only live career entries, and does every number in a chosen bullet trace to a current metric? (`resume_check(<stem>)`) |
 | Parse | Will an ATS read this without mangling it? |
 | Prose | Does the writing obey the rules? |
 | Render | Does it *look* right, and is it *true*? |
 
 *Why it matters:* passing one says nothing about the others. A checker verifies that a document
 parses, not that it is correct — see [WHY.md](WHY.md) for the three real resumes that prove it.
-`jsk resume ship` runs the first three in one pass; the render gate is always a person reading the PDF.
+`resume_ship` runs the first three in one pass; the render gate is always a person reading the PDF.
 
-**Record gate** — `jsk resume check` on a target, over its selection and the career bullets it selects: the
+**Record gate** — `resume_check` on a target, over its selection and the career bullets it selects: the
 selection's shape; an id the career does not hold, has retired, or a bullet whose project has no role; a number
 no current version of a metric the bullet cites holds; a career that does not validate; and a
 career out of sync with its log - written outside jsk, restored from `.jsk/backup.trig`. It runs
-first inside `jsk resume check` on a directory, `jsk resume ship` and `app_freeze`.
+first inside `resume_check` on a directory, `resume_ship` and `app_freeze`.
 
 **Unverified** — what a resume is called until somebody has read every rendered page, and what it
 stays when no PDF renderer was available to produce one.

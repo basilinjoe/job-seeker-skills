@@ -1,8 +1,8 @@
 """Check a generated resume against the rules in references/writing-rules.md
 
-Usage: jsk resume check resume.pdf --only prose     (reads the .tex beside it)
-       jsk resume check resume.tex --only prose
-       jsk resume check resume.txt --only prose
+Usage: resume_check(resume.pdf, only="prose")     (reads the .tex beside it)
+       resume_check(resume.tex, only="prose")
+       resume_check(resume.txt, only="prose")
 
 Exit 0 = pass. Exit 1 = do not send this file. Exit 2 = usage error.
 No third-party dependencies.
@@ -21,7 +21,7 @@ from . import present
 
 
 def gate(args):
-    """The prose gate over the arguments alone, as `jsk resume check` runs it.
+    """The prose gate over the arguments alone, as the resume_check tool runs it.
 
     Args:
         args: the document.
@@ -41,7 +41,7 @@ def gate(args):
         print(docstring_usage(__doc__))
         return 0, None
     if not args:
-        print("usage: jsk resume check resume.tex | resume.txt --only prose")
+        print("usage: resume_check(resume.tex | resume.txt, only=\"prose\")")
         return 2, None
     path = args[0]
     if not os.path.exists(path):
@@ -77,7 +77,7 @@ def report(result):
 
 
 def main(argv):
-    """The prose gate (`jsk resume check --only prose`), as an exit code.
+    """The prose gate (the resume_check tool), as an exit code.
 
     Args:
         argv: the arguments alone.

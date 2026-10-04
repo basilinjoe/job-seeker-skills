@@ -1,7 +1,13 @@
 """Render one target's selection in every template, so the choice can be made by looking.
 
+This module is the entry point the `resume_preview` tool (jsk mcp) calls, through
+dispatch.call_gate as `preview_templates.py`. `jsk resume preview` was retired in 6.0
+(2026-10-04, docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 5): it exits 2 naming
+the tool.
+
 Usage:
-  jsk resume preview <stem>|resumes/<name> --out DIR [--region CC]
+  resume_preview(target, out)
+  as arguments: <stem>|resumes/<name> --out DIR [--region CC]
                                     [--ats-max] [--only NAME,NAME]
 
 Writes DIR/<template>.tex and DIR/<template>.pdf, plus DIR/<template>.png of the
@@ -33,7 +39,7 @@ from .render import arg
 
 
 def main(argv):
-    """`jsk resume preview`: every template rendered, compiled and listed with its page count.
+    """The resume_preview entry point: every template rendered, compiled and listed with its page count.
 
     Args:
         argv: the whole argv, the program name first.
@@ -53,12 +59,12 @@ def main(argv):
 
     if is_resume_json(src):
         print("\n".join(resume_json_refusal(
-            "jsk resume preview <resume.json>",
-            "jsk resume preview <stem> --out DIR (or resumes/<name>) - the target's stored "
+            "resume_preview(<resume.json>, out)",
+            "resume_preview(<stem>, out=DIR) (or resumes/<name>) - the target's stored "
             "selection")))
         return 2
 
-    # A target names its selection graph, as `jsk resume render` reads one (P2 of
+    # A target names its selection graph, as the resume_render tool reads one (P2 of
     # docs/superpowers/plans/2026-10-03-retire-file-pipeline.md); no file is there to find.
     src = ref_for(src, dirs=True) or src
     if not parse_ref(src):

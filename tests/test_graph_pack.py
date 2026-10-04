@@ -1,10 +1,8 @@
-"""`jsk kb pack capabilities`: the starter pack, and the changeset that adopts it.
+"""The career_pack tool (the kb adapter's `pack capabilities`): the starter pack, and the changeset that adopts it.
 
 The pack ships to everyone, like the vocabulary, but it is judgement, so it is never
 loaded as vocabulary: it reaches a record only as a changeset the person applies.
 """
-import contextlib
-import io
 import shutil
 import tempfile
 import unittest
@@ -14,7 +12,6 @@ import storekit
 from test_graph_shapes import FIXTURES
 
 import jsk
-from jsk import cli
 from jsk.infra.oxigraph import codec
 from jsk.infra import files
 from jsk.domain import ontology as O
@@ -44,7 +41,8 @@ def edit_career(case, root, old, new):
 
 
 class Fixture(unittest.TestCase):
-    """A copy of the fixture workspace, and `jsk kb` run on it."""
+    """A copy of the fixture workspace, and the kb adapter run on it as the career_check and
+    career_pack tools run it."""
 
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -59,10 +57,9 @@ class Fixture(unittest.TestCase):
         return Path(self.root) / name
 
     def kb(self, *args):
-        out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = cli.main(["jsk", "kb", *args, "--root", self.root])
-        return code, out.getvalue(), err.getvalue()
+        import recordkit
+
+        return recordkit.kb_verb(self.root, *args)
 
     def apply(self, path, dry_run=False):
         """career_apply (career_preview with `dry_run`) on the changeset file at `path`, as

@@ -9,7 +9,6 @@ S8Draft and MatchAsks, each now a short file over an edited career (tests/career
 """
 import contextlib
 import datetime
-import io
 import json
 import tempfile
 import unittest
@@ -327,18 +326,21 @@ class MatchAsks(unittest.TestCase):
         self.assertEqual(M.record_faults(careerkit.store(root), self.POST, TODAY, 3), [])
 
 
-def run_cli(*args):
-    from jsk import cli
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        code = cli.main(["jsk", *map(str, args)])
-    return code, buf.getvalue()
+def run_tool(tool, root, *args):
+    """(exit code, output) of the entry point a resume tool calls, inside the workspace `root`."""
+    from shipkit import tool_run
+    return tool_run(root, tool, *args)
+
+
+def root_of(path):
+    """The workspace root of a target's selection path, `<root>/resumes/test/resume`."""
+    return Path(path).parent.parent.parent
 
 
 class Validate(GateCase):
     def test_a_clean_short_file_passes(self):
         _, path = self.workspace()
-        code, out = run_cli("resume", "check", path)
+        code, out = run_tool("resume_check", root_of(path), path)
         self.assertEqual(code, 0, out)
         self.assertIn("checking: resumes/test/resume   against: career/store/ r1", out)
         self.assertIn("FAIL 0   WARN 0", out)
@@ -346,7 +348,7 @@ class Validate(GateCase):
 
     def test_a_failing_one_says_do_not_render(self):
         _, path = self.workspace([careerkit.RETIRE], short(MERIDIAN + ["ach_events_terraform"]))
-        code, out = run_cli("resume", "check", path)
+        code, out = run_tool("resume_check", root_of(path), path)
         self.assertEqual(code, 1, out)
         self.assertIn("FAIL 1   WARN 0", out)
         self.assertIn("  FAIL  bullets: ach_events_terraform was retired", out)
@@ -358,10 +360,10 @@ class Validate(GateCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp, "resume.json")
             path.write_text(json.dumps(short()), encoding="utf-8")
-            code, out = run_cli("resume", "check", path)
+            code, out = run_tool("resume_check", tmp, path)
         self.assertEqual(code, 2, out)
         self.assertIn("was retired in 6.0", out)
-        self.assertIn("jsk resume check <stem>", out)
+        self.assertIn("resume_check(<stem>)", out)
         self.assertNotIn("Traceback", out)
 
     def test_a_store_that_will_not_open_is_refused_with_the_fix(self):
@@ -373,7 +375,7 @@ class Validate(GateCase):
         shutil.rmtree(os.path.join(root, db.STORE_DIR))
         os.makedirs(os.path.join(root, db.STORE_DIR))
         Path(root, db.STORE_DIR, "CURRENT").write_text("garbage\n", encoding="utf-8")
-        code, out = run_cli("resume", "check", path)
+        code, out = run_tool("resume_check", root, path)
         self.assertEqual(code, 2, out)
         self.assertIn("career/store/ could not be opened", out)
         self.assertIn("fix:", out)
@@ -381,15 +383,16 @@ class Validate(GateCase):
 
     def test_view_is_a_usage_error(self):
         _, path = self.workspace()
-        code, out = run_cli("resume", "check", path, "--view", "view_x")
+        code, out = run_tool("resume_check", root_of(path), path, "--view", "view_x")
         self.assertEqual(code, 2, out)
         self.assertIn("a resume.json is one resume", out)
 
     def test_strict_counts_a_warn_as_a_fail(self):
         _, path = self.workspace(doc=short(summary={"text": "Engineer [TBD].",
                                                     "status": "inferred"}))
-        self.assertEqual(run_cli("resume", "check", path)[0], 0)
-        self.assertEqual(run_cli("resume", "check", path, "--strict")[0], 1)
+        root = root_of(path)
+        self.assertEqual(run_tool("resume_check", root, path)[0], 0)
+        self.assertEqual(run_tool("resume_check", root, path, "--strict")[0], 1)
 
 
 class Ship(GateCase):
@@ -402,7 +405,7 @@ class Ship(GateCase):
         patch = (mock.patch.object(render, "compile_pdf", fake_compile()) if fake
                  else contextlib.nullcontext())
         with patch:
-            code, text = run_cli("resume", "ship", path, *extra)
+            code, text = run_tool("resume_ship", root_of(path), path, *extra)
         return code, text, out
 
     def heads(self, text):
@@ -446,10 +449,10 @@ class Ship(GateCase):
 
 
 class Gates(GateCase):
-    def test_jsk_gates_runs_the_record_gate_and_no_claims_gate(self):
+    def test_a_directory_check_runs_the_record_gate_and_no_claims_gate(self):
         _, path = self.workspace()
         Path(path).parent.mkdir(parents=True)       # the target's directory, as a render left it
-        code, out = run_cli("resume", "check", Path(path).parent)
+        code, out = run_tool("resume_check", root_of(path), Path(path).parent)
         heads = [line[4:].split(":")[0] for line in out.splitlines() if line.startswith("--- ")]
         self.assertEqual(heads[0], "record gate", out)
         self.assertNotIn("claims gate", heads)

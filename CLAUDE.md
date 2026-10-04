@@ -93,22 +93,26 @@ that writes the career; no agent has `career_confirm`). The plan is
 each exits 2 naming its replacement - the two nouns through `adapters/cli/main.py`'s `RETIRED`, each `resume.json`
 form by its own verb's adapter (`application/guards.resume_json_refusal`). A frozen file-made application stays
 readable - `domain/record/advert_rules.py` checks its quotes against its `posting.md` - and an unsent one is named by
-`jsk kb check`, `app_list` and `jsk doctor` (`application/timeline/unsent.py`).
+`career_check`, `app_list` and `jsk doctor` (`application/timeline/unsent.py`).
 
 **One write gate for the record.** Every career change goes through the `career_apply` and `career_confirm`
 tools (`jsk mcp`; 6.0 retired `jsk kb apply` and `confirm`), over one validate → write → log path. Writes land in
 `infra/oxigraph/record.py` and storage is in `infra/oxigraph/db.py`.
 `tests/test_db.py` fails if a second module opens or writes the store. New claims always arrive `j:inferred`, and only
-`career_confirm` with the person's answer can raise them. `jsk kb pack` and `merge` draft changesets that are
-applied by passing their text to `career_preview`, then `career_apply`.
+`career_confirm` with the person's answer can raise them. `career_pack` and `career_merge` draft changesets
+(they write nothing) that are applied by passing their text to `career_preview`, then `career_apply`.
 
 **The format lives in two places.** `src/jsk/domain/ontology.py` *is* the record format. Its prose is in
 `plugins/jsk/skills/jsk/references/kb-format.md` and `docs/ONTOLOGY.md`. A class or predicate that appears in one and
 not the others is a defect.
 
-**CLI dispatch is in-process.** `adapters/cli/main.py` holds the noun table, and `adapters/cli/dispatch.py`'s
-`ADAPTERS` maps each verb to its adapter's `main()`. So `jsk resume ship` runs every gate (record, then render, then
-parse, prose and layout) in one interpreter.
+**The CLI keeps five commands.** Everything else is a tool of `jsk mcp` (6.0;
+`docs/superpowers/plans/2026-10-04-mcp-first.md`), and its old command exits 2 naming the tool. What stays is
+`jsk doctor`, `jsk kb new`, `jsk kb load`, `jsk kb dump` and `jsk mcp`, because each has to work when the server
+cannot start or no session is running. Dispatch is in-process: `adapters/cli/main.py` holds the noun table, and
+`adapters/cli/dispatch.py`'s `ADAPTERS` maps each verb to its adapter's `main()`. A tool reaches the same entry
+points through `adapters/mcp/captured.py`, so the `resume_ship` tool runs every gate (record, then render, then
+parse, prose and layout) in one interpreter, and a verdict line is the text the tests pin, word for word.
 
 ## Conventions
 

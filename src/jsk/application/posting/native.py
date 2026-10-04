@@ -6,7 +6,7 @@ application is graph-native when its posting graph holds `j:AdvertLine`s, and le
 its posting was built from files (a posting graph without lines, or a posting.md on disk).
 No application is both. The use cases here refuse a legacy one with Ruling 5's fix of
 docs/superpowers/plans/2026-10-03-retire-file-pipeline.md - jsk 6.0 retired the file verbs,
-so the fix names the release that still finishes one, or `jsk app drop`.
+so the fix names the release that still finishes one, or the app_drop tool.
 Ruling 12: the application is `applications/<stem>`, and nothing here creates its
 directory - the first render does.
 

@@ -1,8 +1,8 @@
-"""`jsk resume ship`: its flags and refusals, the ship run (application/ship.py), every step said.
+"""The resume_ship tool: its flags and refusals, the ship run (application/ship.py), every step said.
 
-Each step's output is what its own command prints - the record gate's, `jsk resume render`'s,
-`jsk resume fit`'s, each gate's - captured as it runs, and the summary and --json are what
-`jsk resume check` prints over its steps.
+Each step's output is what its own command prints - the record gate's, the resume_render tool's,
+the resume_fit tool's, each gate's - captured as it runs, and the summary and --json are what
+the resume_check tool prints over its steps.
 
 A target - `<stem>` or `resumes/<name>` - ships from its selection graph into its own
 directory, with no --out (compose.selection.ref_for reads the positional). A resume.json was
@@ -16,8 +16,8 @@ import os
 
 from .cliutil import parse_flags, wants_help
 
-SHIP_USAGE = ("usage: jsk resume ship <stem>|resumes/<name> [--ats-max] [--template N] "
-              "[--pages N] [--no-fit] [--json]")
+SHIP_USAGE = ("usage: resume_ship(<stem>|resumes/<name>, ats_max=False, template=N, pages=N, "
+              "fit=True)")
 
 SHIP_VALUE_FLAGS = ("--out", "--template", "--pages")
 
@@ -115,7 +115,7 @@ def held(script, call, args):
     Returns:
         (exit code, everything it printed, its result or None).
     """
-    from .dispatch import COMMANDS
+    from .dispatch import rerun_hint
 
     buf = io.StringIO()
     try:
@@ -130,13 +130,12 @@ def held(script, call, args):
         # a traceback where a verdict belongs.
         return 2, buf.getvalue() + (
             f"FAIL  {script} raised {type(exc).__name__}: {exc}\n"
-            f"fix:  run it directly to see the whole story - "
-            f"{COMMANDS[script]} {' '.join(str(a) for a in args)}\n"), None
+            f"{rerun_hint(script, args)}\n"), None
     return (code if isinstance(code, int) else 0), buf.getvalue(), result
 
 
 def render(args):
-    """`jsk resume render` over `args`, with compose.render's TeX engine.
+    """The resume_render entry point over `args`, with compose.render's TeX engine.
 
     Returns:
         (exit code, its output, the RenderResult or None).
@@ -149,7 +148,7 @@ def render(args):
 
 
 def fit(args):
-    """`jsk resume fit` over `args`, with compose.fit's TeX engine.
+    """The resume_fit entry point over `args`, with compose.fit's TeX engine.
 
     Returns:
         (exit code, its output, the FitResult or None).
@@ -161,7 +160,7 @@ def fit(args):
 
 
 def main(args):
-    """`jsk resume ship`: record gate, render, fit, mechanical gates - one process.
+    """The resume_ship tool: record gate, render, fit, mechanical gates - one process.
 
     Args:
         args: the arguments after `ship`.

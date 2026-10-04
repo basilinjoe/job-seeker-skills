@@ -574,7 +574,7 @@ A posting is graph-native when its graph holds `AdvertLine`s. `quote-verbatim` a
 `advert-uncovered` read those lines, and skip a `draft` posting, which may be half-decided. For a
 file-built posting they read `posting.md` and `decisions.txt` beside it - only once its
 application is frozen (Ruling 2 of `docs/superpowers/plans/2026-10-03-retire-file-pipeline.md`):
-an unsent one is not judged, and `jsk kb check` names it `file-made-unsent` instead.
+an unsent one is not judged, and `career_check` names it `file-made-unsent` instead.
 
 #### AdvertLine
 
@@ -904,7 +904,7 @@ Concepts are the terms that postings and the career are matched on.
 |---|---|---|
 | `src/jsk/data/vocabulary.ttl` (shipped) | **Technologies only**, with their labels, former names, and `isA`/`partOf`/`distinct` edges among themselves | The package; updated by releases |
 | the career's Vocabulary | The person's capabilities and domains, their own technologies, extra labels and edges on shipped concepts, and any narrowing | The person |
-| `src/jsk/data/capabilities.ttl` (pack) | About 110 capabilities and domains, with posting wordings and edges that hold for anyone | Nobody until applied. It is never loaded. `jsk kb pack capabilities` drafts it as a changeset. |
+| `src/jsk/data/capabilities.ttl` (pack) | About 110 capabilities and domains, with posting wordings and edges that hold for anyone | Nobody until applied. It is never loaded. `career_pack(pack="capabilities")` drafts it as a changeset. |
 
 The shipped vocabulary is restricted to technologies (`shipped-vocabulary`) for a reason. A
 technology alias is close to a fact: K8s is Kubernetes. A capability edge is a judgement, and
@@ -1222,7 +1222,7 @@ left, once it finishes; there is no retry, and a changeset whose ids that write 
 
 | State | Meaning |
 |---|---|
-| clean | the career's revision is the log's last. `jsk kb check` also asks that the career is what the newest entry hashed (`kbSha256`), and FAILs one written outside jsk |
+| clean | the career's revision is the log's last. `career_check` also asks that the career is what the newest entry hashed (`kbSha256`), and FAILs one written outside jsk |
 | out-of-sync | they differ: something outside jsk wrote the store - `jsk kb load .jsk/backup.trig` into a new workspace restores the last write jsk made |
 | missing | no career yet - no `career/store/`, or an empty one: `jsk kb new`, or `jsk kb load` to import a workspace or a dump |
 

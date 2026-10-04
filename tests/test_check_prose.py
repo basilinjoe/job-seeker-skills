@@ -311,10 +311,10 @@ class MalformedInput(ProseCase):
         """`python -m jsk.gates.check_prose --help` read --help as a path and printed
         "file not found: --help" with the usage-error exit."""
         for flag in ("--help", "-h"):
-            code, out = run(PROSE_GATE, flag)
+            code, out = gate("check_prose.py", flag)
             self.assertEqual(code, 0, out)
             self.assertNotIn("file not found", out)
-            self.assertIn("jsk resume check", out)
+            self.assertIn("resume_check(", out)
             self.assertNotIn("The sibling gate", out)
 
     def test_missing_file_reports_a_verdict(self):

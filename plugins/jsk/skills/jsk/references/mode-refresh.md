@@ -6,11 +6,8 @@ A periodic pass so nobody has to reconstruct two years from memory.
 
 If they named a period, cover that. Otherwise start from the record's own state:
 
-```bash
-jsk kb check                  # the record is clean, and at which revision
 ```
-
-```
+career_check()                    # the record is clean, and at which revision
 career_query(name="open")         # questions not yet answered, oldest first
 career_query(name="unconfirmed")  # what is still inferred, with the question on each
 career_query(name="stale")        # applications that sent a number since revised
@@ -62,8 +59,8 @@ One changeset for the session, `career_show(ids)` first for the `op:base`, then 
 | a job that ended | `op:set` `j:end` and `j:state j:ended` on that role |
 | work being dropped | `op:retire` it with a `j:reason` — **never delete it** |
 | a new capability term | `op:add` it under the vocabulary, in the same changeset that first uses it |
-| `concepts-bare` in `jsk kb check` | `jsk kb pack capabilities --out pack.trig`, then its text through `career_preview` and `career_apply`; then label the top of `career_query(name="bare")` |
-| two concepts that are one | re-point any unfrozen posting's `c:a` to `c:b` first (`posting_decide` on its row; `jsk app drop` an unsent one made from files), or `c:a` is only retired; `jsk kb merge c:a --into c:b --out merge.trig`, then its text through `career_preview` and `career_apply`; confirm the bullets it lists |
+| `concepts-bare` in `career_check` | `career_pack(pack="capabilities")`, then its `changeset` through `career_preview` and `career_apply`; then label the top of `career_query(name="bare")` |
+| two concepts that are one | re-point any unfrozen posting's `c:a` to `c:b` first (`posting_decide` on its row; `app_drop` an unsent one made from files, once the person agrees), or `c:a` is only retired; `career_merge(concept="c:a", into="c:b")`, then its `changeset` through `career_preview` and `career_apply`; confirm the bullets it lists |
 
 A changed claim comes back `inferred` with a question, by itself — a number updated from memory is
 not re-confirmed. **Ask, then `career_confirm(ids=[...], answer="…")`.** An answered question closes

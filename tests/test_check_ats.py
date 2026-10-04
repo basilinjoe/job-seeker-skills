@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 from fixtures import (CHECK_ATS, CLEAN_RESUME, PARSE_GATE, RENDER, build_pdf,
-                      build_text, example_pdf, example_short, load_script, one_test_each,
+                      build_text, example_pdf, example_short, gate, load_script, one_test_each,
                       render_module, resume_with, run)
 
 tex = render_module("infra.tex")
@@ -179,11 +179,11 @@ class MalformedInput(CheckATSCase):
         """`python -m jsk.gates.check_ats --help` read --help as a path and printed
         "file not found: --help" with the usage-error exit."""
         for flag in ("--help", "-h"):
-            code, out = run(PARSE_GATE, flag)
+            code, out = gate("check_ats.py", flag)
             self.assertEqual(code, 0, out)
             self.assertNotIn("file not found", out)
             self.assertIn("--strict", out)
-            self.assertIn("jsk resume check", out)
+            self.assertIn("resume_check(", out)
 
     def test_the_docx_is_no_longer_accepted(self):
         """It was the deliverable; it is not one any more, and a gate that
@@ -435,9 +435,9 @@ class TheVariantIsInTheMetadata(CheckATSCase):
 
 
 class InProcessEntryPoint(CheckATSCase):
-    """`jsk gates` calls main() instead of spawning a fifth interpreter to do it.
+    """The resume_check tool calls main() instead of spawning a fifth interpreter to do it.
 
-    `jsk resume check --only parse` is the command that runs it, so the two forms must not
+    resume_check(only="parse") is the tool call that runs it, so the two forms must not
     be able to disagree. These compare them on the same file rather than asserting
     anything about either alone: the same exit code, and the gate's output whole inside
     the command's.

@@ -1,4 +1,4 @@
-"""`jsk resume check`, by target kind: a target's selection, a render, a directory. A
+"""The resume_check tool, by target kind: a target's selection, a render, a directory. A
 resume.json was the record kind until 6.0 read none (docs/superpowers/plans/
 2026-10-03-retire-file-pipeline.md, P2): one named is told the target form.
 
@@ -15,13 +15,10 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from fixtures import (CLI, CLEAN_RESUME, example_short, SCRIPTS, build_pdf, build_text, gate,
-                      load_script, resume_with, run)
+from fixtures import (CLEAN_RESUME, RECORD_GATE, example_short, SCRIPTS, build_pdf, build_text,
+                      gate, load_script, resume_with, run)
 from shipkit import CONTACTED, GraphCase
 from shipkit import GOOD as SHIPPABLE
-
-
-JSK = CLI
 
 
 # The summary and, in GatesCase, the person's email and phone: the parse gate's strict pass
@@ -35,7 +32,7 @@ BODY = "Cut order-processing latency 62 percent by decomposing a monolithic serv
 
 
 class ValidateRouting(unittest.TestCase):
-    """`jsk validate` checks one thing - the short resume.json - and every other target
+    """The resume_check tool checks one thing - the short resume.json - and every other target
     it is handed has to be refused by name.
 
     It used to dispatch between a bundle and a record. There is no bundle now, so the
@@ -49,7 +46,7 @@ class ValidateRouting(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def test_json_routes_to_the_record_validator(self):
-        code, out = run(JSK, "resume", "check", example_short())
+        code, out = run(RECORD_GATE, example_short())
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)
 
@@ -58,37 +55,37 @@ class ValidateRouting(unittest.TestCase):
         "level 2 confirmed"; placed first, its value was taken for the file."""
         for argv in ([example_short(), "--level", "2"], ["--level", "2", example_short()]):
             with self.subTest(argv=argv):
-                code, out = run(JSK, "resume", "check", *argv)
+                code, out = run(RECORD_GATE, *argv)
                 self.assertEqual(code, 2, out)
                 self.assertIn("--level", out)
 
     def test_flags_are_forwarded_unchanged(self):
         """--strict is the underlying script's flag; the dispatcher must not eat it."""
-        code, out = run(JSK, "resume", "check", example_short(), "--strict")
+        code, out = run(RECORD_GATE, example_short(), "--strict")
         self.assertIn("checking:", out)
         # The script's own refusal, naming the flag: it reached the record gate
         # rather than being dropped on the way.
-        code2, out2 = run(JSK, "resume", "check", example_short(), "--nonsense-flag")
+        code2, out2 = run(RECORD_GATE, example_short(), "--nonsense-flag")
         self.assertEqual(code2, 2, out2)
         self.assertIn("unknown flag: --nonsense-flag", out2)
 
     def test_a_resume_json_is_told_the_target_form(self):
-        code, out = run(JSK, "resume", "check", self.tmp / "nope.json")
+        code, out = run(RECORD_GATE, self.tmp / "nope.json")
         self.assertEqual(code, 2, out)
-        self.assertIn("jsk resume check <resume.json> was retired in 6.0", out)
-        self.assertIn("fix:  jsk resume check <stem>", out)
+        self.assertIn("resume_check(<resume.json>) was retired in 6.0", out)
+        self.assertIn("fix:  resume_check(<stem>)", out)
 
     def test_unvalidatable_target_says_what_it_wanted(self):
         stray = self.tmp / "notes.json"
         stray.write_text("not a record", encoding="utf-8")
-        code, out = run(JSK, "resume", "check", stray)
+        code, out = run(RECORD_GATE, stray)
         self.assertEqual(code, 2, out)
         self.assertIn("fix:", out)
 
     def test_a_directory_is_a_render_s_directory(self):
-        """`jsk resume check` picks its gates from its target: a directory gets all four
-        (today's `jsk gates`), and an empty one says that none of them ran."""
-        code, out = run(JSK, "resume", "check", self.tmp)
+        """The resume_check tool picks its gates from its target: a directory gets all four,
+        and an empty one says that none of them ran."""
+        code, out = run(RECORD_GATE, self.tmp)
         self.assertEqual(code, 1, out)
         self.assertIn("--- record gate", out)
         self.assertIn("pass --record <stem>", out)
@@ -96,29 +93,29 @@ class ValidateRouting(unittest.TestCase):
     def test_the_knowledge_base_is_refused_and_says_what_is_checked_instead(self):
         kb = self.tmp / "user-knowledgebase.md"
         kb.write_text("# Career knowledge base", encoding="utf-8")
-        code, out = run(JSK, "resume", "check", kb)
+        code, out = run(RECORD_GATE, kb)
         self.assertEqual(code, 2, out)
         self.assertIn("name the target", out)
-        # The career is the record `jsk kb check` validates, not a Markdown file.
+        # The career is the record the career_check tool validates, not a Markdown file.
         self.assertNotIn("jsk migrate", out)
-        self.assertIn("jsk kb check", out)
+        self.assertIn("career_check tool", out)
 
     def test_the_graph_record_is_refused_and_pointed_at_kb_check(self):
         kb = self.tmp / "kb.ttl"
         kb.write_text("k:kb j:format 3 .", encoding="utf-8")
-        code, out = run(JSK, "resume", "check", kb)
+        code, out = run(RECORD_GATE, kb)
         self.assertEqual(code, 2, out)
-        self.assertIn("jsk kb check", out)
+        self.assertIn("career_check tool", out)
         self.assertIn("name the target", out)
 
     def test_validate_with_no_target(self):
-        code, out = run(JSK, "resume", "check")
+        code, out = run(RECORD_GATE)
         self.assertEqual(code, 2, out)
         self.assertIn("usage:", out)
 
 
 class Check(unittest.TestCase):
-    """`jsk check` runs both document gates on one file. It must run both even when
+    """A document check runs both document gates on one file. It must run both even when
     the first fails - a document with parse problems can have prose problems too, and
     seeing them in one pass is the whole point."""
 
@@ -128,53 +125,53 @@ class Check(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def document(self, paragraphs=None, name="resume.txt"):
-        """The .txt: the one artefact both gates read, so `jsk check` can still
+        """The .txt: the one artefact both gates read, so the resume_check tool can still
         run them in a single pass now that check_ats.py reads the PDF and
         check_prose.py reads the .tex."""
         return build_text(self.tmp / name,
                           CLEAN_RESUME if paragraphs is None else paragraphs)
 
     def test_clean_resume_passes_both_gates(self):
-        code, out = run(JSK, "resume", "check", self.document())
+        code, out = run(RECORD_GATE, self.document())
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to send", out)
         self.assertIn("PASS - prose rules satisfied", out)
 
     def test_both_gates_are_labelled(self):
-        code, out = run(JSK, "resume", "check", self.document())
+        code, out = run(RECORD_GATE, self.document())
         del code
         self.assertIn("parse gate", out)
         self.assertIn("prose gate", out)
 
     def test_a_failing_gate_propagates_its_exit_code(self):
         bad = self.document(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
-        code, out = run(JSK, "resume", "check", bad)
+        code, out = run(RECORD_GATE, bad)
         self.assertEqual(code, 1, out)
         self.assertIn("DO NOT SEND", out)
 
     def test_the_second_gate_still_runs_after_the_first_fails(self):
         bad = self.document(resume_with((BODY, "Scaled the platform to [NUMBER] tenants.")))
-        code, out = run(JSK, "resume", "check", bad)
+        code, out = run(RECORD_GATE, bad)
         del code
         self.assertIn("prose gate", out)
 
     def test_passing_both_does_not_imply_the_other_two_gates(self):
         """SKILL.md: "passing one says nothing about the others". A clean parse and
         prose result must not read as a finished resume."""
-        code, out = run(JSK, "resume", "check", self.document())
+        code, out = run(RECORD_GATE, self.document())
         del code
         # It named `<record>.json` until 6.0, which reads no resume.json: the record is a
         # target's selection.
-        self.assertIn("jsk resume check <stem>", out)
+        self.assertIn("resume_check(<stem>)", out)
         self.assertIn("PDF", out)
 
     def test_strict_reaches_the_parse_gate(self):
-        code, out = run(JSK, "resume", "check", self.document(), "--strict")
+        code, out = run(RECORD_GATE, self.document(), "--strict")
         del code
         self.assertIn("--strict", out)
 
     def test_check_with_no_target(self):
-        code, out = run(JSK, "resume", "check")
+        code, out = run(RECORD_GATE)
         self.assertEqual(code, 2, out)
         self.assertIn("usage:", out)
 
@@ -198,63 +195,56 @@ class CheckOnly(unittest.TestCase):
                           CLEAN_RESUME if paragraphs is None else paragraphs)
 
     def test_only_prose_does_not_run_the_parse_gate(self):
-        code, out = run(JSK, "resume", "check", self.document(), "--only", "prose")
+        code, out = run(RECORD_GATE, self.document(), "--only", "prose")
         self.assertEqual(code, 0, out)
         self.assertIn("prose gate", out)
         self.assertNotIn("parse gate", out)
 
     def test_only_parse_does_not_run_the_prose_gate(self):
-        code, out = run(JSK, "resume", "check", self.document(), "--only", "parse")
+        code, out = run(RECORD_GATE, self.document(), "--only", "parse")
         del code
         self.assertIn("parse gate", out)
         self.assertNotIn("prose gate", out)
 
     def test_only_parse_still_forwards_strict(self):
-        code, out = run(JSK, "resume", "check", self.document(), "--only", "parse", "--strict")
+        code, out = run(RECORD_GATE, self.document(), "--only", "parse", "--strict")
         del code
         self.assertIn("--strict", out)
 
     def test_one_gate_passing_never_reads_as_both(self):
-        """The load-bearing assertion. `jsk check` closes with "Both document gates
+        """The load-bearing assertion. the document check closes with "Both document gates
         passed", and printing that after running one would be the false green the
         wording exists to prevent."""
-        code, out = run(JSK, "resume", "check", self.document(), "--only", "prose")
+        code, out = run(RECORD_GATE, self.document(), "--only", "prose")
         self.assertEqual(code, 0, out)
         self.assertNotIn("Both document gates passed", out)
         self.assertIn("Three gates did not run", out)
         self.assertIn("the other document gate", out)
 
     def test_an_unknown_gate_is_refused_by_name(self):
-        code, out = run(JSK, "resume", "check", self.document(), "--only", "bogus")
+        code, out = run(RECORD_GATE, self.document(), "--only", "bogus")
         self.assertEqual(code, 2, out)
         self.assertIn("bogus", out)
         self.assertIn("parse, prose", out)
 
     def test_only_with_no_value_is_refused(self):
-        code, out = run(JSK, "resume", "check", self.document(), "--only")
+        code, out = run(RECORD_GATE, self.document(), "--only")
         self.assertEqual(code, 2, out)
         self.assertIn("--only needs a value", out)
 
     def test_the_flag_may_precede_the_file(self):
         """`--only prose resume.txt` has to work: the target is found after the flag
         and its value are removed, not by position in the raw argv."""
-        code, out = run(JSK, "resume", "check", "--only", "prose", self.document())
+        code, out = run(RECORD_GATE, "--only", "prose", self.document())
         self.assertEqual(code, 0, out)
         self.assertIn("prose gate", out)
-
-    def test_the_help_names_the_flag(self):
-        """A flag the skill cannot discover is a flag the skill will not use - the
-        mode files read `jsk --help` for the surface."""
-        code, out = run(JSK, "--help")
-        del code
-        self.assertIn("--only parse|prose", out)
 
 
 TEX_PREAMBLE = "\\documentclass{article}\n\\begin{document}\n"
 
 
 class GatesCase(unittest.TestCase):
-    """A record and a directory of rendered files, the two things `jsk gates` reads.
+    """A record and a directory of rendered files, the two things the resume_check tool reads on a directory.
 
     The record is written OUTSIDE the render directory here, and named with --record,
     so that every test below is explicit about which one it is checking. The
@@ -303,7 +293,7 @@ class GatesCase(unittest.TestCase):
             encoding="utf-8")
 
     def gates(self, *args):
-        return run(JSK, "resume", "check", self.out, *args)
+        return run(RECORD_GATE, self.out, *args)
 
 
 class GatesAgreement(GatesCase):
@@ -338,7 +328,7 @@ class GatesAgreement(GatesCase):
         self.assertEqual(code, worst, combined)
         for name, out in outputs:
             self.assertIn(out.strip(), combined,
-                          f"{name} said something jsk gates did not repeat:\n{out}")
+                          f"{name} said something the resume_check tool did not repeat:\n{out}")
         return combined
 
     def test_a_clean_render_agrees(self):
@@ -357,7 +347,7 @@ class GatesAgreement(GatesCase):
         self.assertIn("DO NOT SEND", combined)
 
     def test_every_gate_still_runs_after_an_earlier_one_fails(self):
-        """`jsk check`'s rule, applied to five gates instead of two: a document with
+        """The document check's rule, applied to five gates instead of two: a document with
         a record defect can have prose defects too, and one pass should show them
         all."""
         self.break_record()
@@ -455,7 +445,7 @@ class GatesMissingInput(GatesCase):
 
 
 class GatesRenderGate(GatesCase):
-    """The gate jsk gates never runs. A command that exited 0 having quietly left it
+    """The gate the resume_check tool never runs. A command that exited 0 having quietly left it
     out would be the most dangerous thing in this file."""
 
     def test_a_clean_run_still_says_the_pdf_is_unread(self):
@@ -559,13 +549,13 @@ class GatesUsage(GatesCase):
         self.assertEqual(code, 2, out)
         self.assertIn("a resume.json is one resume", out)
 
-    def test_the_help_no_longer_offers_a_view(self):
-        code, out = run(JSK, "resume", "check", "--help")
+    def test_the_usage_no_longer_offers_a_view(self):
+        code, out = run(RECORD_GATE, "--help")
         self.assertEqual(code, 0, out)
         self.assertNotIn("--view", out)
 
     def test_an_out_directory_that_does_not_exist_is_a_call_error(self):
-        code, out = run(JSK, "resume", "check", self.tmp / "nowhere")
+        code, out = run(RECORD_GATE, self.tmp / "nowhere")
         self.assertEqual(code, 2, out)
         self.assertIn("fix:", out)
 
@@ -575,7 +565,7 @@ class GatesUsage(GatesCase):
         self.assertIn("usage:", out)
 
     def test_a_flag_left_without_its_value_is_a_call_error(self):
-        code, out = run(JSK, "resume", "check", self.out, "--pages")
+        code, out = run(RECORD_GATE, self.out, "--pages")
         self.assertEqual(code, 2, out)
         self.assertIn("needs a value", out)
 
@@ -586,7 +576,7 @@ class GatesUsage(GatesCase):
 
 
 class GatesEntryPoints(unittest.TestCase):
-    """jsk gates imports the checkers instead of spawning them, so their in-process
+    """The resume_check tool imports the checkers instead of spawning them, so their in-process
     entry points are part of the contract now, not an implementation detail."""
 
     def test_both_document_gates_take_their_arguments_and_return_a_code(self):
@@ -602,8 +592,8 @@ class GatesEntryPoints(unittest.TestCase):
 
 
 class Gates(GraphCase):
-    def test_jsk_gates_runs_the_record_gate_and_no_claims_gate(self):
-        code, out = self.jsk("resume", "check", self.app)
+    def test_a_directory_check_runs_the_record_gate_and_no_claims_gate(self):
+        code, out = self.tool("resume_check", self.app)
         heads = [line[4:].split(":")[0] for line in out.splitlines() if line.startswith("--- ")]
         self.assertEqual(heads[0], "record gate", out)
         self.assertNotIn("claims gate", heads)

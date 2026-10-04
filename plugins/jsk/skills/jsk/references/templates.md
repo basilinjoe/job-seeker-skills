@@ -1,7 +1,7 @@
 # Templates
 
-Five visual templates for the rendered PDF. `jsk resume render --template NAME` picks one;
-`jsk resume render --list-templates` prints them; `jsk resume preview <stem> --out DIR` renders all five from
+Five visual templates for the rendered PDF. `resume_render(template=NAME)` picks one;
+this file describes each; `resume_preview(target=<stem>, out=DIR)` renders all five from
 one selection, with page counts, so the choice is made by looking. A selection in the store is
 compared by shipping it with each `template` in turn.
 
@@ -72,7 +72,7 @@ failing.
 
 ## Templates and the fitter
 
-`jsk resume fit` shrinks the body copy and leaves the name and section heads at full size: display sizes are
+`resume_fit` shrinks the body copy and leaves the name and section heads at full size: display sizes are
 written unit-less (`\fontsize{24}{27}`) to stay outside the regex the body-size lever matches. The
 four density levers exist in every template as multiples of its rhythm unit.
 

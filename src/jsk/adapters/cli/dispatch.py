@@ -29,15 +29,36 @@ ADAPTERS = {
     "layout.py": "adapters.cli.gates.layout",
 }
 
-# The command each script answers to, for the hint that says how to run one by hand.
+# What answers for each script, for the hint that says how to run one again. The commands
+# that remain are named as commands; the rest went on 2026-10-04 and their tools are named
+# (docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 4), since a hint naming a retired
+# command would send the reader to an exit 2.
 COMMANDS = {
     "kb.py": "jsk kb new",
-    "kbcli.py": "jsk kb",
-    "render_resume.py": "jsk resume render",
-    "preview_templates.py": "jsk resume preview",
-    "fit_pages.py": "jsk resume fit",
+    "kbcli.py": "the career_check, career_pack or career_merge tool (jsk mcp)",
+    "render_resume.py": "the resume_render tool (jsk mcp)",
+    "preview_templates.py": "the resume_preview tool (jsk mcp)",
+    "fit_pages.py": "the resume_fit tool (jsk mcp)",
     "preflight.py": "jsk doctor",
 }
+
+
+def rerun_hint(script, args):
+    """The `fix:` line for a script that raised: how to run it again and see the whole story.
+
+    Args:
+        script: its documented script name.
+        args: its arguments, repeated after a command and left out after a tool, whose
+            arguments are named by the tool.
+
+    Returns:
+        One line, without its newline.
+    """
+    answers = COMMANDS.get(script, "jsk")
+    if answers.startswith("the "):
+        return f"fix:  call {answers} again with the same arguments to see the whole story"
+    shown = " ".join(str(a) for a in args)
+    return f"fix:  run it directly to see the whole story - {answers} {shown}"
 
 
 def module_for(script):
@@ -67,7 +88,7 @@ def run_in_process(script, args):
     one that raises where it should have returned a verdict.
 
     Not captured: the script writes to this stdout as it goes, so a heading printed
-    before the call is above the script's output and a long `jsk resume fit` still shows
+    before the call is above the script's output and a long resume_fit still shows
     its progress.
 
     Args:
@@ -128,8 +149,7 @@ def call_gate(script, args, argv0=None, capture=True):
         # down with it. Report it as its own failure and keep going.
         return 2, buf.getvalue() + (
             f"FAIL  {script} raised {type(exc).__name__}: {exc}\n"
-            f"fix:  run it directly to see the whole story - "
-            f"{COMMANDS.get(script, 'jsk')} {' '.join(str(a) for a in args)}\n")
+            f"{rerun_hint(script, args)}\n")
     return (code if isinstance(code, int) else 0), buf.getvalue()
 
 

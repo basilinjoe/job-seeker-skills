@@ -14,14 +14,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from fixtures import (CLEAN_RESUME, CLI, example_pdf, example_short, has_pymupdf,
+from fixtures import (CLEAN_RESUME, example_pdf, example_short, has_pymupdf,
                       one_test_each, render_module, run)
 from jsk.domain.gates import layout_rules
 from jsk.adapters.cli.gates import layout
 
 tex = render_module("infra.tex")
 themes = render_module("domain.render.themes")
-LAYOUT = ("jsk", "resume", "check", "--only", "layout")
+LAYOUT = ("resume_check", "--only", "layout")
 
 
 def pdf(path, pages, width=595.28, height=841.89):
@@ -190,12 +190,12 @@ class Paper(LayoutCase):
 
 class PageCount(LayoutCase):
     def test_over_budget_is_reported_never_failed(self):
-        """`jsk fit` owns that verdict; two places failing one count is how they start
+        """The resume_fit tool owns that verdict; two places failing one count is how they start
         disagreeing."""
         path = pdf(self.tmp / "r.pdf", [column(CLEAN_RESUME), column(["More."])])
         code, out = self.gate(path, "--region", "AU", "--pages", "1")
         self.assertEqual(code, 0, out)
-        self.assertIn("2 pages of a budget of 1 (reported; jsk resume fit owns that verdict)", out)
+        self.assertIn("2 pages of a budget of 1 (reported; the resume_fit tool owns that verdict)", out)
 
 
 @unittest.skipUnless(has_pymupdf(), "needs pymupdf to build the PDF")
@@ -209,7 +209,7 @@ class WithoutPymupdf(LayoutCase):
         self.assertTrue(buf.getvalue().startswith("SKIPPED"), buf.getvalue())
         self.assertIn("pip install pymupdf", buf.getvalue())
 
-    def test_jsk_gates_reports_it_skipped(self):
+    def test_a_directory_check_reports_it_skipped(self):
         from jsk import cli
         (self.tmp / "Jane_Resume.pdf").write_bytes(Path(pdf(self.tmp / "x.pdf",
                                                            [column(CLEAN_RESUME)])).read_bytes())
@@ -220,11 +220,10 @@ class WithoutPymupdf(LayoutCase):
 
 
 class CheckOnlyLayout(LayoutCase):
-    def test_jsk_check_runs_it_by_name_from_a_sibling(self):
+    def test_resume_check_runs_it_by_name_from_a_sibling(self):
         path = pdf(self.tmp / "Jane_Resume.pdf", [column(CLEAN_RESUME)])
         (self.tmp / "Jane_Resume.tex").write_text("", encoding="utf-8")
-        code, out = run(CLI, "resume", "check", Path(path).with_suffix(".tex"), "--only", "layout",
-                        "--region", "AU")
+        code, out = run(LAYOUT, Path(path).with_suffix(".tex"), "--region", "AU")
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - the layout holds", out)
 

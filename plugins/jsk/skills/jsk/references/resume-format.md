@@ -46,7 +46,7 @@ hand-set `confirmed`, or text changed since, fails. The headline likewise, `bloc
 `resume_select` with `from_match` sets it to the posting's title, and the person says whether they
 stand behind it.
 
-`jsk resume check <stem>|resumes/<name>` is the record gate: it fails the shape, an
+`resume_check(target=<stem>|resumes/<name>)` is the record gate: it fails the shape, an
 id the career does not hold or has retired, a bullet whose project has no role, a number in a
 bullet that no current version of a metric it cites holds, a career that does not validate, and
 one out of sync with its log (written outside jsk: restore it from `.jsk/backup.trig`); it warns

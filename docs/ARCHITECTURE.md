@@ -15,7 +15,7 @@ career/store/  (the graph record: named graphs in one RocksDB store, validated o
    |                     |  a selection graph (one per application or general resume: bullet
    |                     |  ids in order, skills, format, region, budgets, floor, a summary - no
    |                     |  copy of the career, resume.json's keys; `resume_select` writes it,
-   |                     |  `jsk resume check <stem>` gates it)
+   |                     |  `resume_check(<stem>)` gates it)
    v                     v
 domain/resume/plan.py builds the plan exactly once:
    selection, ordering, provenance filtering, region, ASCII folding, date formatting
@@ -45,7 +45,7 @@ shape `short.shape` and `plan.build` still take (Ruling 3). `references/resume-f
 key.
 
 The same argument applies one level up, which is why there is one rendered deliverable: the thing
-`jsk resume fit` measures is the thing that gets sent. A `.docx` measured through LibreOffice beside the
+`resume_fit` measures is the thing that gets sent. A `.docx` measured through LibreOffice beside the
 PDF once reported two pages for a resume that shipped as three.
 
 If you find yourself making a content decision inside an emitter, it belongs in the builder. If you
@@ -98,8 +98,8 @@ and the selection tools; no agent holds `career_confirm`. `tests/test_agent_gran
 Until 6.0 an application could also be made from files - `posting.md`, the analyst's
 `decisions.txt` and `gaps.txt`, a `resume.json` - through `jsk posting` and `jsk tailor`. 6.0
 retired that pipeline (`docs/superpowers/plans/2026-10-03-retire-file-pipeline.md`): each of its
-commands exits 2 naming the tool above, and an unsent file-made application is named by `jsk kb
-check`, `app_list` and `jsk doctor` with jsk 5.1.0 or `jsk app drop` as the fix. A frozen one stays
+commands exits 2 naming the tool above, and an unsent file-made application is named by
+`career_check`, `app_list` and `jsk doctor` with jsk 5.1.0 or `app_drop` as the fix. A frozen one stays
 readable: Ruling 2 keeps the read path that checks its quotes against the `posting.md` and
 `decisions.txt` beside it (`ports/advert.py`, `infra/adverts.py`,
 `domain/record/advert_rules.py`), for frozen postings only. The cost argument for writing no
@@ -109,29 +109,38 @@ ids and quotes copied character by character, which are exactly what the checks 
 ### The commands over it
 
 ```
+jsk doctor                                            what works on this machine
 jsk kb new         PATH --name NAME                   career/store/ with kb and log at r1, applications/
-jsk resume check   <stem>|resumes/<name>              the record gate - before anything renders
-jsk resume render  <stem> --pdf                       .tex, .pdf, into applications/<stem>/
-jsk resume check   D                                  record, parse, prose and layout gates over that render
-jsk resume ship    <stem>                             the gates above and the render, in order, in one process
-jsk app drop       D                                  an unsent application set aside
 jsk kb dump        [--out F.trig] | load SRC          the whole record as TriG; a dump or a .ttl workspace in
+jsk mcp                                               the tools below, over stdio
 ```
 
-The rest of the career's surface is `jsk mcp` tools, not commands (6.0, Ruling 1 of
-`docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md`): `career_view`, `career_show`,
-`career_query`, `career_log`, `career_preview`, `career_apply`, `career_confirm`, `app_freeze`,
-`app_event`, `letter_check` and `resume_select`. The verbs they replaced exit 2 naming them.
+These five are all that is left of the command line (6.0, Ruling 1 of
+`docs/superpowers/plans/2026-10-04-mcp-first.md`): each has to work when the server cannot start,
+or when no Claude session is running. `jsk doctor` diagnoses a missing `mcp` or pyoxigraph, which
+stops the server from starting; `jsk kb new` makes the workspace the server serves, at a path the
+person chooses; `jsk kb dump` and `load` are the backup and restore that need no plugin.
 
-`jsk resume ship <stem>|resumes/<name> [--ats-max] [--template N] [--pages N] [--no-fit] [--json]`
+Everything else is a `jsk mcp` tool, and the verb it replaced exits 2 naming it (`docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md`
+and `2026-10-04-mcp-first.md`): `career_view`, `career_show`, `career_query`, `career_log`,
+`career_preview`, `career_apply`, `career_confirm`, `career_check`, `career_pack`, `career_merge`,
+`resume_select`, `resume_update`, `resume_check`, `resume_render`, `resume_preview`, `resume_fit`,
+`resume_ship`, `letter_check`, `app_freeze`, `app_event` and `app_drop`, beside the posting and
+assessment tools. Each tool takes as named arguments the flags its command took, and carries the
+gate's verdict line, word for word, in `verdict`: tests pin that text. The argv entry points of the
+retired commands (`adapters/cli/{resume,render,preview,fit,drop}.py`, `kb/read.py`'s `cmd_check`,
+`kb/draft.py`) stay as internal API, called through `adapters/mcp/captured.py`, so no second
+reading of a flag can drift from the first.
+
+`resume_ship(target, ats_max, template, pages, fit)`
 is the path a finished resume takes. The record gate runs first, and a failure stops it: nothing renders, because
-a render of a resume that failed would be a document nobody should read. Then `render --pdf`; then,
-if the render is over its budget, `jsk resume fit`'s levers, the fitted `.tex` moved over the render's and
+a render of a resume that failed would be a document nobody should read. Then `resume_render` with `pdf`; then,
+if the render is over its budget, `resume_fit`'s levers, the fitted `.tex` moved over the render's and
 recompiled; then the parse, prose and layout gates over the output directory,
-each step's output printed verbatim. It exits 0 only if every step passed. It reports the measured
+each step's output printed verbatim. It answers `ok` only if every step passed. It reports the measured
 page count and never fails on it: a render still over at the floors keeps its unfitted form and says
 `over by ~N lines at the floors`, and what to cut is the author's call. It closes by saying the render gate is still open, because a person reading the
-PDF is the one gate no command can run. It refuses in a frozen application (the store holds its
+PDF is the one gate no tool can run. It refuses in a frozen application (the store holds its
 application graph): re-rendering would overwrite what was sent.
 
 `app_freeze(app, submitted, channel, docs)` is the last
@@ -143,13 +152,15 @@ writes its application graph; no log entry is added, since the log is the career
 No copy of the content is written: the PDF and `.tex` beside it are the words sent. After that the directory is
 an archive: later events are added with `app_event`, never edited.
 
-Every verb runs **in process**. The dispatcher, `adapters/cli/main.py`, finds the noun's verb in
+Every command and every tool runs **in process**. The dispatcher, `adapters/cli/main.py`, finds the noun's verb in
 its noun table and either calls the handler there or has `adapters/cli/dispatch.py` import the
 adapter behind it and call its `main()` with the same arguments, so the output and the exit code
-are the adapter's own and nothing is paraphrased on the way through. `dispatch.ADAPTERS` is the
+are the adapter's own and nothing is paraphrased on the way through. A tool does the same through
+`adapters/mcp/captured.py`, which runs a documented script name or an entry point inside the workspace and
+returns what it printed as the answer. `dispatch.ADAPTERS` is the
 one map from a verb's documented script name to the adapter that serves it, and
-`tests/fixtures.load_script` reads that map rather than keeping a second copy. One interpreter per invocation is what lets `jsk resume ship` be a single
-command rather than four start-ups; `call_gate()` turns the two failures an in-process call adds — a
+`tests/fixtures.load_script` reads that map rather than keeping a second copy. One interpreter per invocation is what lets `resume_ship` be a single
+call rather than four start-ups; `call_gate()` turns the two failures an in-process call adds — a
 module that will not import, and one that raises where it should have returned a verdict — into a
 reported failure instead of a traceback.
 
@@ -164,7 +175,7 @@ reported failure instead of a traceback.
 
 ### The render plan
 
-The one internal format, and what every emitter, `themes.py` and `jsk resume fit` read. A dict:
+The one internal format, and what every emitter, `themes.py` and `resume_fit` read. A dict:
 
 | key | holds |
 |---|---|
@@ -173,7 +184,7 @@ The one internal format, and what every emitter, `themes.py` and `jsk resume fit
 | `profile`, `region`, `pages` | the region profile's id, the region (paper size), the page budget |
 | `name`, `headline`, `header_lines` | the header, as finished strings |
 | `sections` | in the profile's order, each `{"kind", "heading", ...}`: `text` (`paragraphs`), `rows` (`rows` of `{label, items}`), `entries` (each `{org_line, org_right, roles: [{left, right, bullets}], lines, bullets}`), `lines` (`lines`); the declaration is a `lines` section with no heading |
-| `warnings` | withheld lines, brackets, a skills row cut at its limit - printed by `jsk resume render` as `warn` lines |
+| `warnings` | withheld lines, brackets, a skills row cut at its limit - printed by `resume_render` as `warn` lines |
 | `sent` | the `ach_` ids that rendered, in order - what `app_freeze` records as carried |
 
 Every string in it is final: folded to ASCII for `ats-maximal`, dates formatted, below-floor lines
@@ -182,7 +193,7 @@ emitters do not read is dead.
 
 ### The renderer, across the rings
 
-Everything after the plan, and the three commands that drive it.
+Everything after the plan, and the three tools that drive it.
 
 | Module | Decides |
 |---|---|
@@ -190,8 +201,8 @@ Everything after the plan, and the three commands that drive it.
 | `infra/profiles.py` | region profile loading |
 | `domain/render/emit_*.py` | markup only |
 | `domain/render/themes.py` | *appearance* only: palette, typeface, rhythm. Below `emit_latex.py`, and it cannot reach the text |
-| `application/render/` · `adapters/cli/{render,preview,fit}.py` | `jsk resume render`, `jsk resume preview`, `jsk resume fit`: the use cases orchestrate the modules above and decide nothing themselves; the adapters parse and print |
-| `adapters/cli/compose/{render,preview,fit}.py` | each command's TeX engine, bound where a test's patch of `compile_pdf` reaches it |
+| `application/render/` · `adapters/cli/{render,preview,fit}.py` | the entry points behind `resume_render`, `resume_preview` and `resume_fit`: the use cases orchestrate the modules above and decide nothing themselves; the adapters parse and print |
+| `adapters/cli/compose/{render,preview,fit}.py` | each entry point's TeX engine, bound where a test's patch of `compile_pdf` reaches it |
 
 The render reaches the career only through `compose.resume`, lazily. `formatting.py` holds
 pure functions over single values — no profile, no career — which is what makes them testable in
@@ -210,20 +221,20 @@ without the engine and `jsk doctor` can report on it.
 |---|---|
 | `domain/ontology.py` | **the format**: every class, predicate, cardinality, datatype, enum and section, as data. Standard library only. The single definition - the writer, the rules and the format reference all follow it |
 | `infra/files.py` · `infra/oxigraph/codec.py` | `read_text` (every text read: BOM, CRLF, cp1252 once) and parsing Turtle and TriG input - changesets, dumps, the vocabulary - with a parse failure's line |
-| `domain/record/writer.py` | the entry printer `career_show`, `jsk kb pack` and `merge` use: subject blocks, a project with its bullets and a metric with its versions, predicates in ontology order, `"""` prose |
+| `domain/record/writer.py` | the entry printer `career_show`, `career_pack` and `career_merge` use: subject blocks, a project with its bullets and a metric with its versions, predicates in ontology order, `"""` prose |
 | `domain/record/shapes.py` · `rules.py` | tier 1, generated from the ontology (closed predicates, required, cardinality, datatype, enum, id prefix); tier 2, the cross-node rules, each a SPARQL query with a fix, each with a mutation test |
 | `application/record/load.py` · `domain/record/store.py` | a workspace in memory: the record graphs copied out of the store (or a write's candidate graphs) plus the shipped vocabulary, derived triples in `j:derived`, every rule run on every load |
 | `infra/oxigraph/db.py` | the record on disk: one RocksDB store per workspace at `career/store/`, a named graph per record, the writers' turn (a blocking OS lock), one update per write, dump and parse. The only module that opens the store |
 | `infra/legacy_import.py` | a workspace still laid out as `.ttl` files, read once for `jsk kb load` - validated as before, numbers kept as the store keeps them and each rewrite reported |
-| `infra/oxigraph/record.py` | **the write gate**: revision and log entry (`prepared`), `state` (clean, out-of-sync, missing - and, for the files the import reads, hand-edited, torn and unlogged), `turn` - the writer's turn, taken before a writing command reads the record, and before it asks whether a store exists - `unrecorded` (is the career what the log's newest `kbSha256` hashed: `jsk kb check` and a dump's load ask it) and `write_graphs`: every touched graph in one `db.replace_graphs`, then `.jsk/backup.trig`; a failure after the update landed is `Written`, never "nothing was changed". The only caller of `replace_graphs` |
-| `domain/record/changeset.py` · `edit.py` · `adapters/cli/kb/` | `jsk kb`: a changeset read and refused or merged, and every verb over the record. `changeset.numbers_as_kept` refuses a number the store would rewrite (`8.40`) - in changesets and the dumps `jsk kb load` reads; not a rule id, since the import rewrites and lists them instead |
-| `domain/record/pack.py` · `merge.py` | `jsk kb pack` (the capability starter pack) and `jsk kb merge` (two concepts that are one), each drafted as a changeset and never applied |
+| `infra/oxigraph/record.py` | **the write gate**: revision and log entry (`prepared`), `state` (clean, out-of-sync, missing - and, for the files the import reads, hand-edited, torn and unlogged), `turn` - the writer's turn, taken before a writing command reads the record, and before it asks whether a store exists - `unrecorded` (is the career what the log's newest `kbSha256` hashed: `career_check` and a dump's load ask it) and `write_graphs`: every touched graph in one `db.replace_graphs`, then `.jsk/backup.trig`; a failure after the update landed is `Written`, never "nothing was changed". The only caller of `replace_graphs` |
+| `domain/record/changeset.py` · `edit.py` · `adapters/cli/kb/` | `jsk kb` and the `career_*` tools: a changeset read and refused or merged, and every verb over the record. `changeset.numbers_as_kept` refuses a number the store would rewrite (`8.40`) - in changesets and the dumps `jsk kb load` reads; not a rule id, since the import rewrites and lists them instead |
+| `domain/record/pack.py` · `merge.py` | `career_pack` (the capability starter pack) and `career_merge` (two concepts that are one), each drafted as a changeset and never applied |
 | `domain/matching/` · `application/record/queries.py` · `application/tailor/match_posting.py` | the vocabulary and the named questions; the match `assessment_derive` runs |
 | `domain/matching/scoring.py` | the numbers the match ranks by: seniority order, the requirement weights, recency points, months of experience. Standard library only |
 | `domain/selection/select.py` · `application/tailor/export.py` | what a resume for one posting selects (projects, bullets, skill order): the selection `resume_select` stores |
 | `domain/posting/decide.py` · `domain/posting/rows.py` · `application/posting/` | the posting graph's triples and each decided row's checks; `posting_capture`, `posting_decide` and `posting_complete` |
 | `domain/assessment/` · `application/tailor/check_gaps.py` | the assessment: derived from the match with no model; the review's overlay checked, folded in, written as the gaps graph and rendered |
-| `domain/record/view.py` · `application/timeline/` | `career_view`; `app_freeze`'s application graph, `app_event` and `jsk app drop` |
+| `domain/record/view.py` · `application/timeline/` | `career_view`; `app_freeze`'s application graph, `app_event` and `app_drop` |
 
 The real ports are bound to these use cases in one place, the composition root
 `adapters/cli/compose/`: the load over `career/store/` and the engine, the match and the
@@ -232,7 +243,7 @@ selection over the engine's feature reads, an application's folder and its graph
 **Its boundaries.** Only `infra/oxigraph/db.py` opens `career/store/`, and only
 `infra/oxigraph/record.py` calls `db.replace_graphs`; `tests/test_db.py` fails if anything else
 does. So every write - `jsk kb`'s verbs, `jsk kb new`, the posting, review, assessment and
-selection tools, `app_freeze`, `app_event` and `jsk app drop` - goes through `record.write_graphs` after the would-be record
+selection tools, `app_freeze`, `app_event` and `app_drop` - goes through `record.write_graphs` after the would-be record
 validates, in one update of the store. A write to the career lands with its log entry in that
 update; `app_freeze`, `app_event` and the tools write only an application's graphs and add
 no entry, since the log is the career's history. The SPARQL queries are not storage access: they
@@ -250,19 +261,21 @@ Five tasks are delegated to subagents, and the line between them is what each ma
 5.0.0 every jsk call an agent makes is a `jsk mcp` tool (`mcp__plugin_jsk_graph__<tool>`), and each
 agent's `tools:` names its tools one by one: P0 measured that an explicit list holds a subagent to
 exactly those tools, while an omitted line or the `mcp__plugin_jsk_graph__*` wildcard hands it all
-twenty-one (Ruling 19 of `docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`).
+twenty-nine (Ruling 19 of `docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md`).
 
 | Agent | Has | Deliberately lacks |
 |---|---|---|
-| `jsk-verifier` | Bash, Read, Glob; `career_show`, `app_show` | Write, Edit and every writing tool — a defect is fixed in the career or the selection and re-rendered, never patched into the render |
-| `jsk-kb-auditor` | Read, Write, Glob, Bash; the career reads, `career_log`, `app_list`, `app_show` | Edit and every writing tool — it writes an audit from `jsk kb check` and the queries; the career is the person's |
+| `jsk-verifier` | Read, Glob; `resume_check`, `resume_fit`, `resume_ship`, `career_show`, `app_show` | Bash, Write, Edit and every tool that writes the career — a defect is fixed in the career or the selection and re-rendered, never patched into the render |
+| `jsk-kb-auditor` | Read, Write, Glob; the career reads, `career_log`, `career_check`, `career_merge`, `resume_check`, `app_list`, `app_show` | Bash, Edit and every tool that writes the career — it writes an audit from `career_check` and the queries, and drafts a merge without applying it; the career is the person's |
 | `jsk-extractor` | Read, Glob; the career reads, `career_preview` | Write, Bash and `career_apply` — it drafts one changeset from a braindump or an imported document and only previews it; the session shows the diff, applies and confirms |
 | `jsk-tailor-analyst` | Read; the career reads, `app_show`, `posting_*`, `assessment_*` | Write, Edit, Bash and every tool that writes the career |
 | `jsk-resume-author` | Read; the career reads, `career_preview`, `career_apply`, `app_show`, `resume_select`, `resume_update` | Write, Edit, Bash and the review — it is the one that writes prose |
 
 No agent holds `career_confirm`: it carries the person's words, and only the main session talks to
-the person. Nor does any hold `app_freeze`, `app_event` or `letter_check` (Ruling 21's amendment,
-2026-10-03): freezing and recording an event are the person's acts. `tests/test_agent_grants.py`'s `AgentGrants` pins every row.
+the person. Nor does any hold `app_freeze`, `app_event`, `letter_check` or `app_drop` (Ruling 21's amendment,
+2026-10-03; `app_drop` since 2026-10-04): freezing, recording an event and setting an application
+aside are the person's acts, and `app_drop` is destructive, so the main session calls it once the
+person agrees. `tests/test_agent_grants.py`'s `AgentGrants` pins every row.
 
 **For the two authoring agents the anti-invention guarantee is a grant and a gate.**
 
@@ -279,8 +292,8 @@ the person. Nor does any hold `app_freeze`, `app_event` or `letter_check` (Rulin
   widened later meets the rule in writing.
 - `jsk-resume-author` reads the assessment and `career_show`, and bullets it writes for the
   career go in through a changeset — they belong in the project they are about, so the next
-  application can reuse them. What holds it is the write path: `career_apply`, like `jsk kb
-  apply`, makes every new or changed claim `j:inferred` and refuses a changeset asserting
+  application can reuse them. What holds it is the write path: `career_apply`
+  makes every new or changed claim `j:inferred` and refuses a changeset asserting
   `confirmed`; the selection's `floor` (`confirmed` by default) means the builder withholds each
   unconfirmed clause - it prints a `withheld` warning rather than failing, so the mode files make
   every warning a confirm-or-cut before hand-over; and a selection holds ids, never a bullet's
@@ -290,11 +303,11 @@ the person. Nor does any hold `app_freeze`, `app_event` or `letter_check` (Rulin
 That asymmetry is the design. Where a rule can be enforced by a gate, it is; where it cannot, it is
 stated as plainly as possible and the test checks that the statement survives.
 
-`jsk-verifier` is the conditional one. `jsk resume ship` and `jsk resume check` on a directory run the record, parse,
-prose and layout gates in a single process and print each one's output verbatim, so a clean ship reads that rather
-than spawning an agent to relay four checkers — and a command has no Write tool more thoroughly than
-an agent does.
-What the agent is kept for is the half a command cannot do: reading a `FAIL` line back to the section
+`jsk-verifier` is the conditional one. `resume_ship` and `resume_check` on a directory run the record, parse,
+prose and layout gates in a single process and return each one's output verbatim, so a clean ship reads that rather
+than spawning an agent to relay four checkers. The verifier holds those tools and no shell, so every
+gate it runs is the same call the main session makes.
+What the agent is kept for is the half a tool cannot do: reading a `FAIL` line back to the section
 it came from, and reading the PDF for the render gate.
 
 Two consequences worth keeping in mind when editing them:
@@ -394,7 +407,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     profiles.py                     the region profiles
   application/                      ring 3, the use cases: each returns a result and prints nothing
     guards.py                       the refusals several commands share, returned as lines
-    ship.py                         `jsk resume ship`: the record gate, render, fit and gates, stopping at a failure
+    ship.py                         `resume_ship`: the record gate, render, fit and gates, stopping at a failure
     record/load.py                  loading a workspace: graphs into an engine, types derived, rules run
     record/refusals.py              how a use case over the record refuses: the errors the CLI prints
     record/write.py                 WriteLogged, the gate every kb write goes through; `career_apply`
@@ -404,11 +417,11 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     record/insights.py              the named queries across applications: demand, shortfalls, drops, outcomes, repeated, absences
     record/holdings.py              what each live project holds; the months of experience behind a concept
     record/likeness.py              projects that look like one another, or like what some words describe
-    record/check.py                 `jsk kb check`: every rule, the career's hash, the untraced numbers
+    record/check.py                 `career_check`: every rule, the career's hash, the untraced numbers
     record/dump.py                  `jsk kb dump`: the whole record as TriG
     record/load_import.py           `jsk kb load`: files or a dump read, validated, written once
-    record/pack.py                  `jsk kb pack`: a starter pack drafted on the logged revision
-    record/merge.py                 `jsk kb merge`: two concepts that are one, drafted on the logged revision
+    record/pack.py                  `career_pack`: a starter pack drafted on the logged revision
+    record/merge.py                 `career_merge`: two concepts that are one, drafted on the logged revision
     record/scaffold.py              `jsk kb new`: the empty record written, or a record started over
     tailor/match_posting.py         one application's posting matched against the career, as plain data
     tailor/check_gaps.py            the review folded into the match, the assessment rendered, and the match's lines
@@ -435,7 +448,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     gates/layout.py                 the layout gate: a PDF's region and budget found, its lines judged
     gates/terms.py                  the terms gate: the render's plain text, the posting's terms judged on it
     gates/letter.py                 the letter check: its length and prose judged, its numbers traced
-    gates/run_gates.py              `jsk resume check DIR`: the four gates over a render, the render gate said last
+    gates/run_gates.py              `resume_check` on a directory: the four gates over a render, the render gate said last
     timeline/freeze.py              an application frozen: checked, planned, gated, renamed to its day, written
     timeline/records.py             an application's record graphs: frozen, sent, written; the freeze sealed
     timeline/add_event.py           one event added to an application's record: minted, validated, written
@@ -445,7 +458,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     files.py                        the workspace on disk: find_root; a document written atomically, or new
     workspace.py                    the workspace a load reads: career/store/, the files beside it, the vocabulary
     legacy_import.py                a workspace still laid out as .ttl files, read once for `jsk kb load`
-    packs.py                        `jsk kb pack`'s starter packs on disk: where each is, and reading one
+    packs.py                        `career_pack`'s starter packs on disk: where each is, and reading one
     adverts.py                      a frozen file-made application's posting.md and decisions.txt, read from its folder
     documents.py                    what the gates judge, read leniently: a .tex, a .txt passed by hand, a cover letter
     outputs.py                      a render's files written, its scratch directories, a move
@@ -460,27 +473,27 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     oxigraph/queries.py             the feature reads over a loaded record, as SPARQL
     oxigraph/applications.py        an application's folder and its graphs in career/store/, read and written
   adapters/                         ring 5, outermost: argv parsed, the real ports bound, a use case run, its result printed
-    cli/main.py                     the dispatcher: five nouns, each verb run in process, the retired names
+    cli/main.py                     the dispatcher: three nouns, each verb run in process, the retired names and the tool each points at
     cli/dispatch.py                 a verb's adapter found (ADAPTERS) and its main() called, contained
     cli/cliutil.py                  one contract for --help and flags across the commands; a finding list printed
     cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
     cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
-    cli/resume.py                   `jsk resume check`: the gates its target calls for, by its kind
-    cli/render.py                   `jsk resume render`: its flags, the render run, what it wrote said
-    cli/preview.py                  `jsk resume preview`: its flags, every template previewed, the pages said
-    cli/fit.py                      `jsk resume fit`: its flags, the fit run, each lever and the verdict said
-    cli/ship.py                     `jsk resume ship`: its flags and refusals, each step captured, the summary
-    cli/drop.py                     `jsk app drop`: its flags, the clock read once, what was removed and moved said
-    cli/kb/__init__.py              `jsk kb`: the verb table, its flags, the clock read once, and the dispatch
-    cli/kb/read.py                  `jsk kb check`: the record's rules, run and printed
+    cli/resume.py                   the entry point `resume_check` calls: the gates its target calls for, by its kind
+    cli/render.py                   the entry point `resume_render` calls: its flags, the render run, what it wrote said
+    cli/preview.py                  the entry point `resume_preview` calls: its flags, every template previewed, the pages said
+    cli/fit.py                      the entry point `resume_fit` calls: its flags, the fit run, each lever and the verdict said
+    cli/ship.py                     the entry point `resume_ship` calls: its flags and refusals, each step captured, the summary
+    cli/drop.py                     the entry point `app_drop` calls: its flags, the clock read once, what was removed and moved said
+    cli/kb/__init__.py              `jsk kb`: the verb table (new, load and dump, with check, pack and merge for the tools), its flags, the clock read once, and the dispatch
+    cli/kb/read.py                  the entry point `career_check` calls: the record's rules, run and printed
     cli/kb/write.py                 `refused`: the refusal every writing verb prints
-    cli/kb/draft.py                 `jsk kb pack` and `merge`: the drafted changeset printed or written
+    cli/kb/draft.py                 the entry points `career_pack` and `career_merge` call: the drafted changeset printed or written
     cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG
     cli/kb/new.py                   `jsk kb new`: its flags, the workspace scaffolded, what was written
     cli/gates/__init__.py           the gates' commands, one module a gate
-    cli/gates/check.py              `jsk resume check` on each target kind: each gate contained, the summary
+    cli/gates/check.py              `resume_check` on each target kind: each gate contained, the summary
     cli/gates/present.py            the count line, findings and verdict every gate prints alike
-    cli/gates/record.py             the record gate (`jsk resume check` on a target): its flags, the gate run, its verdict
+    cli/gates/record.py             the record gate (`resume_check` on a target): its flags, the gate run, its verdict
     cli/gates/short.py              the short file's own check of a selection: its shape and ids, PASS or FAIL
     cli/gates/ats.py                the parse gate: its flags, the gate run, its verdict said
     cli/gates/prose.py              the prose gate: its flags, the gate run, its verdict said
@@ -492,9 +505,9 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/match.py            the match and the selection, each asked of the engine's feature reads
     cli/compose/tailor.py           the short file's form and the derived assessment, bound
     cli/compose/resume.py           a target's selection read, its workspace found, its career loaded, its plan built
-    cli/compose/render.py           `jsk resume render`'s TeX engine and PDF reader; the posting's employer
-    cli/compose/preview.py          `jsk resume preview`'s TeX engine, looked up where a test patches it
-    cli/compose/fit.py              `jsk resume fit`'s TeX engine, looked up where a test patches it
+    cli/compose/render.py           `resume_render`'s TeX engine and PDF reader; the posting's employer
+    cli/compose/preview.py          `resume_preview`'s TeX engine, looked up where a test patches it
+    cli/compose/fit.py              `resume_fit`'s TeX engine, looked up where a test patches it
     cli/compose/gates.py            the gates' career reads and its log's state bound; a selection's region and budget
     cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze and an event, for the CLI and the tools
     cli/compose/native.py           a graph-native application's use cases bound, each write in its own turn
@@ -502,15 +515,15 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/selection.py        a selection's use cases bound; a target named on the command line; a ship by target
     mcp/__init__.py                 `jsk mcp`: stdlib only, so a plain install names the missing extra and exits 2
     mcp/acts.py                     app_freeze, app_event and letter_check: the person's acts as tools, granted to no agent
-    mcp/captured.py                 an internal entry point run inside the workspace, its output a tool's answer
-    mcp/rendering.py                resume_check, resume_render, resume_preview and resume_fit: a resume's files
+    mcp/captured.py                 an entry point or a documented script run inside the workspace, its output a tool's answer
+    mcp/rendering.py                resume_check, resume_render, resume_preview and resume_fit: a resume's files, each answering `verdict` and `wrote`
     mcp/server.py                   the twenty-nine MCP tools: each a compose call, its result JSON, a refusal its findings
     mcp/schemas.py                  the batch rows the tools take (requirement, drop, verdict, ask), typed for the schema
     mcp/session.py                  the served workspace, the read cache keyed on the store's files, the clock per call
-    mcp/upkeep.py                   career_check, career_pack, career_merge and app_drop: keeping the workspace
+    mcp/upkeep.py                   career_check, career_pack, career_merge and app_drop: keeping the workspace; the last granted to no agent
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
-  data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded
+  data/capabilities.ttl             the capability starter pack `career_pack` drafts; never loaded
   data/example/                     a small career and a general resume's selection, as Turtle: doctor renders it
   data/schema/                      package data, reached through paths.py
     profiles/*.json                 region profiles: default, au, in, ae
@@ -634,17 +647,17 @@ and the runners into `application/gates/`, with the career's reads bound in
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
 | Where a new module goes, or what a ring may import | its path under `src/jsk/<ring>/`; the ring rules and `ROOT_ADAPTERS` / `ROOT_INFRA` in `tests/test_layers.py` | "What is a ring" above; a line in the repo layout, or `tests/test_plugin_surface.py` fails |
 | What a use case needs from outside | a Protocol in `src/jsk/ports/`, its implementation in `src/jsk/infra/` | bound to the use case in `src/jsk/adapters/cli/compose/`, the one composition root; a test passes a fake |
-| A noun or a verb | `src/jsk/adapters/cli/main.py` (the noun table) | the help docstring in the same file, the command table in `SKILL.md`, `docs/SCRIPTS.md` — all three pinned by `tests/test_plugin_surface.py` |
-| A tool the career or an application is read or changed through | `src/jsk/adapters/mcp/server.py` (or `acts.py` for a person's act), calling `adapters/cli/compose/` | the agent's `tools:` line if one may hold it, the tool list in `SKILL.md`, `tests/test_agent_grants.py`, `tests/test_mcp_*.py` |
-| Retiring a verb | `RETIRED` (or `RETIRED_NOUNS`) in `adapters/cli/main.py`, naming the tool or form that replaces it | the retirement table in `docs/SCRIPTS.md`, `tests/test_retired.py`; it exits 2 and writes nothing |
+| A command (one of the five) | `src/jsk/adapters/cli/main.py` (the noun table) | the help docstring in the same file, the command table in `SKILL.md`, `docs/SCRIPTS.md` — all three pinned by `tests/test_plugin_surface.py`. A new everyday action is a tool, not a command (Ruling 1 of `docs/superpowers/plans/2026-10-04-mcp-first.md`) |
+| A tool the career or an application is read or changed through | `src/jsk/adapters/mcp/server.py` (`acts.py` for a person's act, `rendering.py` for a resume's files, `upkeep.py` for checking the workspace and `app_drop`), calling `adapters/cli/compose/` | the agent's `tools:` line if one may hold it (never `career_confirm` or `app_drop`), the tool list in `SKILL.md`, `tests/test_agent_grants.py`, `tests/test_mcp_*.py` |
+| Retiring a verb | `RETIRED` (or `RETIRED_NOUNS`) in `adapters/cli/main.py`, naming the tool or form that replaces it | the retirement tables in `docs/SCRIPTS.md` and the 6.0 notes in `README.md`, `tests/test_retired.py`; it exits 2 and writes nothing |
 
 ## What is frozen
 
 This is a published plugin. Three surfaces may not move without a major version and a migration
 story:
 
-1. **The `jsk` command surface.** Nouns, verbs and flags — `jsk resume check --strict`,
-   `jsk resume ship --ats-max`, `jsk kb check` and the rest — are public API. They appear in shell
+1. **The `jsk` command surface.** Nouns, verbs and flags — `jsk kb new --name`,
+   `jsk kb load --root` and the rest — are public API, and since 6.0 so are the tools' names and arguments. They appear in shell
    histories, in README examples, and in every mode file. Module names inside the package are free;
    the invocation surface is not.
 
@@ -666,7 +679,10 @@ story:
    that stays - each names the tool or the target form that replaced it. The same release retired
    the verbs the MCP tools duplicate (`docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md`):
    `jsk kb apply`, `confirm`, `show`, `view`, `query`, `log`, `export` and `path`, `jsk app freeze`
-   and `event`, and the `letter` noun, each exiting 2 naming its tool (`docs/SCRIPTS.md` maps them).
+   and `event`, and the `letter` noun, each exiting 2 naming its tool (`docs/SCRIPTS.md` maps them). The
+   next round (`docs/superpowers/plans/2026-10-04-mcp-first.md`) left four commands and moved the
+   rest to tools: `jsk kb check`, `pack` and `merge`, the `resume` noun's `check`, `render`,
+   `preview`, `fit` and `ship`, and `jsk app drop`, each exiting 2 naming its tool.
 
 2. **The short file's shape and gate behaviour.** A selection is `"resume": 2` and exactly the
    keys `references/resume-format.md` lists - resume.json's, kept as the interchange shape since
@@ -811,8 +827,8 @@ Before tagging: run the tests, run `jsk doctor` (the verifying form, not `--quic
 every internal doc link still resolves.
 
 **The version skew this introduces is real and is not yet handled.** A plugin against an install
-with no `jsk` command at all fails loudly. The subtler case — a subcommand or flag the installed CLI
-does not have, such as `jsk resume ship` on an older install — fails mid-session on a usage error. The fix
+with no `jsk` command at all fails loudly. The subtler case — a tool or flag the installed server
+does not have, such as `resume_check` on a 5.x install — fails mid-session on a usage error. The fix
 is a floor the skill states and `jsk doctor --require X.Y` enforces; it is not built.
 
 ---

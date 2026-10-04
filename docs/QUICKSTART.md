@@ -93,8 +93,8 @@ for, the analyst's review, the assessment and the bullets chosen for it are all 
 its folder under `applications/` holds only the PDF and `.tex` it rendered and any cover letter. A "no" you give ("never
 used Kafka") is recorded too, so the next posting that asks gets your answer without asking you.
 
-`/jsk:ship` is the end of that loop, and it is two steps: `resume_ship` (the same as running
-`jsk resume ship <stem>` yourself), then `app_freeze` with the day you sent it and the channel
+`/jsk:ship` is the end of that loop, and it is two steps: `resume_ship` (the tool
+that replaced `jsk resume ship` in 6.0), then `app_freeze` with the day you sent it and the channel
 ("Workday portal").
 
 `resume_ship` checks the chosen bullets against your career first - every id live, every number traced to
@@ -109,18 +109,17 @@ which `app_freeze` returns: it calls `app_event` (kind `screen-scheduled`, date 
 
 ## What runs where
 
-The skill drives all of this through `jsk mcp`'s tools; since 6.0 changing the career, capturing
-a posting, choosing a resume, freezing and recording an event are tools only, with no shell verb.
-The commands that remain:
+The skill drives all of this through `jsk mcp`'s tools; since 6.0 changing the career, checking it,
+capturing a posting, choosing, rendering and gating a resume, freezing and recording an event are tools
+only, with no shell verb. The commands that remain are the ones that have to work when the server cannot
+start:
 
 ```bash
 jsk kb new ./my-career --name "Your Name"     # career/store/: an empty career and its log, at r1
 cd my-career
-jsk kb check                                  # every rule over the record
-#   career_apply, posting_capture, posting_decide, assessment_derive, resume_select,
-#   career_confirm ... (jsk mcp's tools, called by Claude)
-jsk resume check <stem>                       # the record gate on the stored selection
-jsk resume ship <stem>                        # rendered and gated into applications/<stem>/
+jsk doctor                                    # what this machine can do
+#   career_check, career_apply, posting_capture, assessment_derive, resume_select,
+#   resume_check, resume_ship, career_confirm ... (jsk mcp's tools, called by Claude)
 jsk kb dump --out record.trig                 # the whole record as TriG, a backup
 ```
 
@@ -128,7 +127,7 @@ A changeset is TriG text passed to `career_apply`; [Commands](SCRIPTS.md#jsk-kb)
 workspace as it stands. The tailoring step writes no file: the posting, review, assessment and
 selection are graphs in the store. Until 6.0 an application could be made from files
 (`posting.md`, `decisions.txt`, `gaps.txt`, `resume.json`); one left unsent is finished with jsk
-5.1.0, or set aside with `jsk app drop`.
+5.1.0, or set aside with the `app_drop` tool.
 
 Already have a workspace from before the store, with `career/kb.ttl`? Run `jsk kb load .` in it,
 once. It checks the files as before, lists every number it rewrites, and imports them; the files

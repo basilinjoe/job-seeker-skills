@@ -1,7 +1,12 @@
 """Render a target's selection into a .tex (and PDF).
 
+This module is the entry point the `resume_render` tool (jsk mcp) calls, through
+dispatch.call_gate as `render_resume.py`. `jsk resume render` was retired in 6.0 (2026-10-04,
+docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 5): it exits 2 naming the tool.
+
 Usage:
-  jsk resume render <stem>|resumes/<name> [--out DIR] [options]
+  resume_render(target, out=, pdf=, template=, ats_max=, region=)
+  as arguments: <stem>|resumes/<name> [--out DIR] [options]
 
   --format F         latex | all                   (default: all; txt is retired)
   --region CC        override the selection's region profile, e.g. AU, IN, AE
@@ -114,8 +119,8 @@ def refused(argv):
 
     if is_resume_json(src):
         print("\n".join(resume_json_refusal(
-            "jsk resume render <resume.json>",
-            "jsk resume render <stem> (or resumes/<name>) [--out DIR] - the target's "
+            "resume_render(<resume.json>)",
+            "resume_render(<stem>) (or resumes/<name>, out=DIR) - the target's "
             "stored selection")))
         return 2
     # A graph-native target's ref names its selection graph; no file is there to find.
@@ -150,7 +155,7 @@ def refused(argv):
 
 
 def main(argv):
-    """`jsk resume render`: render one target's selection and say what was written.
+    """The resume_render entry point: render one target's selection and say what was written.
 
     Args:
         argv: the whole argv, the program name first.
@@ -165,7 +170,7 @@ def main(argv):
 
 
 def rendered(argv, *, tex, company_of):
-    """`jsk resume render` with what it rendered: `jsk resume ship` reads the files and pages off it.
+    """The resume_render entry point with what it rendered: the resume_ship tool reads the files and pages off it.
 
     Args:
         argv: the whole argv, the program name first.
@@ -224,7 +229,7 @@ def stopped(stop):
 TXT_RETIRED = ("--format txt is retired: the plain-text resume is no longer written.\n"
                "fix:  render with --format all (the .tex and, with --pdf, the PDF); the "
                "parse and terms gates\n      read the render's text in memory - "
-               "jsk resume check <out-dir> --record <stem>")
+               "resume_check(<out-dir>, record=<stem>)")
 
 
 def report(result, out_dir):

@@ -19,6 +19,7 @@ import os
 import re
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import careerkit
@@ -122,7 +123,7 @@ class RenderedFilesPassTheGates(unittest.TestCase):
     def test_the_plain_text_passes_check_ats_strict(self):
         """The plain text is emitted in memory from the plan (Ruling 23 of the graph-native
         plan), and the parse gate's strict pass judges that string - no file on disk. Called
-        as `jsk resume check DIR` and `jsk doctor --verify` call it."""
+        as the resume_check tool on a directory and `jsk doctor --verify` call it."""
         code, out = gate("check_ats.py", example_short(), "--strict")
         self.assertEqual(code, 0, out)
         self.assertIn("plain text of resumes/example/resume (in memory)   mode: ATS-maximal "
@@ -179,8 +180,8 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         path.write_bytes(legacy.read_bytes())
         code, out = run(RENDER, path, "--out", self.tmp / "out")
         self.assertEqual(code, 2, out)
-        self.assertIn("jsk resume render <resume.json> was retired in 6.0", out)
-        self.assertIn("fix:  jsk resume render <stem>", out)
+        self.assertIn("resume_render(<resume.json>) was retired in 6.0", out)
+        self.assertIn("fix:  resume_render(<stem>)", out)
         self.assertNotIn("Traceback", out)
 
     def rendered_as(self, path):
@@ -251,9 +252,11 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
     def test_a_failed_compile_exits_nonzero_and_says_unverified(self):
         module = load_script(RENDER_RESUME)
         bound = load_script("jsk.adapters.cli.compose.render")
-        bound.compile_pdf = lambda tex_path, out_dir: (None, "stub: no PDF")
         buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
+        # Patched, not assigned: RENDER runs in this interpreter now (it ran in a child until
+        # 2026-10-04), so a stub left on the module would fail every compile after this one.
+        with mock.patch.object(bound, "compile_pdf",
+                               lambda tex_path, out_dir: (None, "stub: no PDF")),                 contextlib.redirect_stdout(buf):
             code = module.main(["render_resume.py", str(example_short()),
                                 "--out", str(self.tmp), "--pdf"])
         self.assertEqual(code, 1, buf.getvalue())
@@ -600,7 +603,6 @@ class CompileLeavesThePdfAndTheTex(unittest.TestCase):
 
     def compile(self, returncode, pdf=True):
         import subprocess
-        from unittest import mock
 
         from jsk.infra import tex as engine
 

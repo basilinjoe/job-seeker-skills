@@ -1,4 +1,4 @@
-"""`jsk kb pack`: a starter pack of capabilities, drafted as a changeset for the career.
+"""The career_pack tool: a starter pack of capabilities, drafted as a changeset for the career.
 
 data/capabilities.ttl holds capabilities and domains with the wordings postings use and
 the counts-as edges that are true for anyone. It is never loaded as vocabulary: the

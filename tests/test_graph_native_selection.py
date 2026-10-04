@@ -12,9 +12,7 @@ and the .tex in its directory (Rulings 12 and 22), while a resume.json inside a 
 application is refused by the path form, naming the tool (Ruling 11); and what a later freeze
 would hash (`canonical`) does not move under an update that changes nothing (Ruling 7).
 """
-import contextlib
 import datetime
-import io
 import os
 import tempfile
 import unittest
@@ -134,7 +132,7 @@ class Select(Workspace):
         with self.assertRaises(Refused) as caught:
             selection.select(self.root, "contoso-platform", mode="ranked", today=TODAY)
         self.assertIn("jsk 5.1.0", caught.exception.fix)
-        self.assertIn("`jsk app drop applications/contoso-platform`", caught.exception.fix)
+        self.assertIn('app_drop(app="contoso-platform")', caught.exception.fix)
 
     def test_a_sent_application_refuses_every_change(self):
         self.selected(headline="Senior Platform Engineer")
@@ -254,47 +252,33 @@ class Ship(Workspace):
             self.shipped()
         self.assertIn("resume_select", caught.exception.fix)
 
-    def test_the_cli_ships_and_checks_a_target(self):
-        from jsk import cli
+    def test_the_entry_points_ship_and_check_a_target(self):
         from jsk.adapters.cli.compose import render
 
         self.selected()
-        buf = io.StringIO()
-        cwd = os.getcwd()
-        os.chdir(self.root)
-        self.addCleanup(os.chdir, cwd)
-        with mock.patch.object(render, "compile_pdf", shipkit.fake_compile()), \
-                contextlib.redirect_stdout(buf):
-            check = cli.main(["jsk", "resume", "check", STEM])
-            ship = cli.main(["jsk", "resume", "ship", STEM, "--no-fit"])
-        out = buf.getvalue()
+        with mock.patch.object(render, "compile_pdf", shipkit.fake_compile()):
+            check, checked = shipkit.tool_run(self.root, "resume_check", STEM)
+            ship, shipped = shipkit.tool_run(self.root, "resume_ship", STEM, "--no-fit")
+        out = checked + shipped
         self.assertEqual(check, 0, out)
         self.assertIn(f"checking: {GRAPH}", out)
         self.assertIn("--- render", out)
         self.assertNotEqual(ship, 2, out)
         self.assertTrue(list(self.app.glob("*.pdf")))
 
-    def cli_in_root(self, *args):
-        """(exit code, output) of `jsk *args` run from the workspace, the compile faked."""
-        from jsk import cli
+    def tool_in_root(self, tool, *args):
+        """(exit code, output) of the entry point `tool` calls, run inside the workspace with
+        the compile faked."""
         from jsk.adapters.cli.compose import preview, render
 
-        buf = io.StringIO()
-        cwd = os.getcwd()
-        os.chdir(self.root)
-        self.addCleanup(os.chdir, cwd)
-        with mock.patch.object(render, "compile_pdf", shipkit.fake_compile()), \
-                mock.patch.object(preview, "compile_pdf", shipkit.fake_compile()), \
-                mock.patch.object(preview, "available_engine", lambda: "fake"), \
-                contextlib.redirect_stdout(buf):
-            code = cli.main(["jsk", *args])
-        return code, buf.getvalue()
+        with mock.patch.object(render, "compile_pdf", shipkit.fake_compile()),                 mock.patch.object(preview, "compile_pdf", shipkit.fake_compile()),                 mock.patch.object(preview, "available_engine", lambda: "fake"):
+            return shipkit.tool_run(self.root, tool, *args)
 
     def test_render_takes_a_target_and_writes_into_its_own_directory(self):
         # P2 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md: render gains
         # the target form before the resume.json positional goes.
         self.selected()
-        code, out = self.cli_in_root("resume", "render", STEM, "--pdf")
+        code, out = self.tool_in_root("resume_render", STEM, "--pdf")
         self.assertEqual(code, 0, out)
         self.assertEqual(sorted(os.path.splitext(n)[1] for n in os.listdir(self.app)),
                          [".pdf", ".tex"])
@@ -302,8 +286,8 @@ class Ship(Workspace):
     def test_render_of_a_general_resume_may_go_elsewhere_with_out(self):
         selection.select(self.root, "resumes/general", mode="ranked", today=TODAY)
         elsewhere = Path(self.root).parent / "look"
-        code, out = self.cli_in_root("resume", "render", "resumes/general", "--out",
-                                     str(elsewhere))
+        code, out = self.tool_in_root("resume_render", "resumes/general", "--out",
+                                      str(elsewhere))
         self.assertEqual(code, 0, out)
         self.assertTrue(list(elsewhere.glob("*.tex")), out)
         self.assertFalse((Path(self.root) / "resumes" / "general").exists())
@@ -311,8 +295,8 @@ class Ship(Workspace):
     def test_preview_takes_a_target(self):
         self.selected()
         out_dir = Path(self.root).parent / "previews"
-        code, out = self.cli_in_root("resume", "preview", STEM, "--out", str(out_dir),
-                                     "--only", "monolith")
+        code, out = self.tool_in_root("resume_preview", STEM, "--out", str(out_dir),
+                                      "--only", "monolith")
         self.assertEqual(code, 0, out)
         self.assertIn(f"previewing {STEM}", out)
         self.assertTrue((out_dir / "monolith.pdf").exists(), out)
@@ -320,20 +304,17 @@ class Ship(Workspace):
     def test_a_resume_json_in_a_graph_native_application_is_refused_naming_the_target(self):
         # It was refused naming `resume_update` while a resume.json elsewhere was still
         # read; since 6.0 every one is refused alike, naming the target form.
-        from jsk import cli
-
         doc = self.selected().doc
         self.app.mkdir(parents=True)
         path = self.app / "resume.json"
         path.write_text(__import__("json").dumps(doc), encoding="utf-8")
-        for verb in (["resume", "check", str(path)],
-                     ["resume", "render", str(path), "--out", str(self.app)]):
-            buf = io.StringIO()
-            with self.subTest(verb=verb[1]), contextlib.redirect_stdout(buf):
-                code = cli.main(["jsk", *verb])
-                self.assertEqual(code, 2, buf.getvalue())
-                self.assertIn("was retired in 6.0", buf.getvalue())
-                self.assertIn(f"jsk resume {verb[1]} <stem>", buf.getvalue())
+        for tool, args in (("resume_check", [str(path)]),
+                           ("resume_render", [str(path), "--out", str(self.app)])):
+            with self.subTest(tool=tool):
+                code, out = shipkit.tool_run(self.root, tool, *args)
+                self.assertEqual(code, 2, out)
+                self.assertIn("was retired in 6.0", out)
+                self.assertIn(f"{tool}(<stem>)", out)
         self.assertFalse(list(self.app.glob("*.tex")), "nothing rendered")
 
 

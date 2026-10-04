@@ -126,7 +126,7 @@ def write_graphs(root, graphs, create=False):
         # The flush, or giving up access or the turn. After the update, the record holds
         # the write whatever went wrong here; before it (taking the locks), nothing did.
         failure = (Written(f"the write landed, but the store failed after it ({e})",
-                           "`jsk kb check` shows the record as it now is; `jsk doctor` "
+                           "the career_check tool (jsk mcp) shows the record as it now is; `jsk doctor` "
                            "checks the store") if landed else
                    RecordError(f"the store could not be opened for the write ({e}) - "
                                "nothing was changed",

@@ -376,8 +376,8 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
         row = re.search(r"^\| `jsk kb ([a-z\\|]+)` \|", text, re.M)
         self.assertIsNotNone(row, "SKILL.md has no `jsk kb` row")
         listed = row.group(1).replace("\\", "").split("|")
-        self.assertEqual(sorted(listed), sorted(
-            ["check", "load", "dump", "pack", "merge"]))
+        self.assertEqual(sorted(listed), sorted(["load", "dump"]))
+        self.assertIn("`jsk kb new <path>", text)
         self.assertIn("jsk kb load .", text)
 
     def plugin_texts(self):

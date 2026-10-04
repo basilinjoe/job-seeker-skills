@@ -465,6 +465,87 @@ def letter(letter_path, record_target, root):
     return code, out.getvalue()
 
 
+def kb_verb(root, *args):
+    """The kb adapter's `check`, `pack` or `merge` as the career_check, career_pack and
+    career_merge tools run it: inside `root`, through adapters/mcp/captured.py, with stderr
+    kept apart (a draft's notes go there, and the tools return them as `notes`).
+
+    Args:
+        root: the workspace.
+        args: the verb and its arguments; `--root` is added.
+
+    Returns:
+        (exit code, what it printed to stdout, what it printed to stderr).
+    """
+    from jsk.adapters.mcp import captured
+
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        code, out = captured.ran(root, "kbcli.py", [*args, "--root", root])
+    return code, out, err.getvalue()
+
+
+def kb_check(root, *extra):
+    """What the career_check tool runs: `check` on `root` (`jsk kb check` until 2026-10-04).
+
+    Args:
+        root: the workspace.
+        extra: more arguments for it (`--only <stem>`, `--today DATE`, ...).
+
+    Returns:
+        (the exit code - 0 clean, 1 a FAIL, 2 called wrong; everything it printed).
+    """
+    code, out, err = kb_verb(root, "check", *extra)
+    return code, out + err
+
+
+def pack(root, name, *extra):
+    """What the career_pack tool runs: `pack NAME` on `root`.
+
+    Args:
+        root: the workspace.
+        name: the pack, `capabilities`.
+        extra: more arguments (`--out FILE`).
+
+    Returns:
+        (exit code, stdout - the changeset, or with --out what was written - and stderr, what
+        was skipped).
+    """
+    return kb_verb(root, "pack", name, *extra)
+
+
+def merge(root, concept, into, *extra):
+    """What the career_merge tool runs: `merge CONCEPT --into INTO` on `root`.
+
+    Args:
+        root: the workspace.
+        concept: the id (or curie) merged away.
+        into: the id (or curie) it becomes.
+        extra: more arguments (`--out FILE`).
+
+    Returns:
+        (exit code, stdout, stderr), as pack.
+    """
+    return kb_verb(root, "merge", concept, "--into", into, *extra)
+
+
+def drop(root, app, *extra):
+    """What the app_drop tool runs: adapters/cli/drop.main inside `root`.
+
+    Args:
+        root: the workspace.
+        app: `applications/<stem>`, a path, or the stem alone.
+        extra: more arguments (`--reason TEXT`, `--dry-run`, `--today DATE`).
+
+    Returns:
+        (exit code - 0 dropped or a dry run, 1 refused, 2 called wrong; everything it printed).
+    """
+    from jsk.adapters.cli import drop as dropped
+    from jsk.adapters.mcp import captured
+
+    return captured.called(root, dropped.main, [app, *extra])
+
+
 def as_json(output):
     """A `query(..., json=True)` output parsed."""
     return json.loads(output)

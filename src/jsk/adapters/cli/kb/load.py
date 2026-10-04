@@ -65,7 +65,7 @@ def cmd_load(args, flags, root, today):
         print(f"note     {app}: its documents ({what}) are not in "
               f"this workspace - copy the folder into {root}")
     if done.app_failures:
-        print(f"note     {done.app_failures} failures in applications - `jsk kb check` lists them")
+        print(f"note     {done.app_failures} failures in applications - the career_check tool (jsk mcp) lists them")
     return 0
 
 

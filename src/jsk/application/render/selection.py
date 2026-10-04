@@ -19,7 +19,7 @@ graph-native - Ruling 11's mark is its posting's advert lines) or `resumes/<name
 general resume answering no posting. The render reaches a target through `ref`: the path
 the selection graph would have on disk, `<root>/<target>/resume`. No file is ever there;
 it is the one string the record gate, the render and the gates pass between them where a
-resume.json path used to go, so `jsk resume ship` runs every step on a target with no
+resume.json path used to go, so the resume_ship tool runs every step on a target with no
 step knowing (`load_resume` and adapters/cli/compose/resume.py read it as the graph).
 Since 6.0 it is the only record they take (docs/superpowers/plans/
 2026-10-03-retire-file-pipeline.md, P2).
@@ -304,7 +304,7 @@ def select(root, target, *, mode, replace=False, today, ports):
                 and blocks(f, t.rel + "/")]
     if blocking:
         return Selected(None, {}, tuple(("FAIL", f"a resume would carry it: {f.text()}",
-                                         "fix:  `jsk kb check` shows it; correct it first")
+                                         "fix:  the career_check tool shows it; correct it first")
                                         for f in blocking))
     post = t.app.post if mode == "from_match" and t.app is not None else None
     chosen = (ports.select(store, post, today, N.COVER) if post is not None

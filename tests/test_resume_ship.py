@@ -1,24 +1,19 @@
-"""`jsk resume ship`, the command mode-ship.md used to spell out as a procedure for an
+"""The resume_ship tool's pipeline, which mode-ship.md used to spell out as a procedure for an
 agent to follow by hand.
 
 It owns no verdict. It strings together three that already exist - the record gate,
 the render, the mechanical gates - and what these tests pin is the order, the
 stopping, and the one gate it has to say out loud that it did not run.
 """
-import contextlib
-import io
 import json
 import re
 import unittest
 from unittest import mock
 
 import appkit
-from fixtures import CLI, CLEAN_RESUME, build_pdf, run
+from fixtures import CLEAN_RESUME, RECORD_GATE, build_pdf, run
 from shipkit import (BAD, BROKEN, CONTACTED, D1, GOOD, GraphCase, MERIDIAN, ShipCase, ShortCase,
-                     fake_compile, margin_compile)
-
-
-JSK = CLI
+                     fake_compile, margin_compile, tool_run)
 
 
 class ShipOrder(ShipCase):
@@ -44,7 +39,7 @@ class ShipOrder(ShipCase):
         self.assertIn("PASS - prose rules satisfied", out)
 
     def test_the_record_gate_runs_once(self):
-        """Step three is what `jsk gates` runs, less the record gate step one has
+        """Step three is what the resume_check tool runs on a directory, less the record gate step one has
         just run on the same file and would have stopped at."""
         code, out = self.ship()
         self.assertEqual(code, 0, out)
@@ -129,7 +124,7 @@ class ShipStops(ShipCase):
 
 
 class ShipRenderGate(ShipCase):
-    """The trailer `jsk gates` ends with, and for the same reason."""
+    """The trailer the resume_check tool ends with on a directory, and for the same reason."""
 
     def test_a_clean_ship_still_says_the_pdf_is_unread(self):
         code, out = self.ship()
@@ -141,7 +136,7 @@ class ShipRenderGate(ShipCase):
         self.assertNotIn("PASS", render)
 
     def test_over_budget_is_reported_and_never_failed(self):
-        """`jsk fit` owns the page verdict. ship names an overrun and exits 0. Under
+        """the resume_fit tool owns the page verdict. ship names an overrun and exits 0. Under
         --no-fit, which keeps ship as it was before it fitted (ShipFits covers the fit)."""
         code, out = self.ship("--pages", "1", "--no-fit", compile_pdf=fake_compile(pages=3))
         self.assertEqual(code, 0, out)
@@ -214,10 +209,10 @@ class ShipSummary(ShipCase):
         self.assertTrue(lines[0].split()[2] == "FAIL", out)
         self.assertEqual(lines[-1].split(";")[0], "verdict: FAIL - record gate", out)
 
-    def test_jsk_gates_ends_with_it_too(self):
+    def test_the_resume_check_tool_ends_with_the_same_summary(self):
         code, out = self.ship()
         self.assertEqual(code, 0, out)
-        code, out = run(JSK, "resume", "check", self.out, "--record", self.record)
+        code, out = run(RECORD_GATE, self.out, "--record", self.record)
         self.assertEqual(code, 0, out)
         lines = self.summary(out)
         self.assertEqual([self.step(line) for line in lines[:-1]], self.headings(out), out)
@@ -232,22 +227,15 @@ class ShipSummary(ShipCase):
 class ShipFits(ShipCase):
     """Ruling 3 of the tailor-time plan (2026-09-29): ship fits the page budget itself.
 
-    The Arrow run rendered 3 pages against 2, ran `jsk fit` three times, cut three
+    The Arrow run rendered 3 pages against 2, ran the resume_fit tool three times, cut three
     confirmed bullets, and then moved, recompiled and gated the fitted .tex by hand.
     The first fit had already reached 2 pages at 0.6in, inside the 0.5in floor."""
 
     def fit_ship(self, *extra, fits_at=None):
-        from jsk import cli
         from jsk.adapters.cli.compose import fit, render as render_resume
         self.fake = fake = margin_compile(fits_at)
-        args = ["jsk", "resume", "ship", str(self.record), "--out", str(self.out)]
-        buf = io.StringIO()
-        with mock.patch.object(render_resume, "compile_pdf", fake), \
-                mock.patch.object(fit, "compile_pdf", fake), \
-                mock.patch.object(fit, "available_engine", lambda: "fake"), \
-                contextlib.redirect_stdout(buf):
-            code = cli.main(args + [str(a) for a in extra])
-        return code, buf.getvalue()
+        with mock.patch.object(render_resume, "compile_pdf", fake),                 mock.patch.object(fit, "compile_pdf", fake),                 mock.patch.object(fit, "available_engine", lambda: "fake"):
+            return tool_run(self.root, "resume_ship", self.record, "--out", self.out, *extra)
 
     def pdf_pages(self):
         import pymupdf
@@ -356,12 +344,12 @@ class ShipUsage(ShipCase):
     def test_an_unknown_flag_is_a_call_error(self):
         code, out = self.ship("--recheck")
         self.assertEqual(code, 2, out)
-        self.assertIn("usage: jsk resume ship", out)
+        self.assertIn("usage: resume_ship(", out)
 
     def test_the_knowledge_base_is_refused_as_validate_refuses_it(self):
         kb = self.tmp / "user-knowledgebase.md"
         kb.write_text("# Career knowledge base", encoding="utf-8")
-        code, out = run(JSK, "resume", "ship", kb, "--out", self.out)
+        code, out = tool_run(self.root, "resume_ship", kb, "--out", self.out)
         self.assertEqual(code, 2, out)
         self.assertIn("name the target", out)
 
@@ -378,7 +366,7 @@ class ShipGraph(GraphCase):
         from jsk.adapters.cli.compose import render as render_resume
 
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
-            return self.jsk("resume", "ship", self.short)
+            return self.tool("resume_ship", self.short)
 
     def test_a_clean_record_ships_through_the_record_gate(self):
         code, out = self.ship()
@@ -404,7 +392,7 @@ class ShipFrozen(ShortCase):
         from jsk.adapters.cli.compose import render as render_resume
 
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
-            return self.jsk("resume", "ship", *args)
+            return self.tool("resume_ship", *args)
 
     def frozen(self, submitted='"false"^^xsd:boolean'):
         appkit.put(self.root, self.graph(self.app, "application"),
@@ -447,7 +435,7 @@ class ShipFrozen(ShortCase):
         self.frozen()
         out_dir = self.root / "out"
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
-            code, out = self.jsk("resume", "render", self.short, "--out", out_dir)
+            code, out = self.tool("resume_render", self.short, "--out", out_dir)
         self.assertEqual(code, 1, out)
         self.assertIn("frozen:", out)
         self.assertFalse(list(out_dir.glob("*.tex")) if out_dir.exists() else [])

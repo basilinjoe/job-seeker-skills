@@ -1,9 +1,12 @@
-"""The CLI is `jsk <noun> <verb>` (Ruling 10 of the onion design), and the old names are
-retired with a pointer rather than kept as aliases.
+"""The CLI is `jsk <noun> <verb>` (Ruling 10 of the onion design) for what stays on the command
+line (doctor, kb new|load|dump, mcp), and the old names are retired with a pointer rather than
+kept as aliases. Each old top-level name (`validate`, `check`, `gates`, `render`, `preview`,
+`fit`, `ship`) exits 2 naming the TOOL of `jsk mcp` that does its work now (2026-10-04,
+docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 4); `jsk new` names `jsk kb new`.
 
-Every row of the ruling's mapping table is a test here: the old command exits 2 and names
-the new one, with the call's own arguments, and the new one runs. Every noun-verb pair
-answers --help from a process of its own, the way an agent first meets it.
+Every remaining noun-verb pair answers --help from a process of its own, the way an agent
+first meets it. What `resume_check` does with each kind of target, and which flags it refuses,
+is pinned here through the entry point the tool calls.
 """
 import ast
 import contextlib
@@ -16,31 +19,28 @@ import unittest
 from pathlib import Path
 
 from fixtures import (CLEAN_RESUME, REPO_ROOT, SCRIPTS, build_text, child_env,
-                      example_short)
+                      example_short, tool_entry)
 
 from jsk.adapters.cli import main as M
 
-# (the old call, the new call it names). Ruling 10's table, row by row.
+# (the old call, the new call it names): the one old name whose replacement is still a command.
 MAPPING = [
     (["new", "my-career", "--name", "Priya"], ["kb", "new", "my-career", "--name", "Priya"]),
-    (["validate", "resume.json"], ["resume", "check", "resume.json"]),
-    (["check", "resume.pdf", "--strict", "--only", "parse"],
-     ["resume", "check", "resume.pdf", "--strict", "--only", "parse"]),
-    (["gates", "out", "--record", "resume.json", "--pages", "2", "--json"],
-     ["resume", "check", "out", "--record", "resume.json", "--pages", "2", "--json"]),
-    (["render", "resume.json", "--out", "out"], ["resume", "render", "resume.json", "--out", "out"]),
-    (["preview", "resume.json", "--out", "looks"],
-     ["resume", "preview", "resume.json", "--out", "looks"]),
-    (["fit", "resume.tex", "--target-pages", "2"],
-     ["resume", "fit", "resume.tex", "--target-pages", "2"]),
-    (["ship", "resume.json", "--out", "out"], ["resume", "ship", "resume.json", "--out", "out"]),
 ]
 
-# The old calls whose work is a tool since 2026-10-04 (docs/superpowers/plans/
-# 2026-10-04-retire-duplicated-cli.md, Ruling 2): (the old call, what it is called now in
-# the message, the tool its fix names). Not a `jsk <noun> <verb>` any more, so no new call
-# runs - `jsk app freeze`, `jsk app event` and `jsk letter check` are retired themselves.
+# The old calls whose work is a tool: (the old call, what it is called in the message, the tool
+# its fix names). Not a `jsk <noun> <verb>` any more, so no new call runs. The first seven
+# went on 2026-10-04 with the resume noun (docs/superpowers/plans/2026-10-04-mcp-first.md,
+# Ruling 4); the rest in the plan before it (2026-10-04-retire-duplicated-cli.md, Ruling 2).
 TOOLS = [
+    (["validate", "resume.json"], "jsk validate", "resume_check"),
+    (["check", "resume.pdf", "--strict", "--only", "parse"], "jsk check", "resume_check"),
+    (["gates", "out", "--record", "resume.json", "--pages", "2", "--json"], "jsk gates",
+     "resume_check"),
+    (["render", "resume.json", "--out", "out"], "jsk render", "resume_render"),
+    (["preview", "resume.json", "--out", "looks"], "jsk preview", "resume_preview"),
+    (["fit", "resume.tex", "--target-pages", "2"], "jsk fit", "resume_fit"),
+    (["ship", "resume.json", "--out", "out"], "jsk ship", "resume_ship"),
     (["check", "letter.txt", "--only", "letter", "--record", "resume.json"],
      "jsk check --only letter", "letter_check"),
     (["event", "applications/acme", "offer", "--date", "2026-10-01"], "jsk event", "app_event"),
@@ -48,7 +48,7 @@ TOOLS = [
 ]
 
 # The commands Ruling 10 leaves as they were.
-UNCHANGED = [["kb", "check"], ["doctor"]]
+UNCHANGED = [["kb", "load"], ["kb", "dump"], ["doctor"]]
 
 
 def jsk(*argv):
@@ -75,6 +75,14 @@ class EveryOldNameIsRetired(unittest.TestCase):
                 self.assertIn(" was retired: it is jsk " + " ".join(new[:2]), out)
                 self.assertIn("fix:  jsk " + " ".join(new), out)
 
+    def test_a_row_naming_a_tool_names_one_the_server_registers(self):
+        """A fix that names a tool the server lacks would send the reader to a third failure."""
+        from test_mcp_server import TOOLS as REGISTERED
+
+        for _, _, tool in TOOLS:
+            with self.subTest(tool=tool):
+                self.assertIn(tool, REGISTERED)
+
     def test_a_name_whose_work_is_a_tool_now_names_the_tool(self):
         for old, said, tool in TOOLS:
             with self.subTest(old=" ".join(old)):
@@ -93,7 +101,7 @@ class EveryOldNameIsRetired(unittest.TestCase):
     def test_a_retired_name_with_no_arguments_shows_what_to_pass(self):
         code, out = jsk("validate")
         self.assertEqual(code, 2, out)
-        self.assertIn("fix:  jsk resume check <stem>", out)
+        self.assertIn("fix:  the resume_check tool (jsk mcp): resume_check(target)", out)
 
     def test_each_new_call_runs(self):
         for _, new in MAPPING:
@@ -131,28 +139,28 @@ class TheNouns(unittest.TestCase):
                     self.assertIn(verb, out)
 
     def test_a_noun_with_no_verb_is_a_usage_error(self):
-        for noun in ("resume", "app"):
-            with self.subTest(noun=noun):
-                code, out = jsk(noun)
-                self.assertEqual(code, 2, out)
-                self.assertIn(f"usage: jsk {noun}", out)
+        code, out = jsk("kb")
+        self.assertEqual(code, 2, out)
+        self.assertIn("Usage: jsk kb", out)
 
     def test_an_unknown_verb_names_the_real_ones(self):
-        code, out = jsk("resume", "validate")
+        code, out = jsk("kb", "frobnicate")
         self.assertEqual(code, 2, out)
-        self.assertIn("unknown verb: jsk resume validate", out)
-        self.assertIn("check, render, preview, fit, ship", out)
+        self.assertIn("unknown verb: frobnicate", out)
+        self.assertIn("load, dump", out)
 
     def test_the_kb_verbs_are_the_kb_adapter_s(self):
+        """The adapter still has check, pack and merge, which the career_* tools call; the
+        command line dispatches only the verbs in KB_VERBS, plus `new`."""
         from jsk.adapters.cli import kb
 
-        self.assertEqual(set(M.KB_VERBS), set(kb.VERBS))
-        self.assertEqual(set(M.NOUNS["kb"]), set(kb.VERBS) | {"new"})
+        self.assertEqual(set(M.KB_VERBS) | {"check", "pack", "merge"}, set(kb.VERBS))
+        self.assertEqual(set(M.NOUNS["kb"]), set(M.KB_VERBS) | {"new"})
 
 
 class ResumeCheckByTarget(unittest.TestCase):
-    """`jsk resume check` picks its gates from what it is given, and refuses a flag that
-    does not fit that kind of target."""
+    """The resume_check tool's entry point picks its gates from what it is given, and refuses
+    a flag that does not fit that kind of target."""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -163,13 +171,13 @@ class ResumeCheckByTarget(unittest.TestCase):
         self.json.write_text("{}", encoding="utf-8")
 
     def test_a_target_gets_the_record_gate(self):
-        code, out = jsk("resume", "check", example_short())
+        code, out = tool_entry("resume_check", example_short())
         self.assertEqual(code, 0, out)
         self.assertIn("PASS - safe to render", out)
         self.assertNotIn("parse gate", out)
 
     def test_a_render_gets_the_parse_and_prose_gates(self):
-        code, out = jsk("resume", "check", self.txt)
+        code, out = tool_entry("resume_check", self.txt)
         self.assertEqual(code, 0, out)
         self.assertIn("--- parse gate", out)
         self.assertIn("--- prose gate", out)
@@ -177,7 +185,7 @@ class ResumeCheckByTarget(unittest.TestCase):
 
     def test_a_directory_gets_all_four(self):
         (self.tmp / "out").mkdir()
-        code, out = jsk("resume", "check", self.tmp / "out")
+        code, out = tool_entry("resume_check", self.tmp / "out")
         self.assertEqual(code, 1, out)
         for gate in ("record", "parse", "prose", "layout"):
             self.assertIn(f"--- {gate} gate", out)
@@ -193,25 +201,25 @@ class ResumeCheckByTarget(unittest.TestCase):
                   (["--strict"], ["--only", "parse"])]
         for target, flag, kind in cases:
             with self.subTest(target=Path(target).name, flag=flag[0]):
-                code, out = jsk("resume", "check", target, *flag)
+                code, out = tool_entry("resume_check", target, *flag)
                 self.assertEqual(code, 2, out)
                 self.assertIn(f"{flag[0]} does not fit {kind}", out)
-                self.assertIn("fix:  jsk resume check", out)
+                self.assertIn("fix:  resume_check(", out)
 
     def test_the_layout_gate_keeps_its_own_flags(self):
-        code, out = jsk("resume", "check", self.tmp / "resume.pdf", "--only", "layout",
+        code, out = tool_entry("resume_check", self.tmp / "resume.pdf", "--only", "layout",
                         "--record", self.json, "--region", "AU")
         self.assertNotIn("does not fit", out)
 
     def test_only_letter_points_at_letter_check(self):
-        code, out = jsk("resume", "check", self.txt, "--only", "letter", "--record", self.json)
+        code, out = tool_entry("resume_check", self.txt, "--only", "letter", "--record", self.json)
         self.assertEqual(code, 2, out)
         self.assertIn("fix:  the letter_check tool (jsk mcp)", out)
 
     def test_no_target_is_the_usage_of_all_three(self):
-        code, out = jsk("resume", "check")
+        code, out = tool_entry("resume_check")
         self.assertEqual(code, 2, out)
-        self.assertEqual(out.count("jsk resume check <"), 3, out)
+        self.assertEqual(out.count("resume_check(<"), 3, out)
 
 
 class TheModulePathsAreRetired(unittest.TestCase):
@@ -252,6 +260,12 @@ RETIRED_NAME = re.compile(
     r"\bjsk (new|match|validate|check|gates|render|preview|fit|ship|freeze|event)\b"
     r"|python -m jsk\.\w")
 
+# The commands that became tools on 2026-10-04 (docs/superpowers/plans/2026-10-04-mcp-first.md,
+# Ruling 4). Held to what is PRINTED or taught, not to a docstring: a docstring may say that
+# `jsk resume check` was retired, and where it went, which names it.
+RETIRED_TO_TOOL = re.compile(
+    r"\bjsk (resume (check|render|preview|fit|ship)|app drop|kb (check|pack|merge))\b")
+
 # Where the prose teaches commands: an agent runs what the skill tells it to, and a retired
 # name there is a step that exits 2.
 DOC_ROOTS = ("plugins", "README.md", "docs/*.md")
@@ -264,13 +278,21 @@ def taught_in_strings(path):
         path: a .py file.
 
     Returns:
-        The offending strings, docstrings and f-string parts included; comments are not
-        strings, so they are not read.
+        The offending strings, f-string parts included; comments are not strings, so they are
+        not read. A docstring is held to RETIRED_NAME alone: it may name a command that
+        became a tool, since saying so is how it records the change.
     """
     tree = ast.parse(Path(path).read_text(encoding="utf-8"))
+    docstrings = {id(node.body[0].value) for node in ast.walk(tree)
+                  if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef,
+                                       ast.ClassDef))
+                  and node.body and isinstance(node.body[0], ast.Expr)
+                  and isinstance(node.body[0].value, ast.Constant)
+                  and isinstance(node.body[0].value.value, str)}
     return [(node.lineno, node.value) for node in ast.walk(tree)
             if isinstance(node, ast.Constant) and isinstance(node.value, str)
-            and RETIRED_NAME.search(node.value)]
+            and (RETIRED_NAME.search(node.value)
+                 or (id(node) not in docstrings and RETIRED_TO_TOOL.search(node.value)))]
 
 
 def taught_in_docs(root):
@@ -280,7 +302,10 @@ def taught_in_docs(root):
         root: the repository root.
 
     Returns:
-        The offending lines; docs/superpowers/ is history and is not read.
+        The offending lines; docs/superpowers/ is history and is not read. RETIRED_TO_TOOL is
+        held to plugins/ alone, the prose an agent runs: README.md's 6.0 notes and
+        docs/SCRIPTS.md's retired tables name those commands to say where each one went, as
+        they name `jsk kb apply` and the rest retired before them.
     """
     found = []
     for pattern in DOC_ROOTS:
@@ -288,8 +313,9 @@ def taught_in_docs(root):
         for path in (p for p in paths if p.exists()):
             files = path.rglob("*.md") if path.is_dir() else [path]
             for f in files:
+                taught = f.relative_to(root).parts[0] == "plugins"
                 for line in f.read_text(encoding="utf-8").splitlines():
-                    if RETIRED_NAME.search(line):
+                    if RETIRED_NAME.search(line) or (taught and RETIRED_TO_TOOL.search(line)):
                         found.append((f.relative_to(root).as_posix(), line.strip()))
     return found
 
@@ -315,6 +341,20 @@ class RetiredNamesAreNotTaught(unittest.TestCase):
             self.assertEqual(taught_in_docs(Path(tmp)),
                              [("plugins/SKILL.md", "Run `jsk validate` first.")])
 
+    def test_a_plugin_teaching_a_command_that_became_a_tool_is_caught_and_its_history_is_not(self):
+        # The skill is what an agent runs, so `jsk resume check` there is a step that exits 2;
+        # the same words in a doc's retired table say where the command went.
+        with tempfile.TemporaryDirectory() as tmp:
+            mode = Path(tmp) / "plugins" / "mode-ship.md"
+            mode.parent.mkdir()
+            mode.write_text("Then run `jsk resume check out/`.\n", encoding="utf-8")
+            notes = Path(tmp) / "docs" / "SCRIPTS.md"
+            notes.parent.mkdir()
+            notes.write_text("| `jsk resume check <dir>` | `resume_check(target)` |\n",
+                             encoding="utf-8")
+            self.assertEqual(taught_in_docs(Path(tmp)),
+                             [("plugins/mode-ship.md", "Then run `jsk resume check out/`.")])
+
     def test_no_doc_names_a_retired_command(self):
         self.assertEqual(taught_in_docs(REPO_ROOT), [])
 
@@ -336,7 +376,7 @@ class EveryVerbAnswersHelp(unittest.TestCase):
         proc = subprocess.run([sys.executable, "-m", "jsk.cli", "--help"], capture_output=True,
                               text=True, encoding="utf-8", env=child_env(), timeout=300)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertIn("jsk resume check", proc.stdout)
+        self.assertIn("resume_check", proc.stdout)
 
 
 if __name__ == "__main__":

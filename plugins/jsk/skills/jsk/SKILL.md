@@ -31,8 +31,8 @@ hand-built documents stop agreeing the moment one is edited.
 | `career/store/` | the career and its history; each application's advert, requirements, review, assessment, selection and timeline | `jsk` only |
 | `applications/<stem>/` | what was rendered: the `.pdf` and the `.tex` | `resume_ship` |
 
-An unsent application made from files is finished only by jsk 5.1.0; `app_list` and `jsk kb
-check` name each - send it with 5.1.0, or `jsk app drop` it.
+An unsent application made from files is finished only by jsk 5.1.0; `app_list` and `career_check`
+name each - send it with 5.1.0, or set it aside with `app_drop` once the person agrees.
 `applications/` is the directory beside `career/` — resolve it to an absolute path, never the
 working directory.
 
@@ -40,9 +40,21 @@ working directory.
 
 The plugin starts `jsk mcp` (`mcp` comes with `pip install jsk-resume`). Its tools —
 `mcp__plugin_jsk_graph__` + `career_*`, `app_*`, `posting_*`, `assessment_*`, `resume_*`,
-`letter_check` — take JSON and answer `ok` and findings, each with its fix. Prefer a tool to its
-command. `career_confirm` (the person's words), `app_freeze`, `app_event` and `letter_check` are
-yours, never an agent's.
+`letter_check` — take JSON and answer `ok` and findings, each with its fix. Since 6.0 they do
+everything but start the server and rescue a workspace, so there is no command to prefer:
+
+- `career_check()` validates the workspace; `career_pack(pack="capabilities")` and
+  `career_merge(concept, into)` draft a changeset in `changeset` and write nothing — pass it to
+  `career_preview`, then `career_apply`.
+- `resume_check(target, record=, only=, strict=, pages=)` runs the gates (`target` is a `<stem>`,
+  `resumes/<name>`, a `.pdf`, a `.tex` or a render directory); `resume_render(target, out=, pdf=,
+  template=, ats_max=, region=)`, `resume_preview(target, out)` and `resume_fit(tex, target_pages=)`
+  list the files they made in `wrote`, and the gates carry their verdict line in `verdict`. Open a
+  PDF or PNG with Read.
+- `app_drop(app, reason=, dry_run=)` sets an unsent application aside.
+
+`career_confirm` (the person's words), `app_freeze`, `app_event`, `letter_check` and `app_drop` are
+yours, never an agent's: `app_drop` only after the person agrees.
 
 ## Modes
 
@@ -84,26 +96,19 @@ changeset to a file for later.
 
 ## The `jsk` command
 
-`jsk --help` and `jsk kb --help` are the full surface.
+Five commands stay, for a machine where the server cannot start or no session is running.
 
 | Command | Does |
 |---|---|
 | `jsk doctor [--quick]` | what this machine can do and what each gap disables |
 | `jsk kb new <path> --name "Name"` | an empty `career/store/` and `applications/` |
-| `jsk kb check\|load\|dump\|pack\|merge` | the record's rules; a legacy `career/kb.ttl` loaded once; a TriG backup; `pack` and `merge` write vocabulary changesets, which `career_preview` then `career_apply` apply |
-| `jsk resume check <stem>\|<file>\|<out-dir>` | the record gate; parse and prose; all four over a directory |
-| `jsk resume render <stem> --pdf [--ats-max] [--template N]` | a selection to `.tex` and PDF |
-| `jsk resume preview <stem> --out DIR` | every template, with page counts |
-| `jsk resume ship <stem> [--pages N]` | validate, render, fit an overrun, gates; stops at a failure |
-| `jsk resume fit <resume.tex> --target-pages 2` | fits the render to a page budget |
-| `jsk app drop <app-dir>` | sets an unsent one aside |
+| `jsk kb load\|dump` | a legacy `career/kb.ttl` loaded once; a TriG backup |
 | `jsk mcp` | the career and graph-native applications as MCP tools, over stdio |
 
-Retired in 6.0, each exiting 2 with its tool named: the `kb` verbs apply, confirm, show, view,
-query, log, export and path; `app freeze`, `app event`; `letter check`. `docs/SCRIPTS.md` maps each.
+Every other command retired in 6.0 exits 2 and names its tool; `docs/SCRIPTS.md` maps each.
 
-Exit codes: `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf` are required — the
-PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
+Exit codes (a tool's `exit`): `0` passed, `1` failed, `2` called wrong. A TeX engine and `pymupdf`
+are required — the PDF is the only deliverable. A missing input is `SKIPPED` **and** a failure.
 
 ## Agents
 
@@ -125,13 +130,13 @@ where they fall short stay with you and the person. Their output does not reach 
 
 | Gate | Question | How |
 |---|---|---|
-| **Record** | shaped right, every id live, every number traced to a metric? | `jsk resume check` on the `<stem>` or `resumes/<name>` |
-| **Parse** | will an ATS read it? | `jsk resume check` on the PDF; on the directory, its text `--strict` too |
-| **Prose** | does it obey the writing rules? | `jsk resume check --only prose` on the `.tex` |
-| **Layout** | tofu, fonts, stranded headings, dates, paper? | `jsk resume check --only layout` on the PDF |
+| **Record** | shaped right, every id live, every number traced to a metric? | `resume_check(target=<stem>)`, `<stem>` or `resumes/<name>` |
+| **Parse** | will an ATS read it? | `resume_check` on the PDF; on the directory, its text `strict` too |
+| **Prose** | does it obey the writing rules? | `resume_check(only="prose")` on the `.tex` |
+| **Layout** | tofu, fonts, stranded headings, dates, paper? | `resume_check(only="layout")` on the PDF |
 | **Render** | does it look right, and is it true? | open every page of the PDF |
 
-`jsk resume check <dir>` (or `ship`) runs all but the last. **Show the output**; fix and re-run, never explain
+`resume_check` on the directory (or `resume_ship`) runs all but the last. **Show the output**; fix and re-run, never explain
 a failure away. The render gate is half yours: only the person can confirm it is true — until they
 have, the resume is unverified. Repair a defect in the career or the selection and re-render; never the PDF.
 

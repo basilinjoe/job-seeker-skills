@@ -106,5 +106,5 @@ def load_resume(path, *, load_store, selections):
     fails = shape(doc, target_name(path)) or ids(doc, store)
     if fails:
         raise ShortError(f"{path}: " + "; ".join(fails),
-                         "`jsk resume check` it and fix what it names")
+                         "call the resume_check tool on it and fix what it names")
     return LoadedResume(store, doc, root)

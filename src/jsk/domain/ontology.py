@@ -312,7 +312,7 @@ CLASSES = (
     # Ruling 8: a "no" is a claim like any other - inferred until the person confirms it, and
     # lapsed 365 days after it was said (domain/record/absence.py). Under Open questions, a
     # section every career already prints: a new banner would change every career's hash,
-    # and `jsk kb check` would call every store written outside jsk.
+    # and the career_check tool would call every store written outside jsk.
     Class("Absence", "abs", ("kb",), "Open questions", (
         (Pred("concept", Concept(), "1", "what the person said they have not done",
               claim=True),

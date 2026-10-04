@@ -125,7 +125,7 @@ def refusal_findings(err):
         return [("FAIL", f"{f.file}{' ' + f.focus if f.focus else ''} - {f.detail}", f.fix)
                 for f in err.findings] or [("FAIL", err.title, None)]
     if isinstance(err, Unclean):
-        message, fix = GUIDE.get(err.state.kind, (None, "`jsk kb check` says why"))
+        message, fix = GUIDE.get(err.state.kind, (None, "the career_check tool says why"))
         return [("FAIL", message or err.state.detail or err.state.kind, fix)]
     if isinstance(err, (RecordError, GraphError)):
         return [("FAIL", str(err), err.fix)]
@@ -169,8 +169,7 @@ class Tools:
                 return failed(*found)
             traceback.print_exc(file=sys.stderr)
             return failed(("FAIL", f"{tool} raised {type(err).__name__}: {err}",
-                           "the traceback is on the server's stderr; the same call through "
-                           "`jsk` shows it too - report it"))
+                           "the traceback is on the server's stderr - report it"))
         finally:
             if writes:
                 self.session.wrote()

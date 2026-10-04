@@ -1,4 +1,4 @@
-"""`jsk kb merge c:a --into c:b`: two concepts that are one, drafted as a changeset.
+"""The career_merge tool, c:a into c:b: two concepts that are one, drafted as a changeset.
 
 Every career triple pointing at c:a points at c:b instead - a project's j:uses and
 j:domain, an organisation's j:industry, a bullet's j:shows, another concept's edges. c:a's

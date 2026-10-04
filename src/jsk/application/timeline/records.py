@@ -155,7 +155,7 @@ def refuse_if_sent(app_dir, name, store=None, graph=False, *, records):
     except GraphError as e:
         raise Frozen(f"{name}: {os.path.basename(frozen(app_dir, store, records=records) or LEGACY)} "
                      f"beside it cannot be read, so whether it was sent is unknown ({e})",
-                     "`jsk kb check` shows what is wrong with it") from None
+                     "the career_check tool (jsk mcp) shows what is wrong with it") from None
     if day:
         raise Frozen(f"{name if graph else os.path.join(app_dir, name)}: the application was "
                      f"sent on {day}, and this is what it answered", "copy the application "

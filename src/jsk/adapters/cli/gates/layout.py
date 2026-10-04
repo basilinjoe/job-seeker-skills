@@ -1,6 +1,7 @@
 """The layout gate: what the render gate's checklist could measure, measured.
 
-Usage: jsk resume check resume.pdf --only layout [--record R] [--region CC] [--pages N]
+Usage: resume_check(resume.pdf, only="layout", record=R, pages=N)
+       as arguments: resume.pdf --only layout [--record R] [--region CC] [--pages N]
        --record R   the target it rendered from (<stem> or resumes/<name>): the region
                     and page budget are read from its selection. Default: the target
                     whose directory holds the PDF
@@ -25,7 +26,7 @@ nor free at any of them:
   FAIL  a date range out of the right-hand column every other one sits in
   FAIL  paper neither A4 nor Letter, or not the one the region renders on
 
-The page count is printed, never failed: `jsk resume fit` owns that verdict. What stays a
+The page count is printed, never failed: the resume_fit tool owns that verdict. What stays a
 person's is whether it looks right as a whole, the region's work-rights line or
 declaration, and whether it is true.
 """
@@ -56,8 +57,7 @@ def refused(argv):
         print(docstring_usage(__doc__))
         return 0
     if not argv or argv[0].startswith("-"):
-        print("usage: jsk resume check resume.pdf --only layout [--record R] [--region CC] "
-              "[--pages N]")
+        print("usage: resume_check(resume.pdf, only=\"layout\", record=R, pages=N)")
         return 2
     path = pdf_of(argv[0])
     if not os.path.exists(path):
@@ -76,8 +76,8 @@ def refused(argv):
 
     if is_resume_json(record):
         print("\n".join(resume_json_refusal(
-            "jsk resume check <pdf> --only layout --record <resume.json>",
-            "--record <stem> (or resumes/<name>), or no --record for the PDF's own target")))
+            "resume_check(<pdf>, only=\"layout\", record=<resume.json>)",
+            "record=<stem> (or resumes/<name>), or no record for the PDF's own target")))
         return 2
     if record is not None and not parse_ref(ref_for(record, dirs=True) or record):
         print(f"not a target: {record}")
@@ -88,12 +88,12 @@ def refused(argv):
 
 
 def pdf_of(named):
-    """The PDF a call names: `jsk resume check` finds a gate's file from whichever sibling was named."""
+    """The PDF a call names: the resume_check tool finds a gate's file from whichever sibling was named."""
     return named if named.lower().endswith(".pdf") else os.path.splitext(named)[0] + ".pdf"
 
 
 def gate(argv):
-    """The layout gate over the arguments alone, as `jsk resume check` runs it.
+    """The layout gate over the arguments alone, as the resume_check tool runs it.
 
     Args:
         argv: the PDF (or a sibling of it), then --record, --region and --pages.
@@ -144,7 +144,7 @@ def report(result):
     """
     count = f"{result.pages} page{'' if result.pages == 1 else 's'}"
     if result.budget:
-        count += f" of a budget of {result.budget} (reported; jsk resume fit owns that verdict)"
+        count += f" of a budget of {result.budget} (reported; the resume_fit tool owns that verdict)"
     print(f"checking: {result.name}   region: {(result.region or 'unknown').upper()}")
     print(f"pages: {count}   paper: {', '.join(result.papers)}   "
           f"families: {', '.join(result.faces) or 'n/a'}")
@@ -153,7 +153,7 @@ def report(result):
 
 
 def main(argv):
-    """The layout gate (`jsk resume check --only layout`), as an exit code.
+    """The layout gate (the resume_check tool), as an exit code.
 
     Args:
         argv: the arguments alone.

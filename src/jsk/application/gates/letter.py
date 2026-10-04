@@ -176,7 +176,7 @@ def number_lines(text, doc, store, posting, today, *, queries, state):
         return [line("record-unsound", "selection",
                      f"the target's selection does not pass the record gate ({len(unsound)} "
                      "failures), so no number can be traced through it",
-                     "run `jsk resume check <stem>` (or resumes/<name>) and fix that first")]
+                     "call resume_check(<stem>) (or resumes/<name>) and fix that first")]
     career = Career(store.graph(KB))
     floor = PROVENANCE_RANK.get(doc.get("floor", "confirmed"), 3)
 

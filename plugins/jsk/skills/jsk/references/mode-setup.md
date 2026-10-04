@@ -112,8 +112,8 @@ through their most significant projects.
    Ask if their location does not make it obvious.
 3. Validate, render and gate in one run, and show every step's output:
 
-```bash
-jsk resume ship resumes/general --pages 2
+```
+resume_ship(target="resumes/general", pages=2)
 ```
 
 If the PDF step reports the resume **unverified**, say so plainly.

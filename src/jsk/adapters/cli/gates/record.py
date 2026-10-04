@@ -1,6 +1,7 @@
 """The record gate: a short resume.json, and the career bullets it selects.
 
-Usage: jsk resume check <resume.json> [--strict] [--max-findings N]
+Usage: resume_check(<stem>, strict=False)
+       as arguments: <stem> [--strict] [--max-findings N]
        --strict            treat warnings as failures
        --max-findings N    print at most N failures and N warnings (default 25;
                            0 prints every one)
@@ -48,7 +49,7 @@ def parse(argv):
 
 
 def gate(args):
-    """The record gate over the arguments alone, as `jsk resume check` runs it.
+    """The record gate over the arguments alone, as the resume_check tool runs it.
 
     Args:
         args: the resume.json, then --strict and --max-findings N.
@@ -113,7 +114,7 @@ def report(result, limit):
 
 
 def main(argv):
-    """The record gate (`jsk resume check <resume.json>`), as an exit code.
+    """The record gate (the resume_check tool), as an exit code.
 
     Args:
         argv: the whole argv, the program name first.

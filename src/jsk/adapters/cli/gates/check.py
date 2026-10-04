@@ -1,4 +1,4 @@
-"""The three things `jsk resume check` does, by target, and how their steps print.
+"""The three things the resume_check tool does, by target, and how their steps print.
 
 cmd_validate is the record gate over one target's selection, cmd_check the two document gates
 over one render (or one gate, with --only), and cmd_gates all four over a render's
@@ -19,7 +19,7 @@ from ....application.gates.run_gates import RENDERED as RENDERED
 from ....application.gates.run_gates import rendered_documents as rendered_documents
 from ..cliutil import parse_flags, utf8_stdout, wants_help
 
-# The gates jsk resume check runs, in order. Both always run: a document that fails the parse
+# The gates the resume_check tool runs, in order. Both always run: a document that fails the parse
 # gate can still have prose findings worth seeing in the same pass.
 #
 # They no longer read the same file. check_ats.py reads what is actually sent - the
@@ -39,16 +39,17 @@ BY_HAND = (".txt",)
 
 # The gate `--only` reaches that the default pass never runs, its arguments passed through
 # unchanged. The layout gate reads the render, but only the PDF - a default pass over a .txt
-# would report it SKIPPED. `jsk resume check` and `jsk resume ship` run it; here it is asked for by name.
+# would report it SKIPPED. The resume_check and resume_ship tools run it; here it is asked for by name.
 CHECK_ALONE = {"layout": "layout.py"}
 
-CHECK_USAGE = "usage: jsk resume check <resume.pdf> [--strict] [--only parse|prose|layout]"
+CHECK_USAGE = ("usage: the resume_check tool (jsk mcp): resume_check(<resume.pdf>, strict=False, "
+               "only=\"parse\"|\"prose\"|\"layout\")")
 
-VALIDATE_USAGE = ("usage: jsk resume check <stem>|resumes/<name> [--strict] "
-                  "[--max-findings N]")
+VALIDATE_USAGE = ("usage: the resume_check tool (jsk mcp): resume_check(<stem>|resumes/<name>, "
+                  "strict=False)")
 
-GATES_USAGE = ("usage: jsk resume check <out-dir> [--record <stem>|resumes/<name>] "
-               "[--pages N] [--json] [--max-findings N]")
+GATES_USAGE = ("usage: the resume_check tool (jsk mcp): resume_check(<out-dir>, "
+               "record=<stem>|resumes/<name>, pages=N)")
 
 GATES_VALUE_FLAGS = ("--record", "--pages", "--max-findings")
 
@@ -57,11 +58,15 @@ GATES_VALUE_FLAGS = ("--record", "--pages", "--max-findings")
 ADAPTERS = {"record.py": "record", "check_ats.py": "ats", "check_prose.py": "prose",
             "layout.py": "layout", "terms.py": "terms", "letter.py": "letter"}
 
-# The command that runs each gate alone, for the hint after one that raised.
-COMMANDS = {"record.py": "jsk resume check", "check_ats.py": "jsk resume check --only parse",
-            "check_prose.py": "jsk resume check --only prose",
-            "layout.py": "jsk resume check --only layout",
-            "terms.py": "jsk resume check <out-dir> --record", "letter.py": "the letter_check tool (jsk mcp) with the same arguments"}
+# The tool call that runs each gate alone, for the hint after one that raised. Tools, as in
+# dispatch.COMMANDS, since the commands went on 2026-10-04 and a hint naming one would send the
+# reader to an exit 2.
+COMMANDS = {"record.py": "resume_check(<stem>)",
+            "check_ats.py": "resume_check(<pdf>, only=\"parse\")",
+            "check_prose.py": "resume_check(<tex>, only=\"prose\")",
+            "layout.py": "resume_check(<pdf>, only=\"layout\")",
+            "terms.py": "resume_check(<out-dir>, record=<stem>)",
+            "letter.py": "letter_check(<stem>)"}
 
 
 def gate_target(path, accepts):
@@ -146,7 +151,7 @@ def through(script, args):
 
 
 def cmd_validate(args):
-    """`jsk resume check`: the record gate, over one target's selection.
+    """The resume_check tool's record gate, over one target's selection.
 
     Args:
         args: the arguments after the command.
@@ -173,7 +178,7 @@ def only_gate(args):
     """(the gate --only names or None, the arguments without it, exit code or None).
 
     Args:
-        args: `jsk resume check`'s arguments; not changed.
+        args: the resume_check tool's arguments; not changed.
 
     Returns:
         The exit code is 2, after printing why, when --only has no value or names no gate.
@@ -254,14 +259,14 @@ def cmd_check(args):
         else:
             print(f"The {ran} passed. Three gates did not run:")
             # Padded to the same column as the two fixed lines below it.
-            print(f"  {'jsk resume check ' + os.path.basename(target):<30} the other document gate")
-        print("  jsk resume check <stem>         before rendering")
+            print(f"  {'resume_check(' + os.path.basename(target) + ')':<30} the other document gate")
+        print("  resume_check(<stem>)            before rendering")
         print("  open the PDF and read it       nobody else can do this one")
     return worst
 
 
 def parse_gates(args):
-    """`jsk resume check`'s arguments, as cliutil.parse_flags reads them."""
+    """The resume_check tool's arguments, as cliutil.parse_flags reads them."""
     return parse_flags(args, GATES_VALUE_FLAGS)
 
 
@@ -283,7 +288,7 @@ def parse_pages(pages):
 
 
 def gates_call(args):
-    """(out_dir, record, pages, limit, json) for `jsk resume check`, or an exit code.
+    """(out_dir, record, pages, limit, json) for the resume_check tool, or an exit code.
 
     Args:
         args: the arguments after the command.
@@ -313,7 +318,7 @@ def gates_call(args):
     out_dir = positional[0]
     if not os.path.isdir(out_dir):
         print(f"not a directory: {out_dir}")
-        print("fix:  pass the directory jsk resume render --out wrote to")
+        print("fix:  pass the directory the resume_render tool wrote to (its out argument)")
         return 2
 
     # A record that was named and is wrong is a call error; one that was neither
@@ -328,8 +333,8 @@ def gates_call(args):
     if record is not None:
         if is_resume_json(record):
             print("\n".join(resume_json_refusal(
-                "jsk resume check <out-dir> --record <resume.json>",
-                "jsk resume check <out-dir> --record <stem> (or resumes/<name>)")))
+                "resume_check(<out-dir>, record=<resume.json>)",
+                "resume_check(<out-dir>, record=<stem>) (or resumes/<name>)")))
             return 2
         record = ref_for(record, dirs=True) or record
         if not parse_ref(record):
@@ -430,7 +435,7 @@ def strict_for(path):
 
 
 def measure(pdf):
-    """(pages, last page's fill) of a PDF, as `jsk resume render` measures one
+    """(pages, last page's fill) of a PDF, as the resume_render tool measures one
     (compose.render).
 
     Raises:
@@ -442,9 +447,9 @@ def measure(pdf):
 
 
 def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only=None):
-    """Every `jsk resume check` step over one directory, the render gate last, as Shown dicts.
+    """Every resume_check tool step over one directory, the render gate last, as Shown dicts.
 
-    `jsk resume ship` and the app_freeze tool call this too (application.gates.run_gates.run_gates says
+    the resume_ship tool and the app_freeze tool call this too (application.gates.run_gates.run_gates says
     why), and print and serialise what it returns beside steps of their own.
 
     Returns:
@@ -534,7 +539,7 @@ def summary(results):
         command = result["command"] or ""
         if result["gate"] in ("parse gate", "prose gate", "layout gate") and command:
             parts.append(command.split()[1] if len(command.split()) > 1 else command)
-        # The render's measurement, or - under `jsk resume check`, which renders nothing -
+        # The render's measurement, or - under the resume_check tool, which renders nothing -
         # the render gate's under --pages. Never both: ship's --pages is a second
         # budget for the same count.
         if result["gate"] == "render" or (result["gate"] == "render gate"

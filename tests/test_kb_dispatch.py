@@ -1,13 +1,12 @@
-"""`jsk kb` itself: its verb table and the flags it does not know."""
-import contextlib
-import io
+"""`jsk kb` itself: its verb table and the flags it does not know. The adapter still holds
+check, pack and merge, which the career_check, career_pack and career_merge tools call, so the
+flag rule is pinned on all five verbs, the three called as the tools call them."""
 import os
 import re
 import unittest
 
+from fixtures import gate
 from storekit import Workspace
-
-from jsk import cli
 
 
 class Dispatch(Workspace):
@@ -16,11 +15,13 @@ class Dispatch(Workspace):
         self.assertEqual(code, 0)
         # The retired verbs are named in the closing paragraph, not listed as verbs.
         self.assertIn("`jsk kb apply|confirm|show|view|query|log|export|path` were retired", out)
-        self.assertIn("pack capabilities [--out FILE]", out)
+        # What went to the tools is named by them, not listed as a verb of the command line.
+        for tool in ("career_check", "career_pack", "career_merge"):
+            self.assertIn(tool, out)
         verbs = re.findall(r"^  (\w+)", out, re.M)
-        self.assertEqual(verbs, ["new", "pack", "merge", "check", "load", "dump"])
-        from jsk.adapters.cli import kb as kbcli
-        self.assertEqual(sorted([*kbcli.VERBS, "new"]), sorted(verbs))
+        self.assertEqual(verbs, ["new", "load", "dump"])
+        from jsk.adapters.cli import main as M
+        self.assertEqual(sorted(M.NOUNS["kb"]), sorted(verbs))
 
     def test_an_unknown_verb(self):
         code, out = self.kb("chek")
@@ -32,10 +33,10 @@ class Dispatch(Workspace):
         here = os.getcwd()
         os.chdir(self.path("applications"))
         self.addCleanup(os.chdir, here)
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "kb", "check"])
-        self.assertEqual(code, 0, out.getvalue())
+        # No --root: the entry point the career_check tool calls looks for the workspace
+        # above the current directory, as `jsk kb check` did.
+        code, out = gate("kbcli.py", "check")
+        self.assertEqual(code, 0, out)
 
 
 class UnknownFlags(Workspace):

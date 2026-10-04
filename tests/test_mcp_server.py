@@ -1,8 +1,9 @@
 """`jsk mcp`: the career and graph-native applications served as typed tools - P4 of
 docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md, Rulings 13-18.
 
-The rules pinned: the server registers Ruling 18's eighteen tools and the three of Ruling
-21's amendment (2026-10-03, tests/test_mcp_timeline.py) by name, with batch
+The rules pinned: the server registers Ruling 18's eighteen tools, the three of Ruling
+21's amendment (2026-10-03, tests/test_mcp_timeline.py) and the eight of 2026-10-04's
+(docs/superpowers/plans/2026-10-04-mcp-first.md) by name, twenty-nine in all, with batch
 shapes whose fields the schema shows; every result is `{"ok": ...}` JSON and every refusal
 a finding with its fix, never a traceback (Ruling 16); the whole graph-native run goes
 through the tools and leaves nothing on disk; a raised verdict is a FAIL with nothing
@@ -49,7 +50,12 @@ TOOLS = {"career_view", "career_show", "career_query", "career_log", "career_pre
          "posting_decide", "posting_complete", "assessment_derive", "assessment_review",
          "assessment_complete", "resume_select", "resume_update", "resume_ship",
          # Ruling 21's amendment (2026-10-03): the main session's, granted to no agent.
-         "app_freeze", "app_event", "letter_check"}
+         "app_freeze", "app_event", "letter_check",
+         # 2026-10-04 (docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 4): the tools that
+         # replaced `jsk kb check|pack|merge`, `jsk resume check|render|preview|fit` and
+         # `jsk app drop`.
+         "career_check", "career_pack", "career_merge", "app_drop", "resume_check",
+         "resume_render", "resume_preview", "resume_fit"}
 PFX = ("@prefix j: <tag:jsk,2026:ns#> .\n@prefix k: <tag:jsk,2026:id/> .\n"
        "@prefix c: <tag:jsk,2026:concept/> .\n@prefix op: <tag:jsk,2026:op#> .\n")
 RENAME = PFX + 'op:set { k:prj_portal j:name "Customer portal" . }\n'
@@ -97,7 +103,7 @@ class Served(unittest.TestCase):
 
 
 class Listed(Served):
-    def test_the_server_registers_its_twenty_one_tools(self):
+    def test_the_server_registers_its_twenty_nine_tools(self):
         async def listed():
             from mcp.shared.memory import create_connected_server_and_client_session as connect
 

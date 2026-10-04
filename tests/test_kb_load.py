@@ -40,6 +40,10 @@ class Load(unittest.TestCase):
                     os.path.join(self.empty, self.APP, "posting.md"))
 
     def kb(self, root, *args):
+        if args and args[0] == "check":
+            import recordkit
+
+            return recordkit.kb_check(root)
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             code = cli.main(["jsk", "kb", *args, "--root", root])
@@ -187,7 +191,7 @@ class Load(unittest.TestCase):
         code, out = self.kb(self.empty, "load", self.files)
         self.assertEqual(code, 0, out)
         self.assertIn(f"note     {self.APP}: its documents (posting.md", out)
-        self.assertIn("failures in applications - `jsk kb check` lists them", out)
+        self.assertIn("failures in applications - the career_check tool (jsk mcp) lists them", out)
         self.assertEqual(self.kb(self.empty, "check")[0], 1)          # until it is copied
 
     def test_a_graph_native_application_is_not_said_to_have_a_posting_md(self):

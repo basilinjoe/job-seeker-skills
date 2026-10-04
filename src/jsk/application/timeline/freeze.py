@@ -9,7 +9,7 @@ the app_event tool (jsk mcp). An application's record is the selection the store
 docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md), hashed as Ruling 7 says
 (P5, 2026-10-02). An application made from files was frozen from its resume.json until 6.0,
 which freezes none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2): it is
-refused with Ruling 5's fix, the release that still finishes one or `jsk app drop`. One
+refused with Ruling 5's fix, the release that still finishes one or the app_drop tool. One
 frozen before then stays as it was.
 
 Four steps, each the adapter's to call in turn: check (the record it would freeze), plan
@@ -164,7 +164,7 @@ def selected(app_dir, native, build):
         stem = os.path.basename(os.path.abspath(app_dir))
         raise FreezeRefused(f"no resume stored for {stem}",
                             f"fix: the `resume_select` tool (`jsk mcp`) chooses one for {stem}, "
-                            f"and `jsk resume ship {stem}` renders it.",
+                            f"and the resume_ship tool renders it: resume_ship(target=\"{stem}\").",
                             "nothing was renamed or written.")
     try:
         plan, _ = build(ref)

@@ -140,7 +140,8 @@ class Numbers(LetterCase):
                                "bullets": ["ach_no_such_bullet"]}, career(str(root)))
         self.assertIn("record-unsound selection - the target's selection does not pass the "
                       "record gate", found)
-        self.assertIn("run `jsk resume check <stem>` (or resumes/<name>)", found)
+        # The retired `jsk resume check` is not named: the record gate is the resume_check tool.
+        self.assertIn("call resume_check(<stem>) (or resumes/<name>)", found)
         self.assertNotIn("resume.json", found)
 
     def test_without_a_record_the_number_check_is_skipped_and_a_failure(self):

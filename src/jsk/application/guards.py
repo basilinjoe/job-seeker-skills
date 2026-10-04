@@ -1,8 +1,8 @@
 """The refusals several commands share, returned as lines and never printed.
 
-A command that refuses says why in the same words wherever it runs: `jsk resume render`,
-`jsk resume preview`, `jsk resume ship` and the career_confirm tool (jsk mcp) all turn a frozen application away, and every
-command that reads the record turns away a workspace still laid out as files. The wording
+A command or tool that refuses says why in the same words wherever it runs: the resume_render,
+resume_preview, resume_ship and career_confirm tools (jsk mcp) all turn a frozen application away,
+and every command that reads the record turns away a workspace still laid out as files. The wording
 lives here once; each adapter prints it.
 """
 import os
@@ -81,14 +81,14 @@ FROZEN = (".posting.json", ".gaps.json")
 def record_refusal(target, verb="check"):
     """Why `target` is not a record the record gate can read, or None if it is.
 
-    Shared by `jsk resume check` and `jsk resume ship`, so that the two commands that start at a
+    Shared by the resume_check and resume_ship tools, so that the two that start at a
     record turn the same wrong file away in the same words. A record is a target's selection
     since 6.0, which reads no resume.json: one named is told the target form (Ruling 1 of
     docs/superpowers/plans/2026-10-03-retire-file-pipeline.md).
 
     Args:
         target: the path the command was given, or a graph-native target's ref.
-        verb: the `jsk resume` verb the fix names.
+        verb: the resume tool the fix names: `check` for resume_check, `ship` for resume_ship.
 
     Returns:
         The lines saying what is wrong and what to pass instead, or None. Asks only
@@ -101,8 +101,8 @@ def record_refusal(target, verb="check"):
         # (application/render/selection.py), and there is nothing on disk to look for.
         return None
     if is_resume_json(target):
-        return resume_json_refusal(f"jsk resume {verb} <resume.json>",
-                                   f"jsk resume {verb} <stem> (or resumes/<name>) - the "
+        return resume_json_refusal(f"resume_{verb}(<resume.json>)",
+                                   f"resume_{verb}(<stem>) (or resumes/<name>) - the "
                                    "target's stored selection")
     if os.path.isdir(target):
         return [f"FAIL  cannot validate a directory: {target}",
@@ -116,11 +116,11 @@ def record_refusal(target, verb="check"):
                 "      frozen document is meant to be read, not re-checked."]
     if target.endswith(".md"):
         return [f"FAIL  cannot validate: {target}",
-                "fix:  the career is in career/store/, which `jsk kb check` validates. This",
+                "fix:  the career is in career/store/, which the career_check tool validates. This",
                 "      gate reads a target's choice from the career - name the target"]
     if target.endswith(".ttl"):
         return [f"FAIL  cannot validate: {target}",
-                "fix:  the graph record is validated on every load - `jsk kb check`",
+                "fix:  the graph record is validated on every load - the career_check tool",
                 "      shows its findings. This gate reads a target's choice from",
                 "      it - name the target: <stem> or resumes/<name>"]
     return [f"FAIL  cannot validate: {target}",
@@ -143,7 +143,7 @@ def resume_json_refusal(form, fix):
     export say it alike.
 
     Args:
-        form: the retired form, e.g. "jsk resume check <resume.json>".
+        form: the retired form, e.g. "resume_check(<resume.json>)".
         fix: the command or tool that replaces it.
 
     Returns:

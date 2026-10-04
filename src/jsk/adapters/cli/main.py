@@ -3,37 +3,35 @@
     jsk doctor                  what works on this machine
     jsk kb new PATH --name NAME scaffold career/store/ - the career and its log at r1 -
                                 and applications/
-    jsk kb VERB [...]           the graph record: check, load, dump, pack, merge (the
-                                career_* tools read and change it)
-    jsk resume check TARGET     the record gate, before anything renders - TARGET is an
-                                application's <stem> or resumes/<name>
-      ... check PDF [--strict]  the parse gate and the prose gate, both
-      ...   --only parse|prose  one of them, for re-checking one repaired file
-      ...   --only layout       fonts, tofu, stranded headings, date column, paper
-      ... check DIR [--record TARGET]  the record, parse, prose and layout gates over a render
-      ... render TARGET [...]   its selection to a .tex (a PDF too with --pdf), in its
-                                own directory
-      ... preview TARGET --out D  the same resume in every template, to pick a look
-      ... fit TEX [...]         fit a render to a page budget
-      ... ship TARGET           validate, render and gate, in one pass
-    jsk app drop APP [--reason T] [--dry-run]   set an unsent one aside: graphs removed,
-                                folder kept under dropped/
+    jsk kb load WORKSPACE|DUMP  fill an empty career/store/, once: from a workspace still laid
+                                out as .ttl files, or from a dump
+    jsk kb dump [--out FILE]    the whole record as TriG: a backup, and what load reads
     jsk mcp                     serve the career and its applications to an agent as MCP
-                                tools, over stdio: career_*, app_*, resume_*, letter_check
+                                tools, over stdio
 
 `jsk <noun> --help` lists a noun's verbs, and `jsk <noun> <verb> --help` its flags.
+
+Everything else is a tool of `jsk mcp`, not a command (2026-10-04, docs/superpowers/plans/
+2026-10-04-mcp-first.md): checking and drafting the record (career_check, career_pack,
+career_merge), changing and reading it (career_apply, career_preview, career_confirm,
+career_show, career_view, career_query, career_log), rendering, checking and shipping a
+resume (resume_check, resume_render, resume_preview, resume_fit, resume_select, resume_update,
+resume_ship), a cover letter (letter_check), and an application from its advert to its
+outcome (posting_capture, posting_decide, posting_complete, assessment_derive,
+assessment_review, assessment_complete, app_list, app_show, app_freeze, app_event, app_drop).
+A retired command exits 2 and names its tool.
 
 The career is the graph record, in career/store/: changed through the career_apply tool, read
 with the career_show and career_view tools, validated on every load. A target's selection - the bullets
 chosen, as ids, kept in the store by the resume_select tool - says what a resume shows;
-every render builds from the career and that selection, and `jsk resume check` checks it and
+every render builds from the career and that selection, and the resume_check tool checks it and
 the bullets it selects before anything renders - the last point at which a mistake is still
 cheap.
 
 pyoxigraph for the graph record, and pymupdf to read a PDF.
 """
 from ... import __version__
-from .cliutil import refused, wants_help
+from .cliutil import refused
 from .dispatch import run_in_process, workspace_refusal
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
@@ -41,30 +39,11 @@ from .dispatch import run_in_process, workspace_refusal
 # paragraph fails a test rather than quietly printing it as part of the help.
 HELP_ENDS_BEFORE = "\n\npyoxigraph for the graph record"
 
-# The kb adapter's verbs (adapters.cli.kb.VERBS), named here so that dispatching one does
+# The kb adapter's verbs that stay on the command line (check, pack and merge are
+# reached through the career_* tools, so adapters.cli.kb.VERBS holds three more),
+# named here so that dispatching one does
 # not import it: `python -m jsk doctor` runs without pyoxigraph.
-KB_VERBS = ("check", "load", "dump", "pack", "merge")
-
-
-def resume_check(args):
-    """`jsk resume check` (adapters.cli.resume.cmd_resume_check)."""
-    from .resume import cmd_resume_check
-
-    return cmd_resume_check(args)
-
-
-def resume_ship(args):
-    """`jsk resume ship` (adapters.cli.ship.main)."""
-    from .ship import main as ship
-
-    return ship(args)
-
-
-def app_drop(args):
-    """`jsk app drop` (adapters.cli.drop.main)."""
-    from .drop import main as drop
-
-    return drop(args)
+KB_VERBS = ("load", "dump")
 
 
 def doctor(args):
@@ -88,9 +67,6 @@ def mcp(args):
 NOUNS = {
     "doctor": {},
     "kb": {"new": "kb.py", **dict.fromkeys(KB_VERBS, "kbcli.py")},
-    "resume": {"check": resume_check, "render": "render_resume.py",
-               "preview": "preview_templates.py", "fit": "fit_pages.py", "ship": resume_ship},
-    "app": {"drop": app_drop},
     "mcp": {},
 }
 
@@ -99,22 +75,6 @@ TAKES_VERB = {"kbcli.py"}
 
 # The nouns whose adapter prints its own usage, verbs and unknown-verb refusal.
 OWN_USAGE = {"kb": "kbcli.py"}
-
-# What `jsk <noun> --help` prints for the nouns that do not print their own.
-NOUN_USAGE = {
-    "resume": ("usage: jsk resume <verb> ...\n"
-               "  check TARGET | RENDER | DIR        the record gate; parse and prose; "
-               "or all four\n"
-               "  render TARGET [--out DIR] [...]    a target's selection to a .tex; --pdf "
-               "compiles it\n"
-               "  preview TARGET --out DIR           the same resume in every template\n"
-               "  fit TEX [--target-pages N]         fit a render to a page budget\n"
-               "  ship TARGET [...]                  validate, render and gate, in one pass\n"
-               "  (TARGET: an application's <stem>, or resumes/<name>)"),
-    "app": ("usage: jsk app <verb> ...\n"
-            "  drop APP [--reason T] [--dry-run]   set an unsent application aside\n"
-            "  (a freeze and an event are the app_freeze and app_event tools, jsk mcp)"),
-}
 
 # Commands that went, with what replaced them. Said by name rather than as an unknown
 # command: a shell history or an old mode file still holds them, and "unknown command"
@@ -132,16 +92,26 @@ RETIRED = {
     "match": "in 6.0 - it matched a posting made from files, which jsk no longer makes.\n"
              "fix:  the assessment_derive tool (jsk mcp) matches a graph-native "
              "application's posting against the career",
-    "validate": ("jsk resume check", "<stem>"),
-    "check": ("jsk resume check", "resume.pdf"),
+    # 2026-10-04: the commands these pointed at went too (Ruling 4 of docs/superpowers/plans/
+    # 2026-10-04-mcp-first.md), so each is a string naming the tool: a "it is jsk resume
+    # render now" would send the reader to another exit 2.
+    "validate": "in 6.0 - the record gate is a tool now.\n"
+                "fix:  the resume_check tool (jsk mcp): resume_check(target)",
+    "check": "in 6.0 - the gates are a tool now.\n"
+             "fix:  the resume_check tool (jsk mcp): resume_check(target, only=)",
     "check --only letter": "a cover letter is checked by a tool now.\n"
                            "fix:  the letter_check tool (jsk mcp): letter_check(letter, "
                            "record=<stem>)",
-    "gates": ("jsk resume check", "<out-dir>"),
-    "render": ("jsk resume render", "<stem>"),
-    "preview": ("jsk resume preview", "<stem> --out DIR"),
-    "fit": ("jsk resume fit", "resume.tex --target-pages 2"),
-    "ship": ("jsk resume ship", "<stem>"),
+    "gates": "in 6.0 - the gates over a render are a tool now.\n"
+             "fix:  the resume_check tool (jsk mcp): resume_check(<out-dir>, record=)",
+    "render": "in 6.0 - a render is made by a tool now.\n"
+              "fix:  the resume_render tool (jsk mcp): resume_render(target, out=, pdf=)",
+    "preview": "in 6.0 - the template preview is a tool now.\n"
+               "fix:  the resume_preview tool (jsk mcp): resume_preview(target, out)",
+    "fit": "in 6.0 - fitting a render is a tool now.\n"
+           "fix:  the resume_fit tool (jsk mcp): resume_fit(tex, target_pages=)",
+    "ship": "in 6.0 - a ship is made by a tool now.\n"
+            "fix:  the resume_ship tool (jsk mcp): resume_ship(target)",
     "event": "in 6.0 - an event is added by a tool now.\n"
              "fix:  the app_event tool (jsk mcp): app_event(app, kind, date)",
     "freeze": "in 6.0 - a freeze is made by a tool now.\n"
@@ -214,9 +184,40 @@ RETIRED.update({
                     "fix:  the letter_check tool (jsk mcp): letter_check(letter, record=<stem>)",
 })
 
+# 2026-10-04: the rest of what the MCP tools duplicate (docs/superpowers/plans/
+# 2026-10-04-mcp-first.md, Ruling 4). The kb adapter still serves check, pack and merge,
+# and the tools call it, but `jsk kb check` is refused here before it is dispatched.
+RETIRED.update({
+    "kb check": "in 6.0 - the record is checked by a tool now.\n"
+                "fix:  the career_check tool (jsk mcp): career_check()",
+    "kb pack": "in 6.0 - a starter pack is drafted by a tool now.\n"
+               "fix:  the career_pack tool (jsk mcp): career_pack(pack=\"capabilities\") returns "
+               "a changeset for career_preview",
+    "kb merge": "in 6.0 - a merge is drafted by a tool now.\n"
+                "fix:  the career_merge tool (jsk mcp): career_merge(concept, into) returns a "
+                "changeset for career_preview",
+    "resume": "in 6.0 - the resume noun had five verbs, and tools do their work.\n"
+              "fix:  the resume_check, resume_render, resume_preview, resume_fit and "
+              "resume_ship tools (jsk mcp)",
+    "resume check": "in 6.0 - a resume is checked by a tool now.\n"
+                    "fix:  the resume_check tool (jsk mcp): resume_check(target, only=, record=)",
+    "resume render": "in 6.0 - a render is made by a tool now.\n"
+                     "fix:  the resume_render tool (jsk mcp): resume_render(target, out=, pdf=)",
+    "resume preview": "in 6.0 - the template preview is a tool now.\n"
+                      "fix:  the resume_preview tool (jsk mcp): resume_preview(target, out)",
+    "resume fit": "in 6.0 - fitting a render is a tool now.\n"
+                  "fix:  the resume_fit tool (jsk mcp): resume_fit(tex, target_pages=)",
+    "resume ship": "in 6.0 - a ship is made by a tool now.\n"
+                   "fix:  the resume_ship tool (jsk mcp): resume_ship(target)",
+    "app": "in 6.0 - the app noun had one verb left, and a tool does its work.\n"
+           "fix:  the app_drop tool (jsk mcp): app_drop(app, reason=, dry_run=)",
+    "app drop": "in 6.0 - an application is set aside by a tool now.\n"
+                "fix:  the app_drop tool (jsk mcp): app_drop(app, reason=, dry_run=)",
+})
+
 # The nouns 6.0 retired whole, their verbs with them: `jsk posting build` is said as itself
 # when RETIRED names it, and as its noun otherwise.
-RETIRED_NOUNS = ("posting", "tailor", "letter")
+RETIRED_NOUNS = ("posting", "tailor", "letter", "resume", "app")
 
 
 def without_only_letter(args):
@@ -265,20 +266,6 @@ def usage():
     """
     print(str(__doc__).strip().split("\n\n", 1)[1].split(HELP_ENDS_BEFORE, 1)[0])
     return 2
-
-
-def noun_usage(noun, asked):
-    """Print what a noun's verbs are.
-
-    Args:
-        noun: one of NOUN_USAGE.
-        asked: whether it was asked for with --help, rather than given no verb.
-
-    Returns:
-        0 when asked, else 2.
-    """
-    print(NOUN_USAGE[noun])
-    return 0 if asked else 2
 
 
 def run(noun, verb, rest):
@@ -333,11 +320,6 @@ def main(argv):
             return run(noun, verb, rest[1:])
         if noun in OWN_USAGE:
             return run_in_process(OWN_USAGE[noun], rest)
-        if verb is None or wants_help(rest):
-            return noun_usage(noun, verb is not None)
-        print(f"unknown verb: jsk {noun} {verb}")
-        print(f"fix:  one of {', '.join(verbs)} - or run jsk {noun} --help")
-        return 2
     if noun in RETIRED_NOUNS:
         verb = f"{noun} {rest[0]}" if rest else noun
         return retired(verb if verb in RETIRED else noun, rest[1:])

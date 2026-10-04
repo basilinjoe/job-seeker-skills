@@ -1,4 +1,4 @@
-"""`jsk kb pack`: a starter pack drafted as a changeset of what the record lacks, based on
+"""The career_pack tool: a starter pack drafted as a changeset of what the record lacks, based on
 the revision the log last recorded. Nothing is applied."""
 from dataclasses import dataclass
 
@@ -59,7 +59,7 @@ def pack(root, name, *, load, state, packs):
         return Drafted(None, "", tuple(d.skipped))
     what = f"{len(d.added)} concepts added, {len(d.enriched)} enriched"
     text = trig(base, f"Adopted the {name} pack: {what}.", {"add": d.add},
-                comments=[f"jsk kb pack {name}: {what}, {len(d.skipped)} skipped.",
+                comments=[f"career_pack {name}: {what}, {len(d.skipped)} skipped.",
                           "Read its diff with the career_preview tool (jsk mcp) before applying it with "
                           "career_apply."])
     return Drafted(text, what, tuple(d.skipped))

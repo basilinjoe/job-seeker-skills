@@ -1,18 +1,18 @@
-"""`jsk app drop` sets an unsent application aside: the amended Ruling 5 of
+"""The app_drop tool (jsk mcp) sets an unsent application aside: the amended Ruling 5 of
 docs/superpowers/plans/2026-10-03-retire-file-pipeline.md (2026-10-03).
 
 The rules pinned: an application that was never frozen - made from files or graph-native - has
 every graph the store holds for it (posting, review, gaps, resume) removed in one validated
 update, and its folder moved, files intact, to `dropped/<stem>/` beside applications/
 (`<stem>-2` when that is taken) with a DROPPED.txt saying the day, the reason and what left the
-store; it is then no longer named unsent by `file_made_unsent` or `jsk kb check`. A frozen
+store; it is then no longer named unsent by `file_made_unsent` or the career_check tool. A frozen
 application, sent or held back, is refused with nothing changed, the fix saying it is an
 archive. A removal the workspace would not validate without is refused with nothing changed.
-`--dry-run` names everything it would remove and move, and changes nothing. A path that is no
-application - no folder and no graph - is a call made wrongly, exit 2.
+`dry_run` names everything it would remove and move, and changes nothing. A path that is no
+application - no folder and no graph - is a call made wrongly, exit 2. The tool calls
+adapters/cli/drop.main, so the tests call it the same way (recordkit.drop) and read what it
+printed; `jsk app drop` itself is retired and exits 2 naming the tool (tests/test_retired.py).
 """
-import contextlib
-import io
 import shutil
 import tempfile
 import unittest
@@ -21,18 +21,10 @@ from unittest import mock
 
 import appkit
 import careerkit
-from jsk import cli
+import recordkit
 
 FILE_MADE = "contoso-platform"
 TODAY = "2026-10-03"
-
-
-def jsk(*argv):
-    """(exit code, stdout) of `jsk argv...` run in this interpreter."""
-    out = io.StringIO()
-    with contextlib.redirect_stdout(out):
-        code = cli.main(["jsk", *map(str, argv)])
-    return code, out.getvalue()
 
 
 def snapshot(root):
@@ -57,7 +49,7 @@ class FileMade(unittest.TestCase):
         self.app = self.root / "applications" / FILE_MADE
 
     def drop(self, *extra, app=None):
-        return jsk("app", "drop", app or self.app, "--today", TODAY, *extra)
+        return recordkit.drop(self.root, app or self.app, "--today", TODAY, *extra)
 
     def test_it_removes_the_graphs_and_moves_the_folder_with_a_note(self):
         files = sorted(p.name for p in self.app.iterdir())
@@ -83,15 +75,16 @@ class FileMade(unittest.TestCase):
 
         before = file_made_unsent(appkit.graphs(self.root), application_listing(self.root))
         self.assertIn(FILE_MADE, before)
-        code, out = jsk("kb", "check", "--root", self.root)
+        code, out = recordkit.kb_check(self.root)
         self.assertIn("file-made-unsent", out)
-        # The fix names the command that exists, never a changeset that cannot do it.
-        self.assertIn(f"or drop it: `jsk app drop applications/{FILE_MADE}`", out)
+        # The fix names the tool that exists, never a changeset that cannot do it.
+        self.assertIn(f'or drop it: the app_drop tool (jsk mcp), app_drop(app="{FILE_MADE}")',
+                      out)
         self.assertNotIn("retiring its posting", out)
         self.assertEqual(self.drop()[0], 0)
         self.assertEqual(file_made_unsent(appkit.graphs(self.root),
                                           application_listing(self.root)), ())
-        code, out = jsk("kb", "check", "--root", self.root)
+        code, out = recordkit.kb_check(self.root)
         self.assertNotIn("file-made-unsent", out)
 
     def test_a_dry_run_names_everything_and_changes_nothing(self):
@@ -131,8 +124,7 @@ class FileMade(unittest.TestCase):
                       .read_text(encoding="utf-8"))
 
     def test_a_bare_stem_names_the_application_in_the_workspace(self):
-        with mock.patch("os.getcwd", return_value=str(self.root)):
-            code, out = self.drop("--dry-run", app=FILE_MADE)
+        code, out = self.drop("--dry-run", app=FILE_MADE)
         self.assertEqual(code, 0, out)
         self.assertIn(f"would move applications/{FILE_MADE}/", out)
 
@@ -160,7 +152,10 @@ class FileMade(unittest.TestCase):
         self.assertEqual(snapshot(self.root), before)
 
     def test_called_wrong_is_exit_two(self):
-        self.assertEqual(jsk("app", "drop")[0], 2)
+        from jsk.adapters.cli import drop
+        from jsk.adapters.mcp import captured
+
+        self.assertEqual(captured.called(self.root, drop.main, [])[0], 2)
         self.assertEqual(self.drop("--today", "yesterday")[0], 2)
 
 
@@ -186,7 +181,7 @@ class FrozenIsRefused(unittest.TestCase):
         for stem in ("acme-sent", "acme-held"):
             with self.subTest(stem=stem):
                 before = snapshot(self.root)
-                code, out = jsk("app", "drop", self.root / "applications" / stem)
+                code, out = recordkit.drop(self.root, self.root / "applications" / stem)
                 self.assertEqual(code, 1, out)
                 self.assertIn(f"FAIL  applications/{stem} is frozen", out)
                 self.assertIn("a frozen application is an archive", out)
@@ -220,8 +215,8 @@ class GraphNative(unittest.TestCase):
         held = {name for name in appkit.graphs(self.root)
                 if name.startswith(f"applications/{self.stem}/")}
         self.assertEqual(held, {f"applications/{self.stem}/{k}" for k in kinds})
-        code, out = jsk("app", "drop", self.root / "applications" / self.stem,
-                        "--today", TODAY)
+        code, out = recordkit.drop(self.root, self.root / "applications" / self.stem,
+                                   "--today", TODAY)
         self.assertEqual(code, 0, out)
         for kind in kinds:
             self.assertIn(f"ok    removed applications/{self.stem}/{kind} from career/store/",

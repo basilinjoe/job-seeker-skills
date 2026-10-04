@@ -50,7 +50,7 @@ def grant_faults(fm):
 
 def unknown_tools(text, registered, command=False):
     """The `mcp__plugin_jsk_graph__<x>` names in `text` that are not registered tools, in
-    order; a command (main session, all twenty-one per Ruling 19) may use the wildcard."""
+    order; a command (main session, all twenty-nine per Ruling 19) may use the wildcard."""
     found = []
     for name in re.findall(re.escape(MCP) + r"([A-Za-z_*]+)", text):
         if name in registered or (name == "*" and command) or name in found:
@@ -96,7 +96,7 @@ class AgentGrants(unittest.TestCase):
         return sorted(PLUGIN.joinpath("agents").glob("*.md"))
 
     def test_every_agent_lists_its_tools_by_name(self):
-        """An omitted `tools:` and a wildcard both hand an agent all twenty-one tools,
+        """An omitted `tools:` and a wildcard both hand an agent all twenty-nine tools,
         career_confirm among them."""
         for path in self.agents():
             with self.subTest(agent=path.name):
@@ -127,6 +127,35 @@ class AgentGrants(unittest.TestCase):
         for path in self.agents():
             with self.subTest(agent=path.name):
                 self.assertNotIn(MCP + "career_confirm", granted(frontmatter(path)))
+
+    def test_no_agent_can_drop_an_application(self):
+        """app_drop removes an application's graphs and moves its folder, so like
+        career_confirm it is the main session's, after the person agrees (Ruling 3 of
+        docs/superpowers/plans/2026-10-04-mcp-first.md)."""
+        for path in self.agents():
+            with self.subTest(agent=path.name):
+                self.assertNotIn(MCP + "app_drop", granted(frontmatter(path)))
+
+    def test_the_verifier_runs_the_gates_through_tools_and_holds_no_shell(self):
+        """Ruling 3 of docs/superpowers/plans/2026-10-04-mcp-first.md: every gate it ran from
+        a shell is a resume_check call now, and the fit and the ship are tools, so Bash would
+        only be a way round the grants. Pinned whole, so a tool added to its list is a decision."""
+        tools = granted(frontmatter(PLUGIN / "agents" / "jsk-verifier.md"))
+        self.assertEqual(tools, ["Read", "Glob", MCP + "resume_check", MCP + "resume_fit",
+                                 MCP + "resume_ship", MCP + "career_show", MCP + "app_show"])
+
+    def test_the_auditor_checks_and_drafts_a_merge_but_applies_nothing(self):
+        """It gains career_check and career_merge (which writes nothing: its changeset is
+        text the caller previews) and resume_check, and loses Bash. It still holds no
+        career_apply or career_preview."""
+        tools = granted(frontmatter(PLUGIN / "agents" / "jsk-kb-auditor.md"))
+        for needed in ("career_check", "career_merge", "resume_check"):
+            with self.subTest(needed=needed):
+                self.assertIn(MCP + needed, tools)
+        for denied in ("Bash", "Edit", MCP + "career_apply", MCP + "career_preview",
+                       MCP + "career_pack"):
+            with self.subTest(denied=denied):
+                self.assertNotIn(denied, tools)
 
     def test_no_agent_can_freeze_record_an_event_or_check_a_letter(self):
         """Ruling 21's amendment (2026-10-03): freezing and recording an event are the
@@ -162,7 +191,7 @@ class AgentGrants(unittest.TestCase):
         registered = server_tools()
         if registered is None:
             self.skipTest("the mcp extra is not installed")
-        self.assertEqual(len(registered), 21)
+        self.assertEqual(len(registered), 29)
         for path in sorted(PLUGIN.rglob("*.md")):
             with self.subTest(file=path.name):
                 self.assertEqual(unknown_tools(path.read_text(encoding="utf-8"), registered,

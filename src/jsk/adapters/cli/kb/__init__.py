@@ -1,17 +1,19 @@
-"""jsk kb - the career record: scaffolded, checked, loaded, dumped and drafted here; read and
-changed through the career_* tools (jsk mcp).
+"""jsk kb - the career record: scaffolded, loaded and dumped from the command line; checked,
+drafted, read and changed through the career_* tools (jsk mcp).
 
 Usage: jsk kb <verb> [arguments] [--root DIR]
 
   new <path> --name "Name" [--force]   scaffold a workspace: career/store/ at r1, and
                                        applications/ (no --root: the path is the workspace)
-  pack capabilities [--out FILE]       the capability starter pack, as a changeset of
-                                       what the record lacks; not applied
-  merge c:a --into c:b [--out FILE]    two concepts that are one, as a changeset; not applied
-  check                               validate the workspace; exit 1 on a FAIL
   load <workspace | dump.trig>         fill an empty career/store/, once: from a workspace
                                        still laid out as .ttl files, or from a dump
   dump [--out FILE]                    the whole record as TriG: a backup, and what load reads
+
+Checking the record, and drafting a starter pack or a merge as a changeset, are the career_check,
+career_pack and career_merge tools of `jsk mcp`. This adapter still has the verbs - the tools
+call them through dispatch.call_gate - but `jsk kb check|pack|merge` went on 2026-10-04
+(docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 4): adapters/cli/main.py refuses them
+before they get here, exit 2 naming the tool.
 
 --root is the workspace, the folder holding career/; by default the nearest one above
 the current directory. `jsk kb <verb> --help` says more about one verb.

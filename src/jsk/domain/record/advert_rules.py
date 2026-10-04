@@ -7,7 +7,7 @@ all - it may be half-decided. A posting built from files is checked against post
 decisions.txt beside it, read through the Reads rules.py is given - and since 6.0 only once
 it is frozen: Ruling 2 of docs/superpowers/plans/2026-10-03-retire-file-pipeline.md keeps
 that read path, read-only, for the archive of what was sent. An unsent one is not judged;
-`jsk kb check` names it `file-made-unsent` instead (Ruling 5), and nothing in this CLI can
+the career_check tool names it `file-made-unsent` instead (Ruling 5), and nothing in this CLI can
 change it. Split out of rules.py (2026-10-02) when the graph-native reads took it past its
 size; the rule rows stay there.
 """
@@ -31,7 +31,7 @@ def frozen_folder(store, folder, adverts):
 
     application.md counts as application/timeline/records.frozen and unsent.file_made_unsent
     count it. Until 2026-10-04 only the graph counted here, so a folder frozen before the
-    career was a graph was frozen to `jsk kb check` and never judged (the P3 review).
+    career was a graph was frozen to the career_check tool and never judged (the P3 review).
 
     Args:
         store: the loaded workspace.

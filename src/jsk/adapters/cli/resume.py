@@ -1,4 +1,9 @@
-"""`jsk resume check TARGET`: the gates a target calls for, chosen by what it is.
+"""The resume check's entry point: the gates a target calls for, chosen by what it is.
+
+This module is what the `resume_check` tool (jsk mcp) calls (`cmd_resume_check`).
+`jsk resume check` was retired in 6.0 (2026-10-04, docs/superpowers/plans/2026-10-04-mcp-first.md,
+Ruling 5): it exits 2 naming the tool, and the tool takes `target`, `record`, `only`, `strict`
+and `pages`. The usage text below is what a call with no target prints.
 
 A target's selection gets the record gate, a render (.pdf, .tex, or a .txt named by hand) the
 parse and prose gates - `--only` narrowing that to one - and a render's directory all four
@@ -18,12 +23,11 @@ from .cliutil import wants_help
 from .gates.check import cmd_check, cmd_gates, cmd_validate
 
 RESUME_CHECK_USAGE = (
-    "usage: jsk resume check <stem>|resumes/<name> [--strict] [--max-findings N]\n"
-    "       jsk resume check <resume.pdf|.tex|.txt> [--strict] [--only parse|prose|layout]\n"
-    "       jsk resume check <out-dir> [--record <stem>] [--pages N] [--json] "
-    "[--max-findings N]")
+    "usage: resume_check(<stem>|resumes/<name>, strict=)\n"
+    "       resume_check(<resume.pdf|.tex|.txt>, strict=, only=parse|prose|layout)\n"
+    "       resume_check(<out-dir>, record=<stem>, pages=N)")
 
-# Every flag of `jsk resume check` that takes a value, the layout gate's included: what is
+# Every flag of the resume_check tool that takes a value, the layout gate's included: what is
 # after one is its value, never the target.
 VALUE_FLAGS = ("--only", "--record", "--pages", "--max-findings", "--region")
 
@@ -36,13 +40,12 @@ RECORD_SUFFIXES = (".json", ".md", ".ttl")
 # typo for the directory, and ignoring it would read as a page budget that was checked.
 KINDS = {
     "record": ("a target", "the record gate", ("--strict", "--max-findings"),
-               "jsk resume check <stem>|resumes/<name> [--strict] [--max-findings N]"),
+               "resume_check(<stem>|resumes/<name>, strict=)"),
     "render": ("a render", "the parse and prose gates", ("--strict", "--only"),
-               "jsk resume check <resume.pdf|.tex|.txt> [--strict] [--only parse|prose|layout]"),
+               "resume_check(<resume.pdf|.tex|.txt>, strict=, only=parse|prose|layout)"),
     "directory": ("a render's directory", "all four gates",
                   ("--record", "--pages", "--json", "--max-findings"),
-                  "jsk resume check <out-dir> [--record <stem>] [--pages N] [--json] "
-                  "[--max-findings N]"),
+                  "resume_check(<out-dir>, record=<stem>, pages=N)"),
 }
 FLAGS = {flag for kind in KINDS.values() for flag in kind[2]} | {"--region"}
 
@@ -51,7 +54,7 @@ LAYOUT_FLAGS = ("--record", "--region", "--pages")
 
 
 def target_of(args):
-    """The target `jsk resume check` was given: its first argument not a flag's value.
+    """The target the resume_check tool was given: its first argument not a flag's value.
 
     Args:
         args: the arguments after the verb.
@@ -121,7 +124,7 @@ def misfit(args, kind):
 
 
 def file_made_refusal(target):
-    """The lines refusing `jsk resume check` on an application made from files, or None
+    """The lines refusing the resume_check tool on an application made from files, or None
     when `target` names none. It has no selection to check: frozen, its files are the
     archive; unsent, Ruling 5's note says what still finishes it.
 
@@ -141,12 +144,12 @@ def file_made_refusal(target):
     show = f"the career_show tool (jsk mcp) on {post} or " if post else ""
     return [f"{target} names {rel}, a frozen application made from files: it has no "
             "selection to check - its files are the archive of what was sent",
-            f"fix:  read it with {show}the app_show tool (jsk mcp); `jsk resume check DIR` "
+            f"fix:  read it with {show}the app_show tool (jsk mcp); resume_check(<dir>) "
             "checks a render's directory"]
 
 
 def cmd_resume_check(args):
-    """`jsk resume check TARGET`: the gates its target calls for.
+    """The exit code of the gates the resume_check tool runs, chosen by its target.
 
     A target gets the record gate (cmd_validate), a render the parse and prose gates
     (cmd_check), and a render's directory all four (cmd_gates). A flag the kind does not
@@ -183,7 +186,7 @@ def cmd_resume_check(args):
             print("\n".join(refusal))
             return 2
     if kind == "render" and only_of(args) == "letter":
-        print("--only letter left jsk resume check: a cover letter is checked by the "
+        print("--only letter left the resume_check tool: a cover letter is checked by the "
               "letter_check tool now")
         print("fix:  the letter_check tool (jsk mcp): letter_check(letter, record=<stem>)")
         return 2

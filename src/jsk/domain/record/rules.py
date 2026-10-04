@@ -400,7 +400,7 @@ RULES = [
                     f"{r['n']} capabilities in the career have no label and no isA/partOf - "
                     f"they match only their exact id"),
          "see the career_query tool (jsk mcp); label the most-held first, or adopt "
-         "`jsk kb pack capabilities`", bare),
+         "the career_pack tool: career_pack(pack=\"capabilities\")", bare),
     Rule("quote-verbatim", FAIL,
          """SELECT ?focus ?q ?p WHERE { ?focus a j:Requirement ; j:quote ?q
               OPTIONAL { ?focus j:posting ?p } }""",

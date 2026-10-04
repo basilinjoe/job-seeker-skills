@@ -1,6 +1,11 @@
-"""`jsk resume fit`: its flags parsed, the fit run (application/render/fit_pages.py), the result said.
+"""The fit's entry point: its flags parsed, the fit run (application/render/fit_pages.py), the result said.
 
-Usage: jsk resume fit resume.tex [--target-pages 2] [--dry-run] [-o out.tex] [--in-place]
+This module is what the `resume_fit` tool (jsk mcp) calls, through dispatch.call_gate as
+`fit_pages.py`. `jsk resume fit` was retired in 6.0 (2026-10-04,
+docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 5): it exits 2 naming the tool.
+
+Usage: resume_fit(tex, target_pages=2)
+  as arguments: resume.tex [--target-pages 2] [--dry-run] [-o out.tex] [--in-place]
 
 Measures geometry FIRST, then applies levers (domain/render/fit_levers.py), cheapest-looking
 first, stopping at the floors `references/ats-rules.md` sets rather than crossing them:
@@ -41,9 +46,9 @@ CODES = {"no-baseline": 2, "fits": 0, "dry-run": 1, "broke": 2, "floor": 1, "fit
 
 def parse(argv):
     """The flags, parsed; argparse exits 2 on a bad call and 0 after --help."""
-    # prog pinned: `jsk resume fit` calls this in process, where sys.argv[0] is jsk's.
+    # prog pinned: the resume_fit tool calls this in process, where sys.argv[0] is the server's.
     ap = argparse.ArgumentParser(
-        prog="jsk resume fit",
+        prog="resume_fit",
         description="Fit a rendered resume to a page budget without breaching the "
                     "10pt / 0.5in floors.")
     ap.add_argument("tex", help="the .tex the deliverable PDF is compiled from")
@@ -75,7 +80,7 @@ def refused(a):
 
 
 def main(argv=None):
-    """`jsk resume fit`: fit a rendered .tex to its page budget and say how.
+    """The resume_fit entry point: fit a rendered .tex to its page budget and say how.
 
     Args:
         argv: the arguments after the program name; None reads sys.argv.
@@ -90,7 +95,7 @@ def main(argv=None):
 
 
 def fitted(argv, *, tex):
-    """`jsk resume fit` with how it went: `jsk resume ship` reads the levers off it.
+    """The resume_fit entry point with how it went: the resume_ship tool reads the levers off it.
 
     Args:
         argv: the arguments after the program name; None reads sys.argv.
@@ -201,5 +206,5 @@ def report_fitted(r):
           f"margins {r.margin_in:g}in (floor {MARGIN_FLOOR_IN:g}in)")
     print(f"wrote: {r.out}")
     print(f"\nPASS - fits {r.target} pages")
-    print("Recompile that .tex and re-run jsk resume check on the new PDF, then look at "
+    print("Recompile that .tex and re-run the resume_check tool on the new PDF, then look at "
           "the render: fitting changes layout, and layout is what the render gate checks.")

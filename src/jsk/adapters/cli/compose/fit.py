@@ -1,4 +1,4 @@
-"""`jsk resume fit`'s TeX engine, bound.
+"""The resume_fit tool's TeX engine, bound.
 
 The fit is application/render/fit_pages.py and the command adapters/cli/fit.py. A test
 patches `compile_pdf` and `available_engine` here, so the fit is handed this module's Tex,

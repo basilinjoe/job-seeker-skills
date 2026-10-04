@@ -1,4 +1,4 @@
-"""`jsk kb pack`'s starter packs on disk: where each file is, and reading one. The pack's
+"""The career_pack tool's starter packs on disk: where each file is, and reading one. The pack's
 logic is domain/record/pack.py's."""
 import os
 

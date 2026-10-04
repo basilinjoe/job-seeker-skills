@@ -159,7 +159,7 @@ def plan_text(record):
     except KeyError as exc:
         # What the builder raises for an id the career does not hold, as render reports it.
         raise ShortError(f"{record}: the plan would not build: {exc}",
-                         f"jsk resume check {record} names what is wrong") from None
+                         f"resume_check({record}) names what is wrong") from None
     return emit_text.emit(plan)
 
 

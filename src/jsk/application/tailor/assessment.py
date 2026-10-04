@@ -56,7 +56,7 @@ def matched(store, app, today, ports, budget=N.COVER):
     blocking = [f for f in store.fails() if blocks(f, app.rel + "/")]
     if blocking:
         raise Refused.every([(f"the match is stopped by a FAIL: {f.text()}",
-                              "fix:  `jsk kb check` shows it; correct it first")
+                              "fix:  the career_check tool (jsk mcp) shows it; correct it first")
                              for f in blocking])
     post = posting_in(store, app.rel)
     r = ports.match(store, post, today, budget, len(store.fails()) - len(blocking))

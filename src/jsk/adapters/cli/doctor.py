@@ -1,7 +1,7 @@
 """`jsk doctor`: the preflight, verifying end to end unless told otherwise, then the record's store.
 
 The store's report ends with an `info` line counting the applications made from files and not
-sent, when there are any: `jsk kb check` names each one (2026-10-03).
+sent, when there are any: the career_check tool names each one (2026-10-03).
 
 Nothing here imports pyoxigraph until the store is asked about, so `python -m jsk doctor`
 runs on a machine without it and says so.
@@ -115,5 +115,6 @@ def unsent_lines(root, graphs):
     return [f"  info  unsent   {len(unsent)} application{'s' if many else ''} made from files "
             f"{'are' if many else 'is'} not sent, and jsk 6.0 no longer finishes "
             f"{'them' if many else 'it'}",
-            "           `jsk kb check` names each (or the app_list tool): send it with jsk "
-            f"{LAST_FILE_RELEASE}, or drop it: `jsk app drop applications/<stem>`"]
+            "           the career_check tool names each (or the app_list tool): send it with jsk "
+            f"{LAST_FILE_RELEASE}, or drop it: the app_drop tool (jsk mcp), "
+            'app_drop(app="<stem>")']

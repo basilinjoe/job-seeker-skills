@@ -70,8 +70,16 @@ def findings_in(output):
     lines = output.splitlines()
     found = []
     for at, ln in enumerate(lines):
+        # `jsk kb check` indents its findings two spaces under its "1 FAIL, 0 WARN" line;
+        # without the strip, career_check answered ok false with one "exited 1" finding and
+        # none of the FAILs it had printed (found 2026-10-04, in tests/test_mcp_upkeep.py).
+        ln = ln.lstrip()
         severity = ln[:4]
         if severity not in ("FAIL", "WARN") or ln[4:5] not in (" ", ""):
+            continue
+        # The gates' count line, "FAIL 0   WARN 0", is a tally and not a finding: read as one
+        # it made a passing parse gate not ok (2026-10-04, resume_check on a render).
+        if ln[5:6].isdigit():
             continue
         nxt = lines[at + 1].strip() if at + 1 < len(lines) else ""
         found.append((severity, ln[4:].strip(), nxt if nxt.startswith("fix:") else None))
@@ -83,14 +91,22 @@ def answered(code, output, **data):
 
     The findings are findings_in(output). An exit that is not 0 with no FAIL among them gets
     one, saying so, so `ok` never reads true over a refusal worded some other way. `verdict`
-    is the last line printed, the line the gates' tests pin; `output` is all of it, since a
-    gate whose findings the caller cannot read is a gate nobody checked (dispatch.call_gate).
+    is the last verdict line printed (VERDICTS), else the last line; `output` is all of it,
+    since a gate whose findings the caller cannot read is a gate nobody checked
+    (dispatch.call_gate).
     """
+    lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
     found = findings_in(output)
     if code and not any(f[0] == "FAIL" for f in found):
-        lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
         found.append(("FAIL", f"exited {code}: {lines[0] if lines else 'nothing printed'}",
                       "the whole of what it printed is in output"))
-    lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
-    return result(found, exit=code, verdict=lines[-1] if lines else None, output=output,
+    verdicts = [ln for ln in lines if ln.startswith(VERDICTS)]
+    return result(found, exit=code, verdict=(verdicts or lines or [None])[-1], output=output,
                   **data)
+
+
+# How a verdict line starts, as the gates, the fit and the ship print one. Not the last line
+# alone: the parse gate closes with "open the PDF and read it" and the fit with "Recompile
+# that .tex", advice after the verdict, which a caller reading `verdict` would take for it
+# (2026-10-04, the first resume_check and resume_fit tools).
+VERDICTS = ("PASS - ", "FAIL - ", "DO NOT ", "verdict: ")

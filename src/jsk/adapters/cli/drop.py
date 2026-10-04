@@ -1,6 +1,10 @@
-"""`jsk app drop`: an unsent application set aside - its graphs removed, its folder kept.
+"""An unsent application set aside - its graphs removed, its folder kept.
 
-Usage: jsk app drop <app-dir> [--reason TEXT] [--dry-run] [--today YYYY-MM-DD]
+This module is the entry point the app_drop tool calls (adapters/mcp/upkeep.py). `jsk app drop`
+itself was retired on 2026-10-04 (docs/superpowers/plans/2026-10-04-mcp-first.md, Ruling 4) and
+exits 2 naming the tool; the flags below are the ones the tool passes.
+
+Usage: drop <app-dir> [--reason TEXT] [--dry-run] [--today YYYY-MM-DD]
 
   <app-dir>   applications/<stem>, or the stem alone inside the workspace
   --reason    why, written into DROPPED.txt
@@ -18,8 +22,8 @@ docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, amended 2026-10-03).
 Exit 0 dropped, or a dry run; 1 refused, or the folder not moved after the store was written;
 2 called wrong, or the path is no application.
 
-The drop is application/timeline/drop.py, bound by compose/timeline.py's drop_app. No MCP tool
-calls it: setting an application aside is the person's decision.
+The drop is application/timeline/drop.py, bound by compose/timeline.py's drop_app. No agent
+may call the tool: setting an application aside is the person's decision.
 """
 import datetime
 import os
@@ -27,7 +31,8 @@ import os
 from ...domain.timeline.events import is_date
 from .cliutil import parse_flags, wants_help
 
-USAGE = "usage: jsk app drop <app-dir> [--reason TEXT] [--dry-run] [--today YYYY-MM-DD]"
+USAGE = ("usage: app_drop(app, reason=, dry_run=)\n"
+         "  as arguments: <app-dir> [--reason TEXT] [--dry-run] [--today YYYY-MM-DD]")
 
 
 def usage(message):
@@ -56,7 +61,7 @@ def located(target):
 
 
 def main(args):
-    """`jsk app drop`: set one unsent application aside.
+    """The app_drop tool's entry point: set one unsent application aside.
 
     Args:
         args: the arguments after `drop`.
@@ -68,21 +73,21 @@ def main(args):
     """
     if wants_help(args):
         # __doc__ is None only under -OO, which nothing runs jsk with.
-        print(__doc__.split("\n\nRemoves", 1)[0].split("\n\n", 1)[1])  # pyright: ignore[reportOptionalMemberAccess]
+        print(__doc__.split("\n\nRemoves", 1)[0].split("\n\n", 2)[2])  # pyright: ignore[reportOptionalMemberAccess]
         return 0
     parsed, problem = parse_flags(args, ("--reason", "--today"), ("--dry-run",))
     if parsed is None:
         return usage(problem)
     positional, flags = parsed
     if len(positional) != 1:
-        return usage("jsk app drop takes one application directory")
+        return usage("app_drop takes one application directory")
     today = flags.get("--today", datetime.date.today().isoformat())
     if not is_date(today):
         return usage(f"--today needs YYYY-MM-DD, got {today!r}")
     try:
         import pyoxigraph  # noqa: F401
     except ImportError:
-        print("FAIL  jsk app drop needs pyoxigraph, and this Python has not got it - "
+        print("FAIL  the app_drop tool needs pyoxigraph, and this Python has not got it - "
               "`jsk doctor` says how to install it")
         return 1
     app_dir = located(positional[0].rstrip("/\\") or positional[0])

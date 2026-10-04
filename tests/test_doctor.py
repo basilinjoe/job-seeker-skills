@@ -27,30 +27,22 @@ class UnloadedWorkspace(unittest.TestCase):
             code = cli.main(["jsk", *map(str, args)])
         return code, buf.getvalue()
 
-    def test_a_command_given_a_path_in_it_is_refused_with_kb_load(self):
-        for args in (("resume", "check", self.root / "applications" / "contoso"),
-                     ("app", "drop", self.root / "applications" / "contoso", "--dry-run")):
-            with self.subTest(args=args[0]):
-                code, out = self.jsk(*args)
-                self.assertEqual(code, 1, out)
-                self.assertIn("the career is still career/kb.ttl", out)
-                self.assertIn("fix:  jsk kb load .", out)
-
-    def test_every_kb_verb_but_load_and_path_is_refused_with_kb_load(self):
-        from jsk.adapters.cli import kb as kbcli
-        for verb in sorted(set(kbcli.VERBS) - {"load", "path"}):
-            with self.subTest(verb=verb):
-                code, out = self.jsk("kb", verb, "--root", self.root)
-                self.assertEqual(code, 1, out)
-                self.assertIn("the career is still career/kb.ttl", out)
-                self.assertIn("fix:  jsk kb load .", out)
+    def test_kb_dump_is_refused_with_kb_load(self):
+        # resume_check and app_drop were commands that gave this refusal until 2026-10-04;
+        # test_mcp_rendering and test_mcp_upkeep pin it for each tool. Of the kb verbs only
+        # dump still reads a career, so only it can be refused here (check, pack and merge
+        # exit 2 naming their tools, which tests/test_retired.py pins).
+        code, out = self.jsk("kb", "dump", "--root", self.root)
+        self.assertEqual(code, 1, out)
+        self.assertIn("the career is still career/kb.ttl", out)
+        self.assertIn("fix:  jsk kb load .", out)
         self.assertFalse((self.root / "career" / "store").exists(), "nothing was imported")
 
     def test_a_command_run_inside_it_is_refused(self):
         here = os.getcwd()
         try:
             os.chdir(self.root / "applications")
-            code, out = self.jsk("resume", "check", "resume.json")
+            code, out = self.jsk("kb", "dump")
         finally:
             os.chdir(here)
         self.assertEqual(code, 1, out)
@@ -60,10 +52,10 @@ class UnloadedWorkspace(unittest.TestCase):
         from appkit import seed
         seed(self.root)
         (self.root / "career" / "kb.ttl").write_text("# left by kb load\n", encoding="utf-8")
-        code, out = self.jsk("resume", "check", self.root / "applications" / "contoso")
-        # The gates find no render in it; what matters is that the workspace was let in.
+        code, out = self.jsk("kb", "dump", "--root", self.root)
+        # What matters is that the workspace was let in, not what dump wrote.
         self.assertNotIn("the career is still career/kb.ttl", out)
-        self.assertIn("--- record gate", out)
+        self.assertEqual(code, 0, out)
 
     def test_the_helper_the_kb_verbs_call(self):
         self.assertIsNotNone(cli.unloaded_refusal(str(self.root)))

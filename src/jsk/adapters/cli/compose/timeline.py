@@ -7,7 +7,7 @@ patches write_frozen here, and the freeze looks it up here at each call.
 `freeze_app` and `add_event` are the app_freeze and app_event tools (adapters/mcp/acts.py)
 past their argument checks, bound and run in the record's turn. The CLI's own `jsk app freeze`
 and `jsk app event` were retired on 2026-10-04, so the tools are the only callers
-(docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md). `drop_app` is `jsk app drop`, which has no tool: setting an
+(docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md). `drop_app` was `jsk app drop`, now the app_drop tool (a person's decision, so no agent may call it): setting an
 application aside is the person's call, not an agent's. Nothing here prints; a refusal is
 raised for the caller to say.
 """
@@ -176,12 +176,12 @@ class Applications:
 class Gates:
     """jsk.cli's gate plumbing, as application.timeline.freeze.gate runs it.
 
-    Looked up in jsk.cli at each call, so the app_freeze tool, `jsk resume check` and `jsk
+    Looked up in jsk.cli at each call, so the app_freeze tool, the resume_check tool and `jsk
     resume ship` run one set of gates and not three copies of it.
     """
 
     def run(self, app_dir, record, only):
-        """Every `jsk resume check` result over the documents `only`, the render gate last."""
+        """Every resume_check result over the documents `only`, the render gate last."""
         from .... import cli
 
         return cli.gate_results(app_dir, record, only=only)

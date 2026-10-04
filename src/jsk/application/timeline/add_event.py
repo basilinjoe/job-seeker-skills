@@ -110,7 +110,7 @@ def add_event(root, app_dir, kind, date, channel, note, due, today, *, load, nam
     parsed = store.parsed.get(rel)
     if parsed is None:
         raise EventRefused([f.text() for f in store.findings if f.file == rel] or
-                           [f"{rel} is not in the store"], "`jsk kb check` shows what is wrong")
+                           [f"{rel} is not in the store"], "the career_check tool (jsk mcp) shows what is wrong")
     app = next((q.subject.value for q in parsed.quads
                 if O.class_of(q.subject.value) == "Application"), None)
     if app is None:
@@ -129,7 +129,7 @@ def add_event(root, app_dir, kind, date, channel, note, due, today, *, load, nam
     broken = new_failures(store, after)
     if broken:
         raise EventRefused([f"the event would leave {rel} failing:"] + [f.text() for f in broken],
-                           "check the date against the application's; `jsk kb check` shows "
+                           "check the date against the application's; the career_check tool (jsk mcp) shows "
                            "the rest")
     try:
         write_graphs(root, {rel: new})

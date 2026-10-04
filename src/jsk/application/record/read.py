@@ -147,7 +147,7 @@ def log(root, last, *, load):
     """
     store = load(root)
     if LOG not in store.parsed:
-        raise Refused(["the record has no log"], "`jsk kb check` says what is wrong")
+        raise Refused(["the record has no log"], "the career_check tool (jsk mcp) says what is wrong")
     entries = {}
     for q in store.graph(LOG):
         if O.class_of(q.subject.value) == "LogEntry":

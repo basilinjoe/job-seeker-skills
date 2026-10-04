@@ -1,6 +1,6 @@
 """The untraced-number check over a loaded career: its metrics read, then compared.
 
-One function the record gate, `jsk kb check` and the match all call, so the three stopped
+One function the record gate, the career_check tool and the match all call, so the three stopped
 disagreeing about a number. They used to export a URS record and read these back out of
 gate lines with regexes (match.py's RECORD_GATE/UNTRACED/SUPERSEDED).
 

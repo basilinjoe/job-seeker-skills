@@ -6,19 +6,20 @@ It is all one command. `pip install 'jsk-resume[all]'` puts `jsk` on your PATH; 
 the same entry point where it is importable but not on PATH, and on Windows use `python` or `py -3`
 in place of `python3`.
 
-Every command is `jsk <noun> <verb>`: the noun is what you work on, the verb what you do to it.
-There are three nouns - `kb`, `resume`, `app` - and `jsk doctor` and `jsk mcp` beside
-them. `jsk --help` lists the nouns, `jsk <noun> --help` a noun's verbs, and
-`jsk <noun> <verb> --help` one verb's flags. This page has one section per noun and, under it, one
-per verb. `jsk` is the only door: the `python -m jsk.<module>` paths of earlier releases are
+Five commands stay since 6.0, for a machine where the server cannot start or no Claude session is
+running: `jsk doctor`, `jsk kb new`, `jsk kb load`, `jsk kb dump` and `jsk mcp`. Everything else is
+a tool of `jsk mcp`, and its old command exits 2 naming the tool (Retired in 6.0, below).
+`jsk --help` lists the five, and `jsk kb --help` the three `kb` verbs. This page has one section for
+each command and, beside them, the tools that replaced the rest, which are reached through Claude
+and described here for what they check and why. `jsk` is the only door: the `python -m jsk.<module>` paths of earlier releases are
 retired, and each one prints the command that replaced it and exits 2.
 
 **The career is in `career/store/`**, the graph record: named graphs in one Oxigraph store -
 `kb`, `log`, and each application's `posting`, `review`, `gaps`, `resume` and `application` -
 read and written only through `jsk`, and validated on every run. Since 6.0 the `jsk mcp` tools
-change it (through changesets), read it back, capture a posting, match the career against it,
-choose a resume, and record what was sent and what came back; `jsk kb` keeps `new`, `check`,
-`load`, `dump`, `pack` and `merge`. The tools are called by Claude, not typed: where this page
+change it (through changesets), read it back, check it, capture a posting, match the career
+against it, choose a resume, render and gate it, and record what was sent and what came back;
+`jsk kb` keeps `new`, `load` and `dump`. The tools are called by Claude, not typed: where this page
 describes one, it is for reading what the agent was told and why a write was refused.
 The renders are files in `applications/<stem>/` (or `resumes/<name>/` for a general resume). A
 resume is built from the career and a selection - the bullets chosen for one posting, by id, and
@@ -31,26 +32,19 @@ can send.
 ```bash
 jsk doctor                       # what works on this machine
 jsk kb new ./my-career --name "Your Name"  # career/store/ with the career and its log, at r1
-jsk kb check                     # every rule over the record; `jsk kb --help` lists the rest
-jsk resume check <stem>         # the record gate, on a target's selection
-jsk resume render <stem> --pdf  # into applications/<stem>/
-jsk resume check resume.pdf     # both document gates, one pass
-jsk resume check applications/<stem>   # record, parse, prose and layout gates
-jsk resume fit resume.tex --target-pages 2
-jsk resume preview <stem> --out ./looks
-jsk resume ship <stem>           # validate, render, gate
-jsk app drop applications/<dir> --reason "role filled"   # set an unsent one aside
+jsk kb dump --out record.trig    # the whole record as TriG: a backup
+jsk kb load record.trig --root ../restored  # fill an empty folder from a dump
 jsk mcp                          # the career and its applications as MCP tools, over stdio
 ```
 
-Each verb runs in the same interpreter as `jsk` itself. None of them spawns a Python child: that
-cost a start-up and a fresh import per call, which was most of the wall time of checking a render.
-The one exception is `jsk doctor`'s end-to-end run, which spawns `python -m jsk <noun> <verb>` on
-purpose — proving that entry point works from cold is what it is for.
+Each command runs in the same interpreter as `jsk` itself, and so does each tool: the gates a
+`resume_check` or `resume_ship` runs are called in process, never as a child. The one exception is
+`jsk doctor`'s end-to-end run, which spawns `python -m jsk` on purpose — proving that entry point
+works from cold is what it is for.
 
 ## Exit codes
 
-Uniform across every subcommand:
+Uniform across every command, and carried as `exit` in a tool's answer:
 
 | Code | Means |
 |---|---|
@@ -75,7 +69,7 @@ count nobody knows.
 | `jsk tailor prepare D [--draft-gaps]` | `gaps.txt` digest/draft | `assessment_derive` |
 | `jsk tailor match D [--gaps F \| --draft-gaps F]` | `gaps.txt` | `assessment_derive`, `assessment_review`, `assessment_complete` |
 | `jsk kb export --out R.json [--replace]` | `resume.json` | `resume_select(target, mode)`; `app_show(app, part="selection")` prints it |
-| `jsk resume check\|render\|preview\|ship <resume.json>` | `resume.json` | the same verbs on `<stem>` / `resumes/<name>` |
+| `jsk resume check\|render\|preview\|ship <resume.json>` | `resume.json` | the tools of the same names on `<stem>` / `resumes/<name>` |
 | `jsk kb confirm --summary\|--headline <resume.json>` | `resume.json` | `career_confirm(target, block)` |
 | `jsk letter check L --record <resume.json>` | `resume.json` | `letter_check(letter, record=<stem>)` |
 | `jsk app freeze D` on a file-made application | `resume.json` | `app_freeze` on a graph-native one |
@@ -84,9 +78,9 @@ count nobody knows.
 `app_freeze` tool on a file-made application, and `letter_check` with a `resume.json`, answer with
 a FAIL finding naming the same. An application made from files that is not sent - its folder holds
 one of those files, its posting has no advert lines, and it was never frozen - has nothing in this
-CLI to finish it: `jsk kb check` names each (`file-made-unsent`), the `app_list` tool marks it
+CLI to finish it: the `career_check` tool names each (`file-made-unsent`), the `app_list` tool marks it
 `unsent: true` with the note, and `jsk doctor` counts them in an `info` line. Send each with jsk
-5.1.0, the last CLI that does, or drop it with `jsk app drop applications/<stem>` (below). A frozen
+5.1.0, the last CLI that does, or drop it with the `app_drop` tool (below). A frozen
 one stays readable: its quotes are still checked against the `posting.md` beside it on every load.
 
 ### Retired with the duplicated verbs
@@ -109,10 +103,34 @@ writes nothing; the `letter` noun is gone whole.
 | `jsk app event D KIND --date` | `app_event(app, kind, date, channel=, due=, note=)` |
 | `jsk letter check L --record R` | `letter_check(letter, record)` |
 
-`jsk kb pack` and `jsk kb merge` stay: they draft a changeset to stdout or `--out`. Pass its text
-to `career_preview`, then `career_apply`. There is no shell path to apply or confirm any more; a
-person who wants to change the record by hand asks Claude, or runs the tools through any MCP
-client. `jsk kb dump` stays for a TriG backup, and `jsk kb load` restores one.
+There is no shell path to apply or confirm any more; a person who wants to change the record by
+hand asks Claude, or runs the tools through any MCP client. `jsk kb dump` stays for a TriG backup,
+and `jsk kb load` restores one.
+
+### Retired with the everyday verbs
+
+Four commands have to work when the server cannot start or no session is running, and these are
+the rest (`docs/superpowers/plans/2026-10-04-mcp-first.md`). Each exits 2, names its tool and
+writes nothing; the `resume` and `app` nouns are gone whole, each verb with its own entry. A tool
+takes as named arguments the flags its command took, and answers in the tools' usual shape, with
+the gate's verdict line, word for word, in `verdict`.
+
+| Retired | Replacement |
+|---|---|
+| `jsk kb check` | `career_check()` |
+| `jsk kb pack capabilities [--out F]` | `career_pack(pack="capabilities")`; the drafted text is in `changeset`, for `career_preview` then `career_apply`; no file is written |
+| `jsk kb merge c:a --into c:b [--out F]` | `career_merge(concept, into)`, the same |
+| `jsk resume check <target>\|<file>\|<out-dir>` | `resume_check(target, record=, only=, strict=, pages=)` |
+| `jsk resume render <stem> [--pdf] [--out] [--template] [--ats-max] [--region]` | `resume_render(target, out=, pdf=, template=, ats_max=, region=)`; `wrote` lists the files made |
+| `jsk resume preview <stem> --out DIR` | `resume_preview(target, out)` |
+| `jsk resume fit <tex> --target-pages N` | `resume_fit(tex, target_pages=)` |
+| `jsk resume ship <stem> [--pages] [--no-fit]` | `resume_ship(target, pages=, fit=)` |
+| `jsk app drop <dir> [--reason] [--dry-run]` | `app_drop(app, reason=, dry_run=)`; no agent holds it |
+| the top-level `validate`, `check`, `gates`, `render`, `preview`, `fit`, `ship` (5.x) | the `resume_*` tool of the same name; `validate`, `check` and `gates` are `resume_check` |
+
+Not carried over: `--list-templates` (`references/templates.md` describes the templates),
+`--json` (a tool answers JSON), `--max-findings`, `--format`, `--profile`, `--name`, `--view`,
+`--dry-run` of the fit, `--in-place` and `-o`.
 
 ## `jsk doctor`
 
@@ -149,9 +167,10 @@ absent while the person was looking straight at it.
 
 ## `jsk kb`
 
-The career record. One verb per operation on the graph record; `jsk kb --help` lists them and
-`jsk kb <verb> --help` explains one. Every verb finds the workspace - the folder holding
-`career/` - from the current directory, or takes `--root DIR`.
+The career record. Three verbs stay on the command line, `new`, `load` and `dump`; `jsk kb
+--help` lists them and `jsk kb <verb> --help` explains one. Every verb finds the workspace - the
+folder holding `career/` - from the current directory, or takes `--root DIR`. The rest is
+the `career_*` tools, below.
 
 ### `jsk kb new`
 
@@ -338,17 +357,18 @@ verdicts it got), `shortfalls` (concepts left unsatisfied, partial or unevidence
 (applications by assessed fit and stage), `repeated` (concepts asked about in more than one
 application's questions) and `absences` (each "no": live, due a year after it was said, or
 unconfirmed). `drops` and `repeated` read what only graph-native applications store.
-### `jsk kb pack`, `merge` and `check`
+### `career_check`, `career_pack` and `career_merge`
 
-```bash
-jsk kb pack capabilities --out pack.trig # the capability starter pack, drafted as a changeset
-jsk kb merge c:a --into c:b --out m.trig # two concepts that are one, drafted as a changeset
-jsk kb check                             # every rule, and the record's state
-jsk kb check --only applications/<dir>   # that application's findings, and every FAIL anywhere
+```
+career_check()                                       # every rule, and the record's state
+career_pack(pack="capabilities")                     # the capability starter pack, drafted as a changeset
+career_merge(concept="c:a", into="c:b")              # two concepts that are one, drafted as a changeset
 ```
 
-**`pack`** and **`merge`** draft a changeset and never apply it: its text is read with
-`career_preview` and applied with `career_apply`, like any other. `pack capabilities` offers `src/jsk/data/capabilities.ttl` - about 120
+`jsk kb check`, `pack` and `merge` did these until 6.0. **`career_pack`** and **`career_merge`**
+draft a changeset and never apply it, and write no file: the text is in `changeset` (and what the
+drafting printed to stderr in `notes`), to be passed to `career_preview` and then `career_apply`,
+like any other. `pack capabilities` offers `src/jsk/data/capabilities.ttl` - about 120
 capabilities and domains, their labels and `isA` edges, never loaded as vocabulary, because an edge
 between capabilities is a judgement the person answers for. It adds only what the record lacks and
 reports what it skipped: a concept the record classes differently, a label that already names
@@ -359,18 +379,18 @@ refuses a shipped concept, different classes and a `distinct` pair, and lists th
 `j:shows` it rewrites: they come back `inferred`, to be confirmed again. The `concepts-bare` WARN,
 once per record, counts the capabilities `career_query(name="bare")` lists: they match only their exact id.
 
-**`check`** runs every rule over the workspace and says at
-which revision the record stands; exit 1 on a FAIL. A finding names the graph (`kb`,
+**`career_check`** runs every rule over the workspace and says at
+which revision the record stands; `ok` is false on a FAIL. A finding names the graph (`kb`,
 `applications/<dir>/posting`) and the entry's id - the record has no lines to number.
 It also asks the record gate's number check of every live bullet and warns of each one it would
 refuse in any selection that chose it, so it is fixed once rather than by each resume run.
 And it asks that the career is what its log's newest entry hashed (`kbSha256`): a mismatch is a
 FAIL, `the career is not what its log last recorded - written outside jsk`, restored from
-`.jsk/backup.trig` into a new folder, or read with `jsk kb dump`. Only `check` asks it - it costs a
+`.jsk/backup.trig` into a new folder, or read with `jsk kb dump`. Only `career_check` asks it - it costs a
 full write of the career, and every other command loads the record on every run.
 Last, it names each application made from files and not sent, a WARN `file-made-unsent` with the
-fix: send it with jsk 5.1.0, the last CLI that does, or drop it: `jsk app drop applications/<stem>`
-(see Retired in 6.0 above, and `jsk app drop`).
+fix: send it with jsk 5.1.0, the last CLI that does, or drop it with `app_drop`
+(see Retired in 6.0 above, and `app_drop` below).
 
 ### `jsk kb dump` and `jsk kb load`
 
@@ -459,36 +479,39 @@ The old `--urs` and `--refresh` went with the full record: the short file is the
 holds nothing to refresh. A selection holding no bullet, or a career that fails its rules, is
 refused with every reason.
 
-## `jsk resume`
+## The resume tools
+
+`resume_check`, `resume_render`, `resume_preview`, `resume_fit` and `resume_ship`, which replaced
+`jsk resume` in 6.0. Each calls the entry point its command called, so the flags below are the
+tools' arguments (`--ats-max` is `ats_max`, `--target-pages` is `target_pages`; a switch is a
+boolean), and every verdict line is the text the tests pin. A render, a preview and a fit answer
+with `wrote`, the workspace-relative paths of the files they made; open a PDF or PNG with Read.
 
 One target's selection - an application's `<stem>`, or `resumes/<name>` - from the record gate
 through the render to the gates on the document. A `resume.json` named where a target goes exits 2
 with the target form (Retired in 6.0).
 
-### `jsk resume check`
+### `resume_check`
 
-```bash
-jsk resume check <stem>|resumes/<name>            # the record gate, on its selection graph
-jsk resume check resume.pdf                       # the parse and prose gates
-jsk resume check <out-dir>                        # record, parse, prose and layout
+```
+resume_check(target="<stem>")                     # the record gate, on its selection graph
+resume_check(target="resume.pdf")                 # the parse and prose gates
+resume_check(target="<out-dir>")                  # record, parse, prose and layout
 ```
 
-One verb for every gate on a resume, which picks the gates from what it is given. A target gets
+One tool for every gate on a resume, which picks the gates from what it is given. A target gets
 the record gate. A `.pdf` or `.tex` render, or a `.txt` named by hand, gets the parse and prose
-gates, and `--only parse|prose|layout` narrows that to one. A directory gets the record, parse,
-prose and layout gates over the render inside it. Each kind keeps its own flags - `--strict` and
-`--max-findings` for a target; `--strict` and `--only` (with `--record`, `--region` and `--pages`
-for the layout gate) for a render; `--record`, `--pages`, `--json` and `--max-findings` for a
-directory - and a flag that does not fit the target, such as `--pages` on a target, is a usage
-error, exit 2, that names the target kind. A cover letter is not a resume: it is
-the `letter_check` tool, and `--only letter` here points there.
+gates, and `only="parse"|"prose"|"layout"` narrows that to one. A directory gets the record, parse,
+prose and layout gates over the render inside it. Each kind keeps its own arguments - `strict` for a target; `strict` and `only` (with `record`
+and `pages` for the layout gate) for a render; `record` and `pages` for a directory - and one that
+does not fit the target, such as `pages` on a target, is a usage error, exit 2, that names the
+target kind. A cover letter is not a resume: it is the `letter_check` tool.
 
 #### A target: the record gate
 
-```bash
-jsk resume check <stem>
-jsk resume check resumes/<name> --strict         # warnings become failures
-jsk resume check <stem> --max-findings 0         # print every one
+```
+resume_check(target="<stem>")
+resume_check(target="resumes/<name>", strict=True)   # warnings become failures
 ```
 
 The **record gate**: a target's selection - resume.json's keys, kept in the store - and the career
@@ -497,7 +520,7 @@ working directory; a path to the target's directory finds its own.
 
 | Check | Severity |
 |---|---|
-| `career-invalid` - the career has a FAIL (`jsk kb check`) | FAIL |
+| `career-invalid` - the career has a FAIL (`career_check`) | FAIL |
 | `career-unlogged` - the career and its log are out of sync: something outside jsk wrote the store. Restore it from the backup: `jsk kb load .jsk/backup.trig --root <new folder>` | FAIL |
 | `career-missing` - the store holds no career to check against: `jsk kb new`, or `jsk kb load` | FAIL |
 | shape - an unknown key, a wrong type, `resume` not 2, no `bullets`, a bad `format` or summary or headline `status`, an id with the wrong prefix, a duplicate | FAIL |
@@ -505,7 +528,7 @@ working directory; a path to the target's directory finds its own.
 | `number-untraced` - a numeral in a chosen bullet is in no current version of a metric it cites | FAIL |
 | `number-superseded` - it is only a replaced version's number; the line names the current one | FAIL |
 | `label-unheld` - a vocabulary label in a bullet names a concept its project does not hold | WARN |
-| `years-overstated` - "N years of X" in the headline, the summary (or the positioning in its place) or a bullet exceeds what the roles behind the projects holding X cover (`jsk kb query experience`) | WARN |
+| `years-overstated` - "N years of X" in the headline, the summary (or the positioning in its place) or a bullet exceeds what the roles behind the projects holding X cover (`career_query(name="experience")`) | WARN |
 | `bracket` - a bracket in the summary or a bullet, almost always a leftover placeholder | WARN |
 
 The number checks read ids and numbers; the label and years checks read prose, where a word may
@@ -516,12 +539,12 @@ id checks: until the shape is right the ids may not be lists of ids.
 
 An untraced number is the one finding never to "fix" by changing the number: it is in the career, so
 it is a question for the person, answered with `career_apply` (the figure, cited from the bullet)
-or by changing the words. `jsk kb check` and the match ask the same of the career's bullets.
+or by changing the words. `career_check` and the match ask the same of the career's bullets.
 
 It replaced two gates. `validate_urs` checked a 30-47KB URS record against itself and the claims
 gate checked that record against the career; most of what the two asked was whether the copy had
-drifted, and with no copy there is nothing to drift. `jsk resume check` - on a target or on a
-directory - `jsk resume ship` and `app_freeze` all run this one.
+drifted, and with no copy there is nothing to drift. `resume_check` - on a target or on a
+directory - `resume_ship` and `app_freeze` all run this one.
 
 A `.md`, a `.ttl` or a `resume.json` is exit 2 with the target to name instead. A directory is
 not a target: it gets all four gates, below.
@@ -536,26 +559,26 @@ Both document gates in one pass, on one file. Pass either sibling and the other 
 the parse gate reads what is actually sent — the PDF — while the prose gate reads the `.tex` it was
 compiled from.
 
-```bash
-jsk resume check resume.pdf
-jsk resume check resume.pdf --strict
+```
+resume_check(target="resume.pdf")
+resume_check(target="resume.pdf", strict=True)
 ```
 
-A run with `--only` never closes by saying both passed. It names the three gates that did not.
+A run with `only` never closes by saying both passed. It names the three gates that did not.
 
-##### `--only parse`
+##### `only="parse"`
 
-```bash
-jsk resume check resume.pdf --only parse               # the rendered deliverable
-jsk resume check pasted.txt --only parse --strict      # a .txt named by hand
+```
+resume_check(target="resume.pdf", only="parse")                # the rendered deliverable
+resume_check(target="pasted.txt", only="parse", strict=True)   # a .txt named by hand
 ```
 
 The **parse gate**. Reads the PDF's text layer (or the plain text the plan emits, or a `.txt` named
 by hand) for what makes applicant tracking systems mangle a resume: text that does not extract at
 all, section words that appear in prose but never in a heading, leftover bracketed placeholders,
 unparseable phone numbers, bullet glyphs a parser will not map, and arrow glyphs that fuse job
-titles when stripped. A PDF whose record is known - named to `jsk resume check <out-dir>
---record`, or the target whose directory holds it - must also extract its bullets in the order of
+titles when stripped. A PDF whose record is known - named to `resume_check` on a directory
+with `record`, or the target whose directory holds it - must also extract its bullets in the order of
 the plan's plain text, or it fails: a parser reads the text layer as one stream and credits a bullet to the role line
 above it there. The text is emitted in memory, so the rule cannot be skipped for a missing file.
 
@@ -564,11 +587,11 @@ template produces every render and cannot express any of them, so the check move
 a golden-file test on the template, where it is proved rather than sampled. Needs `pymupdf` for a
 PDF; the plain-text path is standard library only.
 
-##### `--only prose`
+##### `only="prose"`
 
-```bash
-jsk resume check resume.tex --only prose
-jsk resume check pasted.txt --only prose        # a .txt named by hand
+```
+resume_check(target="resume.tex", only="prose")
+resume_check(target="pasted.txt", only="prose")        # a .txt named by hand
 ```
 
 The **prose gate** — the writing rules the parse gate cannot see. Third person, unresolved
@@ -576,11 +599,11 @@ placeholders, sentences that stop before their object, phrases that read as juni
 across projects, bullets that clear their throat before the verb. It reads the `.tex` rather than the
 PDF, because a bullet is an unambiguous `\item` there and needs no library to find. No dependencies.
 
-##### `--only layout`
+##### `only="layout"`
 
-```bash
-jsk resume check resume.pdf --only layout --record <stem>
-jsk resume check resume.pdf --only layout --region US --pages 2
+```
+resume_check(target="resume.pdf", only="layout", record="<stem>")
+resume_check(target="resume.pdf", only="layout", pages=2)
 ```
 
 The **layout gate** — what the render gate's checklist asked a model reading page images to see,
@@ -598,11 +621,11 @@ measured from the PDF instead. Each failure names its fix:
 - **Paper.** Neither A4 nor Letter fails; so does the wrong one for the region (Letter for US and
   CA, A4 elsewhere).
 
-The region and page budget come from the plan the record builds — `--record`, else the selection of
-the target whose directory holds the PDF; `--region` and `--pages` override. The page count is printed, never failed: `jsk
-resume fit` owns that verdict. Without `pymupdf` it is `SKIPPED`, and a failure. `jsk resume check` on a
+The region and page budget come from the plan the record builds — `record`, else the selection of
+the target whose directory holds the PDF; `pages` overrides the budget. The page count is printed, never failed:
+`resume_fit` owns that verdict. Without `pymupdf` it is `SKIPPED`, and a failure. `resume_check` on a
 render never runs it unasked (it reads only the PDF); on a directory it does, and so does
-`jsk resume ship`.
+`resume_ship`.
 
 Not measured: a typed `•` — the template's bullet is the same codepoint in the same face, so nothing
 in the text layer tells them apart — and whether it looks right as a whole, the work-rights line and
@@ -616,7 +639,7 @@ title and its required and preferred terms, matched as strings, case aside, the 
 ATS search matches what they type. The match judges evidence by concept; this asks whether the
 posting's words reached the page.
 
-- **The title** not on the page - set `headline` and confirm it with `--headline`.
+- **The title** not on the page - set `headline` and confirm it with `career_confirm(block="headline")`.
 - **A required term** not on the page.
 - **Another name of its concept** on the page in its place - use the posting's word where it is
   true: a skill's alias in `names`, or a bullet reworded in the career.
@@ -629,31 +652,29 @@ gate.
 
 #### A directory: all four gates
 
-```bash
-jsk resume check <out-dir>
-jsk resume check <out-dir> --record acme --pages 2
-jsk resume check <out-dir> --json
-jsk resume check <out-dir> --max-findings 0
+```
+resume_check(target="<out-dir>")
+resume_check(target="<out-dir>", record="acme", pages=2)
 ```
 
 The record, parse, prose and layout gates over one rendered output directory, in **one process**. It is the
 invocations a hand-run verification makes — the record gate on the selection, the parse gate on
-the PDF (held to the plain text's reading order) and again on the plain text with `--strict`
+the PDF (held to the plain text's reading order) and again on the plain text with `strict`
 (emitted from the record's plan in memory; no `.txt` is written), the prose gate on the `.tex` — then the
 layout gate on each PDF, handed the record. It imports the checkers rather than shelling out to them, and gives them the same
 arguments, so the findings and the exit code are the ones those commands produce. That
 equivalence is what it is tested on.
 
 `check_ats.py` and `check_prose.py` grew a `main(argv)` entry point so it could: the same
-arguments and the same output to the character as `--only parse` and `--only prose`, callable
+arguments and the same output to the character as `only="parse"` and `only="prose"`, callable
 without a subprocess. That entry point is load-bearing rather than incidental, so it is documented
 here.
 
-**`--record` defaults to the selection of the target whose directory it is** - `applications/<stem>/`
+**`record` defaults to the selection of the target whose directory it is** - `applications/<stem>/`
 or `resumes/<name>/`, where a ship renders. Named rather than searched elsewhere: a directory that
 is no target's has no way to say which record the documents came from, and guessing would put a
 passing record gate against a resume it never described. It was a `resume.json` beside the render
-until 6.0; `--record <resume.json>` exits 2 with the target form.
+until 6.0; a `resume.json` as `record` exits 2 with the target form.
 
 Three properties, each of them an existing rule here rather than a new one:
 
@@ -661,67 +682,56 @@ Three properties, each of them an existing rule here rather than a new one:
   rather than take anyone's word for it. The section headers match a render's check.
 - **A missing input is `SKIPPED` and a failure.** A gate that did not run is not a gate that passed.
   Same behaviour and same wording as on a render. A path you *gave* that is not there is exit 2
-  instead — omitting `--record` and mistyping it are different mistakes, and reporting them
+  instead — omitting `record` and mistyping it are different mistakes, and reporting them
   identically hides one. Both are non-zero.
 - **It never attempts the render gate**, and closes with a line saying somebody has to open the PDF
-  and read it. That gate is the one no command can have, and a command that exited 0 having silently
+  and read it. That gate is the one no tool can have, and one that answered `ok` having silently
   skipped it would be the most dangerous thing in this directory.
 
-`--pages N` reports and never fails. It measures the PDF and prints the renderer's own over-budget
+`pages` reports and never fails. It measures the PDF and prints the renderer's own over-budget
 line, reused rather than restated. Over budget is named rather than failed everywhere in this
-pipeline, because `jsk resume fit` owns that verdict and is the command that can act on it.
+pipeline, because `resume_fit` owns that verdict and is the tool that can act on it.
 
-`--max-findings N` caps how many findings each gate lists — the same flag name and the same default
-as on a target, because two gates that truncate differently are two gates people read differently.
-The header counts stay true regardless: truncating a list is a reading aid, truncating a count is a
-lie.
-
-`--json` carries each checker's whole text in `gates[].output`, beside `gate`, `command`, `status`
-and `exit`. It always includes a `render gate` entry with `status: "UNVERIFIED"` and `exit: null`,
-so **the machine-readable form cannot report the render gate as passed either.** That is what makes
-`--json` safe to consume here: it is the same evidence in a different envelope, never a summary.
+The answer's `output` carries every checker's whole text, and `verdict` the closing verdict line,
+which names the render gate as not run. **The tool's answer cannot report the render gate as
+passed either**: it is the same evidence in a different envelope, never a summary.
 
 The exit code is the worst gate's: `0` all passed, `1` any failed, `2` called wrong.
 
-### `jsk resume render`
+### `resume_render`
 
-```bash
-jsk resume render <stem>                        # into applications/<stem>/
-jsk resume render <stem> --pdf
-jsk resume render resumes/<name> --region au
-jsk resume render <stem> --pdf --ats-max
-jsk resume render resumes/<name> --out DIR      # a general resume, rendered elsewhere
+```
+resume_render(target="<stem>")                               # into applications/<stem>/
+resume_render(target="<stem>", pdf=True)
+resume_render(target="resumes/<name>", region="au")
+resume_render(target="<stem>", pdf=True, ats_max=True)
+resume_render(target="resumes/<name>", out="DIR")            # a general resume, rendered elsewhere
 ```
 
 A target - an application's stem or `resumes/<name>` - renders its selection graph, into its own
-directory unless `--out` names another (`jsk resume ship` keeps the target's own).
+directory unless `out` names another (`resume_ship` keeps the target's own).
 
 One selection, built with the career it is stored in (`domain/resume/plan.py`), to `.tex` (and PDF
-with `--pdf`). No `.txt` is written: the gates emit the plain text from the plan in memory, and
-`--format txt` exits 2 saying so. A clean compile leaves the `.pdf` and the `.tex` and removes the
+with `pdf`). No `.txt` is written: the gates emit the plain text from the plan in memory. A clean compile leaves the `.pdf` and the `.tex` and removes the
 engine's `.log`, `.aux`, `.out`, `.fls` and `.fdb_latexmk`; a failed one keeps them and names the
-`.log`. The PDF is the only rendered deliverable; `--ats-max` chooses which variant it
+`.log`. The PDF is the only rendered deliverable; `ats_max` chooses which variant it
 holds rather than adding a second file. A selection that fails its shape or id checks is exit 2
-with the fix; `jsk resume check <stem>` is the full gate. A selection is one resume, so there is
-no `--view`. A `resume.json` is exit 2, naming the target form.
+with the fix; `resume_check(target=<stem>)` is the full gate. A selection is one resume, so there is
+no view. A `resume.json` is exit 2, naming the target form.
 
-| Flag | Does |
+| Argument | Does |
 |---|---|
-| `--out DIR` | where to write (default the target's own directory) |
-| `--pdf` | also run the TeX engine |
-| `--region CODE` | apply a region profile over the selection's `region` |
-| `--profile PATH` | a profile file directly |
-| `--format` | `all` (default) or `latex`; `txt` is retired and exits 2 |
-| `--ats-max` | render the PDF in the ATS-maximal variant (shorthand for `--profile ats-maximal`) |
-| `--template NAME` | the visual template (default `monolith`) |
-| `--list-templates` | print the templates with what each is for, and exit |
-| `--name` | override the output filename stem |
+| `out` | where to write (default the target's own directory) |
+| `pdf` | also run the TeX engine |
+| `region` | apply a region profile over the selection's `region` |
+| `ats_max` | render the PDF in the ATS-maximal variant |
+| `template` | the visual template (default `monolith`) |
 
-**With `--pdf`, a run that produced no PDF exits 1** and says **UNVERIFIED**. It used to record the
+**With `pdf`, a run that produced no PDF answers `ok: false`, exit 1,** and says **UNVERIFIED**. It used to record the
 failure as a passing note and exit 0, so a caller could ask for a PDF, be told in passing there
 wasn't one, and still see success.
 
-**The page count is measured off the PDF**, with `pymupdf`, and printed only with `--pdf`:
+**The page count is measured off the PDF**, with `pymupdf`, and printed only with `pdf`:
 
 ```
   pages  Priya_Raman_Resume.pdf: 1 page against a budget of 2
@@ -729,21 +739,20 @@ wasn't one, and still see success.
 
 It used to print the budget alone, which is the number somebody asked for rather than the number they
 got — the resume that prompted the fix rendered on one page against a budget of two and said so
-nowhere. Over budget is named (`- OVER BUDGET, run jsk resume fit`) and not failed: `jsk resume fit` owns that
-verdict, and it is the command that can do something about it. Without `pymupdf` the line says the
+nowhere. Over budget is named (`- OVER BUDGET, run resume_fit`) and not failed: `resume_fit` owns that
+verdict, and it is the tool that can do something about it. Without `pymupdf` the line says the
 budget and says it was not measured, which is the honest version of the same sentence.
 
-`--template` and `--ats-max` are different axes and compose. The variant decides what the document
+`template` and `ats_max` are different axes and compose. The variant decides what the document
 says; the template decides how it looks. All five templates extract to identical text, so the choice
 is about the reader and never about the parse. An unknown name is a usage error rather than a silent
 fall back to the default, because a resume rendered in a template nobody chose is a resume nobody has
 looked at — and it would look perfectly fine. See `references/templates.md`.
 
-### `jsk resume preview`
+### `resume_preview`
 
-```bash
-jsk resume preview <stem> --out DIR
-jsk resume preview resumes/<name> --out DIR --only meridian,ember
+```
+resume_preview(target="<stem>", out="DIR")
 ```
 
 The same resume rendered in every template, with the page count for each, so the look is chosen by
@@ -755,33 +764,27 @@ Density is the one difference between templates that is not a matter of taste: t
 one page in a dense template and two in an airy one, and a two-page resume where a one-page resume
 was available is a decision worth making on purpose.
 
-| Flag | Does |
-|---|---|
-| `--out DIR` | required — previews are scratch, not deliverables |
-| `--region CC` / `--ats-max` | passed straight through to the renderer |
-| `--only A,B` | just these templates |
+`out` is required — previews are scratch, not deliverables. The command's `--only A,B`,
+`--region` and `--ats-max` are not arguments of the tool.
 
 Exit 0 = every template rendered. Exit 1 = at least one did not, and that is reported rather than
 worked around: a template that does not build is not a template, and the others may be about to
 break too. Exit 2 = usage, or no TeX engine.
 
-### `jsk resume fit`
+### `resume_fit`
 
-```bash
-jsk resume fit resume.tex --target-pages 2
-jsk resume fit resume.tex --dry-run
-jsk resume fit resume.tex --in-place
-jsk resume fit resume.tex -o fitted.tex
+```
+resume_fit(tex="resume.tex", target_pages=2)
 ```
 
 Rewrites the density knobs in the `.tex`, recompiles, and measures the PDF that comes out. It applies
 the levers in a fixed order — spacing, bullet spacing, margins, font size — stopping at the 10pt and
 0.5" floors instead of crossing them. It is deterministic — a fixed plan, each step derived from the
-original `.tex` — and writes one file, `<stem>-fitted.tex` (or `-o`, or `--in-place`), only when the
+original `.tex` — and writes one file, `<stem>-fitted.tex`, only when the
 target is met. Its closing lines name every lever it moved and print each value beside its floor
 (`margins 0.6in (floor 0.5in)`). If the target is unreachable without a breach it exits 1 with
 `over by ~<n> lines at the floors`, because the remedy then is to cut evidence, not to shrink type.
-`jsk resume ship` runs it on an overrun itself.
+`resume_ship` runs it on an overrun itself.
 
 It used to measure a `.docx` through LibreOffice while the PDF was what got sent. The two disagreed,
 and a resume this reported as two pages shipped as three — a gate passing on a document nobody was
@@ -789,54 +792,54 @@ sending. It now measures the artefact that goes out.
 
 Needs a TeX engine and `pymupdf`.
 
-### `jsk resume ship`
+### `resume_ship`
 
-```bash
-jsk resume ship <stem>|resumes/<name> [--ats-max] [--template N] [--pages N] [--no-fit] [--json]
+```
+resume_ship(target="<stem>"|"resumes/<name>", ats_max=, template=, pages=, fit=)
 ```
 
 A graph-native application (`<stem>`) or a general resume (`resumes/<name>`) ships from its
 selection graph into its own directory: `applications/<stem>/` or `resumes/<name>/`, made by the
-render and left holding the `.pdf` and the `.tex`. An `--out` naming another directory is exit 2;
-so is a `resume.json`, which shipped with `--out` until 6.0.
+render and left holding the `.pdf` and the `.tex`. It takes no other directory;
+a `resume.json` is exit 2, which shipped with `--out` until 6.0.
 
 The commands a ship used to be, in one process and in order, each step's output printed
-verbatim under its own `---` heading the way `jsk resume check` prints it over a directory:
+verbatim under its own `---` heading the way `resume_check` prints it over a directory:
 
-1. **the record gate** — what `jsk resume check <stem>` runs. A failure stops here and **nothing
+1. **the record gate** — what `resume_check(target=<stem>)` runs. A failure stops here and **nothing
    is rendered**: a PDF made from a resume that failed its gate looks sendable and is not.
-2. **the render** — what `jsk resume render <stem> --pdf` runs, with `--ats-max` and
-   `--template` passed through. A render that produced no PDF stops here.
-3. **the fit**, only when the render is over its budget (`--pages N`, else the render's own:
-   `ats_pages` under `--ats-max`) — what `jsk resume fit <tex> --target-pages N` runs. When the levers reach
+2. **the render** — what `resume_render(target=<stem>, pdf=True)` runs, with `ats_max` and
+   `template` passed through. A render that produced no PDF stops here.
+3. **the fit**, only when the render is over its budget (`pages`, else the render's own:
+   `ats_pages` under `ats_max`) — what `resume_fit(tex, target_pages=N)` runs. When the levers reach
    the budget inside the floors, the fitted `.tex` is moved over the render's and recompiled the way
    the render compiled it, and the step ends `fit: <levers>, <n> pages`. When they do not, it ends
    `over by ~<n> lines at the floors`, nothing is written, and the unfitted render is kept: cutting
-   evidence is the author's call. `--no-fit` skips the step.
-4. **the parse, prose and layout gates** — what `jsk resume check <its directory> [--pages N]`
+   evidence is the author's call. `fit=False` skips the step.
+4. **the parse, prose and layout gates** — what `resume_check(target=<its directory>, pages=N)`
    runs, less the record gate the first step has just run on the same selection. After a fit they read
    the fitted render.
 
 It refuses before any of them, exit 1, in a frozen application - the store holds its application
 graph - because re-rendering would overwrite what was sent (or, for one held back with
-`--submitted false`, what was frozen); the fix names capturing its posting again under a new stem
+`submitted="false"`, what was frozen); the fix names capturing its posting again under a new stem
 (`posting_capture`).
 
-It closes with the same render-gate section `jsk resume check` on a directory does: **nobody has read the PDF**, and the
+It closes with the same render-gate section `resume_check` on a directory does: **nobody has read the PDF**, and the
 command says so rather than exiting 0 over it. When it stopped early that section says nothing was
 rendered, instead of pointing at a PDF an earlier run left in `DIR`. The page count is reported —
-the renderer's own line, and `--pages N`'s — and never failed, fitted or not: a render still over
+the renderer's own line, and `pages`' — and never failed, fitted or not: a render still over
 at the floors is `OVER BUDGET` in the fit step, and exits as it would have before ship fitted.
 
-Last of all, as under `jsk resume check` on a directory and `app_freeze`, an `=== summary` block: one line a step with
+Last of all, as under `resume_check` on a directory and `app_freeze`, an `=== summary` block: one line a step with
 its status and the step's own `FAIL n   WARN n`, the render's page counts, the lines it withheld
 below the floor, each named (`withheld 1 below the floor: ach_…`), the fit's last line, then the
 verdict. Nothing in it is a new verdict - each count is
 read back off the output above - and it is there so that the tail of a long ship still holds
-every gate. `--json` has no summary; `steps[]` already is one.
+every gate. The tool's answer has no summary of its own; `steps[]` already is one.
 
-Exit `0` only if every step passed, `1` on any failure, `2` called wrong. `--json` carries every
-step in `steps[]` in the shape `jsk resume check --json` gives a directory, the render gate last and `UNVERIFIED`.
+Exit `0` only if every step passed, `1` on any failure, `2` called wrong. The answer carries every
+step in `steps[]`, the render gate last and `UNVERIFIED`.
 
 ## The letter check: `letter_check`
 
@@ -855,7 +858,7 @@ number check and the quotation rule below read those. A target with no selection
 naming the `resume_select` tool; a `resume.json` exits 2, naming the target form.
 
 The **letter check** — a cover letter (`.txt` or `.md`) against the resume it goes out beside. No
-`jsk resume check` runs it: it checks another document, not the render.
+`resume_check` runs it: it checks another document, not the render.
 
 - **Length.** Over 250 words fails. The body is counted: not the salutation line or anything above
   it, not the closing (`Sincerely,`, `Best regards,` ...) or anything under it.
@@ -873,10 +876,10 @@ The **letter check** — a cover letter (`.txt` or `.md`) against the resume it 
 
 Whether each sentence is true of the career is not checked; that would need a reader.
 
-## `jsk app`
+## The application tools
 
 An application once it is sent: what went out, and what happened next - or, never sent, set aside.
-Only `jsk app drop` is still a command; the freeze and the event are tools.
+`app_freeze`, `app_event` and `app_drop` are tools; the `app` noun is gone from the command line.
 
 ### Freezing: `app_freeze`
 
@@ -922,15 +925,15 @@ earlier one left is not listed. The final path is printed.
 
 A **graph-native application** (its posting graph holds the advert's lines) has no `resume.json`,
 and one beside it is never read. Since 6.0 it is the only kind frozen: one made from files is refused
-with a FAIL, naming jsk 5.1.0 and `jsk app drop` (Retired in 6.0). Its record is the selection the store
+with a FAIL, naming jsk 5.1.0 and `app_drop` (Retired in 6.0). Its record is the selection the store
 holds,
 `applications/<dir>/resume`: `recordSha256` is the SHA-256 of that selection's canonical text
 (`json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`, UTF-8), and
-`carried` is the plan built from it, as `jsk resume ship <stem>` built the render. The gates run
-against the selection, a letter's with `--record <stem>`. The rename moves all five of its graphs -
+`carried` is the plan built from it, as `resume_ship(<stem>)` built the render. The gates run
+against the selection, a letter's with `record=<stem>`. The rename moves all five of its graphs -
 `posting`, `review`, `gaps`, `resume` and the new `application` - in one update. After it, the
-`resume_update`, `posting_decide` and every other writing tool refuse it as sent, and `jsk resume
-ship <stem>` refuses the frozen directory. A held-back freeze (`submitted="false"`) is refused
+`resume_update`, `posting_decide` and every other writing tool refuse it as sent, and `resume_ship`
+refuses the frozen directory. A held-back freeze (`submitted="false"`) is refused
 alike, the refusal saying it was frozen, not sent, and naming `posting_capture` under a new stem
 as the way to reuse it. With no selection stored it refuses: `no resume stored for <dir>`, naming
 the `resume_select` tool.
@@ -940,7 +943,7 @@ It refuses - a FAIL saying why, with nothing renamed and nothing written — whe
 - **the application is already frozen** - the store holds its application graph, or the
   directory holds an `application.md` from before the graph record. A frozen application is
   never re-frozen; later events are `app_event`.
-- **any mechanical gate fails.** It runs what `jsk resume check <app-dir>` runs - the record gate
+- **any mechanical gate fails.** It runs what `resume_check(target=<app-dir>)` runs - the record gate
   first - in process, and prints it. A failing document is never frozen.
 - a graph-native application has no selection stored (`no resume stored for <dir>`).
 - no posting graph was captured for it, there is nothing to list as documents, the renamed directory
@@ -979,20 +982,20 @@ gate as every other write. An application frozen as `application.md` is pointed 
 
 The stage is never stored: `career_query(name="pipeline")` derives it from the latest dated event.
 
-### `jsk app drop`
+### `app_drop`
 
-```bash
-jsk app drop applications/<stem> [--reason TEXT] [--dry-run] [--today YYYY-MM-DD]
+```
+app_drop(app="applications/<stem>", reason="role filled", dry_run=False)
 ```
 
-Sets aside an application that was never frozen - made from files or graph-native - when it will
+`jsk app drop` did this until 6.0. It sets aside an application that was never frozen - made from files or graph-native - when it will
 not be sent. It removes every graph the store holds for it (`posting`, `review`, `gaps`,
 `resume`, whichever it has) in one update, after validating the workspace without them as every
 writer validates; then it moves the folder, files intact, to `dropped/<stem>/` beside
 `applications/` (`dropped/<stem>-2`, `-3` when that is taken) and writes a `DROPPED.txt` there
-with the day, the `--reason` and the graphs removed. A graph-native application with no render
+with the day, the `reason` and the graphs removed. A graph-native application with no render
 has no folder: its `dropped/<stem>/` holds the note alone. The stem alone works inside the
-workspace. Out of `applications/`, nothing counts it again: `jsk kb check`'s `file-made-unsent`,
+workspace. Out of `applications/`, nothing counts it again: `career_check`'s `file-made-unsent`,
 the `app_list` tool and `jsk doctor` stop naming it. Moving the folder back brings back the files,
 not the graphs.
 
@@ -1003,7 +1006,7 @@ ok    wrote dropped/contoso-platform/DROPPED.txt
 dropped applications/contoso-platform - never frozen, so never sent; its files are in dropped/contoso-platform/
 ```
 
-`--dry-run` prints the same lines as `would remove`, `would move` and `would write`, then
+`dry_run` prints the same lines as `would remove`, `would move` and `would write`, then
 `dry run: nothing was written or moved`, and writes nothing.
 
 It refuses - exit 1, `nothing was written or moved` - a **frozen application**, sent or held back
@@ -1011,8 +1014,9 @@ It refuses - exit 1, `nothing was written or moved` - a **frozen application**, 
 date="YYYY-MM-DD")`. It refuses a removal the workspace would
 not validate without. A path that is no application - no folder under `applications/` and no graph
 for it - is exit 2. If the folder cannot be moved after the store was written, it says so (exit
-1); running it again finds no graphs and moves what is left. It has no MCP tool: setting an
-application aside is the person's decision. It is not a file verb, and 6.0 keeps it.
+1); running it again finds no graphs and moves what is left. It is destructive, so no agent is
+granted it: setting an application aside is the person's decision, and the main session calls it
+once the person agrees.
 
 Exit 0 dropped or a dry run, 1 refused, 2 called wrong.
 
@@ -1056,27 +1060,35 @@ is held between calls. Reads share one loaded record until the store on disk mov
 | `assessment_complete(app)` | every flag answered, no FAIL; the review `complete` | |
 | `resume_select(target, mode, replace?)` | `from_match` or `ranked`; the selection stored | retired `jsk kb export` |
 | `resume_update(target, bullets?, roles?, skills?, names?, format?, region?, pages?, ats_pages?, floor?, summary?, headline?)` | the selection changed; a changed summary or headline drops to inferred | the shape and id checks |
-| `resume_ship(target, ats_max?, template?, pages?, fit?)` | record gate, render, fit, gates into the directory; each step as JSON | `jsk resume ship` |
+| `career_check()` | every rule over the workspace: FAILs and WARNs with their fixes, and the unsent file-made applications; writes nothing | retired `jsk kb check` |
+| `career_pack(pack)` | the capability starter pack, drafted as a changeset in `changeset`; writes nothing | retired `jsk kb pack` |
+| `career_merge(concept, into)` | two concepts that are one, drafted as a changeset in `changeset`; writes nothing | retired `jsk kb merge` |
+| `resume_check(target, record?, only?, strict?, pages?)` | the gates on a target, a `.pdf` or `.tex`, or a render directory; the `verdict` line, `findings`, `output` | retired `jsk resume check` |
+| `resume_render(target, out?, pdf?, template?, ats_max?, region?)` | a selection to `.tex`, and a PDF with `pdf`; `wrote` | retired `jsk resume render` |
+| `resume_preview(target, out)` | the selection in every template, with page counts; `wrote` | retired `jsk resume preview` |
+| `resume_fit(tex, target_pages?)` | a render fitted to a page budget, floors held; `wrote` | retired `jsk resume fit` |
+| `resume_ship(target, ats_max?, template?, pages?, fit?)` | record gate, render, fit, gates into the directory; each step as JSON | retired `jsk resume ship` |
+| `app_drop(app, reason?, dry_run?)` | an unsent application set aside: its graphs removed, its folder kept under `dropped/`. Destructive: no agent holds it | retired `jsk app drop` |
 | `app_freeze(app, submitted, channel, docs?)` | every gate, then the application's record written and the directory renamed to the day sent (`submitted` is `YYYY-MM-DD` or `false`); `written`, `renamed_to`, `recordSha256`, `carried`, `documents` and each gate's step. A refusal writes nothing | retired `jsk app freeze` |
 | `app_event(app, kind, date, channel?, due?, note?)` | one event added to a frozen application's record; the event, and its dates with their weekday | retired `jsk app event` |
 | `letter_check(letter, record)` | a cover letter (a path in the workspace) against a target's selection; the `verdict` line, each FAIL and WARN with its fix, and the output | retired `jsk letter check` |
 
 `app` is an application's stem (`applications/<stem>`); `target` is a stem or `resumes/<name>`.
 The tools refuse an application made from files, naming jsk 5.1.0, the last CLI that finishes
-one, and `jsk app drop`. `app_event` takes a frozen one of either kind, as its command does.
+one, and `app_drop`. `app_event` takes a frozen one of either kind, as its command does.
 
 The plugin (5.0.0) starts this server as `jsk`, so Claude Code names each tool
 `mcp__plugin_jsk_graph__<tool>`. Each agent's `tools:` lists the ones it may call by name: the analyst
 the career reads, `app_show`, `posting_*` and `assessment_*`; the author the career reads,
 `career_preview`, `career_apply`, `app_show`, `resume_select` and `resume_update`; the extractor
-the career reads and `career_preview`. No agent holds `career_confirm`: only the main session,
-which talks to the person, confirms. No agent holds `app_freeze`, `app_event` or `letter_check`
-either (2026-10-03): freezing and recording an event are the person's acts, done by the main
-session.
+the career reads and `career_preview`. The verifier holds `resume_check`, `resume_fit` and `resume_ship`; the auditor `career_check`,
+`career_merge` and `resume_check`, and drafts a merge without applying it. No agent holds
+`career_confirm`: only the main session, which talks to the person, confirms. No agent holds
+`app_freeze`, `app_event`, `letter_check` or `app_drop` either: freezing, recording an event and
+setting an application aside are the person's acts, done by the main session.
 
-What stays a command only: `jsk kb new`, `check`, `load`, `dump`, `pack` and `merge`, `jsk doctor`,
-`jsk app drop`, and `jsk resume check`, `render`, `preview` and `fit` over a directory - a person's
-acts, or a verifier's tracing.
+What stays a command only: `jsk doctor`, `jsk kb new`, `jsk kb load` and `jsk kb dump`, which have
+to work when the server cannot start or no session is running.
 
 Exit 0 when the client closes the session, 2 for arguments or an unusable `mcp`.
 
@@ -1086,10 +1098,10 @@ Exit 0 when the client closes the session, 2 for arguments or an unusable `mcp`.
 `render`, `preview`, `fit`, `ship`, `event` and `freeze` as commands of their own, and the
 `python -m jsk.<module>` path behind each subcommand - left on 2026-10-01 for `jsk <noun> <verb>`.
 `new` is `jsk kb new`; `match` was `jsk tailor match`, itself retired in 6.0 (the
-`assessment_derive` tool); `validate`, `check` and `gates` are all
-`jsk resume check`, which picks the gates from its target; `check --only letter` was
-`jsk letter check` (now the `letter_check` tool); `render`, `preview`, `fit` and `ship` are `jsk resume`'s; `event` and `freeze`
-were `jsk app`'s (now the `app_event` and `app_freeze` tools). The flags did not change. Each old command, and each module path, exits 2 naming
+`assessment_derive` tool); `validate`, `check` and `gates` were all
+`jsk resume check`, which picked the gates from its target (now the `resume_check` tool); `check --only letter` was
+`jsk letter check` (now the `letter_check` tool); `render`, `preview`, `fit` and `ship` were `jsk resume`'s (now the `resume_*` tools); `event` and `freeze`
+were `jsk app`'s (now the `app_event` and `app_freeze` tools). Each old command, and each module path, exits 2 naming
 its replacement: none of them keeps running, because two names for one thing is what the change
 removed. `python -m jsk` stays, for a machine without `jsk` on its PATH.
 
@@ -1106,7 +1118,7 @@ record. A frozen `application.md` is still honoured as frozen.
 files went `jsk kb adopt` (log a hand edit), `jsk kb fmt` (restore the canonical layout), the
 `hand-edited`, `torn` and `unlogged` states of a stored record, and `.jsk/kb.last.ttl`: there is
 no file to edit by hand, no layout to restore and no second file to tear. (Each log entry still
-carries `kbSha256`, the hash of the career as the writer lays it out; `jsk kb load` of a dump and `jsk kb check` check it.) So did git
+carries `kbSha256`, the hash of the career as the writer lays it out; `jsk kb load` of a dump and the `career_check` tool check it.) So did git
 diffs of the record and opening it in an editor - `career_view`, `career_show`, `career_log` and `jsk kb dump` read it
 instead ([WHY.md](WHY.md) says what that cost). `jsk kb load .` imports such a workspace, once.
 

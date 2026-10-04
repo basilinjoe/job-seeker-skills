@@ -48,7 +48,7 @@ posting, `<Name>` gains the company.
    **If they need a selection for a kind of role**, that is a target, even an informal one, and
    belongs in `mode-tailor.md` with a posting captured first.
 
-5. **Validate while you iterate** — `jsk resume check resumes/<name>` — until it passes.
+5. **Validate while you iterate** — `resume_check(target="resumes/<name>")` — until it passes.
 
    **Confirm the summary.** `resume_update` stores it `inferred`, so the floor withholds it: read
    it to the person, then `career_confirm(target="resumes/<name>", block="summary",
@@ -58,18 +58,18 @@ posting, `<Name>` gains the company.
 
    - **Read the warnings the render prints**: a withheld bullet or summary, a skills row cut at its
      limit, a bracket that should not be in anyone's resume.
-   - **Choosing a look**: `jsk resume render --list-templates` describes them; ship with each
+   - **Choosing a look**: `templates.md` describes them; ship with each
      `template` they are choosing between and show the PDFs — nobody picks a design from a
      sentence.
-   - **Re-checking one file after one repair**: `jsk resume check <Name>_Resume.pdf --only parse`,
-     `jsk resume check <Name>_Resume.tex --only prose`. A single-gate run names the gates it did not
-     run. The plain text's strict pass runs in memory, in `jsk resume check <dir>` and ship.
+   - **Re-checking one file after one repair**: `resume_check(target="<Name>_Resume.pdf", only="parse")`,
+     `resume_check(target="<Name>_Resume.tex", only="prose")`. A single-gate run names the gates it did not
+     run. The plain text's strict pass runs in memory, in `resume_check` on the directory and in ship.
 
 7. **Fit to the budget** — measure, do not guess. The budget comes from the selection (`pages`) or
    the region profile: two pages neutral, three in India and the Gulf, up to four in Australia. Do
    not compress an Australian resume to a US page count nobody asked for.
 
-   `jsk resume ship` fits an overrun itself: density levers in a fixed order (inter-paragraph spacing,
+   `resume_ship` fits an overrun itself: density levers in a fixed order (inter-paragraph spacing,
    bullet spacing, margins, font size), **stopping at the floors**: 10pt body, 0.5" margins. It
    recompiles and gates the fitted render; `fit: …` in its summary is done. Never cross the floors
    by hand either. **Trimming words rarely helps** — a bullet that wraps to six lines usually still

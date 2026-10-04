@@ -1,11 +1,11 @@
-"""`jsk kb check`: every rule over the whole workspace, the career's hash against its log,
+"""The career_check tool: every rule over the whole workspace, the career's hash against its log,
 the record gate's number check asked of every live bullet, and the applications made from
 files that are not sent.
 
 That last is not a rule in domain/record/rules.py: the rules see the store, and an
 application made from files may have nothing in it but a folder holding a resume.json
 (application/timeline/unsent.py). Ruling 5 of
-docs/superpowers/plans/2026-10-03-retire-file-pipeline.md has `kb check` name each one; the
+docs/superpowers/plans/2026-10-03-retire-file-pipeline.md has career_check name each one; the
 adapter words them, with the CLI's version in the fix.
 """
 import os
@@ -57,7 +57,7 @@ def untraced_lines(store, queries, bullets=None):
 
 @dataclass(frozen=True)
 class Checked:
-    """What `jsk kb check` found: the findings as a Report, and where the record stands."""
+    """What the career_check tool found: the findings as a Report, and where the record stands."""
 
     report: Report
     state: State
