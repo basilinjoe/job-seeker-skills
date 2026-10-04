@@ -52,6 +52,12 @@ TABLE = {
     "dump": (load.cmd_dump, ("--out",), (), ()),
 }
 VERBS = {name: row[0] for name, row in TABLE.items()}
+
+# The verbs a person can run from a shell. VERBS also holds check, pack and merge, because the
+# career_check, career_pack and career_merge tools call them through dispatch.call_gate, but
+# adapters/cli/main.py refuses those three at the shell (2026-10-04, the review of the
+# MCP-first change: an unknown verb offered them, and the next try exited 2 again).
+SHELL_VERBS = ("new", "load", "dump")
 FLAGS = {name: row[1:] for name, row in TABLE.items()}
 
 
@@ -71,7 +77,9 @@ def main(argv=None):
         return 0 if args else 2
     name, rest = args[0], args[1:]
     if name not in VERBS:
-        return usage(f"unknown verb: {name} - one of {', '.join(VERBS)}")
+        return usage(f"unknown verb: {name} - one of {', '.join(SHELL_VERBS)} "
+                     "(check, pack and merge are the career_check, career_pack and "
+                     "career_merge tools of `jsk mcp`)")
     if wants_help(rest):
         print(inspect.cleandoc(VERBS[name].__doc__))
         return 0

@@ -185,19 +185,17 @@ def tool_entry(tool, *args):
     the call the tool makes, less the JSON it wraps the answer in. stderr is kept, as a child
     interpreter's was, so an assertion on a warning printed there still sees it.
     """
-    import contextlib   # noqa: PLC0415 - test helper
     import io           # noqa: PLC0415 - test helper
 
     from jsk.adapters.mcp import captured   # noqa: PLC0415 - test helper
 
     err = io.StringIO()
-    with contextlib.redirect_stderr(err):
-        if tool == "resume_check":
-            from jsk.adapters.entry.resume import cmd_resume_check   # noqa: PLC0415
+    if tool == "resume_check":
+        from jsk.adapters.entry.resume import cmd_resume_check   # noqa: PLC0415
 
-            code, out = captured.called(os.getcwd(), cmd_resume_check, args)
-        else:
-            code, out = captured.ran(os.getcwd(), TOOL_SCRIPTS[tool], args)
+        code, out = captured.called(os.getcwd(), cmd_resume_check, args, err=err)
+    else:
+        code, out = captured.ran(os.getcwd(), TOOL_SCRIPTS[tool], args, err=err)
     return code, out + err.getvalue()
 
 

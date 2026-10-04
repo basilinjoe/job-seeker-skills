@@ -216,6 +216,19 @@ class ResumeCheckByTarget(unittest.TestCase):
         self.assertEqual(code, 2, out)
         self.assertIn("fix:  the letter_check tool (jsk mcp)", out)
 
+    def test_the_rerun_hint_for_the_letter_gate_names_the_tools_real_arguments(self):
+        # The hint read letter_check(<stem>), which has no such argument: the letter is the
+        # first argument and the stem is `record` (the review, 2026-10-04).
+        import inspect
+
+        from jsk.adapters.entry.gates.check import COMMANDS
+        from jsk.adapters.mcp import server, session
+
+        self.assertEqual(COMMANDS["letter.py"], "letter_check(<letter>, record=<stem>)")
+        tool = server.build(session.Session(root=str(self.tmp)))._tool_manager.get_tool(
+            "letter_check")
+        self.assertEqual(list(inspect.signature(tool.fn).parameters)[:2], ["letter", "record"])
+
     def test_no_target_is_the_usage_of_all_three(self):
         code, out = tool_entry("resume_check")
         self.assertEqual(code, 2, out)
@@ -266,6 +279,15 @@ RETIRED_NAME = re.compile(
 RETIRED_TO_TOOL = re.compile(
     r"\bjsk (resume (check|render|preview|fit|ship)|app drop|kb (check|pack|merge))\b")
 
+# A documented script's name opening an advice line in a printed string: "  check_ats.py X.pdf"
+# told the reader to run a program that is no longer a command (2026-10-04, the review of the
+# MCP-first change; the tools are resume_check, resume_fit and the rest). Held like
+# RETIRED_TO_TOOL: a docstring may name the script it replaced. Indented only: advice was
+# printed indented under what it followed, while a step's heading opens its line with the
+# script it ran as (application/gates/run_gates.text_step), which is no advice.
+SCRIPT_ADVICE = re.compile(
+    r"^ {2,}(check_ats|check_prose|render_resume|fit_pages|preview_templates)\.py\s", re.M)
+
 # Where the prose teaches commands: an agent runs what the skill tells it to, and a retired
 # name there is a step that exits 2.
 DOC_ROOTS = ("plugins", "README.md", "docs/*.md")
@@ -292,7 +314,9 @@ def taught_in_strings(path):
     return [(node.lineno, node.value) for node in ast.walk(tree)
             if isinstance(node, ast.Constant) and isinstance(node.value, str)
             and (RETIRED_NAME.search(node.value)
-                 or (id(node) not in docstrings and RETIRED_TO_TOOL.search(node.value)))]
+                 or (id(node) not in docstrings
+                     and (RETIRED_TO_TOOL.search(node.value)
+                          or SCRIPT_ADVICE.search(node.value))))]
 
 
 def taught_in_docs(root):
@@ -335,6 +359,15 @@ class RetiredNamesAreNotTaught(unittest.TestCase):
             planted.write_text('HINT = "fix:  jsk validate resume.json"\n', encoding="utf-8")
             self.assertEqual(taught_in_strings(planted),
                              [(1, "fix:  jsk validate resume.json")])
+            planted.write_text('HINT = "Rendered.\\n  check_prose.py X.tex"\n', encoding="utf-8")
+            self.assertEqual(len(taught_in_strings(planted)), 1)
+            # A docstring may name the script it replaced.
+            planted.write_text('"""check_prose.py was the prose gate."""\n', encoding="utf-8")
+            self.assertEqual(taught_in_strings(planted), [])
+            # A step's heading names the script the gate ran as (dispatch.ADAPTERS), at the
+            # start of the line: that is how it was called, not advice to run it.
+            planted.write_text('HEAD = f"check_ats.py {name} --strict"\n', encoding="utf-8")
+            self.assertEqual(taught_in_strings(planted), [])
             skill = Path(tmp) / "plugins" / "SKILL.md"
             skill.parent.mkdir()
             skill.write_text("Run `jsk validate` first.\n", encoding="utf-8")

@@ -111,7 +111,7 @@ def stopped(stop):
     """
     if stop.kind == "no-pdf-library":
         print("NO PDF LIBRARY - cannot read the deliverable.")
-        print("  check_ats.py needs pymupdf to extract text from a PDF:")
+        print("  The parse gate needs pymupdf to extract text from a PDF:")
         print("      pip install pymupdf")
         print("  Without it the parse gate is unverifiable; treat the resume as unchecked.")
     else:

@@ -26,16 +26,16 @@ from ...domain.render.fit_levers import FONT_FLOOR_PT, MARGIN_FLOOR_IN, describe
 
 # Why a fit could not start, as it is printed (application.render.fit_pages.FitStopped).
 STOPPED = {
-    "no-levers": ["NO LEVERS FOUND - this .tex was not written by emit_latex.py.",
-                  "  fit_pages.py rewrites named knobs in the preamble; without them",
-                  "  there is nothing to move. Re-render with render_resume.py."],
+    "no-levers": ["NO LEVERS FOUND - this .tex was not written by the resume_render tool.",
+                  "  resume_fit rewrites named knobs in the preamble; without them",
+                  "  there is nothing to move. Re-render with resume_render."],
     "no-engine": ["NO RENDERER - cannot verify the page count.",
-                  "  fit_pages.py needs a TeX engine to compile the .tex to a PDF. Install",
+                  "  resume_fit needs a TeX engine to compile the .tex to a PDF. Install",
                   "  tectonic, or see preflight.py. Page count is unverifiable without one,",
                   "  so this is reported rather than passed over: treat the resume as "
                   "unfitted."],
     "no-pdf-library": ["NO PDF LIBRARY - cannot measure the render.",
-                       "  fit_pages.py needs pymupdf for page geometry:  pip install pymupdf",
+                       "  resume_fit needs pymupdf for page geometry:  pip install pymupdf",
                        "  Without it the page count is unverifiable; treat the resume as "
                        "unfitted."],
 }
@@ -73,7 +73,7 @@ def refused(a):
         return 2
     if os.path.splitext(a.tex)[1].lower() != ".tex":
         print(f"not a .tex: {a.tex}")
-        print("  fit_pages.py rewrites the LaTeX the deliverable is compiled from.")
+        print("  resume_fit rewrites the LaTeX the deliverable is compiled from.")
         print("  Pass <Name>_Resume.tex, not the PDF it produces.")
         return 2
     return None

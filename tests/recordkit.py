@@ -480,8 +480,7 @@ def kb_verb(root, *args):
     from jsk.adapters.mcp import captured
 
     err = io.StringIO()
-    with contextlib.redirect_stderr(err):
-        code, out = captured.ran(root, "kbcli.py", [*args, "--root", root])
+    code, out = captured.ran(root, "kbcli.py", [*args, "--root", root], err=err)
     return code, out, err.getvalue()
 
 

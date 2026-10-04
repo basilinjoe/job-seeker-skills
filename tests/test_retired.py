@@ -283,6 +283,13 @@ class RetiredVerbs(Workspace):
         code, out = jsk("kb", "nosuchverb")
         self.assertEqual(code, 2, out)
         self.assertIn("usage: jsk kb", out)
+        # The message offers what a shell can run, not the verbs only the tools call.
+        offered = out.split("unknown verb:")[1].split("(")[0]
+        for verb in ("new", "load", "dump"):
+            self.assertIn(verb, offered)
+        for verb in ("check", "pack", "merge"):
+            self.assertNotIn(verb, offered)
+        self.assertIn("career_check", out)
 
 
 def served(root):

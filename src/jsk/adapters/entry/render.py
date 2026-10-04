@@ -264,11 +264,11 @@ def report(result, out_dir):
     if checkable:
         print("\nRendered. Now run the gates - a rendered resume is not a checked one:")
         for path in checkable:
-            strict = " --strict" if result.variants.get(path) == "ats-maximal" else ""
-            print(f"  check_ats.py {os.path.basename(path)}{strict}")
+            strict = ", strict=True" if result.variants.get(path) == "ats-maximal" else ""
+            print(f'  resume_check(target="{path}", only="parse"{strict})')
         for path in result.written:
             if path.endswith(".tex"):
-                print(f"  check_prose.py {os.path.basename(path)}")
+                print(f'  resume_check(target="{path}", only="prose")')
     if not result.written:
         return 1
     if result.unverified:
@@ -277,6 +277,6 @@ def report(result, out_dir):
         print("")
         print("UNVERIFIED - --pdf was requested and no PDF was produced.")
         print("  Nobody has seen a rendered page, so the page count and the layout")
-        print("  are both unknown. A passing check_ats.py does not cover this.")
+        print("  are both unknown. A passing parse gate does not cover this.")
         return 1
     return 0

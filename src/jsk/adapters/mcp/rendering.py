@@ -25,15 +25,22 @@ from . import captured
 from .server import described
 
 
-def snapshot(directory):
+def snapshot(root, directory):
     """{path: (mtime_ns, size)} of every file under `directory`; empty when it is no directory.
 
     Args:
+        root: the workspace root, whose career/store/ and .jsk/ are not walked.
         directory: an absolute path. A directory that does not exist yet is the state before
             a render makes it.
     """
+    # With out="." the walk covers the workspace, and the RocksDB files of career/store/ and
+    # the session's .jsk/ change on their own: a render would have listed them as written
+    # (2026-10-04, the review). No render writes there.
+    skipped = {os.path.normcase(os.path.join(root, "career", "store")),
+               os.path.normcase(os.path.join(root, ".jsk"))}
     state = {}
-    for here, _, names in os.walk(directory):
+    for here, dirs, names in os.walk(directory):
+        dirs[:] = [d for d in dirs if os.path.normcase(os.path.join(here, d)) not in skipped]
         for name in names:
             path = os.path.join(here, name)
             try:
@@ -53,11 +60,11 @@ def wrote(root, directory, before):
         root: the workspace root.
         directory: an absolute path, or None when the call's directory could not be worked
             out (its target was wrong), which wrote nothing.
-        before: snapshot(directory) from before the call.
+        before: snapshot(root, directory) from before the call.
     """
     if directory is None:
         return []
-    after = snapshot(directory)
+    after = snapshot(root, directory)
     changed = (p for p, seen in after.items() if before.get(p) != seen)
     return sorted(relative(root, p) for p in changed)
 
@@ -102,7 +109,7 @@ def watching(root, directory, run):
         directory: where it writes (absolute), or None.
         run: () -> (exit code, output), the captured call.
     """
-    before = snapshot(directory) if directory else {}
+    before = snapshot(root, directory) if directory else {}
     code, output = run()
     return code, output, wrote(root, directory, before)
 

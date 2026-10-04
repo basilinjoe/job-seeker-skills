@@ -128,7 +128,7 @@ def said(template):
 
     if isinstance(failure, RenderStopped):
         return f"FAIL  {failure.detail}"
-    return f"render_resume.py raised {type(failure).__name__}: {failure}"
+    return f"resume_render raised {type(failure).__name__}: {failure}"
 
 
 def report(result, src, out_dir):

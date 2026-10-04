@@ -10,7 +10,6 @@ asks to re-confirm) as `changeset` and `notes`, since a skipped line the caller 
 gap in the draft nobody saw. They live apart from server.py, which registers them, only to keep
 each module under tests/test_sizes.py's limit.
 """
-import contextlib
 import io
 from typing import Literal
 
@@ -25,8 +24,7 @@ def drafted(root, args):
     merge retires or asks to re-confirm - to stderr, so stderr is captured here as well.
     """
     notes = io.StringIO()
-    with contextlib.redirect_stderr(notes):
-        code, output = ran(root, "kbcli.py", args)
+    code, output = ran(root, "kbcli.py", args, err=notes)
     return code, output, notes.getvalue()
 
 

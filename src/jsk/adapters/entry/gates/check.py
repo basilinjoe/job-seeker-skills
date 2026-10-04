@@ -4,7 +4,7 @@ cmd_validate is the record gate over one target's selection, cmd_check the two d
 over one render (or one gate, with --only), and cmd_gates all four over a render's
 directory (application/gates/run_gates.py) with the render gate said out loud after them.
 Each gate runs in this interpreter through its own adapter, contained the way
-cli.call_gate contains a module: a gate that raised is reported as its own failure and
+dispatch.call_gate contains a module: a gate that raised is reported as its own failure and
 the others still run.
 """
 import contextlib
@@ -66,7 +66,7 @@ COMMANDS = {"record.py": "resume_check(<stem>)",
             "check_prose.py": "resume_check(<tex>, only=\"prose\")",
             "layout.py": "resume_check(<pdf>, only=\"layout\")",
             "terms.py": "resume_check(<out-dir>, record=<stem>)",
-            "letter.py": "letter_check(<stem>)"}
+            "letter.py": "letter_check(<letter>, record=<stem>)"}
 
 
 def gate_target(path, accepts):
@@ -90,7 +90,7 @@ def gate_target(path, accepts):
 
 
 def contained(script, args, capture=True):
-    """One gate run in this interpreter, with cli.call_gate's contract.
+    """One gate run in this interpreter, with dispatch.call_gate's contract.
 
     The output is captured so that --json can carry it whole; it is printed back
     unchanged either way. With `capture=False` the gate prints straight through, and
