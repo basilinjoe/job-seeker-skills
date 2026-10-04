@@ -198,14 +198,16 @@ def written_of(w):
 
 
 def build(session=None):
-    """The FastMCP server with its twenty-one tools, over `session` (a fresh Session when
+    """The FastMCP server with its twenty-nine tools, over `session` (a fresh Session when
     None)."""
     from .acts import events, freezes, letters
+    from .rendering import renders
+    from .upkeep import upkeep
 
     tools = Tools(session or S.Session())
     srv = FastMCP("jsk")
     for register in (career_reads, career_writes, applications, postings, assessments,
-                     resumes, freezes, events, letters):
+                     resumes, freezes, events, letters, renders, upkeep):
         register(srv, tools)
     return srv
 

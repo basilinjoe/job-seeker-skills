@@ -502,9 +502,12 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     cli/compose/selection.py        a selection's use cases bound; a target named on the command line; a ship by target
     mcp/__init__.py                 `jsk mcp`: stdlib only, so a plain install names the missing extra and exits 2
     mcp/acts.py                     app_freeze, app_event and letter_check: the person's acts as tools, granted to no agent
-    mcp/server.py                   the twenty-one MCP tools: each a compose call, its result JSON, a refusal its findings
+    mcp/captured.py                 an internal entry point run inside the workspace, its output a tool's answer
+    mcp/rendering.py                resume_check, resume_render, resume_preview and resume_fit: a resume's files
+    mcp/server.py                   the twenty-nine MCP tools: each a compose call, its result JSON, a refusal its findings
     mcp/schemas.py                  the batch rows the tools take (requirement, drop, verdict, ask), typed for the schema
     mcp/session.py                  the served workspace, the read cache keyed on the store's files, the clock per call
+    mcp/upkeep.py                   career_check, career_pack, career_merge and app_drop: keeping the workspace
   data/vocabulary.ttl               the shipped technology vocabulary (labels, former names,
                                     isA, partOf, distinct)
   data/capabilities.ttl             the capability starter pack `jsk kb pack` drafts; never loaded
