@@ -1,10 +1,10 @@
 # Mode: setup
 
-Get this machine from nothing to a working, verified pipeline, with a knowledge base created from
+Get this machine from nothing to a working, verified pipeline, with the career created from
 nothing or from an existing resume. Four phases, in order; **do not
 skip phase 1**.
 
-`$ARGUMENTS` may hold a path: a `.docx`, `.pdf` or `.md` resume is a document to import in phase 3;
+`$ARGUMENTS` may hold a path: a `.docx`, `.pdf` or `.md` resume is a document for intake in phase 3;
 a directory is where the workspace goes.
 Empty → ask.
 
@@ -40,7 +40,7 @@ and a TeX distribution can be several gigabytes.
 
 Re-run the doctor after any install.
 
-## Phase 3: Create or import the knowledge base
+## Phase 3: Create the workspace, then bring in the career
 
 **A workspace that still holds `career/kb.ttl` and no `career/store/`** is a record from before the
 store: `jsk kb load .` from it imports it, once. It validates the files as before, lists every
@@ -52,7 +52,7 @@ Otherwise ask two things:
 
 1. **Where should the workspace live?** A folder they control and back up — this should outlive
    any tool.
-2. **Do they have an existing resume?** It is the fastest skeleton available.
+2. **Do they have an existing resume?** It is the fastest skeleton available; intake takes it.
 
 ```bash
 jsk kb new <path> --name "Their Name"
@@ -70,35 +70,11 @@ them; it is the most common thing left empty.
 means "use the defaults". An override must say in its opening lines whether it **replaces** or
 **extends** the default; one that says neither is an extension and both get read.
 
-### If they have a resume
+### Then bring in what they have
 
-Keep it verbatim in the workspace — `sources/prior-resume.md`, or whatever format it arrived in —
-then read it critically and note:
-
-- What you removed and why — learning statements, repeated bullets, filler, references, home address
-- Any **internal contradictions**, such as dates that disagree between a summary and section
-  headers. Each becomes a `q_` question; a background check surfaces a three-month discrepancy.
-- Detail worth keeping that will not fit the current resume
-
-Send `jsk-extractor` the workspace, the document (`sources/prior-resume.md`) and the skill
-directory: it extracts roles, employers, dates, projects and metrics into one changeset and
-previews it. Show them the diff, then apply the changeset it returns (`career_apply`). It lands `inferred`; then run the confirm lines the
-agent proposed for what the document states — `career_confirm(ids=[...], source="<file>", quote="its
-exact words")`, each number in the quote — and ask about every clause it quoted as its own. No
-agents? Do the same inline (`references/kb-format.md` has the shapes).
-
-An older **bundle** (`projects/` and `resume-generation/`) has no migration command: read it whole
-and build the record from it like a resume — `jsk kb new`, then `jsk-extractor` per bundle file, each
-changeset shown and applied through `career_apply`. A changeset cannot confirm, so it carries
-`j:needs-verification` and `j:disputed` as the bundle held them and everything else lands `inferred`;
-then `career_confirm(ids=[every id the bundle held confirmed], source="<bundle file>", quote="…")`.
-Keep the bundle until they confirm the record is complete.
-
-### Then go deeper
-
-An old resume rarely captures what they **decided**, what constraint they were under, or what changed
-as a result — the material that makes a senior resume work. Switch to `mode-braindump.md` and work
-through their most significant projects.
+Read `mode-intake.md` and work through whatever they bring: an existing resume (the fastest skeleton
+there is), older writing, a bundle, or just talk. It keeps the material under `sources/`, sends
+`jsk-extractor` and applies what comes back. Fill the identity first; the rest follows from it.
 
 ## Phase 4: Prove it, on their data
 
@@ -126,8 +102,9 @@ Tell them, in plain language and without the framework vocabulary:
   Ask `career_view` to show it as a document; `jsk kb dump` writes it all out as text, and every write
   refreshes a copy in `.jsk/backup.trig`. Back the workspace up.
 - **What works and what does not**, naming any gap left open and what it costs them.
-- **The rhythm.** Something ships → `braindump`, while they still remember the details. Every quarter
-  → `refresh`. Before applying → `gaps`, then `resume`. A specific role → `tailor`.
+- **The rhythm.** Something ships → `intake`, while they still remember the details. Every quarter,
+  or before applying → `review`. A general resume → `resume`. A specific role → `tailor`. `ship`
+  ends both.
 - **What the career now holds** — how many roles, projects and metrics, and what is `inferred`.
 - **The biggest gap in their record right now** — a missing metric, an unconfirmed claim, a role with
   no evidence behind it.

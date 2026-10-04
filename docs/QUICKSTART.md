@@ -45,7 +45,7 @@ If you already have a resume, point at it — it is the fastest possible startin
 /jsk:setup ./old-resume.docx
 ```
 
-Setup checks what your machine can do, offers to close any gaps, creates your knowledge base, then
+Setup checks what your machine can do, offers to close any gaps, creates your workspace, brings in your career, then
 renders a real resume from it and checks it. It asks before installing anything.
 
 ## 3. Answer the questions
@@ -76,12 +76,11 @@ the ATS-maximal one, which is aimed at job portals that parse badly.
 
 | When | Say |
 |---|---|
-| You shipped something | `/jsk:braindump` — five minutes, while you still remember the numbers |
-| Every quarter | `/jsk:refresh` |
-| Before applying | `/jsk:gaps`, then `/jsk:resume` |
-| Once a week while job-hunting | `/jsk:pipeline` |
+| You shipped something, or have an old resume or writing | `/jsk:intake` — five minutes, while you still remember the numbers |
+| Every quarter, or before applying | `/jsk:review` |
+| A general resume | `/jsk:resume` |
 | A specific job posting | `/jsk:tailor`, with the URL or the description pasted |
-| A resume that is ready to send | `/jsk:ship` |
+| A resume that is ready to send | `/jsk:ship`, the last step of resume and tailor |
 
 `/jsk:tailor` is a loop rather than a single step. It reads the posting, works out what your record
 answers and what it does not, and asks you about the gaps — then writes the resume once, at the end.
@@ -103,9 +102,9 @@ verdict. It reports the page count but leaves the last check to you: open the PD
 page. `app_freeze` refuses until the checks pass, then records in your record what was sent,
 when, and which bullets rendered and the metric versions they cite, and names the directory after the
 submission date. Pass `submitted="false"` for an application you worked through and decided not to
-send. When something comes back, `/jsk:pipeline` records it - against the directory's new name,
-which `app_freeze` returns: it calls `app_event` (kind `screen-scheduled`, date `2026-09-15`), and
-`career_query("pipeline")` shows every application's stage and how long since.
+send. When something comes back, tell the session: it records it against the directory's new name,
+which `app_freeze` returns, by calling `app_event` (kind `screen-scheduled`, date `2026-09-15`), and
+`app_list` shows every application's stage and how long since.
 
 ## What runs where
 

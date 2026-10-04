@@ -53,8 +53,8 @@ Then:
 /jsk:setup
 ```
 
-Setup checks what your machine can do, offers to close the gaps, creates your knowledge base, and
-renders a real resume from it. It asks before installing anything.
+Setup checks what your machine can do, offers to close the gaps, creates your workspace, brings in your
+career, and renders a real resume from it. It asks before installing anything.
 
 Already have a resume? Point at it — it is the fastest starting point available:
 
@@ -71,22 +71,21 @@ Describe what you want and the skill routes there by itself. Or say it directly:
 
 | Command | When |
 |---|---|
-| `/jsk:setup` | First run, or importing an existing resume |
-| `/jsk:braindump` | You have something to say about your work |
+| `/jsk:setup` | First run: the toolchain and the workspace, then it hands to intake |
+| `/jsk:intake` | Bring in your work: an old resume, something you wrote, or just talk |
 | `/jsk:resume` | You need a resume — one verified PDF |
 | `/jsk:tailor` | You have a specific job posting - a loop that closes the gaps, then writes the resume |
 | `/jsk:ship` | A resume is finished and needs rendering, checking and filing — `resume_ship`, then `app_freeze` |
-| `/jsk:refresh` | Periodic top-up: what changed, what numbers moved |
-| `/jsk:gaps` | Resolve unanswered questions and unverified claims |
-| `/jsk:pipeline` | What to chase this week: what has gone quiet, what is overdue |
+| `/jsk:review` | Go over your career: what is new, what is weak, what needs re-confirming |
 
 ```
 /jsk:tailor      # then paste the job posting, or give it the URL
 ```
 
-**A rhythm that works.** Something ships → `braindump`, five minutes, while you still remember the
-details. Every quarter → `refresh`. Before applying → `gaps`, then `resume`. A specific role →
-`tailor`.
+**A rhythm that works.** Something ships → `intake`, five minutes, while you still remember the
+details. Every quarter, or before applying → `review`. A general resume → `resume`. A specific role →
+`tailor`. `ship` ends both. A reply, an interview or an outcome is recorded by telling the session:
+it calls `app_event`, and `app_list` shows where each application stands.
 
 ### Your career folder
 
@@ -123,6 +122,10 @@ every other everyday verb the same way: `jsk kb check`, `pack` and `merge`, `jsk
 `resume_check`, `resume_render`, `resume_preview`, `resume_fit`, `resume_ship` and `app_drop` tools. Five
 commands stay, for a machine where the server cannot start: `jsk doctor`, `jsk kb new`, `jsk kb load`,
 `jsk kb dump` and `jsk mcp`.
+
+The slash commands are six: `setup`, `intake`, `resume`, `tailor`, `ship` and `review`. `intake`
+takes over `braindump` and setup's import; `review` takes over `gaps` and `refresh`; `pipeline`
+is gone, and `app_list` and `app_event` do its work with no command. A removed command has no stub.
 
 One record for the career, and a frozen directory per application. The career holds identity,
 positioning, work rights, vocabulary, organisations, roles, projects, metrics, skills, education,

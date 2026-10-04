@@ -195,19 +195,19 @@ class AgentFrontmatter(unittest.TestCase):
         self.assertIn("Leave provenance out.", body)
         self.assertIn("Never invent a number.", body)
 
-    def test_the_modes_that_extract_send_the_extractor(self):
-        """The braindump keeps the person's words as a file - the agent needs a source,
-        and `career_confirm`'s `source` and `quote` can then check a confirmation against what
-        they actually said. Both extracting modes apply only after showing the diff."""
+    def test_the_mode_that_extracts_sends_the_extractor(self):
+        """Intake keeps the person's words as a file - the agent needs a source, and
+        `career_confirm`'s `source` and `quote` can then check a confirmation against what
+        they actually said. It applies only after showing the diff. Setup no longer extracts
+        (2026-10-04, six commands): it creates the workspace and reads intake."""
         refs = SKILL / "references"
-        braindump = " ".join((refs / "mode-braindump.md").read_text(encoding="utf-8").split())
+        intake = " ".join((refs / "mode-intake.md").read_text(encoding="utf-8").split())
         setup = " ".join((refs / "mode-setup.md").read_text(encoding="utf-8").split())
-        self.assertIn("`<workspace>/sources/<yyyy-mm-dd>-braindump.md`", braindump)
-        self.assertIn('source="sources/<that file>", quote=', braindump)
-        for name, text in (("braindump", braindump), ("setup", setup)):
-            with self.subTest(mode=name):
-                self.assertIn("jsk-extractor", text)
-                self.assertIn("No agents", text)
+        self.assertIn("`<workspace>/sources/<yyyy-mm-dd>-braindump.md`", intake)
+        self.assertIn('source="sources/<that file>", quote=', intake)
+        self.assertIn("jsk-extractor", intake)
+        self.assertIn("No agents", intake)
+        self.assertIn("`mode-intake.md`", setup)
 
     def test_every_agent_is_in_the_skill_table_and_pinned(self):
         """SKILL.md's Agents table is how a session learns an agent exists; one missing
@@ -294,11 +294,11 @@ class TheLogIsWrittenByJskAlone(unittest.TestCase):
                 self.assertNotIn("log.ttl", text)
 
     def test_the_agents_that_date_a_pass_read_the_log_through_jsk(self):
-        """The auditor and the refresh mode read the history to date the last pass; with
+        """The auditor and the review mode read the history to date the last pass; with
         no file to open, `career_log` is the only way, so each names it."""
         self.assertIn("career_log", (PLUGIN / "agents" / "jsk-kb-auditor.md").read_text(
             encoding="utf-8"))
-        self.assertIn("career_log", (SKILL / "references" / "mode-refresh.md").read_text(
+        self.assertIn("career_log", (SKILL / "references" / "mode-review.md").read_text(
             encoding="utf-8"))
 
 
@@ -502,10 +502,10 @@ class TheProseSaysWhatTheGatesDo(unittest.TestCase):
     def test_a_bundle_keeps_its_statuses(self):
         """A changeset cannot write `confirmed`, so a bundle written as changesets alone
         loses every status. The plugin ships no shape for the old Markdown file, so
-        mode-setup.md builds the record with changesets and then raises what the bundle
-        held confirmed through `career_confirm`, quoting the bundle file - an --answer that
-        only named it was checked by nothing."""
-        setup = self.ref("mode-setup.md")
+        mode-intake.md (which setup reads, since 2026-10-04) builds the record with changesets
+        and then raises what the bundle held confirmed through `career_confirm`, quoting the
+        bundle file - an --answer that only named it was checked by nothing."""
+        setup = " ".join(self.ref("mode-intake.md").split())
         arch = self.doc("docs/ARCHITECTURE.md")
         self.assertNotIn("carrying every status across unchanged", setup)
         self.assertNotIn("write a `user-knowledgebase.md`", setup)

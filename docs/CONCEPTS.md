@@ -150,18 +150,16 @@ stays when no PDF renderer was available to produce one.
 
 ## The modes
 
-Eight things the skill can do. You do not have to pick — describe what you want and it routes.
+Six things the skill can do. You do not have to pick — describe what you want and it routes.
 
 | Mode | When |
 |---|---|
-| `setup` | First run, or importing an existing resume |
-| `braindump` | You have something to say about your work |
+| `setup` | First run: the toolchain and the workspace |
+| `intake` | You bring in your work: an old resume, something you wrote, or talk |
 | `resume` | You need a resume |
 | `tailor` | You have a specific job posting — a loop that closes the gaps, then writes the resume |
 | `ship` | A resume is finished and needs rendering, checking and filing |
-| `refresh` | Periodic top-up |
-| `gaps` | Resolve unanswered questions and unverified claims |
-| `pipeline` | Work the applications you have out: what is overdue, what to close |
+| `review` | Go over the career: what is new, what is weak, what needs re-confirming |
 
 ---
 

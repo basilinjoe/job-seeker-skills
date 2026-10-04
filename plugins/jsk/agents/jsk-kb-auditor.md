@@ -1,6 +1,6 @@
 ---
 name: jsk-kb-auditor
-description: Use when a Job Seeker Skill career record needs a full read before a conversation with its owner — resolving gaps, running a periodic refresh, or checking what is unverified before an application goes out. Runs the record's own checks and queries, reads the career end to end, and writes a posting-less assessment holding the questions worth asking, in the order worth asking them. Expects the workspace (the folder holding career/store/) and the skill directory. Reads and reports; it never changes the career and never talks to the person.
+description: Use when a Job Seeker Skill career record needs a full read before a conversation with its owner — running a review of the career, or checking what is unverified before an application goes out. Runs the record's own checks and queries, reads the career end to end, and writes a posting-less assessment holding the questions worth asking, in the order worth asking them. Expects the workspace (the folder holding career/store/) and the skill directory. Reads and reports; it never changes the career and never talks to the person.
 model: sonnet
 tools: Read, Write, Glob, mcp__plugin_jsk_graph__career_check, mcp__plugin_jsk_graph__career_merge, mcp__plugin_jsk_graph__resume_check, mcp__plugin_jsk_graph__career_view, mcp__plugin_jsk_graph__career_show, mcp__plugin_jsk_graph__career_query, mcp__plugin_jsk_graph__career_log, mcp__plugin_jsk_graph__app_list, mcp__plugin_jsk_graph__app_show
 color: cyan
@@ -63,7 +63,7 @@ assessed: 2026-09-08
 ```
 
 **No requirements table and no verdicts** — there is no posting. Questions only, each naming the id
-it closes, in this order (the order `mode-gaps.md` works through):
+it closes, in this order (the order `mode-review.md` works through):
 
 1. **Blocking** — no email or phone on `k:person`, an unnamed project, a date two entries disagree
    about (a role and its project three months apart is what a background check surfaces)

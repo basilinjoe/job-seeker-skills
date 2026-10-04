@@ -193,7 +193,7 @@ class AgentReadBudget(unittest.TestCase):
 class TheWritePathStaysCheap(unittest.TestCase):
     """Recording one project must not cost the whole format specification.
 
-    This class used to assert the opposite thing by the same measure. `mode-braindump.md`
+    This class used to assert the opposite thing by the same measure. the braindump mode file
     opened its write section with "Follow references/bundle-spec.md. Read two existing
     project concepts first so you match house style" - 6,453 tokens of specification
     plus two files off the person's own disk, before writing a single frontmatter key.
@@ -210,13 +210,13 @@ class TheWritePathStaysCheap(unittest.TestCase):
     inline, and apply's refusals name the fix for anything the example did not cover.
     """
 
-    WRITE_MODES = ("mode-braindump.md", "mode-refresh.md", "mode-gaps.md",
+    WRITE_MODES = ("mode-intake.md", "mode-review.md",
                    "mode-tailor.md", "mode-ship.md", "mode-resume.md")
 
     # An instruction to read something, as these files write one: the imperative
     # at the start of a line or a bolded sentence. Deliberately narrow.
     #
-    # A looser rule that matched "read" anywhere flagged mode-braindump.md's own
+    # A looser rule that matched "read" anywhere flagged the braindump mode's own
     # disclaimer - the sentence that replaced the instruction. Reading a negation as
     # the thing it negates is the one failure mode a check like this must not have,
     # because the fix a person would reach for is to delete the disclaimer.
@@ -243,7 +243,7 @@ class TheWritePathStaysCheap(unittest.TestCase):
                               f"Show the changeset inline instead - the reference is for "
                               f"the case the file does not already cover.")
 
-    def test_the_braindump_path_stays_small(self):
+    def test_the_intake_path_stays_small(self):
         """SKILL.md plus the mode file, which is the whole mandated read.
 
         Measured rather than estimated, because an estimate here was wrong by 450
@@ -270,7 +270,15 @@ class TheWritePathStaysCheap(unittest.TestCase):
         #
         # (2026-09-26) The worked changeset left for jsk-extractor, which writes it pinned
         # to a model; the mode kept the save-their-words step and the relay.
-        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-braindump.md"), 3300)
+        #
+        #   six commands SKILL 2,304 + intake    1,387                     =  3,691
+        #
+        # 3300 -> 3800 (2026-10-04, docs/superpowers/plans/2026-10-04-six-commands.md): 3,259
+        # before (SKILL 2,316 + braindump 943), 3,691 after. Intake holds the braindump and
+        # also the document and bundle import that setup's phase 3 carried, so the second
+        # path left setup (7,260 -> 5,675 bytes) rather than being read twice; the prose
+        # was tightened first and the ceiling moved for what remained.
+        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-intake.md"), 3800)
 
     def test_the_format_specification_is_loaded_on_demand(self):
         """`kb-format.md` is the reference, and its size is therefore free - but only

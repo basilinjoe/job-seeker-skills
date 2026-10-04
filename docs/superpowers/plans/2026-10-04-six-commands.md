@@ -85,4 +85,14 @@ The person ruled (2026-10-04):
 
 ## Status
 
-- Not started.
+- Done (2026-10-04). A Sonnet agent wrote it to these rulings, and the main session reviewed it.
+  - `mode-review.md` is about 2,170 tokens, where `mode-gaps.md` and `mode-refresh.md` together
+    were about 2,500.
+  - The intake path (SKILL.md plus `mode-intake.md`) is 3,691 tokens. The braindump path's cap went
+    from 3,300 to 3,800, with the measurement beside it: intake carries the import that setup held.
+    `mode-setup.md` went from 7,260 to 5,675 bytes, and SKILL.md from 2,316 to 2,304 tokens.
+  - `Write` is held by intake and setup: setup seeds `rules/` overrides itself. No command holds
+    `Edit`.
+  - Ruling 6's checks are `tests/test_command_grants.py`, kept apart from
+    `test_plugin_surface.py`, which they took past `test_sizes`' 800 lines.
+  - The full suite passed, apart from that size limit, now fixed.

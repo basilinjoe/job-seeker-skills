@@ -361,7 +361,7 @@ def quantified(bullets, report):
     finding. Deliberately never a failure and never a threshold: a gate that demands a
     number is a gate that gets fed an invented one, which is the exact failure
     provenance exists to prevent. writing-rules.md names the metrics worth chasing, and
-    mode-gaps.md is where the chasing happens - with the person present.
+    mode-review.md is where the chasing happens - with the person present.
 
     Args:
         bullets: the bullets' lines, in document order.

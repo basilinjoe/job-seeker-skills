@@ -9,7 +9,7 @@ A selection that validates: an application's `<stem>`, or `resumes/<name>`. Ever
 default.
 
 ```
-/jsk:ship <stem>|resumes/<name> [--template NAME] [--ats-max] [--pages N]
+/jsk:ship <stem>|resumes/<name>, optionally a template, ats-max or a page count
 ```
 
 `$ARGUMENTS` names it. Empty → `app_list()`, and ask which if more than one is unsent.
@@ -89,7 +89,7 @@ submitted date, moving its graphs in the same write — **use `renamed_to` from 
 
 - **Stop changing that application.** The `.pdf`, the `.tex` and its graphs in the store are the
   archive — it must still say what the application was answering; the tools refuse a sent one.
-- **Later events are `app_event`** (`mode-pipeline.md`), add-only.
+- **Later events are `app_event`**, add-only: a reply, an interview or an outcome, with its date.
 - `submitted="false"` is for an application deliberately held back: no `submitted` event, and that
   is correct. **Never add a `submitted` event to clear a gap.**
 

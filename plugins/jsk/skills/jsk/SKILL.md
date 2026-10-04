@@ -5,18 +5,18 @@ description: >-
   projects or accomplishments; record something they shipped; prepare a job application or paste a
   job description; check whether a resume will survive applicant tracking systems (ATS); resolve
   gaps or missing metrics in their career records; says their resume is outdated or vague; describes
-  their work in long unstructured messages; wants a periodic career review; or asks about a career
-  knowledge base, brag document or resume framework.
+  their work in long unstructured messages or hands over an old resume or their writing; wants a
+  periodic career review; or asks about a career record, brag document or resume framework.
 license: MIT
 ---
 
 # Job Seeker Skill
 
-A career knowledge base kept in **one store, `career/store/`**, read and written only through `jsk`
+A career kept in **one store, `career/store/`**, read and written only through `jsk`
 and validated on every load, plus a toolchain that renders verified, ATS-safe resumes from it.
 Interview someone once; regenerate resumes, tailored variants and interview briefs forever after.
 
-**The knowledge base is the source of truth. A resume is one rendering of it.**
+**The career is the source of truth. A resume is one rendering of it.**
 
 ```
 career/store/ + a selection  ->  .tex -> .pdf   (the deliverable)
@@ -52,6 +52,8 @@ everything but start the server and rescue a workspace, so there is no command t
   list the files they made in `wrote`, and the gates carry their verdict line in `verdict`. Open a
   PDF or PNG with Read.
 - `app_drop(app, reason=, dry_run=)` sets an unsent application aside.
+- `app_list` shows the applications; a reply, interview or outcome is recorded with
+  `app_event(app, kind, date)`.
 
 `career_confirm` (the person's words), `app_freeze`, `app_event`, `letter_check` and `app_drop` are
 yours, never an agent's: `app_drop` only after the person agrees.
@@ -63,20 +65,18 @@ different things.
 
 | Mode | Trigger | Read |
 |---|---|---|
-| **setup** | no knowledge base, or "set this up" | `references/mode-setup.md` |
-| **braindump** | telling you about their work; long unstructured messages | `references/mode-braindump.md` |
+| **setup** | no career yet, or "set this up" | `references/mode-setup.md` |
+| **intake** | telling you about their work; long unstructured messages; an attached or pasted resume or writing | `references/mode-intake.md` |
 | **resume** | "build my resume", "is this ATS-safe" | `references/mode-resume.md` |
 | **tailor** | a job description or URL; "customise for this role" | `references/mode-tailor.md` |
 | **ship** | a finished record needs rendering, gating, freezing | `references/mode-ship.md` |
-| **refresh** | "update my knowledge base", quarterly review, got promoted | `references/mode-refresh.md` |
-| **gaps** | "what's missing", "resume feels vague", verify before applying | `references/mode-gaps.md` |
-| **pipeline** | "what do I chase", "where are my applications", weekly review | `references/mode-pipeline.md` |
+| **review** | "what's missing", "update my career", quarterly, got promoted, before applying | `references/mode-review.md` |
 
 ## Every session, first
 
 1. **Run `jsk --version`**. Not found → `python3 -m jsk` (`python` or `py -3` on Windows). Neither →
    say so and stop.
-2. **Find the knowledge base** — `jsk doctor`, or search for `career/store/`. A `career/kb.ttl`
+2. **Find the career** — `jsk doctor`, or search for `career/store/`. A `career/kb.ttl`
    with no store is a record from before it: `jsk kb load .`, once. Sessions share no state.
    None → setup, unless they asked for something deliverable: deliver it, then offer to capture it.
 3. **`rules/writing-rules.md`, `ats-rules.md`, `structure-rules.md`** beside `career/` override
@@ -117,7 +117,7 @@ are required — the PDF is the only deliverable. A missing input is `SKIPPED` *
 | `jsk-tailor-analyst` | the app's stem | the requirements, the match, the assessment and questions |
 | `jsk-resume-author` | stem, assessment, skill directory | the selection, every authored clause quoted |
 | `jsk-kb-auditor` | workspace | what is missing, as a prioritised question queue |
-| `jsk-extractor` | workspace, a braindump or document in `sources/` | a previewed changeset, its inferred clauses quoted |
+| `jsk-extractor` | workspace, their words or a document in `sources/` | a previewed changeset, its inferred clauses quoted |
 | `jsk-verifier` | a **failed** gate, or the render gate to read | each verdict verbatim, and the id to repair |
 
 **They never interview**: confirming claims, choosing between close projects and telling someone

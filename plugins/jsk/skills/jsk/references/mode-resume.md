@@ -1,13 +1,13 @@
 # Mode: resume
 
-Render the knowledge base into verified files. Read `references/ats-rules.md`,
+Render the career into verified files. Read `references/ats-rules.md`,
 `references/writing-rules.md`, `references/resume-format.md` and the structure rules at the foot of
 this file first.
 
 ## Arguments
 
 `$ARGUMENTS` may name a region profile (`au`, `in`, `ae`). A region → use it and say why it changes
-the document. Empty, and their location not obvious from the knowledge base → **ask before
+the document. Empty, and their location not obvious from the career → **ask before
 rendering**: paper size, page budget, a declaration and a work-rights line differ by market.
 `--ats-max` renders the PDF in the ATS-maximal variant instead of the presentation one.
 
@@ -74,7 +74,7 @@ posting, `<Name>` gains the company.
    recompiles and gates the fitted render; `fit: …` in its summary is done. Never cross the floors
    by hand either. **Trimming words rarely helps** — a bullet that wraps to six lines usually still
    does. Only on `over by ~N lines at the floors` remove bullets from the selection, saying why,
-   which leaves them in the knowledge base for the next posting; then ship again.
+   which leaves them in the career for the next posting; then ship again.
 
    No renderer? A geometric estimate of page fill is a reasonable fallback, but label it an estimate
    (one read ~99% where the truth was ~94%).

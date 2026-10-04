@@ -532,12 +532,12 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
 plugins/jsk/                        THE SKILL. markdown only - it ships no code
   .claude-plugin/plugin.json        plugin manifest (carries a version; starts `jsk mcp` as server `graph`)
   commands/                         slash commands
-    setup|braindump|resume|...      thin delegations into the skill's modes; each procedure
+    setup|intake|resume|...         thin delegations into the skill's modes; each procedure
                                     lives in references/mode-<name>.md
   agents/                           subagents the modes delegate to
     jsk-verifier.md                 interprets a failed gate against the career and the selection
     jsk-kb-auditor.md               checks and queries the career, writes a posting-less audit
-    jsk-extractor.md                a braindump or imported document to one previewed changeset
+    jsk-extractor.md                what intake brings in (their words, a document) to one previewed changeset
     jsk-tailor-analyst.md           posting_decide and assessment_review batches; the tools write the graphs
     jsk-resume-author.md            bullets into the career, then the selection and its summary
   skills/jsk/
