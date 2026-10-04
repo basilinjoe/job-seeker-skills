@@ -5,7 +5,7 @@ Date: 2026-10-04. Branch `feat/graph-native-mcp`, still unreleased as 6.0.0.
 ## The decision
 
 6.0 serves the career and its applications as MCP tools (`jsk mcp`), and every agent reaches the record
-through them. Twelve CLI verbs now either duplicate a tool or are called by nothing. The person chose to
+through them. Eleven CLI verbs now either duplicate a tool or are called by nothing. The person chose to
 retire all of them (2026-10-04):
 
 | Retired | Group | Replacement it names |
