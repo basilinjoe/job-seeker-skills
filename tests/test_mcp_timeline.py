@@ -165,6 +165,17 @@ class Letter(Shipped):
         self.assertEqual(untraced["severity"], "FAIL")
         self.assertTrue(untraced["fix"], "each finding carries its fix")
 
+    def test_a_file_made_application_is_refused_as_having_no_selection(self):
+        # The 2026-10-04 replay: the claims fixture's contoso-platform is made from files, and
+        # the gate read its name as a path holding a resume.json jsk no longer reads.
+        got = self.call("letter_check", letter=self.letter(CLEAN_LETTER),
+                        record="contoso-platform")
+        self.assertFalse(got["ok"])
+        self.assertIsNone(got["verdict"])
+        [said] = fails(got)
+        self.assertIn("applications/contoso-platform, an application made from files", said)
+        self.assertNotIn("resume.json", said)
+
     def test_a_missing_letter_is_a_finding(self):
         got = self.call("letter_check", letter="applications/nope.txt", record=STEM)
         self.assertFalse(got["ok"])

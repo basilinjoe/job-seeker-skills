@@ -119,9 +119,27 @@ These stay, because no tool does their job and agents with Bash run them:
 
 ## Status
 
-- P1 (code): done, uncommitted.
-- P2 (tests): in progress.
-- P3 (prose): done, uncommitted. The plugin, `docs/` (SCRIPTS, ARCHITECTURE, QUICKSTART, ONTOLOGY, CONCEPTS,
-  WHY), `README.md`, `CLAUDE.md`, `test_plugin_surface.py` and `test_budget.py` name tools. The repo has no
-  `CHANGELOG.md`; the 6.0.0 notes live in `README.md`, which now lists the retired verbs.
-- P4: not started.
+- P1 (code), P2 (tests) and P3 (prose): done, in `07fdd50`.
+  - The repo has no `CHANGELOG.md`; the 6.0.0 notes live in `README.md`, which lists the retired verbs.
+  - `jsk doctor` checks `mcp` as a required package beside pyoxigraph (Ruling 3); the `info` extras line
+    and the `--json` `extras` key went with the extra.
+  - Every fix line names a tool and its argument names: `career_confirm`'s `source`/`quote`/answer, not
+    `--source`/`--quote`/`--answer`; `career_query("concepts", [term])`, not `--near`; the letter gate's
+    `record=`, not `--record`. `jsk resume check` keeps its own `--record`.
+  - Tests deleted with their verb test flag parsing, file or stdin reading, `--help`, or `kb path`. The
+    unloaded-workspace refusal, pinned until now through the retired verbs, is pinned on the tools
+    (`test_mcp_server.Unloaded`).
+- P4 (verify): done.
+  - Results: the full suite passed (1582, 3 skipped), ruff and pyright are clean, and the budget test
+    run alone took 487 ms.
+  - The code review had no shell, so I compared the deleted tests by name myself: every behaviour that
+    still exists maps to a renamed or converted test.
+  - The replay ran on a scratch copy of the real workspace:
+    - each of the 11 verbs exits 2, the revision stays at r95, and no file changes;
+    - `career_view`, `career_query`, `career_confirm`, `app_event` on a frozen application, and
+      `letter_check` against a graph-native application all go through the tools;
+    - `jsk kb check` still validates.
+  - `kb pack capabilities` had nothing to add to that career, so applying a drafted changeset through
+    `career_apply` was exercised by the suite, not the replay.
+  - The replay found one defect, now fixed: `letter_check` given a file-made application read its name
+    as a path holding a `resume.json`. It now refuses: no selection to trace a number against.

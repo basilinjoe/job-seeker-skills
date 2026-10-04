@@ -173,7 +173,7 @@ def ref_for(arg, *, dirs=False, root=None):
     return t.ref
 
 
-def file_made(arg):
+def file_made(arg, root=None):
     """(`applications/<stem>`, whether it is frozen, its posting's curie or None) when the
     CLI argument `arg` names an application made from files, else None.
 
@@ -183,6 +183,8 @@ def file_made(arg):
 
     Args:
         arg: the positional as given: `<stem>` or `applications/<stem>`, no file there.
+        root: the workspace, or None to find it from the working directory (`jsk mcp`'s
+            letter_check passes its own: the server's working directory is not the workspace).
 
     Returns:
         The triple, or None. Reads the store's graphs and the folder.
@@ -197,12 +199,13 @@ def file_made(arg):
     from ....infra.oxigraph import db
 
     named = arg.replace("\\", "/").strip("/")
-    if os.path.exists(arg) or os.path.splitext(arg)[1] or named.count("/") > 1:
+    there = os.path.join(root, arg) if root else arg
+    if os.path.exists(there) or os.path.splitext(arg)[1] or named.count("/") > 1:
         return None
     rel = named if named.startswith("applications/") else f"applications/{named}"
     if "/" in rel.removeprefix("applications/"):
         return None
-    root = files.find_root(os.getcwd())
+    root = root or files.find_root(os.getcwd())
     if root is None or not db.exists(root):
         return None
     folder = os.path.join(root, *rel.split("/"))

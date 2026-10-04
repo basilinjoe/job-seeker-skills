@@ -181,10 +181,19 @@ def letters(srv, tools):
     def letter_check(letter: str, record: str) -> dict:
         def run(root, today):
             from ...application.gates.letter import LetterResult
-            from ..cli.compose.selection import ref_for
+            from ..cli.compose.selection import file_made, ref_for
             from ..cli.gates import letter as gate
 
             path = letter if os.path.isabs(letter) else os.path.join(root, letter)
+            # A file-made application has no selection to trace a number against; the gate
+            # read its name as a missing resume.json (the 2026-10-04 replay).
+            made = ref_for(record, dirs=True, root=root) is None and file_made(record, root)
+            if made:
+                return result([("FAIL", f"{record} names {made[0]}, an application made from "
+                                        "files: it has no selection, so no number in a letter "
+                                        "can be traced against it",
+                                "pass record=<stem> of a graph-native application, or "
+                                "resumes/<name>")], verdict=None)
             # A stem reads as the target's ref, which the gate takes as it is; a file is
             # found in the workspace, not the server's working directory.
             against = ref_for(record, dirs=True, root=root) or (
