@@ -4,7 +4,7 @@ Adds k:evt_<stem>_<date>_<kind> to the application's graph (applications/<dir>/a
 - never edits one, never removes one. A second of the same kind on the same day is minted
 _2, then _3; only an event identical to one already there is refused. The application is
 not logged in the career's log: the log is the career's, and an application is not the
-career. It prints nothing: adapters/cli/event.py says what it added.
+career. It prints nothing: the app_event tool (adapters/mcp/acts.py) returns what it added.
 """
 import datetime
 import os

@@ -461,27 +461,6 @@ def gate_results(out_dir, record, pages=None, limit=None, record_gate=True, only
                                         run=contained, strict=strict_for, measure=measure)]
 
 
-def gate_result(gate, command, code, output):
-    """The step for a gate whose output was captured by cli.call_gate.
-
-    Args:
-        gate: its label.
-        command: how it was called.
-        code: its exit code.
-        output: what it printed.
-
-    Returns:
-        The step's dict: PASS, FAIL or ERROR by exit code, SKIPPED for a gate whose output
-        says it did not run (the layout gate without pymupdf).
-    """
-    status = {0: "PASS", 1: "FAIL"}.get(code, "ERROR")
-    if code == 1 and output.startswith("SKIPPED"):
-        # The layout gate without pymupdf: it says so itself, and a failure either way.
-        status = "SKIPPED"
-    return {"gate": gate, "command": command, "status": status, "exit": code,
-            "output": output}
-
-
 def worst_exit(results):
     """The highest exit code among the steps that have one; 0 when none has."""
     return max([r["exit"] for r in results if r["exit"] is not None] or [0])

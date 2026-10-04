@@ -210,14 +210,18 @@ class WithoutPymupdf(LayoutCase):
         self.assertIn("pip install pymupdf", buf.getvalue())
 
     def test_a_directory_check_reports_it_skipped(self):
-        from jsk.adapters.entry.dispatch import call_gate
-        from jsk.adapters.entry.gates.check import gate_result
-        (self.tmp / "Jane_Resume.pdf").write_bytes(Path(pdf(self.tmp / "x.pdf",
-                                                           [column(CLEAN_RESUME)])).read_bytes())
+        # Through gate_results, the steps resume_check, resume_ship and app_freeze all run.
+        # This drove a copy of the status rule (check.gate_result) that no production path
+        # called until 2026-10-04, so it pinned a function and not the directory check.
+        from jsk.adapters.entry.gates.check import gate_results
+        out = self.tmp / "out"
+        out.mkdir()
+        (out / "Jane_Resume.pdf").write_bytes(Path(pdf(self.tmp / "x.pdf",
+                                                      [column(CLEAN_RESUME)])).read_bytes())
         with mock.patch.dict(sys.modules, {"pymupdf": None}):
-            code, output = call_gate("layout.py", [str(self.tmp / "Jane_Resume.pdf")])
-        result = gate_result("layout gate", "layout.py Jane_Resume.pdf", code, output)
-        self.assertEqual((result["status"], result["exit"]), ("SKIPPED", 1), output)
+            steps = gate_results(str(out), None, record_gate=False)
+        [step] = [s for s in steps if s["gate"] == "layout gate"]
+        self.assertEqual((step["status"], step["exit"]), ("SKIPPED", 1), step["output"])
 
 
 class CheckOnlyLayout(LayoutCase):

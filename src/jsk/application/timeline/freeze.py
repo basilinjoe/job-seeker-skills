@@ -14,7 +14,8 @@ frozen before then stays as it was.
 
 Four steps, each the adapter's to call in turn: check (the record it would freeze), plan
 (the documents and the name), gate (every document through a gate) and write (inside the
-record's turn). It prints nothing: adapters/cli/freeze.py says what each step did.
+record's turn). It prints nothing: the app_freeze tool (adapters/mcp/acts.py) returns what
+each step did.
 """
 import os
 import re
@@ -99,7 +100,7 @@ def check(app_dir, *, record, build):
 
     Args:
         app_dir: the application directory.
-        record: the application's record graphs (adapters/cli/freeze.py's Applications):
+        record: the application's record graphs (adapters/compose/timeline.py's Applications):
             `frozen`, `has_record`, and `selection` - None for an application made from
             files, else (its ref, its stored selection or None).
         build: the builder over a ref, returning (plan, anything).
@@ -274,7 +275,7 @@ def gate(planned, gates):
 
     Args:
         planned: the FreezePlan.
-        gates: runs the gates (adapters/cli/freeze.py binds jsk.cli's): `run(dir, record,
+        gates: runs the gates (adapters/compose/timeline.py's Gates): `run(dir, record,
             only)` the results over the render, `read(dir, only)` the paths those read,
             `letter(path, record, name)` the letter gate's result, `failed(results)`.
 
