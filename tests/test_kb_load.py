@@ -15,7 +15,7 @@ from test_graph_shapes import FIXTURES
 
 from jsk import cli
 from jsk.infra.oxigraph import db, record
-from jsk.adapters.cli.compose import record as S
+from jsk.adapters.compose import record as S
 
 
 class Load(unittest.TestCase):
@@ -199,7 +199,7 @@ class Load(unittest.TestCase):
         # a graph-native one keeps its advert in the store, with no posting.md anywhere.
         import datetime
 
-        from jsk.adapters.cli.compose import native
+        from jsk.adapters.compose import native
 
         self.assertEqual(self.kb(self.files, "load", self.files)[0], 0)
         native.capture(self.files, "acme-native", text="- Kubernetes in production.\n",

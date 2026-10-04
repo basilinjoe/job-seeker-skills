@@ -59,8 +59,8 @@ def tool_run(root, tool, *args):
     as the tool runs it (adapters/mcp/captured.py): resume_ship's front end, resume_render's
     script, resume_check's gates. Tests assert on the printed words, which the tool carries
     word for word in its `output` and `verdict`; test_mcp_rendering holds its JSON shape."""
-    from jsk.adapters.cli import ship
-    from jsk.adapters.cli.resume import cmd_resume_check
+    from jsk.adapters.entry import ship
+    from jsk.adapters.entry.resume import cmd_resume_check
     from jsk.adapters.mcp import captured
 
     args = [str(a) for a in args]
@@ -115,7 +115,7 @@ class ShipCase(unittest.TestCase):
     def ship(self, *extra, compile_pdf=None):
         """The entry point resume_ship's pipeline prints through, in this interpreter, with
         the TeX compile faked."""
-        from jsk.adapters.cli.compose import render as render_resume
+        from jsk.adapters.compose import render as render_resume
         with mock.patch.object(render_resume, "compile_pdf",
                                compile_pdf or fake_compile()):
             return tool_run(self.root, "resume_ship", self.record, *extra)
@@ -175,7 +175,7 @@ def graph_native(root, stem="contoso-platform"):
     k:post_contoso_platform and k:req_contoso_platform_kubernetes."""
     import datetime
 
-    from jsk.adapters.cli.compose import native
+    from jsk.adapters.compose import native
     from jsk.domain.posting.advert import advert_lines
 
     day = datetime.date(2026, 9, 20)
@@ -293,7 +293,7 @@ class GraphCase(unittest.TestCase):
         return {k: sorted(v) for k, v in app.items()}, events
 
     def store(self):
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import record
         return record.load(self.root)
 
 

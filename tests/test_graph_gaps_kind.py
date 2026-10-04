@@ -11,8 +11,8 @@ from storekit import seed
 
 from jsk.domain.matching import report
 from jsk.domain import ontology as O
-from jsk.adapters.cli.compose import match
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import match
+from jsk.adapters.compose import record
 from jsk.domain.record.writer import write
 
 FIXTURES = Path(__file__).parent / "match_fixtures"

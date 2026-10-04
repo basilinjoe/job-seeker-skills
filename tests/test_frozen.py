@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 from jsk.domain import ontology as O
-from jsk.adapters.cli.compose import timeline
+from jsk.adapters.compose import timeline
 from jsk.domain.timeline import errors
 
 PFX = "".join(f"@prefix {n}: <{ns}> .\n" for n, ns in O.PREFIXES)

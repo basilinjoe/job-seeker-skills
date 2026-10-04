@@ -31,8 +31,8 @@ cheap.
 pyoxigraph for the graph record, and pymupdf to read a PDF.
 """
 from ... import __version__
-from .cliutil import refused
-from .dispatch import run_in_process, workspace_refusal
+from ..entry.cliutil import refused
+from ..entry.dispatch import run_in_process, workspace_refusal
 
 # Where `jsk --help` stops: the paragraph naming the dependencies is for whoever opens
 # this file. Named once, here, and a test holds the docstring to it, so rewording that
@@ -40,7 +40,7 @@ from .dispatch import run_in_process, workspace_refusal
 HELP_ENDS_BEFORE = "\n\npyoxigraph for the graph record"
 
 # The kb adapter's verbs that stay on the command line (check, pack and merge are
-# reached through the career_* tools, so adapters.cli.kb.VERBS holds three more),
+# reached through the career_* tools, so adapters.entry.kb.VERBS holds three more),
 # named here so that dispatching one does
 # not import it: `python -m jsk doctor` runs without pyoxigraph.
 KB_VERBS = ("load", "dump")

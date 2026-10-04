@@ -14,9 +14,9 @@ import unittest
 from pathlib import Path
 
 from jsk.domain import ontology as O
-from jsk.adapters.cli.compose import match
+from jsk.adapters.compose import match
 from jsk.domain.matching import cover, model, resolve
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 
 FIXTURES = Path(__file__).parent / "match_fixtures"
 TODAY = datetime.date(2026, 9, 24)
@@ -368,7 +368,7 @@ class RecordFaults(unittest.TestCase):
     TERRAFORM = "Wrote the platform's Terraform."
 
     def faults(self, s, name="contoso"):
-        from jsk.adapters.cli.compose import match as M
+        from jsk.adapters.compose import match as M
         from jsk.application.tailor.check_gaps import question_line
         r = M.result(s, post(name), TODAY, 3)
         return ([q for q in r["questions"] if q["kind"] == "missing-metric"],
@@ -397,7 +397,7 @@ class RecordFaults(unittest.TestCase):
         # prj_portal carries nothing Contoso asks for, so no draft for it selects the bullet;
         # `jsk kb check` asks about it across the career.
         s = edited("Built the AngularJS front end.", "Built the AngularJS front end for 12 teams.")
-        from jsk.adapters.cli.compose import gates
+        from jsk.adapters.compose import gates
         whole = gates.untraced(s, [O.K + "ach_portal_frontend"])
         self.assertTrue(whole)                                             # it is a fault
         qs, _ = self.faults(s)
@@ -411,12 +411,12 @@ class RecordFaults(unittest.TestCase):
         from unittest import mock
         s = edited(self.TERRAFORM, "Wrote the platform's Terraform across a 300-400 module estate.")
         empty = types.SimpleNamespace(projects=[], bullets={}, skills=[], gaps=[])
-        with mock.patch("jsk.adapters.cli.compose.match.select", return_value=empty):
+        with mock.patch("jsk.adapters.compose.match.select", return_value=empty):
             qs, _ = self.faults(s)
         self.assertIn("k:ach_events_terraform", [q["bullet"] for q in qs])
 
     def test_a_workspace_without_a_career_still_matches(self):
-        from jsk.adapters.cli.compose import match as M
+        from jsk.adapters.compose import match as M
         s = load()
         del s.parsed["kb"]
         self.assertEqual(M.record_faults(s, post("contoso"), TODAY, 3), [])
@@ -446,7 +446,7 @@ class Verdicts(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        from jsk.adapters.cli.compose import match as M
+        from jsk.adapters.compose import match as M
         s = load()
         cls.r = {p: M.result(s, post(p), TODAY, 3) for p in ("contoso", "northwind", "fabrikam")}
         cls.v = {(p, q["asked"]): q["verdict"] for p, r in cls.r.items()
@@ -474,7 +474,7 @@ class Verdicts(unittest.TestCase):
         """.NET is carried only by tags: `satisfied` is a claim the record does not make.
         `jsk tailor match --gaps` pinned it over gaps.txt until 6.0; the review is folded
         by the same check (tests/test_graph_match_mutations.py breaks it)."""
-        from jsk.adapters.cli.compose import tailor
+        from jsk.adapters.compose import tailor
         from jsk.domain.assessment import fold, overlay
 
         s = load()

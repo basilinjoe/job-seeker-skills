@@ -26,7 +26,7 @@ class FreezeGraph(GraphCase):
     def test_it_writes_application_ttl_with_what_it_carried(self):
         import hashlib
 
-        from jsk.adapters.cli.compose import selection
+        from jsk.adapters.compose import selection
         from jsk.domain.resume.selection import canonical
 
         raw = canonical(selection.read(str(self.root), "contoso-platform")).encode("utf-8")
@@ -120,7 +120,7 @@ class FreezeGraph(GraphCase):
     def test_a_store_error_while_writing_renames_the_folder_back(self):
         from unittest import mock
 
-        from jsk.adapters.cli.compose import timeline; from jsk.infra.oxigraph import db
+        from jsk.adapters.compose import timeline; from jsk.infra.oxigraph import db
 
         def unopenable(*_args):
             raise db.StoreError("career/store/ could not be opened", "`jsk doctor` checks it")

@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 
 from jsk import cli
+from jsk.adapters.cli.doctor import store_report
+from jsk.application.guards import unloaded_refusal
 
 
 class UnloadedWorkspace(unittest.TestCase):
@@ -58,11 +60,11 @@ class UnloadedWorkspace(unittest.TestCase):
         self.assertEqual(code, 0, out)
 
     def test_the_helper_the_kb_verbs_call(self):
-        self.assertIsNotNone(cli.unloaded_refusal(str(self.root)))
-        self.assertIsNone(cli.unloaded_refusal(None))
+        self.assertIsNotNone(unloaded_refusal(str(self.root)))
+        self.assertIsNone(unloaded_refusal(None))
         from jsk import paths
         # The shipped example too: whatever reads it imports it first, as doctor does.
-        self.assertIsNotNone(cli.unloaded_refusal(paths.EXAMPLE_WORKSPACE))
+        self.assertIsNotNone(unloaded_refusal(paths.EXAMPLE_WORKSPACE))
 
 
 class DoctorStore(unittest.TestCase):
@@ -78,7 +80,7 @@ class DoctorStore(unittest.TestCase):
     def test_a_store_its_revision_and_its_backup(self):
         from appkit import seed
         seed(self.root)
-        lines, broken = cli.store_report(str(self.root))
+        lines, broken = store_report(str(self.root))
         text = "\n".join(lines)
         self.assertFalse(broken, text)
         self.assertIn(f"ok    store    {self.root / 'career' / 'store'}", text)
@@ -91,12 +93,12 @@ class DoctorStore(unittest.TestCase):
         from appkit import seed
         seed(self.root)
         (self.root / ".jsk" / "backup.trig").unlink()
-        lines, broken = cli.store_report(str(self.root))
+        lines, broken = store_report(str(self.root))
         self.assertFalse(broken)
         self.assertIn("no .jsk/backup.trig yet", "\n".join(lines))
 
     def test_a_workspace_not_yet_loaded_fails_with_kb_load(self):
-        lines, broken = cli.store_report(str(self.root))
+        lines, broken = store_report(str(self.root))
         self.assertTrue(broken)
         self.assertIn("jsk kb load .", "\n".join(lines))
 

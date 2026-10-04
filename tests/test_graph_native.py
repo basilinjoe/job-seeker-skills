@@ -331,7 +331,7 @@ class NarrowerDenied(unittest.TestCase):
                          "said on 2026-09-01: No EKS. / said on 2026-09-01: No GKE.")
 
     def test_the_store_closure_says_eks_counts_as_kubernetes(self):
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import record
         from jsk.infra.oxigraph.queries import OxigraphQueries
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -384,7 +384,7 @@ class Kinds(unittest.TestCase):
         self.app = Path(self.root) / self.APP
 
     def write(self, graphs):
-        from jsk.adapters.cli.compose import timeline
+        from jsk.adapters.compose import timeline
 
         return timeline.write_app_graphs(self.app, graphs)
 
@@ -403,7 +403,7 @@ class Kinds(unittest.TestCase):
             self.assertEqual(O.class_of(O.K + local), cls)
 
     def test_a_review_and_a_selection_written_load_clean_and_read_back(self):
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import record
 
         doc = careerkit.short(roles=["pos_meridian_lead"], skills=["skill_kubernetes"],
                               names={"skill_kubernetes": "K8s"},
@@ -418,7 +418,7 @@ class Kinds(unittest.TestCase):
         self.assertEqual(selection.doc_of(s.graph(f"{self.APP}/resume")), doc)
 
     def test_a_general_resume_is_its_own_graph(self):
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import record
         from jsk.domain.naming import resume_graph
         from jsk.infra.oxigraph import record as R
 
@@ -432,7 +432,7 @@ class Kinds(unittest.TestCase):
     def test_a_fault_in_a_selection_is_that_selections_not_the_careers(self):
         # A pick of a bullet the career lacks dangles in the selection, and stops no write
         # to the career: is_own counts resumes/ as applications/ is.
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import record
         from jsk.domain.record.state import new_failures
         from jsk.infra.oxigraph import record as R
 
@@ -459,7 +459,7 @@ class Kinds(unittest.TestCase):
                           str(cm.exception))
 
     def test_a_freeze_that_renames_the_directory_moves_the_review_and_the_selection(self):
-        from jsk.adapters.cli.compose import record, timeline
+        from jsk.adapters.compose import record, timeline
         from jsk.application.timeline import records as T
         from jsk.infra.oxigraph import db
         from jsk.infra.oxigraph.applications import StoredApplications

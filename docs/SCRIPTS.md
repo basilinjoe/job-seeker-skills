@@ -551,7 +551,7 @@ not a target: it gets all four gates, below.
 
 Exit 0 safe to render, 1 do not render it, 2 called wrong or no career to check against. Called
 from code as `record.findings(doc, store, today=None) -> (fails, warns)`, `doc` a selection's dict,
-`store` `jsk.adapters.cli.compose.record.load(root)`.
+`store` `jsk.adapters.compose.record.load(root)`.
 
 #### A render: the parse and prose gates
 

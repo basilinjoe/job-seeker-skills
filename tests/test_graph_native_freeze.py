@@ -22,7 +22,7 @@ from unittest import mock
 import appkit
 import recordkit
 import shipkit
-from jsk.adapters.cli.compose import native, selection
+from jsk.adapters.compose import native, selection
 from jsk.domain.posting.errors import Refused
 from jsk.domain.resume.selection import canonical
 from test_graph_native_apps import ADVERT, STEM
@@ -48,7 +48,7 @@ class Frozen(Workspace):
         self.addCleanup(os.chdir, cwd)
 
     def shipped(self):
-        from jsk.adapters.cli.compose import render
+        from jsk.adapters.compose import render
 
         self.selected()
         # The parse gate's strict pass wants a summary heading, and a summary renders
@@ -120,7 +120,7 @@ class Freeze(Frozen):
     def test_a_held_back_freeze_refuses_every_change_and_says_it_was_not_sent(self):
         """`submitted` false freezes without sending: the guards keyed on the day it was
         sent let every tool keep writing under the record that froze it (2026-10-02)."""
-        from jsk.adapters.cli.compose import render
+        from jsk.adapters.compose import render
         from jsk.application.record.refusals import Refused as ConfirmRefused
 
         self.shipped()
@@ -163,7 +163,7 @@ class Freeze(Frozen):
         self.assertEqual(sha, self.expected_sha(selection.read(self.root, STEM)))
 
     def test_a_reship_by_target_into_the_frozen_directory_is_refused(self):
-        from jsk.adapters.cli.compose import render
+        from jsk.adapters.compose import render
 
         self.shipped()
         code, out = self.freeze()
@@ -228,7 +228,7 @@ class Letter(Frozen):
     def test_the_advert_a_letter_may_quote_is_the_stored_lines(self):
         """No posting.md exists for a graph-native application; the lines the store holds
         are what a quotation in the letter is matched against."""
-        from jsk.adapters.cli.compose import resume
+        from jsk.adapters.compose import resume
         from jsk.application.gates.letter import advert
 
         self.selected()

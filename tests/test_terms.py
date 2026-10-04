@@ -98,7 +98,7 @@ class Gate(unittest.TestCase):
     resume.json, its posting the directory's, until 6.0 read none."""
 
     def run_gate(self, root, record, page=None):
-        from jsk.adapters.cli.gates import terms
+        from jsk.adapters.entry.gates import terms
 
         args = ["--record", str(record)]
         if page is not None:
@@ -146,7 +146,7 @@ class Gate(unittest.TestCase):
         """run_gates leaves the step out rather than print a pass that measured nothing:
         a general rebuild ships with exactly the steps it had."""
         from jsk.application.gates.run_gates import run_gates
-        from jsk.adapters.cli.gates.check import contained
+        from jsk.adapters.entry.gates.check import contained
 
         from test_render_resume import contoso
 

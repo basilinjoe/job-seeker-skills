@@ -4,7 +4,7 @@ The rules are domain/gates/terms_rules.py's. This reads the render's plain text 
 stream every variant shares, emitted in memory from the resume.json's plan, or a .txt passed
 by hand - and asks for the posting the resume.json answers: the application directory it sits
 in. A resume.json with no posting beside it, a general rebuild, has nothing to be covered
-against, and the gate says so and passes. It prints nothing: adapters/cli/gates/terms.py does.
+against, and the gate says so and passes. It prints nothing: adapters/entry/gates/terms.py does.
 
 Every finding is a warning (terms_rules), so this gate never stops a ship.
 """

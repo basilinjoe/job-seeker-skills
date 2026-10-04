@@ -17,7 +17,7 @@ from jsk.infra import files
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record
 from jsk.domain.record import writer
-from jsk.adapters.cli.compose import record as S
+from jsk.adapters.compose import record as S
 from jsk.infra import legacy_import
 from jsk.infra.packs import PACKS
 
@@ -157,7 +157,7 @@ class InARecord(Fixture):
         self.assertIn("dry run: r3 not written", out)
 
     def test_a_concept_the_record_has_gets_only_what_it_lacks(self):
-        from jsk.adapters.cli.compose import record as changeset
+        from jsk.adapters.compose import record as changeset
 
         self.pack()
         cs = changeset.read_changeset(self.path("pack.trig").read_text(encoding="utf-8"))

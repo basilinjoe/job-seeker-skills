@@ -136,7 +136,7 @@ def rehash(root):
 def graph_text(root, name=R.KB):
     """One graph of the store laid out as Turtle, as `jsk kb show` prints entries - for
     assertions that read the record the way a person would."""
-    from jsk.adapters.cli.compose import record as S
+    from jsk.adapters.compose import record as S
     from jsk.domain.record.writer import write
 
     store = S.load(str(root))
@@ -232,7 +232,7 @@ class Workspace(unittest.TestCase):
         return recordkit.log(self.root, last)
 
     def loaded(self):
-        from jsk.adapters.cli.compose import record as S
+        from jsk.adapters.compose import record as S
 
         self.seed()
         return S.load(self.root)

@@ -13,7 +13,7 @@ reading order, and the terms gate reads it.
 
 Each step comes back as a GateStep holding the gate's own output and the counts and page
 measurements the summary restates, as fields: the summary used to read them back out of
-the text with regular expressions. It prints nothing: adapters/cli/gates/check.py does.
+the text with regular expressions. It prints nothing: adapters/entry/gates/check.py does.
 """
 import glob
 import os

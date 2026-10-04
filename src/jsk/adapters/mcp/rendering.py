@@ -87,7 +87,7 @@ def render_directory(root, target, out):
     """
     if out:
         return absolute(root, out)
-    from ..cli.render import arg, targeted
+    from ..entry.render import arg, targeted
 
     with captured.inside(root):
         own = arg(targeted(["render_resume.py", target]), "--out")
@@ -116,7 +116,7 @@ def renders(srv, tools):
                      only: Literal["parse", "prose", "layout"] | None = None,
                      strict: bool = False, pages: int | None = None) -> dict:
         def run(root, today):
-            from ..cli.resume import cmd_resume_check
+            from ..entry.resume import cmd_resume_check
 
             argv = [target]
             for flag, value in (("--record", record), ("--only", only), ("--pages", pages)):

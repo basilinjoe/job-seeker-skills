@@ -18,13 +18,13 @@ from fixtures import REPO_ROOT as REPO
 from test_graph_shapes import FIXTURES
 
 from jsk import cli
-from jsk.adapters.cli.kb import new
+from jsk.adapters.entry.kb import new
 from jsk.application.record import scaffold
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 from jsk.infra.oxigraph import db
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record as R
-from jsk.adapters.cli.compose import record as S
+from jsk.adapters.compose import record as S
 
 TODAY = datetime.date(2026, 9, 25)
 

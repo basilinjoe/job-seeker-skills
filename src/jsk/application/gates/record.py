@@ -23,7 +23,7 @@ so they warn, as they did in the claims gate. The rest read ids and numbers.
 The career's feature reads come in as `queries` (ports.queries.RecordQueries) and the
 career's standing with its log as `state`; this reads the selection, loads its workspace and
 folds the warnings into the failures under --strict. It prints nothing:
-adapters/cli/gates/record.py says what it found. The record is a target's selection graph,
+adapters/entry/gates/record.py says what it found. The record is a target's selection graph,
 the short file's dict as resume.json held it until 6.0
 (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2), when the file went.
 """

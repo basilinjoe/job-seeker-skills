@@ -2,7 +2,7 @@
 
 The levers and the measurements are domain/render/fit_levers.py's. This stages each
 candidate in a scratch directory, compiles it with the TeX engine, measures the PDF, and
-writes the first one inside the budget. It prints nothing: adapters/cli/fit.py says what
+writes the first one inside the budget. It prints nothing: adapters/entry/fit.py says what
 it did.
 """
 import os

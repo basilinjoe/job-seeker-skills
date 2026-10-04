@@ -11,7 +11,7 @@ Ruling 12: the application is `applications/<stem>`, and nothing here creates it
 directory - the first render does.
 
 It reads no file and opens no store itself: the use cases pass in the loaded Store and the
-ports adapters/cli/compose/native.py binds. A candidate graph is validated as
+ports adapters/compose/native.py binds. A candidate graph is validated as
 `write_application` validates one (application/timeline/records.py): the workspace loaded
 with the candidate standing in, and only what it newly breaks refused.
 """

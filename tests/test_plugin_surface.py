@@ -408,7 +408,7 @@ class ChangesetsRouteThroughApply(unittest.TestCase):
         """A worked example a model copies is code, and unverified code in a document
         reads as checked. Every TriG block with a changeset graph in it must get past
         apply's own reader - the refusals that need no career in front of them."""
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import record
         from jsk.domain.record import changeset
 
         seen = 0

@@ -4,7 +4,7 @@ Ruling 18 of docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md 
 first eighteen tools and their parameters; Ruling 21's amendment (2026-10-03) adds
 app_freeze, app_event and letter_check (acts.py), for twenty-one. This module registers
 them on a FastMCP server and holds no logic a CLI test could not reach. Each tool binds
-through adapters/cli/compose/ - native.py for an application, career.py for the career,
+through adapters/compose/ - native.py for an application, career.py for the career,
 timeline.py for a freeze or an event - and turns what comes back into JSON.
 
 Ruling 16: every result is `{"ok": true, ...}` or `{"ok": false, "findings": [...]}`, each
@@ -113,7 +113,7 @@ def refusal_findings(err):
     from ...domain.posting.errors import Refused
     from ...domain.record.parsed import GraphError
     from ...domain.record.state import RecordError
-    from ..cli.presenters import GUIDE
+    from ..entry.presenters import GUIDE
 
     if isinstance(err, Refused):
         return [("FAIL", m, f) for m, f in err.problems]
@@ -221,7 +221,7 @@ def described(srv):
 
 def career_reads(srv, tools):
     """career_view, career_show, career_query and career_log, from the read cache."""
-    from ..cli.compose import career
+    from ..compose import career
 
     tool, load = described(srv), tools.session.load
 
@@ -275,7 +275,7 @@ def career_reads(srv, tools):
 
 def career_writes(srv, tools):
     """career_preview, career_apply and career_confirm: each write in its own turn."""
-    from ..cli.compose import career
+    from ..compose import career
 
     tool = described(srv)
 
@@ -310,7 +310,7 @@ def career_writes(srv, tools):
                     return failed(("FAIL", "a selection's block is confirmed alone: target, "
                                            "block and the person's answer, no ids",
                                    "pass target, block and answer"))
-                from ..cli.compose import selection
+                from ..compose import selection
 
                 done = selection.confirm(root, target, block, answer)
                 # The block alone: the whole selection before and after ran to ~8k
@@ -331,7 +331,7 @@ def career_writes(srv, tools):
 
 def applications(srv, tools):
     """app_list and app_show, from the read cache."""
-    from ..cli.compose import native
+    from ..compose import native
 
     tool, ports = described(srv), tools.session.ports
 
@@ -369,7 +369,7 @@ def applications(srv, tools):
 
 def postings(srv, tools):
     """posting_capture, posting_decide and posting_complete."""
-    from ..cli.compose import native
+    from ..compose import native
 
     tool = described(srv)
 
@@ -410,7 +410,7 @@ def postings(srv, tools):
 
 def assessments(srv, tools):
     """assessment_derive, assessment_review and assessment_complete."""
-    from ..cli.compose import native
+    from ..compose import native
 
     tool = described(srv)
 
@@ -461,7 +461,7 @@ def resumes(srv, tools):
     def resume_select(target: str, mode: Literal["from_match", "ranked"],
                       replace: bool = False) -> dict:
         def run(root, today):
-            from ..cli.compose import selection
+            from ..compose import selection
 
             return result(**fields(selection.select(root, target, mode=mode, replace=replace,
                                                     today=today)))
@@ -482,7 +482,7 @@ def resumes(srv, tools):
                                    ("headline", headline)) if v is not None}
 
         def run(root, today):
-            from ..cli.compose import selection
+            from ..compose import selection
 
             return result(**fields(selection.update(root, target, today=today, **given)))
         return tools.call("resume_update", run, writes=True)
@@ -492,7 +492,7 @@ def resumes(srv, tools):
     def resume_ship(target: str, ats_max: bool = False, template: str | None = None,
                     pages: int | None = None, fit: bool = True) -> dict:
         def run(root, today):
-            from ..cli.compose import selection
+            from ..compose import selection
 
             shipped = fields(selection.ship_target(root, target, ats_max=ats_max,
                                                    template=template, pages=pages, fit=fit,

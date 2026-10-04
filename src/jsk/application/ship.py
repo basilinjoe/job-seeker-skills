@@ -9,7 +9,7 @@ their verdicts is restated here: the record gate is what the resume_check tool r
 the resume_render tool's, the fit the resume_fit tool's and the gates run_gates'. What ship reads of them - the
 files the render wrote, its page counts, the levers the fit applied - it reads off the
 RenderResult and the FitResult, never off what they printed. It prints nothing:
-adapters/cli/ship.py does.
+adapters/entry/ship.py does.
 """
 import os
 from dataclasses import dataclass

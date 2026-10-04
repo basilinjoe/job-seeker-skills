@@ -17,7 +17,7 @@ from unittest import mock
 
 import careerkit
 from careerkit import MERIDIAN, short
-from jsk.adapters.cli.compose import gates
+from jsk.adapters.compose import gates
 from jsk.domain.gates import numbers
 from jsk.domain import ontology as O
 from jsk.infra import tex
@@ -305,7 +305,7 @@ class MatchAsks(unittest.TestCase):
     POST = "tag:jsk,2026:id/post_contoso_platform"
 
     def test_a_number_its_metric_held_once_is_asked_as_replaced(self):
-        from jsk.adapters.cli.compose import match
+        from jsk.adapters.compose import match
         from jsk.domain.matching import report
         tmp = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, tmp, True)
@@ -319,7 +319,7 @@ class MatchAsks(unittest.TestCase):
                          "(dashboards, retros, release notes)? Or should the words change?")
 
     def test_the_fixture_as_shipped_asks_nothing(self):
-        from jsk.adapters.cli.compose import match as M
+        from jsk.adapters.compose import match as M
         tmp = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, tmp, True)
         root, _ = careerkit.workspace(tmp)
@@ -399,7 +399,7 @@ class Ship(GateCase):
     def ship(self, path, *extra, fake=True):
         from shipkit import fake_compile
 
-        from jsk.adapters.cli.compose import render
+        from jsk.adapters.compose import render
         # A target ships into its own directory, resumes/test/.
         out = Path(path).parent
         patch = (mock.patch.object(render, "compile_pdf", fake_compile()) if fake

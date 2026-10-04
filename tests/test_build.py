@@ -13,7 +13,7 @@ import unittest
 import appkit
 import careerkit
 from careerkit import MERIDIAN, short
-from jsk.adapters.cli.compose import resume
+from jsk.adapters.compose import resume
 from jsk.domain.render import emit_latex, emit_text
 
 PERSON = 'k:person j:fullName "Test Person" ; j:headline "Platform Engineer" ; j:provenance j:confirmed .'
@@ -394,7 +394,7 @@ class RenderCommand(unittest.TestCase):
         import contextlib
         import io
 
-        from jsk.adapters.cli import render
+        from jsk.adapters.entry import render
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             code = render.main(["render_resume.py", *args])
@@ -418,7 +418,7 @@ class RenderCommand(unittest.TestCase):
 
     def test_the_plain_text_is_ascii_whatever_the_career_holds(self):
         """The text the gates read in memory, as a paste-in box receives it."""
-        from jsk.adapters.cli.compose.gates import plan_text
+        from jsk.adapters.compose.gates import plan_text
 
         with tempfile.TemporaryDirectory() as tmp:
             _, path = careerkit.workspace(Path(tmp, "ws"), edits=[

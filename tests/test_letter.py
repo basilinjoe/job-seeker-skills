@@ -12,9 +12,9 @@ import unittest
 from pathlib import Path
 
 import careerkit
-from jsk import cli
 from jsk.domain.gates import letter_rules
-from jsk.adapters.cli.gates import letter
+from jsk.adapters.entry.gates import letter
+from jsk.adapters.entry.gates.check import CHECK_GATES
 from jsk.infra import documents
 
 BULLETS = ["ach_events_latency", "ach_events_team", "ach_identity_sso", "ach_data_ingestion"]
@@ -47,7 +47,7 @@ class LetterCase(unittest.TestCase):
         2026-10-03-retire-file-pipeline.md, P2). Its directory is made, as a render would."""
         import datetime
 
-        from jsk.adapters.cli.compose import native
+        from jsk.adapters.compose import native
         from jsk.domain.resume.selection import triples_of
         from jsk.infra.oxigraph import record as R
 
@@ -130,8 +130,8 @@ class Numbers(LetterCase):
     def test_an_unsound_selection_names_the_target_form_not_a_resume_json(self):
         # The P3 review (2026-10-04): it said "resume.json" and "run `jsk resume check` on
         # it", a file 6.0 no longer reads.
-        from jsk.adapters.cli.compose.gates import number_lines
-        from jsk.adapters.cli.compose.resume import career
+        from jsk.adapters.compose.gates import number_lines
+        from jsk.adapters.compose.resume import career
 
         tmp = tempfile.mkdtemp()
         self.addCleanup(__import__("shutil").rmtree, tmp, True)
@@ -237,7 +237,7 @@ class Files(LetterCase):
         self.assertIn("PASS - fit to send", out)
 
     def test_the_default_check_never_runs_it(self):
-        self.assertNotIn("letter", [gate[0] for gate in cli.CHECK_GATES])
+        self.assertNotIn("letter", [gate[0] for gate in CHECK_GATES])
 
 
 if __name__ == "__main__":

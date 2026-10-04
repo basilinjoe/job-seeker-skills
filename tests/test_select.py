@@ -10,11 +10,11 @@ from pathlib import Path
 
 import appkit
 
-from jsk.adapters.cli.compose import tailor
+from jsk.adapters.compose import tailor
 from jsk.domain import ontology as O
-from jsk.adapters.cli.compose import match
+from jsk.adapters.compose import match
 from jsk.domain.selection import select
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 from jsk.domain.resume import short
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
@@ -286,7 +286,7 @@ class Capped(unittest.TestCase):
         self.assertIn("5 left out: skill_tool07, skill_tool08", self.notes[0])
 
     def test_the_render_drops_nothing(self):
-        from jsk.adapters.cli.compose import resume
+        from jsk.adapters.compose import resume
 
         def cut(doc):
             return [w for w in resume.build(self.store, doc, today=TODAY)["warnings"]
@@ -377,7 +377,7 @@ class Ranked(unittest.TestCase):
 
     def test_score_allocates_and_chronology_orders(self):
         """The oldest project scoring highest leads the file, and still renders last."""
-        from jsk.adapters.cli.compose import resume as build
+        from jsk.adapters.compose import resume as build
 
         kb = Path(self.root, "career", "kb.ttl")
         text = kb.read_text(encoding="utf-8")
@@ -425,7 +425,7 @@ def native_workspace(test, posting=POSTING, stem="contoso-select"):
     as the analyst's tools leave it. resume_select reads only such an application."""
     import re
 
-    from jsk.adapters.cli.compose import native
+    from jsk.adapters.compose import native
     from jsk.domain.posting.advert import advert_lines
 
     root = tempfile.mkdtemp()
@@ -468,7 +468,7 @@ class Command(unittest.TestCase):
         self.root = native_workspace(self)
 
     def selected(self, mode="from_match", replace=False):
-        from jsk.adapters.cli.compose import selection
+        from jsk.adapters.compose import selection
 
         return selection.select(self.root, self.STEM, mode=mode, replace=replace, today=TODAY)
 
@@ -481,7 +481,7 @@ class Command(unittest.TestCase):
         self.assertTrue(appkit.has(self.root, f"applications/{self.STEM}/resume"))
 
     def test_a_path_outside_applications_is_not_an_application(self):
-        from jsk.adapters.cli.compose import selection
+        from jsk.adapters.compose import selection
         from jsk.domain.posting.errors import Refused
 
         for outside in (os.path.join(self.root, "career"), "../career"):

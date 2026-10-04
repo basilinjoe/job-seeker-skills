@@ -4,10 +4,10 @@ import unittest
 
 from test_graph_pack import Fixture
 
-from jsk.adapters.cli.compose import record as changeset
+from jsk.adapters.compose import record as changeset
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record
-from jsk.adapters.cli.compose import record as S
+from jsk.adapters.compose import record as S
 
 VOCAB = "c:healthcare a j:Domain ."
 

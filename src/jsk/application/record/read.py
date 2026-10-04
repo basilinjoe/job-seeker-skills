@@ -1,7 +1,7 @@
 """Reading the record: entries by id as Turtle, the whole career as Markdown, the log.
 
 the career_show, career_view and career_log tools. Each loads the workspace through the `load` it is given
-(adapters/cli/compose/record.py's) and returns what to print; adapters/cli/kb/read.py prints it.
+(adapters/compose/record.py's) and returns what to print; adapters/entry/kb/read.py prints it.
 """
 import difflib
 from dataclasses import dataclass

@@ -50,7 +50,7 @@ class Session:
         self.fixed = given is not None
         self.root = os.path.abspath(given) if given else find_root(self.start)
         if load is None:
-            from ..cli.compose.record import load
+            from ..compose.record import load
         self.load_fresh = load
         self.writes = 0
         self.cached = None              # (key, Store)
@@ -126,7 +126,7 @@ class Session:
 
     def ports(self):
         """compose.native.Ports whose plain loads come from the cache: for the reads only."""
-        from ..cli.compose.native import Ports
+        from ..compose.native import Ports
 
         session = self
 

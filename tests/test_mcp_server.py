@@ -301,7 +301,7 @@ class Resume(Served):
 
     def setUp(self):
         import shipkit
-        from jsk.adapters.cli.compose import native
+        from jsk.adapters.compose import native
         from jsk.adapters.mcp import server, session
 
         super().setUp()
@@ -320,7 +320,7 @@ class Resume(Served):
 
     def shipped(self, **compile_args):
         import shipkit
-        from jsk.adapters.cli.compose import render
+        from jsk.adapters.compose import render
 
         with mock.patch.object(render, "compile_pdf", shipkit.fake_compile(**compile_args)):
             return self.call("resume_ship", target=STEM, fit=False)
@@ -373,7 +373,7 @@ class Resume(Served):
 
 class Faults(Served):
     def test_an_exception_inside_a_use_case_is_one_fail_and_the_server_keeps_serving(self):
-        from jsk.adapters.cli.compose import native
+        from jsk.adapters.compose import native
 
         err = io.StringIO()
         with mock.patch.object(native, "list_apps", side_effect=RuntimeError("boom")), \
@@ -405,7 +405,7 @@ class Cache(Served):
         path = Path(self.root) / "rename.trig"
         path.write_text(RENAME, encoding="utf-8")
         # `jsk kb apply` is retired: another process writes through what career_apply calls.
-        write = ("import sys, datetime; from jsk.adapters.cli.compose import career; "
+        write = ("import sys, datetime; from jsk.adapters.compose import career; "
                  "career.apply_changeset(sys.argv[1], open(sys.argv[2], encoding='utf-8').read(),"
                  " today=datetime.date.today())")
         cli = subprocess.run([sys.executable, "-c", write, str(self.root), str(path)],

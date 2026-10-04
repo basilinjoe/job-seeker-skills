@@ -14,7 +14,7 @@ from test_kb_write import BRAINDUMP
 
 from jsk.infra.oxigraph import record
 from jsk.domain import ontology as O
-from jsk.adapters.cli.compose import record as S
+from jsk.adapters.compose import record as S
 
 
 class Show(Workspace):
@@ -308,7 +308,7 @@ class Check(Workspace):
     def test_a_selection_names_the_bullets_its_draft_already_fails(self):
         # The draft a ranked selection makes warns of a number no metric holds, before
         # the record gate would fail the bullet (this was `jsk kb export`'s stderr).
-        from jsk.adapters.cli.compose import selection
+        from jsk.adapters.compose import selection
 
         self.edit_kb("a team of 6 engineers", "a team of 6 engineers across 3 sites")
         self.seed()

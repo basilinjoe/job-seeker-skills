@@ -22,7 +22,7 @@ from unittest import mock
 import appkit
 import careerkit
 import shipkit
-from jsk.adapters.cli.compose import native, selection
+from jsk.adapters.compose import native, selection
 from jsk.application.record.refusals import Refused as ConfirmRefused
 from jsk.domain.posting.errors import Refused
 from jsk.domain.resume.selection import canonical
@@ -221,7 +221,7 @@ class Ship(Workspace):
     """The render, the gates and the ship by target, with the TeX compile faked."""
 
     def shipped(self, target=STEM):
-        from jsk.adapters.cli.compose import render
+        from jsk.adapters.compose import render
 
         with mock.patch.object(render, "compile_pdf", shipkit.fake_compile()):
             return selection.ship_target(self.root, target, fit=False, today=TODAY)
@@ -253,7 +253,7 @@ class Ship(Workspace):
         self.assertIn("resume_select", caught.exception.fix)
 
     def test_the_entry_points_ship_and_check_a_target(self):
-        from jsk.adapters.cli.compose import render
+        from jsk.adapters.compose import render
 
         self.selected()
         with mock.patch.object(render, "compile_pdf", shipkit.fake_compile()):
@@ -269,7 +269,7 @@ class Ship(Workspace):
     def tool_in_root(self, tool, *args):
         """(exit code, output) of the entry point `tool` calls, run inside the workspace with
         the compile faked."""
-        from jsk.adapters.cli.compose import preview, render
+        from jsk.adapters.compose import preview, render
 
         with mock.patch.object(render, "compile_pdf", shipkit.fake_compile()),                 mock.patch.object(preview, "compile_pdf", shipkit.fake_compile()),                 mock.patch.object(preview, "available_engine", lambda: "fake"):
             return shipkit.tool_run(self.root, tool, *args)

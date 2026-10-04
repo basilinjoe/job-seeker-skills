@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 
 import fixtures  # noqa: F401 - puts this checkout's src/ first on sys.path
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
 APP = Path("applications") / "contoso-platform"

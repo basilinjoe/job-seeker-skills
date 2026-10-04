@@ -357,9 +357,9 @@ def verify(tmp):
     # What resume_check and resume_render call (adapters/mcp/rendering.py), by the name the
     # tool has, so that a step reads as the tool call it proves.
     entries = {
-        "resume_check": f"import sys; from {__package__}.adapters.cli.resume import "
+        "resume_check": f"import sys; from {__package__}.adapters.entry.resume import "
                         f"cmd_resume_check; sys.exit(cmd_resume_check(sys.argv[1:]))",
-        "resume_render": f"import sys; from {__package__}.adapters.cli.render import main; "
+        "resume_render": f"import sys; from {__package__}.adapters.entry.render import main; "
                          f"sys.exit(main(['render_resume.py'] + sys.argv[1:]))",
     }
 
@@ -400,7 +400,7 @@ def verify(tmp):
     # No render writes the plain text: the parse gate emits it from the plan in memory, as
     # the resume_check tool runs it. No command takes a selection to that one pass, so its
     # adapter is spawned directly, from cold like the rest, with the record DIR gives it.
-    entry = (f"import sys; from {__package__}.adapters.cli.gates.ats import main; "
+    entry = (f"import sys; from {__package__}.adapters.entry.gates.ats import main; "
              f"sys.exit(main(sys.argv[1:]))")
     ref = os.path.join(target, "resume")
     proc = subprocess.run([sys.executable, "-c", entry, ref, "--strict"],

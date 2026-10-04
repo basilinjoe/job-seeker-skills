@@ -20,7 +20,7 @@ infer that a resume has been checked: a gate that overstates what it covers teac
 to stop reading the ones that do not.
 
 The rules are domain/gates/; each use case here takes its readers and the career's reads as
-parameters and returns a result, and adapters/cli/gates/ prints it. The resume_check tool runs
+parameters and returns a result, and adapters/entry/gates/ prints it. The resume_check tool runs
 all four in one interpreter, and dispatch.call_gate contains a gate that raised where it
 should have returned a verdict.
 """

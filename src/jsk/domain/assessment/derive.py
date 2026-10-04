@@ -8,7 +8,7 @@ from `match.result`, in milliseconds, and the review (gaps.txt until 6.0) carrie
 what the analyst changes.
 
 This is pure: a function of the match result and the career's queries, with no file I/O.
-adapters/cli/compose/tailor.py binds it to a loaded Store.
+adapters/compose/tailor.py binds it to a loaded Store.
 """
 import re
 from dataclasses import dataclass

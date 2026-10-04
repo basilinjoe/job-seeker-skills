@@ -17,7 +17,7 @@ from unittest import mock
 from fixtures import (CLEAN_RESUME, example_pdf, example_short, has_pymupdf,
                       one_test_each, render_module, run)
 from jsk.domain.gates import layout_rules
-from jsk.adapters.cli.gates import layout
+from jsk.adapters.entry.gates import layout
 
 tex = render_module("infra.tex")
 themes = render_module("domain.render.themes")
@@ -210,12 +210,13 @@ class WithoutPymupdf(LayoutCase):
         self.assertIn("pip install pymupdf", buf.getvalue())
 
     def test_a_directory_check_reports_it_skipped(self):
-        from jsk import cli
+        from jsk.adapters.entry.dispatch import call_gate
+        from jsk.adapters.entry.gates.check import gate_result
         (self.tmp / "Jane_Resume.pdf").write_bytes(Path(pdf(self.tmp / "x.pdf",
                                                            [column(CLEAN_RESUME)])).read_bytes())
         with mock.patch.dict(sys.modules, {"pymupdf": None}):
-            code, output = cli.call_gate("layout.py", [str(self.tmp / "Jane_Resume.pdf")])
-        result = cli.gate_result("layout gate", "layout.py Jane_Resume.pdf", code, output)
+            code, output = call_gate("layout.py", [str(self.tmp / "Jane_Resume.pdf")])
+        result = gate_result("layout gate", "layout.py Jane_Resume.pdf", code, output)
         self.assertEqual((result["status"], result["exit"]), ("SKIPPED", 1), output)
 
 
@@ -230,7 +231,7 @@ class CheckOnlyLayout(LayoutCase):
     def test_the_section_titles_are_the_builders(self):
         """Headings are found by their words, so a title build.py renames is a heading
         this gate stops seeing."""
-        from jsk.adapters.cli.compose import resume
+        from jsk.adapters.compose import resume
         for fmt in ("presentation", "ats-maximal"):
             plan, _ = resume.from_path(example_short(), fmt=fmt)
             for section in plan["sections"]:

@@ -2,7 +2,7 @@
 
 The rules are domain/gates/layout_rules.py's. This decides where the region and the page
 budget come from - the flags, else the resume.json the PDF rendered from - and what a PDF
-that will not open is. It prints nothing: adapters/cli/gates/layout.py says what it found.
+that will not open is. It prints nothing: adapters/entry/gates/layout.py says what it found.
 """
 import os
 from dataclasses import dataclass

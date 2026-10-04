@@ -2,7 +2,7 @@
 checked.
 
 Loaded once, so a render building two variants reads the career once. How a career is
-loaded and the selection read are the caller's to give; adapters/cli/compose/resume.py binds
+loaded and the selection read are the caller's to give; adapters/compose/resume.py binds
 the real ones.
 
 A target - a graph-native application or a general resume - comes as its ref

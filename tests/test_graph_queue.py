@@ -26,7 +26,7 @@ from jsk.infra.oxigraph import db
 from jsk.domain.record import edit
 from jsk.domain import ontology as O
 from jsk.infra.oxigraph import record as R
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 
 
 TESTS = os.path.dirname(os.path.abspath(__file__))

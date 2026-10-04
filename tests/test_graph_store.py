@@ -14,7 +14,7 @@ from pathlib import Path
 from storekit import seed
 from test_graph_shapes import load
 
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 from jsk.infra import files as disk
 from jsk.domain import naming
 from jsk.infra import legacy_import as legacy

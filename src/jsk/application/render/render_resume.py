@@ -2,7 +2,7 @@
 
 Every content decision is domain/resume/plan.py's and every markup decision the emitters'.
 This decides which files are written and what they are called, compiles the .tex when
-asked, and measures what the TeX engine produced. It prints nothing: adapters/cli/render.py
+asked, and measures what the TeX engine produced. It prints nothing: adapters/entry/render.py
 says what it did.
 """
 import os

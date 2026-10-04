@@ -10,7 +10,7 @@ one frozen before the career was a graph, and is as frozen as an application rec
 The record is the store's application graph and nothing else: `jsk kb load` leaves the
 .ttl files where they were, and a stray application.ttl there must not freeze, or
 unfreeze, anything. The folder and the store are reached through `records`
-(ports.applications.ApplicationRecords); adapters/cli/compose/timeline.py binds the real one.
+(ports.applications.ApplicationRecords); adapters/compose/timeline.py binds the real one.
 """
 import os
 

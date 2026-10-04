@@ -265,7 +265,7 @@ class RetiredVerbs(Workspace):
         self.assertIn("jsk kb new", jsk("new", "p")[1])
 
     def test_the_kb_adapter_keeps_check_pack_and_merge_for_the_tools(self):
-        from jsk.adapters.cli import kb
+        from jsk.adapters.entry import kb
 
         self.assertLessEqual({"check", "pack", "merge"}, set(kb.VERBS))
         code, out = kbcheck(self.root)
@@ -409,7 +409,7 @@ class Unsent(unittest.TestCase):
         appkit.put(self.root, "applications/acme-sent/application",
                    'k:app_acme_sent j:posting k:post_contoso_platform ; '
                    'j:submitted "2026-09-10"^^xsd:date ; j:channel "company site" .\n')
-        from jsk.adapters.cli.compose import native
+        from jsk.adapters.compose import native
 
         native.capture(self.root, "acme-native", text="- Kubernetes in production.\n",
                        company="Acme Health", title="Platform Engineer",

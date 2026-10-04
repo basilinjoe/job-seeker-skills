@@ -10,8 +10,8 @@ from pathlib import Path
 
 import careerkit
 from jsk.domain.resume import short
-from jsk.adapters.cli.compose import resume
-from jsk.adapters.cli.gates import short as own_check
+from jsk.adapters.compose import resume
+from jsk.adapters.entry.gates import short as own_check
 
 OK = {"resume": 2, "bullets": ["ach_events_latency", "ach_identity_sso"]}
 
@@ -165,7 +165,7 @@ class Example(unittest.TestCase):
         from storekit import seed
 
         from jsk import paths
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import record
 
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, True)
@@ -248,7 +248,7 @@ class Ids(unittest.TestCase):
 
 
 class Main(unittest.TestCase):
-    """The short file's own check of one target's selection (adapters/cli/gates/short.py):
+    """The short file's own check of one target's selection (adapters/entry/gates/short.py):
     its shape and ids, with no gate behind it."""
 
     def main(self, *args):

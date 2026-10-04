@@ -1,6 +1,6 @@
 """How a use case over the record refuses: nothing was written, and each error says why.
 
-The CLI adapter prints them (adapters/cli/presenters.py); nothing here prints.
+The CLI adapter prints them (adapters/entry/presenters.py); nothing here prints.
 """
 
 

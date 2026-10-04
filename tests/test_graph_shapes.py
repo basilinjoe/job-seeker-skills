@@ -18,7 +18,7 @@ from pathlib import Path
 from storekit import seed
 
 from jsk.domain import ontology as O
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 from jsk.infra import legacy_import
 from jsk.infra.oxigraph import db
 from jsk.domain.record import shapes

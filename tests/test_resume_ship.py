@@ -232,7 +232,7 @@ class ShipFits(ShipCase):
     The first fit had already reached 2 pages at 0.6in, inside the 0.5in floor."""
 
     def fit_ship(self, *extra, fits_at=None):
-        from jsk.adapters.cli.compose import fit, render as render_resume
+        from jsk.adapters.compose import fit, render as render_resume
         self.fake = fake = margin_compile(fits_at)
         with mock.patch.object(render_resume, "compile_pdf", fake),                 mock.patch.object(fit, "compile_pdf", fake),                 mock.patch.object(fit, "available_engine", lambda: "fake"):
             return tool_run(self.root, "resume_ship", self.record, "--out", self.out, *extra)
@@ -363,7 +363,7 @@ class ShipGraph(GraphCase):
     EDITS = (CONTACTED,)
 
     def ship(self):
-        from jsk.adapters.cli.compose import render as render_resume
+        from jsk.adapters.compose import render as render_resume
 
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
             return self.tool("resume_ship", self.short)
@@ -389,7 +389,7 @@ class ShipFrozen(ShortCase):
     overwrite the PDF the application's record says went out."""
 
     def ship(self, *args):
-        from jsk.adapters.cli.compose import render as render_resume
+        from jsk.adapters.compose import render as render_resume
 
         with mock.patch.object(render_resume, "compile_pdf", fake_compile()):
             return self.tool("resume_ship", *args)
@@ -430,7 +430,7 @@ class ShipFrozen(ShortCase):
     def test_it_refuses_a_record_from_a_frozen_directory_rendered_elsewhere(self):
         # A ship keeps the target's own directory; a render may go elsewhere with --out,
         # and is refused for a frozen target all the same.
-        from jsk.adapters.cli.compose import render as render_resume
+        from jsk.adapters.compose import render as render_resume
 
         self.frozen()
         out_dir = self.root / "out"

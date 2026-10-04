@@ -3,7 +3,7 @@
 The rules are domain/gates/ats_rules.py's. This decides how the document is read - a PDF
 through the PDF reader, a .txt passed by hand as text, a render's plain text as the string
 its plan emits - and what a document that will not open is. It prints nothing:
-adapters/cli/gates/ats.py says what it found.
+adapters/entry/gates/ats.py says what it found.
 """
 import os
 from dataclasses import dataclass

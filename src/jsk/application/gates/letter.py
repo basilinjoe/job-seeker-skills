@@ -27,7 +27,7 @@ so it is not attempted.
 The rules over the words are domain/gates/letter_rules.py's; the number check reads the
 career through `queries` (ports.queries.RecordQueries). This reads the letter, loads the
 career the target's workspace holds, and reads its advert for the quotes it may hold.
-It prints nothing: adapters/cli/gates/letter.py says what it found.
+It prints nothing: adapters/entry/gates/letter.py says what it found.
 """
 import os
 from dataclasses import dataclass

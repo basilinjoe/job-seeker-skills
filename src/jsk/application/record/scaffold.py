@@ -3,7 +3,7 @@ applications - or an existing record started over from the empty one, logged.
 
 It writes through the same gate every `jsk kb` write uses (record.write_graphs), inside
 the writer's turn. What holds the record, and the disk the rest is written to, are the
-caller's to give; adapters/cli/kb/new.py says what was done.
+caller's to give; adapters/entry/kb/new.py says what was done.
 """
 import os
 from dataclasses import dataclass

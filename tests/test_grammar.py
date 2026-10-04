@@ -152,7 +152,7 @@ class TheNouns(unittest.TestCase):
     def test_the_kb_verbs_are_the_kb_adapter_s(self):
         """The adapter still has check, pack and merge, which the career_* tools call; the
         command line dispatches only the verbs in KB_VERBS, plus `new`."""
-        from jsk.adapters.cli import kb
+        from jsk.adapters.entry import kb
 
         self.assertEqual(set(M.KB_VERBS) | {"check", "pack", "merge"}, set(kb.VERBS))
         self.assertEqual(set(M.NOUNS["kb"]), set(M.KB_VERBS) | {"new"})

@@ -16,9 +16,9 @@ from pathlib import Path
 import appkit
 import storekit
 
-from jsk.adapters.cli.compose import tailor
+from jsk.adapters.compose import tailor
 from jsk.application.tailor import export
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 from jsk.domain.resume import short
 
 FIXTURES = Path(__file__).parent / "claims_fixtures"
@@ -186,7 +186,7 @@ class Selecting(Workspace):
     def select(self):
         import datetime
 
-        from jsk.adapters.cli.compose import selection
+        from jsk.adapters.compose import selection
 
         if not os.path.isdir(os.path.join(self.root, "career", "store")):
             appkit.seed(self.root)

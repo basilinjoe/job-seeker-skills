@@ -27,7 +27,7 @@ if str(SRC) not in sys.path:
 # `from . import ...` fails on the way in. `run()` invokes them with `-m`.
 SCRIPTS = REPO_ROOT / "src" / PACKAGE      # for tests that read a module's source text
 CLI = f"{PACKAGE}.cli"
-CHECK_ATS = f"{PACKAGE}.adapters.cli.gates.ats"
+CHECK_ATS = f"{PACKAGE}.adapters.entry.gates.ats"
 FIT_PAGES = f"{PACKAGE}.domain.render.fit_levers"
 
 # What the tests drive. DOCTOR is a command, the argv of `python -m jsk ...`. The rest were
@@ -43,7 +43,7 @@ FIT = ("resume_fit",)
 DOCTOR = (PACKAGE, "doctor", "--quick")
 
 # The documented script name each tool runs through dispatch.call_gate (adapters/mcp/rendering.py);
-# resume_check calls adapters/cli/resume.cmd_resume_check instead, which has none.
+# resume_check calls adapters/entry/resume.cmd_resume_check instead, which has none.
 TOOL_SCRIPTS = {"resume_render": "render_resume.py", "resume_fit": "fit_pages.py"}
 
 
@@ -63,7 +63,7 @@ def load_script(name):
     """
     name = str(name)
     if not name.startswith(PACKAGE + "."):
-        from jsk.adapters.cli.dispatch import module_for   # noqa: PLC0415 - test helper
+        from jsk.adapters.entry.dispatch import module_for   # noqa: PLC0415 - test helper
         name = module_for(f"{Path(name).stem}.py")
     return importlib.import_module(name)
 
@@ -193,7 +193,7 @@ def tool_entry(tool, *args):
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
         if tool == "resume_check":
-            from jsk.adapters.cli.resume import cmd_resume_check   # noqa: PLC0415
+            from jsk.adapters.entry.resume import cmd_resume_check   # noqa: PLC0415
 
             code, out = captured.called(os.getcwd(), cmd_resume_check, args)
         else:
@@ -208,7 +208,7 @@ def gate(script, *args):
     finds a gate's file before it runs - so a test of what the gate itself says to a bad
     call calls it the way `jsk` does (dispatch.call_gate).
     """
-    from jsk.adapters.cli.dispatch import call_gate   # noqa: PLC0415 - test helper
+    from jsk.adapters.entry.dispatch import call_gate   # noqa: PLC0415 - test helper
 
     return call_gate(script, [str(a) for a in args])
 
@@ -256,7 +256,7 @@ def write_awkward(path, text, form):
 # of it is the code and the schema. test_plugin_surface.py reads the skill, the tests
 # below read the package.
 PLUGIN = REPO_ROOT / "plugins" / "jsk"
-RENDER_RESUME = f"{PACKAGE}.adapters.cli.render"
+RENDER_RESUME = f"{PACKAGE}.adapters.entry.render"
 CHECK_PROSE = f"{PACKAGE}.domain.gates.prose_rules"
 PREFLIGHT = f"{PACKAGE}.preflight"
 # The shipped example workspace's general resume: what `jsk doctor` renders, and what a

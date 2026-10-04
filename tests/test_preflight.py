@@ -246,7 +246,7 @@ class CliBehaviour(unittest.TestCase):
         with mock.patch.object(preflight.subprocess, "run", fake):
             preflight.verify(str(self.tmp))
         # The resume_render tool is not a command: the step runs the entry point the tool calls.
-        render = next(c for c in calls if c[1] == "-c" and "cli.render import" in c[2])
+        render = next(c for c in calls if c[1] == "-c" and "entry.render import" in c[2])
         # The target in the store the example was imported into, never the package's files.
         self.assertIn(str(self.tmp / "example" / "resumes" / "example"), render)
         self.assertFalse(any(a.endswith(".json") for a in render), render)
@@ -367,11 +367,11 @@ class SetupIsWiredUp(unittest.TestCase):
         """
         import re
 
-        from jsk import cli
+        from jsk.adapters.cli.main import NOUNS
         fenced = self.fenced(self.mode)
         named = set(re.findall(r"^jsk ([a-z]+)", fenced, re.M))
         self.assertTrue(named, "the setup command invokes no jsk subcommand")
-        known = set(cli.NOUNS)
+        known = set(NOUNS)
         unknown = sorted(n for n in named if n not in known)
         self.assertEqual(unknown, [], f"setup.md names unknown subcommands: {unknown}")
 

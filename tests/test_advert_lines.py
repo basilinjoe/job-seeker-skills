@@ -281,8 +281,8 @@ class LabelsIn(unittest.TestCase):
         from appkit import stored_copy
         from test_graph_shapes import FIXTURES
 
-        from jsk.adapters.cli.compose import match
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import match
+        from jsk.adapters.compose import record
         cls.named = staticmethod(match.labels_in(record.load(str(stored_copy(FIXTURES)))))
 
     def ids(self, line):

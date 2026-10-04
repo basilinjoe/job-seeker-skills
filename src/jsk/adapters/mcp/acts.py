@@ -75,7 +75,7 @@ def said(output):
 
 def freezes(srv, tools):
     """app_freeze: the freeze, its gates' steps and what it wrote as JSON."""
-    from ..cli.compose import timeline as T
+    from ..compose import timeline as T
 
     @described(srv)("Freeze a shipped application: gate, record and rename it. "
                     "submitted: YYYY-MM-DD or false.")
@@ -123,7 +123,7 @@ def freezes(srv, tools):
 
 def events(srv, tools):
     """app_event: the event it added, as JSON."""
-    from ..cli.compose import timeline as T
+    from ..compose import timeline as T
 
     @described(srv)("One event on a frozen application. date: YYYY-MM-DD "
                     "or unknown.")
@@ -181,8 +181,8 @@ def letters(srv, tools):
     def letter_check(letter: str, record: str) -> dict:
         def run(root, today):
             from ...application.gates.letter import LetterResult
-            from ..cli.compose.selection import file_made, ref_for
-            from ..cli.gates import letter as gate
+            from ..compose.selection import file_made, ref_for
+            from ..entry.gates import letter as gate
 
             path = letter if os.path.isabs(letter) else os.path.join(root, letter)
             # A file-made application has no selection to trace a number against; the gate

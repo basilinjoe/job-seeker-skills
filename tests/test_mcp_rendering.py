@@ -55,7 +55,7 @@ class Rendering(Served):
         self.elsewhere = elsewhere
 
     def render(self, **args):
-        from jsk.adapters.cli.compose import render
+        from jsk.adapters.compose import render
 
         with mock.patch.object(render, "compile_pdf", fake_compile()):
             return self.call("resume_render", target=TARGET, **args)
@@ -130,7 +130,7 @@ class Render(Rendering):
         self.assertNotIn("drafts/two/stray.txt", third["wrote"])
 
     def test_a_target_that_is_nothing_fails_and_wrote_nothing(self):
-        from jsk.adapters.cli.compose import render
+        from jsk.adapters.compose import render
 
         with mock.patch.object(render, "compile_pdf", fake_compile()):
             got = self.call("resume_render", target="nonesuch/at/all")
@@ -146,7 +146,7 @@ class Render(Rendering):
 
 class Preview(Rendering):
     def test_every_template_is_listed_under_the_out_directory(self):
-        from jsk.adapters.cli.compose import preview
+        from jsk.adapters.compose import preview
 
         with mock.patch.object(preview, "compile_pdf", fake_compile()), \
                 mock.patch.object(preview, "available_engine", lambda: "fake"):
@@ -167,7 +167,7 @@ class Preview(Rendering):
 class Fit(Rendering):
     def fitted(self, fits_at, **args):
         """A render that is 3 pages long, then the fit, with TeX faked on both sides."""
-        from jsk.adapters.cli.compose import fit, render
+        from jsk.adapters.compose import fit, render
 
         fake = margin_compile(fits_at)
         with mock.patch.object(render, "compile_pdf", fake), \
@@ -204,7 +204,7 @@ class Fit(Rendering):
         self.assertEqual(got["wrote"], [])
 
     def test_the_default_budget_is_the_commands_two_pages(self):
-        from jsk.adapters.cli import fit
+        from jsk.adapters.entry import fit
 
         self.assertEqual(fit.parse(["x.tex"]).target_pages, 2)
 

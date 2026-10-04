@@ -368,7 +368,7 @@ class GatesReadingOrder(GatesCase):
 
     def bullets(self):
         """The plan's own text, its bullets in the order they render."""
-        from jsk.adapters.cli.compose.gates import plan_text
+        from jsk.adapters.compose.gates import plan_text
 
         lines = [l for l in plan_text(str(self.record)).split("\n") if l.strip()]
         return lines, [i for i, l in enumerate(lines) if l.strip().startswith("- ")]

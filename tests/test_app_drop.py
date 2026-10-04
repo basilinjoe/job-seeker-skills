@@ -10,7 +10,7 @@ application, sent or held back, is refused with nothing changed, the fix saying 
 archive. A removal the workspace would not validate without is refused with nothing changed.
 `dry_run` names everything it would remove and move, and changes nothing. A path that is no
 application - no folder and no graph - is a call made wrongly, exit 2. The tool calls
-adapters/cli/drop.main, so the tests call it the same way (recordkit.drop) and read what it
+adapters/entry/drop.main, so the tests call it the same way (recordkit.drop) and read what it
 printed; `jsk app drop` itself is retired and exits 2 naming the tool (tests/test_retired.py).
 """
 import shutil
@@ -152,7 +152,7 @@ class FileMade(unittest.TestCase):
         self.assertEqual(snapshot(self.root), before)
 
     def test_called_wrong_is_exit_two(self):
-        from jsk.adapters.cli import drop
+        from jsk.adapters.entry import drop
         from jsk.adapters.mcp import captured
 
         self.assertEqual(captured.called(self.root, drop.main, [])[0], 2)

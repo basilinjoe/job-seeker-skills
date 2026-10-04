@@ -76,8 +76,8 @@ class Usage(unittest.TestCase):
         self.assertEqual(code, 2, out)
         for pointer in ("assessment_derive", "career_view"):
             self.assertIn(pointer, out)
-        from jsk import cli
-        self.assertNotIn("index", cli.NOUNS)
+        from jsk.adapters.cli.main import NOUNS
+        self.assertNotIn("index", NOUNS)
 
     def test_jsk_migrate_is_retired_and_says_what_replaced_it(self):
         """It moved a user-knowledgebase.md to career/kb.ttl. The Markdown format is not
@@ -88,8 +88,8 @@ class Usage(unittest.TestCase):
         self.assertIn("jsk migrate was retired", out)
         for pointer in ("jsk kb new", "resume_select"):
             self.assertIn(pointer, out)
-        from jsk import cli
-        self.assertNotIn("migrate", cli.NOUNS)
+        from jsk.adapters.cli.main import NOUNS
+        self.assertNotIn("migrate", NOUNS)
 
     def test_unknown_subcommand_names_the_real_ones(self):
         code, out = run(JSK, "frobnicate")
@@ -162,10 +162,10 @@ class InProcessDispatch(unittest.TestCase):
         """argparse's --help exits by raising SystemExit(0), and a bare sys.exit()
         raises it with None. Both are exit 0 from a child interpreter, and reading
         None as a failure would turn `jsk fit --help` into one."""
-        from jsk import cli
+        from jsk.adapters.entry.dispatch import call_gate
         fake = mock.Mock(main=mock.Mock(side_effect=SystemExit(None)))
         with mock.patch("importlib.import_module", return_value=fake):
-            code, _ = cli.call_gate("kb.py", [])
+            code, _ = call_gate("kb.py", [])
         self.assertEqual(code, 0)
 
     def test_fit_help_still_names_its_own_program(self):
@@ -199,7 +199,7 @@ class PreviewInProcess(unittest.TestCase):
         self.out = self.tmp / "looks"
 
     def preview(self, compile_pdf):
-        from jsk.adapters.cli.compose import preview
+        from jsk.adapters.compose import preview
         with mock.patch.object(preview, "available_engine",
                                return_value="fake"), \
                 mock.patch.object(preview, "compile_pdf", compile_pdf), \
@@ -266,7 +266,7 @@ class ParseFlags(unittest.TestCase):
     """The one argument parser every hand-written entry point shares."""
 
     def parse(self, *args, **kinds):
-        from jsk.adapters.cli.cliutil import parse_flags
+        from jsk.adapters.entry.cliutil import parse_flags
         return parse_flags(list(args), kinds.pop("values", ()), **kinds)
 
     def test_an_unknown_flag_is_refused_by_name(self):

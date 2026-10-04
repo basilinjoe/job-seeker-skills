@@ -10,7 +10,7 @@ from pathlib import Path
 import jsk
 from jsk.infra import files
 from jsk.infra.oxigraph import codec
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 from jsk.domain.record import writer
 from jsk.domain import ontology as O
 

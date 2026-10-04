@@ -128,7 +128,7 @@ and `2026-10-04-mcp-first.md`): `career_view`, `career_show`, `career_query`, `c
 `resume_ship`, `letter_check`, `app_freeze`, `app_event` and `app_drop`, beside the posting and
 assessment tools. Each tool takes as named arguments the flags its command took, and carries the
 gate's verdict line, word for word, in `verdict`: tests pin that text. The argv entry points of the
-retired commands (`adapters/cli/{resume,render,preview,fit,drop}.py`, `kb/read.py`'s `cmd_check`,
+retired commands (`adapters/entry/{resume,render,preview,fit,drop}.py`, `kb/read.py`'s `cmd_check`,
 `kb/draft.py`) stay as internal API, called through `adapters/mcp/captured.py`, so no second
 reading of a flag can drift from the first.
 
@@ -153,7 +153,7 @@ No copy of the content is written: the PDF and `.tex` beside it are the words se
 an archive: later events are added with `app_event`, never edited.
 
 Every command and every tool runs **in process**. The dispatcher, `adapters/cli/main.py`, finds the noun's verb in
-its noun table and either calls the handler there or has `adapters/cli/dispatch.py` import the
+its noun table and either calls the handler there or has `adapters/entry/dispatch.py` import the
 adapter behind it and call its `main()` with the same arguments, so the output and the exit code
 are the adapter's own and nothing is paraphrased on the way through. A tool does the same through
 `adapters/mcp/captured.py`, which runs a documented script name or an entry point inside the workspace and
@@ -171,7 +171,7 @@ reported failure instead of a traceback.
 | `domain/resume/short.py` · `application/render/load_resume.py` | the short file: parsed (a legacy URS record refused, naming `resume_select`), its workspace (by `infra.files.find_root`, never `dirname`), `shape` and `ids` - the FAIL lines the record gate and the builder share |
 | `domain/record/career.py` | reading the career graph: `Career`, employers and their roles by date, periods. Shared with export, select and match |
 | `domain/resume/plan.py` | *what* the document says: `build(store, doc, ...)` returns the plan |
-| `adapters/cli/compose/resume.py` | the file read from disk, its workspace found and its career loaded; `from_path(path)` reads, checks and builds under the shipped region profiles |
+| `adapters/compose/resume.py` | the file read from disk, its workspace found and its career loaded; `from_path(path)` reads, checks and builds under the shipped region profiles |
 
 ### The render plan
 
@@ -201,8 +201,8 @@ Everything after the plan, and the three tools that drive it.
 | `infra/profiles.py` | region profile loading |
 | `domain/render/emit_*.py` | markup only |
 | `domain/render/themes.py` | *appearance* only: palette, typeface, rhythm. Below `emit_latex.py`, and it cannot reach the text |
-| `application/render/` · `adapters/cli/{render,preview,fit}.py` | the entry points behind `resume_render`, `resume_preview` and `resume_fit`: the use cases orchestrate the modules above and decide nothing themselves; the adapters parse and print |
-| `adapters/cli/compose/{render,preview,fit}.py` | each entry point's TeX engine, bound where a test's patch of `compile_pdf` reaches it |
+| `application/render/` · `adapters/entry/{render,preview,fit}.py` | the entry points behind `resume_render`, `resume_preview` and `resume_fit`: the use cases orchestrate the modules above and decide nothing themselves; the adapters parse and print |
+| `adapters/compose/{render,preview,fit}.py` | each entry point's TeX engine, bound where a test's patch of `compile_pdf` reaches it |
 
 The render reaches the career only through `compose.resume`, lazily. `formatting.py` holds
 pure functions over single values — no profile, no career — which is what makes them testable in
@@ -227,7 +227,7 @@ without the engine and `jsk doctor` can report on it.
 | `infra/oxigraph/db.py` | the record on disk: one RocksDB store per workspace at `career/store/`, a named graph per record, the writers' turn (a blocking OS lock), one update per write, dump and parse. The only module that opens the store |
 | `infra/legacy_import.py` | a workspace still laid out as `.ttl` files, read once for `jsk kb load` - validated as before, numbers kept as the store keeps them and each rewrite reported |
 | `infra/oxigraph/record.py` | **the write gate**: revision and log entry (`prepared`), `state` (clean, out-of-sync, missing - and, for the files the import reads, hand-edited, torn and unlogged), `turn` - the writer's turn, taken before a writing command reads the record, and before it asks whether a store exists - `unrecorded` (is the career what the log's newest `kbSha256` hashed: `career_check` and a dump's load ask it) and `write_graphs`: every touched graph in one `db.replace_graphs`, then `.jsk/backup.trig`; a failure after the update landed is `Written`, never "nothing was changed". The only caller of `replace_graphs` |
-| `domain/record/changeset.py` · `edit.py` · `adapters/cli/kb/` | `jsk kb` and the `career_*` tools: a changeset read and refused or merged, and every verb over the record. `changeset.numbers_as_kept` refuses a number the store would rewrite (`8.40`) - in changesets and the dumps `jsk kb load` reads; not a rule id, since the import rewrites and lists them instead |
+| `domain/record/changeset.py` · `edit.py` · `adapters/entry/kb/` | `jsk kb` and the `career_*` tools: a changeset read and refused or merged, and every verb over the record. `changeset.numbers_as_kept` refuses a number the store would rewrite (`8.40`) - in changesets and the dumps `jsk kb load` reads; not a rule id, since the import rewrites and lists them instead |
 | `domain/record/pack.py` · `merge.py` | `career_pack` (the capability starter pack) and `career_merge` (two concepts that are one), each drafted as a changeset and never applied |
 | `domain/matching/` · `application/record/queries.py` · `application/tailor/match_posting.py` | the vocabulary and the named questions; the match `assessment_derive` runs |
 | `domain/matching/scoring.py` | the numbers the match ranks by: seniority order, the requirement weights, recency points, months of experience. Standard library only |
@@ -237,7 +237,7 @@ without the engine and `jsk doctor` can report on it.
 | `domain/record/view.py` · `application/timeline/` | `career_view`; `app_freeze`'s application graph, `app_event` and `app_drop` |
 
 The real ports are bound to these use cases in one place, the composition root
-`adapters/cli/compose/`: the load over `career/store/` and the engine, the match and the
+`adapters/compose/`: the load over `career/store/` and the engine, the match and the
 selection over the engine's feature reads, an application's folder and its graphs.
 
 **Its boundaries.** Only `infra/oxigraph/db.py` opens `career/store/`, and only
@@ -474,45 +474,46 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     oxigraph/applications.py        an application's folder and its graphs in career/store/, read and written
   adapters/                         ring 5, outermost: argv parsed, the real ports bound, a use case run, its result printed
     cli/main.py                     the dispatcher: three nouns, each verb run in process, the retired names and the tool each points at
-    cli/dispatch.py                 a verb's adapter found (ADAPTERS) and its main() called, contained
-    cli/cliutil.py                  one contract for --help and flags across the commands; a finding list printed
-    cli/presenters.py               what the kb verbs print alike: a refusal, findings, a usage error, a table
     cli/doctor.py                   `jsk doctor`: the preflight, then the record's store
-    cli/resume.py                   the entry point `resume_check` calls: the gates its target calls for, by its kind
-    cli/render.py                   the entry point `resume_render` calls: its flags, the render run, what it wrote said
-    cli/preview.py                  the entry point `resume_preview` calls: its flags, every template previewed, the pages said
-    cli/fit.py                      the entry point `resume_fit` calls: its flags, the fit run, each lever and the verdict said
-    cli/ship.py                     the entry point `resume_ship` calls: its flags and refusals, each step captured, the summary
-    cli/drop.py                     the entry point `app_drop` calls: its flags, the clock read once, what was removed and moved said
-    cli/kb/__init__.py              `jsk kb`: the verb table (new, load and dump, with check, pack and merge for the tools), its flags, the clock read once, and the dispatch
-    cli/kb/read.py                  the entry point `career_check` calls: the record's rules, run and printed
-    cli/kb/write.py                 `refused`: the refusal every writing verb prints
-    cli/kb/draft.py                 the entry points `career_pack` and `career_merge` call: the drafted changeset printed or written
-    cli/kb/load.py                  `jsk kb load` and `dump`: the record in, and out as TriG
-    cli/kb/new.py                   `jsk kb new`: its flags, the workspace scaffolded, what was written
-    cli/gates/__init__.py           the gates' commands, one module a gate
-    cli/gates/check.py              `resume_check` on each target kind: each gate contained, the summary
-    cli/gates/present.py            the count line, findings and verdict every gate prints alike
-    cli/gates/record.py             the record gate (`resume_check` on a target): its flags, the gate run, its verdict
-    cli/gates/short.py              the short file's own check of a selection: its shape and ids, PASS or FAIL
-    cli/gates/ats.py                the parse gate: its flags, the gate run, its verdict said
-    cli/gates/prose.py              the prose gate: its flags, the gate run, its verdict said
-    cli/gates/layout.py             the layout gate: its flags, the gate run, its verdict said
-    cli/gates/terms.py              the terms gate: its flags, the gate run, its verdict said
-    cli/gates/letter.py             the letter check, run by the `letter_check` tool: its check run, its verdict said
-    cli/compose/__init__.py         the composition root: the real ports bound to the use cases, one module per area
-    cli/compose/record.py           a workspace loaded over career/store/ and the engine; a changeset read
-    cli/compose/match.py            the match and the selection, each asked of the engine's feature reads
-    cli/compose/tailor.py           the short file's form and the derived assessment, bound
-    cli/compose/resume.py           a target's selection read, its workspace found, its career loaded, its plan built
-    cli/compose/render.py           `resume_render`'s TeX engine and PDF reader; the posting's employer
-    cli/compose/preview.py          `resume_preview`'s TeX engine, looked up where a test patches it
-    cli/compose/fit.py              `resume_fit`'s TeX engine, looked up where a test patches it
-    cli/compose/gates.py            the gates' career reads and its log's state bound; a selection's region and budget
-    cli/compose/timeline.py         an application's record bound to the store on disk: frozen, sent, the freeze and an event, for the CLI and the tools
-    cli/compose/native.py           a graph-native application's use cases bound, each write in its own turn
-    cli/compose/career.py           the kb verbs' reads and logged writes as values, unprinted: what the MCP tools return
-    cli/compose/selection.py        a selection's use cases bound; a target named on the command line; a ship by target
+    entry/__init__.py               the argv entry points both doors run, by documented script name; they print and the tools wrap it
+    entry/dispatch.py               a verb's adapter found (ADAPTERS) and its main() called, contained
+    entry/cliutil.py                one contract for --help and flags across the commands; a finding list printed
+    entry/presenters.py             what the kb verbs print alike: a refusal, findings, a usage error, a table
+    entry/resume.py                 the entry point `resume_check` calls: the gates its target calls for, by its kind
+    entry/render.py                 the entry point `resume_render` calls: its flags, the render run, what it wrote said
+    entry/preview.py                the entry point `resume_preview` calls: its flags, every template previewed, the pages said
+    entry/fit.py                    the entry point `resume_fit` calls: its flags, the fit run, each lever and the verdict said
+    entry/ship.py                   the entry point `resume_ship` calls: its flags and refusals, each step captured, the summary
+    entry/drop.py                   the entry point `app_drop` calls: its flags, the clock read once, what was removed and moved said
+    entry/kb/__init__.py            `jsk kb`: the verb table (new, load and dump, with check, pack and merge for the tools), its flags, the clock read once, and the dispatch
+    entry/kb/read.py                the entry point `career_check` calls: the record's rules, run and printed
+    entry/kb/write.py               `refused`: the refusal every writing verb prints
+    entry/kb/draft.py               the entry points `career_pack` and `career_merge` call: the drafted changeset printed or written
+    entry/kb/load.py                `jsk kb load` and `dump`: the record in, and out as TriG
+    entry/kb/new.py                 `jsk kb new`: its flags, the workspace scaffolded, what was written
+    entry/gates/__init__.py         the gates' commands, one module a gate
+    entry/gates/check.py            `resume_check` on each target kind: each gate contained, the summary
+    entry/gates/present.py          the count line, findings and verdict every gate prints alike
+    entry/gates/record.py           the record gate (`resume_check` on a target): its flags, the gate run, its verdict
+    entry/gates/short.py            the short file's own check of a selection: its shape and ids, PASS or FAIL
+    entry/gates/ats.py              the parse gate: its flags, the gate run, its verdict said
+    entry/gates/prose.py            the prose gate: its flags, the gate run, its verdict said
+    entry/gates/layout.py           the layout gate: its flags, the gate run, its verdict said
+    entry/gates/terms.py            the terms gate: its flags, the gate run, its verdict said
+    entry/gates/letter.py           the letter check, run by the `letter_check` tool: its check run, its verdict said
+    compose/__init__.py             the composition root: the real ports bound to the use cases, one module per area
+    compose/record.py               a workspace loaded over career/store/ and the engine; a changeset read
+    compose/match.py                the match and the selection, each asked of the engine's feature reads
+    compose/tailor.py               the short file's form and the derived assessment, bound
+    compose/resume.py               a target's selection read, its workspace found, its career loaded, its plan built
+    compose/render.py               `resume_render`'s TeX engine and PDF reader; the posting's employer
+    compose/preview.py              `resume_preview`'s TeX engine, looked up where a test patches it
+    compose/fit.py                  `resume_fit`'s TeX engine, looked up where a test patches it
+    compose/gates.py                the gates' career reads and its log's state bound; a selection's region and budget
+    compose/timeline.py             an application's record bound to the store on disk: frozen, sent, the freeze and an event, for the CLI and the tools
+    compose/native.py               a graph-native application's use cases bound, each write in its own turn
+    compose/career.py               the kb verbs' reads and logged writes as values, unprinted: what the MCP tools return
+    compose/selection.py            a selection's use cases bound; a target named on the command line; a ship by target
     mcp/__init__.py                 `jsk mcp`: stdlib only, so a plain install names the missing extra and exits 2
     mcp/acts.py                     app_freeze, app_event and letter_check: the person's acts as tools, granted to no agent
     mcp/captured.py                 an entry point or a documented script run inside the workspace, its output a tool's answer
@@ -589,7 +590,7 @@ one further out:
 | `ports` | what the application needs from outside, as `typing.Protocol`s | import anything but `typing`, `dataclasses` and `datetime`. Nothing imports a port at run time |
 | `application` | one use case per command: the ports as parameters, a result out, nothing printed | import infra or an adapter |
 | `infra` | the real ports: the store, the engine, the disk, TeX, pymupdf, the network | import an adapter |
-| `adapters` | argv parsed, the real ports bound to the use cases (`adapters/cli/compose/`), the clock read once, the result printed | - |
+| `adapters` | argv parsed, the real ports bound to the use cases (`adapters/compose/`), the clock read once, the result printed | - |
 
 A function that needs the engine, a file or today's date takes it as a parameter, and the
 adapter passes the real one in. Only the package itself may be imported from no ring, and only
@@ -616,7 +617,7 @@ after what they have in common. The packages that came before the rings - `graph
 `resume/` and `gates/` - are gone; their modules are in the rings (see "across the rings"
 above), and `gates/` was split the way the test said it should be, the rules into `domain/gates/`
 and the runners into `application/gates/`, with the career's reads bound in
-`adapters/cli/compose/gates.py`.
+`adapters/compose/gates.py`.
 
 ## Where do I change X
 
@@ -646,9 +647,9 @@ and the runners into `application/gates/`, with the career's reads bound in
 | What an agent may do | `plugins/jsk/agents/<name>.md`: its body, and its `tools:` naming each tool in full (`mcp__plugin_jsk_graph__<tool>`), never the wildcard | the delegation note in every mode that calls it, the Agents table in `SKILL.md`, the agent table above; `AgentGrants` in `tests/test_agent_grants.py` |
 | Add a mode | a new `references/mode-<name>.md` | routing table in `SKILL.md`, a `commands/<name>.md` |
 | Where a new module goes, or what a ring may import | its path under `src/jsk/<ring>/`; the ring rules and `ROOT_ADAPTERS` / `ROOT_INFRA` in `tests/test_layers.py` | "What is a ring" above; a line in the repo layout, or `tests/test_plugin_surface.py` fails |
-| What a use case needs from outside | a Protocol in `src/jsk/ports/`, its implementation in `src/jsk/infra/` | bound to the use case in `src/jsk/adapters/cli/compose/`, the one composition root; a test passes a fake |
+| What a use case needs from outside | a Protocol in `src/jsk/ports/`, its implementation in `src/jsk/infra/` | bound to the use case in `src/jsk/adapters/compose/`, the one composition root; a test passes a fake |
 | A command (one of the five) | `src/jsk/adapters/cli/main.py` (the noun table) | the help docstring in the same file, the command table in `SKILL.md`, `docs/SCRIPTS.md` — all three pinned by `tests/test_plugin_surface.py`. A new everyday action is a tool, not a command (Ruling 1 of `docs/superpowers/plans/2026-10-04-mcp-first.md`) |
-| A tool the career or an application is read or changed through | `src/jsk/adapters/mcp/server.py` (`acts.py` for a person's act, `rendering.py` for a resume's files, `upkeep.py` for checking the workspace and `app_drop`), calling `adapters/cli/compose/` | the agent's `tools:` line if one may hold it (never `career_confirm` or `app_drop`), the tool list in `SKILL.md`, `tests/test_agent_grants.py`, `tests/test_mcp_*.py` |
+| A tool the career or an application is read or changed through | `src/jsk/adapters/mcp/server.py` (`acts.py` for a person's act, `rendering.py` for a resume's files, `upkeep.py` for checking the workspace and `app_drop`), calling `adapters/compose/` | the agent's `tools:` line if one may hold it (never `career_confirm` or `app_drop`), the tool list in `SKILL.md`, `tests/test_agent_grants.py`, `tests/test_mcp_*.py` |
 | Retiring a verb | `RETIRED` (or `RETIRED_NOUNS`) in `adapters/cli/main.py`, naming the tool or form that replaces it | the retirement tables in `docs/SCRIPTS.md` and the 6.0 notes in `README.md`, `tests/test_retired.py`; it exits 2 and writes nothing |
 
 ## What is frozen

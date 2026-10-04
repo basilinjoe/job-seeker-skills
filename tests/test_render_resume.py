@@ -25,7 +25,7 @@ from pathlib import Path
 import careerkit
 from fixtures import (RENDER, RENDER_RESUME, example_short, gate,
                       load_script, render_module, run)
-from jsk.adapters.cli.compose import resume
+from jsk.adapters.compose import resume
 from test_build import LEAD_TITLE, BuildCase, short
 
 emit_latex = render_module("domain.render.emit_latex")
@@ -157,7 +157,7 @@ class RenderedFilesPassTheGates(unittest.TestCase):
 
     def test_plain_text_is_ascii_only(self):
         """The text the gates read is the paste-in stream: ASCII whatever the PDF holds."""
-        from jsk.adapters.cli.compose.gates import plan_text
+        from jsk.adapters.compose.gates import plan_text
 
         text = plan_text(str(example_short()))
         self.assertTrue(text.strip())
@@ -251,7 +251,7 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
 
     def test_a_failed_compile_exits_nonzero_and_says_unverified(self):
         module = load_script(RENDER_RESUME)
-        bound = load_script("jsk.adapters.cli.compose.render")
+        bound = load_script("jsk.adapters.compose.render")
         buf = io.StringIO()
         # Patched, not assigned: RENDER runs in this interpreter now (it ran in a child until
         # 2026-10-04), so a stub left on the module would fail every compile after this one.

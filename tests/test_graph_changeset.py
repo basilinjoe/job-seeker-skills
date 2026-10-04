@@ -2,7 +2,7 @@
 without the career in front of it."""
 import unittest
 
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 from jsk.domain.record import changeset
 from jsk.domain.record.parsed import GraphError
 

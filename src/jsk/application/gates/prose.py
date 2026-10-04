@@ -2,7 +2,7 @@
 
 The rules are domain/gates/prose_rules.py's. This decides which reader a document gets -
 the .tex its PDF was compiled from, or the plain-text variant - and what a document that
-will not read is. It prints nothing: adapters/cli/gates/prose.py says what it found.
+will not read is. It prints nothing: adapters/entry/gates/prose.py says what it found.
 """
 import os
 from dataclasses import dataclass

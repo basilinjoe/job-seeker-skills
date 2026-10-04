@@ -1,0 +1,184 @@
+"""The gates' ports, bound: the career's feature reads (infra.oxigraph.queries), its standing
+with its log (infra.oxigraph.record.state, looked up there at each call, where a test
+patches it), the clock for a caller that has not read it, and a resume.json's plan.
+
+The checks are application/gates/'s; each function here keeps the signature its callers
+use, with a loaded Store in place of the ports. Nothing is imported until a call.
+"""
+import datetime
+
+
+def untraced(store, bullets):
+    """[Fault] for the `bullets` whose words state a number the career's metrics do not hold.
+
+    Args:
+        store: a loaded workspace (compose.record.load).
+        bullets: achievement iris, in order.
+
+    Returns:
+        application.gates.numbers.untraced over the store's queries. Runs two SELECTs.
+    """
+    from ...application.gates.numbers import untraced as traced
+    from ...infra.oxigraph.queries import OxigraphQueries
+
+    return traced(OxigraphQueries(store), bullets)
+
+
+def facts(store):
+    """(text, cites, versions) of a loaded workspace, as application.gates.numbers.facts
+    reads them.
+
+    Args:
+        store: a loaded workspace (compose.record.load).
+
+    Returns:
+        Each bullet's words, the metrics it cites, and each metric's versions as
+        (version, {numbers}, closed day or None). Runs two SELECTs.
+    """
+    from ...application.gates.numbers import facts as read
+    from ...infra.oxigraph.queries import OxigraphQueries
+
+    return read(OxigraphQueries(store))
+
+
+def findings(doc, store, today=None, target=None):
+    """(fails, warns): every finding for a short file - a dict, or a path to one - over a
+    loaded workspace (application.gates.record.findings).
+
+    Args:
+        doc: the resume.json, as a dict or its path.
+        store: a loaded workspace.
+        today: the date the years claims are measured to; by default today.
+        target: a graph-native selection's name, or None for a file.
+
+    Returns:
+        The FAIL and WARN lines. Reads the file when given its path.
+
+    Raises:
+        ShortError: a path that will not read as a resume.json.
+    """
+    from ...application.gates.record import findings as found
+    from ...infra.oxigraph import record as R
+    from ...infra.oxigraph.queries import OxigraphQueries
+    from .resume import read
+
+    today = today or datetime.date.today()
+    if not isinstance(doc, dict):
+        doc = read(doc)
+    return found(doc, store, today, queries=OxigraphQueries(store), state=R.state,
+                 target=target)
+
+
+def number_lines(text, doc, store, posting=None, today=None):
+    """FAIL lines for each numeral in a letter the application cannot stand on
+    (application.gates.letter.number_lines).
+
+    Args:
+        text: the letter's body.
+        doc: the target's selection, as a dict.
+        store: the loaded workspace.
+        posting: the advert's stored lines, or None.
+        today: the date the years claims are measured to; by default today.
+
+    Returns:
+        The FAIL lines. Runs the store's SELECTs.
+    """
+    from ...application.gates.letter import number_lines as lines
+    from ...infra.oxigraph import record as R
+    from ...infra.oxigraph.queries import OxigraphQueries
+
+    return lines(text, doc, store, posting, today or datetime.date.today(),
+                 queries=OxigraphQueries(store), state=R.state)
+
+
+def posting_terms(record):
+    """(title, [(asked, necessity, other names)]) of the posting in the application
+    directory holding `record`, or None when that directory holds none - a resume.json
+    outside applications/, or one whose workspace will not load, has nothing to cover.
+
+    The other names are the labels of the concepts each requirement resolves to, as `jsk
+    tailor match` resolves it - the analyst's concept, else the term's own labels: the
+    career's words for the thing the posting asked by its own (application.gates.terms).
+
+    Args:
+        record: the resume.json, or a graph-native target's ref - whose directory is the
+            application's, so its posting is found the same way.
+
+    Returns:
+        The posting's terms, or None. Loads the workspace.
+    """
+    import os
+
+    from ...domain.resume.short import ShortError
+    from ...infra.oxigraph.queries import OxigraphQueries
+    from .match import posting_in
+    from .resume import career, workspace
+
+    try:
+        store = career(workspace(record))
+    except ShortError:
+        return None
+    post = posting_in(store, os.path.dirname(os.path.abspath(record)))
+    if post is None:
+        return None
+    from ...domain.matching.resolve import match
+
+    queries = OxigraphQueries(store)
+    labels = {}
+    for concept, label in queries.label_pairs():
+        labels.setdefault(concept, []).append(label)
+    title = queries.posting_head(post)[1]
+    return title, [(m.requirement.asked, m.requirement.necessity,
+                    [l for c in m.resolution.concepts for l in labels.get(c, [])])
+                   for m in match(queries, post).values()]
+
+
+def plan_text(record):
+    """The plain text the render of `record` holds, emitted in memory from its plan.
+
+    The plaintext variant's plan through domain.render.emit_text: the same plan as the .tex,
+    ASCII-folded whatever the PDF holds. It replaces the `_ATS.txt` a render used to write
+    (Ruling 23 of the graph-native plan), so the parse and terms gates read the plan itself.
+
+    Args:
+        record: the resume.json.
+
+    Returns:
+        The text. Reads the file and loads the career.
+
+    Raises:
+        ShortError: the resume.json will not load or build - its `fix` says what to do.
+    """
+    from ...domain.render import emit_text
+    from ...domain.render.targets import TEXT_VARIANT
+    from ...domain.resume.short import ShortError
+    from .resume import from_path
+
+    try:
+        plan, _ = from_path(record, fmt=TEXT_VARIANT)
+    except KeyError as exc:
+        # What the builder raises for an id the career does not hold, as render reports it.
+        raise ShortError(f"{record}: the plan would not build: {exc}",
+                         f"resume_check({record}) names what is wrong") from None
+    return emit_text.emit(plan)
+
+
+def from_record(record, pdf):
+    """The region and page budget the render of `pdf` was built with, from its resume.json.
+
+    Args:
+        record: the resume.json.
+        pdf: the rendered PDF, whose metadata names its variant.
+
+    Returns:
+        (region, page budget, None) from the plan, or (None, None, why) when the record
+        would not build - reported, never fatal.
+    """
+    from ...infra.pdf import variant_of
+    from .resume import from_path
+
+    try:
+        plan, _ = from_path(record, fmt=variant_of(pdf))
+    except Exception as exc:                       # noqa: BLE001 - reported, never fatal
+        return None, None, f"{type(exc).__name__}: {exc}"
+    return plan.get("region"), plan.get("pages"), None

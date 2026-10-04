@@ -11,7 +11,7 @@ import storekit
 from test_graph_changeset import PFX
 from test_graph_shapes import FIXTURES, load
 
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 from jsk.domain.record import edit
 from jsk.domain import ontology as O
 from jsk.domain.record.changeset import Refused

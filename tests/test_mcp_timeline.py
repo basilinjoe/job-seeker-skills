@@ -36,7 +36,7 @@ class Shipped(Served):
 
     def setUp(self):
         import shipkit
-        from jsk.adapters.cli.compose import native, render
+        from jsk.adapters.compose import native, render
         from jsk.adapters.mcp import server, session
 
         super().setUp()
@@ -69,7 +69,7 @@ class Shipped(Served):
 
 class Freeze(Shipped):
     def test_a_freeze_renames_moves_five_graphs_and_reports_the_canonical_hash(self):
-        from jsk.adapters.cli.compose import selection
+        from jsk.adapters.compose import selection
         from jsk.domain.resume.selection import canonical
 
         doc = selection.read(self.root, STEM)

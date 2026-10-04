@@ -35,7 +35,7 @@ def inside(root):
 def ran(root, script, args):
     """(exit code, everything it printed) of a documented script's main(), run inside `root`
     through dispatch.call_gate, which reports an import failure or a raise as exit 2."""
-    from ..cli.dispatch import call_gate
+    from ..entry.dispatch import call_gate
 
     with inside(root):
         return call_gate(script, [str(a) for a in args])
@@ -43,7 +43,7 @@ def ran(root, script, args):
 
 def called(root, fn, args):
     """(exit code, everything it printed) of `fn(args)`, run inside `root`: for an entry point
-    with no documented script name (adapters/cli/resume.cmd_resume_check). An argparse exit is
+    with no documented script name (adapters/entry/resume.cmd_resume_check). An argparse exit is
     its exit code; any other raise reaches Tools.call, which reports it as a FAIL.
 
     Args:

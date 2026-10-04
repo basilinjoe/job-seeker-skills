@@ -16,7 +16,7 @@ DROPPED.txt saying when, why and what left the store. A move that fails after th
 written leaves a folder with no graphs, which running the command again moves: the second
 run finds nothing to remove and finishes the first.
 
-It prints nothing: adapters/cli/drop.py says what it did. The clock is read by the adapter
+It prints nothing: adapters/entry/drop.py says what it did. The clock is read by the adapter
 and handed in as `today`.
 """
 import os

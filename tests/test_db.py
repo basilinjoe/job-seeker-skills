@@ -365,7 +365,7 @@ class TurnBeforeTheStore(unittest.TestCase):
     must not both find none. Each takes its turn with no store yet, and asks inside it."""
 
     FIRST = """
-        from jsk.adapters.cli.kb import new as kb
+        from jsk.adapters.entry.kb import new as kb
         from jsk.infra.oxigraph import db
         with db.write_turn(root):
             print('got', flush=True)

@@ -10,10 +10,10 @@ import unittest
 from pathlib import Path
 
 from jsk.domain.assessment import derive
-from jsk.adapters.cli.compose import tailor
-from jsk.adapters.cli.compose import match
+from jsk.adapters.compose import tailor
+from jsk.adapters.compose import match
 from jsk.domain import ontology as O
-from jsk.adapters.cli.compose import record
+from jsk.adapters.compose import record
 
 FIXTURES = Path(__file__).parent / "match_fixtures"
 TODAY = datetime.date(2026, 9, 24)

@@ -4,7 +4,7 @@ Nothing here decides anything about the document: each template is rendered by
 render_resume.render_loaded from the one loaded resume.json and region, so the only
 variable is the look. The .tex files are written one after another; the TeX compiles,
 which are external processes and nearly all of the time, run side by side. It prints
-nothing: adapters/cli/preview.py says what it did.
+nothing: adapters/entry/preview.py says what it did.
 """
 import contextlib
 import os

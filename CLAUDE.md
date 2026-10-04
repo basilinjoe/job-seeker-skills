@@ -68,8 +68,9 @@ The domain has extra limits:
 - no Store;
 - from pyoxigraph, only term classes such as `NamedNode` and `Literal`, imported inside functions.
 
-Ports are `typing.Protocol`s. Infra implements them. `adapters/cli/compose/` is the one composition root: it binds
-real ports to use cases and reads the clock once. Root modules `cli.py`, `__main__.py` and `preflight.py` count as
+Ports are `typing.Protocol`s. Infra implements them. `adapters/compose/` is the one composition root: it binds
+real ports to use cases and reads the clock once, for both doors (`adapters/cli/`, the `jsk` command, and
+`adapters/mcp/`, the tools); `adapters/entry/` holds the argv entry points they both run. Root modules `cli.py`, `__main__.py` and `preflight.py` count as
 adapters, and `paths.py` counts as infra.
 
 **The render plan is the narrow waist.** `domain/resume/plan.py` builds the plan once from the career plus a target's
@@ -110,7 +111,7 @@ not the others is a defect.
 `docs/superpowers/plans/2026-10-04-mcp-first.md`), and its old command exits 2 naming the tool. What stays is
 `jsk doctor`, `jsk kb new`, `jsk kb load`, `jsk kb dump` and `jsk mcp`, because each has to work when the server
 cannot start or no session is running. Dispatch is in-process: `adapters/cli/main.py` holds the noun table, and
-`adapters/cli/dispatch.py`'s `ADAPTERS` maps each verb to its adapter's `main()`. A tool reaches the same entry
+`adapters/entry/dispatch.py`'s `ADAPTERS` maps each verb to its adapter's `main()`. A tool reaches the same entry
 points through `adapters/mcp/captured.py`, so the `resume_ship` tool runs every gate (record, then render, then
 parse, prose and layout) in one interpreter, and a verdict line is the text the tests pin, word for word.
 

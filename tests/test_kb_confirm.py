@@ -223,7 +223,7 @@ class ConfirmSummary(Workspace):
         careerkit.select(self.root, doc, "globex")
 
     def doc(self):
-        from jsk.adapters.cli.compose import selection
+        from jsk.adapters.compose import selection
 
         return selection.read(str(self.root), self.TARGET)
 
@@ -282,7 +282,7 @@ class ConfirmHeadline(Workspace):
         careerkit.select(self.root, doc, "globex")
 
     def test_the_headline_is_confirmed_beside_its_answer(self):
-        from jsk.adapters.cli.compose import selection
+        from jsk.adapters.compose import selection
         from jsk.domain.resume import short
 
         code, out = self.confirm(target=self.TARGET, block="headline",

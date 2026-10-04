@@ -16,7 +16,7 @@ Choosing is three steps, because the command says what each found before the nex
 refuse: the career is opened and checked (`opened`), the selection is made for a posting,
 by rank or not at all (`selection`), and the short file is formed from it with the
 numbers its bullets state checked (`short`). Nothing here prints or writes:
-adapters/cli/kb/export.py prints, and application/render/selection.py stores. `write`, which
+adapters/entry/kb/export.py prints, and application/render/selection.py stores. `write`, which
 wrote the file for `--out`, went in 6.0 with that flag
 (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2).
 

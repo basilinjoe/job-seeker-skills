@@ -3,7 +3,7 @@
 The rule this serves is docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md, Ruling 6:
 `jsk kb apply|confirm|show|view|query|log` and `jsk app freeze|event` and `jsk letter check`
 were retired, so a test of what they did calls what the career_*, app_* and letter_check
-tools call - adapters/cli/compose/career.py, selection.py and timeline.py, and the letter
+tools call - adapters/compose/career.py, selection.py and timeline.py, and the letter
 gate - and no test goes through a front end that no longer exists.
 
 Each function returns `(exit code, output text)` in the shape the old command's helper
@@ -55,8 +55,8 @@ def captured(fn):
 
 def refused_by(err):
     """The exit code of a refusal a record use case raised, having printed it as the old
-    verbs did (adapters/cli/kb/write.py's `refused`)."""
-    from jsk.adapters.cli.kb.write import refused
+    verbs did (adapters/entry/kb/write.py's `refused`)."""
+    from jsk.adapters.entry.kb.write import refused
 
     return refused(err)
 
@@ -99,8 +99,8 @@ def apply(root, text, dry_run=False, today=None):
     Returns:
         (0 written or nothing to change, 1 refused; the output).
     """
-    from jsk.adapters.cli.compose import career
-    from jsk.adapters.cli.presenters import unwritten
+    from jsk.adapters.compose import career
+    from jsk.adapters.entry.presenters import unwritten
     from jsk.domain.record.state import RecordError
 
     def run():
@@ -133,8 +133,8 @@ def confirm(root, ids=(), answer=None, source=None, quote=None, target=None, blo
     Returns:
         (0 done or nothing to change, 1 refused, 2 called wrong; the output).
     """
-    from jsk.adapters.cli.compose import career, selection
-    from jsk.adapters.cli.presenters import unwritten
+    from jsk.adapters.compose import career, selection
+    from jsk.adapters.entry.presenters import unwritten
     from jsk.domain.record.state import RecordError, diff
 
     today = today or datetime.date.today()
@@ -189,7 +189,7 @@ def show(root, ids, bullets=False):
 
     The first line is `# r<N> - op:base <N>`, as the command printed it.
     """
-    from jsk.adapters.cli.compose import career
+    from jsk.adapters.compose import career
 
     def run():
         try:
@@ -218,9 +218,9 @@ def show(root, ids, bullets=False):
 def view(root, section=None):
     """What `jsk kb view` printed, as career_view returns it (whole, not paged): the career
     as Markdown, or a refusal (exit 1) when the record is not there."""
-    from jsk.adapters.cli.compose import career
+    from jsk.adapters.compose import career
     from jsk.application.record.refusals import Unclean
-    from jsk.adapters.cli.presenters import GUIDE, refuse
+    from jsk.adapters.entry.presenters import GUIDE, refuse
 
     def run():
         try:
@@ -242,7 +242,7 @@ def query(root, name, *args, json=False, today=None):
     """
     import json as jsonlib
 
-    from jsk.adapters.cli.compose import career
+    from jsk.adapters.compose import career
     from jsk.application.record.refusals import Refused
 
     as_json = json
@@ -272,8 +272,8 @@ def query(root, name, *args, json=False, today=None):
 def log(root, last=10):
     """What `jsk kb log` printed, as career_log returns it: each revision newest first with
     the ids it minted and touched."""
-    from jsk.adapters.cli.compose import career
-    from jsk.adapters.cli.presenters import refuse
+    from jsk.adapters.compose import career
+    from jsk.adapters.entry.presenters import refuse
     from jsk.application.record.refusals import Refused
     from jsk.domain.record.writer import curies
 
@@ -320,8 +320,8 @@ def freeze(root, app, submitted, channel, docs=None):
         app_event and career_query tools where the command named `jsk app event` and
         `jsk kb query pipeline`.
     """
-    from jsk import cli
-    from jsk.adapters.cli.compose import timeline as T
+    from jsk.adapters.compose import timeline as T
+    from jsk.adapters.entry.gates.check import print_results
     from jsk.application.timeline import freeze as F
     from jsk.application.timeline.unsent import note
     from jsk.domain.timeline.events import is_date
@@ -343,8 +343,8 @@ def freeze(root, app, submitted, channel, docs=None):
             return 2
         try:
             done = T.freeze_app(app_dir, root, submitted, channel.strip(), docs or None,
-                                gated=lambda results: cli.print_results(f"gates: {app_dir}",
-                                                                        results))
+                                gated=lambda results: print_results(f"gates: {app_dir}",
+                                                                          results))
         except F.FreezeRefused as refusal:
             print("REFUSED - " + refusal.lines[0])
             for line in refusal.lines[1:]:
@@ -384,7 +384,7 @@ def event(root, app, kind, date, channel=None, note=None, due=None, today=None):
     """
     import difflib
 
-    from jsk.adapters.cli.compose import timeline as T
+    from jsk.adapters.compose import timeline as T
     from jsk.application.timeline.add_event import EventLanded, EventRefused
     from jsk.domain import ontology as O
     from jsk.domain.timeline.events import is_date, when
@@ -453,8 +453,8 @@ def letter(letter_path, record_target, root):
     Returns:
         (the gate's exit code - 0 fit to send, 1 do not send, 2 called wrong; the output).
     """
-    from jsk.adapters.cli.compose.selection import ref_for
-    from jsk.adapters.cli.gates import letter as gate
+    from jsk.adapters.compose.selection import ref_for
+    from jsk.adapters.entry.gates import letter as gate
 
     path = letter_path if os.path.isabs(letter_path) else os.path.join(root, letter_path)
     against = ref_for(record_target, dirs=True, root=root) or (
@@ -530,7 +530,7 @@ def merge(root, concept, into, *extra):
 
 
 def drop(root, app, *extra):
-    """What the app_drop tool runs: adapters/cli/drop.main inside `root`.
+    """What the app_drop tool runs: adapters/entry/drop.main inside `root`.
 
     Args:
         root: the workspace.
@@ -540,7 +540,7 @@ def drop(root, app, *extra):
     Returns:
         (exit code - 0 dropped or a dry run, 1 refused, 2 called wrong; everything it printed).
     """
-    from jsk.adapters.cli import drop as dropped
+    from jsk.adapters.entry import drop as dropped
     from jsk.adapters.mcp import captured
 
     return captured.called(root, dropped.main, [app, *extra])

@@ -77,7 +77,7 @@ def upkeep(srv, tools):
                     "dropped/. dry_run writes nothing.")
     def app_drop(app: str, reason: str | None = None, dry_run: bool = False) -> dict:
         def run(root, today):
-            from ..cli import drop
+            from ..entry import drop
 
             argv = [app] + (["--reason", reason] if reason else []) \
                 + (["--dry-run"] if dry_run else [])

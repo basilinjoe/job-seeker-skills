@@ -11,7 +11,7 @@ These follow from how the existing code is written. Match them.
 
 - **Every module opens with a docstring that argues for itself.** It says what the module decides, why the
   boundary sits where it does, and what it deliberately does not do, for example "It prints nothing:
-  adapters/cli/gates/record.py says what it found". A gate module lists every FAIL and WARN it can raise.
+  adapters/entry/gates/record.py says what it found". A gate module lists every FAIL and WARN it can raise.
   When a module replaced something, the docstring names what it replaced and when ("It replaced two gates
   (2026-09-25)").
 - **Comments explain why, usually with the incident that made the rule.** For example: "`.title()` would render these
@@ -35,7 +35,7 @@ These follow from how the existing code is written. Match them.
   `adapters`; `tests/test_layers.py` enforces it). Then:
   - add a line for it in `docs/ARCHITECTURE.md`'s repo layout, or `tests/test_plugin_surface.py` fails;
   - pass anything with I/O (store, files, TeX, network, today's date) in as a parameter, and bind the real one in
-    `adapters/cli/compose/`.
+    `adapters/compose/`.
 - **Type hints:** ports are fully annotated `typing.Protocol`s, and dataclass fields are annotated. The rest of
   `domain` and `application` is mostly unannotated, so don't add annotations wholesale to code you only touch.
   Pyright `basic` must still pass on all five rings.

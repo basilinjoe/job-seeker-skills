@@ -18,7 +18,7 @@ from pathlib import Path
 import careerkit
 from fixtures import (PARSE_GATE, PROSE_GATE, RENDER, example_pdf,
                       example_short, has_pymupdf, render_module, run)
-from jsk.adapters.cli.compose import resume
+from jsk.adapters.compose import resume
 from test_build import BuildCase, LEAD_TITLE, short
 
 # Every claim in this file is about the text layer, so which resume renders is

@@ -20,7 +20,7 @@ general resume answering no posting. The render reaches a target through `ref`: 
 the selection graph would have on disk, `<root>/<target>/resume`. No file is ever there;
 it is the one string the record gate, the render and the gates pass between them where a
 resume.json path used to go, so the resume_ship tool runs every step on a target with no
-step knowing (`load_resume` and adapters/cli/compose/resume.py read it as the graph).
+step knowing (`load_resume` and adapters/compose/resume.py read it as the graph).
 Since 6.0 it is the only record they take (docs/superpowers/plans/
 2026-10-03-retire-file-pipeline.md, P2).
 

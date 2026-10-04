@@ -24,7 +24,7 @@ from pathlib import Path
 
 import appkit
 import careerkit
-from jsk.adapters.cli.compose import native
+from jsk.adapters.compose import native
 from jsk.domain import ontology as O
 from jsk.domain.posting.errors import Refused
 
@@ -543,7 +543,7 @@ class AskedAbout(Workspace):
             today=TODAY)
 
     def test_an_ask_about_a_requirement_counts_in_repeated_across_two_applications(self):
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import record
         from jsk.application.record.insights import repeated
 
         for stem in (STEM, self.OTHER):
@@ -651,7 +651,7 @@ class Queries(Workspace):
                    f'k:app_{IDS} j:posting k:post_{IDS} ; j:submitted "2026-09-30"^^xsd:date .\n')
 
     def query(self, name):
-        from jsk.adapters.cli.compose import record
+        from jsk.adapters.compose import record
         from jsk.application.record.queries import QUERIES
 
         _, _, fn, _, dated = QUERIES[name]
