@@ -13,4 +13,4 @@ k:rev_2 j:revision 2 ; j:date "2026-09-21"^^xsd:date ; j:by j:confirm ;
     j:summary "Confirmed the team size." ;
     j:touched k:met_team.v1, k:q_team_size ;
     j:answer "Six throughout; two joined in the second month and two left." ;
-    j:kbSha256 "6f1057111b3ee9bb7d0cb4aa1228f8638b88b365bade22126f3f1eb7609848df" .
+    j:kbSha256 "3333738e620f88db4292962d12adabdb272545ac632f730e32fbb40d7e649f03" .

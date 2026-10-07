@@ -34,6 +34,9 @@ NATIVE_LINE = ('\nk:line_acme_platform_engineer_1 j:posting k:post_acme_platform
                'j:n 1 ; j:section j:qualification ; j:text "Kafka in production." .\n')
 KAFKA_NO = ('\nk:abs_kafka j:concept c:kafka ; j:said "2026-09-01"^^xsd:date ; '
             'j:answer "Never used Kafka." ; j:provenance j:confirmed .\n')
+SHOWS_KAFKA = ('\nk:ach_site_onboarding_kafka j:project k:prj_site_onboarding ; j:rank 2 ; '
+               'j:text "Moved onboarding events onto Kafka." ; j:shows c:kafka ; '
+               'j:provenance j:confirmed .\n')
 
 # rule: (file, old text, new text, focus id, the fix contains). old=None appends new.
 MUTATIONS = {
@@ -124,11 +127,14 @@ MUTATIONS = {
     # A confirmed no to Kafka, which k:prj_clinical_events is tagged with.
     "absence-contradicted": (KB_FILE, None, KAFKA_NO, "k:abs_kafka",
                              "retire the absence, or the project's claim"),
+    # A bullet of the onboarding project showing Kafka, which that project does not use.
+    "shows-unheld": (KB_FILE, None, SHOWS_KAFKA, "k:ach_site_onboarding_kafka",
+                     "add c:kafka to k:prj_site_onboarding's j:uses"),
 }
 
 WARNS = {"version-gap", "headline-cited", "label-clash", "inferred-unasked",
          "retired-referenced", "event-before-submit", "necessity-wording", "hand-edited",
-         "answer-placeholder", "advert-uncovered", "concepts-bare", "absence-contradicted"}
+         "answer-placeholder", "advert-uncovered", "concepts-bare", "absence-contradicted", "shows-unheld"}
 
 
 @one_test_each(list(MUTATIONS), "test_{}_fires_at_the_right_place", "fires")
@@ -543,6 +549,43 @@ class AbsenceContradicted(unittest.TestCase):
     def test_a_no_nothing_holds_is_quiet(self):
         self.assertEqual(self.fired(KAFKA_NO.replace("c:kafka", "c:healthcare-x")
                                     + '\nc:healthcare-x a j:Technology .\n'), [])
+
+
+class ShowsUnheld(unittest.TestCase):
+    """shows-unheld: a bullet shows a concept its project does not hold, so the match would
+    never count it (2026-10-06: a confirmed bullet showed c:llmops, its project did not use
+    it, and assessment_derive found nothing). A WARN: the matching rule is unchanged."""
+
+    def fired(self, bullet):
+        s, _ = mutated((KB_FILE, None, bullet))
+        return [f for f in s.findings if f.rule == "shows-unheld"]
+
+    def test_a_bullet_showing_what_its_project_does_not_use_is_named_with_both(self):
+        [f] = self.fired(SHOWS_KAFKA)
+        self.assertEqual(f.severity, "WARN")
+        self.assertIn("c:kafka", f.detail)
+        self.assertIn("k:prj_site_onboarding", f.detail)
+
+    def test_a_project_using_the_concept_itself_is_quiet(self):
+        self.assertEqual(self.fired(SHOWS_KAFKA.replace("c:kafka", "c:dotnet")), [])
+
+    def test_a_project_using_something_narrower_that_counts_as_it_is_quiet(self):
+        # c:kafka isA c:event-driven-architecture: the clinical project uses Kafka.
+        self.assertEqual(self.fired(
+            SHOWS_KAFKA.replace("k:prj_site_onboarding", "k:prj_clinical_events")
+            .replace("c:kafka", "c:event-driven-architecture").replace("rank 2", "rank 3")), [])
+
+    def test_a_project_using_only_something_broader_still_warns(self):
+        # Kafka work is not Redpanda work: the match never counts the reverse direction.
+        self.assertEqual(len(self.fired(
+            SHOWS_KAFKA.replace("k:prj_site_onboarding", "k:prj_clinical_events")
+            .replace("c:kafka", "c:redpanda").replace("rank 2", "rank 3")
+            + "\nc:redpanda a j:Technology ; j:isA c:kafka .\n")), 1)
+
+    def test_a_retired_bullet_is_quiet(self):
+        self.assertEqual(self.fired(SHOWS_KAFKA.replace(
+            "j:provenance j:confirmed", 'j:provenance j:confirmed ; j:retired '
+            '"2026-09-20"^^xsd:date ; j:reason "cut"')), [])
 
 
 if __name__ == "__main__":

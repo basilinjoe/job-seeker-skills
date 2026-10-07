@@ -443,6 +443,23 @@ RULES = [
                    + (f" (and {r['more']} more)" if r["more"] else ""),
          "ask the person again: retire the absence, or the project's claim to it",
          contradicted),
+    # 2026-10-06: a new confirmed bullet showed c:llmops while its project did not use it, so
+    # assessment_derive said nothing in the record held it and a whole analyst round went on
+    # adding the tag. The match counts a concept as held only through a project's j:uses
+    # (infra/oxigraph/queries.py paths_to), and that stays; the record says so at the write.
+    Rule("shows-unheld", WARN,
+         # The closure paths_to reads: what the project uses counts as the concept, through
+         # isA, partOf or implies. A disputed bullet shows nothing the match would count.
+         f"""SELECT DISTINCT ?focus ?c ?proj WHERE {{ ?focus a j:Achievement ; j:project ?proj ;
+              j:shows ?c
+              FILTER NOT EXISTS {{ ?focus j:retired ?r }}
+              FILTER NOT EXISTS {{ ?focus j:provenance j:disputed }}
+              ?proj a j:Project FILTER NOT EXISTS {{ ?proj j:retired ?x }}
+              FILTER NOT EXISTS {{ ?proj j:uses ?h . ?h ({COUNTS_AS})* ?c }} }}""",
+         lambda r: f"shows {curie(v(r, 'c'))}, which {curie(v(r, 'proj'))} neither uses nor "
+                   "holds anything that counts as it",
+         lambda r, store: f"add {curie(v(r, 'c'))} to {curie(v(r, 'proj'))}'s j:uses, or the "
+                          "match will not count this bullet"),
     Rule("log-sync", FAIL, None,
          lambda r: r["state"].detail, log_sync_fix, out_of_step(("torn", "out-of-sync"))),
     Rule("hand-edited", WARN, None,
