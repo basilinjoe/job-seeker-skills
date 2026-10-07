@@ -159,7 +159,10 @@ def application_quads(stem, posting, view, submitted, channel, documents, record
     if channel:
         out.append(quad(app, "channel", lit(channel)))
     out += [quad(app, "document", lit(d)) for d in documents]
-    out.append(quad(app, "recordSha256", lit(hashlib.sha256(record_bytes).hexdigest())))
+    # None: a hold-back with no resume shipped (2026-10-06) has no record to pin, and the hash
+    # of nothing would read as though an empty selection was sent.
+    if record_bytes is not None:
+        out.append(quad(app, "recordSha256", lit(hashlib.sha256(record_bytes).hexdigest())))
     out += [quad(app, "carried", node(b)) for b in bullets]
     out += [quad(app, "carriedVersion", node(v)) for v in versions]
     if submitted != "false":

@@ -262,6 +262,50 @@ def final_name(app_dir, submitted, spelled):
     return final
 
 
+def hold_back(workspace, app_dir, channel, *, record, make_directory, store_errors=()):
+    """The record of an application the person decided not to send, before any resume was shipped.
+
+    A graph-native application gets its directory from resume_ship, so one held back at the
+    assessment (a poor fit, say) had none, and app_freeze refused it for good: it could never
+    be said that nothing was sent (2026-10-06 replay). This writes what a held-back freeze of
+    a shipped application writes - the application graph, `j:submitted false`, no event - less
+    what a render would have made: no resume, no documents, no carried bullets, no hash. The
+    posting, assessment and any selection stay under the same name; only the directory is
+    made, since app_event and every later look find an application by it.
+
+    Args:
+        workspace: the workspace root.
+        app_dir: the directory the application would have, applications/<stem>; it need not
+            exist.
+        channel: why it was held back, in the person's words.
+        record: the application's record graphs (adapters/compose/timeline.py's
+            Applications): `hold_back` validates the graph and `write_frozen` writes it.
+        make_directory: path -> None, creates the directory.
+        store_errors: what else the store raises for a write that did not happen.
+
+    Returns:
+        A FreezeResult whose `final` is `app_dir`. Writes the store and makes the directory.
+
+    Raises:
+        FreezeRefused: frozen already, no posting, or the record would not validate -
+            nothing written.
+        FreezeLanded: the record was written and the store failed after it.
+    """
+    sealed, problems = record.hold_back(workspace, app_dir, channel)
+    if problems:
+        raise FreezeRefused(*problems, "nothing was written.")
+    make_directory(app_dir)
+    try:
+        written = record.write_frozen(workspace, sealed, app_dir)
+    except Written as exc:
+        raise FreezeLanded(str(exc), exc.fix) from None
+    except (RecordError, OSError, *store_errors) as exc:
+        raise FreezeRefused(f"the record was not written: {exc}",
+                            f"fix: {getattr(exc, 'fix', 'run the command again')}",
+                            "nothing was written.") from None
+    return FreezeResult(written, app_dir, app_dir)
+
+
 def key(path):
     """`path` as two spellings of one file compare equal."""
     return os.path.normcase(os.path.abspath(path))

@@ -13,6 +13,9 @@ plans/2026-10-03-retire-file-pipeline.md). A call error the command would exit 2
 date, an unknown kind) is a FAIL with its fix here.
 The commands went on 2026-10-04 (docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md,
 Ruling 4): `jsk app freeze`, `jsk app event` and `jsk letter check` exit 2 naming these tools.
+app_freeze with submitted false also records an application that has a posting and no
+directory, one the person held back before any resume was shipped (2026-10-06); a dated
+submit there is a FAIL that names resume_ship.
 They live apart from server.py, which registers them, only to keep each module under
 tests/test_sizes.py's limit.
 """
@@ -51,6 +54,53 @@ def submitted_problem(submitted):
             "the day it was sent, e.g. 2026-09-08, or false for one deliberately held back")
 
 
+def no_resume_yet(root, app):
+    """Whether `app` names a graph-native application that has a posting in the store and no
+    directory: one assessed, or only captured, and never shipped."""
+    from ...application.posting.native import native_graphs
+    from ..compose import timeline as T
+
+    name = (app or "").replace("\\", "/").strip().strip("/").removeprefix("applications/")
+    if not name or "/" in name:
+        return False
+    return native_graphs(T.app_graphs(os.path.join(root, "applications", name)))
+
+
+def holds(root, app, submitted, channel):
+    """app_freeze's answer for an application with a posting and no directory: held back
+    (`submitted` false, 2026-10-06) or a FAIL saying a send needs a shipped resume.
+
+    Before this a graph-native application got its directory only from resume_ship, so a
+    decision not to apply could never be recorded and the application stayed open for good.
+    """
+    from ...application.timeline import freeze as F
+    from ..compose import timeline as T
+
+    name = app.replace("\\", "/").strip().strip("/").removeprefix("applications/")
+    app_dir = os.path.join(root, "applications", name)
+    bad = submitted_problem(submitted) or (
+        ("FAIL", f"applications/{name} has no shipped resume, so there is nothing that "
+                 f"could have been sent on {submitted}",
+         f"resume_ship(target=\"{name}\") first, or submitted=\"false\" to record that it "
+         "was held back") if submitted != "false" else
+        None if channel.strip() else
+        ("FAIL", "channel is required", "why it was held back, e.g. \"poor fit\""))
+    if bad:
+        return failed(bad)
+    nothing = dict(written=None, renamed_to=None, recordSha256=None, carried=[], documents=[],
+                   steps=[])
+    try:
+        done = T.hold_back_app(app_dir, root, channel.strip())
+    except F.FreezeRefused as refusal:
+        return result([("FAIL", refusal.lines[0], " ".join(refusal.lines[1:]) or None)],
+                      **nothing)
+    except F.FreezeLanded as landed:
+        return result([("FAIL", "the application's record was written, "
+                                f"and then: {landed}", landed.fix)], **nothing)
+    return result([], written=done.written, renamed_to=None, recordSha256=None, carried=[],
+                  documents=[], steps=[], held_back=True)
+
+
 def gate_findings(steps):
     """A FAIL for each gate step that did not pass, as resume_ship reports them."""
     return [("FAIL", f"{s['gate']}: {s['status']}", "its output is in steps")
@@ -85,6 +135,9 @@ def freezes(srv, tools):
             from ...application.timeline import freeze as F
 
             app_dir, missing = app_dir_of(root, app)
+            if missing and no_resume_yet(root, app):
+                # A decision not to apply is the person's, and a resume is not needed to say it.
+                return holds(root, app, submitted, channel)
             bad = missing or submitted_problem(submitted) or (
                 None if channel.strip() else
                 ("FAIL", "channel is required", "where it was sent, e.g. \"Workday portal\""))

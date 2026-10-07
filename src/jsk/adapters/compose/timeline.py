@@ -123,6 +123,17 @@ def freeze(root, app_dir, plan, short_bytes, submitted, channel, documents):
                     load=load, records=records(), queries=OxigraphQueries)
 
 
+def hold_back(root, app_dir, channel):
+    """(Sealed, None) or (None, the lines saying why not) for an application held back with
+    no resume shipped: records.write_application with no view, no documents, no bullets
+    and no record to hash."""
+    from ...application.timeline import records as T
+    from .record import load
+
+    return T.write_application(root, app_dir, None, "false", channel, [], None,
+                               lambda store: ([], []), load=load, records=records())
+
+
 def write_frozen(root, sealed, final):
     """Write what freeze() validated; the application graph's name (records.write_frozen)."""
     from ...application.timeline import records as T
@@ -167,6 +178,10 @@ class Applications:
     def freeze(self, root, app_dir, plan, short_bytes, submitted, channel, documents):
         """(Sealed, None) or (None, the lines saying why not) (freeze above)."""
         return freeze(root, app_dir, plan, short_bytes, submitted, channel, documents)
+
+    def hold_back(self, root, app_dir, channel):
+        """(Sealed, None) or (None, the lines saying why not) (hold_back above)."""
+        return hold_back(root, app_dir, channel)
 
     def write_frozen(self, root, sealed, final):
         """Write what freeze() validated; the graph's name (write_frozen above)."""
@@ -250,6 +265,32 @@ def freeze_app(app_dir, workspace, submitted, channel, named, *, gated=None):
     with R.turn(workspace):
         return F.write(workspace, planned, submitted, channel, record=Applications(),
                        files=files, store_errors=(db.StoreError,))
+
+
+def hold_back_app(app_dir, workspace, channel):
+    """The FreezeResult of holding back `app_dir`, a graph-native application with a posting
+    and no directory yet (application.timeline.freeze.hold_back), inside the record's turn.
+
+    Args:
+        app_dir: applications/<stem> in `workspace`; it need not exist.
+        workspace: the workspace root.
+        channel: why it was held back.
+
+    Returns:
+        The FreezeResult. Makes the directory and writes the store.
+
+    Raises:
+        FreezeRefused: frozen already, no posting, or the record would not validate.
+        FreezeLanded: the record was written and the store failed after it.
+    """
+    from ...application.timeline import freeze as F
+    from ...infra.oxigraph import db
+    from ...infra.oxigraph import record as R
+
+    with R.turn(workspace):
+        return F.hold_back(workspace, app_dir, channel, record=Applications(),
+                           make_directory=lambda path: os.makedirs(path, exist_ok=True),
+                           store_errors=(db.StoreError,))
 
 
 def frozen_record(root, graph):

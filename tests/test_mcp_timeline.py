@@ -9,7 +9,9 @@ the recordSha256 the store holds, which is the SHA-256 of the selection's canoni
 (Ruling 7); a second freeze is refused as a finding with nothing written; app_event after a
 freeze records the event and `career_query("pipeline")` shows it as the stage; letter_check
 passes a clean letter and returns ok false with the DO NOT SEND verdict for a number the
-career cannot back; and a bad kind, date or submitted is a finding with its fix, never a
+career cannot back; app_freeze submitted=false on an assessed application with no shipped
+resume records it as held back (stage `held back`, no directory needed beforehand) while a
+dated send there is a finding naming resume_ship; and a bad kind, date or submitted is a finding with its fix, never a
 protocol error.
 """
 import hashlib
@@ -108,6 +110,69 @@ class Freeze(Shipped):
                 self.assertIn(said, fails(got)[0])
                 self.assertTrue(got["findings"][0]["fix"])
         self.assertTrue(self.app.is_dir(), "nothing was renamed")
+
+
+class HeldBack(Served):
+    """ADVERT analysed and its assessment complete, but no resume shipped: no directory."""
+
+    def setUp(self):
+        from jsk.adapters.compose import native
+        from jsk.adapters.mcp import server, session
+
+        super().setUp()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root, _ = careerkit.workspace(Path(tmp.name) / "ws")
+        self.session = session.Session(root=self.root)
+        self.server = server.build(self.session)
+        native.capture(self.root, STEM, text=ADVERT, today=TODAY)
+        native.decide(self.root, STEM, rows=ROWS, drops=DROPS, today=TODAY)
+        native.complete_posting(self.root, STEM, today=TODAY)
+        native.derive_assessment(self.root, STEM, today=TODAY)
+        native.review(self.root, STEM, fit="poor", short=["Rust"], today=TODAY)
+        native.complete_review(self.root, STEM, today=TODAY)
+        self.app = Path(self.root) / "applications" / STEM
+
+    def test_a_decision_not_to_apply_is_recorded_without_a_resume(self):
+        self.assertFalse(self.app.exists())
+        got = self.call("app_freeze", app=STEM, submitted="false",
+                        channel="held back: poor fit")
+        self.assertTrue(got["ok"], got)
+        self.assertEqual(got["written"], f"applications/{STEM}/application")
+        self.assertIsNone(got["renamed_to"])
+        self.assertIsNone(got["recordSha256"])
+        self.assertTrue(self.app.is_dir(), "later events find the application by its directory")
+        [row] = self.call("career_query", name="pipeline")["rows"]
+        self.assertEqual(row["stage"], "held back")
+        [listed] = [a for a in self.call("app_list")["applications"] if a["app"] == STEM]
+        self.assertEqual((listed["submitted"], listed["stage"], listed["unsent"]),
+                         ("false", "held back", False))
+
+    def test_a_held_back_application_is_never_held_back_twice(self):
+        self.assertTrue(self.call("app_freeze", app=STEM, submitted="false",
+                                  channel="poor fit")["ok"])
+        again = self.call("app_freeze", app=STEM, submitted="false", channel="poor fit")
+        self.assertFalse(again["ok"])
+        self.assertTrue(any("never re-frozen" in t for t in fails(again)), again)
+
+    def test_a_dated_send_with_no_resume_shipped_is_a_finding_naming_resume_ship(self):
+        got = self.call("app_freeze", app=STEM, submitted=SENT, channel="Workday portal")
+        self.assertFalse(got["ok"])
+        self.assertIn("no shipped resume", fails(got)[0])
+        self.assertIn("resume_ship", got["findings"][0]["fix"])
+        self.assertIsNone(appkit.triples(self.root, f"applications/{STEM}/application"))
+        self.assertFalse(self.app.exists(), "nothing was made")
+
+    def test_a_hold_back_needs_its_reason(self):
+        got = self.call("app_freeze", app=STEM, submitted="false", channel="  ")
+        self.assertFalse(got["ok"])
+        self.assertIn("channel is required", fails(got)[0])
+        self.assertIsNone(appkit.triples(self.root, f"applications/{STEM}/application"))
+
+    def test_an_application_with_no_posting_still_has_no_directory(self):
+        got = self.call("app_freeze", app="nonesuch", submitted="false", channel="poor fit")
+        self.assertFalse(got["ok"])
+        self.assertIn("no application directory", fails(got)[0])
 
 
 class Event(Shipped):
