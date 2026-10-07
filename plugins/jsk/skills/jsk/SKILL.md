@@ -76,6 +76,7 @@ different things.
 
 1. **Run `jsk --version`**. Not found → `python3 -m jsk` (`python` or `py -3` on Windows). Neither →
    say so and stop.
+   **Tailor skips 1 and 2**: `app_list` proves the workspace.
 2. **Find the career** — `jsk doctor`, or search for `career/store/`. A `career/kb.ttl`
    with no store is a record from before it: `jsk kb load .`, once. Sessions share no state.
    None → setup, unless they asked for something deliverable: deliver it, then offer to capture it.

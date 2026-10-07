@@ -74,8 +74,9 @@ op:add { [] j:project k:prj_clinical_events ; j:rank 3 ;
 op:set { k:ach_clinical_events_cut_latency j:text "Cut event propagation to under one second." . }
 ```
 
-`op:set` replaces a value (reworded words, a citation); `op:add` adds. `career_preview(changeset)`,
-then `career_apply(changeset)`; it returns the minted `ach_` ids, each inferred. A refusal names
+`op:set` replaces a value (reworded words, a citation); `op:add` adds. A `j:shows` concept the
+project lacks as `j:uses` WARNs (`shows-unheld`): add the `j:uses`. `career_preview(changeset)`,
+then `career_apply(changeset, diff=false)` (a short `summary`); it returns the minted `ach_` ids, each inferred. A refusal names
 its fix. A selection names bullets by id and never holds their words.
 
 **Then `resume_update` only** `bullets` — the whole order, every `ach_` you added placed by what it

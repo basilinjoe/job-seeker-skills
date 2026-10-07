@@ -35,7 +35,7 @@ person. **When in doubt, ATS-maximal.** It is longer by design, so it carries it
 `resume_ship(target=<stem>, template=…, ats_max=…, pages=…)`: the record gate (a failure stops
 it; nothing renders), then the render into `applications/<stem>/`, the fit if it overran (§3),
 the parse, prose and layout gates; `ok` only if every step passed, each step's output in `steps`.
-Show it. It refuses in a frozen application.
+Show it; it refuses a frozen application.
 
 **The record gate** fails an id the career lacks or has retired, a bullet whose project has no
 role, and a number no current version of a metric the bullet cites holds (superseded: the metric
@@ -93,5 +93,4 @@ submitted date, moving its graphs in the same write — **use `renamed_to` from 
 - `submitted="false"` is for an application deliberately held back: no `submitted` event, and that
   is correct. **Never add a `submitted` event to clear a gap.**
 
-Feedback as it arrives is a `note` event; patterns in which evidence gets traction belong back in
-the positioning.
+Feedback as it arrives is a `note` event; which evidence gets traction belongs in the positioning.
