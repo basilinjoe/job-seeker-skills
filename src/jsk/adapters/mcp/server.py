@@ -30,7 +30,7 @@ from typing import Any, Literal
 from mcp.server.fastmcp import FastMCP
 
 from . import session as S
-from .schemas import Ask, Drop, Header, Requirement, Verdict
+from .schemas import Answered, Ask, Drop, Header, Requirement, Verdict
 
 # Characters of the career's Markdown one career_view page carries: about 7.5k tokens at
 # four characters a token, under the 10k at which Claude Code warns (P0 results, item 5).
@@ -188,11 +188,27 @@ def page(text, offset, limit):
     return chunk, (end if end < len(text) else None)
 
 
-def written_of(w):
-    """A logged write of the career, as JSON."""
+def diff_summary(diff):
+    """The size of a unified diff in words: the lines it adds and removes."""
+    lines = diff.splitlines()
+    added = sum(1 for x in lines if x.startswith("+") and not x.startswith("+++"))
+    removed = sum(1 for x in lines if x.startswith("-") and not x.startswith("---"))
+    return f"{added} lines added, {removed} removed"
+
+
+def written_of(w, diff=True):
+    """A logged write of the career, as JSON.
+
+    Args:
+        w: the Written, or None when there was nothing to change.
+        diff: whether to carry the unified diff. Left out, a `summary` of its size stands in:
+            the diff of a changeset just previewed is the one the preview returned, and ran
+            to 3-11k characters of mostly shared context (2026-10-06).
+    """
     if w is None:
         return result(changed=False, written=False)
-    return result(changed=True, written=w.written, revision=w.revision, diff=w.diff,
+    shown = {"diff": w.diff} if diff else {"summary": diff_summary(w.diff)}
+    return result(changed=True, written=w.written, revision=w.revision, **shown,
                   minted=curies(w.minted), touched=curies(w.touched), notes=list(w.notes))
 
 
@@ -229,6 +245,14 @@ def career_reads(srv, tools):
     def career_view(section: str | None = None, offset: int = 0,
                     limit: int = VIEW_PAGE) -> dict:
         def run(root, today):
+            from ...domain import ontology as O
+
+            # An unknown name matched no section and came back as an empty view with ok
+            # true (2026-10-06, a tailor run asking for "experience").
+            if section is not None and section.lower() not in (
+                    s.lower() for s in O.SECTIONS["kb"]):
+                return failed(("FAIL", f"{section!r} is not a section of the career",
+                               f"one of {', '.join(O.SECTIONS['kb'])}"))
             text, nxt = page(career.view(root, section, load=load), offset, limit)
             return result(text=text, offset=offset, next=nxt)
         return tools.call("career_view", run)
@@ -286,19 +310,32 @@ def career_writes(srv, tools):
                                                      today=today))
         return tools.call("career_preview", run)
 
-    @tool("Apply a TriG changeset: validated, written and logged. New claims arrive inferred.")
-    def career_apply(changeset: str) -> dict:
+    @tool("Apply a TriG changeset: validated, written and logged. New claims arrive inferred. "
+          "diff=false: a summary, not the diff.")
+    def career_apply(changeset: str, diff: bool = True) -> dict:
         def run(root, today):
-            return written_of(career.apply_changeset(root, changeset, today=today))
+            return written_of(career.apply_changeset(root, changeset, today=today), diff)
         return tools.call("career_apply", run, writes=True)
 
     @tool("Confirm entries (ids) with the person's own answer, or a document's source and "
-          "quote; or a selection's summary or headline (target, block).")
+          "quote; or a selection's summary or headline (target, block). answers: several "
+          "groups in one write. diff=false: a summary, not the diff.")
     def career_confirm(ids: list[str] | None = None, target: str | None = None,
                        block: Literal["summary", "headline"] | None = None,
                        answer: str | None = None, source: str | None = None,
-                       quote: str | None = None) -> dict:
+                       quote: str | None = None, answers: list[Answered] | None = None,
+                       diff: bool = True) -> dict:
         def run(root, today):
+            if answers is not None:
+                if (ids or target is not None or block is not None or answer is not None
+                        or source is not None or quote is not None):
+                    return failed(("FAIL", "answers stands alone: it is the ids and the "
+                                           "answers both", "pass answers, or ids with answer"))
+                if not answers or any(not g.get("ids") or not g.get("answer") for g in answers):
+                    return failed(("FAIL", "each of answers takes ids and the person's answer",
+                                   "pass [{ids: [...], answer: \"their words\"}, ...]"))
+                return written_of(career.confirm_groups(
+                    root, [(list(g["ids"]), g["answer"]) for g in answers], today=today), diff)
             if (source is None) != (quote is None):
                 return failed(("FAIL", "source and quote go together: the file, and the "
                                        "words in it", "pass both, or answer instead"))
@@ -325,7 +362,7 @@ def career_writes(srv, tools):
                                        "source and its quote",
                                "pass ids with answer (their words), or source and quote"))
             return written_of(career.confirm_ids(root, ids, answer=answer, source=source,
-                                                 quote=quote, today=today))
+                                                 quote=quote, today=today), diff)
         return tools.call("career_confirm", run, writes=True)
 
 
@@ -443,12 +480,24 @@ def assessments(srv, tools):
                           fit=done.fit, written=list(done.written))
         return tools.call("assessment_review", run, writes=True)
 
-    @tool("Settle the review: every flag answered, no FAIL against the match; then complete.")
+    @tool("Settle the review: every flag answered, no FAIL against the match; then complete. "
+          "Returns its Markdown.")
     def assessment_complete(app: str) -> dict:
         def run(root, today):
             done = native.complete_review(root, app, today=today)
+            shown = {}
+            if result(done.findings)["ok"]:
+                # The analyst pasted app_show's assessment (~22k characters) into its report
+                # after every completion; the same Markdown comes back here, once. The write
+                # above moved the record, so the read cache is dropped before it reads.
+                tools.session.wrote()
+                got = fields(native.show(root, app, "assessment", today=today,
+                                         ports=tools.session.ports()))
+                shown = {"markdown": got.get("markdown")}
+                if got.get("markdown_unavailable"):
+                    shown["markdown_unavailable"] = got["markdown_unavailable"]
             return result(done.findings, target=done.target, state=done.state, fit=done.fit,
-                          written=list(done.written))
+                          written=list(done.written), **shown)
         return tools.call("assessment_complete", run, writes=True)
 
 

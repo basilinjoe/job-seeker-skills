@@ -203,6 +203,74 @@ class Career(Served):
         self.assertFalse(self.call("career_confirm", answer="I did")["ok"], "no ids, no target")
 
 
+class CareerCalls(Served):
+    """The calls a tailor run made too often or with too much in the answer (2026-10-06)."""
+
+    def test_an_unknown_section_is_refused_naming_the_valid_ones(self):
+        refused = self.call("career_view", section="experience")
+        self.assertFalse(refused["ok"])
+        self.assertEqual(fails(refused), ["'experience' is not a section of the career"])
+        # Case does not matter, as view.render compares it.
+        self.assertIn("Meridian Health", self.call("career_view", section="ORGANISATIONS")["text"])
+        self.assertTrue(refused["findings"][0]["fix"].startswith("one of Identity, Positioning"))
+
+    def edited(self):
+        """Two bullets reworded, so each is inferred again; their ids."""
+        ids = ["ach_events_team", "ach_events_terraform"]
+        changeset = PFX + "".join(
+            f'op:set {{ k:{i} j:text "Reworded {n}." . }}\n' for n, i in enumerate(ids))
+        self.assertTrue(self.call("career_apply", changeset=changeset)["written"])
+        unconfirmed = {r["entry"] for r in self.call("career_query", name="unconfirmed")["rows"]}
+        self.assertTrue({f"k:{i}" for i in ids} <= unconfirmed, unconfirmed)
+        return ids
+
+    def test_several_groups_are_confirmed_in_one_write_and_one_revision(self):
+        a, b = self.edited()
+        before = self.call("career_log", last=1)["entries"][0]["revision"]
+        done = self.call("career_confirm", answers=[
+            {"ids": [a], "answer": "I led six engineers."},
+            {"ids": [b], "answer": "I wrote the Terraform myself."}])
+        self.assertTrue(done["written"], done)
+        self.assertEqual(int(done["revision"]), int(before) + 1)
+        self.assertLessEqual({f"k:{a}", f"k:{b}"}, set(done["touched"]))
+        [entry] = self.call("career_log", last=1)["entries"]
+        self.assertEqual(entry["revision"], str(done["revision"]))
+        unconfirmed = {r["entry"] for r in self.call("career_query", name="unconfirmed")["rows"]}
+        self.assertFalse({f"k:{a}", f"k:{b}"} & unconfirmed)
+
+    def test_one_refused_group_writes_none_of_them(self):
+        a, b = self.edited()
+        refused = self.call("career_confirm", answers=[
+            {"ids": [a], "answer": "I led six engineers."}, {"ids": [b], "answer": "yes"}])
+        self.assertFalse(refused["ok"])
+        unconfirmed = {r["entry"] for r in self.call("career_query", name="unconfirmed")["rows"]}
+        self.assertLessEqual({f"k:{a}", f"k:{b}"}, unconfirmed)
+
+    def test_answers_beside_ids_or_alone_empty_is_refused_with_a_fix(self):
+        group = [{"ids": ["ach_data_ingestion"], "answer": "I built it."}]
+        for args in ({"answers": group, "ids": ["ach_data_ingestion"]},
+                     {"answers": group, "answer": "I built it."}, {"answers": []}):
+            with self.subTest(args=args):
+                refused = self.call("career_confirm", **args)
+                self.assertFalse(refused["ok"])
+                self.assertTrue(refused["findings"][0]["fix"])
+
+    def test_diff_false_leaves_the_diff_out_and_says_its_size(self):
+        full = self.call("career_apply", changeset=RENAME)
+        self.assertIn("diff", full)
+        # A second rename, so there is something to write that returns no diff.
+        again = self.call("career_apply", diff=False,
+                          changeset=PFX + 'op:set { k:prj_portal j:name "Client portal" . }\n')
+        self.assertTrue(again["written"], again)
+        self.assertNotIn("diff", again)
+        self.assertRegex(again["summary"], r"^\d+ lines added, \d+ removed$")
+        self.assertIn("revision", again)
+        confirmed = self.call("career_confirm", ids=["ach_data_ingestion"], diff=False,
+                              answer="I built that FastAPI service myself in 2024.")
+        self.assertNotIn("diff", confirmed)
+        self.assertIn("summary", confirmed)
+
+
 class Flow(Served):
     """The analyst's calls in order, every one a tool."""
 
@@ -233,7 +301,10 @@ class Flow(Served):
         # `about` is kept now (the review item's j:about), so there is nothing to warn of;
         # until 2026-10-02 it was dropped with a WARN.
         self.assertEqual(reviewed["findings"], [])
-        self.assertEqual(self.call("assessment_complete", app=STEM)["state"], "complete")
+        completed = self.call("assessment_complete", app=STEM)
+        self.assertEqual(completed["state"], "complete")
+        # The analyst reads the assessment from this answer, not from a second app_show.
+        self.assertIn("| Kubernetes | required | partial", completed["markdown"])
 
         parts = {part: self.call("app_show", app=STEM, part=part)
                  for part in ("posting", "lines", "requirements", "review", "assessment")}

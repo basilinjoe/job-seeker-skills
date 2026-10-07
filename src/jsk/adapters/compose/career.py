@@ -182,3 +182,41 @@ def confirm_ids(root, ids, *, answer=None, source=None, quote=None, today):
             return None
         return logged(root, store, plan.quads, "confirm", f"Confirmed {curies(plan.ids)}.",
                       touched=plan.touched, answer=said, today=today)
+
+
+def confirm_groups(root, groups, *, today):
+    """Several groups of entries, each with its own answer, confirmed in one logged write.
+
+    A confirmation run of four calls made four revisions and four full diffs (2026-10-06);
+    the log keeps one answer a revision, so the groups' answers are kept together, each
+    after the ids it answers.
+
+    Args:
+        root: the workspace.
+        groups: (ids, the person's answer) pairs.
+        today: the day each open question about them is answered.
+
+    Returns:
+        The Written, or None when every id in every group is confirmed already.
+
+    Raises:
+        Refused, Problems, Failing, Unclean: as confirm_ids; one group refused writes none.
+        RecordError: the store refused the write.
+    """
+    from ...application.record import confirm as C
+    from ...domain.record.writer import curies
+    from ...infra import files, pdf
+    from .record import load
+
+    with R.turn(root):
+        said = [C.answer_of(answer, None, None, root, files=files, read_pdf=pdf.read_pdf)
+                for _, answer in groups]
+        kept = said[0] if len(groups) == 1 else "; ".join(
+            f"{', '.join(ids)}: {text}" for (ids, _), text in zip(groups, said, strict=True))
+        store = load(root)
+        plan = C.confirmation(store, [i for ids, _ in groups for i in ids], None, today,
+                              state=R.state)
+        if plan is None:
+            return None
+        return logged(root, store, plan.quads, "confirm", f"Confirmed {curies(plan.ids)}.",
+                      touched=plan.touched, answer=kept, today=today)

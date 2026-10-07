@@ -56,6 +56,13 @@ class Verdict(TypedDict):
     reason: NotRequired[str]
 
 
+class Answered(TypedDict):
+    """Entries one answer confirms, for career_confirm's `answers`."""
+
+    ids: list[str]
+    answer: str
+
+
 class Ask(TypedDict):
     """A question for the person, replacing the match's. `about`: the slug of the
     requirement it asks about, so the question carries its concepts."""

@@ -572,7 +572,10 @@ class TheToolDefinitions(unittest.TestCase):
         # 4500 from 2026-10-04, for the eight tools of docs/superpowers/plans/2026-10-04-mcp-first.md
         # (career_check, career_pack, career_merge, app_drop, resume_check, resume_render,
         # resume_preview, resume_fit). Measured: 4,300, each description one line.
-        self.assertLess(size, 4500)
+        # 4700 from 2026-10-06: career_confirm's `answers` (several groups in one write) and
+        # the `diff` flag of it and career_apply, with `years` on a requirement row. Measured:
+        # 4,531, each description still a line or two.
+        self.assertLess(size, 4700)
 
 
 if __name__ == "__main__":
