@@ -141,6 +141,8 @@ def result(store, queries, post, today, budget, elsewhere, select):
             "concepts": [curie(c) for c in m.resolution.concepts],
             "carriers": carriers,
             "near": [{"project": curie(p), "why": why} for p, why in sorted(m.near.items())],
+            # Only a requirement that states one carries it, so every other row is as before.
+            **({"years": m.requirement.years} if m.requirement.years else {}),
         })
     return {
         "posting": curie(post), "company": company, "title": title,

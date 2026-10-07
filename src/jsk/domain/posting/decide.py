@@ -46,7 +46,7 @@ def default_need(line):
 
 
 def triples(post, stem, head, seniority, domains, captured, reqs, *, lines=None, drops=None,
-            state=None):
+            state=None, years=None):
     """The posting graph's triples: the Posting, then each requirement - and, for a
     graph-native posting, the advert's lines.
 
@@ -68,6 +68,7 @@ def triples(post, stem, head, seniority, domains, captured, reqs, *, lines=None,
         lines: [advert.AdvertLine], or None for a posting built from files.
         drops: {n: reason} for the lines left out; only with `lines`.
         state: draft or complete; only with `lines`.
+        years: {slug: minimum years} for the requirements that state one; None for none.
 
     Returns:
         [Triple].
@@ -94,11 +95,15 @@ def triples(post, stem, head, seniority, domains, captured, reqs, *, lines=None,
     if seniority:
         out.append(ox.Triple(s, j("seniority"), j(seniority)))
     out += [ox.Triple(s, j("domain"), ox.NamedNode(c)) for c in domains]
+    kept = {slug: n for slug, n in (years or {}).items() if n}
     for slug, asked, need, iris, quote, *at in reqs:
         r = ox.NamedNode(f"{O.K}req_{stem}_{slug}")
         out += [ox.Triple(r, j("posting"), s), ox.Triple(r, j("asked"), ox.Literal(asked)),
                 ox.Triple(r, j("necessity"), j(need)), ox.Triple(r, j("quote"), ox.Literal(quote))]
         out += [ox.Triple(r, j("concept"), ox.NamedNode(c)) for c in iris]
+        if slug in kept:
+            out.append(ox.Triple(r, j("years"), ox.Literal(str(kept[slug]),
+                                 datatype=ox.NamedNode(O.XSD + "integer"))))
         if lines is not None and at:
             out.append(ox.Triple(r, j("line"), ox.NamedNode(O.K + line_id(stem, at[0]))))
     if lines is not None:

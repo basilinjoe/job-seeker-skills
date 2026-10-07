@@ -133,8 +133,9 @@ k:req_acme_platform_k8s j:posting k:post_acme_platform ;
 ```
 
 A posting holds `company` `title` `url`? `seniority`? `domain`* `captured` `advert`? `state`?; a
-requirement `posting` `asked` `necessity` `concept`* `quote` `line`?; an advert line (`line_`)
+requirement `posting` `asked` `necessity` `concept`* `quote` `line`? `years`?; an advert line (`line_`)
 `posting` `n` `section` `text` `optional`? `eligibility`? `dropped`?. `asked` is the advert's
 term; `quote` its words, verbatim from its advert line (`line`); a frozen file-made posting's from `posting.md`; `necessity` is `required`,
 `preferred` or `implicit`; `concept` when the match calls the term ambiguous or unknown,
-one per alternative ("AWS/GCP/Azure") - any one satisfies.
+one per alternative ("AWS/GCP/Azure") - any one satisfies. `years` is the minimum years the advert
+states ("7+ years"); the derive measures it against the record's dates, so no one is asked.

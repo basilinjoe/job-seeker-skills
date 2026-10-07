@@ -50,19 +50,21 @@ class OxigraphQueries:
             satisfies), sorted.
         """
         rows = self.store.select(PRE + f"""
-            SELECT ?r ?asked ?quote ?need ?concept WHERE {{
+            SELECT ?r ?asked ?quote ?need ?concept ?years WHERE {{
               ?r j:posting <{post}> ; j:asked ?asked ; j:quote ?quote ; j:necessity ?need .
-              OPTIONAL {{ ?r j:concept ?concept }} }} ORDER BY ?r""")
+              OPTIONAL {{ ?r j:concept ?concept }} OPTIONAL {{ ?r j:years ?years }} }}
+            ORDER BY ?r""")
         # One row per j:concept: an advert listing alternatives names several.
         found = {}
         for r in rows:
             key = r["r"].value
             if key not in found:
-                found[key] = (r["asked"].value, r["quote"].value, local(r["need"].value), set())
+                found[key] = (r["asked"].value, r["quote"].value, local(r["need"].value), set(),
+                              int(r["years"].value) if "years" in r else None)
             if "concept" in r:
                 found[key][3].add(r["concept"].value)
-        return [Requirement(iri, asked, quote, need, tuple(sorted(cs)))
-                for iri, (asked, quote, need, cs) in found.items()]
+        return [Requirement(iri, asked, quote, need, tuple(sorted(cs)), years)
+                for iri, (asked, quote, need, cs, years) in found.items()]
 
     def label_pairs(self):
         """(concept, label) for every label and former label, shipped and the person's own.

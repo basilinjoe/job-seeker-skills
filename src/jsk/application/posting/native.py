@@ -155,7 +155,7 @@ class Stored:
     state: str | None           # draft or complete
     lines: list                 # [advert.AdvertLine] by number
     drops: dict                 # {n: reason}
-    reqs: dict                  # {slug: (asked, need, (concept iris), quote, n)}, in order
+    reqs: dict                  # {slug: (asked, need, (concept iris), quote, n, years|None)}, in order
 
 
 def stored(store, app):
@@ -189,9 +189,10 @@ def stored(store, app):
             continue
         line = one(p, "line", None)
         n = int(line.rsplit("_", 1)[1]) if line else 0
+        years = one(p, "years", None)
         reqs.append((n, s[len(head):], (one(p, "asked"), one(p, "necessity").removeprefix(O.J),
                                         tuple(sorted(p.get("concept", []))), one(p, "quote"),
-                                        n)))
+                                        n, int(years) if years else None)))
     state = one(post, "state", None)
     return Stored({"company": one(post, "company"), "title": one(post, "title"),
                    "url": one(post, "url")},
@@ -205,9 +206,10 @@ def triples(app, s, state):
     from ...domain.posting.decide import triples as posting_triples
 
     reqs = [(slug, asked, need, list(iris), quote, n)
-            for slug, (asked, need, iris, quote, n) in s.reqs.items()]
+            for slug, (asked, need, iris, quote, n, _) in s.reqs.items()]
+    years = {slug: row[5] for slug, row in s.reqs.items()}
     return posting_triples(app.post, app.ids, s.head, s.seniority, s.domains, s.captured, reqs,
-                           lines=s.lines, drops=s.drops, state=state)
+                           lines=s.lines, drops=s.drops, state=state, years=years)
 
 
 def native(store, app, ports, *, posting=None):

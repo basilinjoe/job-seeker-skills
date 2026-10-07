@@ -12,6 +12,7 @@ class Requirement:
     quote: str
     necessity: str
     concepts: tuple = ()         # the analyst's answer: the concepts meant, any one satisfies
+    years: int | None = None     # the minimum years the advert states; derive measures them
 
 
 @dataclass(frozen=True)

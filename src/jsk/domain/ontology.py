@@ -352,6 +352,11 @@ CLASSES = (
                                           "lists alternatives")),
         (Pred("quote", TEXT, "1", "the advert's own words"),),
         (Pred("line", Ref(("AdvertLine",)), "?", "the advert line it quotes"),),
+        # Optional, so no format revision: a posting without it reads as before. 60 is far
+        # past any career; it stops a typo such as 2018 from reading as a requirement.
+        (Pred("years", Lit(("integer",), lo=1, hi=60), "?",
+              "the minimum years of experience the advert states, measured against the "
+              "record's dates"),),
     ), "one thing a posting asks for"),
     # --- applications/<dir>/application -----------------------------------------------
     Class("Application", "app", ("application",), "Application", (

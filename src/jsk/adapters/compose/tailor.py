@@ -54,4 +54,22 @@ def derive(r, store, today=None):
     absences = of_triples(store.graph(KB)) if today is not None and KB in store.parsed else []
     queries = OxigraphQueries(store)
     return derived(r, queries, question_line, absences=absences, today=today,
-                   counts_as=queries.counts_as)
+                   counts_as=queries.counts_as, experience=_experience(store, today))
+
+
+def _experience(store, today):
+    """concept iris -> (months, first, last) over `store` (application.record.holdings
+    .experience_span), or None with no `today` to run an ongoing role to. The holdings are
+    read once, on the first requirement that states years."""
+    from ...application.record.holdings import experience_span, holdings
+
+    if today is None:
+        return None
+    held = []
+
+    def measure(concepts):
+        if concepts and not held:
+            held.append(holdings(store))
+        return experience_span(store, concepts, today, held[0] if held else None)
+
+    return measure

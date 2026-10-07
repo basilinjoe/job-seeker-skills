@@ -31,13 +31,16 @@ class Header(TypedDict, total=False):
 class Requirement(TypedDict):
     """One requirement row for posting_decide: the advert line it answers (`n`, as app_show
     lines numbers it), its slug, the term as the line writes it, its concepts (`c:` ids) and
-    its necessity - required or preferred, by default what the line says."""
+    its necessity - required or preferred, by default what the line says - and, when the line
+    states a minimum ("7+ years"), `years`: assessment_derive then measures the record's
+    dates against it instead of leaving the row indeterminate."""
 
     n: int
     slug: str
     asked: str
     concepts: NotRequired[list[str]]
     need: NotRequired[str]
+    years: NotRequired[int]
 
 
 class Drop(TypedDict):

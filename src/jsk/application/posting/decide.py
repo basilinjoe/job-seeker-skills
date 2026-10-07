@@ -19,7 +19,7 @@ the review (Ruling 4), less any row about a requirement it removes, which would 
 The FAILs `decide` can return: a line that is not the advert's; an `asked` its line does
 not say; a slug not lowercase words, or used twice; two requirements asking one term; a
 necessity that is none; a concept the workspace does not know, or retired; a domain that is
-not a Domain; a header field that is not one; a line both dropped and quoted; a drop with
+not a Domain; a `years` that is not a whole number from 1 to 60; a header field that is not one; a line both dropped and quoted; a drop with
 no reason; a slug to remove that is not there. Its WARNs: a responsibility made required
 that its line does not call required; more requirements than the soft cap; a completed
 posting gone back to draft. `complete` adds the coverage FAIL, a FAIL for no requirement
@@ -271,12 +271,12 @@ def headed(s, header, known, retired, domains):
 
 
 def parse_row(i, row, s, known, retired, found):
-    """(label, slug, (asked, need, iris, quote, n)) for the batch's row `i`, or None when it
+    """(label, slug, (asked, need, iris, quote, n, years)) for the batch's row `i`, or None when it
     cannot be placed; its field FAILs appended to `found`.
 
     Args:
         i: its place in the batch, from 1.
-        row: {n, slug, asked, concepts, need}.
+        row: {n, slug, asked, concepts, need, years}.
         s: the Stored posting.
         known, retired: the concepts it may name.
         found: the findings, appended to.
@@ -307,8 +307,16 @@ def parse_row(i, row, s, known, retired, found):
                                                found))))
     line = next((x for x in s.lines if x.n == n), None)
     need = N.field(row, "need") or (default_need(line) if line else "")
+    years = N.field(row, "years")
+    if years is not None:
+        # A bool is an int in Python, and 2018 is a year, not a duration.
+        if isinstance(years, bool) or not isinstance(years, int) or not 1 <= years <= 60:
+            found.append(("FAIL", f"{label}: {slug} years {years!r} is not a whole number of "
+                          "years, 1 to 60", "fix:  the minimum the advert states, e.g. 7 for "
+                          "\"7+ years\"; leave it out when it states none"))
+            years = None
     return label, slug, (asked, str(need).removeprefix("j:"), iris,
-                         line.text if line else "", n)
+                         line.text if line else "", n, years)
 
 
 def checked(s, kept, batch, drops):
@@ -335,7 +343,7 @@ def checked(s, kept, batch, drops):
     order = [(f"stored {slug}", slug, row) for slug, row in kept.items()
              if slug not in replaced] + batch
     found = []
-    for label, slug, (asked, need, _, _, n) in order:
+    for label, slug, (asked, need, _, _, n, _) in order:
         found += rows.row(label, n, slug, asked, need=need)
         if n in lines and need in O.ENUMS["necessity"]:
             found += [(sev, text, fix) for sev, text, fix in rows.necessity(label, n, slug, need)]

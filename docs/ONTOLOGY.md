@@ -607,6 +607,14 @@ id `k:req_<slug>` · graph posting · section Requirements · provenance no
 | `j:concept` | → concept | 0..n |  | the concepts meant, any one of which satisfies it: one when the label is ambiguous, several when the advert lists alternatives |
 | `j:quote` | xsd:string (long) | 1 |  | the advert's own words |
 | `j:line` | → AdvertLine | 0..1 |  | the advert line it quotes, on a graph-native posting |
+| `j:years` | xsd:integer (1..60) | 0..1 |  | the minimum years of experience the advert states, measured against the record's dates |
+
+`years` is an optional addition, so it needed no format revision. With it, `assessment_derive`
+measures the record rather than asking the person: the months of the roles behind the projects
+holding the requirement's concepts (every role when there are none), overlaps counted once,
+and an ongoing role running to today. `satisfied` at `years` x 12 months or more, `partial`
+within 12 months of it, otherwise `unsatisfied`; the match's own verdict is never raised. A
+requirement without `years` is assessed as before.
 
 On a graph-native posting `quote` is its `line`'s text, and a requirement whose quote differs
 from it FAILs (`quote-is-line`). `quote` must appear in the advert word for word (`quote-verbatim`). The comparison ignores

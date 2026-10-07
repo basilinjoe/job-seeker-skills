@@ -135,11 +135,11 @@ def lines(store, s, ports):
 
 
 def requirements(s):
-    """{requirements: [{slug, n, asked, need, concepts, quote}], drops: [{n, reason}]}."""
+    """{requirements: [{slug, n, asked, need, concepts, quote, years?}], drops: [{n, reason}]}."""
     return {"requirements": [{"slug": slug, "n": n, "asked": asked, "need": need,
                               "concepts": ["c:" + c.removeprefix(O.C) for c in iris],
-                              "quote": quote}
-                             for slug, (asked, need, iris, quote, n) in s.reqs.items()],
+                              "quote": quote, **({"years": years} if years else {})}
+                             for slug, (asked, need, iris, quote, n, years) in s.reqs.items()],
             "drops": [{"n": n, "reason": why} for n, why in sorted(s.drops.items())]}
 
 

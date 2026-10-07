@@ -48,7 +48,7 @@ class Derived:
     asks: tuple = ()
 
 
-def derive(r, queries, ask, absences=(), today=None, counts_as=None):
+def derive(r, queries, ask, absences=(), today=None, counts_as=None, experience=None):
     """Derived for the match result `r` over the career `queries` reads.
 
     Args:
@@ -63,22 +63,29 @@ def derive(r, queries, ask, absences=(), today=None, counts_as=None):
         counts_as: concept iri -> the iris it counts as without an implies edge (the
             match's own closure, ports.queries.RecordQueries.counts_as), so a no to a
             concept also denies every narrower one; None denies only the concept itself.
+        experience: (concept iris, or () for every role) -> (months, first, last), as
+            application.record.holdings.experience_span reads the record; None leaves a
+            requirement's `years` unmeasured, and the row as the match gave it.
 
     Returns:
         Derived: a row per requirement, the fit, and the questions in the analyst's order.
     """
     stem = r["posting"].removeprefix("k:post_")
     r, said = answered(r, absences, today, counts_as)
+    r, measured, settled = timed(r, experience, said)
+    said = {**said, **measured}
     rows = []
     for q in r["requirements"]:
-        flag_text = listed_names(q, _texts(queries, q)) if q["verdict"] == "satisfied" else None
+        # A measured row has no bullets behind it for the flag to read.
+        flag_text = (listed_names(q, _texts(queries, q))
+                     if q["verdict"] == "satisfied" and q["id"] not in settled else None)
         rows.append(Row(id=q["id"], slug=slug_of(q["id"], stem),
                         asked=q["asked"], necessity=q["necessity"], state=q["state"],
                         matched=q["verdict"], evidence=_evidence(q),
                         basis=said.get(q["id"]) or _basis(q),
                         flags=(FLAG,) if flag_text else (), flag_text=flag_text,
                         concepts=tuple(q["concepts"])))
-    asks = _questions(r, ask, settled=said)
+    asks = _questions(r, ask, settled={*said, *settled})
     return Derived(posting=r["posting"], stem=stem, rows=tuple(rows), fit=fit_default(r),
                    questions=tuple(text for text, _ in asks), asks=tuple(asks))
 
@@ -138,6 +145,65 @@ def answered(r, absences, today, counts_as=None):
     # posting_decide keeps unique within a posting (two requirements asking one term FAIL).
     questions = [x for x in r["questions"] if x.get("requirement") not in asked]
     return {**r, "requirements": reqs, "questions": questions}, said
+
+
+# How far short of its years a requirement may fall and still be partial: a year. Past it the
+# record does not show the experience; within it, the person is close enough to be worth a
+# question about the gap (2026-10-06: the run that asked "how many years?" of a record whose
+# role dates answered it).
+PARTIAL_MONTHS = 12
+
+
+def timed(r, experience, said=()):
+    """(the match result with each requirement that states a minimum in years measured, {id:
+    its basis}, {ids the measure answered}): the record's dates answer it, so the person is
+    not asked.
+
+    A requirement's months are those of the roles behind the projects holding its concepts,
+    or of every role when it names none, overlaps counted once, an ongoing role running to
+    today (`experience`). With `years` the verdict is `satisfied` at years x 12 months or
+    more, `partial` when under it by no more than PARTIAL_MONTHS, otherwise `unsatisfied`.
+    The match's own verdict is a ceiling, never raised: a requirement whose concept the
+    record holds only as a tag (`unevidenced`), or only in a near project, keeps that
+    verdict, evidence and questions when the years would rank higher. An `indeterminate`
+    one has none to keep, so the years decide it and its questions go. An implicit
+    requirement, and one an absence has already answered, are left alone.
+
+    Args:
+        r: match.result's plain data, after `answered`.
+        experience: see derive; None measures nothing.
+        said: {id: basis} of the requirements an absence settled.
+
+    Returns:
+        (r, or a copy with the measured requirements changed; {id: basis} for every
+        requirement measured; the ids whose verdict the measure replaced).
+    """
+    from .verdict import RANK
+
+    if experience is None:
+        return r, {}, set()
+    states = {"satisfied": "matched", "partial": "near", "unsatisfied": "missing"}
+    basis, replaced, reqs = {}, {}, []
+    for q in r["requirements"]:
+        years = q.get("years")
+        if not years or q["necessity"] == "implicit" or q["id"] in said:
+            reqs.append(q)
+            continue
+        months, first, last = experience(tuple(_iri(c) for c in q["concepts"]))
+        short = years * 12 - months
+        found = "satisfied" if short <= 0 else "partial" if short <= PARTIAL_MONTHS else "unsatisfied"
+        held = q["verdict"]
+        keeps = held not in (None, "indeterminate") and RANK[held] <= RANK[found]
+        sentence = (f"about {months / 12:.1f} years in the record"
+                    + (f" ({first} to {last})" if first else "") + f", {years} asked")
+        basis[q["id"]] = f"{sentence} / {_basis(q)}" if keeps else sentence
+        if keeps:
+            reqs.append(q)
+            continue
+        replaced[q["id"]] = q["asked"]
+        reqs.append({**q, "verdict": found, "state": states[found], "near": [], "carriers": []})
+    questions = [x for x in r["questions"] if x.get("requirement") not in replaced.values()]
+    return {**r, "requirements": reqs, "questions": questions}, basis, set(replaced)
 
 
 def slug_of(req, stem):
