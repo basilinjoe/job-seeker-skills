@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 
 from ..domain.posting.errors import BROWSER_FIX, NotOnBoard, Refused
-from ..domain.posting.html_text import html_to_text
+from ..domain.posting.json_ld import page_advert
 
 TIMEOUT = 30
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -124,5 +124,5 @@ def read_file(path):
         raise Refused(f"{name} is not UTF-8 text",
                       "fix:  save it again as UTF-8 and capture it again") from None
     if kind in (".html", ".htm"):
-        return "", html_to_text(text)
+        return page_advert(text)
     return "", text.replace("\r\n", "\n").strip("\n")

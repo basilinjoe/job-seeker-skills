@@ -341,6 +341,50 @@ class FromAFile(unittest.TestCase):
         self.assertEqual(found.get("SQL"), "qualification", found)
         self.assertEqual(found.get("Own the pipelines"), "responsibility", found)
 
+    CHROME = ("<nav>Saved Jobs 0</nav><h1>Related jobs</h1><ul><li>Other role</li></ul>"
+              "<footer>Careers footer</footer>")
+
+    def page(self, scripts, body=CHROME):
+        return f"<html><head>{scripts}</head><body>{body}</body></html>".encode("utf-8")
+
+    def ld(self, payload):
+        import json
+        return f'<script type="application/ld+json">{json.dumps(payload)}</script>'
+
+    JOB = {"@type": "JobPosting", "title": "Data Engineer",
+           "hiringOrganization": {"@type": "Organization", "name": "Acme"},
+           "jobLocation": {"address": {"addressLocality": "Leeds", "addressRegion": "UK"}},
+           "description": "<p>About this role:</p><ul><li>Own the pipelines</li></ul>"}
+
+    def test_a_jobposting_block_is_the_advert_and_the_page_chrome_is_not(self):
+        # A script-rendered careers page put its nav and related jobs into ~100 lines of the
+        # advert (Wells Fargo, 2026-10-06); the block carries the advertisement alone.
+        title, text = self.fetch("posting.html", self.page(self.ld(self.JOB)))
+        self.assertEqual(title, "Data Engineer")
+        self.assertEqual(text, "Source: posting.html\n\n# Data Engineer\n\n"
+                               "Acme \u00b7 Leeds, UK\n\nAbout this role:\n\n"
+                               "- Own the pipelines\n")
+        self.assertNotIn("Saved Jobs", text)
+        self.assertNotIn("Related jobs", text)
+
+    def test_a_jobposting_in_a_list_or_a_graph_is_found(self):
+        for payload in ([{"@type": "WebSite"}, self.JOB],
+                        {"@context": "https://schema.org", "@graph": [{"@type": "Thing"}, self.JOB]}):
+            _, text = self.fetch("posting.html", self.page(self.ld(payload)))
+            self.assertIn("- Own the pipelines", text)
+            self.assertNotIn("Saved Jobs", text)
+
+    def test_malformed_json_falls_back_to_the_page_body(self):
+        scripts = '<script type="application/ld+json">{"@type": "JobPosting", </script>'
+        _, text = self.fetch("posting.html", self.page(scripts))
+        self.assertIn("Saved Jobs 0", text)
+
+    def test_no_jobposting_or_an_empty_description_falls_back_to_the_page_body(self):
+        for scripts in (self.ld({"@type": "WebSite", "name": "Acme"}),
+                        self.ld(dict(self.JOB, description="  ")), ""):
+            _, text = self.fetch("posting.html", self.page(scripts))
+            self.assertIn("Saved Jobs 0", text)
+
     def test_a_txt_or_md_is_taken_as_it_is(self):
         _, text = self.fetch("advert.txt", b"Platform Engineer\r\n\r\nYou will:\r\n- ship\r\n")
         self.assertEqual(text, "Source: advert.txt\n\n# Platform Engineer\n\n"

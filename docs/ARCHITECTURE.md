@@ -368,6 +368,7 @@ src/jsk/                            THE CLI. one installed package, `jsk` on the
     posting/errors.py               a file-made application's posting.md name, and how a posting step refuses
     posting/boards.py               which job board a URL is on, and its answer as a posting
     posting/html_text.py            a board's or a saved page's HTML as text
+    posting/json_ld.py              a saved page's schema.org JobPosting block as its advert: title, employer, description
     posting/advert.py               an advert's text squashed, and its lines numbered by section
     posting/decide.py               a title's seniority hint, an advert's header, the posting's triples
     posting/lines.py                an advert's lines as the posting graph stores them, and back
