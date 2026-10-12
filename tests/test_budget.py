@@ -65,6 +65,20 @@ class ResidentCost(unittest.TestCase):
         # apply`, and `jsk index` left the table; the claims gate, `jsk migrate` and
         # `jsk event` came in. The okf lesson is the reason it fell rather than grew:
         # the subverbs live in `jsk kb --help` and in each refusal's fix line, not here.
+        #
+        # Held at 2400 when the URS record went (2026-09-25): 2,251 -> 2,191 measured. The
+        # claims gate's row and its `NOT RUN` sentence, `--view` on two commands and the
+        # two-halves spec pointer left; `resume-format.md` came in as one name.
+        #
+        # Held at 2400 when the record moved into career/store/ (2026-09-29): 2,237 -> 2,238
+        # measured. The file table's kb.ttl/log.ttl/posting.ttl/application.ttl rows became one
+        # `career/store/` row, `adopt` left the kb verb list and `log` came in, and the hand-edit
+        # sentence became "never open anything under career/" plus the one-line import hint.
+        #
+        # Held at 2400 for the jsk mcp tools (5.0.0, 2026-10-02): 2,290 -> 2,308 measured. The
+        # application's four file rows became one directory row and a line for applications
+        # made from files; a short tools section came in, and the posting and tailor rows
+        # merged into one for the file path.
         self.assertLess(tokens(SKILL / "SKILL.md"), 2400)
 
 
@@ -80,21 +94,36 @@ class AgentReadBudget(unittest.TestCase):
         # Ceiling kept when it moved to posting.ttl and `jsk match`: 2,188 -> 1,754. The
         # weights table it applied by hand left with the arithmetic; an inline
         # posting.ttl, so it never needs kb-format.md, came in.
-        self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 2300)
+        # Held when `jsk match` began deriving verdicts (2026-09-26): 2,254 -> 2,226. The
+        # verdict table left with the judgement; the --gaps check came in.
+        # 2300 -> 1900 for fast tailor (2026-09-27): 2,226 -> 1,810. The inline posting.ttl
+        # and the gaps.md template left - `jsk posting build` writes the one and `jsk
+        # tailor prepare --draft-gaps` the other - and the splitting rules came in.
+        # Held for gaps.ttl (2026-09-27): 1,810 -> 1,890. §3 became reviewing a derived
+        # assessment and writing gaps.txt; the slot-by-slot gaps.md instructions left.
+        # Held for the store (2026-09-29): 1,890 -> 1,881. The kb.ttl path and the grep
+        # warning left; `jsk match` takes the application directory.
+        # Held for tailor-time Task 2 (2026-09-29): 1,881 -> 1,895. One --near call takes
+        # every term, `resp` lines need no row, and build names every problem at once.
+        # Held for the jsk mcp tools (5.0.0, 2026-10-02): 1,896 -> 1,874. File paths, the
+        # decisions.txt format, `jsk kb path`, prepare's digest and `--gaps` left; two JSON
+        # batch examples and eleven full tool names in the frontmatter came in.
+        self.assertLess(tokens(AGENTS / "jsk-tailor-analyst.md"), 1900)
 
-    def test_the_resume_author_reads_both_halves_of_the_record_spec(self):
-        """It writes the record by hand now, so `urs-spec.md` went from the half it
-        did not need to the half it cannot do without.
+    def test_the_resume_author_reads_the_short_file_format_and_the_rules(self):
+        """It wrote the record by hand, so `urs-spec.md` went from the half it did not
+        need to the half it could not do without - and went back again when `jsk kb
+        export` came to write every key but the view and the narrative. Then the record
+        itself went: the author reads `resume-format.md`, the short file's every key.
 
-        This ceiling went UP - 8,600 to 11,400 - and that is the cost of removing the
-        compiler, stated rather than absorbed. A compiled record could not carry an
-        unrecognised key, so the agent needed only the view format; a hand-written one
-        can, and `experience:` written where `engagements:` belongs renders a resume
-        with no jobs on it. 3,727 tokens of schema against a defect invisible in the
-        PDF is the trade, and it is the right way round.
+        This ceiling once went UP - 8,600 to 11,400 - the cost of removing the compiler,
+        stated rather than absorbed: a hand-written record could carry an unrecognised
+        key, and `experience:` written where `engagements:` belongs rendered a resume
+        with no jobs on it. The short file refuses an unknown key itself, so the schema
+        the author reads is a table of ten keys.
         """
         author = tokens(AGENTS / "jsk-resume-author.md")
-        spec = tokens(REFS / "view-format.md", REFS / "urs-spec.md")
+        spec = tokens(REFS / "resume-format.md")
         rules = tokens(REFS / "ats-rules.md", REFS / "writing-rules.md")
         # 11400 -> 7600: 11,214 -> 7,138 measured. Every key, type and shape stayed;
         # the prose around them, and each half's account of why it was split, went.
@@ -105,19 +134,66 @@ class AgentReadBudget(unittest.TestCase):
         # shape it had to copy became a four-line changeset. The fall is small because
         # the changeset carries its own prefix block rather than sending the author to
         # kb-format.md for it - that read would have cost 1,788.
-        self.assertLess(author + spec + rules, 7200)
+        #
+        # Held at 7200: 7,169 -> 7,160 measured, the author 1,796 -> 1,787. `export
+        # --from-match` took the choosing - the allocation table, ordering `include` and
+        # the skills - but the author must now name its own inferred bullets with
+        # --select and copy the GAP lines, which cost nearly what the table did.
+        #
+        # 7200 -> 5000: 7,160 -> 4,807 measured, the author 1,787 -> 2,105. On the
+        # ElevenLabs run it read urs-spec.md and the 11.8KB example record to edit a
+        # record the export had already written; both left, and a narrative's one
+        # shape came in. The author grew by what the run cost: the order of career
+        # changes before the export, `--refresh` over a delete and re-export, the
+        # WARN that is a question rather than a number to change.
+        #
+        # 5000 -> 4800: 4,809 -> 4,607 measured, the author 2,105 -> 1,786 and the format
+        # it reads 509 (view-format.md) -> 625 (resume-format.md). The URS record went
+        # (2026-09-25): the view keys, `include`, `view_draft`, the narrative's JSON
+        # shape, reading only the end of the record and `--refresh` all left with it -
+        # there is no copy of the career to read the end of or to refresh. The format
+        # grew by what the short file needs said once: a confirmed summary's one edit,
+        # everything the record gate fails, and `jsk migrate` for a legacy record.
+        #
+        # Held at 4800: 4,765 -> 4,797 measured, the author 1,798 -> 1,828. It exports
+        # first and surveys from the export's `id | text` lines, then exports again with
+        # --replace (tailor-time plan, Ruling 4); the second export cost what the one
+        # before it did, and the order moved.
+        #
+        # 4800 -> 5100 for the posting's title and terms (2026-10-01). Measured: 4,797 ->
+        # 5,046. resume-format.md gained two keys - `headline`, the posting's exact title
+        # under the name, and `names`, a skill under the posting's alias for it - and
+        # ats-rules.md the terms gate and the reading-order rule. An ATS search matches
+        # the string a recruiter types, and nothing put the posting's strings on the page.
+        #
+        # Held at 5100 for the jsk mcp tools (5.0.0, 2026-10-02). Measured: 5,057 -> 4,996,
+        # the author 1,882 -> 1,784. The two exports, `jsk kb path`, the shell advice and the
+        # record gate left - it selects, applies and updates through tools - and
+        # resume-format.md says once that the keys are a selection's in the store.
+        self.assertLess(author + spec + rules, 5100)
 
-    def test_the_view_format_is_the_smaller_half(self):
-        """If it ever grows past the file it was split out of, the split has stopped
-        paying for itself and should be reconsidered rather than quietly kept."""
-        self.assertLess(tokens(REFS / "view-format.md"),
-                        tokens(REFS / "urs-spec.md"))
+    def test_the_extractor_reads_its_definition_and_the_format(self):
+        """The one writing agent that MANDATES kb-format.md, and so the one left out of
+        TheWritePathStaysCheap.WRITE_AGENTS. The author writes bullets under projects
+        that exist, a shape four lines of inline changeset carry; the extractor writes
+        whatever a braindump or an old resume holds - organisations, roles, metrics and
+        their versions, projects, vocabulary - which is every row of the format's table.
+        An inline example of all of it would be the reference again, copied. The mode
+        files it replaced stay off the format: the read moved into an agent pinned to a
+        model, out of the session's context.
+        """
+        # New agent, new ceiling (2026-09-26): 3,098 measured - the definition 1,254,
+        # kb-format.md 1,844. Headroom covers kb-format.md growing to its own 2000.
+        # Held for the jsk mcp tools (5.0.0, 2026-10-02): 3,264 -> 3,207. career_preview took
+        # the changes/ file and its dry-run; returning the changeset whole came in, and
+        # kb-format.md's file tree lost the application's text files.
+        self.assertLess(tokens(AGENTS / "jsk-extractor.md", REFS / "kb-format.md"), 3400)
 
 
 class TheWritePathStaysCheap(unittest.TestCase):
     """Recording one project must not cost the whole format specification.
 
-    This class used to assert the opposite thing by the same measure. `mode-braindump.md`
+    This class used to assert the opposite thing by the same measure. the braindump mode file
     opened its write section with "Follow references/bundle-spec.md. Read two existing
     project concepts first so you match house style" - 6,453 tokens of specification
     plus two files off the person's own disk, before writing a single frontmatter key.
@@ -127,27 +203,28 @@ class TheWritePathStaysCheap(unittest.TestCase):
     There was no write layer over one Markdown file, so the read became legitimate
     again - `kb-spec.md` was how anybody knew what a project block looked like.
 
-    The graph record has one write command again, `jsk kb apply`, but its input is a
+    The graph record has one write tool again, `career_apply` (`jsk kb apply` until 6.0), but its input is a
     changeset in the record's own format, so the reference - now `kb-format.md` - is
     still the thing that says what an entry looks like. What is asserted stays the
     honest statement: it is not MANDATED, because the mode shows the changeset it needs
     inline, and apply's refusals name the fix for anything the example did not cover.
     """
 
-    WRITE_MODES = ("mode-braindump.md", "mode-refresh.md", "mode-gaps.md",
+    WRITE_MODES = ("mode-intake.md", "mode-review.md",
                    "mode-tailor.md", "mode-ship.md", "mode-resume.md")
 
     # An instruction to read something, as these files write one: the imperative
     # at the start of a line or a bolded sentence. Deliberately narrow.
     #
-    # A looser rule that matched "read" anywhere flagged mode-braindump.md's own
+    # A looser rule that matched "read" anywhere flagged the braindump mode's own
     # disclaimer - the sentence that replaced the instruction. Reading a negation as
     # the thing it negates is the one failure mode a check like this must not have,
     # because the fix a person would reach for is to delete the disclaimer.
     INSTRUCTION = ("Follow ", "Read ", "Open ", "**Follow ", "**Read ", "**Open ")
 
-    # The two agents that write a record file: the analyst writes posting.ttl, the
-    # author a changeset. Each carries the shape it writes inline for the same reason.
+    # The two agents that write the record: the analyst a posting and a review through its
+    # tools' batches, the author a changeset. Each carries the shape it sends inline for the
+    # same reason.
     WRITE_AGENTS = ("jsk-tailor-analyst.md", "jsk-resume-author.md")
 
     def mandated(self, path):
@@ -166,7 +243,7 @@ class TheWritePathStaysCheap(unittest.TestCase):
                               f"Show the changeset inline instead - the reference is for "
                               f"the case the file does not already cover.")
 
-    def test_the_braindump_path_stays_small(self):
+    def test_the_intake_path_stays_small(self):
         """SKILL.md plus the mode file, which is the whole mandated read.
 
         Measured rather than estimated, because an estimate here was wrong by 450
@@ -188,7 +265,20 @@ class TheWritePathStaysCheap(unittest.TestCase):
         # The last row is the graph record: SKILL.md's hand-edit habits became one
         # rule, and the mode's four-sections-in-order paragraph became a worked
         # changeset with its prefix block - the one thing apply cannot infer.
-        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-braindump.md"), 3300)
+        #
+        #   extractor    SKILL 2,222 + braindump   917                     =  3,139
+        #
+        # (2026-09-26) The worked changeset left for jsk-extractor, which writes it pinned
+        # to a model; the mode kept the save-their-words step and the relay.
+        #
+        #   six commands SKILL 2,304 + intake    1,387                     =  3,691
+        #
+        # 3300 -> 3800 (2026-10-04, docs/superpowers/plans/2026-10-04-six-commands.md): 3,259
+        # before (SKILL 2,316 + braindump 943), 3,691 after. Intake holds the braindump and
+        # also the document and bundle import that setup's phase 3 carried, so the second
+        # path left setup (7,260 -> 5,675 bytes) rather than being read twice; the prose
+        # was tightened first and the ceiling moved for what remained.
+        self.assertLess(tokens(SKILL / "SKILL.md", REFS / "mode-intake.md"), 3800)
 
     def test_the_format_specification_is_loaded_on_demand(self):
         """`kb-format.md` is the reference, and its size is therefore free - but only
@@ -201,7 +291,10 @@ class TheWritePathStaysCheap(unittest.TestCase):
         # each. kb-format.md describes the Turtle file a model must read and draft: the
         # banners, one table row per class with every predicate, provenance, and a
         # changeset. Smaller because the predicates are a table, not an example per
-        # section; `jsk kb apply`'s refusals carry what an example used to.
+        # section; `career_apply`'s refusals carry what an example used to.
+        # Held for the store (2026-09-29): 1,883 -> 1,905. The file tree became the store's
+        # graphs, the banners the view's section names, "Hand edits" left, and the
+        # canonical-number rule and the rebase-or-refuse `op:base` came in.
         self.assertLess(tokens(REFS / "kb-format.md"), 2000)
 
 
@@ -219,7 +312,7 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
     the same content read twenty times through greps, each one a round trip.
 
     The graph record answers both with a query. `jsk match` does the selection a
-    whole read was for, and `jsk kb show <ids>` reads exactly the entries it selected,
+    whole read was for, and `career_show(ids)` (`jsk kb show` until 6.0) reads exactly the entries it selected,
     so neither writing agent reads the career whole any more.
     """
 
@@ -235,11 +328,50 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
                 self.assertNotIn("--dump-record", self.body(name))
                 self.assertNotIn("--for score", self.body(name))
 
-    def test_the_author_reads_the_match_then_only_the_entries_it_uses(self):
-        body = self.body("jsk-resume-author.md")
-        self.assertIn("jsk match applications/<stem>/posting.ttl", body)
-        self.assertIn("jsk kb show <the ids you will use>", body)
+    def test_the_author_reads_the_assessment_then_only_the_entries_it_uses(self):
+        """On the ElevenLabs run the author re-ran the `jsk match` the analyst had
+        already copied into gaps.md, then showed the same six projects twice - once
+        with --bullets, once without, 41.5KB of notes it read back from a spill file.
+        On the Arrow and Schneider runs it still showed all 16 ranked projects before
+        exporting - 42KB, read whole. The export lists what it chose now, one line a
+        bullet, and `kb show` is only for the projects it will reword or write.
+
+        Changed on purpose in 5.0.0: the export became `resume_select`, its `id | text`
+        lines the selection's `bullets` as `app_show` returns them, and `jsk kb show` the
+        `career_show` tool. The order is the rule and it stands: select, then show."""
+        body = " ".join(self.body("jsk-resume-author.md").split())
+        self.assertIn("do not re-run the match", body)
+        self.assertLess(body.index("**Select first**"),
+                        body.index("`career_show(ids, bullets=true)`"))
+        self.assertIn("its `bullets` are your survey", body)
+        self.assertIn("only for the projects whose bullets you will reword or write", body)
+        self.assertNotIn("<the prj_ ids gaps.md ranks>", body)
+        self.assertIn("never the same ids twice", body)
         self.assertIn("not the whole career", body)
+
+    def test_the_author_edits_ids_and_settings_and_the_career_first(self):
+        """It read the 52KB export whole to edit the view and the summary - the last
+        two keys - and after a re-export read it again; the ElevenLabs author then
+        refreshed a record the career had moved under. The short file holds no copy to
+        read the end of or to refresh: every word goes into the career, the file is
+        exported again over the first (the Arrow author deleted it by hand to do that),
+        and the author edits only the order, the summary and the page settings.
+
+        Changed on purpose in 5.0.0: there is no file to export over. `resume_select`
+        (`from_match`) chooses once and `resume_update` changes only the order, the summary
+        and the settings, so a bullet written into the career is placed by id, never
+        re-exported."""
+        body = " ".join(self.body("jsk-resume-author.md").split())
+        self.assertIn("Every new or reworded bullet goes into the career", body)
+        self.assertIn('"mode": "from_match"', body)
+        self.assertIn("**Then `resume_update` only** `bullets`", body)
+        for gone in ("jsk kb export", "--replace", "resume.json --"):
+            with self.subTest(gone=gone):
+                self.assertNotIn(gone, body)
+        for gone in ("--refresh", "--urs", "view_draft", "include", "narrative",
+                     "Read only the end of the record"):
+            with self.subTest(gone=gone):
+                self.assertNotIn(gone, body)
 
     def test_the_analyst_runs_the_match_and_reads_what_it_cites(self):
         """The analyst stopped reading the file whole. On the ABB run it read 165k
@@ -248,9 +380,21 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         a command does in milliseconds and cannot miscount. That command was `jsk
         index --rank`; it is `jsk match` now, which matches through the vocabulary
         rather than by exact string. The analyst reads the entries it cites, and no
-        more, and no index is named anywhere: it is leaving with the Markdown."""
+        more, and no index is named anywhere: it is leaving with the Markdown. The match
+        takes the application directory now that the posting is a graph in the store.
+
+        Changed on purpose in 5.0.0: `jsk tailor match applications/<stem> --gaps` became
+        the tools - one `posting_decide` batch, `assessment_derive`, one `assessment_review`
+        batch - and no file path is named at all."""
         analyst = self.body("jsk-tailor-analyst.md")
-        self.assertIn("jsk match applications/<stem>/posting.ttl", analyst)
+        flat = " ".join(analyst.split())
+        self.assertIn("**one `posting_decide`**", flat)
+        self.assertIn("`assessment_derive(app)`", flat)
+        self.assertIn("**one `assessment_review`**", flat)
+        for gone in ("decisions.txt", "gaps.txt", "--gaps", "applications/<stem>"):
+            with self.subTest(gone=gone):
+                self.assertNotIn(gone, analyst)
+        self.assertNotIn("posting.ttl", analyst)
         self.assertIn("Read a project before citing it as evidence", analyst)
         self.assertIn("Do not read the whole career", analyst)
         self.assertNotIn("jsk index", analyst)
@@ -260,9 +404,12 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         is now a complete, valid, hand-written example of exactly the file this agent
         is about to write - which makes it a template to copy, and a tailored resume
         that copies one has stopped being tailored. A master record is the same
-        template by another name, so the warning names it too."""
-        body = self.body("jsk-resume-author.md")
-        self.assertIn("Do not read any other `resume.json`", body)
+        template by another name, so the warning names it too.
+
+        Changed on purpose in 5.0.0: a selection is a graph `app_show` reads, not a file,
+        so the warning names the selection."""
+        body = " ".join(self.body("jsk-resume-author.md").split())
+        self.assertIn("Do not read any other application's selection", body)
         self.assertIn("master", body)
 
     def test_the_author_is_handed_its_paths_rather_than_searching(self):
@@ -271,7 +418,14 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         on the way. The caller resolves the paths; the agent reads only those."""
         self.assertIn("never search for rules, references or examples",
                       self.body("jsk-resume-author.md"))
-        self.assertIn("EXAMPLE_RECORD", (REFS / "mode-tailor.md").read_text(encoding="utf-8"))
+        # The example record left with the hand-written record: an exported one is
+        # already the shape, and 11.8KB of someone else's resume was a template to copy.
+        # The URS specification followed it; the one format reference named is the
+        # short file's.
+        tailor = (REFS / "mode-tailor.md").read_text(encoding="utf-8")
+        self.assertNotIn("EXAMPLE_RECORD", tailor)
+        self.assertNotIn("urs-spec.md", tailor)
+        self.assertIn("references/resume-format.md", self.body("jsk-resume-author.md"))
 
     def test_applications_live_beside_the_knowledge_base(self):
         """Written as a bare `applications/<stem>`, a session resolved it against its
@@ -292,10 +446,15 @@ class TheAgentsReadTheFileWhole(unittest.TestCase):
         The caller used to rescore a project by hand with the analyst's weights,
         restated in one line, and this test kept the two statements agreeing. `jsk
         match` prints the weights and the scores, so the caller re-runs it instead and
-        neither file restates them - one statement cannot disagree with itself."""
-        tailor = (REFS / "mode-tailor.md").read_text(encoding="utf-8")
-        self.assertIn("Patch it yourself when every change is a row", tailor)
-        self.assertIn("Re-run `jsk match`", tailor)
+        neither file restates them - one statement cannot disagree with itself.
+
+        Changed on purpose in 5.0.0: the patch is an `assessment_review` call, not a
+        gaps.txt edit, and the re-run is `assessment_derive`, which folds the stored review
+        into the new match."""
+        tailor = " ".join((REFS / "mode-tailor.md").read_text(encoding="utf-8").split())
+        self.assertIn("Patch it yourself with `assessment_review` when every change is a row",
+                      tailor)
+        self.assertIn("Re-derive with `assessment_derive`", tailor)
         self.assertNotIn("+3 a required term", tailor)
         self.assertNotIn("×3", self.body("jsk-tailor-analyst.md"))
 
@@ -331,11 +490,92 @@ class TheMainThreadBudget(unittest.TestCase):
         # the hand-rescoring left, and a round's answers became one changeset and one
         # confirm instead of a scripted find-and-replace. mode-ship.md lost the
         # hand-appended timeline rows to `jsk event` and gained the claims gate.
+        #
+        # Held at 6000 through the ElevenLabs run (2026-09-25). Measured: 5,995 before,
+        # 5,998 after. Three commands replaced hand work and each cost its sentence:
+        # `jsk posting fetch` (the posting had been fetched with hand-written curl),
+        # ship's `=== summary` (`tail -60` had cut the record and claims gates off, so
+        # it shipped twice) and `export --refresh` (the confirmed bullets had been
+        # flipped in resume.json by an inline script). The prose they displaced paid
+        # for them: the example record's path, and reasons restated beside rules.
+        #
+        # 6000 -> 5900 when the URS record went (2026-09-25). Measured: 5,998 -> 5,773
+        # (SKILL 2,191, tailor 2,211, ship 1,370). mode-ship.md gave back 145: the claims
+        # gate's paragraph and the `NOT RUN` one went with the gate, and a withheld line is
+        # confirmed in the career and re-shipped rather than refreshed into the record.
+        # mode-tailor.md lost the `--refresh` sentence: after a confirm nothing in
+        # resume.json changes except a confirmed summary's status.
+        #
+        # 5900 -> 6100 for triage (fast tailor, 2026-09-27). Measured: 5,874 -> 5,998
+        # (SKILL 2,262, tailor 2,441, ship 1,295). mode-tailor.md's step 1b costs 124: two
+        # queries before dispatch, because the JumpCloud run spent 11 minutes of analysis
+        # to reach "you have nothing on PAM" and a query answers it in two seconds.
+        # Held at 6100 for gaps.ttl (2026-09-27). Measured: 5,998 -> 6,056. The directory
+        # holds three gaps files where it held one, and a patch goes to gaps.txt.
+        # Held at 6100 for the store (2026-09-29). Measured: 5,999 -> 5,993 (SKILL 2,238,
+        # tailor 2,456, ship 1,298). The directory lists documents only; commands take it.
+        # 6100 -> 6200 for a posting in a file (tailor-time Task 5, 2026-09-30). Measured:
+        # 6,014 -> 6,144 (SKILL 2,249, tailor 2,576, ship 1,318). mode-tailor.md's step 1
+        # costs 120: `jsk posting fetch <file>` and the browser save, ~90 of it the snippet
+        # itself, because the Arrow run typed a .docx's 2.5k tokens back out as posting.md
+        # and Schneider's portal came through the context the same way.
+        # Held at 6200 for ship fitting itself (tailor-time Task 3, 2026-09-30). Measured:
+        # 6,144 -> 6,184 (SKILL 2,253, tailor 2,576, ship 1,354). mode-ship.md §3 says when to cut and when not: the Arrow run
+        # spent 13 turns fitting by hand and cut what it need not.
+        # 6200 -> 6300 for the posting's title and terms (2026-10-01). Measured: 6,184 ->
+        # 6,239. mode-ship.md and mode-tailor.md each name `--headline`, and ship says the
+        # terms gate only warns: a required term missing from the page is a gap, and an
+        # agent that read the warning as a failure would add the word.
+        # Held at 6300 for the jsk mcp tools (5.0.0, 2026-10-02). Measured: 6,278 -> 6,271
+        # (SKILL 2,308, tailor 2,573, ship 1,389). posting.md written by hand, the directory's
+        # file list and the gaps.txt patch left mode-tailor.md; a "no" recorded as an absence,
+        # and the tool call for each step, came in.
         self.assertLess(
             tokens(SKILL / "SKILL.md",
                    REFS / "mode-tailor.md",
                    REFS / "mode-ship.md"),
-            6000)
+            6300)
+
+
+class TheToolDefinitions(unittest.TestCase):
+    """`jsk mcp`'s twenty-nine tool definitions ride in every session that loads the plugin, as
+    SKILL.md does, before anyone has asked for a tool (tool search defers them, but a
+    session that searches reads them all). Counted as `tools/list` hands them to the client:
+    name, description and input schema, as JSON."""
+
+    def test_the_twenty_nine_definitions_stay_small(self):
+        import asyncio
+        import importlib.util
+        import json
+
+        if importlib.util.find_spec("mcp") is None:
+            self.skipTest("the mcp extra is not installed")
+        import fixtures  # noqa: F401 - puts src/ on the path
+        from mcp.shared.memory import create_connected_server_and_client_session as connect
+
+        from jsk.adapters.mcp import server, session
+
+        async def listed():
+            async with connect(server.build(session.Session(root=str(REPO)))._mcp_server) as c:
+                return (await c.list_tools()).tools
+
+        tools = asyncio.run(listed())
+        size = sum(len(json.dumps({"name": t.name, "description": t.description,
+                                   "inputSchema": t.inputSchema})) for t in tools) // 4
+        self.assertEqual(len(tools), 29)
+        # 3350 when P4 landed (2026-10-02). Measured: 3,047 - under the plan's 4500 guess,
+        # with the batch rows' docstrings in the schema as descriptions: the fields of a
+        # requirement row are what an agent would otherwise get wrong on its first call.
+        # 3800 from 2026-10-03, when app_freeze, app_event and letter_check were added
+        # (Ruling 21's amendment). Measured: 3,463 with their descriptions cut to one line
+        # each; the three cost ~380 between them, so the old cap could not hold.
+        # 4500 from 2026-10-04, for the eight tools of docs/superpowers/plans/2026-10-04-mcp-first.md
+        # (career_check, career_pack, career_merge, app_drop, resume_check, resume_render,
+        # resume_preview, resume_fit). Measured: 4,300, each description one line.
+        # 4700 from 2026-10-06: career_confirm's `answers` (several groups in one write) and
+        # the `diff` flag of it and career_apply, with `years` on a requirement row. Measured:
+        # 4,531, each description still a line or two.
+        self.assertLess(size, 4700)
 
 
 if __name__ == "__main__":

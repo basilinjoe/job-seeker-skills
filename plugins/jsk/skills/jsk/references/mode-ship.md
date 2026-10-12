@@ -1,113 +1,96 @@
 # Mode: ship
 
-Render a record, put it through the gates, freeze the application. Reached by `/jsk:ship`, or read
-inline at the end of `mode-tailor.md` or `mode-resume.md`.
+Render a selection, put it through the gates, freeze the application. Reached by `/jsk:ship`, or
+read inline at the end of `mode-tailor.md` or `mode-resume.md`.
 
 ## What it needs
 
-A `resume.json` that validates, and the view to render — `--view` is required. Everything else has
-a default.
+A selection that validates: an application's `<stem>`, or `resumes/<name>`. Everything else has a
+default.
 
 ```
-/jsk:ship <applications/<stem>/resume.json> --view ID [--template NAME] [--ats-max] [--pages N]
+/jsk:ship <stem>|resumes/<name>, optionally a template, ats-max or a page count
 ```
 
-`$ARGUMENTS` names the record. No `--view` → the record's only view, or ask which. Empty → look for `applications/*/resume.json` and any `resume.json`
-in the workspace, and ask which if there is more than one.
+`$ARGUMENTS` names it. Empty → `app_list()`, and ask which if more than one is unsent.
 
-**Nothing here decides what the document says.** A gate failure is repaired in the record — and in
-`career/kb.ttl`, through `jsk kb apply`, if it came from there — then re-rendered; never worked
-around by loosening a check.
+**Nothing here decides what the document says.** A gate failure is repaired in the career,
+through `career_apply`, or in the selection's ids and settings (`resume_update`), then
+re-rendered; never worked around by loosening a check.
 
 ## 1. Choose the variant and the look
 
-**The template defaults to the ink-only default** (`monolith`); `--template NAME` is the only way to
-get another. Let the employer choose — a design studio's careers page argues for `ember`, a bank's
-for the default. `templates.md` has the catalogue; every template extracts to the same text.
+**Pick `template` from the posting's field** and say which: software, data, security →
+`circuit`; consulting, product, platform, engineering leadership → `meridian`; design, research →
+`ember`; executive one-pagers → `atrium`; banking, law, government, academia → `monolith`, the
+default. Every template extracts to the same text.
 
-`--ats-max` switches which variant the one PDF holds. Reach for it when the posting names a portal
+`ats_max` switches which variant the one PDF holds. Reach for it when the posting names a portal
 known to parse badly (Workday, Taleo, SuccessFactors, Naukri) or the target is a form rather than a
 person. **When in doubt, ATS-maximal.** It is longer by design, so it carries its own budget,
-`budget.ats_maximal_pages`. Do not cut evidence to force it onto the presentation budget.
+`ats_pages`. Do not cut evidence to force it onto the presentation budget.
 
 ## 2. Ship
 
-```bash
-jsk ship applications/<stem>/resume.json --out applications/<stem> --view <id> [--ats-max] [--template NAME] [--pages N]
-```
+`resume_ship(target=<stem>, template=…, ats_max=…, pages=…)`: the record gate (a failure stops
+it; nothing renders), then the render into `applications/<stem>/`, the fit if it overran (§3),
+the parse, prose and layout gates; `ok` only if every step passed, each step's output in `steps`.
+Show it; it refuses a frozen application.
 
-One process: the record gate, then the claims gate (either failing stops it, nothing renders), then
-`render --pdf`, then the parse and prose gates, each step's output printed verbatim. Exit 0 only if
-every step passed. Show that output.
+**The record gate** fails an id the career lacks or has retired, a bullet whose project has no
+role, and a number no current version of a metric the bullet cites holds (superseded: the metric
+was revised — the bullet needs the new value, in the career); labels, "N years of X" and brackets
+only warn.
 
-**Unconfirmed prose does not fail anything.** Everything `jsk-resume-author` wrote is `inferred`;
-a view with `provenance_floor: confirmed` drops it from the render, and the only sign is a
-`withheld …` warning line. Every one is confirmed or cut before the resume is handed over: get
-confirm-correct-or-cut on each clause, `jsk kb confirm <ids> --answer "…"`, flip them in the record,
-re-ship. Confirm confirms the career's text, so reworded wording goes into the career first
-(`jsk kb apply`) — never on the strength of the old text.
-
-**The claims gate** joins the record with `career/kb.ttl` by id: an entry the career lacks is at
-most `inferred`; nothing may be more confirmed than the career holds it; a bullet under another
-project fails (`project-moved`); every number must be in the current version of a metric the
-bullet cites (`number-superseded` means a revised metric — use the new value). Wording that drifted
-from the career's only warns (`text-changed`), as do labels, aliases and "N years of X".
-
-**`NOT RUN`** in a graph workspace means the record sits outside it — the gate looks for
-`career/kb.ttl` above `resume.json` — and `jsk ship` still exits 0. Move `resume.json` into
-`applications/<stem>/` and re-run; never freeze or hand over a `NOT RUN`.
+**Unconfirmed prose does not fail anything.** Below the floor (`confirmed`, by default) `inferred`
+content is dropped from the render; the only sign is a `withheld …` line. Every one is confirmed or
+cut before the resume is handed over: confirm it in the career — `career_confirm(ids,
+answer="…")`, new wording first through `career_apply`, never on the strength of the old text —
+and re-ship. A summary or headline the selection holds: `career_confirm(target=<stem>,
+block="summary"|"headline", answer="…")`. The terms gate only warns: a missing required term is a gap, not a
+word to add.
 
 ## 3. Fit, if it overran
 
-`jsk ship` reports the measured page count and never fails on it — `jsk fit` owns that verdict:
+**Ship fits itself**, stopping at the floors (0.5in, 10pt), and gates the fitted
+render. `fit: …, N pages` is done: 0.6in margins are a fit, not a compromise. Never re-run
+`resume_fit`, `tectonic` or `resume_check` on the directory after it.
 
-```bash
-jsk fit applications/<stem>/<Name>_Resume.tex --target-pages N
-```
-
-**A breached floor is a rejection, not a compromise** — cut evidence from the view instead. Then
-re-run `jsk ship`.
+**Cut evidence only on `over by ~N lines at the floors`**: nothing was changed. Cut about N lines of
+the lowest-ranked bullets from `bullets` (`resume_update`), telling the person why, and re-ship.
 
 ## 4. The render gate
 
-`jsk ship` closes by saying the render gate was not run. It is yours: open the PDF and look at every
-page. The checkers pass tofu-box bullets, a heading in the wrong font and an orphaned heading, so
-check:
+Ship closes by saying the render gate was not run. The layout gate has measured tofu, the
+fonts, stranded headings, the date column, the paper and the page count; open the PDF for the rest:
 
-- [ ] Page count is what the view asked for
-- [ ] Bullets are real glyphs, not boxes, and not a typed `•`
-- [ ] One font family throughout — headings against body, not just body against itself
-- [ ] No heading stranded at the foot of a page with its content overleaf
-- [ ] Dates aligned and consistently formatted
-- [ ] The region profile did what you intended: no photograph or date of birth on an Australian
-      resume, no missing nationality on a Gulf one
-- [ ] The prose, end to end: whether a bullet is true is theirs to confirm — call the resume
-      **unverified** until they have read it
+- [ ] It looks right as a whole
+- [ ] The work-rights line where the region asks for one; the declaration on an Indian resume
+- [ ] The prose, end to end: flag any verb that overstates ownership. Whether a bullet is true is
+      theirs to confirm — call the resume **unverified** until they have read it
 
 **`jsk-verifier`** is for a failed gate whose source you cannot see, or a second reading of the
-render gate. Hand it the output directory, the page budget, the record path and the workspace; it
-returns each verdict quoted and each defect traced to the id where it is fixed. To re-check one gate
-after one repair, `jsk gates <dir>` or `jsk check <file> --only parse|prose`.
+render gate. Hand it the skill directory, the output directory, the page budget, the stem and
+the workspace; it returns each verdict quoted and each defect traced to the id where it is fixed.
+To re-check after one repair, `resume_check(target=<dir>)`, or `resume_check(target=<file>,
+only="parse"|"prose"|"layout")` for one gate.
 
 ## 5. Freeze the application
 
-Only once every gate has passed — a `NOT RUN` has not.
+Only once every gate has passed.
 
-```bash
-jsk freeze applications/<stem> --submitted <yyyy-mm-dd>|false --channel "<Workday portal>" [--view ID] [--doc FILE ...]
-```
+`app_freeze(app=<stem>, submitted=<yyyy-mm-dd>|"false", channel="<Workday portal>", docs=…)`.
 
-It re-runs the gates and refuses on a failure, or if `application.ttl` exists. It writes
-`application.ttl`: the posting, view, date, channel, documents, the `resume.json` hash, the bullets
-carried and the metric versions they cite — so `jsk kb query stale` can later name an application
+It re-runs the gates and refuses on a failure, or if the application is already frozen. It stores
+the application: the posting, date, channel, documents, the selection's hash, the bullets that
+rendered and the metric versions they cite — so `career_query(name="stale")` can later name an application
 that sent a number since revised — and a `submitted` event. It renames the directory to the
-submitted date and prints the new path — **use that path from here on**, for `jsk event` too. Then:
+submitted date, moving its graphs in the same write — **use `renamed_to` from here on**. Then:
 
-- **Stop editing that directory.** `posting.md`, `posting.ttl`, `gaps.md` and `resume.json` are the
-  archive — it must still say what the application was answering.
-- **Later events are `jsk event <app-dir> <kind> --date …`** (`mode-pipeline.md`), add-only.
-- `--submitted false` is for an application deliberately held back: no `submitted` event, and that
+- **Stop changing that application.** The `.pdf`, the `.tex` and its graphs in the store are the
+  archive — it must still say what the application was answering; the tools refuse a sent one.
+- **Later events are `app_event`**, add-only: a reply, an interview or an outcome, with its date.
+- `submitted="false"` is for an application deliberately held back: no `submitted` event, and that
   is correct. **Never add a `submitted` event to clear a gap.**
 
-Feedback as it arrives is a `note` event; patterns in which evidence gets traction belong back in
-the positioning.
+Feedback as it arrives is a `note` event; which evidence gets traction belongs in the positioning.

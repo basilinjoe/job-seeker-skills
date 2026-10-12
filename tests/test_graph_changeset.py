@@ -2,8 +2,9 @@
 without the career in front of it."""
 import unittest
 
-from jsk.graph import changeset as C
-from jsk.graph.io import GraphError
+from jsk.adapters.compose import record
+from jsk.domain.record import changeset
+from jsk.domain.record.parsed import GraphError
 
 PFX = """@prefix j: <tag:jsk,2026:ns#> .
 @prefix k: <tag:jsk,2026:id/> .
@@ -14,13 +15,13 @@ PFX = """@prefix j: <tag:jsk,2026:ns#> .
 
 
 def read(body):
-    return C.read(PFX + body)
+    return record.read_changeset(PFX + body)
 
 
 def refusals(body):
     try:
         read(body)
-    except C.Refused as e:
+    except changeset.Refused as e:
         return [x.text() for x in e.refusals]
     raise AssertionError("not refused")
 
@@ -41,9 +42,18 @@ class Reading(unittest.TestCase):
 
     def test_a_changeset_saved_by_a_windows_editor_reads_the_same(self):
         body = 'op:add { k:prj_payments j:name "Payments" . }\n'
-        cs = C.read("﻿" + (PFX + body).replace("\n", "\r\n"))
+        cs = record.read_changeset("﻿" + (PFX + body).replace("\n", "\r\n"))
         self.assertEqual(len(cs.add), 1)
         self.assertEqual(cs.add[0][2].value, "Payments")
+
+    def test_a_number_s_fix_is_written_as_the_literal_the_store_keeps(self):
+        # `8.0` is kept as the decimal "8": `write 8` would be read as an integer.
+        [line] = refusals("op:set { k:met_x.v1 j:value 8.0 . }\n")
+        self.assertIn("fix: write \"8\"^^xsd:decimal", line)
+        [line] = refusals("op:set { k:met_x.v1 j:value 8.40 . }\n")
+        self.assertIn("fix: write 8.4", line)
+        [line] = refusals("op:set { k:met_x.v1 j:baseline 007 . }\n")
+        self.assertIn("fix: write 7", line)
 
     def test_a_syntax_error_is_a_graph_error(self):
         with self.assertRaises(GraphError):
@@ -67,7 +77,7 @@ class Refusals(unittest.TestCase):
 
     def test_confirmed_provenance(self):
         self.assertRefused('op:set { k:prj_x j:provenance j:confirmed . }\n',
-                           "a changeset cannot confirm", "jsk kb confirm")
+                           "a changeset cannot confirm", "career_confirm tool")
 
     def test_a_blank_node_object(self):
         self.assertRefused('op:add { k:prj_x j:headlineMetric [ j:subject "x" ] . }\n',
@@ -95,7 +105,7 @@ class Refusals(unittest.TestCase):
 
     def test_an_entry_of_another_file(self):
         self.assertRefused('op:add { k:evt_x j:kind j:note . }\n', "an Event lives in application.ttl",
-                           "writes career/kb.ttl only")
+                           "writes the career only")
 
     def test_the_log(self):
         self.assertRefused('op:add { k:rev_9 j:summary "x" . }\n', "lives in log.ttl")

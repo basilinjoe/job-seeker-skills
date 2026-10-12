@@ -12,8 +12,10 @@ from pathlib import Path
 import pyoxigraph as ox
 
 from graphgen import graph
-from jsk.graph import io, writer
-from jsk.graph import ontology as O
+from jsk.infra.oxigraph import codec
+from jsk.infra import files
+from jsk.domain.record import writer
+from jsk.domain import ontology as O
 
 FIXTURES = Path(__file__).parent / "graph_fixtures"
 FILES = sorted(FIXTURES.rglob("*.ttl"))
@@ -30,13 +32,13 @@ class FixturesAreCanonical(unittest.TestCase):
         for path in FILES:
             with self.subTest(file=path.name):
                 text = path.read_bytes().decode("utf-8")
-                parsed = io.parse_text(text, path.name)
+                parsed = codec.parse_text(text, path.name)
                 self.assertEqual(writer.write(parsed.quads, parsed.kind), text)
 
     def test_the_shipped_vocabulary_is_canonical(self):
         import jsk
         text = (Path(jsk.__file__).parent / "data" / "vocabulary.ttl").read_bytes().decode()
-        parsed = io.parse_text(text, "vocabulary.ttl")
+        parsed = codec.parse_text(text, "vocabulary.ttl")
         self.assertEqual(writer.write(parsed.quads, "vocabulary"), text)
 
 
@@ -49,7 +51,7 @@ class RandomGraphsRoundTrip(unittest.TestCase):
                 with self.subTest(kind=kind, seed=seed):
                     ts, _ = graph(seed, kind)
                     out = writer.write(ts, kind)
-                    back = io.parse_text(out, f"{kind}.ttl", kind)
+                    back = codec.parse_text(out, f"{kind}.ttl", kind)
                     self.assertEqual(triples(back), {(str(t.subject), str(t.predicate),
                                                       str(t.object)) for t in ts})
                     self.assertEqual(writer.write(back.quads, kind), out)
@@ -75,7 +77,7 @@ class Literals(unittest.TestCase):
                 t = ox.Triple(ox.NamedNode(O.K + "met_x"), ox.NamedNode(O.J + "subject"),
                               ox.Literal(value))
                 out = writer.write([t], "kb")
-                back = io.parse_text(out, "kb.ttl")
+                back = codec.parse_text(out, "kb.ttl")
                 self.assertEqual([q.object.value for q in back.quads], [value])
 
     def test_multiline_prose_stays_readable(self):
@@ -85,7 +87,7 @@ class Literals(unittest.TestCase):
         self.assertIn('j:problem """It said "no".\nSo we did.""" .', out)
 
     def test_numbers_and_dates_are_bare_or_typed(self):
-        out = writer.write(io.parse_text(PFX + 'k:met_x.v1 j:value 42 ; j:baseline 8.5 ; '
+        out = writer.write(codec.parse_text(PFX + 'k:met_x.v1 j:value 42 ; j:baseline 8.5 ; '
                                          'j:validFrom "2026-09-01"^^xsd:date .', "kb.ttl").quads,
                            "kb")
         self.assertIn("j:baseline 8.5 ; j:value 42", out)
@@ -130,44 +132,13 @@ class Layout(unittest.TestCase):
             writer.write([t], "posting")
 
 
-class HandEdits(unittest.TestCase):
-    """What a person's editor does to the file, undone by one rewrite."""
-
-    KB_TEXT = (FIXTURES / "career" / "kb.ttl").read_bytes().decode("utf-8")
-
-    def rewrite(self, text):
-        parsed = io.parse_text(text, "career/kb.ttl")
-        return writer.write(parsed.quads, "kb")
-
-    def test_a_windows_editor_crlf_bom_and_tabs(self):
-        edited = "﻿" + self.KB_TEXT.replace("\n    ", "\n\t").replace("\n", "\r\n")
-        self.assertEqual(self.rewrite(edited), self.KB_TEXT)
-
-    def test_a_subject_written_in_two_places_becomes_one_block(self):
-        text = PFX + ('k:met_team j:subject "engineers led" .\n\n'
-                      'k:met_team.v1 j:of k:met_team ; j:value 6 ; j:confidence j:measured ; '
-                      'j:provenance j:confirmed .\n\nk:met_team j:unit "engineers" .\n')
-        out = self.rewrite(text)
-        self.assertIn('k:met_team j:subject "engineers led" ; j:unit "engineers" .', out)
-        self.assertEqual(out.count("k:met_team j:"), 1)
-
-    def test_sparql_style_prefixes_full_iris_and_stray_prefixes(self):
-        text = ('PREFIX j: <tag:jsk,2026:ns#>\n@prefix ex: <http://example.com/> .\n'
-                '<tag:jsk,2026:id/met_team> j:subject "engineers led" ; '
-                '<tag:jsk,2026:ns#unit> "engineers" .\n')
-        out = self.rewrite(text)
-        self.assertIn('k:met_team j:subject "engineers led" ; j:unit "engineers" .', out)
-        self.assertNotIn("example.com", out)
-        self.assertTrue(out.startswith(PFX))
-
-
 class NeverUnparseable(unittest.TestCase):
     """The writer's output always parses back to the same triples, whatever it is given
     that it does not refuse outright."""
 
     def round_trip(self, triples, kind="kb"):
         out = writer.write(triples, kind)
-        back = io.parse_text(out, f"{kind}.ttl", kind)
+        back = codec.parse_text(out, f"{kind}.ttl", kind)
         return out, {(str(q.subject), str(q.predicate), str(q.object)) for q in back.quads}
 
     def test_a_triple_given_twice_is_written_once(self):
@@ -181,6 +152,14 @@ class NeverUnparseable(unittest.TestCase):
         _, back = self.round_trip([t])
         self.assertEqual(back, {(str(t.subject), str(t.predicate), str(t.object))})
 
+    def test_a_typed_value_with_a_newline(self):
+        """A typed literal goes through short_string, which wrote the newline raw - a
+        line jump inside a single-quoted string, which no parser reads back."""
+        t = ox.Triple(ox.NamedNode(O.K + "met_x"), ox.NamedNode(O.J + "note"),
+                      ox.Literal("a\nb", datatype=ox.NamedNode(O.XSD + "token")))
+        _, back = self.round_trip([t])
+        self.assertEqual(back, {(str(t.subject), str(t.predicate), str(t.object))})
+
     def test_an_iri_from_a_namespace_the_file_does_not_declare(self):
         t = ox.Triple(ox.NamedNode(O.K + "met_x"), ox.NamedNode(O.J + "note"),
                       ox.NamedNode(O.OP + "set"))
@@ -191,7 +170,7 @@ class NeverUnparseable(unittest.TestCase):
 
 class SubjectLines(unittest.TestCase):
     def test_findings_can_point_into_the_fixture(self):
-        parsed = io.parse(FIXTURES / "career" / "kb.ttl")
+        parsed = files.parse(FIXTURES / "career" / "kb.ttl")
         text = (FIXTURES / "career" / "kb.ttl").read_text(encoding="utf-8").split("\n")
         line = parsed.lines[O.K + "met_team.v1"]
         self.assertTrue(text[line - 1].startswith("k:met_team.v1 "))

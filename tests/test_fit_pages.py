@@ -14,13 +14,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (EXAMPLE_URS, FIT_PAGES, RENDER_RESUME, load_script, run,
-                      urs_module)
+from fixtures import (FIT, FIT_PAGES, RENDER, example_short, load_script,
+                      render_module, run)
 
 fp = load_script(FIT_PAGES)
-emit_latex = urs_module("urs.emit_latex")
-themes = urs_module("urs.themes")
-tex = urs_module("urs.tex")
+emit_latex = render_module("domain.render.emit_latex")
+themes = render_module("domain.render.themes")
+tex = render_module("infra.tex")
 
 
 def preamble(margin="0.8in", section="7pt", entry="4pt",
@@ -206,7 +206,7 @@ class CliContract(unittest.TestCase):
         self.tex.write_text(preamble(), encoding="utf-8")
 
     def test_missing_file_reports_a_verdict(self):
-        code, out = run(FIT_PAGES, self.tmp / "absent.tex")
+        code, out = run(FIT, self.tmp / "absent.tex")
         self.assertEqual(code, 2)
         self.assertIn("not found", out.lower())
 
@@ -215,25 +215,32 @@ class CliContract(unittest.TestCase):
         mistake now that the PDF is the deliverable."""
         pdf = self.tmp / "resume.pdf"
         pdf.write_bytes(b"%PDF-1.4")
-        code, out = run(FIT_PAGES, pdf)
+        code, out = run(FIT, pdf)
         self.assertEqual(code, 2)
         self.assertIn("not a .tex", out)
 
     def test_a_tex_without_the_levers_is_refused(self):
         stray = self.tmp / "other.tex"
         stray.write_text(r"\documentclass{article}", encoding="utf-8")
-        code, out = run(FIT_PAGES, stray)
+        code, out = run(FIT, stray)
         self.assertEqual(code, 2)
         self.assertIn("NO LEVERS", out)
         self.assertNotIn("PASS", out)
 
+    def test_a_hand_edited_cp1252_tex_is_refused_not_a_traceback(self):
+        self.tex.write_bytes(preamble().encode("utf-8") + b"\n% \x93edited\x94\n")
+        code, out = run(FIT, self.tex)
+        self.assertEqual(code, 2, out)
+        self.assertIn("not UTF-8", out)
+        self.assertNotIn("Traceback", out)
+
     def test_zero_target_pages_is_a_usage_error(self):
-        code, out = run(FIT_PAGES, self.tex, "--target-pages", "0")
+        code, out = run(FIT, self.tex, "--target-pages", "0")
         self.assertEqual(code, 2)
         self.assertIn("usage", out.lower())
 
     def test_conflicting_output_flags_are_a_usage_error(self):
-        code, out = run(FIT_PAGES, self.tex, "--in-place", "-o", str(self.tmp / "o.tex"))
+        code, out = run(FIT, self.tex, "--in-place", "-o", str(self.tmp / "o.tex"))
         self.assertEqual(code, 2)
         self.assertIn("usage", out.lower())
 
@@ -248,13 +255,12 @@ class WithAnEngine(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def render(self, *args):
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default", *args)
+        code, out = run(RENDER, example_short(), "--out", self.tmp, *args)
         self.assertEqual(code, 0, out)
         return self.tmp / "Priya_Raman_Resume.tex"
 
     def test_a_short_document_already_fits(self):
-        code, out = run(FIT_PAGES, self.render(), "--target-pages", "2")
+        code, out = run(FIT, self.render(), "--target-pages", "2")
         self.assertEqual(code, 0, out)
         self.assertIn("already fits", out)
 
@@ -262,7 +268,7 @@ class WithAnEngine(unittest.TestCase):
         """The defect this change exists for: the page count has to describe the
         PDF the .tex compiles to, not a second document built another way."""
         source = self.render()
-        code, out = run(FIT_PAGES, source, "--target-pages", "2")
+        code, out = run(FIT, source, "--target-pages", "2")
         self.assertEqual(code, 0, out)
         self.assertIn("baseline: 1 pages", out)
 
@@ -279,7 +285,7 @@ class WithAnEngine(unittest.TestCase):
         fat = self.tmp / "fat.tex"
         fat.write_text(head + r"\begin{document}" + middle * 6 + r"\end{document}",
                        encoding="utf-8")
-        code, out = run(FIT_PAGES, fat, "--target-pages", "1", "--dry-run")
+        code, out = run(FIT, fat, "--target-pages", "1", "--dry-run")
         self.assertEqual(code, 1, out)
         self.assertNotIn("PASS", out)
 

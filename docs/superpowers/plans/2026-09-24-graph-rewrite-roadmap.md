@@ -23,7 +23,7 @@ The user chose **Option C**: the record becomes graph-native **text** — Turtle
 
 **Workspace layout**
 - `career/kb.ttl` — whole career + the person's vocabulary additions. `career/log.ttl` — append-only audit log, written by apply.
-- `applications/<dir>/posting.ttl` (structured requirements), `posting.md` (advert verbatim, no frontmatter), `gaps.md` (prose, unchanged), `resume.json`, renders, `application.ttl` (metadata, carried links, timeline events).
+- `applications/<dir>/posting.ttl` (structured requirements), `posting.md` (advert verbatim, no frontmatter), `gaps.md` (prose, unchanged - superseded 2026-09-27: `gaps.ttl` + `gaps.md` derived by code, the analyst's `gaps.txt` folded in; see `2026-09-27-gaps-ttl.md`), `resume.json`, renders, `application.ttl` (metadata, carried links, timeline events).
 - Shipped vocabulary `src/jsk/data/vocabulary.ttl` (technologies only, no `implies`).
 - `jsk new` writes `.gitattributes` with `*.ttl text eol=lf`.
 - In memory: one named graph per file (errors name the file); derived triples in `j:derived`, never written; queries over the union graph.
@@ -76,6 +76,7 @@ The user chose **Option C**: the record becomes graph-native **text** — Turtle
 
 **P8 (optional) Record export** — `jsk kb export --urs --select <ids>`: draft resume.json with exact ids, provenance and metrics, removing hand transcription (main source of record defects); the author only retunes text and the view.
   *Built (2026-09-25), `src/jsk/graph/export.py`. Rulings:* `--select` takes `prj_`/`ach_`/`pos_` and narrows only the experience - the person, skills, education, credentials and positioning always come across whole (short, and the view decides what renders); an employer always brings every role held there (a promotion history is never halved); a named bullet narrows its project to the named bullets; a metric is exported at its current version only, and one with none is left off so its number fails the gates rather than travelling; one draft view `view_draft` at `provenance_floor: confirmed`; `--out` never replaces a file; a career with a FAIL is refused, a hand-edited one is not (export only reads). Engagement ids are `eng_<org slug>`, suffixed by kind only when one employer has two kinds of work.
+  *Extended (2026-09-25): `--from-match <posting.ttl>`* (`src/jsk/graph/select.py`, spec `docs/superpowers/specs/2026-09-25-export-from-match-design.md`) - the selection, bullet order and skill order computed from the match over confirmed evidence only; a tag-only carrier is a `GAP`, not a carrier, and the gaps print for `gaps.md`; `jsk match` output unchanged.
 
 ## Risks
 

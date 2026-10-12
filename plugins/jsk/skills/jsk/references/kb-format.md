@@ -1,45 +1,42 @@
-# The record: Turtle files in git
+# The record: one store, read as Turtle
 
-For reading `career/kb.ttl` and drafting a changeset. Nobody writes `career/` but `jsk`; you
-change the career with `jsk kb apply`, and read it with `jsk kb show`, `view` and `query`.
+For reading the career and drafting a changeset. The record is named graphs in one store,
+`career/store/`, that only `jsk` opens: you change it with the `career_apply` tool, and read it with
+`career_show` (entries as Turtle, and the `op:base`), `career_view`, `career_query` and `career_log`.
 
 ```
 <workspace>/
-  .gitattributes             *.ttl text eol=lf
-  career/kb.ttl              the whole career, one readable file
-  career/log.ttl             every change: revision, day, command, summary, kb.ttl's hash
-  applications/<yyyy-mm-dd>-<company>-<role>/
-    posting.md               the advertisement, verbatim - nothing else
-    posting.ttl              what it asks for (the analyst writes it)
-    gaps.md                  the assessment and the question queue
-    resume.json              the URS record this submission rendered from
-    application.ttl          what was sent, and its timeline - jsk freeze, jsk event
+  career/store/              the record: graphs kb (the career), log (every change),
+                             applications/<stem>/posting, review, gaps, resume, application;
+                             resumes/<name>/resume
+  .jsk/backup.trig           the whole record as TriG, after every write
+  applications/<stem>/       the .pdf and .tex a render left (one frozen from files before
+                             6.0 also holds posting.md, read to check its quotes)
 ```
 
-## Layout
+## Sections
 
-A fixed prefix block (`j:` the ontology, `k:` ids, `c:` concepts, `xsd:`), the header
-`k:kb j:format 3 ; j:name … ; j:updated … ; j:revision N .` (`format`, `updated` and `revision`
-are jsk's to write), then one banner per section, always all of them, in this order:
+The career's header is `k:kb j:format 3 ; j:name … ; j:updated … ; j:revision N .` (`format`,
+`updated` and `revision` are jsk's to write). `career_view` prints it in these sections, in this
+order; its `section` argument takes one name:
 
 ```
-# == Identity
-# == Positioning
-# == Work authorization and languages
-# == Vocabulary
-# == Organisations
-# == Roles
-# == Projects
-# == Metrics
-# == Skills
-# == Education
-# == Certifications
-# == Open source
-# == Open questions
+Identity
+Positioning
+Work authorization and languages
+Vocabulary
+Organisations
+Roles
+Projects
+Metrics
+Skills
+Education
+Certifications
+Open source
+Open questions
 ```
 
-Bullets sit under their project, versions under their metric, prose in `"""…"""`. Values are
-never reflowed. No blank nodes on disk. `jsk kb fmt` restores the layout.
+Bullets sit under their project, versions under their metric. `career_show` prints prose in `"""…"""`.
 
 ## Ids
 
@@ -57,21 +54,26 @@ Concepts are `c:<words-with-dashes>`. A bullet's id is minted by apply.
 | `prj_` | Project | Projects | `name` `position`? `strength` `recency` `seniority`? `domain`* `uses`* `headlineMetric`? `noneQuantified`? `problem`? `decision`? `outcome`? |
 | `ach_` | Achievement (a bullet) | Projects | `project` `rank` `text` `cites`* `shows`* |
 | `met_` | Metric | Metrics | `subject` `unit`? `direction`? |
-| `met_x.v1` | MetricVersion | Metrics | `of` `baseline`? `value` `kind`? `confidence` `source`? `validFrom`? `validUntil`? |
+| `met_x.v1` | MetricVersion | Metrics | `of` `baseline`? `value` `upper`? `qualifier`? `kind`? `confidence` `source`? `validFrom`? `validUntil`? |
 | `skill_` | Skill | Skills | `name` `category` `rank`? `alias`* |
 | `edu_` | Education | Education | `institution` `qualification` `field`? `level`? `start`? `end`? `gradeScheme`? `gradeValue`? |
 | `cred_` | Credential | Certifications | `name` `issuer` `issued`? `expires`? `credentialState` `url`? |
 | `os_` | OpenSource | Open source | `name` `url` `role` |
-| `q_` | Question | Open questions | `about` `question` `asked` `answered`? |
+| `q_` | Question | Open questions | `about`+ (`k:kb`: the whole career) `question` `asked` `answered`? |
+| `abs_` | Absence (a "no") | Open questions | `concept` `said` `answer` (their words) |
 
 Every entry may carry `retired` (with a `reason`) and `note`* - free text for anything the
 ontology has no field for. Enums are `j:` words (`j:ongoing`, `j:measured`); dates are
 `"2026-09-08"^^xsd:date`; `start`/`end` are `"YYYY-MM"` strings. Seniority is closed:
 `architecture-ownership` `product-ownership` `platform-design` `team-leadership`
-`technical-ownership` `hands-on-senior` `hands-on` `junior`.
+`technical-ownership` `hands-on-senior` `hands-on` `junior`. A number stated loosely keeps how:
+"15-20" is `j:value 15 ; j:upper 20`, "50+" `j:qualifier j:at-least` (`j:about` ~, `j:under` <,
+`j:over` >); several numbers in one are several metrics. The store keeps a number by value, so
+write it as it keeps it - `8.4`, not `8.40`; `7`, not `007` - or apply refuses it; a grade whose
+zeros matter (`3.80`) is a string.
 
 **Tag versus evidence.** A project's `uses` is a tag; a bullet's `shows` is evidence. A concept a
-project names must exist - in the shipped vocabulary or under `# == Vocabulary`
+project names must exist - in the shipped vocabulary or the career's own Vocabulary
 (`c:x a j:Capability ; j:label "X" .`).
 
 ## Provenance
@@ -79,7 +81,7 @@ project names must exist - in the shipped vocabulary or under `# == Vocabulary`
 Every entry except concepts, metrics, skills and questions carries `j:provenance`: `j:confirmed`,
 `j:inferred`, `j:needs-verification` or `j:disputed`. Changing a claim - text, a title, a date, a
 value, where it sits - drops the entry to `j:inferred` and opens a `q_` question. Only
-`jsk kb confirm <id> --answer "…"` raises it.
+`career_confirm(ids=["<id>"], answer="…")` raises it.
 
 ## Changesets
 
@@ -107,36 +109,33 @@ op:retire { k:prj_intranet j:reason "Too old to earn a line." . }
 - `op:add` adds; `op:set` replaces every value of each (entry, predicate) it names; `op:retire`
   keeps the entry, dated, with its reason; `op:delete` removes triples, or `k:x a op:Entry` the
   whole entry - only one that was wrong, never one anything points at.
-- `op:base` is the revision `jsk kb show` printed; a later change to what you touch is refused.
+- `op:base` is the revision `career_show` returned. A later write that touched nothing you name
+  does not stop it; a later change to what you touch is refused, naming the ids.
 - A new bullet is `[]` with `j:project` and `j:rank`. A new `j:value` on a metric version an
   application sent becomes the next version; the sent one never changes. Never write `j:confirmed`, `j:revision` or `j:updated`.
-- `--dry-run` first. Every refusal says what fixes it.
+- `career_preview` first. Every refusal says what fixes it.
 
-Without pyoxigraph, draft the changeset into a file and say it waits for `jsk kb apply`.
+With the jsk tools unavailable, draft the changeset into a file and say it waits for `career_apply`.
 
-## Hand edits
+## The posting graph
 
-Legal. The next load says `kb.ttl changed outside jsk kb apply`; `jsk kb adopt` logs the edit and
-lists every provenance it raised, to check with the person.
-
-## posting.ttl
+`posting_decide` writes it; `career_show(ids=["k:post_<stem>"])` returns it:
 
 ```turtle
-# == Posting
-
 k:post_acme_platform j:company "Acme Health" ; j:title "Platform Engineer" ;
     j:url "https://…" ;
     j:seniority j:platform-design ;
-    j:captured "2026-09-08"^^xsd:date ; j:advert "posting.md" .
-
-# == Requirements
+    j:captured "2026-09-08"^^xsd:date ; j:state j:draft .
 
 k:req_acme_platform_k8s j:posting k:post_acme_platform ;
     j:asked "K8s" ; j:necessity j:required ; j:concept c:kubernetes ;
     j:quote "Deep, hands-on K8s experience in production" .
 ```
 
-A posting holds `company` `title` `url`? `seniority`? `domain`* `captured` `advert`; a requirement
-`posting` `asked` `necessity` `concept`? `quote`. `asked` is the advert's term; `quote` its words,
-verbatim from `posting.md`; `necessity` is `required`, `preferred` or `implicit`; `concept` only
-when `jsk match` calls the term ambiguous.
+A posting holds `company` `title` `url`? `seniority`? `domain`* `captured` `advert`? `state`?; a
+requirement `posting` `asked` `necessity` `concept`* `quote` `line`? `years`?; an advert line (`line_`)
+`posting` `n` `section` `text` `optional`? `eligibility`? `dropped`?. `asked` is the advert's
+term; `quote` its words, verbatim from its advert line (`line`); a frozen file-made posting's from `posting.md`; `necessity` is `required`,
+`preferred` or `implicit`; `concept` when the match calls the term ambiguous or unknown,
+one per alternative ("AWS/GCP/Azure") - any one satisfies. `years` is the minimum years the advert
+states ("7+ years"); the derive measures it against the record's dates, so no one is asked.

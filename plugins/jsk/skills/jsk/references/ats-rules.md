@@ -10,8 +10,6 @@ well and parse poorly; naming the employer on every role line parses perfectly a
 | **Presentation** | Humans — referrals, direct email, interviews |
 | **ATS-maximal** | Portals — Workday, Taleo, SuccessFactors, Naukri, agencies |
 
-Plus a **plain-text** file for portals with paste-in boxes.
-
 Either variant ships as **one PDF**: `--ats-max` chooses which variant that PDF holds and never
 produces a second file. When unsure what an employer runs, send ATS-maximal.
 
@@ -31,7 +29,7 @@ produces a second file. When unsure what an employer runs, send ATS-maximal.
   changes the characters does: no `\MakeUppercase` on the **name** (an ATS extracts the name by
   heuristic), no letterspacing (`SUMMARY` extracts as `S U M M A R Y`). Uppercase *section headings*
   are fine — headings are matched case-insensitively.
-- **`.pdf`**, from `jsk render --pdf`. Workday, Greenhouse, Lever and Ashby parse PDF text. **If a
+- **`.pdf`**, from `resume_render(pdf=True)`. Workday, Greenhouse, Lever and Ashby parse PDF text. **If a
   posting names a format, follow the posting**; a portal that demands `.docx` is one to submit to by
   hand.
 - **A text layer, not a picture of one.** A scan, or a PDF without embedded fonts, extracts as
@@ -60,16 +58,17 @@ produces a second file. When unsure what an employer runs, send ATS-maximal.
 ## The arrow trap
 
 `Engineer → Senior Engineer → Lead → Architect`: stripped of the glyph, four titles become one string
-and a parser may extract a phantom title. Write it as a sentence:
-
-> Promoted through four roles: Engineer, Senior Engineer, Lead, Architect.
+and a parser may extract a phantom title. Give each role its own dated line, its bullets beneath it.
 
 ## Keywords
 
-Relevance scoring is largely term frequency against the posting. Mirror its **exact** wording — if it
-says "Solution Architect", the summary contains that phrase, not only "solution architecture". Spell
+Recruiters search the ATS by the posting's words, matched as strings. Mirror its **exact** wording:
+its title is the `headline` once the person confirms it, a skill it names by an alias renders under
+that alias (`names`), and "Solution Architect" in the posting is that phrase in the summary. Spell
 out and abbreviate on first use: `Retrieval-Augmented Generation (RAG)`. Put the posting's stack row
-second in the skills block, after the architecture row. Do not stuff; a human reads it next.
+second in the skills block, after the architecture row. Do not stuff; a human reads it next. The
+terms gate warns of the title or a required term missing from the page, and of a term repeated
+past five times.
 
 ## What this does not do
 
@@ -85,7 +84,8 @@ when asked for:
 
 ## What the parse gate verifies
 
-`jsk check` reads the `.pdf` (text via `pymupdf`) or the `.txt`. First, that it is readable:
+`resume_check` reads the `.pdf` (text via `pymupdf`), and the plain text the selection's plan
+emits, in memory, `--strict`. First, that it is readable:
 
 | Signal | Meaning |
 |---|---|
@@ -100,6 +100,7 @@ Then on extracted text:
 - No `[...]` span and no stray `[` anywhere.
 - Bullet markers are `•` or `-`; a decorative glyph fails.
 - At least four `Mon YYYY` dates; arrow glyphs absent — warn normally, fail under `--strict`.
+- A PDF extracts its bullets in the plain text's order; out of order fails, as a column would.
 
 Under `--strict` additionally: no non-ASCII at all (fails), plain hyphens in date ranges (fails),
 and role lines that appear not to name an employer (warns — the heuristic is too rough to block on).

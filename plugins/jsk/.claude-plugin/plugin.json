@@ -1,7 +1,7 @@
 {
   "name": "jsk",
   "displayName": "Job Seeker Skill",
-  "version": "4.0.0",
+  "version": "6.0.0",
   "description": "Keep a career as a validated graph record, changed only through reviewed changesets, and render verified ATS-safe resumes from it. Interview once; tailor forever.",
   "author": {
     "name": "Basilin Joe",
@@ -10,6 +10,12 @@
   "homepage": "https://github.com/basilinjoe/job-seeker-skills",
   "repository": "https://github.com/basilinjoe/job-seeker-skills",
   "license": "MIT",
+  "mcpServers": {
+    "graph": {
+      "command": "jsk",
+      "args": ["mcp"]
+    }
+  },
   "keywords": [
     "resume",
     "cv",
@@ -19,7 +25,6 @@
     "knowledge-base",
     "tailoring",
     "json",
-    "urs",
     "latex",
     "pdf",
     "i18n"

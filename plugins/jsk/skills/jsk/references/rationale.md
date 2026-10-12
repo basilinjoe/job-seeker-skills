@@ -5,22 +5,23 @@ someone**, or when someone pushes back on one. You do not need it to follow the 
 
 Every item here is a failure that actually happened.
 
-## Why every document is rendered from JSON
+## Why every document is rendered from the career
 
 Two hand-built documents have to agree about every date, bullet and number. They stop agreeing the
-moment one is edited — silently, usually in the copy that gets sent. One record with several emitters
+moment one is edited — silently, usually in the copy that gets sent. One career with several emitters
 cannot drift, because no emitter decides what the document says.
 
-The renderer resolves the record once — selection, ordering, provenance filtering, region gating,
-ASCII folding, date formatting — and the emitters translate that plan into markup without deciding
-anything.
+The builder reads the career and the selection once — selection, ordering, provenance
+filtering, region, ASCII folding, date formatting — into a plan, and the emitters translate that plan
+into markup without deciding anything.
 
-It is also what makes a resume answerable a year later. The record carries the provenance of every
-claim and the view that selected it, so "what did this application claim, and where did that come
-from" has an answer.
+It is also what makes a resume answerable a year later. `app_freeze` records the bullets that
+rendered and the metric versions they cite, so "what did this application claim, and where did that
+come from" has an answer.
 
-**How to say it to someone:** *"If I build the PDF and the plain-text copy separately, they agree
-today and disagree in a month. Building both from one record means they can't."*
+**How to say it to someone:** *"If I build the PDF and the text the checks read separately, they
+agree today and disagree in a month. Building both from one career means they can't."* That is why
+there is no plain-text file: the gates read the plan's own text, in memory, and nothing can drift.
 
 ## Why five gates and not one
 
@@ -35,8 +36,8 @@ The parse gate passed all three of these, correctly, because all three were outs
 3. A resume written **in the third person**. Not a parsing defect at all.
 
 The first two are why the render gate exists: somebody has to look at the page. The third is why the
-prose gate exists. The record gate checks the record is coherent before anything renders; the claims
-gate, that it says nothing more confirmed, or bigger, than the career holds.
+prose gate exists. The record gate checks, before anything renders, that the selection names only
+live entries and that every number in a chosen bullet is a current metric's.
 
 **How to say it to someone:** *"The ATS checker tells you a robot can read it. It can't tell you the
 letters showed up, or that it reads like someone else wrote it about you."*
@@ -48,16 +49,17 @@ looked at a rendered page, so the render gate did not run — it did not pass.
 
 An unverified resume the person knows about is fine. One they think was checked is not.
 
-So `jsk render --pdf` **exits non-zero** when no PDF came out, and `jsk doctor` reports a missing
+So `resume_render(pdf=True)` **answers `ok: false`** when no PDF came out, and `jsk doctor` reports a missing
 engine as BLOCKED rather than a gap. A warning that does not change the exit code is a warning
 nothing acts on.
 
 ## Why tailoring is selection and never invention
 
-A tailored resume is a *view*: it references evidence by id, orders it, and redacts. The validator
-rejects free text inside a view.
+A tailored resume is a *selection*: it names evidence by id and orders it. Its one piece
+of prose is the summary; a bullet is in the career or nowhere, and the record gate fails an id the
+career does not hold.
 
-The consequence is structural rather than disciplinary. A posting the record has no evidence for
+The consequence is structural rather than disciplinary. A posting the career has no evidence for
 produces *nothing to point at* — not a plausible new bullet. The system cannot invent even if asked,
 which is a stronger guarantee than an instruction not to.
 
@@ -66,8 +68,8 @@ done, it shows up as a gap, not as a sentence."*
 
 ## Why every numeral must trace to a metric
 
-Every numeral in a bullet must appear in a structured metric on that bullet, or `jsk validate` fails
-the record before anything renders.
+Every numeral in a chosen bullet must appear in the current version of a metric it cites, or `jsk
+resume check` fails the selection before anything renders.
 
 It catches a bullet being rewritten for flow and the figure quietly moving with it — 30% becoming 40%
 because the sentence scanned better.
@@ -115,10 +117,10 @@ JSON Resume is a JSON container around unstructured prose:
 - Nothing carries provenance, so **"I measured this" and "a model wrote this" look identical**.
 - A promotion has to be modelled as **two duplicate employers**.
 
-URS keeps a mapping to JSON Resume at conformance level 0, so adopting it costs nothing and is
-reversible.
+The career is a graph instead: a bullet carries an id and a provenance and cites a metric version,
+and a promotion is two roles at one employer.
 
-## Why `jsk fit` refuses rather than shrinking further
+## Why `resume_fit` refuses rather than shrinking further
 
 It applies density levers in a fixed order — spacing, bullet spacing, margins, font size — and stops
 at the 10pt and 0.5" floors.

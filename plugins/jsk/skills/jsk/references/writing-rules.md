@@ -7,10 +7,11 @@
 > Cut order-processing latency 62% (8.4s to 3.2s p95) by decomposing a monolithic service into six
 > event-driven microservices on a message bus, serving 40K daily transactions.
 
-Senior people rarely own revenue, so anchor Y on what they do move: latency, deployment time, defect
-rate, release frequency, onboarding time, tenant count, users served, incidents avoided, cost.
+Senior people rarely own revenue: anchor Y on what they move — latency, deploy time, defect rate,
+release frequency, tenant count, users served, cost.
 
-**Z is where seniority shows** — the choice, not just the work. Never drop it.
+**Z is where seniority shows** — the choice, not just the work. Never drop it. **Two lines at
+most** (~200 characters): past that, cut Z to the choice that mattered.
 
 ## Verb accuracy
 
@@ -41,16 +42,17 @@ When you downgrade a verb, tell them why.
   the evidence any claim needs.
 - **Most titles need nothing.** Gloss only where an outsider would have to guess.
 
-Record it as `functional_title` on the position (`urs-spec.md`), not by editing `title`.
+Record it as `j:functionalTitle` on the position (`kb-format.md`), not by editing `title`.
 
 ## Cut on sight
 
-- **"Gained experience in X" / "Acquired knowledge of Y"** — reads as junior, and often understates
-  someone who later mastered the thing.
+- **"Gained experience in X" / "Acquired knowledge of Y"** — reads as junior; understates mastery.
 - "Responsible for" / "Worked on" / "Involved in" — activity, not achievement
 - Bullets repeated across projects
 - Unfinished sentences — real resumes contain these; read carefully
 - Filler: "stayed current with industry trends", "passionate about technology"
+- Stock vocabulary: spearheaded, leveraged, seamless, robust, "proven track record"
+- One frame on every bullet: "…, resulting in Y%" — vary it; some bullets stop at what shipped
 - References, full home address, photo, date of birth, marital status
 
 ## Prefer

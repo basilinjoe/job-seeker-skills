@@ -1,53 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://openresume.dev/urs/v1/profile.schema.json",
-  "title": "URS region profile v1",
-  "description": "Market conventions as data, so adding a country is a file and not a schema version. Field paths are dotted paths into a URS document.",
+  "title": "jsk region profile",
+  "description": "What jsk.resume.build reads of a market's conventions, and nothing else. The forbidden/expected/private-field lists went with the URS record (2026-09-25): kb.ttl holds none of the fields they governed.",
   "type": "object",
-  "required": ["id", "region", "render"],
+  "required": ["id", "region", "pages", "sections", "work_rights"],
   "properties": {
+    "$schema": { "type": "string" },
     "id": { "type": "string", "pattern": "^urs:profile:[a-z]{2}/\\d+$" },
-    "region": { "type": "string", "pattern": "^([A-Z]{2}|XX)$", "description": "ISO 3166-1 alpha-2, or XX for the region-neutral default." },
+    "region": { "type": "string", "pattern": "^([A-Z]{2}|XX)$", "description": "ISO 3166-1 alpha-2, or XX for the region-neutral default. Picks the paper size." },
     "label": { "type": "string" },
-    "required": {
+    "pages": { "type": "integer", "minimum": 1, "description": "The page budget when the resume.json names none." },
+    "sections": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "A renderer MUST warn when one of these is absent."
+      "items": { "enum": ["summary", "skills", "experience", "education", "credentials", "languages"] },
+      "description": "The sections rendered, in this order."
     },
-    "expected": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Conventional in this market. Permits emission of an otherwise private field."
-    },
-    "forbidden": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "A renderer MUST omit these, whatever the record holds."
-    },
-    "render": {
-      "type": "object",
-      "required": ["pages", "order", "referees"],
-      "properties": {
-        "pages": { "type": "integer", "minimum": 1 },
-        "order": { "type": "string", "enum": ["reverse-chronological", "chronological"] },
-        "referees": { "type": "string", "enum": ["inline", "on-request", "omit"] },
-        "photo": { "type": "boolean" },
-        "declaration": { "type": "boolean", "description": "Indian declaration block with place and date." },
-        "attestation_block": { "type": "boolean", "description": "Signature and place, as in DE and JP." },
-        "date_format": { "type": "string" },
-        "sections": { "type": "array", "items": { "type": "string" } }
-      },
-      "additionalProperties": false
-    },
-    "schemes": {
-      "type": "object",
-      "properties": {
-        "grade": { "type": "array", "items": { "type": "string" } },
-        "language": { "type": "string" }
-      },
-      "additionalProperties": false
-    },
-    "notes": { "type": "array", "items": { "type": "string" } }
+    "declaration": { "type": "boolean", "description": "The Indian declaration block with place and date." },
+    "work_rights": { "type": "boolean", "description": "Put the right to work on the header line." }
   },
   "additionalProperties": false
 }

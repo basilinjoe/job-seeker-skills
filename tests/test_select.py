@@ -1,0 +1,526 @@
+"""select.py: what a resume for one posting selects, worked by hand in the plan
+(docs/superpowers/plans/2026-09-25-export-from-match.md, "Fixture")."""
+import datetime
+import json
+import os
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
+
+import appkit
+
+from jsk.adapters.compose import tailor
+from jsk.domain import ontology as O
+from jsk.adapters.compose import match
+from jsk.domain.selection import select
+from jsk.adapters.compose import record
+from jsk.domain.resume import short
+
+FIXTURES = Path(__file__).parent / "claims_fixtures"
+TODAY = datetime.date(2026, 9, 25)
+NL = chr(10)
+POST = O.K + "post_contoso_select"
+POSTING = """@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+k:post_contoso_select j:company "Contoso" ; j:title "Platform Engineer" ;
+    j:captured "2026-09-20"^^xsd:date ; j:advert "posting.md" .
+
+k:req_sel_k8s j:posting k:post_contoso_select ; j:asked "K8s" ;
+    j:necessity j:required ; j:quote "Production K8s required." .
+k:req_sel_kafka j:posting k:post_contoso_select ; j:asked "Kafka" ;
+    j:necessity j:required ; j:quote "Kafka is required." .
+k:req_sel_python j:posting k:post_contoso_select ; j:asked "Python" ;
+    j:necessity j:required ; j:quote "Python is required." .
+k:req_sel_rust j:posting k:post_contoso_select ; j:asked "Rust" ;
+    j:necessity j:required ; j:quote "Rust is required." .
+k:req_sel_sqlserver j:posting k:post_contoso_select ; j:asked "SQL Server" ;
+    j:necessity j:required ; j:quote "SQL Server is required." .
+k:req_sel_team j:posting k:post_contoso_select ; j:asked "Team leadership" ;
+    j:necessity j:preferred ; j:quote "Team leadership is a plus." .
+k:req_sel_terraform j:posting k:post_contoso_select ; j:asked "Terraform" ;
+    j:necessity j:required ; j:quote "Terraform is required." .
+k:req_sel_widgets j:posting k:post_contoso_select ; j:asked "Quantum widgets" ;
+    j:necessity j:required ; j:quote "Quantum widgets are required." .
+"""
+
+
+def workspace(test, posting=POSTING):
+    root = tempfile.mkdtemp()
+    test.addCleanup(shutil.rmtree, root, True)
+    shutil.copytree(FIXTURES / "career", os.path.join(root, "career"))
+    app = os.path.join(root, "applications", "contoso-select")
+    os.makedirs(app)
+    Path(app, "posting.ttl").write_bytes(posting.encode())
+    quotes = [line.split('j:quote "')[1].split('"')[0] for line in posting.splitlines()
+              if 'j:quote "' in line]
+    Path(app, "posting.md").write_bytes(("# Contoso\n\n" + "\n".join(quotes) + "\n").encode())
+    return root
+
+
+def load(root):
+    """The workspace loaded - put into its store first, the first time, so a test edits
+    kb.ttl as Turtle and then reads the record as jsk keeps it."""
+    if not os.path.isdir(os.path.join(root, "career", "store")):
+        appkit.seed(root)
+    return record.load(root)
+
+
+def ids(iris):
+    return [i[len(O.K):] for i in iris]
+
+
+class Selected(unittest.TestCase):
+    def setUp(self):
+        self.store = load(workspace(self))
+        self.sel = match.select(self.store, POST, TODAY, 3)
+
+    def test_projects_are_the_cover_then_what_carries_evidence(self):
+        self.assertEqual(ids(self.sel.projects), ["prj_events", "prj_identity"])
+
+    def test_a_strong_project_carrying_nothing_is_not_selected(self):
+        self.assertNotIn(O.K + "prj_portal", self.sel.projects)
+
+    def test_bullets_by_score_then_rank(self):
+        self.assertEqual(ids(self.sel.bullets[O.K + "prj_events"]),
+                         ["ach_events_latency", "ach_events_terraform", "ach_events_team"])
+        self.assertEqual(ids(self.sel.bullets[O.K + "prj_identity"]),
+                         ["ach_identity_events", "ach_identity_sso"])
+
+    def test_skills_the_posting_asks_for_first(self):
+        self.assertEqual(ids(self.sel.skills), ["skill_kubernetes", "skill_dotnet"])
+
+    def test_gaps(self):
+        self.assertEqual([(g.kind, g.requirement) for g in self.sel.gaps],
+                         [("tag-only", "SQL Server"), ("unconfirmed", "Python"),
+                          ("uncovered", "Rust"), ("unresolved", "Quantum widgets")])
+        lines = [g.line() for g in self.sel.gaps]
+        self.assertIn("k:prj_portal tags c:sql-server", lines[0])
+        self.assertIn("k:ach_data_ingestion", lines[1])
+        self.assertIn("inferred", lines[1])
+        self.assertIn("nothing carries it", lines[2])
+        self.assertTrue(lines[0].startswith("GAP   tag-only    SQL Server (required): "))
+
+    def test_k8s_carried_with_evidence_is_no_gap(self):
+        self.assertNotIn("K8s", [g.requirement for g in self.sel.gaps])
+        self.assertNotIn("Terraform", [g.requirement for g in self.sel.gaps])
+
+    def test_deterministic(self):
+        again = match.select(load(self.store.root), POST, TODAY, 3)
+        self.assertEqual(again, self.sel)
+
+
+class Extra(unittest.TestCase):
+    def setUp(self):
+        self.store = load(workspace(self))
+
+    def test_a_project_added_brings_its_first_bullet(self):
+        sel = match.select(self.store, POST, TODAY, 3, extra=[O.K + "prj_game"])
+        self.assertEqual(ids(sel.projects)[-1], "prj_game")
+        self.assertEqual(ids(sel.bullets[O.K + "prj_game"]), ["ach_game_players"])
+
+    def test_a_bullet_added_brings_exactly_itself(self):
+        sel = match.select(self.store, POST, TODAY, 3, extra=[O.K + "ach_portal_frontend"])
+        self.assertEqual(ids(sel.bullets[O.K + "prj_portal"]), ["ach_portal_frontend"])
+
+    def test_an_id_already_selected_is_not_duplicated(self):
+        sel = match.select(self.store, POST, TODAY, 3,
+                         extra=[O.K + "prj_events", O.K + "ach_events_team"])
+        self.assertEqual(ids(sel.projects), ["prj_events", "prj_identity"])
+        self.assertEqual(len(sel.bullets[O.K + "prj_events"]), 3)
+
+
+class Nothing(unittest.TestCase):
+    def test_nothing_carried_selects_nothing_and_says_why(self):
+        posting = POSTING.split("k:req_sel_k8s")[0] + (
+            'k:req_sel_rust j:posting k:post_contoso_select ; j:asked "Rust" ;\n'
+            '    j:necessity j:required ; j:quote "Rust is required." .\n')
+        sel = match.select(load(workspace(self, posting)), POST, TODAY, 3)
+        self.assertEqual(sel.projects, [])
+        self.assertEqual([g.kind for g in sel.gaps], ["uncovered"])
+
+
+def career_plus(root, text):
+    kb = Path(root, "career", "kb.ttl")
+    kb.write_bytes(kb.read_bytes() + text.encode())
+
+
+def asking(*labels, need="required"):
+    return POSTING.split("k:req_sel_k8s")[0] + "".join(
+        f'k:req_p_{n} j:posting k:post_contoso_select ; j:asked "{a}" ;\n'
+        f'    j:necessity j:{need} ; j:quote "{a} is asked for." .\n'
+        for n, a in enumerate(labels))
+
+
+class NoCover(unittest.TestCase):
+    """--cover 1 cannot carry five required requirements spread over three projects: the
+    selection goes by ranking, and a project placed 3rd (cap 2) carrying three of them must
+    still show all three - or say which it could not."""
+    def test_every_carried_requirement_keeps_a_bullet(self):
+        root = workspace(self, asking("K8s", "Entra ID", "Python", "Rust", "SQL Server"))
+        career_plus(root, """
+k:prj_x j:name "X" ; j:position k:pos_harbour_engineer ; j:strength 1 ; j:recency 2015 ;
+    j:uses c:python, c:rust, c:sql-server ; j:noneQuantified true ; j:provenance j:confirmed .
+k:ach_x1 j:project k:prj_x ; j:rank 1 ; j:text "Wrote Python." ; j:shows c:python ;
+    j:provenance j:confirmed .
+k:ach_x2 j:project k:prj_x ; j:rank 2 ; j:text "Wrote Rust." ; j:shows c:rust ;
+    j:provenance j:confirmed .
+k:ach_x3 j:project k:prj_x ; j:rank 3 ; j:text "Wrote SQL." ; j:shows c:sql-server ;
+    j:provenance j:confirmed .
+""")
+        sel = match.select(load(root), POST, TODAY, 1)
+        self.assertIn(O.K + "prj_x", sel.projects)
+        self.assertEqual(ids(sel.bullets[O.K + "prj_x"]), ["ach_x1", "ach_x2", "ach_x3"])
+        self.assertEqual(sel.gaps, [])
+
+
+class Reworded(unittest.TestCase):
+    """The author rewords the flagship bullet, which makes it inferred, and names it."""
+    def setUp(self):
+        root = workspace(self)
+        kb = Path(root, "career", "kb.ttl")
+        text = kb.read_text(encoding="utf-8")
+        at = text.index("k:ach_events_latency")
+        end = text.index("k:ach_events_team")
+        kb.write_bytes((text[:at] + text[at:end].replace("j:confirmed", "j:inferred")
+                        + text[end:]).encode())
+        self.sel = match.select(load(root), POST, TODAY, 3,
+                              extra=[O.K + "ach_events_latency"])
+
+    def test_it_is_placed_by_what_it_shows(self):
+        self.assertEqual(ids(self.sel.bullets[O.K + "prj_events"])[0], "ach_events_latency")
+
+    def test_it_is_a_confirmation_not_a_shortfall(self):
+        k8s = [g for g in self.sel.gaps if g.requirement == "K8s"]
+        self.assertEqual([g.kind for g in k8s], ["unconfirmed"])
+        self.assertIn("k:ach_events_latency (inferred) is selected", k8s[0].detail)
+
+
+class Implied(unittest.TestCase):
+    def test_a_bullet_showing_what_only_implies_it_is_named(self):
+        sel = match.select(load(workspace(self, asking("IaC", need="preferred"))),
+                         POST, TODAY, 3)
+        self.assertIn("k:ach_events_terraform shows c:terraform, which only implies",
+                      sel.gaps[0].detail)
+
+
+class Pick(unittest.TestCase):
+    def test_bands(self):
+        self.assertEqual([select.band(n) for n in (1, 2, 3, 5, 6, 8, 9)],
+                         [(5, 3), (5, 3), (2, 1), (2, 1), (1, 1), (1, 1), (1, 1)])
+
+    def test_the_cover_beats_the_band(self):
+        cands = [("a", 3, {"r1"}), ("b", 3, {"r2"}), ("c", 1, set())]
+        self.assertEqual(select.pick(cands, {"r1", "r2"}, 1, 1), ["a", "b"])
+
+    def test_greedy_takes_the_bullet_showing_most(self):
+        cands = [("b", 6, {"r1", "r2"}), ("a", 3, {"r1"})]
+        self.assertEqual(select.pick(cands, {"r1", "r2"}, 1, 1), ["b"])
+
+    def test_fill_to_the_floor_with_non_scoring(self):
+        cands = [("a", 3, {"r1"}), ("b", 0, set()), ("c", 0, set()), ("d", 0, set())]
+        self.assertEqual(select.pick(cands, set(), 5, 3), ["a", "b", "c"])
+
+    def test_cap_counts_the_cover(self):
+        cands = [("a", 3, {"r1"}), ("b", 3, {"r2"}), ("c", 3, {"r3"})]
+        self.assertEqual(select.pick(cands, {"r1", "r2"}, 2, 1), ["a", "b"])
+
+
+class Exported(unittest.TestCase):
+    def setUp(self):
+        self.store = load(workspace(self))
+        self.doc = tailor.short_file(self.store, selection=match.select(self.store, POST, TODAY, 3))
+
+    def test_the_selected_bullets_in_the_selection_s_order(self):
+        self.assertEqual(self.doc["bullets"],
+                         ["ach_events_latency", "ach_events_terraform", "ach_events_team",
+                          "ach_identity_events", "ach_identity_sso"])
+
+    def test_the_skills_in_the_posting_s_order(self):
+        self.assertEqual(self.doc["skills"], ["skill_kubernetes", "skill_dotnet"])
+
+    def test_it_validates(self):
+        self.assertEqual(short.shape(self.doc), [])
+        self.assertEqual(short.ids(self.doc, self.store), [])
+
+    def test_byte_identical(self):
+        store = load(self.store.root)
+        again = tailor.short_file(store, selection=match.select(store, POST, TODAY, 3))
+        self.assertEqual(json.dumps(again), json.dumps(self.doc))
+
+
+TOOLS = "".join(f'\nk:skill_tool{i:02} j:name "Tool {i:02}" ; j:category "Platforms" .\n'
+                for i in range(12)) + (
+    '\nk:skill_kafka j:name "Kafka" ; j:category "Platforms" .\n'
+    '\nk:skill_terraform j:name "Terraform" ; j:category "Platforms" .\n')
+
+
+class Capped(unittest.TestCase):
+    """Arrow rendered skills rows of 15-18 where 10 show, and Schneider's export named about
+    110 skills for the main thread to trim by hand: the export cuts each row to what renders,
+    the posting's asks first."""
+
+    def setUp(self):
+        from jsk.domain.resume.constants import MAX_SKILLS_PER_ROW
+
+        self.cap = MAX_SKILLS_PER_ROW
+        root = workspace(self)
+        career_plus(root, TOOLS)                   # Platforms: Kubernetes and these 14
+        self.store = load(root)
+        self.notes = []
+        self.doc = tailor.short_file(self.store, selection=match.select(self.store, POST, TODAY, 3),
+                                     notes=self.notes)
+
+    def test_a_row_of_15_exports_10_the_asked_ones_first(self):
+        platforms = [s for s in self.doc["skills"] if s != "skill_dotnet"]
+        self.assertEqual(len(platforms), self.cap)
+        self.assertEqual(platforms[:3], ["skill_kubernetes", "skill_kafka", "skill_terraform"])
+        self.assertEqual(platforms[3:], [f"skill_tool{i:02}" for i in range(7)])
+        self.assertIn("skill_dotnet", self.doc["skills"])        # its own row, under the cap
+
+    def test_what_the_cut_left_out_is_a_note(self):
+        self.assertEqual(len(self.notes), 1)
+        self.assertIn("skills row 'Platforms'", self.notes[0])
+        self.assertIn("5 left out: skill_tool07, skill_tool08", self.notes[0])
+
+    def test_the_render_drops_nothing(self):
+        from jsk.adapters.compose import resume
+
+        def cut(doc):
+            return [w for w in resume.build(self.store, doc, today=TODAY)["warnings"]
+                    if "skills row" in w]
+
+        self.assertEqual(cut(self.doc), [])
+        uncut = dict(self.doc, skills=ids(match.select(self.store, POST, TODAY, 3).skills))
+        self.assertEqual(len(cut(uncut)), 1)                      # what it was before
+
+    def test_the_ranked_export_names_no_skills_to_cut(self):
+        self.assertNotIn("skills", tailor.short_file(self.store,
+                                                     selection=match.ranked(self.store, TODAY)))
+
+
+def many(root, name, n, cites=False):
+    """`n` more confirmed bullets on `name`, ranked after the fixture's."""
+    career_plus(root, "".join(
+        f'\nk:ach_{name}_more{i} j:project k:prj_{name} ; j:rank {10 + i} ; '
+        f'j:text "More {i}." ;{" j:cites k:met_apps ;" if cites else ""} '
+        f'j:provenance j:confirmed .\n' for i in range(n)))
+
+
+class Ranked(unittest.TestCase):
+    """--ranked: the selection with no posting. At 2026-09-25 the fixture scores events
+    11 (5x2 + 1), identity 8.5, portal 6.5, data 4.5, game 4."""
+
+    def setUp(self):
+        self.root = workspace(self)
+
+    def sel(self, extra=()):
+        return match.ranked(load(self.root), TODAY, extra)
+
+    def test_projects_by_strength_and_recency(self):
+        sel = self.sel()
+        self.assertEqual(ids(sel.projects),
+                         ["prj_events", "prj_identity", "prj_portal", "prj_data", "prj_game"])
+        self.assertEqual((sel.skills, sel.gaps), ([], []))
+
+    def test_bullets_citing_a_number_first_then_the_floor(self):
+        sel = self.sel()
+        self.assertEqual(ids(sel.bullets[O.K + "prj_events"]),
+                         ["ach_events_latency", "ach_events_team", "ach_events_terraform"])
+        self.assertEqual(ids(sel.bullets[O.K + "prj_portal"]), ["ach_portal_frontend"])
+
+    def test_the_band_caps_each_position(self):
+        many(self.root, "events", 4, cites=True)     # 1st: cap 5
+        many(self.root, "portal", 3, cites=True)     # 3rd: cap 2
+        sel = self.sel()
+        self.assertEqual(ids(sel.bullets[O.K + "prj_events"]),
+                         ["ach_events_latency", "ach_events_team", "ach_events_more0",
+                          "ach_events_more1", "ach_events_more2"])
+        self.assertEqual(ids(sel.bullets[O.K + "prj_portal"]),
+                         ["ach_portal_more0", "ach_portal_more1"])
+
+    def test_bullets_with_no_number_fill_only_to_the_floor(self):
+        many(self.root, "events", 4)
+        self.assertEqual(len(self.sel().bullets[O.K + "prj_events"]), 3)
+
+    def test_unconfirmed_and_retired_bullets_never_come(self):
+        career_plus(self.root, '\nk:ach_events_latency j:retired "2026-09-01"^^xsd:date ; '
+                               'j:reason "gone" .\n')
+        sel = self.sel()
+        self.assertEqual(sel.bullets[O.K + "prj_data"], [])        # inferred only
+        self.assertNotIn(O.K + "ach_events_latency", sel.bullets[O.K + "prj_events"])
+
+    def test_more_than_most_projects_is_cut_to_most(self):
+        career_plus(self.root, "".join(
+            f'\nk:prj_z{i} j:name "Z{i}" ; j:position k:pos_pixel_developer ; j:strength 1 ; '
+            f'j:recency 2010 ; j:noneQuantified true ; j:provenance j:confirmed .\n'
+            f'k:ach_z{i} j:project k:prj_z{i} ; j:rank 1 ; j:text "Z{i}." ; '
+            f'j:provenance j:confirmed .\n' for i in range(4)))
+        sel = self.sel()
+        self.assertEqual(len(sel.projects), select.MOST)
+        self.assertEqual(ids(sel.projects)[-3:], ["prj_z0", "prj_z1", "prj_z2"])
+
+    def test_select_adds_to_it(self):
+        many(self.root, "portal", 1)
+        sel = self.sel([O.K + "ach_portal_more0"])
+        self.assertEqual(ids(sel.bullets[O.K + "prj_portal"]),
+                         ["ach_portal_frontend", "ach_portal_more0"])
+
+    def test_deterministic(self):
+        store = load(self.root)
+        first = tailor.short_file(store, selection=match.ranked(store, TODAY))
+        store = load(self.root)
+        self.assertEqual(json.dumps(tailor.short_file(store, selection=match.ranked(store, TODAY))),
+                         json.dumps(first))
+
+    def test_score_allocates_and_chronology_orders(self):
+        """The oldest project scoring highest leads the file, and still renders last."""
+        from jsk.adapters.compose import resume as build
+
+        kb = Path(self.root, "career", "kb.ttl")
+        text = kb.read_text(encoding="utf-8")
+        kb.write_bytes(text.replace("j:strength 2 ; j:recency 2016", "j:strength 5 ; j:recency 2016")
+                       .replace("j:strength 5 ; j:recency 2026", "j:strength 1 ; j:recency 2026")
+                       .encode())
+        store = load(self.root)
+        doc = tailor.short_file(store, selection=match.ranked(store, TODAY))
+        self.assertEqual(doc["bullets"][0], "ach_game_players")
+        self.assertEqual(doc["bullets"][-2:], ["ach_events_latency", "ach_events_team"])  # 5th
+        self.assertEqual(short.shape(doc), [])
+        plan = build.build(store, doc, today=TODAY)
+        experience = next(s for s in plan["sections"] if s.get("heading") == "Professional Experience")
+        self.assertEqual([e["org_line"] for e in experience["entries"]],
+                         ["Meridian Health", "Harbour Systems", "Pixel Games"])
+
+
+class SkillAliases(unittest.TestCase):
+    """An alias naming a concept no project holds does not rank its skill: an ATS reads it
+    as a claim of that experience, and the claims gate warned of it (ElevenLabs,
+    2026-09-25). skill_order reads that off the graph itself now, not export's copy."""
+
+    def order(self, label):
+        posting = asking("Widgetry") + (
+            'k:req_p_k8s j:posting k:post_contoso_select ; j:asked "K8s" ;\n'
+            '    j:necessity j:preferred ; j:quote "K8s is asked for." .\n')
+        root = workspace(self, posting)
+        kb = Path(root, "career", "kb.ttl")
+        text = kb.read_text(encoding="utf-8")
+        kb.write_bytes(text.replace('j:alias "C#" .', 'j:alias "C#", "Widgetry" .').encode())
+        if label:
+            career_plus(root, '\nc:widgetry a j:Capability ; j:label "Widgetry" .\n')
+        return ids(match.select(load(root), POST, TODAY, 3).skills)
+
+    def test_an_alias_no_project_holds_ranks_nothing(self):
+        self.assertEqual(self.order(label=True), ["skill_kubernetes", "skill_dotnet"])
+
+    def test_an_alias_naming_no_concept_ranks_its_skill(self):
+        self.assertEqual(self.order(label=False), ["skill_dotnet", "skill_kubernetes"])
+
+
+def native_workspace(test, posting=POSTING, stem="contoso-select"):
+    """The career with `posting`'s requirements as a graph-native application: the advert
+    captured, each requirement decided against the line it quotes and the posting completed,
+    as the analyst's tools leave it. resume_select reads only such an application."""
+    import re
+
+    from jsk.adapters.compose import native
+    from jsk.domain.posting.advert import advert_lines
+
+    root = tempfile.mkdtemp()
+    test.addCleanup(shutil.rmtree, root, True)
+    shutil.copytree(FIXTURES / "career", os.path.join(root, "career"))
+    appkit.seed(root)
+    os.makedirs(os.path.join(root, "applications", stem))
+    asks = re.findall(r'k:req_sel_(\w+) j:posting .*? j:asked "([^"]+)" ;\s+'
+                      r'j:necessity j:(\w+) ; j:quote "([^"]+)"', posting)
+    advert = "# Platform Engineer\nContoso\n\n## Requirements\n\n" + "".join(
+        f"- {quote}\n" for _, _, _, quote in asks)
+    day = datetime.date(2026, 9, 20)
+    native.capture(root, stem, text=advert, company="Contoso", title="Platform Engineer",
+                   captured=day.isoformat(), today=day)
+    lines = {x.text.removeprefix("- "): x.n for x in advert_lines(advert)}
+    rows = [{"n": lines[quote], "slug": slug, "asked": asked, "need": need}
+            for slug, asked, need, quote in asks]
+    done = native.decide(root, stem, rows=rows, today=day)
+    assert not [f for f in done.findings if f[0] == "FAIL"], done.findings
+    done = native.complete_posting(root, stem, today=day)
+    assert done.state == "complete", done.findings
+    return root
+
+
+class Command(unittest.TestCase):
+    """The resume_select tool's selection (compose.selection.select, which the tool calls) and
+    the short file's form (compose.tailor.short_file, which it forms the file with).
+
+    `jsk kb export` printed this file until 2026-10-04 and is retired
+    (docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md). Its flag parsing (`--cover`,
+    `--today`, `--ranked` with `--from-match`, a `posting.ttl` path, another workspace's
+    application) is not tested. The tool takes no `--select`, so what that flag did lives in
+    match.select's `extra` (class Extra) and short_file's `select`; the NOTE the command
+    printed for a project added with no confirmed bullet was its own and is gone with it.
+    """
+
+    STEM = "contoso-select"
+
+    def setUp(self):
+        self.root = native_workspace(self)
+
+    def selected(self, mode="from_match", replace=False):
+        from jsk.adapters.compose import selection
+
+        return selection.select(self.root, self.STEM, mode=mode, replace=replace, today=TODAY)
+
+    def test_from_match_forms_the_short_file_and_the_gaps(self):
+        done = self.selected()
+        self.assertEqual([f for f in done.findings if f[0] == "FAIL"], [])
+        self.assertEqual(done.doc["resume"], 2)
+        self.assertEqual(done.doc["skills"][0], "skill_kubernetes")
+        self.assertIn("GAP   tag-only    SQL Server (required)", NL.join(done.gaps))
+        self.assertTrue(appkit.has(self.root, f"applications/{self.STEM}/resume"))
+
+    def test_a_path_outside_applications_is_not_an_application(self):
+        from jsk.adapters.compose import selection
+        from jsk.domain.posting.errors import Refused
+
+        for outside in (os.path.join(self.root, "career"), "../career"):
+            with self.subTest(target=outside), self.assertRaises(Refused):
+                selection.select(self.root, outside, mode="from_match", today=TODAY)
+
+    def test_ranked_with_no_posting(self):
+        store = load(self.root)
+        doc = tailor.short_file(store, selection=match.ranked(store, TODAY),
+                                select=["pos_lakeside_contractor"])
+        self.assertNotIn("ach_data_ingestion", doc["bullets"])
+        self.assertNotIn("skills", doc)
+        self.assertEqual(doc["roles"], ["pos_lakeside_contractor"])
+
+    def test_ranked_selects_a_general_resume_and_says_no_gap(self):
+        done = self.selected("ranked")
+        self.assertEqual(done.gaps, ())
+        self.assertNotIn("skills", done.doc)
+
+    def test_a_posting_nothing_carries_writes_nothing_and_says_why(self):
+        posting = POSTING.split("k:req_sel_k8s")[0] + (
+            'k:req_sel_rust j:posting k:post_contoso_select ; j:asked "Rust" ;\n'
+            '    j:necessity j:required ; j:quote "Rust is required." .\n')
+        self.root = native_workspace(self, posting)
+        done = self.selected()
+        self.assertIn("GAP   uncovered   Rust (required)", NL.join(done.gaps))
+        self.assertIsNone(done.target)
+        self.assertEqual(done.written, ())
+        self.assertIn("FAIL", [f[0] for f in done.findings])
+        self.assertFalse(appkit.has(self.root, f"applications/{self.STEM}/resume"))
+
+    def test_an_application_with_no_posting_refuses(self):
+        from jsk.domain.posting.errors import Refused
+
+        appkit.drop(self.root, "applications/contoso-select/posting")
+        with self.assertRaises(Refused) as caught:
+            self.selected()
+        self.assertIn("posting_capture", str(caught.exception.fix) + str(caught.exception))
+
+
+if __name__ == "__main__":
+    unittest.main()

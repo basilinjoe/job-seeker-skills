@@ -1,28 +1,30 @@
-"""`jsk new`: a graph workspace from nothing, that `jsk kb apply` can write to at once.
+"""`jsk new`: a graph workspace from nothing, that career_apply can write to at once.
 
 P3's Ruling 9: writes need a clean record, so a workspace has to start logged. These
-tests hold `jsk new` to that - the scaffold loads with no finding, is clean at r1, is in
-the canonical layout, and takes docs/SCRIPTS.md's braindump changeset as written.
+tests hold `jsk new` to that - the scaffold is a store that loads with no finding, clean at
+r1, and takes docs/SCRIPTS.md's braindump changeset as written.
 """
 import contextlib
 import datetime
 import io
-import os
 import re
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
+import storekit
 from fixtures import REPO_ROOT as REPO
 from test_graph_shapes import FIXTURES
 
-from jsk import cli, kb
-from jsk.graph import changeset
-from jsk.graph import ontology as O
-from jsk.graph import record as R
-from jsk.graph import store as S
-from jsk.graph.writer import write
+from jsk import cli
+from jsk.adapters.entry.kb import new
+from jsk.application.record import scaffold
+from jsk.adapters.compose import record
+from jsk.infra.oxigraph import db
+from jsk.domain import ontology as O
+from jsk.infra.oxigraph import record as R
+from jsk.adapters.compose import record as S
 
 TODAY = datetime.date(2026, 9, 25)
 
@@ -44,87 +46,106 @@ class Scaffold(unittest.TestCase):
     def new(self, *args):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "new", self.root, "--name", "Priya Raman", *args])
-        return code, out.getvalue()
-
-    def kb(self, *args):
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "kb", *args, "--root", self.root])
+            code = cli.main(["jsk", "kb", "new", self.root, "--name", "Priya Raman", *args])
         return code, out.getvalue()
 
     def apply(self, text):
-        cs = self.path("changes.trig")
-        cs.write_text(text, encoding="utf-8")
-        return self.kb("apply", str(cs))
+        """career_apply on the new workspace (`jsk kb apply` until 6.0)."""
+        import recordkit
+
+        return recordkit.apply(self.root, text)
+
+    def record(self):
+        """The whole record as its dump: what a refusal must leave as it was."""
+        return db.dump_text(db.read(self.root))
+
+    def kb_text(self):
+        return storekit.kb_text(self.root)
+
+    def log_text(self):
+        return storekit.graph_text(self.root, R.LOG)
 
 
 class FromNothing(Scaffold):
     def test_it_writes_the_workspace(self):
         code, out = self.new()
         self.assertEqual(code, 0, out)
-        for name in (kb.KB, kb.LOG, "applications/README.md", ".gitattributes"):
+        self.assertTrue(self.path(scaffold.STORE).is_dir(), out)
+        for name in ("applications/README.md", ".gitattributes"):
             with self.subTest(file=name):
                 self.assertTrue(self.path(name).is_file(), out)
         self.assertIn("(r1, by new)", out)
+        self.assertEqual(list(Path(self.root).rglob("*.ttl")), [])      # no file is the record
         self.assertFalse(self.path("user-knowledgebase.md").exists())
-        self.assertFalse(self.path("log.md").exists())
+
+    def test_it_makes_a_place_for_general_resumes(self):
+        # Ruling 10 of the graph-native plan: a general resume's selection is the graph
+        # resumes/<name>/resume, and its render lands in resumes/<name>/.
+        code, out = self.new()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(self.path("resumes").is_dir(), out)
 
     def test_the_record_loads_clean_at_r1_with_no_finding(self):
         self.new()
         store = S.load(self.root)
+        self.assertTrue(store.stored)
         self.assertEqual([f.text() for f in store.findings], [])
         st = R.state(store)
         self.assertEqual((st.kind, st.kb_revision, st.log_revision), ("clean", 1, 1))
+        self.assertEqual(sorted(db.read(self.root)), [R.KB, R.LOG])
 
-    def test_it_is_the_writers_own_layout_with_every_banner(self):
+    def test_the_career_is_the_header_naming_the_person(self):
         self.new()
-        text = self.path(kb.KB).read_text(encoding="utf-8")
-        store = S.load(self.root)
-        self.assertEqual(write(store.graph(R.KB), "kb"), text)
-        banners = re.findall(r"^# == (.+)$", text, re.M)
-        self.assertEqual(tuple(banners), O.SECTIONS["kb"])
-        self.assertIn('j:name "Priya Raman"', text)
-        self.assertNotIn("\r", text)
+        text = self.kb_text()
+        self.assertIn('k:kb j:format 3 ; j:name "Priya Raman" ; j:updated', text)
+        self.assertIn("j:revision 1 .", text)
+        self.assertEqual(tuple(re.findall(r"^# == (.+)$", text, re.M)), O.SECTIONS["kb"])
 
     def test_the_log_says_jsk_new_wrote_it(self):
         self.new()
-        log = self.path(kb.LOG).read_text(encoding="utf-8")
+        log = self.log_text()
         self.assertIn("j:by j:new", log)
         self.assertIn("k:rev_1 ", log)
 
-    def test_the_gitattributes_keep_record_files_lf(self):
+    def test_every_write_leaves_a_backup(self):
+        self.new()
+        backup = self.path(R.BACKUP).read_text(encoding="utf-8")
+        self.assertEqual(backup, self.record())
+
+    def test_the_gitattributes_keep_git_off_the_store(self):
         self.new()
         lines = self.path(".gitattributes").read_text(encoding="utf-8").splitlines()
-        for rule in ("*.ttl text eol=lf", "*.trig text eol=lf"):
-            self.assertIn(rule, lines)
+        self.assertEqual(lines, ["career/store/** binary"])
 
     def test_an_existing_gitattributes_is_added_to_never_replaced(self):
         self.path(".gitattributes").write_text("*.pdf binary", encoding="utf-8")
         self.new()
         lines = self.path(".gitattributes").read_text(encoding="utf-8").splitlines()
-        self.assertEqual(lines, ["*.pdf binary", "*.ttl text eol=lf", "*.trig text eol=lf"])
-        self.new("--force")
+        self.assertEqual(lines, ["*.pdf binary", "career/store/** binary"])
+        self.assertEqual(self.new("--force")[0], 0)
         again = self.path(".gitattributes").read_text(encoding="utf-8").splitlines()
         self.assertEqual(again, lines)
 
-    def test_doctor_finds_the_new_record(self):
-        from jsk import preflight
-
-        self.new()
-        checks, found = preflight.gather(self.root)
-        check = next(c for c in checks if c.name.startswith("knowledge base"))
-        self.assertTrue(check.ok, check.disables)
-        self.assertEqual(Path(found), self.path(kb.KB))
-        self.assertEqual(Path(preflight.find_kb(self.root)), self.path(kb.KB))
+    def test_a_cp1252_gitattributes_is_left_alone_with_the_rules_to_add(self):
+        """The person's own file: bytes that are not UTF-8 are not appended to, and the
+        record is still written."""
+        raw = b"# \x93mine\x94\n*.pdf binary\n"
+        self.path(".gitattributes").write_bytes(raw)
+        code, out = self.new()
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Traceback", out)
+        self.assertIn("not UTF-8", out)
+        self.assertIn("career/store/** binary", out)
+        self.assertEqual(self.path(".gitattributes").read_bytes(), raw)
+        self.assertTrue(db.exists(self.root))
 
     def test_a_name_is_required(self):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = cli.main(["jsk", "new", self.root])
+            code = cli.main(["jsk", "kb", "new", self.root])
         self.assertEqual(code, 2)
         self.assertIn("--name is required", out.getvalue())
-        self.assertFalse(self.path(kb.KB).exists())
+        self.assertFalse(db.exists(self.root))
 
 
 class ThenApply(Scaffold):
@@ -138,7 +159,7 @@ class ThenApply(Scaffold):
         self.assertEqual([f.text() for f in store.fails()], [])
         st = R.state(store)
         self.assertEqual((st.kind, st.log_revision), ("clean", 2))
-        text = self.path(kb.KB).read_text(encoding="utf-8")
+        text = self.kb_text()
         self.assertIn("k:prj_payments", text)
         self.assertIn("k:ach_payments_", text)            # the bullet got its id
 
@@ -149,32 +170,52 @@ class ThenApply(Scaffold):
         self.assertGreaterEqual(len(blocks), 2)
         for n, block in enumerate(blocks):
             with self.subTest(block=n):
-                cs = changeset.read(block, f"block{n}.trig")
+                cs = record.read_changeset(block, f"block{n}.trig")
                 self.assertIsNotNone(cs.base)
 
 
 class Refusals(Scaffold):
     def test_an_existing_record_is_refused_and_untouched(self):
         self.new()
-        before = {n: self.path(n).read_bytes() for n in (kb.KB, kb.LOG)}
+        before = self.record()
         code, out = self.new()
         self.assertEqual(code, 1)
         self.assertIn("REFUSED  already exists", out)
-        self.assertIn("jsk kb apply", out)
-        self.assertEqual({n: self.path(n).read_bytes() for n in (kb.KB, kb.LOG)}, before)
+        self.assertIn("career_apply tool", out)
+        self.assertIn("career/kb.r<N>.trig", out)
+        self.assertNotRegex(out, r"\bgit\b")
+        self.assertEqual(self.record(), before)
 
-    def test_a_markdown_career_is_pointed_at_migrate(self):
+    def test_a_workspace_still_laid_out_as_files_is_loaded_not_started_over(self):
+        shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
+        before = self.path("career/kb.ttl").read_bytes()
+        for force in ((), ("--force",)):
+            with self.subTest(force=force):
+                code, out = self.new(*force)
+                self.assertEqual(code, 1, out)
+                self.assertIn("jsk kb load .", out)
+                self.assertFalse(db.exists(self.root))
+                self.assertEqual(self.path("career/kb.ttl").read_bytes(), before)
+
+    def test_an_old_markdown_career_is_left_alone(self):
+        """jsk no longer reads user-knowledgebase.md: `jsk new` starts the record beside
+        it, without --force, and never touches the old file."""
         self.path("user-knowledgebase.md").write_text("---\nkb: 2\n---\n", encoding="utf-8")
         code, out = self.new()
-        self.assertEqual(code, 1)
-        self.assertIn("jsk migrate", out)
-        self.assertFalse(self.path(kb.KB).exists())
-
-    def test_force_starts_an_empty_record_beside_a_markdown_one(self):
-        self.path("user-knowledgebase.md").write_text("---\nkb: 2\n---\n", encoding="utf-8")
-        code, out = self.new("--force")
         self.assertEqual(code, 0, out)
-        self.assertTrue(self.path("user-knowledgebase.md").exists())
+        self.assertTrue(db.exists(self.root))
+        self.assertEqual(self.path("user-knowledgebase.md").read_text(encoding="utf-8"),
+                         "---\nkb: 2\n---\n")
+
+    def test_pyoxigraph_is_needed_and_the_fix_says_how(self):
+        from unittest import mock
+        with mock.patch.dict("sys.modules", {"pyoxigraph": None}):
+            code, lines = new.scaffold(self.root, "Priya Raman", today=TODAY)
+        self.assertEqual(code, 1)
+        text = "\n".join(lines)
+        self.assertIn("pyoxigraph", text)
+        self.assertIn("pip install", text)
+        self.assertFalse(db.exists(self.root))
 
 
 class Force(Scaffold):
@@ -182,7 +223,7 @@ class Force(Scaffold):
         self.new()
         code, out = self.apply(scripts_changesets()[0])
         self.assertEqual(code, 0, out)
-        old_log = self.path(kb.LOG).read_text(encoding="utf-8")
+        old_log = self.log_text()
         code, out = self.new("--force")
         self.assertEqual(code, 0, out)
         self.assertIn("(r3, by new)", out)
@@ -190,159 +231,89 @@ class Force(Scaffold):
         self.assertEqual([f.text() for f in store.fails()], [])
         st = R.state(store)
         self.assertEqual((st.kind, st.kb_revision), ("clean", 3))
-        log = self.path(kb.LOG).read_text(encoding="utf-8")
+        log = self.log_text()
         for entry in ("k:rev_1 ", "k:rev_2 ", "k:rev_3 "):
             self.assertIn(entry, log)
         self.assertIn(old_log.split("# == Log\n", 1)[1].strip(), log)
-        self.assertNotIn("k:prj_payments", self.path(kb.KB).read_text(encoding="utf-8"))
+        self.assertNotIn("k:prj_payments", self.kb_text())
 
-    def hand_edit(self):
-        """A confirmed k:person typed straight into kb.ttl, not adopted."""
-        path = self.path(kb.KB)
-        path.write_text(path.read_text(encoding="utf-8") +
-                        '\nk:person j:fullName "Priya Raman" ; j:email "priya@example.com" ; '
-                        'j:phone "+61 400 000 000" ; j:provenance j:confirmed .\n',
-                        encoding="utf-8", newline="\n")
-
-    def test_force_over_a_hand_edit_is_refused_until_it_is_adopted(self):
-        """The log would never have seen the edit, and the empty record would erase it."""
+    def test_force_keeps_the_whole_replaced_record_as_a_dump(self):
+        """No git, no shadow: the only copy of what --force replaces is the one it keeps -
+        and it is a dump, so `jsk kb load` brings it back."""
         self.new()
-        self.hand_edit()
-        before = {n: self.path(n).read_bytes() for n in (kb.KB, kb.LOG)}
+        self.assertEqual(self.apply(scripts_changesets()[0])[0], 0)
+        old = self.record()
         code, out = self.new("--force")
-        self.assertEqual(code, 1, out)
-        self.assertIn("REFUSED", out)
-        self.assertIn("jsk kb adopt", out)
-        self.assertIn("nothing was written", out)
+        self.assertEqual(code, 0, out)
+        kept = self.path("career/kb.r2.trig")
+        self.assertEqual(kept.read_text(encoding="utf-8"), old)
+        self.assertIn("kb.r2.trig", out)
         self.assertNotRegex(out, r"\bgit\b")
-        self.assertEqual({n: self.path(n).read_bytes() for n in (kb.KB, kb.LOG)}, before)
-        self.assertEqual(list(self.path("career").glob("kb.r*.ttl")), [])
+        self.assertIn("career/kb.r2.trig", self.log_text())
+        # and it loads, into a workspace of its own
+        with tempfile.TemporaryDirectory() as elsewhere:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = cli.main(["jsk", "kb", "load", str(kept), "--root", elsewhere])
+            self.assertEqual(code, 0, buf.getvalue())
+            self.assertIn("k:prj_payments", storekit.kb_text(elsewhere))
 
-    def test_force_over_a_torn_record_is_refused(self):
+    def test_a_changeset_drafted_before_a_start_over_is_refused(self):
+        """It was drafted against the career --force replaced: applied to the empty one, it
+        would bring back part of a record the person chose to start over from."""
         self.new()
-        store = S.load(self.root)
-        text = write(R.stamp(store.graph(kb.KB), 2, TODAY), "kb")
-        self.path(kb.KB).write_text(text, encoding="utf-8", newline="\n")
-        code, out = self.new("--force")
+        drafted = scripts_changesets()[0]
+        self.assertIn("op:base 1", drafted)
+        self.assertEqual(self.new("--force")[0], 0)
+        before = self.record()
+        code, out = self.apply(drafted)
         self.assertEqual(code, 1, out)
-        self.assertIn("jsk kb adopt", out)
-
-    def test_force_keeps_the_replaced_record_beside_it(self):
-        """No git, no shadow: the only copy of what --force replaces is the one it keeps."""
-        self.new()
-        self.hand_edit()
-        code, out = self.kb("adopt")
-        self.assertEqual(code, 0, out)
-        old = self.path(kb.KB).read_bytes()
-        code, out = self.new("--force")
-        self.assertEqual(code, 0, out)
-        kept = self.path("career/kb.r2.ttl")
-        self.assertEqual(kept.read_bytes(), old)
-        self.assertIn("k:person", kept.read_text(encoding="utf-8"))
-        self.assertIn("kb.r2.ttl", out)
-        self.assertNotRegex(out, r"\bgit\b")
-        self.assertNotIn("k:person", self.path(kb.KB).read_text(encoding="utf-8"))
-        log = self.path(kb.LOG).read_text(encoding="utf-8")
-        self.assertIn("career/kb.r2.ttl", log)
-        self.assertNotRegex(log, r"\bgit\b")
-
-    def test_the_kept_copy_is_not_a_record_file(self):
-        from jsk import preflight
-
-        self.new()
-        code, out = self.new("--force")
-        self.assertEqual(code, 0, out)
-        self.assertTrue(self.path("career/kb.r1.ttl").is_file())
-        files = [Path(f) for f in S.workspace_files(self.root, vocabulary=None)]
-        self.assertEqual(files, [self.path(kb.KB), self.path(kb.LOG)])
-        self.assertEqual(Path(preflight.find_kb(self.root)), self.path(kb.KB))
-        store = S.load(self.root)
-        self.assertEqual([f.text() for f in store.fails()], [])
-        self.assertEqual(R.state(store).kind, "clean")
+        self.assertIn("started over", out)
+        self.assertIn("r2", out)
+        self.assertEqual(self.record(), before)
 
     def test_the_kept_copy_never_overwrites_a_file(self):
         self.new()
-        self.path("career/kb.r1.ttl").write_text("someone else's", encoding="utf-8")
-        old = self.path(kb.KB).read_bytes()
+        self.path("career/kb.r1.trig").write_text("someone else's", encoding="utf-8")
+        old = self.record()
         code, out = self.new("--force")
         self.assertEqual(code, 0, out)
-        self.assertEqual(self.path("career/kb.r1.ttl").read_text(encoding="utf-8"),
+        self.assertEqual(self.path("career/kb.r1.trig").read_text(encoding="utf-8"),
                          "someone else's")
-        self.assertEqual(self.path("career/kb.r1-2.ttl").read_bytes(), old)
-        self.assertIn("kb.r1-2.ttl", out)
+        self.assertEqual(self.path("career/kb.r1-2.trig").read_text(encoding="utf-8"), old)
+        self.assertIn("kb.r1-2.trig", out)
 
-    def test_the_refusal_over_an_existing_record_does_not_promise_git(self):
+    def test_force_over_a_record_written_outside_jsk_is_refused(self):
+        """The career's revision and its log's disagree: something other than jsk wrote the
+        store, and starting over would erase what the log never saw."""
         self.new()
-        code, out = self.new()
+        graphs = db.read(self.root)
+        R.write_graphs(self.root, {R.KB: R.stamp(graphs[R.KB], 5, TODAY)})
+        before = self.record()
+        code, out = self.new("--force")
         self.assertEqual(code, 1, out)
-        self.assertNotRegex(out, r"\bgit\b")
-        self.assertIn("kept", out)
+        self.assertIn("REFUSED", out)
+        self.assertIn("nothing was written", out)
+        self.assertEqual(self.record(), before)
+        self.assertEqual(list(self.path("career").glob("kb.r*.trig")), [])
 
     def test_force_is_refused_where_an_application_carried_the_old_record(self):
         shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
-        before = self.path(kb.KB).read_bytes()
+        storekit.seed(self.root)
+        before = self.record()
         code, out = self.new("--force")
         self.assertEqual(code, 1, out)
         self.assertIn("REFUSED  starting over would leave", out)
         self.assertIn("nothing was written", out)
-        self.assertEqual(self.path(kb.KB).read_bytes(), before)
-
-    def test_force_is_refused_over_a_log_that_does_not_parse(self):
-        self.new()
-        self.path(kb.LOG).write_text("this is not turtle", encoding="utf-8")
-        code, out = self.new("--force")
-        self.assertEqual(code, 1, out)
-        self.assertIn("does not parse", out)
-
-
-NAMES = ("Priya Raman", 'Dana "DJ" O\'Neil', "Zoë Ñúñez-Łukasz 王秀英", "C:\\path\\like",
-         "A " + "very " * 40 + "long name")
-
-
-class WithoutPyoxigraph(unittest.TestCase):
-    """A sandbox that cannot install pyoxigraph can still start: `jsk new` writes the
-    empty record from fixed text, and changesets are drafted for later (SKILL.md)."""
-
-    def test_the_fixed_text_is_the_writers_output_byte_for_byte(self):
-        for name in NAMES:
-            with self.subTest(name=name):
-                self.assertEqual(kb.plain_first_write(name, TODAY), kb.first_write("", name, TODAY))
-
-    def test_jsk_new_starts_a_workspace_with_no_pyoxigraph(self):
-        from unittest import mock
-        with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.dict("sys.modules", {"pyoxigraph": None}):
-                code, lines = kb.scaffold(tmp, "Priya Raman", today=TODAY)
-            self.assertEqual(code, 0, lines)
-            self.assertTrue(any("pyoxigraph" in line for line in lines))
-            s = S.load(tmp)
-            self.assertEqual([f.text() for f in s.findings], [])
-            self.assertEqual(R.state(s).kind, "clean")
-
-    def test_force_still_needs_pyoxigraph(self):
-        from unittest import mock
-        with tempfile.TemporaryDirectory() as tmp:
-            kb.scaffold(tmp, "Priya Raman", today=TODAY)
-            with mock.patch.dict("sys.modules", {"pyoxigraph": None}):
-                code, lines = kb.scaffold(tmp, "Priya Raman", force=True, today=TODAY)
-            self.assertEqual(code, 1)
-            self.assertIn("needs pyoxigraph", "\n".join(lines))
+        self.assertEqual(self.record(), before)
 
 
 class Direct(unittest.TestCase):
-    def test_empty_record_is_the_header_and_the_banners(self):
-        text = kb.empty_record("Ada Lovelace", TODAY)
-        self.assertIn('k:kb j:format 3 ; j:name "Ada Lovelace" ; j:updated "2026-09-25"^^xsd:date'
-                      ' ; j:revision 1 .', text)
-        self.assertEqual(len(re.findall(r"^# == ", text, re.M)), len(O.SECTIONS["kb"]))
-
     def test_scaffold_takes_a_day(self):
         with tempfile.TemporaryDirectory() as root:
-            code, lines = kb.scaffold(root, "Ada Lovelace", today=TODAY)
+            code, lines = new.scaffold(root, "Ada Lovelace", today=TODAY)
             self.assertEqual(code, 0, lines)
-            text = (Path(root) / kb.KB).read_text(encoding="utf-8")
-            self.assertIn('"2026-09-25"^^xsd:date', text)
-            self.assertTrue(os.path.isfile(os.path.join(root, ".jsk", "kb.last.ttl")))
+            self.assertIn('j:updated "2026-09-25"^^xsd:date', storekit.kb_text(root))
 
 
 if __name__ == "__main__":

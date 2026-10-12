@@ -11,10 +11,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import PLUGIN, PREFLIGHT, load_script, run, urs_module
+from fixtures import (DOCTOR, PLUGIN, PREFLIGHT, gate, load_script, render_module, run)
 
 preflight = load_script(PREFLIGHT)
-tex = urs_module("urs.tex")
+tex = render_module("infra.tex")
 
 # Without a TeX engine preflight is BLOCKED by design - the PDF is the deliverable - so a
 # test that expects a passing verdict needs one. These ran nowhere without an engine
@@ -26,11 +26,11 @@ VERDICT = 0 if tex.available_engine() else 1
 
 
 class KnowledgeBaseDiscovery(unittest.TestCase):
-    """The career is one file, `career/kb.ttl`, so finding it is finding that file.
+    """The career is one store, `career/store/`, so finding it is finding that folder.
 
     A bundle used to be recognised by the directories inside it, which meant a
     half-created one was invisible here and reported as "no bundle" while the person
-    was looking straight at it. A filename cannot be half-present.
+    was looking straight at it. A name cannot be half-present.
     """
 
     def setUp(self):
@@ -39,51 +39,66 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def make_kb(self, parent, name="my-career"):
+        path = parent / name / "career" / "store"
+        path.mkdir(parents=True)
+        return path
+
+    def make_files(self, parent, name="old-career"):
+        """A workspace from before the store: career/kb.ttl, not yet imported."""
         root = parent / name / "career"
         root.mkdir(parents=True)
         path = root / "kb.ttl"
         path.write_text("k:kb j:format 3 .", encoding="utf-8")
         return path
 
-    def make_markdown(self, parent, name="my-career"):
-        root = parent / name
-        root.mkdir(parents=True, exist_ok=True)
-        path = root / "user-knowledgebase.md"
-        path.write_text("# Career knowledge base", encoding="utf-8")
-        return path
-
     def test_finds_the_graph_record_by_name(self):
         path = self.make_kb(self.tmp)
         self.assertEqual(Path(preflight.find_kb(self.tmp)), path)
+
+    def test_a_store_outside_a_career_folder_is_not_one(self):
+        (self.tmp / "notes" / "store").mkdir(parents=True)
+        self.assertIsNone(preflight.find_kb(self.tmp))
+
+    def test_a_workspace_not_yet_imported_is_named_with_the_import(self):
+        """A kb.ttl is not read any more; saying "nothing to render from" beside it would
+        read as a lost career. It is found, and the report says how to import it."""
+        path = self.make_files(self.tmp)
+        self.assertEqual(Path(preflight.find_kb(self.tmp)), path)
+        checks, found = preflight.gather(str(path.parent.parent))
+        kb = next(c for c in checks if c.name.startswith("knowledge base"))
+        self.assertFalse(kb.ok)
+        self.assertFalse(preflight.is_required(kb))
+        self.assertIn("`jsk kb load .`", kb.disables)
+        self.assertIn("career/store/", kb.disables)
+
+    def test_the_store_wins_over_the_files_it_was_imported_from(self):
+        # `jsk kb load .` leaves the files where they are.
+        self.make_files(self.tmp, "ws")
+        path = self.tmp / "ws" / "career" / "store"
+        path.mkdir()
+        self.assertEqual(Path(preflight.find_kb(self.tmp)), path)
+        self.assertEqual(preflight.resolve_kb(str(self.tmp / "ws")), (str(path), None))
 
     def test_a_kb_ttl_outside_a_career_folder_is_not_one(self):
         (self.tmp / "notes").mkdir()
         (self.tmp / "notes" / "kb.ttl").write_text("", encoding="utf-8")
         self.assertIsNone(preflight.find_kb(self.tmp))
 
-    def test_a_markdown_knowledge_base_is_not_the_record(self):
-        """It is still found - to be pointed at `jsk migrate` - but never as the record."""
-        path = self.make_markdown(self.tmp)
-        self.assertIsNone(preflight.find_kb(self.tmp))
-        self.assertEqual(Path(preflight.find_markdown_kb(self.tmp)), path)
-
-    def test_a_migrated_workspace_is_its_graph_record(self):
-        self.make_markdown(self.tmp)
+    def test_a_workspace_folder_is_its_graph_record(self):
         path = self.make_kb(self.tmp)
-        self.assertEqual(preflight.resolve_kb(str(self.tmp / "my-career")),
-                         (str(path), None, None))
-        md = self.tmp / "my-career" / "user-knowledgebase.md"
-        self.assertEqual(preflight.resolve_kb(str(md)), (str(path), None, None))
+        self.assertEqual(preflight.resolve_kb(str(self.tmp / "my-career")), (str(path), None))
 
     def test_kb_names_only_a_career_record(self):
-        """`--kb pyproject.toml` reported "ok knowledge base", `--kb README.md` called it
-        a Markdown knowledge base not yet migrated, and a path that does not exist said
-        there was nothing to render from yet. Each is refused for what it is."""
+        """`--kb pyproject.toml` reported "ok knowledge base", and a path that does not
+        exist said there was nothing to render from yet. Each is refused for what it is -
+        an old user-knowledgebase.md too, which jsk no longer reads."""
         (self.tmp / "pyproject.toml").write_text("[project]", encoding="utf-8")
         (self.tmp / "README.md").write_text("# readme", encoding="utf-8")
+        (self.tmp / "user-knowledgebase.md").write_text("# Career", encoding="utf-8")
         (self.tmp / "empty").mkdir()
         for name, words in (("pyproject.toml", "is not a career record"),
                             ("README.md", "is not a career record"),
+                            ("user-knowledgebase.md", "is not a career record"),
                             ("nonexistent", "does not exist"),
                             ("empty", "not a career workspace")):
             with self.subTest(name=name):
@@ -96,24 +111,15 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
 
     def test_the_record_path_is_printed_once(self):
         path = self.make_kb(self.tmp)
-        code, out = run(PREFLIGHT, "--kb", path)
+        code, out = gate("preflight.py", "--kb", path)
         self.assertEqual(out.count(str(path)), 1, out)
 
     def test_a_directory_with_no_knowledge_base_is_not_one(self):
         (self.tmp / "notacareer" / "projects").mkdir(parents=True)
         self.assertIsNone(preflight.find_kb(self.tmp))
-        self.assertIsNone(preflight.find_markdown_kb(self.tmp))
-
-    def test_a_differently_named_markdown_file_is_not_one(self):
-        """Every other .md in a career folder - a posting, a log, a draft - would
-        otherwise be reported as the knowledge base by whichever one os.walk saw
-        first."""
-        (self.tmp / "career").mkdir()
-        (self.tmp / "career" / "resume.md").write_text("draft", encoding="utf-8")
-        self.assertIsNone(preflight.find_markdown_kb(self.tmp))
 
     def test_dot_directories_are_not_searched(self):
-        """`.jsk/kb.last.ttl` is a cache, and a .git folder holds old copies."""
+        """`.jsk/` holds a backup, and a .git folder holds old copies."""
         self.make_kb(self.tmp / ".hidden")
         self.assertIsNone(preflight.find_kb(self.tmp))
 
@@ -121,34 +127,6 @@ class KnowledgeBaseDiscovery(unittest.TestCase):
         deep = self.tmp / "a" / "b" / "c" / "d"
         self.make_kb(deep)
         self.assertIsNone(preflight.find_kb(self.tmp))
-
-
-class AMarkdownKnowledgeBaseIsPointedAtMigrate(unittest.TestCase):
-    """A user-knowledgebase.md with no kb.ttl beside it is a gap, never a FAIL: the
-    render path starts at resume.json and still works, and blocking on it would hide
-    every other finding behind one migration."""
-
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.tmp = Path(self._tmp.name)
-        self.addCleanup(self._tmp.cleanup)
-        self.md = self.tmp / "user-knowledgebase.md"
-        self.md.write_text("# Career knowledge base", encoding="utf-8")
-
-    def test_it_is_a_gap_naming_migrate(self):
-        checks, found = preflight.gather(str(self.md))
-        kb = next(c for c in checks if c.name.startswith("knowledge base"))
-        self.assertFalse(kb.ok)
-        self.assertFalse(preflight.is_required(kb))
-        self.assertIn(f"jsk migrate {self.md}", kb.disables)
-        self.assertEqual(found, str(self.md))
-
-    def test_json_reports_it_apart_from_the_record(self):
-        code, out = run(PREFLIGHT, "--kb", self.md, "--json")
-        self.assertEqual(code, VERDICT, out)
-        payload = json.loads(out)
-        self.assertIsNone(payload["knowledge_base"])
-        self.assertEqual(Path(payload["markdown_knowledge_base"]), self.md)
 
 
 class GapsAreDescribedByWhatTheyCost(unittest.TestCase):
@@ -187,8 +165,8 @@ class RequiredVersusOptional(unittest.TestCase):
         # "modules (4/4)" since these became a package: preflight asks whether each
         # one can be imported, not whether a file of that name is on disk.
         self.assertTrue(any(n.startswith("modules") for n in required))
-        self.assertTrue(any(n.startswith("urs renderer") for n in required))
-        self.assertTrue(any(n.startswith("URS schema") for n in required))
+        self.assertTrue(any(n.startswith("renderer") for n in required))
+        self.assertTrue(any(n.startswith("profile schema") for n in required))
 
     def test_the_pdf_toolchain_is_required(self):
         """A TeX engine and pymupdf were survivable while the .docx was the
@@ -238,22 +216,69 @@ class CliBehaviour(unittest.TestCase):
 
     @NEEDS_TEX
     def test_plain_run_reports_a_verdict(self):
-        code, out = run(PREFLIGHT)
+        code, out = run(DOCTOR)
         self.assertEqual(code, 0, out)
         self.assertTrue(any(v in out for v in ("READY", "READY, with gaps")), out)
 
     @NEEDS_TEX
     def test_verify_runs_the_pipeline_and_every_gate(self):
-        code, out = run(PREFLIGHT, "--verify")
+        code, out = run(DOCTOR, "--verify")
         self.assertEqual(code, 0, out)
-        for step in ("validate the example record", "render the example to a PDF",
+        for step in ("validate the example resume", "render the example to a PDF",
                      "parse gate, rendered PDF",
                      "parse gate, plain text (strict)", "prose gate"):
             self.assertIn(step, out)
         self.assertNotIn("FAIL", out)
 
+    def test_verify_renders_the_example_workspace_s_general_resume(self):
+        """doctor renders the resume the way a person's is rendered: a target's selection
+        built from a career, not a record copied out of one - a resume.json until 6.0 read
+        none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2)."""
+        from unittest import mock
+
+        from jsk import paths, preflight
+        calls = []
+
+        def fake(args, **_):
+            calls.append(args)
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(preflight.subprocess, "run", fake):
+            preflight.verify(str(self.tmp))
+        # The resume_render tool is not a command: the step runs the entry point the tool calls.
+        render = next(c for c in calls if c[1] == "-c" and "entry.render import" in c[2])
+        # The target in the store the example was imported into, never the package's files.
+        self.assertIn(str(self.tmp / "example" / "resumes" / "example"), render)
+        self.assertFalse(any(a.endswith(".json") for a in render), render)
+        self.assertNotIn("--view", render)
+        load = next(c for c in calls if "load" in c)
+        self.assertEqual(load[-5:], ["kb", "load", paths.EXAMPLE_WORKSPACE, "--root",
+                                     str(self.tmp / "example")])
+
+    def test_verify_validates_the_selection_it_renders(self):
+        """The validate step read example.resume.json - a URS record nothing renders any
+        more - so doctor passed a check on a file the render never touched."""
+        from unittest import mock
+
+        from jsk import paths, preflight
+        calls = []
+
+        def fake(args, **_):
+            calls.append(args)
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(preflight.subprocess, "run", fake):
+            steps = preflight.verify(str(self.tmp))
+        check = next(c for c in calls if c[1] == "-c" and "cmd_resume_check" in c[2])
+        self.assertIn(str(self.tmp / "example" / "resumes" / "example"), check)
+        self.assertFalse(any("validate_urs" in a for c in calls for a in c))
+        self.assertEqual([s[0] for s in steps[:2]], ["load the example career into a store",
+                                                     "validate the example resume"])
+        self.assertEqual(len(steps), 7)
+        self.assertIn(paths.EXAMPLE_WORKSPACE, calls[0])
+
     def test_json_output_is_machine_readable(self):
-        code, out = run(PREFLIGHT, "--json")
+        code, out = run(DOCTOR, "--json")
         self.assertEqual(code, VERDICT, out)
         payload = json.loads(out)
         self.assertIn("checks", payload)
@@ -262,17 +287,16 @@ class CliBehaviour(unittest.TestCase):
 
     @NEEDS_TEX
     def test_json_verify_reports_each_step(self):
-        code, out = run(PREFLIGHT, "--json", "--verify")
+        code, out = run(DOCTOR, "--json", "--verify")
         self.assertEqual(code, 0, out)
         payload = json.loads(out)
         self.assertTrue(payload["ok"])
-        self.assertEqual(len(payload["verify"]), 5)
+        self.assertEqual(len(payload["verify"]), 7)
 
     def test_kb_override_is_honoured(self):
-        path = self.tmp / "mine" / "career" / "kb.ttl"
-        path.parent.mkdir(parents=True)
-        path.write_text("k:kb j:format 3 .", encoding="utf-8")
-        code, out = run(PREFLIGHT, "--kb", path, "--json")
+        path = self.tmp / "mine" / "career" / "store"
+        path.mkdir(parents=True)
+        code, out = run(DOCTOR, "--kb", path, "--json")
         self.assertEqual(code, VERDICT, out)
         self.assertEqual(Path(json.loads(out)["knowledge_base"]), path)
 
@@ -281,13 +305,13 @@ class CliBehaviour(unittest.TestCase):
         and exited 1 wherever there was no TeX engine, so reading the documentation
         looked like a failure. Help is the usage, and nothing is checked."""
         for flag in ("--help", "-h"):
-            code, out = run(PREFLIGHT, flag)
+            code, out = run(DOCTOR, flag)
             self.assertEqual(code, 0, out)
             self.assertIn("Usage:", out)
             self.assertNotIn("jsk preflight", out)      # the report's header
 
     def test_kb_flag_without_a_path_is_a_usage_error(self):
-        code, out = run(PREFLIGHT, "--kb")
+        code, out = run(DOCTOR, "--kb")
         self.assertEqual(code, 2)
         self.assertIn("needs a path", out)
 
@@ -295,7 +319,7 @@ class CliBehaviour(unittest.TestCase):
         # Probing the legacy `fitz` alias printed a PyMuPDF deprecation warning
         # into the middle of a setup report. The check asks about the module
         # fit_pages.py actually imports.
-        code, out = run(PREFLIGHT)
+        code, out = run(DOCTOR)
         self.assertNotIn("deprecated", out.lower())
 
 
@@ -343,11 +367,11 @@ class SetupIsWiredUp(unittest.TestCase):
         """
         import re
 
-        from jsk import cli
+        from jsk.adapters.cli.main import NOUNS
         fenced = self.fenced(self.mode)
         named = set(re.findall(r"^jsk ([a-z]+)", fenced, re.M))
         self.assertTrue(named, "the setup command invokes no jsk subcommand")
-        known = set(cli.HANDLERS) | set(cli.SIMPLE)
+        known = set(NOUNS)
         unknown = sorted(n for n in named if n not in known)
         self.assertEqual(unknown, [], f"setup.md names unknown subcommands: {unknown}")
 
@@ -362,19 +386,63 @@ class TheGraphRecord(unittest.TestCase):
         self.assertTrue(graph.ok, graph.disables)
 
     def test_the_engine_is_required(self):
-        """The career is kb.ttl and `jsk ship` runs the claims gate against it before
-        it renders, so a machine without the engine cannot produce a resume from the
+        """The career is in career/store/ and the resume_ship tool runs the record gate against it
+        before it renders, so a machine without the engine cannot produce a resume from the
         career. It used to be reported as a gap."""
         checks, _ = preflight.gather()
         engine = next(c for c in checks if c.name == "pyoxigraph")
         self.assertTrue(preflight.is_required(engine))
-        self.assertIn("kb.ttl", engine.disables)
+        self.assertIn("career/store/", engine.disables)
         line, note = preflight.hint("pyoxigraph")
         self.assertIn("-m pip install pyoxigraph", line)
         self.assertTrue(note)
 
     def test_the_floor_is_python_3_10(self):
         self.assertEqual(preflight.MIN_PYTHON, (3, 10))
+
+
+class TheMcpDependency(unittest.TestCase):
+    """docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md, Ruling 3: `mcp` is required
+    since 6.0 - its tools are the only way to change a career - so doctor checks it like
+    pyoxigraph, and a missing one blocks. It was an `info` line, never a gap, while the CLI
+    could still write a career without it."""
+
+    def doctor(self, *args, mcp=True):
+        import contextlib
+        import importlib.util
+        import io
+        from unittest import mock
+
+        real = importlib.util.find_spec
+
+        def find_spec(name, *rest):
+            return None if name == "mcp" and not mcp else real(name, *rest)
+
+        buf = io.StringIO()
+        with mock.patch.object(preflight.importlib.util, "find_spec", find_spec), \
+                contextlib.redirect_stdout(buf):
+            code = preflight.main(["--quick", *args])
+        return code, buf.getvalue()
+
+    def test_an_installed_one_is_an_ok_check(self):
+        code, out = self.doctor(mcp=True)
+        self.assertIn("  ok    mcp", out)
+        self.assertNotIn("mcp extra", out, "it is no extra any more")
+
+    def test_a_missing_one_fails_and_blocks(self):
+        code, out = self.doctor(mcp=False)
+        self.assertIn("  FAIL  mcp", out)
+        self.assertIn("every way to change the career", out)
+        self.assertTrue(any(line.startswith("BLOCKED") for line in out.splitlines()), out)
+        self.assertEqual(code, 1, out)
+
+    def test_the_json_report_lists_it_among_the_required_checks(self):
+        code, out = self.doctor("--json", mcp=False)
+        report = json.loads(out)
+        check = next(c for c in report["checks"] if c["name"] == "mcp")
+        self.assertEqual((check["ok"], check["required"]), (False, True))
+        self.assertNotIn("extras", report)
+        self.assertFalse(report["ok"])
 
 
 if __name__ == "__main__":

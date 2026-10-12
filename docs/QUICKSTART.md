@@ -10,7 +10,9 @@ The toolchain is a Python package, and the skill drives it:
 pip install 'jsk-resume[all]'
 ```
 
-Then the plugin:
+`mcp` comes with the package (a required dependency since 6.0): the plugin starts `jsk mcp`, and
+Claude and its agents read and write your record through that server's tools rather than through
+files or commands. Restart Claude Code after installing it. Then the plugin:
 
 ```
 /plugin marketplace add basilinjoe/job-seeker-skills
@@ -43,21 +45,8 @@ If you already have a resume, point at it — it is the fastest possible startin
 /jsk:setup ./old-resume.docx
 ```
 
-Setup checks what your machine can do, offers to close any gaps, creates your knowledge base, then
+Setup checks what your machine can do, offers to close any gaps, creates your workspace, brings in your career, then
 renders a real resume from it and checks it. It asks before installing anything.
-
-**Already have a `user-knowledgebase.md`** from an earlier version? Setup finds it, and `jsk doctor`
-names it as a gap. Move it across once:
-
-```bash
-jsk migrate ./my-career/user-knowledgebase.md --dry-run   # every file it would write, printed
-jsk migrate ./my-career/user-knowledgebase.md             # career/kb.ttl and log.ttl, at r1
-```
-
-It refuses unless the new record reads back as exactly what the Markdown held, and it deletes
-nothing - `user-knowledgebase.md`, `log.md` and every application stay where they are. Each
-`resume.json` you already sent is put through the claims gate against the new record, so you see
-at once anything it claimed that the career does not back. `jsk migrate` is in this release only.
 
 ## 3. Answer the questions
 
@@ -65,78 +54,83 @@ Setup interviews you. Ramble — unstructured is fine, and it is easier to struc
 to make you produce structure. It will push you for numbers roughly twice per accomplishment, and let
 go if you do not have them.
 
-What you say goes into your record as changesets: the skill drafts one, `jsk kb apply` checks and
-writes it and prints the diff, and everything you said is marked *inferred* until you confirm it.
-When the skill reads a line back and you say "yes, that's right - 800 ms before, 200 after", it runs
-`jsk kb confirm` with your words.
+What you say goes into your record as changesets: the skill drafts one, shows you the diff (`career_preview`), and writes it (`career_apply`)
+once you agree; everything you said is marked *inferred* until you confirm it. When the skill reads
+a line back and you say "yes, that's right - 800 ms before, 200 after", it calls `career_confirm`
+with your words.
 
 ## 4. You now have two things
 
-**`career/kb.ttl`** — your whole career in one file, yours, readable in any editor. Put the folder
-in Git (`jsk new` writes the `.gitattributes` that keeps it LF). It is the source of truth from here
-on: identity, roles, projects, every verified number, the vocabulary you are matched on. Beside it,
-`career/log.ttl` records every change. `jsk kb view` prints the whole career as Markdown to read.
+**Your career record** — your whole career in `career/store/`, a store in your own folder that
+`jsk` reads and writes. It is the source of truth from here on: identity, roles, projects, every
+verified number, the vocabulary you are matched on, and a log of every change. It is not a text
+file to open in an editor: ask Claude to show it (`career_view` returns the whole career as Markdown, `career_log`
+the history), or run `jsk kb dump` to write all of it out as text. Every change also refreshes a copy in
+`.jsk/backup.trig`, so back up the folder and you have backed up the record.
 
-**A resume** — a PDF and a plain-text copy for paste-in boxes, both rendered from the same record, so
-they cannot contradict each other. The PDF is the presentation variant for people unless you ask for
+**A resume** — a PDF, rendered from the career together with the plain text the checks read, so
+the two cannot contradict each other. The PDF is the presentation variant for people unless you ask for
 the ATS-maximal one, which is aimed at job portals that parse badly.
 
 ## What to do next
 
 | When | Say |
 |---|---|
-| You shipped something | `/jsk:braindump` — five minutes, while you still remember the numbers |
-| Every quarter | `/jsk:refresh` |
-| Before applying | `/jsk:gaps`, then `/jsk:resume` |
-| Once a week while job-hunting | `/jsk:pipeline` |
+| You shipped something, or have an old resume or writing | `/jsk:intake` — five minutes, while you still remember the numbers |
+| Every quarter, or before applying | `/jsk:review` |
+| A general resume | `/jsk:resume` |
 | A specific job posting | `/jsk:tailor`, with the URL or the description pasted |
-| A resume that is ready to send | `/jsk:ship` |
+| A resume that is ready to send | `/jsk:ship`, the last step of resume and tailor |
 
 `/jsk:tailor` is a loop rather than a single step. It reads the posting, works out what your record
 answers and what it does not, and asks you about the gaps — then writes the resume once, at the end.
 You can skip out of it at any round and take the record as it stands. It tells you where you fall
 short against that posting either way, because being flattered costs interviews.
 
-`/jsk:ship` is the end of that loop, and it is two commands:
+Since 5.0.0 an application lives in your record, not in files: the posting's lines, what it asks
+for, the analyst's review, the assessment and the bullets chosen for it are all stored there, and
+its folder under `applications/` holds only the PDF and `.tex` it rendered and any cover letter. A "no" you give ("never
+used Kafka") is recorded too, so the next posting that asks gets your answer without asking you.
 
-```bash
-jsk ship applications/<stem>/resume.json --out applications/<stem> --view <id>
-jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
-```
+`/jsk:ship` is the end of that loop, and it is two steps: `resume_ship` (the tool
+that replaced `jsk resume ship` in 6.0), then `app_freeze` with the day you sent it and the channel
+("Workday portal").
 
-`jsk ship` checks the record first - against itself, then against your career - and renders
-nothing if either fails, then renders the PDF and checks it and the plain text, printing every
+`resume_ship` checks the chosen bullets against your career first - every id live, every number traced to
+a current metric - and renders nothing if that fails, then renders the PDF and checks it and its plain text, printing every
 verdict. It reports the page count but leaves the last check to you: open the PDF and read every
-page. `jsk freeze` refuses until the checks pass, then records in `application.ttl` what was sent,
-when, and which bullets and metric versions it carried, and names the directory after the
-submission date. Use `--submitted false` for an application you worked through and decided not to
-send. When something comes back, `/jsk:pipeline` records it - against the directory's new name,
-which `jsk freeze` prints:
+page. `app_freeze` refuses until the checks pass, then records in your record what was sent,
+when, and which bullets rendered and the metric versions they cite, and names the directory after the
+submission date. Pass `submitted="false"` for an application you worked through and decided not to
+send. When something comes back, tell the session: it records it against the directory's new name,
+which `app_freeze` returns, by calling `app_event` (kind `screen-scheduled`, date `2026-09-15`), and
+`app_list` shows every application's stage and how long since.
+
+## What runs where
+
+The skill drives all of this through `jsk mcp`'s tools; since 6.0 changing the career, checking it,
+capturing a posting, choosing, rendering and gating a resume, freezing and recording an event are tools
+only, with no shell verb. The commands that remain are the ones that have to work when the server cannot
+start:
 
 ```bash
-jsk event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15
-jsk kb query pipeline            # every application's stage, and how long since
-```
-
-## The same, by hand
-
-The skill runs all of this for you. Underneath, from nothing to a sent application:
-
-```bash
-jsk new ./my-career --name "Your Name"        # career/kb.ttl (empty) and log.ttl, at r1
+jsk kb new ./my-career --name "Your Name"     # career/store/: an empty career and its log, at r1
 cd my-career
-jsk kb apply braindump.trig --dry-run         # what a changeset would change
-jsk kb apply braindump.trig                   # ... written and logged, as r2
-jsk kb confirm k:ach_payments_cut_settlement_latency --answer "Yes: 800 ms to 200, from Grafana."
-jsk match applications/<stem>/posting.ttl     # the posting against the career, with the paths
-jsk ship applications/<stem>/resume.json --out applications/<stem> --view <id>
-jsk freeze applications/<stem> --submitted 2026-09-08 --channel "Workday portal"
-jsk event applications/2026-09-08-<stem> screen-scheduled --date 2026-09-15   # freeze renamed it
+jsk doctor                                    # what this machine can do
+#   career_check, career_apply, posting_capture, assessment_derive, resume_select,
+#   resume_check, resume_ship, career_confirm ... (jsk mcp's tools, called by Claude)
+jsk kb dump --out record.trig                 # the whole record as TriG, a backup
 ```
 
-A changeset is a small TriG file; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new
-workspace as it stands. `posting.ttl` (what the posting asks for) and `resume.json` (the record for
-that application) are what the tailoring step writes.
+A changeset is TriG text passed to `career_apply`; [Commands](SCRIPTS.md#jsk-kb) has one that applies to a new
+workspace as it stands. The tailoring step writes no file: the posting, review, assessment and
+selection are graphs in the store. Until 6.0 an application could be made from files
+(`posting.md`, `decisions.txt`, `gaps.txt`, `resume.json`); one left unsent is finished with jsk
+5.1.0, or set aside with the `app_drop` tool.
+
+Already have a workspace from before the store, with `career/kb.ttl`? Run `jsk kb load .` in it,
+once. It checks the files as before, lists every number it rewrites, and imports them; the files
+stay where they are and are not read again.
 
 ## If something looks wrong
 

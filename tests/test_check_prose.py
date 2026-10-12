@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import CHECK_PROSE, load_script, run
+from fixtures import (CHECK_PROSE, PROSE_GATE, gate, load_script, run)
 
 cp = load_script(CHECK_PROSE)
 
@@ -62,7 +62,7 @@ class ProseCase(unittest.TestCase):
         return path
 
     def check(self, paragraphs=None, name="resume.tex"):
-        return run(CHECK_PROSE, self.tex(CLEAN if paragraphs is None else paragraphs, name))
+        return run(PROSE_GATE, self.tex(CLEAN if paragraphs is None else paragraphs, name))
 
     def assertFails(self, code, out, needle=None):
         self.assertEqual(code, 1, f"expected FAIL, got exit {code}:\n{out}")
@@ -179,6 +179,62 @@ class BannedPhrases(ProseCase):
         self.assertEqual(code, 0)
 
 
+class StockVocabulary(ProseCase):
+    def test_every_stock_word_warns(self):
+        for word in ("Spearheaded", "Leveraged", "Orchestrated", "Fostered"):
+            with self.subTest(word=word):
+                code, out = self.check(with_lines(
+                    (True, f"{word} the billing rebuild across 4 teams.")))
+                self.assertWarnsOnly(code, out, f"'{word.lower()}' - stock resume vocabulary")
+
+    def test_phrases_and_adjectives_warn(self):
+        code, out = self.check(with_lines(
+            (False, "Results-driven engineer with a proven track record in fast-paced teams.")))
+        for needle in ("results-driven", "proven track record", "fast-paced"):
+            self.assertIn(f"'{needle}' - stock", out.lower())
+
+    def test_each_word_is_reported_once(self):
+        _, out = self.check(with_lines(
+            (True, "Leveraged Kafka to cut ingest lag by 40 percent."),
+            (True, "Leveraged Redis to cut p95 latency by 30 percent.")))
+        self.assertEqual(out.lower().count("'leveraged' - stock"), 1, out)
+
+    def test_orchestration_the_skill_is_not_a_tell(self):
+        _, out = self.check(with_lines(
+            (False, "Kubernetes, container orchestration, Terraform")))
+        self.assertNotIn("stock resume vocabulary", out)
+
+    def test_a_name_that_starts_with_a_tell_is_not_matched(self):
+        # Employers and places are the real risk: a client called Fosterton is not
+        # the verb "foster".
+        _, out = self.check(with_lines((False, "Fosterton Council, Delveworth Ltd")))
+        self.assertNotIn("stock resume vocabulary", out)
+
+
+class Formula(ProseCase):
+    FRAMED = [
+        (True, "Rebuilt the billing service, resulting in 40 percent fewer incidents."),
+        (True, "Moved search to OpenSearch, leading to a 3x faster p95."),
+        (True, "Automated the release train, enabling 12 deploys a week."),
+    ]
+
+    def test_a_third_of_bullets_on_one_frame_warns(self):
+        code, out = self.check(with_lines(*self.FRAMED))
+        self.assertWarnsOnly(code, out, "3 of 5 bullets close on the same")
+
+    def test_two_are_a_coincidence(self):
+        _, out = self.check(with_lines(*self.FRAMED[:2]))
+        self.assertNotIn("close on the same", out)
+
+    def test_three_among_many_is_not_a_template(self):
+        # Distinct enough not to trip the duplicate rule's 75% overlap.
+        cities = ("Sydney", "Perth", "Auckland", "Tokyo", "Seoul", "Mumbai", "Dublin")
+        many = [(True, f"Cut the nightly batch for {city} from 9 hours to {n} hours.")
+                for n, city in enumerate(cities, 1)]
+        _, out = self.check(with_lines(*self.FRAMED, *many))
+        self.assertNotIn("close on the same", out)
+
+
 class Duplicates(ProseCase):
     def test_repeated_bullet_warns(self):
         line = "Conducted thorough code reviews across three delivery teams."
@@ -227,18 +283,18 @@ class PlainTextVariant(ProseCase):
         return path
 
     def test_plain_text_is_accepted(self):
-        code, out = run(CHECK_PROSE, self.write_txt(
+        code, out = run(PROSE_GATE, self.write_txt(
             ["Jane Doe", "Professional Summary",
              "- Owned the migration to event-driven services."]))
         self.assertEqual(code, 0, out)
 
     def test_plain_text_defects_are_caught(self):
-        code, out = run(CHECK_PROSE, self.write_txt(
+        code, out = run(PROSE_GATE, self.write_txt(
             ["Jane Doe", "- Built the platform that followed him into the role."]))
         self.assertFails(code, out, "third person")
 
     def test_dash_prefix_marks_a_bullet(self):
-        code, out = run(CHECK_PROSE, self.write_txt(
+        code, out = run(PROSE_GATE, self.write_txt(
             ["Jane Doe", "- Meanwhile the team shipped the portal."]))
         self.assertIn("does not open on a verb", out)
 
@@ -247,7 +303,7 @@ class MalformedInput(ProseCase):
     def test_the_docx_is_no_longer_accepted(self):
         junk = self.tmp / "resume.docx"
         junk.write_text("not a zip", encoding="utf-8")
-        code, out = run(CHECK_PROSE, junk)
+        code, out = gate("check_prose.py", junk)
         self.assertEqual(code, 2)
         self.assertIn("unsupported", out.lower())
 
@@ -255,33 +311,33 @@ class MalformedInput(ProseCase):
         """`python -m jsk.gates.check_prose --help` read --help as a path and printed
         "file not found: --help" with the usage-error exit."""
         for flag in ("--help", "-h"):
-            code, out = run(CHECK_PROSE, flag)
+            code, out = gate("check_prose.py", flag)
             self.assertEqual(code, 0, out)
             self.assertNotIn("file not found", out)
-            self.assertIn("python -m jsk.gates.check_prose", out)
+            self.assertIn("resume_check(", out)
             self.assertNotIn("The sibling gate", out)
 
     def test_missing_file_reports_a_verdict(self):
-        code, out = run(CHECK_PROSE, self.tmp / "absent.tex")
+        code, out = gate("check_prose.py", self.tmp / "absent.tex")
         self.assertEqual(code, 2)
         self.assertIn("not found", out.lower())
 
     def test_unsupported_extension_is_rejected(self):
         pdf = self.tmp / "resume.pdf"
         pdf.write_bytes(b"%PDF-1.4")
-        code, out = run(CHECK_PROSE, pdf)
+        code, out = gate("check_prose.py", pdf)
         self.assertEqual(code, 2)
         self.assertIn("unsupported", out.lower())
 
     def test_no_argument_is_a_usage_error(self):
-        code, out = run(CHECK_PROSE)
+        code, out = run(PROSE_GATE)
         self.assertEqual(code, 2)
         self.assertIn("usage", out.lower())
 
 
 class QuantificationCoverage(ProseCase):
     """writing-rules.md anchors every bullet on a measurable result. Nothing was
-    measuring whether it happened: validate_urs.py checks that a number in prose
+    measuring whether it happened: the record gate checks that a number in prose
     traces to a metric, which says nothing about a bullet carrying no number.
 
     Reported, never enforced. A gate that demands a number is a gate that gets
@@ -322,13 +378,75 @@ class QuantificationCoverage(ProseCase):
         self.assertIn("and 2 more bullets carry no number", out)
 
     def test_a_year_does_not_count_as_a_metric(self):
-        """The exclusions are why validate_urs.numerals() is reused rather than
+        """The exclusions are why numbers.numerals() is reused rather than
         reimplemented - a bullet mentioning 2019 is not a quantified bullet."""
         _, out = self.check([
             (False, "Professional Experience"),
             (True, "Owned the payments rewrite through the 2019 reorganisation."),
         ])
         self.assertIn("quantified: 0/1 (0%)", out)
+
+
+class LongBullets(ProseCase):
+    """A bullet past two rendered lines is read to its opening and skipped. The
+    Everforth render had several running to three and four lines."""
+
+    # 233 characters: three lines in the default 11pt body on A4.
+    LONG = ("Co-designed the move from direct database coupling to Azure Service Bus "
+            "publish/subscribe across 15 integrated aged-care applications, cutting "
+            "event-propagation latency from five minutes to under one second in 2023.")
+
+    def test_a_bullet_past_two_lines_warns_with_its_opening_and_length(self):
+        code, out = self.check(with_lines((True, self.LONG)))
+        self.assertWarnsOnly(code, out, "long bullet")
+        self.assertIn(f"{len(self.LONG)} characters", out)
+        self.assertIn(repr(self.LONG[:50]), out)
+
+    def test_it_is_a_warning_never_a_failure(self):
+        code, out = self.check(with_lines((True, self.LONG), (True, self.LONG + " Again.")))
+        self.assertEqual(code, 0, out)
+        self.assertIn("FAIL 0", out)
+
+    def test_two_lines_or_fewer_is_silent(self):
+        short = self.LONG[:cp.LONG_BULLET - 1].rsplit(" ", 1)[0] + "."
+        _, out = self.check(with_lines((True, short)))
+        self.assertNotIn("long bullet", out)
+
+    def test_a_paragraph_is_not_a_bullet(self):
+        """The summary is prose and is allowed to run; the rule is about bullets."""
+        _, out = self.check(with_lines((False, self.LONG)))
+        self.assertNotIn("long bullet", out)
+
+
+class TemplateMarkupIsNotProse(ProseCase):
+    r"""The ATS variant breaks ligatures with `\kern0pt{}` inside a word, and the
+    header wraps contacts in `\href`. Stripped as ordinary commands, the kern left
+    "0pt" behind: the Everforth render warned that "Codif 0pt ied the Azure
+    estate" did not open on a verb."""
+
+    def test_a_ligature_break_does_not_split_the_word(self):
+        self.assertEqual(cp.strip_tex(r"Codif\kern0pt{}ied the Azure estate"),
+                         "Codified the Azure estate")
+
+    def test_a_link_shows_only_its_text(self):
+        self.assertEqual(
+            cp.strip_tex(r"\resumecontact{\href{mailto:a@b.io}{a@b.io} | "
+                         r"\href{https://github.com/a}{github.com/a}}"),
+            "a@b.io | github.com/a")
+
+    def test_straight_quotes_survive(self):
+        self.assertEqual(cp.strip_tex(r"the platform\textquotesingle{}s API"),
+                         "the platform's API")
+
+    def test_the_pdf_metadata_line_is_not_read_as_a_paragraph(self):
+        path = self.tex(CLEAN)
+        text = path.read_text(encoding="utf-8").replace(
+            r"\begin{document}",
+            r"\hypersetup{hidelinks,pdftitle={Jane Doe - Resume},pdfauthor={Jane Doe}}"
+            "\n\\hyphenpenalty=10000\n\\begin{document}")
+        path.write_text(text, encoding="utf-8")
+        texts = [t for _, t in load_script("jsk.infra.documents").read_tex(path)]
+        self.assertFalse([t for t in texts if "pdftitle" in t or "10000" in t], texts)
 
 
 class OutputShape(ProseCase):

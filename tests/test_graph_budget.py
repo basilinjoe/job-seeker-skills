@@ -5,13 +5,16 @@ import time
 import unittest
 from pathlib import Path
 
-from jsk.graph import ontology as O
-from jsk.graph import store
+from storekit import seed
+
+from jsk.domain import ontology as O
+from jsk.adapters.compose import record
 
 
 def big_workspace(root, projects=300, applications=100):
     """A valid career of `projects` projects, 3 bullets each, and `applications`
-    applications - about 10,000 quads, P0's measured size."""
+    applications - about 10,000 quads of record, P0's measured size; 16,373 in memory
+    once the vocabulary and the derived paths are counted."""
     pfx = "".join(f"@prefix {n}: <{ns}> .\n" for n, ns in O.PREFIXES) + "\n"
     kb = [pfx, 'k:kb j:format 3 ; j:name "Big" ; j:updated "2026-09-20"^^xsd:date .\n',
           'k:person j:fullName "Big" ; j:provenance j:confirmed .\n',
@@ -56,27 +59,35 @@ def big_workspace(root, projects=300, applications=100):
 @unittest.skipIf(os.environ.get("PYTEST_XDIST_WORKER"),
                  "a timing test needs the machine to itself - run tests/test_graph_budget.py alone")
 class Budget(unittest.TestCase):
-    """Every command loads and validates the whole workspace, so it has to stay cheap.
+    """Every command loads and validates the whole workspace, so it has to stay cheap -
+    now from career/store/: opened read-only, every graph copied into memory, then the
+    vocabulary, narrowing, derivation, every rule and the paths, as before (Ruling 1).
 
-    Target: under 400 ms for this workspace (P1 measured 250-390 ms on a Windows laptop,
-    Python 3.13). Asserted at 3x, so a slow CI runner does not make it flaky; the figure
-    is printed so a creeping cost shows in the log before it fails.
+    Target: under 400 ms for this workspace. P1 measured 250-390 ms from files on a
+    Windows laptop, Python 3.13. From the store, 2026-09-29 on a Windows 11 desktop,
+    Python 3.13: 441-519 ms (fastest of three, three runs; 16,373 quads) - where the same
+    workspace from its files took 580 ms, so the copy out of RocksDB costs less than the
+    Turtle parse it replaced. Asserted at 1.2 s, so a slow CI runner does not make it
+    flaky; the figure is printed so a creeping cost shows in the log before it fails.
     """
 
     def test_ten_thousand_quads(self):
         with tempfile.TemporaryDirectory() as tmp:
             big_workspace(Path(tmp))
-            store.load(tmp)                      # warm: the first query compiles caches
+            seed(tmp)                            # the files into career/store/, then gone
+            self.assertFalse((Path(tmp) / "career" / "kb.ttl").exists())
+            record.load(tmp)                      # warm: the first query compiles caches
             # The fastest of three: other work on the machine - the match mutations run
             # whole pytest processes beside this one under -n auto - only ever adds time.
             timings = []
             for _ in range(3):
                 start = time.perf_counter()
-                s = store.load(tmp)
+                s = record.load(tmp)
                 timings.append((time.perf_counter() - start) * 1000)
             ms = min(timings)
             quads = len(s.ox)
-            print(f"\n  budget: {quads} quads loaded and validated in {ms:.0f} ms")
+            print(f"\n  budget: {quads} quads loaded from the store and validated in {ms:.0f} ms")
+            self.assertTrue(s.stored)
             self.assertGreater(quads, 9000)
             self.assertEqual([f.text() for f in s.fails()], [])
             self.assertLess(ms, 1200)

@@ -1,13 +1,17 @@
-"""The pipeline: one URS record, many renderings, no divergence between them.
+"""The render: one plan, many renderings, no divergence between them.
 
-These tests pin the three claims the JSON-first pipeline is built to make:
+These tests pin the claims the pipeline is built to make:
 
-  * the PDF and the plain text say the same things, because one resolver
-    decided what they say and the emitters only chose markup
-  * a region profile changes what is emitted, so the same record is lawful in
-    Sydney and conventional in Dubai
+  * the PDF and the plain text say the same things, because the builder decided
+    what they say and the emitters only chose markup
+  * the template cannot express an ATS hazard, in any theme or variant
   * a rendered document still has to pass check_ats.py - generating a file is
     not the same as checking one
+
+What the plan says - selection, chronology, titles, the skills block, the header,
+the region's sections - is tests/test_build.py's. The plans here are built from the
+career the same way: tests/claims_fixtures edited in Turtle (tests/careerkit.py),
+or the shipped example workspace.
 """
 import contextlib
 import io
@@ -15,274 +19,92 @@ import os
 import re
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
-from fixtures import (CHECK_ATS, EXAMPLE_URS, RENDER_RESUME, achievement,
-                      load_script, run, urs_doc, urs_module, urs_package,
-                      write_urs)
+import careerkit
+from fixtures import (RENDER, RENDER_RESUME, example_short, gate,
+                      load_script, render_module, run)
+from jsk.adapters.compose import resume
+from test_build import LEAD_TITLE, BuildCase, short
 
-planner = urs_package()
-emit_latex = urs_module("urs.emit_latex")
-tex = urs_module("urs.tex")
+emit_latex = render_module("domain.render.emit_latex")
+tex = render_module("infra.tex")
 
-
-class PlanCase(unittest.TestCase):
-    def plan(self, doc=None, **kwargs):
-        return planner.build(doc if doc is not None else urs_doc(), **kwargs)
-
-    def flat(self, plan):
-        """Every rendered string in the plan, for presence assertions."""
-        out = list(plan["header_lines"]) + [plan["name"]]
-        for section in plan["sections"]:
-            out.append(section.get("heading") or "")
-            out.extend(section.get("paragraphs") or [])
-            out.extend(section.get("lines") or [])
-            for row in section.get("rows") or []:
-                out.append(row["label"] + ": " + ", ".join(row["items"]))
-            for entry in section.get("entries") or []:
-                out.append(entry.get("org_line") or "")
-                out.append(entry.get("org_right") or "")
-                for role in entry["roles"]:
-                    out.append(f"{role['left']} {role.get('right') or ''}")
-                out.extend(entry["lines"])
-                out.extend(entry["bullets"])
-        return "\n".join(o for o in out if o)
+TEAM = '"Led a team of 6 engineers."'
 
 
-class RegionProfilesGate(PlanCase):
-    """One record. What a market must not see, it does not see."""
-
-    def test_australia_omits_demographics_entirely(self):
-        text = self.flat(self.plan(region="AU"))
-        self.assertNotIn("Date of birth", text)
-        self.assertNotIn("Marital status", text)
-        self.assertNotIn("Nationality", text)
-
-    def test_india_emits_demographics_and_a_declaration(self):
-        text = self.flat(self.plan(region="IN"))
-        self.assertIn("Date of birth", text)
-        self.assertIn("Marital status", text)
-        self.assertIn("I hereby declare", text)
-
-    def test_gulf_emits_nationality_because_the_profile_requires_it(self):
-        text = self.flat(self.plan(region="AE"))
-        self.assertIn("Nationality: Indian", text)
-
-    def test_nationality_renders_as_a_demonym_not_a_country_code(self):
-        text = self.flat(self.plan(region="AE"))
-        self.assertNotIn("Nationality: IN", text)
-
-    def test_australia_forbids_compensation_where_the_gulf_expects_it(self):
-        doc = urs_doc()
-        doc["compensation"] = {
-            "expected": {"amount": {"value": 240000, "currency": "AUD"},
-                         "basis": "total-cash", "period": "year"}}
-        self.assertNotIn("240,000", self.flat(self.plan(doc, region="AU")))
-        self.assertIn("240,000", self.flat(self.plan(doc, region="AE")))
-
-    def test_a_view_redaction_beats_the_profile(self):
-        doc = urs_doc()
-        doc["views"][0]["redact"] = ["person.contacts.phone"]
-        self.assertNotIn("+61 400 000 000", self.flat(self.plan(doc)))
-
-    def test_missing_required_field_warns_rather_than_passing_quietly(self):
-        doc = urs_doc()
-        del doc["work_authorization"]
-        warnings = " ".join(self.plan(doc, region="AU")["warnings"])
-        self.assertIn("work_authorization", warnings)
+def reworded(text):
+    """ach_events_team's words replaced - an edit for BuildCase.plan(edits=...)."""
+    return [(TEAM, f'"{text}"')]
 
 
-class SelectionNeverInvention(PlanCase):
-    def test_a_view_selects_a_subset_of_bullets(self):
-        doc = urs_doc()
-        doc["views"][0]["include"] = [
-            {"ref": "eng_acme", "achievements": ["ach_latency"]}]
-        text = self.flat(self.plan(doc))
-        self.assertIn("Cut p95 latency", text)
-        self.assertNotIn("Rebuilt the ingestion pipeline", text)
+def contoso(root, doc):
+    """The ref of the claims fixture's Contoso application, made graph-native with `doc`
+    as its selection: the posting a render names its file for (shipkit.graph_native)."""
+    import shipkit
+    from jsk.domain.resume.selection import triples_of
+    from jsk.infra.oxigraph import record as R
 
-    def test_include_order_is_honoured(self):
-        doc = urs_doc()
-        doc["views"][0]["include"] = [
-            {"ref": "eng_acme", "achievements": ["ach_pipeline", "ach_latency"]}]
-        bullets = self.plan(doc)["sections"][2]["entries"][0]["bullets"]
-        self.assertTrue(bullets[0].startswith("Rebuilt"), bullets)
-
-    def test_provenance_floor_withholds_unconfirmed_evidence(self):
-        doc = urs_doc()
-        doc["engagements"][0]["achievements"].append(
-            achievement("Drove the platform strategy.", aid="ach_guess",
-                        status="inferred"))
-        plan = self.plan(doc)
-        self.assertNotIn("Drove the platform strategy", self.flat(plan))
-        self.assertIn("below the view floor", " ".join(plan["warnings"]))
-
-    def test_lowering_the_floor_lets_inferred_content_through(self):
-        doc = urs_doc()
-        doc["engagements"][0]["achievements"].append(
-            achievement("Drove the platform strategy.", aid="ach_guess",
-                        status="inferred"))
-        doc["views"][0]["provenance_floor"] = "inferred"
-        self.assertIn("Drove the platform strategy", self.flat(self.plan(doc)))
+    shipkit.graph_native(root)
+    R.write_graphs(str(root), {"applications/contoso-platform/resume":
+                               triples_of(doc, "sel_app_contoso_platform")})
+    app = Path(root) / "applications" / "contoso-platform"
+    app.mkdir(parents=True, exist_ok=True)
+    return str(app / "resume")
 
 
-class Chronology(PlanCase):
-    def test_current_role_is_listed_first(self):
-        roles = self.plan()["sections"][2]["entries"][0]["roles"]
-        self.assertEqual(roles[0]["left"], "Principal Engineer")
-
-    def test_a_promotion_is_a_sentence_never_an_arrow_chain(self):
-        doc = urs_doc()
-        doc["engagements"][0]["positions"].append(
-            {"id": "pos_c", "title": "Distinguished Engineer",
-             "period": {"start": {"value": "2025-01", "precision": "month"},
-                        "state": "unknown"},
-             "change": "promotion"})
-        text = self.flat(self.plan(doc))
-        self.assertIn("Promoted through 3 roles", text)
-        self.assertNotIn("→", text)
-        # Stated in the direction a promotion actually runs.
-        self.assertIn("Senior Engineer, Principal Engineer", text)
-
-    def test_ongoing_periods_read_as_present(self):
-        self.assertIn("Present", self.flat(self.plan()))
+class PlanCase(BuildCase):
+    """A plan over claims_fixtures with test_build's full person (Test Person, Melbourne)."""
 
 
-class FunctionalTitles(PlanCase):
-    """A title that is internal-only or niche - "Member of Technical Staff" -
-    tells a reader outside that employer nothing, and the reader is spending six
-    seconds. The gloss rides beside the official title, never in place of it:
-    the official one is what a reference check confirms.
-    """
+class SkillsShowEachNameOnce(PlanCase):
+    """The Everforth ATS render filled 45% of page 1 with its skills block - LINQ,
+    Entity Framework, Cosmos DB and Azure AI Foundry each in two rows - while page 2
+    was half empty."""
 
-    def gloss(self, functional="Full-Stack Engineer", title="Member of Technical Staff"):
-        doc = urs_doc()
-        position = doc["engagements"][0]["positions"][0]
-        position["title"] = title
-        if functional is not None:
-            position["functional_title"] = functional
-        return doc
+    def rows(self, skills, chosen, **kwargs):
+        extra = "".join(f'k:{sid} j:name "{name}" ; j:category "{cat}" ; j:rank {n + 1} .\n'
+                        for n, (sid, name, cat) in enumerate(skills))
+        plan = self.plan(short(skills=chosen), edits=[("# == Skills\n\n",
+                                                       "# == Skills\n\n" + extra)], **kwargs)
+        section = self.section(plan, "Technical Skills") or self.section(plan, "Skills")
+        return [(r["label"], r["items"]) for r in section["rows"]]
 
-    def first_role(self, doc, **kwargs):
-        return self.plan(doc, **kwargs)["sections"][2]["entries"][0]["roles"]
+    def test_a_name_in_two_categories_shows_once_first_wins(self):
+        rows = self.rows([("skill_linq", "LINQ", "language"),
+                          ("skill_linq2", "linq", "framework"),
+                          ("skill_ef", "Entity Framework", "framework")],
+                         ["skill_linq", "skill_linq2", "skill_ef"], fmt="ats-maximal")
+        self.assertEqual(rows, [("Language", ["LINQ"]), ("Framework", ["Entity Framework"])])
 
-    def test_the_presentation_role_line_carries_the_gloss(self):
-        roles = self.first_role(self.gloss())
-        self.assertIn("Member of Technical Staff (Full-Stack Engineer)",
-                      [r["left"] for r in roles])
-
-    def test_the_ats_variant_carries_both_the_gloss_and_the_employer(self):
-        roles = self.first_role(self.gloss(), fmt="ats-maximal")
-        self.assertIn("Member of Technical Staff (Full-Stack Engineer), Acme Health",
-                      [r["left"] for r in roles])
-
-    def test_a_gloss_that_repeats_the_title_is_suppressed(self):
-        """Transcribing a bundle fills both often enough, and "Senior Engineer
-        (Senior Engineer)" is worse than either alone."""
-        roles = self.first_role(self.gloss(functional="senior ENGINEER",
-                                           title="Senior Engineer"))
-        self.assertIn("Senior Engineer", [r["left"] for r in roles])
-        self.assertNotIn("(", self.flat(self.plan(self.gloss(
-            functional="senior ENGINEER", title="Senior Engineer"))))
-
-    def test_a_position_without_a_gloss_is_unchanged(self):
-        roles = self.first_role(self.gloss(functional=None))
-        self.assertEqual([r["left"] for r in roles][-1], "Member of Technical Staff")
-
-    def test_the_promotion_sentence_keeps_bare_titles(self):
-        """The sentence exists to defeat the arrow trap; four parentheticals in
-        one line defeat the reader instead. Each gloss is on its own role line."""
-        doc = self.gloss(title="Member of Technical Staff II")
-        doc["engagements"][0]["positions"].append(
-            {"id": "pos_c", "title": "Distinguished Engineer",
-             "period": {"start": {"value": "2025-01", "precision": "month"},
-                        "state": "unknown"},
-             "change": "promotion"})
-        lines = self.plan(doc)["sections"][2]["entries"][0]["lines"]
-        promoted = [l for l in lines if l.startswith("Promoted through")]
-        self.assertTrue(promoted, lines)
-        self.assertNotIn("(", promoted[0])
-
-    def test_the_gloss_survives_the_ascii_fold(self):
-        text = self.flat(self.plan(self.gloss(), fmt="ats-maximal"))
-        self.assertIn("(Full-Stack Engineer)", text)
+    def test_a_row_emptied_by_deduplication_is_not_rendered(self):
+        rows = self.rows([("skill_a", "Cosmos DB", "database"),
+                          ("skill_b", "Cosmos DB", "data")], ["skill_b", "skill_a"])
+        self.assertEqual([label for label, _ in rows], ["Data"])
 
 
-class AtsVariant(PlanCase):
-    def test_ats_maximal_names_the_employer_on_every_role_line(self):
-        plan = self.plan(fmt="ats-maximal")
-        roles = plan["sections"][2]["entries"][0]["roles"]
-        for role in roles:
-            self.assertIn("Acme Health", role["left"])
+class HeaderEdges(PlanCase):
+    """What test_build's Header does not already pin."""
 
-    def test_ats_maximal_is_pure_ascii(self):
-        text = self.flat(self.plan(fmt="ats-maximal"))
-        offenders = sorted({c for c in text if ord(c) > 127})
-        self.assertEqual(offenders, [], f"non-ASCII in ATS variant: {offenders}")
+    def test_an_unknown_country_renders_as_written(self):
+        plan = self.plan(edits=[('j:city "Melbourne" ; j:region "VIC" ; j:country "AU" ;',
+                                 'j:city "Reykjavik" ; j:country "Iceland" ;')])
+        self.assertIn("Reykjavik, Iceland", " ".join(plan["header_lines"]))
 
-    def test_presentation_keeps_one_company_block(self):
-        plan = self.plan(fmt="presentation")
-        entry = plan["sections"][2]["entries"][0]
-        self.assertEqual(entry["org_line"], "Acme Health")
-        self.assertNotIn("Acme Health", entry["roles"][0]["left"])
-
-    def test_ats_heading_is_the_word_a_parser_matches_on(self):
-        headings = [s["heading"] for s in self.plan(fmt="ats-maximal")["sections"]]
-        self.assertIn("Technical Skills", headings)
-
-    def test_ats_variant_includes_skill_aliases_for_keyword_matching(self):
-        doc = urs_doc()
-        doc["skills"][0]["aliases"] = ["Microsoft Azure"]
-        self.assertIn("Microsoft Azure", self.flat(self.plan(doc, fmt="ats-maximal")))
+    def test_no_web_profile_means_no_second_line(self):
+        plan = self.plan(edits=[('    j:linkedin "linkedin.com/in/test" ; '
+                                 'j:github "github.com/test" ;\n', '')], region="us")
+        self.assertEqual(len(plan["header_lines"]), 2)
 
 
-class EmittersDoNotDiverge(PlanCase):
-    """The point of the narrow waist: the same bullets in every format."""
-
-    def test_latex_and_text_carry_the_same_bullets(self):
-        from jsk.urs import emit_latex, emit_text  # noqa
-        plan = self.plan()
-        bullets = plan["sections"][2]["entries"][0]["bullets"]
-        tex = emit_latex.emit(plan)
-        txt = emit_text.emit(plan)
-        for bullet in bullets:
-            self.assertIn(bullet, txt)
-            self.assertIn(bullet.replace("%", r"\%"), tex)
-
+class LatexEscapes(PlanCase):
     def test_latex_escapes_specials(self):
-        from jsk.urs import emit_latex
-        doc = urs_doc()
-        doc["engagements"][0]["achievements"] = [achievement(
-            "Raised margin by 30% on R&D spend under $2 budgets.",
-            metrics=[{"kind": "ratio", "subject": "margin",
-                      "quantity": {"value": 30, "unit": "%"},
-                      "confidence": "reported"},
-                     {"kind": "absolute", "subject": "budget",
-                      "quantity": {"value": 2}, "confidence": "reported"}],
-            aid="ach_margin")]
-        doc["skills"][0]["evidence"] = ["ach_margin"]
-        tex = emit_latex.emit(self.plan(doc))
-        self.assertIn(r"30\%", tex)
-        self.assertIn(r"R\&D", tex)
-        self.assertIn(r"\$2", tex)
-
-
-class ABadValueIsTheRecordsFault(unittest.TestCase):
-    """Only "several views and none named" is the caller's to fix. Every other value
-    the planner cannot read is the record's - and was reported as a missing --view,
-    exit 2, to someone who had passed one."""
-
-    def test_a_malformed_date_names_the_record_not_the_view(self):
-        from fixtures import ended
-
-        doc = urs_doc()
-        doc["engagements"][0]["positions"][0]["period"] = ended("2021-xx", "2023-06")
-        with tempfile.TemporaryDirectory() as root:
-            record = write_urs(Path(root), doc)
-            code, out = run(RENDER_RESUME, record, "--out", root, "--view", "view_default")
-        self.assertEqual(code, 1, out)
-        self.assertIn("jsk validate", out)
-        self.assertNotIn("--view <id>", out)
+        rendered = emit_latex.emit(self.plan(
+            edits=reworded("Raised margin by 30% on R&D spend under $2 budgets.")))
+        self.assertIn(r"30\%", rendered)
+        self.assertIn(r"R\&D", rendered)
+        self.assertIn(r"\$2", rendered)
 
 
 class RenderedFilesPassTheGates(unittest.TestCase):
@@ -294,60 +116,102 @@ class RenderedFilesPassTheGates(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def render(self, source, *args):
-        code, out = run(RENDER_RESUME, source, "--out", self.tmp, *args)
+        code, out = run(RENDER, source, "--out", self.tmp, *args)
         self.assertEqual(code, 0, out)
         return out
 
     def test_the_plain_text_passes_check_ats_strict(self):
-        self.render(EXAMPLE_URS, "--view", "view_au_default")
-        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume_ATS.txt", "--strict")
+        """The plain text is emitted in memory from the plan (Ruling 23 of the graph-native
+        plan), and the parse gate's strict pass judges that string - no file on disk. Called
+        as the resume_check tool on a directory and `jsk doctor --verify` call it."""
+        code, out = gate("check_ats.py", example_short(), "--strict")
         self.assertEqual(code, 0, out)
+        self.assertIn("plain text of resumes/example/resume (in memory)   mode: ATS-maximal "
+                      "(strict)", out)
         self.assertIn("PASS", out)
 
-    def test_one_record_yields_one_deliverable_and_the_paste_in_text(self):
-        """Four artefacts became two plus the .tex they come from. The .docx was
-        removed because the fitter measured it while the PDF was what shipped."""
-        self.render(EXAMPLE_URS, "--view", "view_au_default")
-        for name in ("Priya_Raman_Resume.tex", "Priya_Raman_Resume_ATS.txt"):
-            self.assertTrue((self.tmp / name).exists(), name)
+    def test_one_record_yields_the_tex_and_no_plain_text_file(self):
+        """Four artefacts became the PDF and the .tex it comes from. The .docx was
+        removed because the fitter measured it while the PDF was what shipped; the .txt
+        because the gates read the plan's text in memory and nothing else read it."""
+        self.render(example_short())
+        self.assertTrue((self.tmp / "Priya_Raman_Resume.tex").exists())
+        self.assertEqual(list(self.tmp.glob("*.txt")), [])
         self.assertEqual(list(self.tmp.glob("*.docx")), [])
 
+    def test_format_txt_is_retired_and_exits_2_naming_the_replacement(self):
+        """A retired option exits 2 and names what replaced it - never a silent shim."""
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--format", "txt")
+        self.assertEqual(code, 2, out)
+        self.assertIn("the plain-text resume is no longer written", out)
+        self.assertIn("read the render's text in memory", out)
+        self.assertEqual(list(self.tmp.glob("*")), [])
+
     def test_ats_max_switches_the_variant_rather_than_adding_a_file(self):
-        self.render(EXAMPLE_URS, "--view", "view_au_default", "--ats-max")
-        self.assertTrue((self.tmp / "Priya_Raman_Resume_ATS.tex").exists())
-        self.assertFalse((self.tmp / "Priya_Raman_Resume.tex").exists())
+        """One .tex either way, named for the recruiter - `_ATS` was the name on the
+        file they were sent. What it holds is in its own jsk-variant keyword."""
+        self.render(example_short(), "--ats-max")
+        self.assertEqual([p.name for p in self.tmp.glob("*.tex")], ["Priya_Raman_Resume.tex"])
+        self.assertIn("jsk-variant:ats-maximal",
+                      (self.tmp / "Priya_Raman_Resume.tex").read_text(encoding="utf8"))
 
     def test_plain_text_is_ascii_only(self):
-        self.render(EXAMPLE_URS, "--view", "view_au_default")
-        raw = (self.tmp / "Priya_Raman_Resume_ATS.txt").read_bytes()
-        self.assertTrue(all(b < 128 for b in raw))
+        """The text the gates read is the paste-in stream: ASCII whatever the PDF holds."""
+        from jsk.adapters.compose.gates import plan_text
 
-    def test_a_missing_view_fails_loudly_rather_than_rendering_something_else(self):
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_nonexistent")
-        self.assertEqual(code, 1)
-        self.assertIn("view_nonexistent", out)
+        text = plan_text(str(example_short()))
+        self.assertTrue(text.strip())
+        self.assertTrue(all(ord(c) < 128 for c in text))
 
-    def test_omitting_the_view_where_there_are_several_is_a_usage_error(self):
-        """It used to render views[0] - whichever sorted first - and announce it
-        exactly as it announces a view that was asked for. With a bundle of live
-        targets that is an arbitrary resume, sent under the wrong tailoring."""
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp, "--format", "txt")
+    def test_a_view_is_a_usage_error_naming_one_resume(self):
+        """A resume.json is one resume: --view chose among a full record's views, and
+        went with the record."""
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--view", "view_x")
         self.assertEqual(code, 2, out)
-        self.assertIn("view_au_default", out)
-        self.assertIn("--view", out)
-        self.assertEqual(list(self.tmp.glob("*.txt")), [])
+        self.assertIn("a resume.json is one resume", out)
+        self.assertEqual(list(self.tmp.glob("*")), [])
 
-    def test_one_view_is_unambiguous_and_still_needs_no_flag(self):
-        path = write_urs(self.tmp, urs_doc(), "resume.json")
-        code, out = run(RENDER_RESUME, path, "--out", self.tmp, "--format", "txt")
+    def test_a_resume_json_is_refused_naming_the_target_form(self):
+        # A legacy URS record was refused naming `jsk kb export` until 6.0 read no file
+        # (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2).
+        root, _ = careerkit.workspace(self.tmp / "ws")
+        legacy = Path(__file__).parent / "legacy_fixtures" / "contoso-resume.urs.json"
+        path = Path(root) / "resume.json"
+        path.write_bytes(legacy.read_bytes())
+        code, out = run(RENDER, path, "--out", self.tmp / "out")
+        self.assertEqual(code, 2, out)
+        self.assertIn("resume_render(<resume.json>) was retired in 6.0", out)
+        self.assertIn("fix:  resume_render(<stem>)", out)
+        self.assertNotIn("Traceback", out)
+
+    def rendered_as(self, path):
+        code, out = run(RENDER, path, "--out", self.tmp / "out", "--format", "latex")
         self.assertEqual(code, 0, out)
+        self.assertNotIn("Traceback", out)
+        return [p.name for p in (self.tmp / "out").glob("*.tex")]
+
+    def test_the_company_is_the_posting_graphs(self):
+        """Read from the application's posting in the store, which the render has loaded
+        already - one SELECT. A posting.ttl file beside the record is not the record."""
+        root, _ = careerkit.workspace(self.tmp / "ws")
+        path = contoso(root, short())
+        Path(path).with_name("posting.ttl").write_bytes(
+            b'@prefix j: <https://jsk.dev/o#> .\nk:p j:company "Contoso \x93Labs\x94" .\n')
+        self.assertEqual(self.rendered_as(path), ["Test_Person_Contoso_Resume.tex"])
+
+    def test_an_application_with_no_posting_names_the_file_with_no_company(self):
+        """The company is a naming nicety (Ruling 8): with no posting to read it from, the
+        suffix goes, and the render does not stop."""
+        import appkit
+
+        root, path = careerkit.workspace(self.tmp / "ws", short=short())
+        appkit.drop(root, appkit.name(Path(path).parent, "posting"))
+        self.assertEqual(self.rendered_as(path), ["Test_Person_Resume.tex"])
 
     def test_absent_tex_engine_is_reported_not_assumed(self):
         if tex.available_engine():
             self.skipTest("a TeX engine is installed, so there is nothing to report")
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default", "--pdf")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf")
         self.assertIn("UNVERIFIED", out)
         self.assertEqual(code, 1, out)
 
@@ -367,8 +231,7 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
     def test_a_pdf_is_actually_produced(self):
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default", "--pdf")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf")
         self.assertEqual(code, 0, out)
         self.assertTrue((self.tmp / "Priya_Raman_Resume.pdf").exists(), out)
 
@@ -380,8 +243,7 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
         try:
             os.chdir(self.tmp)
             os.mkdir("rel")
-            code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", "rel",
-                            "--view", "view_au_default", "--pdf")
+            code, out = run(RENDER, example_short(), "--out", "rel", "--pdf")
             self.assertEqual(code, 0, out)
             self.assertTrue((self.tmp / "rel" / "Priya_Raman_Resume.pdf").exists(), out)
         finally:
@@ -389,19 +251,20 @@ class ThePdfIsTheDeliverable(unittest.TestCase):
 
     def test_a_failed_compile_exits_nonzero_and_says_unverified(self):
         module = load_script(RENDER_RESUME)
-        module.compile_pdf = lambda tex_path, out_dir: (None, "stub: no PDF")
+        bound = load_script("jsk.adapters.compose.render")
         buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = module.main(["render_resume.py", str(EXAMPLE_URS),
-                                "--out", str(self.tmp), "--view", "view_au_default",
-                                "--pdf"])
+        # Patched, not assigned: RENDER runs in this interpreter now (it ran in a child until
+        # 2026-10-04), so a stub left on the module would fail every compile after this one.
+        with mock.patch.object(bound, "compile_pdf",
+                               lambda tex_path, out_dir: (None, "stub: no PDF")),                 contextlib.redirect_stdout(buf):
+            code = module.main(["render_resume.py", str(example_short()),
+                                "--out", str(self.tmp), "--pdf"])
         self.assertEqual(code, 1, buf.getvalue())
         self.assertIn("UNVERIFIED", buf.getvalue())
 
     def test_without_pdf_a_missing_engine_is_not_a_failure(self):
         """Rendering the .tex alone is a legitimate thing to ask for."""
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default")
+        code, out = run(RENDER, example_short(), "--out", self.tmp)
         self.assertEqual(code, 0, out)
 
 
@@ -417,19 +280,19 @@ class ThePageCountIsMeasured(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-        self.report = load_script(RENDER_RESUME).page_report
+        self.report = load_script("jsk.domain.render.page_report").page_report
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
     def test_the_render_reports_the_pages_it_actually_produced(self):
         import pymupdf
 
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default", "--pdf")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf")
         self.assertEqual(code, 0, out)
         with pymupdf.open(self.tmp / "Priya_Raman_Resume.pdf") as pdf:
             actual = pdf.page_count
         self.assertIn(f"pages  Priya_Raman_Resume.pdf: {actual} page", out)
-        self.assertIn("against a budget of 2", out)
+        budget = resume.from_path(example_short())[0]["pages"]
+        self.assertIn(f"against a budget of {budget}", out)
 
     def test_over_budget_is_named_rather_than_left_to_be_noticed(self):
         self.assertIn("OVER BUDGET", self.report("Resume.pdf", 3, 2))
@@ -442,18 +305,15 @@ class ThePageCountIsMeasured(unittest.TestCase):
         self.assertIn("not measured", self.report("Resume.pdf", None, 2))
 
 
-class PaperSizeFollowsTheRegion(unittest.TestCase):
+class PaperSizeFollowsTheRegion(PlanCase):
     """A4 was hardcoded in the LaTeX preamble while the .docx honoured the
     region, so one record produced a Letter .docx and an A4 PDF."""
 
-    def plan(self, region):
-        return planner.build(urs_doc(), region=region)
-
     def test_us_renders_letterpaper(self):
-        self.assertIn("letterpaper", emit_latex.emit(self.plan("US")))
+        self.assertIn("letterpaper", emit_latex.emit(self.plan(region="us")))
 
     def test_au_renders_a4paper(self):
-        self.assertIn("a4paper", emit_latex.emit(self.plan("AU")))
+        self.assertIn("a4paper", emit_latex.emit(self.plan(region="au")))
 
 
 class TheTemplateCannotEmitAnAtsHazard(PlanCase):
@@ -483,16 +343,17 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
         them or it is sampling again - which is exactly what moving the check
         here was meant to stop.
         """
-        themes_mod = urs_module("urs.themes")
-        return [(f"{fmt}/{name}", emit_latex.emit(self.plan(fmt=fmt), template=name))
-                for fmt in ("presentation", "ats-maximal")
+        themes_mod = render_module("domain.render.themes")
+        plans = {fmt: self.plan(fmt=fmt) for fmt in ("presentation", "ats-maximal")}
+        return [(f"{fmt}/{name}", emit_latex.emit(plan, template=name))
+                for fmt, plan in plans.items()
                 for name in themes_mod.names()]
 
     def test_no_variant_can_express_a_structural_hazard(self):
-        for fmt, tex in self.rendered():
+        for fmt, rendered in self.rendered():
             for hazard, markers in self.HAZARDS.items():
                 for marker in markers:
-                    self.assertNotIn(marker, tex, f"{fmt} emitted {hazard}")
+                    self.assertNotIn(marker, rendered, f"{fmt} emitted {hazard}")
 
     # Everything a theme is allowed to load. `xcolor` draws no structure - it
     # sets colour in the graphics state and cannot make a box - and the four
@@ -500,19 +361,30 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
     # above, which is what makes pinning the list the real guard: a hazard
     # nobody has thought of still needs a package, and a new package has to be
     # argued for here first.
+    #
+    # `hyperref` was argued for when the rendered PDFs turned out to carry an
+    # empty title and author and no clickable email or profile links. It writes
+    # the PDF information dictionary and link annotations - neither is in the
+    # text layer, and it draws no structure a parser could trip on (hidelinks:
+    # not even the coloured boxes). It is required rather than guarded because
+    # it ships in TeX Live's collection-latex beside geometry, and a guard would
+    # leave \href undefined in the header. It loads last, after the typefaces,
+    # because hyperref has to.
     ALLOWED = {"fontenc", "inputenc", "geometry", "enumitem", "xcolor",
                "lmodern", "tgtermes", "tgpagella", "tgschola", "tgheros",
-               "tgadventor"}
+               "tgadventor", "hyperref"}
     REQUIRED = ["fontenc", "inputenc", "geometry", "enumitem", "xcolor"]
+    REQUIRED_LAST = "hyperref"
 
-    def packages(self, tex):
-        return re.findall(r"\\usepackage(?:\[[^\]]*\])?\{([^}]*)\}", tex)
+    def packages(self, rendered):
+        return re.findall(r"\\usepackage(?:\[[^\]]*\])?\{([^}]*)\}", rendered)
 
     def test_the_package_list_is_pinned(self):
         """The golden file, narrowed to the part that carries risk."""
-        for fmt, tex in self.rendered():
-            found = self.packages(tex)
+        for fmt, rendered in self.rendered():
+            found = self.packages(rendered)
             self.assertEqual(found[:len(self.REQUIRED)], self.REQUIRED, fmt)
+            self.assertEqual(found[-1], self.REQUIRED_LAST, fmt)
             self.assertEqual(set(found) - self.ALLOWED, set(), fmt)
 
     def test_every_optional_font_load_is_guarded(self):
@@ -522,39 +394,46 @@ class TheTemplateCannotEmitAnAtsHazard(PlanCase):
         warns instead of stopping - and the four required packages, which every
         distribution has, are loaded plainly so a genuinely broken install
         fails loudly rather than rendering something unrecognisable."""
-        for fmt, tex in self.rendered():
-            for pkg in self.packages(tex):
-                if pkg in self.REQUIRED:
+        for fmt, rendered in self.rendered():
+            for pkg in self.packages(rendered):
+                if pkg in self.REQUIRED or pkg == self.REQUIRED_LAST:
                     continue
                 self.assertIn(r"\IfFileExists{%s.sty}{\usepackage{%s}}{}" % (pkg, pkg),
-                              tex, f"{fmt}: {pkg} loaded unguarded")
+                              rendered, f"{fmt}: {pkg} loaded unguarded")
 
     def test_the_ascii_variant_renders_an_ascii_bullet(self):
         """A PDF bullet is a glyph in the text layer, so U+2022 would fail the
         ATS-maximal variant's own ASCII rule. Colouring the marker wraps the
         glyph and does not change it."""
-        for fmt, tex in self.rendered():
+        for fmt, rendered in self.rendered():
             expected = "{-}" if fmt.startswith("ats-maximal") else r"\textbullet"
-            self.assertIn(r"label=\textcolor{jskbullet}{%s}" % expected, tex, fmt)
+            self.assertIn(r"label=\textcolor{jskbullet}{%s}" % expected, rendered, fmt)
 
     def test_the_ascii_variant_breaks_ligatures(self):
         """T1 Computer Modern turns "fi" into U+FB01 and "ffi" into U+FB03 - one
         codepoint each in the extracted text, so a parser reading "efficiency"
         gets a word that is not there."""
-        doc = urs_doc()
-        doc["engagements"][0]["achievements"] = [achievement(
-            "Improved efficiency of the affiliate workflow.", "eff-1")]
-        tex = emit_latex.emit(self.plan(doc, fmt="ats-maximal"))
-        # "ff" and "fi" are both broken, so "efficiency" leaves as ef{}f{}iciency
-        # and no ligature pair survives anywhere in the bullet.
-        self.assertIn("ef{}f{}iciency", tex)
-        self.assertIn("workf{}low", tex)
-        self.assertNotIn("efficiency", tex)
+        rendered = emit_latex.emit(self.plan(
+            edits=reworded("Improved efficiency of the affiliate workflow."), fmt="ats-maximal"))
+        # "ff" and "fi" are both broken - by a kern, which survives TeX rebuilding a
+        # hyphenated word where an empty group did not - and no pair survives.
+        self.assertIn(r"ef\kern0pt{}f\kern0pt{}iciency", rendered)
+        self.assertIn(r"workf\kern0pt{}low", rendered)
+        self.assertNotIn("efficiency", rendered)
+
+    def test_the_ascii_variant_sets_straight_quotes(self):
+        """T1 sets ' as U+2019 and ` as U+2018: "platform's" failed the strict parse
+        gate, and the run asked the person to reword a true bullet around it."""
+        edits = reworded("Authored the platform's `retry` policies.")
+        rendered = emit_latex.emit(self.plan(edits=edits, fmt="ats-maximal"))
+        self.assertIn(r"platform\textquotesingle{}s", rendered)
+        self.assertIn(r"\textasciigrave{}retry\textasciigrave{}", rendered)
+        self.assertIn("platform's", emit_latex.emit(self.plan(edits=edits, fmt="presentation")))
 
 
-class TheDateColumnHolds(unittest.TestCase):
+class TheDateColumnHolds(PlanCase):
     r"""A two-column line without a two-column layout, and the case that breaks
-    it is a long left side - which functional_title makes common.
+    it is a long left side - which a functional title makes common.
 
     Three renderings of `#1 <gap> #2` were tried and two were wrong: plain
     \hfill splits the date across lines ("...Engineer)Aug 2016" / "- Feb 2019"),
@@ -564,18 +443,12 @@ class TheDateColumnHolds(unittest.TestCase):
 
     LONG = "Member of Technical Staff, Distinguished Grade IV"
     GLOSS = "Principal Full-Stack Platform Engineer"
+    EDIT = (LEAD_TITLE, f'    j:title "{LONG}" ;\n    j:functionalTitle "{GLOSS}" ;\n')
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-
-    def long_titled_doc(self):
-        doc = urs_doc()
-        position = doc["engagements"][0]["positions"][0]
-        position["title"] = self.LONG
-        position["functional_title"] = self.GLOSS
-        return doc
 
     def test_the_template_carries_both_guards(self):
         """Either one alone produces a defect, so neither may be dropped - in
@@ -583,23 +456,26 @@ class TheDateColumnHolds(unittest.TestCase):
         \\rightskip globally; the \\hfill that pushes the date right is `fill`,
         an infinity order above `fil`, so it still wins and the guard is
         unaffected either way."""
-        themes_mod = urs_module("urs.themes")
+        themes_mod = render_module("domain.render.themes")
+        plan = self.plan(edits=[self.EDIT])
         for name in themes_mod.names():
-            rendered = emit_latex.emit(planner.build(self.long_titled_doc()),
-                                       template=name)
+            rendered = emit_latex.emit(plan, template=name)
             self.assertIn(r"\rightskip=0pt plus 1fil", rendered, name)
             self.assertIn(r"\mbox{{\color{jskdate}#2}}", rendered, name)
+
+    def long_pdf(self):
+        _, path = careerkit.workspace(self.tmp / "ws", edits=list(self.EDITS) + [self.EDIT],
+                                      short=short())
+        out = self.tmp / "out"
+        code, said = run(RENDER, path, "--out", out, "--pdf")
+        self.assertEqual(code, 0, said)
+        return next(out.glob("*.pdf"))
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
     def test_a_long_role_line_stays_inside_the_right_margin(self):
         import pymupdf
 
-        path = write_urs(self.tmp, self.long_titled_doc(), "long.json")
-        code, out = run(RENDER_RESUME, path, "--out", self.tmp,
-                        "--view", "view_default", "--pdf")
-        self.assertEqual(code, 0, out)
-        pdf = next(self.tmp.glob("*.pdf"))
-        with pymupdf.open(pdf) as doc:
+        with pymupdf.open(self.long_pdf()) as doc:
             for page in doc:
                 limit = page.rect.width - 0.5 * 72      # inside the tightest margin
                 spilled = [b[4].strip()[:60] for b in page.get_text("blocks")
@@ -610,16 +486,163 @@ class TheDateColumnHolds(unittest.TestCase):
     def test_a_long_role_line_does_not_split_its_date(self):
         import pymupdf
 
-        path = write_urs(self.tmp, self.long_titled_doc(), "long.json")
-        run(RENDER_RESUME, path, "--out", self.tmp, "--view", "view_default", "--pdf")
-        pdf = next(self.tmp.glob("*.pdf"))
-        with pymupdf.open(pdf) as doc:
+        with pymupdf.open(self.long_pdf()) as doc:
             text = "".join(page.get_text() for page in doc)
-        # The date on the long line specifically - the fixture gives that
-        # position Feb 2021 - Jun 2023, and no other element carries it.
-        # Under a bare \hfill it extracts as "...Engineer)Feb 2021" on one line
-        # and "- Jun 2023" on the next, so the contiguous run is what fails.
-        self.assertIn("Feb 2021 - Jun 2023", text)
+        # The date on the long line specifically - the fixture gives that role
+        # Jan 2023 - Jun 2026, and no other element carries it. Under a bare
+        # \hfill it extracts as "...Engineer)Jan 2023" on one line and
+        # "- Jun 2026" on the next, so the contiguous run is what fails.
+        self.assertIn("Jan 2023 - Jun 2026", text)
+
+
+class NoTemplateHyphenates(PlanCase):
+    r"""monolith justified and hyphenated, and the Everforth render's text layer
+    held "Mi-\ncroservices" - a search for "Microservices" missed the default
+    template's own PDF. Every theme in both variants now turns it off; the
+    compiled proof is check_ats.py's split-word rule, tested in test_check_ats."""
+
+    def test_every_theme_and_variant_turns_hyphenation_off_and_sets_ragged_right(self):
+        themes_mod = render_module("domain.render.themes")
+        for fmt in ("presentation", "ats-maximal"):
+            plan = self.plan(fmt=fmt)
+            for name in themes_mod.names():
+                rendered = emit_latex.emit(plan, template=name)
+                body = rendered.split(r"\begin{document}")
+                for line in (r"\hyphenpenalty=10000", r"\exhyphenpenalty=10000"):
+                    self.assertIn(line, body[0], f"{fmt}/{name}")
+                self.assertIn("\n\\raggedright\n", body[1], f"{fmt}/{name}")
+
+
+class TheHeaderLinksAndTheMetadata(PlanCase):
+    """The PDFs carried an empty title and author and no clickable links. A link
+    is an annotation, never text, so adding one must not move a character."""
+
+    PROFILES = ('    j:linkedin "linkedin.com/in/test" ; j:github "github.com/test" ;\n',
+                '    j:linkedin "linkedin.com/in/test-person" ; j:github "github.com/testperson" ;\n'
+                '    j:website "https://testperson.dev" ;\n')
+
+    def test_the_metadata_names_the_person_and_the_variant(self):
+        for fmt in ("presentation", "ats-maximal"):
+            rendered = emit_latex.emit(self.plan(fmt=fmt))
+            self.assertIn(r"\hypersetup{hidelinks,pdftitle={Test Person - Resume},"
+                          r"pdfauthor={Test Person},pdfkeywords={jsk-variant:%s}}" % fmt,
+                          rendered, fmt)
+
+    def test_email_and_web_contacts_are_linked(self):
+        for fmt in ("presentation", "ats-maximal"):
+            rendered = emit_latex.emit(self.plan(edits=[self.PROFILES], fmt=fmt))
+            for link in (r"\href{mailto:test.person@example.com}{test.person@example.com}",
+                         r"\href{https://linkedin.com/in/test-person}{linkedin.com/in/test-person}",
+                         r"\href{https://github.com/testperson}{github.com/testperson}",
+                         r"\href{https://testperson.dev}{https://testperson.dev}"):
+                self.assertIn(link, rendered, fmt)
+            self.assertNotIn(r"\href{https://+61", rendered)
+
+    def test_a_link_does_not_change_the_visible_text(self):
+        link = emit_latex.link_contacts
+        line = r"Sydney, NSW \textperiodcentered{} a.b@example.com \textperiodcentered{} +61 400 000 000"
+        linked = link(line)
+        self.assertEqual(re.sub(r"\\href\{[^{}]*\}\{([^{}]*)\}", r"\1", linked), line)
+        self.assertIn(r"\href{mailto:a.b@example.com}{a.b@example.com}", linked)
+
+    def test_trailing_punctuation_stays_outside_the_link(self):
+        self.assertEqual(emit_latex.link_contacts("github.com/x,"),
+                         r"\href{https://github.com/x}{github.com/x},")
+
+    def test_a_token_that_needed_escaping_is_left_alone(self):
+        r"""`\_` in the URL argument of an \href nested in \resumecontact reaches
+        the link as the escape, not the character - a broken link is worse than
+        plain text, so the token stays plain."""
+        line = emit_latex.esc("first_last@example.com | github.com/first_last")
+        self.assertEqual(emit_latex.link_contacts(line), line)
+
+    def test_a_ligature_break_is_not_part_of_the_address(self):
+        line = emit_latex.esc("github.com/fiona", ascii_safe=True)
+        self.assertIn(r"\kern0pt", line)
+        self.assertEqual(emit_latex.link_contacts(line),
+                         r"\href{https://github.com/fiona}{%s}" % line)
+
+    def test_words_that_are_not_addresses_are_not_linked(self):
+        for text in ("Work rights: AU citizen", "Kochi, Kerala, India", "Phone: +91 95676 61005",
+                     "v3.5", "Email:"):
+            self.assertEqual(emit_latex.link_contacts(emit_latex.esc(text)),
+                             emit_latex.esc(text), text)
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to compile")
+    def test_the_compiled_pdf_carries_metadata_and_links(self):
+        import pymupdf
+
+        with tempfile.TemporaryDirectory() as root:
+            _, path = careerkit.workspace(Path(root, "ws"),
+                                          edits=list(self.EDITS) + [self.PROFILES],
+                                          short=short())
+            out = Path(root, "out")
+            code, said = run(RENDER, path, "--out", out, "--pdf")
+            self.assertEqual(code, 0, said)
+            with pymupdf.open(next(out.glob("*.pdf"))) as pdf:
+                meta = pdf.metadata
+                uris = sorted(l.get("uri") for page in pdf for l in page.get_links())
+                text = "".join(page.get_text() for page in pdf)
+        self.assertEqual(meta["title"], "Test Person - Resume")
+        self.assertEqual(meta["author"], "Test Person")
+        self.assertEqual(meta["keywords"], "jsk-variant:presentation")
+        self.assertEqual(uris, ["https://github.com/testperson",
+                                "https://linkedin.com/in/test-person",
+                                "https://testperson.dev",
+                                "mailto:test.person@example.com"])
+        self.assertIn("linkedin.com/in/test-person", text)
+        self.assertNotIn("mailto", text)
+
+
+class CompileLeavesThePdfAndTheTex(unittest.TestCase):
+    """Ruling 22 of the graph-native plan: a clean compile leaves the .pdf and the .tex and
+    nothing else; a failed one keeps the engine's by-products and names the .log, the only
+    account of what went wrong. The engine is faked as shipkit fakes it - no TeX needed."""
+
+    BY_PRODUCTS = (".log", ".aux", ".out", ".fls", ".fdb_latexmk")
+
+    def compile(self, returncode, pdf=True):
+        import subprocess
+
+        from jsk.infra import tex as engine
+
+        def fake_run(cmd, cwd, **_):
+            stem = Path(cmd[-1]).stem
+            for ext in self.BY_PRODUCTS:
+                Path(cwd, stem + ext).write_text("engine output\n", encoding="utf-8")
+            if pdf:
+                Path(cwd, stem + ".pdf").write_bytes(b"%PDF-1.4\n")
+            return subprocess.CompletedProcess(cmd, returncode, "", "! LaTeX Error: boom")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp, "Jane_Doe_Resume.tex")
+            source.write_text("\\documentclass{article}\n", encoding="utf-8")
+            # Another render's log in the same directory is not this compile's to remove.
+            Path(tmp, "Other_Resume.log").write_text("theirs\n", encoding="utf-8")
+            with mock.patch.object(engine.shutil, "which",
+                                   lambda name: name if name == "tectonic" else None), \
+                    mock.patch.object(engine.subprocess, "run", fake_run):
+                made, note = engine.compile_pdf(str(source), tmp)
+            return made, note, sorted(p.name for p in Path(tmp).iterdir())
+
+    def test_a_clean_compile_leaves_no_log_beside_the_pdf(self):
+        made, note, left = self.compile(0)
+        self.assertTrue(made, note)
+        self.assertEqual(left, ["Jane_Doe_Resume.pdf", "Jane_Doe_Resume.tex",
+                                "Other_Resume.log"])
+
+    def test_a_failed_compile_keeps_the_log_and_names_it(self):
+        made, note, left = self.compile(1, pdf=False)
+        self.assertIsNone(made)
+        self.assertIn("Jane_Doe_Resume.log", left)
+        self.assertIn("Jane_Doe_Resume.aux", left)
+        self.assertRegex(note, r"tectonic produced no PDF - see .*Jane_Doe_Resume\.log")
+
+    def test_keep_logs_is_still_asked_of_tectonic(self):
+        """A failed compile needs its .log, so tectonic is still told to keep one."""
+        from jsk.infra import tex as engine
+
+        self.assertIn("--keep-logs", dict(engine.TEX_ENGINES)["tectonic"])
 
 
 class TargetSelection(unittest.TestCase):
@@ -628,26 +651,35 @@ class TargetSelection(unittest.TestCase):
     was written over the presentation one under the same name."""
 
     def setUp(self):
-        self.select = load_script(RENDER_RESUME).select_targets
+        self.select = load_script("jsk.domain.render.targets").select_targets
 
     def test_profile_is_not_discarded_under_the_default_format(self):
         rendered = self.select("all", "ats-maximal")
         self.assertEqual([v for v, k, _ in rendered if k == "latex"], ["ats-maximal"])
 
-    def test_the_plain_text_rides_along_whichever_variant_is_chosen(self):
+    def test_no_plain_text_file_rides_along_whichever_variant_is_chosen(self):
+        """Ruling 23 of the graph-native plan: the plain text is emitted in memory for the
+        gates, never written - so `all` is the .tex alone, whatever the variant."""
         for profile in (None, "ats-maximal"):
             kinds = {k for _, k, _ in self.select("all", profile)}
-            self.assertEqual(kinds, {"latex", "txt"}, profile)
+            self.assertEqual(kinds, {"latex"}, profile)
 
-    def test_an_ats_render_cannot_overwrite_the_presentation_one(self):
+    def test_the_pdf_is_named_for_its_reader(self):
+        """The two variants were kept apart by an `_ATS` suffix, and that suffix was on
+        the file a recruiter received. A directory holds one PDF - freeze refuses two,
+        and --ats-max switches the variant rather than adding one - so both share the
+        stem, and the gates read which variant from the render itself. No stem names a
+        plain-text file: none is written."""
         ats = self.select("latex", "ats-maximal")[0][2]
         presentation = self.select("latex", None)[0][2]
-        self.assertNotEqual(ats, presentation)
-        self.assertIn("_ATS", ats)
+        self.assertEqual(ats, presentation)
+        self.assertNotIn("_ATS", ats)
+        stems = [stem for _, _, stem in self.select("all", "ats-maximal")]
+        self.assertEqual(stems, ["{name}_Resume"])
 
     def test_no_profile_renders_the_presentation_variant(self):
         rendered = self.select("all", None)
-        self.assertEqual(len(rendered), 2)
+        self.assertEqual(len(rendered), 1)
         self.assertEqual([v for v, k, _ in rendered if k == "latex"], ["presentation"])
 
 

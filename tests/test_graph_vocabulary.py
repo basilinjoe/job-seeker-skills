@@ -8,8 +8,11 @@ import unittest
 from pathlib import Path
 
 import jsk
-from jsk.graph import io, store, writer
-from jsk.graph import ontology as O
+from jsk.infra import files
+from jsk.infra.oxigraph import codec
+from jsk.adapters.compose import record
+from jsk.domain.record import writer
+from jsk.domain import ontology as O
 
 SHIPPED = Path(jsk.__file__).parent / "data" / "vocabulary.ttl"
 
@@ -22,7 +25,7 @@ class TheShippedVocabulary(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with tempfile.TemporaryDirectory() as tmp:
-            cls.s = store.load(tmp)          # an empty workspace: the shipped file alone
+            cls.s = record.load(tmp)          # an empty workspace: the shipped file alone
 
     def test_it_loads_with_no_findings_bar_the_allowed_clashes(self):
         left = [f.text() for f in self.s.findings
@@ -31,11 +34,11 @@ class TheShippedVocabulary(unittest.TestCase):
 
     def test_it_is_canonical(self):
         text = SHIPPED.read_bytes().decode("utf-8")
-        self.assertEqual(writer.write(io.parse_text(text, "vocabulary.ttl").quads, "vocabulary"),
+        self.assertEqual(writer.write(codec.parse_text(text, "vocabulary.ttl").quads, "vocabulary"),
                          text)
 
     def test_it_is_big_enough_to_matter(self):
-        concepts = {q.subject.value for q in io.parse(SHIPPED).quads}
+        concepts = {q.subject.value for q in files.parse(SHIPPED).quads}
         self.assertGreaterEqual(len(concepts), 60)
 
     def test_every_wall_holds(self):
@@ -53,14 +56,14 @@ class TheShippedVocabulary(unittest.TestCase):
         # "ADO" is ADO.NET in a .NET advert as often as Azure DevOps; "Lambda" is any
         # anonymous function. A shipped label is matched against every advert everyone
         # pastes, so a word that means two things there is an overclaim waiting.
-        labels = {O.norm(q.object.value) for q in io.parse(SHIPPED).quads
+        labels = {O.norm(q.object.value) for q in files.parse(SHIPPED).quads
                   if q.predicate.value in (O.J + "label", O.J + "former")}
         self.assertEqual(labels & {"ado", "lambda"}, set())
 
     def test_no_shipped_edge_is_a_judgement(self):
         # Helm-only work is not Kubernetes work: charts are packaged for a cluster
         # somebody else may run. Close to fact ships; judgement stays in a person's kb.ttl.
-        edges = {(q.subject.value, q.object.value) for q in io.parse(SHIPPED).quads
+        edges = {(q.subject.value, q.object.value) for q in files.parse(SHIPPED).quads
                  if q.predicate.value in (O.J + "isA", O.J + "partOf")}
         self.assertNotIn((O.C + "helm", O.C + "kubernetes"), edges)
 

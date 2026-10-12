@@ -1,49 +1,44 @@
 r"""jsk: the career record, and the rendering and verification toolchain behind it.
 
-The career lives in one validated graph file, `career/kb.ttl`, with its log beside it.
-It is changed only through `jsk kb apply` - a changeset merged, validated and logged -
-and read with `jsk kb show`, `jsk kb view` and `jsk kb query`. Each application's
-resume is a URS record drafted from it, retuned for the posting, and carried to a
-document somebody can send:
+The career lives in one validated graph store, `career/store/`, with its log beside it
+in the same store. It is changed only through the career_apply tool (jsk mcp) - a changeset
+merged, validated and logged - and read with the career_show, career_view and career_query
+tools.
+Each resume is built from it and a selection - the bullets chosen for a posting, as ids,
+and a summary, kept in the store as an application's or a general resume's graph - and
+carried to a document somebody can send:
 
-    career/kb.ttl  ->  resume.json (URS)        ->  .tex -> .pdf   (the deliverable)
-      jsk kb apply       jsk kb export --urs,         \-> .txt       (paste-in boxes)
-                         then retuned
+    career/store/  +  a target's selection     ->  .tex -> .pdf   (the deliverable)
+      career_apply (jsk mcp)   resume_select (jsk mcp),     \-> plain text (in memory: the
+                               then ordered                     parse and terms gates read it)
 
-    jsk doctor                  what works on this machine
-    jsk new PATH --name NAME    scaffold career/kb.ttl, its log at r1, and applications/
-    jsk kb VERB [...]           the career record: apply, confirm, show, view, query,
-                                export --urs, check
-    jsk match POSTING.ttl       a posting against the career, through the vocabulary
-    jsk migrate KB.md           an old user-knowledgebase.md to career/kb.ttl, once
-    jsk validate RECORD         the record gate: is the source coherent?
-    jsk render RECORD --out D   one record to a PDF and plain text
-    jsk preview RECORD --out D  the same record in every template, to pick a look
-    jsk check FILE              the parse gate and the prose gate
-    jsk gates DIR --record R    the record, claims, parse and prose gates over one render
-    jsk fit TEX --target-pages  fit a render to a page budget
-    jsk ship RECORD --out D     validate, render and gate, in one pass
-    jsk freeze APP ...          archive a sent application as application.ttl
-    jsk event APP KIND          add a screen, an offer, a rejection to one
+    jsk doctor                       what works on this machine
+    jsk kb new PATH --name NAME      scaffold career/store/ - the career and its log at
+                                     r1 - and applications/
+    jsk kb load WORKSPACE|DUMP       fill an empty career/store/, once
+    jsk kb dump [--out FILE]         the whole record as TriG: a backup, and what load reads
+    jsk mcp                          the career and graph-native applications as MCP tools
+                                     (career_*, app_*, resume_*, letter_check), the plugin's
+                                     agents' only way in
 
-`jsk validate` checks a record before anything renders - every number in a bullet has to
-trace to a recorded metric, and a view's `provenance_floor` refuses to render a claim
-nobody confirmed - and the claims gate joins the record with kb.ttl, so a number or a
-provenance the career has since replaced is caught before it is sent.
+Everything else is a tool of `jsk mcp`, not a command (2026-10-04): the resume_check tool checks
+a selection before anything renders - every id it names is live
+in the career, and every number in a bullet it selects traces to a current version of a metric
+the bullet cites, so a number the career has since replaced is caught before it is sent -
+and the render withholds a claim below the selection's provenance floor. A resume.json was
+read as the selection until 6.0, which reads none.
 
-The modules are the documented API and are importable individually; each one that has
-a CLI also runs as `python -m jsk.<module>` - `python -m jsk.gates.check_ats`,
-`python -m jsk.urs.render_resume`. `cli.py` is a convenience layer over them and never
-the only way in.
+The modules are importable individually. The three commands that remain run through `jsk` (or
+`python -m jsk`, where the console script is not on PATH): `jsk <noun> <verb>`.
 
-One dependency is required: `pyoxigraph`, the engine that reads, validates and queries
-kb.ttl. Everything else is optional and imported at the point of use rather than here:
-`pymupdf` to read a PDF, and `markdown-it-py` with `pyyaml` for `jsk migrate` alone. A
-bare Python runs the record gate, the prose gate and the `.txt` parse gate, and
+One dependency is required: `pyoxigraph`, the engine that stores, validates and queries
+the career. Everything else is optional and imported at the point of use rather than here:
+`pymupdf` to read a PDF, `mcp` to serve `jsk mcp`. A bare Python runs the record gate, the prose gate and the plain-text
+parse gate, and
 `jsk doctor` is standard-library only, so it can report on a machine before anything is
 installed on it.
 """
 
-__version__ = "4.0.0"
+__version__ = "6.0.0"
 
 __all__ = ["__version__"]

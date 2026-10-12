@@ -1,10 +1,10 @@
 """Where the packaged data lives - stated once.
 
-`preflight.py`, `validate_urs.py` and `urs/profiles.py` each computed this with their
+`preflight.py`, the URS record gate and `render/profiles.py` each computed this with their
 own `..` arithmetic against `__file__`, from three different depths in the tree. So
 the schema directory's location was asserted in three places and correct in whichever
 of them had last been updated - and moving the directory needed all three found. They,
-and `graph/export.py`, import it from here now.
+and infra/profiles.py's `ships`, import it from here now.
 
 Plain path arithmetic rather than `importlib.resources`. The callers read these files
 with `open()` and test for them with `os.path.exists`, neither of which works out of a
@@ -16,6 +16,13 @@ import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# profile.schema.json, example.resume.json, and profiles/<region>.json.
+# profile.schema.json and profiles/<region>.json.
 SCHEMA_DIR = os.path.join(HERE, "data", "schema")
-EXAMPLE_RECORD = os.path.join(SCHEMA_DIR, "example.resume.json")
+
+# A small career and a general resume's selection over it: what `jsk doctor` renders, and
+# what a render test reaches for when any resume will do. The selection was a resume.json
+# until 6.0 read none (docs/superpowers/plans/2026-10-03-retire-file-pipeline.md, P2); it
+# ships as the Turtle `jsk kb load` imports with the career.
+EXAMPLE_WORKSPACE = os.path.join(HERE, "data", "example")
+EXAMPLE_TARGET = "resumes/example"
+EXAMPLE_SELECTION = os.path.join(EXAMPLE_WORKSPACE, "resumes", "example", "resume.ttl")

@@ -1,0 +1,28 @@
+@prefix j: <tag:jsk,2026:ns#> .
+@prefix k: <tag:jsk,2026:id/> .
+@prefix c: <tag:jsk,2026:concept/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# == Selection
+
+k:sel_cv_example j:region "au" .
+
+# == Picks
+
+k:pck_cv_example_bullets_1 j:selection k:sel_cv_example ; j:item k:ach_clinical_platform_cut_latency ; j:position 1 .
+
+k:pck_cv_example_roles_1 j:selection k:sel_cv_example ; j:item k:pos_northbridge_mts ; j:position 1 .
+
+k:pck_cv_example_skills_1 j:selection k:sel_cv_example ; j:item k:skill_event_driven ; j:position 1 .
+
+k:pck_cv_example_bullets_2 j:selection k:sel_cv_example ; j:item k:ach_clinical_platform_consolidated_regions ; j:position 2 .
+
+k:pck_cv_example_skills_2 j:selection k:sel_cv_example ; j:item k:skill_azure ; j:position 2 .
+
+k:pck_cv_example_bullets_3 j:selection k:sel_cv_example ; j:item k:ach_security_certification_led_workstream ; j:position 3 .
+
+k:pck_cv_example_skills_3 j:selection k:sel_cv_example ; j:item k:skill_bicep ; j:position 3 .
+
+k:pck_cv_example_bullets_4 j:selection k:sel_cv_example ; j:item k:ach_policy_migration_moved_to_azure ; j:position 4 .
+
+k:pck_cv_example_skills_4 j:selection k:sel_cv_example ; j:item k:skill_security ; j:position 4 .

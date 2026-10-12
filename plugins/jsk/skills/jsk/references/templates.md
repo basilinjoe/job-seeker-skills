@@ -1,8 +1,9 @@
 # Templates
 
-Five visual templates for the rendered PDF. `jsk render --template NAME` picks one;
-`jsk render --list-templates` prints them; `jsk preview <resume.json> --out DIR` renders all five from
-one record, with page counts, so the choice is made by looking.
+Five visual templates for the rendered PDF. `resume_render(template=NAME)` picks one;
+this file describes each; `resume_preview(target=<stem>, out=DIR)` renders all five from
+one selection, with page counts, so the choice is made by looking. A selection in the store is
+compared by shipping it with each `template` in turn.
 
 **A template changes how the resume looks and nothing else.** All content decisions are made before
 a template is consulted, and all five extract to the same text in the same order
@@ -21,7 +22,7 @@ a template is consulted, and all five extract to the same text in the same order
 `monolith` is the default so colour is opt-in: a re-render mid-search gives back the document they
 had.
 
-Density differs: the same record is one page in `circuit` and two in `atrium`. Choose a two-page
+Density differs: the same resume is one page in `circuit` and two in `atrium`. Choose a two-page
 render over an available one-page one on purpose.
 
 ## Choosing
@@ -71,12 +72,12 @@ failing.
 
 ## Templates and the fitter
 
-`jsk fit` shrinks the body copy and leaves the name and section heads at full size: display sizes are
+`resume_fit` shrinks the body copy and leaves the name and section heads at full size: display sizes are
 written unit-less (`\fontsize{24}{27}`) to stay outside the regex the body-size lever matches. The
 four density levers exist in every template as multiples of its rhythm unit.
 
 ## Adding one
 
-`urs/themes.py`, one entry in `THEMES`. State only the template's idea; `_theme()` fills in the rest.
+`render/themes.py`, one entry in `THEMES`. State only the template's idea; `_theme()` fills in the rest.
 The tests check contrast floors, the accent budget, guarded font loads, the text layer and the right
 margin for every template in the dictionary.

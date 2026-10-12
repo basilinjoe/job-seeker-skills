@@ -29,8 +29,8 @@ k:lang_en j:language "en" ; j:native true ; j:provenance j:confirmed .
 
 # == Vocabulary
 
-c:ai-platform-architecture a j:Capability .
-c:data-sovereignty a j:Capability .
+c:ai-platform-architecture a j:Capability ; j:label "AI platform architecture" .
+c:data-sovereignty a j:Capability ; j:label "data residency" .
 c:event-driven-architecture a j:Capability ; j:label "EDA", "event-driven" .
 c:team-leadership a j:Capability ; j:label "people leadership" .
 c:aged-care a j:Domain ; j:partOf c:healthcare .
@@ -73,7 +73,7 @@ k:prj_clinical_events j:name "Clinical event pipeline" ;
     j:position k:pos_meridian_principal ;
     j:strength 5 ; j:recency 2026 ; j:seniority j:architecture-ownership ;
     j:domain c:aged-care, c:healthcare ;
-    j:uses c:ai-platform-architecture, c:azure-ai-foundry, c:bicep, c:data-sovereignty, c:kafka ;
+    j:uses c:ai-platform-architecture, c:azure-ai-foundry, c:bicep, c:data-sovereignty, c:kafka, c:team-leadership ;
     j:headlineMetric k:met_event_latency ;
     j:problem """The legacy scheduler could not express care-plan constraints, so every site
 maintained its own spreadsheet beside it.""" ;

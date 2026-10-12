@@ -8,11 +8,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from fixtures import (CHECK_ATS, CLEAN_RESUME, EXAMPLE_URS, RENDER_RESUME,
-                      build_pdf, build_text, load_script, resume_with, run,
-                      urs_module)
+from fixtures import (CHECK_ATS, CLEAN_RESUME, PARSE_GATE, RENDER, build_pdf,
+                      build_text, example_pdf, example_short, gate, load_script, one_test_each,
+                      render_module, resume_with, run)
 
-tex = urs_module("urs.tex")
+tex = render_module("infra.tex")
+themes = render_module("domain.render.themes")
 
 BODY = "Cut order-processing latency 62 percent by decomposing a monolithic service."
 
@@ -27,7 +28,7 @@ class CheckATSCase(unittest.TestCase):
         path = build_text(self.tmp / name,
                           CLEAN_RESUME if paragraphs is None else paragraphs, **kw)
         args = [path, "--strict"] if strict else [path]
-        return run(CHECK_ATS, *args)
+        return run(PARSE_GATE, *args)
 
     def assertFails(self, out, code, needle=None):
         self.assertEqual(code, 1, f"expected FAIL, got exit {code}:\n{out}")
@@ -164,13 +165,13 @@ class MalformedInput(CheckATSCase):
     def test_a_pdf_that_is_not_a_pdf_reports_a_verdict(self):
         path = self.tmp / "fake.pdf"
         path.write_text("not a PDF at all", encoding="utf-8")
-        code, out = run(CHECK_ATS, path)
+        code, out = run(PARSE_GATE, path)
         self.assertEqual(code, 1)
         self.assertNotIn("Traceback", out)
         self.assertIn("FAIL", out)
 
     def test_missing_file_reports_a_verdict(self):
-        code, out = run(CHECK_ATS, self.tmp / "absent.pdf")
+        code, out = run(PARSE_GATE, self.tmp / "absent.pdf")
         self.assertNotEqual(code, 0)
         self.assertNotIn("Traceback", out)
 
@@ -178,18 +179,18 @@ class MalformedInput(CheckATSCase):
         """`python -m jsk.gates.check_ats --help` read --help as a path and printed
         "file not found: --help" with the usage-error exit."""
         for flag in ("--help", "-h"):
-            code, out = run(CHECK_ATS, flag)
+            code, out = gate("check_ats.py", flag)
             self.assertEqual(code, 0, out)
             self.assertNotIn("file not found", out)
             self.assertIn("--strict", out)
-            self.assertIn("python -m jsk.gates.check_ats", out)
+            self.assertIn("resume_check(", out)
 
     def test_the_docx_is_no_longer_accepted(self):
         """It was the deliverable; it is not one any more, and a gate that
         silently accepted it would be checking a file nobody sends."""
         path = self.tmp / "resume.docx"
         path.write_text("x", encoding="utf-8")
-        code, out = run(CHECK_ATS, path)
+        code, out = run(PARSE_GATE, path)
         self.assertEqual(code, 1)
         self.assertIn(".pdf", out)
 
@@ -263,16 +264,15 @@ class ThePdfItself(CheckATSCase):
 
     def test_a_pdf_with_no_text_layer_fails(self):
         path = build_pdf(self.tmp / "scan.pdf", blank=True)
-        code, out = run(CHECK_ATS, path)
+        code, out = run(PARSE_GATE, path)
         self.assertEqual(code, 1, out)
         self.assertIn("extractable text", out)
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
     def test_the_rendered_presentation_pdf_passes(self):
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default", "--pdf")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf")
         self.assertEqual(code, 0, out)
-        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume.pdf")
+        code, out = run(PARSE_GATE, self.tmp / "Priya_Raman_Resume.pdf")
         self.assertPasses(out, code)
 
     @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
@@ -280,19 +280,167 @@ class ThePdfItself(CheckATSCase):
         """The ligature trap: T1 Computer Modern turns "fi" into U+FB01, so an
         ATS-maximal PDF failed its own ASCII rule until the emitter broke the
         pairs. The .docx never showed this, because nothing rendered it."""
-        code, out = run(RENDER_RESUME, EXAMPLE_URS, "--out", self.tmp,
-                        "--view", "view_au_default", "--pdf", "--ats-max")
+        code, out = run(RENDER, example_short(), "--out", self.tmp, "--pdf", "--ats-max")
         self.assertEqual(code, 0, out)
-        code, out = run(CHECK_ATS, self.tmp / "Priya_Raman_Resume_ATS.pdf", "--strict")
+        code, out = run(PARSE_GATE, self.tmp / "Priya_Raman_Resume.pdf", "--strict")
         self.assertPasses(out, code)
 
 
-class InProcessEntryPoint(CheckATSCase):
-    """`jsk gates` calls main() instead of spawning a fifth interpreter to do it.
+class SplitWords(CheckATSCase):
+    r"""A word hyphenated across a line end is two fragments in the text layer.
 
-    The CLI is the documented API - SKILL.md tells people to run this script
-    directly - so the two forms must not be able to disagree. These compare them on
-    the same file rather than asserting anything about either alone.
+    The default template justified and hyphenated, and the Everforth render's
+    PDF held "Mi-\ncroservices", "develop-\nment", "Applica-\ntion": a keyword
+    search for "Microservices" missed it. It fails in both modes, because people
+    upload the presentation PDF to portals too.
+    """
+
+    SPLIT = ("Cut order-processing latency 62 percent by decomposing a monolithic service.",
+             "Cut order-processing latency 62 percent by decom-\nposing a monolithic service.")
+
+    def pdf(self, lines, name="resume.pdf"):
+        return build_pdf(self.tmp / name, lines)
+
+    def test_a_split_word_fails_in_both_modes(self):
+        path = self.pdf(resume_with(self.SPLIT))
+        for args in ((), ("--strict",)):
+            with self.subTest(args=args):
+                code, out = run(PARSE_GATE, path, *args)
+                self.assertFails(out, code, "split across a line end")
+                self.assertIn("'decom-posing'", out)
+                self.assertIn("fix:", out)
+
+    def test_the_same_pdf_unsplit_passes(self):
+        """The control: the synthetic PDF is otherwise clean, so the failure above
+        is the split and nothing else."""
+        code, out = run(PARSE_GATE, self.pdf(CLEAN_RESUME), "--strict")
+        self.assertPasses(out, code)
+
+    def test_a_compound_broken_at_its_own_hyphen_is_not_a_split_word(self):
+        """A capital after the break is a compound - "Offline-Tolerant" - not a
+        word TeX cut in half, and a search for either half still matches."""
+        path = self.pdf(resume_with((BODY, "Built an Offline-\nTolerant sync engine for 40 clinics.")))
+        code, out = run(PARSE_GATE, path)
+        self.assertPasses(out, code)
+
+    def test_only_a_pdf_is_checked(self):
+        """The .txt has no line breaks a typesetter chose; a hand-wrapped line in
+        it is the person's, and the paste-in text is not what a portal parses as
+        the document."""
+        code, out = self.check(resume_with(self.SPLIT))
+        self.assertPasses(out, code)
+
+
+class ReadingOrder(unittest.TestCase):
+    """A parser reads the text layer as one stream and credits a bullet to the role line
+    above it there; a PDF must extract its bullets in the .txt render's order - the plan's.
+    Two columns would interleave them, and nothing else would notice."""
+
+    STREAM = ("Test Person\n\nPROFESSIONAL EXPERIENCE\nLead Engineer | Jan 2023 - Present\n"
+              "- Cut event latency 40 percent by moving ingest to a partitioned queue.\n"
+              "Engineer | Jan 2020 - Dec 2022\n"
+              "- Shipped single sign-on for every internal tool in one quarter.\n")
+
+    def judge(self, pdf_text):
+        from jsk.domain.gates.ats_rules import judge
+
+        return judge(pdf_text, ["Helvetica"], pdf=True, strict=False, stream=self.STREAM)[1]
+
+    def test_a_pdf_in_the_plan_s_order_passes(self):
+        # Wrapped across lines and with a ligature, as a PDF's text layer comes out.
+        pdf = ("Test Person\nProfessional Experience\nLead Engineer   Jan 2023 – Present\n"
+               "• Cut event latency 40 percent by moving ingest to a parti-\ntioned queue.\n"
+               "Engineer   Jan 2020 – Dec 2022\n• Shipped single sign-on for every internal\n"
+               "tool in one quarter.\n")
+        self.assertFalse([f for f in self.judge(pdf).fails if "reading order" in f])
+
+    def test_bullets_extracted_out_of_order_fail(self):
+        # The planted violation: a second column's bullet comes out first.
+        pdf = ("Test Person\nProfessional Experience\n"
+               "• Shipped single sign-on for every internal tool in one quarter.\n"
+               "Lead Engineer   Jan 2023 – Present\n"
+               "• Cut event latency 40 percent by moving ingest to a partitioned queue.\n"
+               "Engineer   Jan 2020 – Dec 2022\n")
+        fails = self.judge(pdf).fails
+        self.assertTrue(any("reading order: 1 bullet(s)" in f and "Shipped single sign-on" in f
+                            for f in fails), fails)
+
+    def test_a_pdf_with_no_stream_beside_it_is_not_judged_for_order(self):
+        from jsk.domain.gates.ats_rules import judge
+
+        report = judge("• Shipped it.\n", [], pdf=True, strict=False)[1]
+        self.assertFalse([f for f in report.fails if "reading order" in f])
+
+
+@unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
+@one_test_each({name + "".join(flags): (name, flags) for name in themes.names()
+                for flags in ((), ("--ats-max",))}, "test_{}_splits_no_word", "splits_none")
+class NoTemplateSplitsAWord(unittest.TestCase):
+    """Every theme, in both variants, with a record long enough to wrap."""
+
+    def splits_none(self, case):
+        name, flags = case
+        _, out = run(PARSE_GATE, example_pdf(name, *flags))
+        self.assertNotIn("split across a line end", out)
+
+
+class TheVariantIsInTheMetadata(CheckATSCase):
+    """variant_of() reads the variant from the PDF's keywords, not its file name:
+    "_ATS" in the stem was the only marker, and the name is the person's to change."""
+
+    def setUp(self):
+        super().setUp()
+        self.variant_of = load_script("jsk.infra.pdf").variant_of
+
+    def pdf_with_keywords(self, keywords):
+        import pymupdf
+
+        path = self.tmp / "renamed.pdf"
+        doc = pymupdf.open()
+        doc.new_page().insert_text((72, 72), "Jane Doe", fontsize=11)
+        if keywords is not None:
+            doc.set_metadata({"keywords": keywords})
+        doc.save(str(path))
+        doc.close()
+        return path
+
+    def test_it_reads_the_variant_marker(self):
+        for variant in ("ats-maximal", "presentation"):
+            path = self.pdf_with_keywords(f"jsk-variant:{variant}")
+            self.assertEqual(self.variant_of(path), variant)
+
+    def test_it_finds_the_marker_among_other_keywords(self):
+        path = self.pdf_with_keywords("resume, jsk-variant:ats-maximal, azure")
+        self.assertEqual(self.variant_of(path), "ats-maximal")
+
+    def test_no_marker_is_none(self):
+        self.assertIsNone(self.variant_of(self.pdf_with_keywords(None)))
+        self.assertIsNone(self.variant_of(self.pdf_with_keywords("resume, azure")))
+
+    def test_a_file_that_is_not_a_pdf_is_none(self):
+        path = self.tmp / "fake.pdf"
+        path.write_text("not a PDF at all", encoding="utf-8")
+        self.assertIsNone(self.variant_of(path))
+
+    @unittest.skipUnless(tex.available_engine(), "needs a TeX engine to render")
+    def test_a_render_carries_its_own_variant(self):
+        for flags, variant, stem in (((), "presentation", "Priya_Raman_Resume"),
+                                     (("--ats-max",), "ats-maximal", "Priya_Raman_Resume")):
+            out_dir = self.tmp / variant
+            code, out = run(RENDER, example_short(), "--out", out_dir, "--pdf", *flags)
+            self.assertEqual(code, 0, out)
+            renamed = out_dir / "resume-final.pdf"
+            (out_dir / f"{stem}.pdf").rename(renamed)
+            self.assertEqual(self.variant_of(renamed), variant)
+
+
+class InProcessEntryPoint(CheckATSCase):
+    """The resume_check tool calls main() instead of spawning a fifth interpreter to do it.
+
+    resume_check(only="parse") is the tool call that runs it, so the two forms must not
+    be able to disagree. These compare them on the same file rather than asserting
+    anything about either alone: the same exit code, and the gate's output whole inside
+    the command's.
     """
 
     def in_process(self, *args):
@@ -301,14 +449,18 @@ class InProcessEntryPoint(CheckATSCase):
             code = load_script(CHECK_ATS).main([str(a) for a in args])
         return code, buf.getvalue()
 
+    def assertAgrees(self, path):
+        code, out = self.in_process(path)
+        command_code, command_out = run(PARSE_GATE, path)
+        self.assertEqual(code, command_code, command_out)
+        self.assertIn(out.strip(), command_out)
+
     def test_it_agrees_with_the_command_line_on_a_clean_resume(self):
-        path = build_text(self.tmp / "resume.txt", CLEAN_RESUME)
-        self.assertEqual(self.in_process(path), run(CHECK_ATS, path))
+        self.assertAgrees(build_text(self.tmp / "resume.txt", CLEAN_RESUME))
 
     def test_it_agrees_with_the_command_line_on_a_failing_resume(self):
-        path = build_text(self.tmp / "resume.txt",
-                          resume_with((BODY, "Scaled to [NUMBER] tenants.")))
-        self.assertEqual(self.in_process(path), run(CHECK_ATS, path))
+        self.assertAgrees(build_text(self.tmp / "resume.txt",
+                                     resume_with((BODY, "Scaled to [NUMBER] tenants."))))
 
     def test_strict_reaches_it_through_the_arguments_it_is_given(self):
         """It read sys.argv, so --strict was picked up from the real command line
@@ -322,7 +474,7 @@ class InProcessEntryPoint(CheckATSCase):
         self.assertIn("mode: presentation", out)
 
     def test_no_arguments_is_the_same_usage_error(self):
-        self.assertEqual(self.in_process(), run(CHECK_ATS))
+        self.assertEqual(self.in_process()[0], run(PARSE_GATE)[0])
 
 
 if __name__ == "__main__":

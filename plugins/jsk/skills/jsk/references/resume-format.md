@@ -1,0 +1,54 @@
+# A selection (resume.json's keys)
+
+One resume: what was chosen for one posting, and nothing the career holds. Names, dates,
+employers, bullet text and metrics come from the career every time the resume is built, so
+a confirm or a corrected bullet is on the next render with nothing to update here.
+
+A selection is a graph in the store — an application's (`<stem>`) or a general resume's
+(`resumes/<name>`). `resume_select` makes it, `resume_update` changes it key by key, and
+`app_show(target, "selection")` shows it as this dict, with resume.json's keys; no file holds
+it.
+
+```json
+{
+  "resume": 2,
+  "format": "presentation",
+  "region": "in",
+  "pages": 2,
+  "summary": { "text": "Full-stack engineer who builds AI agents ...", "status": "inferred" },
+  "bullets": ["ach_chloe_care_plan_directed_claude_code", "ach_mindbody_dahua_solo_designed_built"],
+  "roles": ["pos_contract_backend"],
+  "skills": ["skill_python", "skill_typescript", "skill_react"]
+}
+```
+
+| key | required | what it holds |
+|---|---|---|
+| `resume` | yes | `2` |
+| `bullets` | yes | `ach_` ids in render order within each role. Roles, employers and their order follow from the career, by date. |
+| `format` | no | `presentation` (default) or `ats-maximal` |
+| `region` | no | a two-letter code: `au`, `ae`, `in` pick their profile, any other (`us`, `xx`) the default one; it also sets the paper. Default the person's country |
+| `pages`, `ats_pages` | no | page budgets; `ats_pages` for the ATS-maximal variant |
+| `floor` | no | provenance floor, default `confirmed`: a bullet or summary below it is withheld, with a warning |
+| `summary` | no | `{text, status}`, `status` `inferred`; confirming adds `answer` and `text_sha256`. Absent, the career's positioning |
+| `headline` | no | `{text, status}` like `summary`: the posting's exact title, under the name, confirmed the same way. Below the floor or absent, the career's headline |
+| `names` | no | `{skill_id: name}`: the skill shown under one of its `j:alias`, the posting's spelling of it. Anything but its name or an alias fails |
+| `roles` | no | `pos_` ids to show with no bullet, for chronology |
+| `skills` | no | `skill_` ids in row order; absent, every skill |
+
+For one render, `resume_ship`'s `ats_max` overrides `format`.
+
+**The summary and the headline are the only prose in it.** A reworded bullet goes into the career first
+(`career_apply`) and is named here by its id; an unknown key fails.
+`resume_update` takes `summary` and `headline` as text, and new text arrives `inferred`. Once the
+person confirms it, `career_confirm(target, block="summary", answer="…")` marks it `confirmed` beside their answer and the text's hash; a
+hand-set `confirmed`, or text changed since, fails. The headline likewise, `block="headline"`:
+`resume_select` with `from_match` sets it to the posting's title, and the person says whether they
+stand behind it.
+
+`resume_check(target=<stem>|resumes/<name>)` is the record gate: it fails the shape, an
+id the career does not hold or has retired, a bullet whose project has no role, a number in a
+bullet that no current version of a metric it cites holds, a career that does not validate, and
+one out of sync with its log (written outside jsk: restore it from `.jsk/backup.trig`); it warns
+of labels, "N years of X" and brackets. A frozen application keeps its selection as the archive
+of what was sent.

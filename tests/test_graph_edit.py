@@ -1,28 +1,47 @@
 """A changeset merged into the fixture career: the four graphs, the refusals that need the
 record, and what apply does unasked - provenance, questions, bullet ids, versions."""
+import atexit
 import datetime
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
+import storekit
 from test_graph_changeset import PFX
 from test_graph_shapes import FIXTURES, load
 
-from jsk.graph import changeset, edit
-from jsk.graph import ontology as O
-from jsk.graph.changeset import Refused
+from jsk.adapters.compose import record
+from jsk.domain.record import edit
+from jsk.domain import ontology as O
+from jsk.domain.record.changeset import Refused
 
 TODAY = datetime.date(2026, 9, 24)
 STORE = None
 
 
+def seeded(edit=None):
+    """A copy of the fixture workspace in a store; `edit(root)` changes its files first."""
+    root = Path(tempfile.mkdtemp())
+    shutil.copytree(FIXTURES, root, dirs_exist_ok=True)
+    if edit:
+        edit(root)
+    storekit.seed(root)
+    return root
+
+
 def store():
+    """The fixture career as the store holds it, loaded once: apply never writes."""
     global STORE
     if STORE is None:
-        STORE = load(FIXTURES)
+        root = seeded()
+        atexit.register(shutil.rmtree, root, True)
+        STORE = load(root)
     return STORE
 
 
 def run(body):
-    return edit.apply(store(), changeset.read(PFX + body), TODAY)
+    return edit.apply(store(), record.read_changeset(PFX + body), TODAY)
 
 
 def refused(body):
@@ -139,6 +158,13 @@ class Versions(unittest.TestCase):
         self.assertTrue(any("sent in k:app_acme_platform_engineer" in n for n in e.notes))
         self.assertIn(O.K + "q_met_team_v2", e.minted)
 
+    def test_a_range_or_qualifier_on_a_sent_version_is_the_next_version(self):
+        e = run('op:set { k:met_team.v1 j:upper 8 ; j:qualifier j:about . }\n')
+        self.assertEqual(props(e, "met_team.v1").get("upper"), None)
+        v2 = props(e, "met_team.v2")
+        self.assertEqual((v2["value"], v2["upper"], v2["qualifier"]),
+                         (["6"], ["8"], [O.J + "about"]))
+
     def test_a_version_never_sent_is_corrected_in_place(self):
         e = run('op:set { k:met_sites.v1 j:value 43 . }\n')
         self.assertEqual(props(e, "met_sites.v1")["value"], ["43"])
@@ -156,30 +182,27 @@ class Versions(unittest.TestCase):
 
 
 class Restored(unittest.TestCase):
-    """git restored kb.ttl and log.ttl to an older commit; an application.ttl frozen since
-    still names a metric version and a bullet that commit never had. Neither id is free."""
+    """`jsk kb load` of an older backup took the career and its log back; an application
+    frozen since still names a metric version and a bullet that backup never had. Neither
+    id is free."""
 
-    APP = "applications/acme-platform-engineer/application.ttl"
+    APP = "applications/acme-platform-engineer/application"
 
     def setUp(self):
-        import shutil
-        import tempfile
-        from pathlib import Path
-
-        self.root = Path(tempfile.mkdtemp())
+        def sent_more(root):
+            app = root / (self.APP + ".ttl")
+            text = app.read_text(encoding="utf-8")
+            text = text.replace("k:ach_clinical_events_led_migration ;",
+                                "k:ach_clinical_events_led_migration, "
+                                "k:ach_clinical_events_cut_event_latency ;")
+            text = text.replace("k:met_team.v1 .", "k:met_team.v1, k:met_team.v2 .")
+            app.write_text(text, encoding="utf-8", newline="\n")
+        self.root = seeded(sent_more)
         self.addCleanup(shutil.rmtree, self.root)
-        shutil.copytree(FIXTURES, self.root, dirs_exist_ok=True)
-        app = self.root / self.APP
-        text = app.read_text(encoding="utf-8")
-        text = text.replace("k:ach_clinical_events_led_migration ;",
-                            "k:ach_clinical_events_led_migration, "
-                            "k:ach_clinical_events_cut_event_latency ;")
-        text = text.replace("k:met_team.v1 .", "k:met_team.v1, k:met_team.v2 .")
-        app.write_text(text, encoding="utf-8", newline="\n")
         self.store = load(self.root)
 
     def run_(self, body):
-        return edit.apply(self.store, changeset.read(PFX + body), TODAY)
+        return edit.apply(self.store, record.read_changeset(PFX + body), TODAY)
 
     def test_the_next_version_skips_a_number_an_application_still_names(self):
         e = self.run_('op:set { k:met_team.v1 j:value 7 . }\n')
@@ -244,7 +267,7 @@ class Base(unittest.TestCase):
         run('op:changeset op:base 2 .\nop:set { k:prj_clinical_events j:strength 4 . }\n')
 
     def test_a_base_ahead_of_the_log(self):
-        self.assertIn("ahead of log.ttl", refused('op:changeset op:base 9 .\n'
+        self.assertIn("ahead of the log", refused('op:changeset op:base 9 .\n'
                                                   'op:set { k:prj_clinical_events j:strength 4 . }\n'))
 
 

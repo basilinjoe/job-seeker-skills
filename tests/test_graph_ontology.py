@@ -2,7 +2,7 @@
 import re
 import unittest
 
-from jsk.graph import ontology as O
+from jsk.domain import ontology as O
 
 
 class OntologyTests(unittest.TestCase):
@@ -57,31 +57,14 @@ class OntologyTests(unittest.TestCase):
                     self.assertTrue(cls.claims, "a class with claim predicates needs provenance")
 
     def test_seniority_is_one_list(self):
-        """The ranking's order and the ontology's enum were two copies of one list, one
-        in the Markdown reader. There is one now, and the reader uses it too."""
-        from jsk import kbindex
-        from jsk.graph import scoring
+        """The ranking's order and the ontology's enum were two copies of one list.
+        There is one now."""
+        from jsk.domain.matching import scoring
         self.assertIs(scoring.SENIORITY, O.ENUMS["seniority"])
-        self.assertIs(kbindex.SENIORITY, O.ENUMS["seniority"])
         self.assertEqual(O.ENUMS["seniority"][0], "architecture-ownership")
 
-    def test_the_graph_does_not_import_the_markdown_reader(self):
-        """Release N+1 deletes kbindex.py with `jsk migrate`. The career's ranking and
-        its experience query imported it, so deleting it would have broken `jsk match`
-        and `jsk kb query experience`."""
-        import subprocess
-        import sys
-
-        from fixtures import child_env
-        code = ("import sys\n"
-                "import jsk.graph.queries, jsk.graph.named, jsk.graph.match, jsk.graph.kbcli\n"
-                "print('jsk.kbindex' in sys.modules)\n")
-        out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
-                             env=child_env())
-        self.assertEqual(out.stdout.strip(), "False", out.stdout + out.stderr)
-
     def test_provenance_matches_the_renderer(self):
-        from jsk.urs.resolve import PROVENANCE_RANK
+        from jsk.domain.resume.constants import PROVENANCE_RANK
         self.assertEqual(set(PROVENANCE_RANK), set(O.ENUMS["provenance"]))
 
     def test_class_of(self):
@@ -105,7 +88,7 @@ class OntologyTests(unittest.TestCase):
     def test_ontology_does_not_import_pyoxigraph(self):
         import subprocess
         import sys
-        code = "import sys, jsk.graph.ontology; print('pyoxigraph' in sys.modules)"
+        code = "import sys, jsk.domain.ontology; print('pyoxigraph' in sys.modules)"
         out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
         self.assertEqual(out.stdout.strip(), "False", out.stderr)
 

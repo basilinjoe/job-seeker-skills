@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [{ name = "Basilin Joe" }]
 keywords = [
     "resume", "cv", "ats", "career", "job-search",
-    "knowledge-base", "tailoring", "urs", "latex", "pdf",
+    "knowledge-base", "tailoring", "latex", "pdf",
 ]
 
 # One dependency, and only one. Everything else this toolchain uses is optional and
@@ -26,7 +26,15 @@ keywords = [
 # first spike measured before the dependency was taken. The pin is one minor: raising it
 # means rerunning the Windows and Linux CI jobs - the lesson LadybugDB taught, whose
 # Windows wheels were broken for five releases while Linux passed.
-dependencies = ["pyoxigraph>=0.5.11,<0.6"]
+#
+# mcp is the other (2026-10-04, docs/superpowers/plans/2026-10-04-retire-duplicated-cli.md,
+# Ruling 3): with `jsk kb apply` and `jsk kb confirm` retired, the MCP tools are the only way
+# to change a career, so a plain install needs them. 1.30 is the floor P0 measured on Python
+# 3.10-3.13 (docs/superpowers/plans/2026-10-01-graph-native-applications-mcp.md); a 2.x is a
+# new API. It is still imported only inside adapters/mcp, so `jsk doctor` and preflight.py
+# stay standard-library only, and `jsk mcp` still says so when a global Python holds an old
+# mcp that another package pinned.
+dependencies = ["pyoxigraph>=0.5.11,<0.6", "mcp>=1.30,<2"]
 
 [project.optional-dependencies]
 # What it buys is spelt out in `jsk doctor`, which reports a missing package as the
@@ -36,19 +44,17 @@ dependencies = ["pyoxigraph>=0.5.11,<0.6"]
 # never existed - nothing imported it, so it was a dependency that bought a line in
 # the doctor's report and nothing else.
 #
-# `pyyaml` came back with `jsk index`, beside markdown-it-py: the two replaced about
-# a hundred lines of hand-written Markdown and YAML parsing, and they are optional -
-# `jsk index` says what to install rather than failing on import.
-#
-# `migrate` is the same two: the Markdown reader, which now exists only to move a
-# user-knowledgebase.md to career/kb.ttl once. `jsk index` is retired (P7); `index`
-# stays as an alias of `migrate` this release so an existing install line still works.
-# Release N+1 deletes both extras, with kbindex.py and `jsk migrate` itself.
+# The `migrate` and `index` extras (markdown-it-py and pyyaml) went with `jsk migrate`
+# and the Markdown knowledge base it read. pyyaml stays in `dev` only: the plugin
+# surface tests read the skill files' frontmatter with it.
 pdf = ["pymupdf"]                # the PDF parse gate, and the page budget
-migrate = ["markdown-it-py", "pyyaml"]  # jsk migrate: the Markdown knowledge base, read once
-index = ["markdown-it-py", "pyyaml"]    # alias of migrate; removed in release N+1
-all = ["pymupdf", "markdown-it-py", "pyyaml"]
-dev = ["pymupdf", "markdown-it-py", "pyyaml", "pytest", "pytest-xdist", "ruff"]
+# An alias since 2026-10-04: mcp is a required dependency now (see `dependencies`), and the
+# extra stays so that `pip install 'jsk-resume[mcp]'`, which every document before 6.0 told
+# people to run, still works.
+mcp = ["mcp>=1.30,<2"]
+all = ["pymupdf"]
+dev = ["pymupdf", "pyyaml", "pytest", "pytest-xdist", "ruff", "pyright==1.1.414",
+       "mcp>=1.30,<2"]
 
 [project.scripts]
 jsk = "jsk.cli:main_console"
@@ -80,7 +86,10 @@ testpaths = ["tests"]
 # run it while working. It is not in addopts because pytest-xdist is a dev extra:
 # putting it here makes every bare checkout fail on an unrecognised flag, and the
 # suite has to keep running on a plain interpreter.
-addopts = "-q"
+# `-p no:asyncio`: the suite has no async code, and a pytest-asyncio installed globally
+# warns about its unset loop scope on every run and in every xdist worker. Blocking a
+# plugin that is not installed is a no-op.
+addopts = "-q -p no:asyncio"
 
 [tool.ruff]
 line-length = 100
@@ -93,8 +102,12 @@ src = ["src", "tests"]
 # switched off within a week.
 #
 # `E,F,W` catch the things that are actually wrong - an undefined name, an unused
-# import, a redefinition. Those are worth failing a build over from now on.
-select = ["E", "F", "W"]
+# import, a redefinition. Those are worth failing a build over from now on. `B`
+# (bugbear) joined after the 2026-09-28 review: a loop variable a closure captures, a
+# zip that silently truncates, an exception re-raised without its cause. `BLE` (blind
+# except) joined with it: each `noqa: BLE001` (eleven, on 2026-09-28) says on its line
+# why nothing narrower will do.
+select = ["E", "F", "W", "B", "BLE"]
 ignore = [
     "E501",     # line-length is set above; what is left over is prose inside strings
     "E741",
@@ -113,11 +126,26 @@ ignore = [
 #                 must not pay for a module it never reaches, which is what keeps a
 #                 write at about the interpreter floor. If PL is ever selected, this
 #                 one stays ignored permanently.
-#   BLE001         blind excepts - also deliberate, and also documented: they are what
-#                 turn a would-be traceback into a verdict a person can act on.
 #   PLW1510   9x  subprocess.run without check= - every call site reads returncode.
 #   PLR09xx        argument and branch counts. These are CLIs; that is the job.
 
 [tool.ruff.lint.per-file-ignores]
 # The tests assert on exact output text, so their long string literals are the point.
 "tests/*" = ["E501", "PLR2004"]
+
+[tool.pyright]
+# For the language server Claude Code runs through the pyright-lsp plugin, and a gate on
+# the five rings: CI runs `python -m pyright src/jsk/domain src/jsk/ports
+# src/jsk/application src/jsk/infra src/jsk/adapters` after the lint, at `basic`. The
+# root modules and the tests are indexed for navigation but not held to it. It
+# resolves imports against the .venv that `uv sync --extra dev` builds, so `jsk`,
+# pyoxigraph and pytest are found rather than reported; CI has no .venv, says so, and
+# falls back to the python on PATH, where pip installed them.
+# The worktrees are agents' copies of this same source; indexing them doubles every
+# symbol and sends go-to-definition into a copy.
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+include = ["src", "tests"]
+exclude = [".claude/worktrees", "jsk-eval-workspace", "**/__pycache__", ".venv"]
