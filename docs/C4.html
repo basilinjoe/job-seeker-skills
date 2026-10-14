@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jsk C4 Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column for prose, diagrams break wider and scroll in their own frame. C4 colour convention: person, in-scope, external. */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --fg: #17202b; --muted: #5a6675; --rule: #d5dbe2;
+  --person-fill: #ebe7f7; --person-line: #5b4a9b;
+  --sys-fill: #dde9f6; --sys-line: #2c5d93;
+  --ext-fill: #eceef0; --ext-line: #737a82;
+  --band: #e9edf2;
+  --accent: #b9511a;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151b; --surface: #181d25; --fg: #e4e8ee; --muted: #9aa5b3; --rule: #2c343f;
+  --person-fill: #262139; --person-line: #a99ae0;
+  --sys-fill: #1a2b3f; --sys-line: #7eaadb;
+  --ext-fill: #20252c; --ext-line: #8d959e;
+  --band: #171c23; --accent: #f08b4c; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11151b; --surface: #181d25; --fg: #e4e8ee; --muted: #9aa5b3; --rule: #2c343f;
+  --person-fill: #262139; --person-line: #a99ae0;
+  --sys-fill: #1a2b3f; --sys-line: #7eaadb;
+  --ext-fill: #20252c; --ext-line: #8d959e;
+  --band: #171c23; --accent: #f08b4c; color-scheme: dark; }
+
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1060px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 72px; }
+header { max-width: 68ch; display: grid; gap: 10px; margin-bottom: 28px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(28px, 4vw, 40px); line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-weight: 700; font-size: 22px; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+code { font-family: var(--f-mono); font-size: .88em; }
+nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 36px; }
+nav a { font-family: var(--f-mono); font-size: 12.5px; color: var(--fg); text-decoration: none; border: 1px solid var(--rule); border-radius: 4px; padding: 4px 10px; background: var(--surface); }
+nav a:hover, nav a:focus-visible { border-color: var(--sys-line); outline: none; }
+nav a span { color: var(--muted); margin-right: 6px; }
+section { display: grid; gap: 14px; margin-top: 48px; scroll-margin-top: 16px; }
+.lede { max-width: 72ch; color: var(--muted); }
+.level { font-family: var(--f-mono); font-size: 12px; color: var(--sys-line); letter-spacing: .06em; text-transform: uppercase; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; display: grid; gap: 12px; }
+.scroll { overflow-x: auto; }
+figure svg { display: block; width: 100%; height: auto; min-width: 720px; color: var(--fg); }
+figcaption { font-size: 13.5px; color: var(--muted); max-width: 80ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 14px; border-radius: 2px; border: 1.5px solid; display: inline-block; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.notes div { min-width: 0; border-top: 2px solid var(--rule); padding-top: 10px; font-size: 14px; }
+.notes b { display: block; font-family: var(--f-display); font-size: 15px; margin-bottom: 4px; }
+
+/* SVG vocabulary */
+svg text { font-family: var(--f-body); fill: var(--fg); font-size: 11.5px; }
+svg .t { font-family: var(--f-display); font-weight: 700; font-size: 14px; }
+svg .k { font-family: var(--f-mono); font-size: 10.5px; fill: var(--muted); }
+svg .d { font-size: 11.5px; }
+svg .person rect, svg .person path { fill: var(--person-fill); stroke: var(--person-line); stroke-width: 1.5; }
+svg .sys rect, svg .sys path { fill: var(--sys-fill); stroke: var(--sys-line); stroke-width: 1.5; }
+svg .ext rect, svg .ext path { fill: var(--ext-fill); stroke: var(--ext-line); stroke-width: 1.5; }
+svg .hot rect { stroke: var(--accent); stroke-width: 2.2; }
+svg .group { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 6 4; }
+svg .glabel { font-family: var(--f-mono); font-size: 11px; fill: var(--muted); }
+svg .band { fill: var(--band); stroke: none; }
+svg .ring { font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; fill: var(--muted); }
+svg .e { fill: none; stroke: currentColor; stroke-width: 1.3; }
+svg .e.dash { stroke-dasharray: 5 4; }
+svg .e.hot { stroke: var(--accent); stroke-width: 1.8; }
+svg .el { font-size: 11px; fill: var(--muted); paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+svg .el.hot { fill: var(--accent); font-weight: 600; }
+svg .life { stroke: var(--rule); stroke-width: 1.5; stroke-dasharray: 4 4; }
+svg .num { font-family: var(--f-mono); font-size: 10.5px; fill: var(--sys-line); font-weight: 500; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">job-seeker-skills · jsk 6.0.0 · C4 model</div>
+  <h1>The jsk plugin and its MCP server</h1>
+  <p class="lede">Four views, from the outside in. The plugin is Markdown that Claude Code loads: one skill, six slash commands, five subagents. All of it acts through <code>jsk mcp</code>, a Python server that is the only way to read or change the career store.</p>
+</header>
+
+<nav aria-label="Views">
+  <a href="#context"><span>L1</span>System context</a>
+  <a href="#containers"><span>L2</span>Containers</a>
+  <a href="#components"><span>L3</span>Components of jsk mcp</a>
+  <a href="#dynamic"><span>Dyn</span>A tailor run</a>
+</nav>
+
+<div class="legend" aria-label="Legend">
+  <span><i class="sw" style="background:var(--person-fill);border-color:var(--person-line)"></i>Person</span>
+  <span><i class="sw" style="background:var(--sys-fill);border-color:var(--sys-line)"></i>Part of jsk</span>
+  <span><i class="sw" style="background:var(--ext-fill);border-color:var(--ext-line)"></i>External</span>
+  <span><i class="sw" style="background:transparent;border-color:var(--accent)"></i>Only the main session, with the person's words</span>
+</div>
+
+<!-- ============ L1 CONTEXT ============ -->
+<section id="context">
+  <div class="level">Level 1 · System context</div>
+  <h2>Who uses jsk, and what it depends on</h2>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 960 460" role="img" aria-label="System context: the job seeker talks to Claude Code, which starts jsk mcp and calls its tools over stdio. The person can also run five jsk commands in a terminal. jsk compiles through a TeX engine, reads PDFs with pymupdf and fetches adverts from job boards.">
+      <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="currentColor"/></marker></defs>
+
+      <g class="person"><rect x="30" y="175" width="200" height="110" rx="8"/>
+        <text x="46" y="200" class="t">Job seeker</text><text x="46" y="216" class="k">[Person]</text>
+        <text class="d"><tspan x="46" y="238">Talks about their work, answers</tspan><tspan x="46" y="254">gap questions, confirms claims,</tspan><tspan x="46" y="270">reads the PDF before it is sent</tspan></text></g>
+
+      <g class="ext"><rect x="330" y="30" width="250" height="100" rx="4"/>
+        <text x="346" y="55" class="t">Claude Code</text><text x="346" y="71" class="k">[Software system · host]</text>
+        <text class="d"><tspan x="346" y="93">Runs the model, loads the plugin,</tspan><tspan x="346" y="109">starts subagents</tspan></text></g>
+
+      <g class="sys"><rect x="330" y="300" width="250" height="125" rx="4"/>
+        <text x="346" y="325" class="t">jsk</text><text x="346" y="341" class="k">[Software system · in scope]</text>
+        <text class="d"><tspan x="346" y="363">Keeps a career as a validated RDF</tspan><tspan x="346" y="379">graph and renders verified,</tspan><tspan x="346" y="395">ATS-safe resumes from it</tspan></text></g>
+
+      <g class="ext"><rect x="690" y="30" width="240" height="90" rx="4"/>
+        <text x="706" y="55" class="t">TeX engine</text><text x="706" y="71" class="k">[External · subprocess]</text>
+        <text class="d"><tspan x="706" y="93">tectonic, pdflatex, xelatex or</tspan><tspan x="706" y="109">lualatex: the first one found</tspan></text></g>
+      <g class="ext"><rect x="690" y="190" width="240" height="90" rx="4"/>
+        <text x="706" y="215" class="t">pymupdf</text><text x="706" y="231" class="k">[External · optional library]</text>
+        <text class="d"><tspan x="706" y="253">Reads the rendered PDF for the</tspan><tspan x="706" y="269">parse and layout gates</tspan></text></g>
+      <g class="ext"><rect x="690" y="350" width="240" height="90" rx="4"/>
+        <text x="706" y="375" class="t">Job boards</text><text x="706" y="391" class="k">[External · HTTPS]</text>
+        <text class="d"><tspan x="706" y="413">Ashby, Greenhouse and Lever</tspan><tspan x="706" y="429">public posting APIs</tspan></text></g>
+
+      <path class="e" d="M230,200 L330,100" marker-end="url(#a1)"/>
+      <text class="el" x="272" y="140" text-anchor="middle">converses;</text><text class="el" x="272" y="154" text-anchor="middle">/tailor …</text>
+      <path class="e" d="M230,262 L330,345" marker-end="url(#a1)"/>
+      <text class="el" x="262" y="318" text-anchor="middle">jsk doctor,</text><text class="el" x="262" y="332" text-anchor="middle">kb new / dump</text>
+      <path class="e" d="M455,130 L455,300" marker-end="url(#a1)"/>
+      <text class="el" x="465" y="210">starts jsk mcp; tool calls</text><text class="el" x="465" y="225">as JSON over stdio</text>
+      <path class="e" d="M580,318 L690,92" marker-end="url(#a1)"/>
+      <text class="el" x="628" y="196" text-anchor="middle">compiles .tex → .pdf</text>
+      <path class="e" d="M580,355 L690,240" marker-end="url(#a1)"/>
+      <text class="el" x="637" y="290" text-anchor="middle">reads PDF</text>
+      <path class="e" d="M580,395 L690,395" marker-end="url(#a1)"/>
+      <text class="el" x="635" y="386" text-anchor="middle">fetches advert</text>
+    </svg>
+    </div>
+    <figcaption>The person reaches jsk two ways. Most work goes through Claude Code, which starts <code>jsk mcp</code> from the plugin manifest. Five commands stay on the terminal because they must work when the server can't start: <code>doctor</code>, <code>kb new</code>, <code>kb load</code>, <code>kb dump</code> and <code>mcp</code> itself.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ L2 CONTAINERS ============ -->
+<section id="containers">
+  <div class="level">Level 2 · Containers</div>
+  <h2>Markdown in the host, one Python process beside it</h2>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1020 600" role="img" aria-label="Containers: inside Claude Code, slash commands open the jsk skill, which sends work to five subagents. The main session and the subagents call the jsk mcp server, each only with the tools it is granted. jsk mcp writes the career store through one gate, writes the PDF and TeX to applications, and calls the TeX engine, pymupdf and job boards. The jsk CLI creates, loads and dumps the store.">
+      <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="currentColor"/></marker>
+      <marker id="a2h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--accent)"/></marker></defs>
+
+      <g class="person"><rect x="20" y="50" width="150" height="80" rx="8"/>
+        <text x="34" y="78" class="t">Job seeker</text><text x="34" y="94" class="k">[Person]</text></g>
+
+      <rect class="group" x="200" y="16" width="600" height="204" rx="6"/>
+      <text class="glabel" x="212" y="34">plugins/jsk · loaded by Claude Code</text>
+      <g class="sys"><rect x="220" y="50" width="160" height="150" rx="4"/>
+        <text x="234" y="74" class="t">Slash commands</text><text x="234" y="90" class="k">[Markdown · 6]</text>
+        <text class="d"><tspan x="234" y="114">/setup /intake /review</tspan><tspan x="234" y="130">/resume /tailor /ship</tspan><tspan x="234" y="152">each opens one mode</tspan><tspan x="234" y="168">and grants its tools</tspan></text></g>
+      <g class="sys"><rect x="420" y="50" width="170" height="150" rx="4"/>
+        <text x="434" y="74" class="t">jsk skill</text><text x="434" y="90" class="k">[SKILL.md + mode-*.md]</text>
+        <text class="d"><tspan x="434" y="114">Routes six modes. The</tspan><tspan x="434" y="130">main session asks the</tspan><tspan x="434" y="146">person and keeps the</tspan><tspan x="434" y="162">calls that need their</tspan><tspan x="434" y="178">words</tspan></text></g>
+      <g class="sys"><rect x="630" y="50" width="150" height="150" rx="4"/>
+        <text x="644" y="74" class="t">Subagents</text><text x="644" y="90" class="k">[Markdown · 5]</text>
+        <text class="d"><tspan x="644" y="114">extractor</tspan><tspan x="644" y="130">kb-auditor</tspan><tspan x="644" y="146">tailor-analyst</tspan><tspan x="644" y="162">resume-author</tspan><tspan x="644" y="178">verifier</tspan></text></g>
+
+      <rect class="group" x="200" y="256" width="600" height="330" rx="6"/>
+      <text class="glabel" x="212" y="274">jsk-resume · Python package (src/jsk)</text>
+      <g class="sys"><rect x="220" y="294" width="170" height="126" rx="4"/>
+        <text x="234" y="318" class="t">jsk CLI</text><text x="234" y="334" class="k">[Python · 5 commands]</text>
+        <text class="d"><tspan x="234" y="358">doctor, kb new, kb load,</tspan><tspan x="234" y="374">kb dump, mcp. Works</tspan><tspan x="234" y="390">with no server running</tspan></text></g>
+      <g class="sys"><rect x="420" y="294" width="360" height="126" rx="4"/>
+        <text x="434" y="318" class="t">jsk mcp server</text><text x="434" y="334" class="k">[Python · FastMCP · stdio]</text>
+        <text class="d"><tspan x="434" y="358">29 tools: career_*, posting_*, assessment_*, resume_*,</tspan><tspan x="434" y="374">app_*, letter_check. Every answer is {ok, …} or</tspan><tspan x="434" y="390">{ok: false, findings}; a FAIL writes nothing.</tspan></text></g>
+
+      <g class="sys"><path d="M420,476 a115,10 0 0 0 230,0 v80 a115,10 0 0 1 -230,0 z"/><path d="M420,476 a115,10 0 0 1 230,0 a115,10 0 0 1 -230,0"/>
+        <text x="436" y="506" class="t">Career store</text><text x="436" y="522" class="k">[pyoxigraph · RocksDB]</text>
+        <text class="d"><tspan x="436" y="542">career/store/: kb, log, and each</tspan><tspan x="436" y="558">application's named graphs</tspan></text></g>
+      <g class="sys"><rect x="670" y="466" width="110" height="100" rx="4"/>
+        <text x="682" y="490" class="t">applications/</text><text x="682" y="506" class="k">[Directory]</text>
+        <text class="d"><tspan x="682" y="530">&lt;stem&gt;/: the</tspan><tspan x="682" y="546">.pdf and .tex</tspan></text></g>
+
+      <g class="ext"><rect x="860" y="294" width="140" height="56" rx="4"/><text x="874" y="318" class="t">TeX engine</text><text x="874" y="334" class="k">[subprocess]</text></g>
+      <g class="ext"><rect x="860" y="372" width="140" height="56" rx="4"/><text x="874" y="396" class="t">pymupdf</text><text x="874" y="412" class="k">[library]</text></g>
+      <g class="ext"><rect x="860" y="450" width="140" height="56" rx="4"/><text x="874" y="474" class="t">Job boards</text><text x="874" y="490" class="k">[HTTPS]</text></g>
+
+      <path class="e" d="M170,90 L220,90" marker-end="url(#a2)"/>
+      <path class="e" d="M95,130 V357 H220" marker-end="url(#a2)"/>
+      <text class="el" x="104" y="250">in a terminal</text>
+      <path class="e" d="M380,125 H420" marker-end="url(#a2)"/>
+      <text class="el" x="400" y="116" text-anchor="middle">Skill</text>
+      <path class="e" d="M590,125 H630" marker-end="url(#a2)"/>
+      <text class="el" x="610" y="116" text-anchor="middle">Task</text>
+      <path class="e hot" d="M505,200 V294" marker-end="url(#a2h)"/>
+      <text class="el hot" x="512" y="232">career_confirm, app_freeze,</text><text class="el hot" x="512" y="247">app_event, app_drop</text>
+      <path class="e" d="M705,200 V294" marker-end="url(#a2)"/>
+      <text class="el" x="712" y="232">its tools: list</text><text class="el" x="712" y="247">only</text>
+      <path class="e" d="M305,420 V516 H420" marker-end="url(#a2)"/>
+      <text class="el" x="312" y="452">kb new, load,</text><text class="el" x="312" y="466">dump</text>
+      <path class="e" d="M535,420 V466" marker-end="url(#a2)"/>
+      <text class="el" x="543" y="448">one write gate</text>
+      <path class="e" d="M725,420 V466" marker-end="url(#a2)"/>
+      <path class="e" d="M780,322 H860" marker-end="url(#a2)"/>
+      <text class="el" x="820" y="314" text-anchor="middle">compiles</text>
+      <path class="e" d="M780,372 L860,400" marker-end="url(#a2)"/>
+      <text class="el" x="820" y="378" text-anchor="middle">reads</text>
+      <path class="e" d="M780,408 L860,478" marker-end="url(#a2)"/>
+      <text class="el" x="826" y="452" text-anchor="middle">fetches</text>
+    </svg>
+    </div>
+    <figcaption>The grants are the boundary. Each subagent's <code>tools:</code> line names its MCP tools: the analyst has no tool that writes the career, the author writes only <code>j:inferred</code> claims, and no agent holds <code>career_confirm</code>. Only <code>infra/oxigraph/db.py</code> opens the store, and <code>tests/test_db.py</code> fails if a second module does.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ L3 COMPONENTS ============ -->
+<section id="components">
+  <div class="level">Level 3 · Components of jsk mcp</div>
+  <h2>Five onion rings, imports point inward</h2>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 870 880" role="img" aria-label="Components of jsk mcp arranged by ring. Adapters: server.py, compose, entry and captured.py, and cli main.py. They call application use cases, which use the domain: record rules, matching and assessment, the resume plan, and the emitters. Ports are Protocols implemented by infra: the oxigraph store, tex.py, pdf.py and posting_sources.py, which reach the store, the TeX engine, pymupdf and job boards.">
+      <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="currentColor"/></marker></defs>
+
+      <rect class="band" x="10" y="120" width="850" height="138" rx="4"/><text class="ring" x="22" y="196">ADAPTERS</text>
+      <rect class="band" x="10" y="282" width="850" height="96" rx="4"/><text class="ring" x="22" y="334">APPLICATION</text>
+      <rect class="band" x="10" y="400" width="850" height="124" rx="4"/><text class="ring" x="22" y="466">DOMAIN</text>
+      <rect class="band" x="10" y="544" width="850" height="68" rx="4"/><text class="ring" x="22" y="582">PORTS</text>
+      <rect class="band" x="10" y="634" width="850" height="100" rx="4"/><text class="ring" x="22" y="688">INFRA</text>
+
+      <g class="ext"><rect x="140" y="20" width="190" height="56" rx="4"/><text x="154" y="44" class="t">Claude Code session</text><text x="154" y="60" class="k">[main or subagent]</text></g>
+      <g class="person"><rect x="720" y="20" width="130" height="56" rx="8"/><text x="734" y="44" class="t">Terminal</text><text x="734" y="60" class="k">[the person]</text></g>
+
+      <!-- adapters -->
+      <g class="sys"><rect x="140" y="140" width="190" height="104" rx="4"/>
+        <text x="152" y="162" class="t">mcp/server.py</text><text x="152" y="178" class="k">[FastMCP · session.py]</text>
+        <text class="d"><tspan x="152" y="200">registers the 29 tools;</tspan><tspan x="152" y="216">reads the clock once a call;</tspan><tspan x="152" y="232">shares a cached record</tspan></text></g>
+      <g class="sys"><rect x="360" y="140" width="150" height="104" rx="4"/>
+        <text x="372" y="162" class="t">compose/</text><text x="372" y="178" class="k">[composition root]</text>
+        <text class="d"><tspan x="372" y="200">binds real infra to</tspan><tspan x="372" y="216">ports for both doors</tspan></text></g>
+      <g class="sys"><rect x="540" y="140" width="150" height="104" rx="4"/>
+        <text x="552" y="162" class="t">entry/</text><text x="552" y="178" class="k">[+ mcp/captured.py]</text>
+        <text class="d"><tspan x="552" y="200">a verb's main() run</tspan><tspan x="552" y="216">in-process; verdict</tspan><tspan x="552" y="232">lines word for word</tspan></text></g>
+      <g class="sys"><rect x="720" y="140" width="130" height="104" rx="4"/>
+        <text x="732" y="162" class="t">cli/main.py</text><text x="732" y="178" class="k">[noun table]</text>
+        <text class="d"><tspan x="732" y="200">5 commands; the</tspan><tspan x="732" y="216">rest exit 2 naming</tspan><tspan x="732" y="232">their tool</tspan></text></g>
+
+      <!-- application -->
+      <g class="sys"><rect x="140" y="296" width="190" height="70" rx="4"/>
+        <text x="152" y="318" class="t">posting/ · tailor/</text><text class="d"><tspan x="152" y="338">capture, decide, derive,</tspan><tspan x="152" y="354">review an assessment</tspan></text></g>
+      <g class="sys"><rect x="360" y="296" width="150" height="70" rx="4"/>
+        <text x="372" y="318" class="t">ship · guards</text><text class="d"><tspan x="372" y="338">gate order: record,</tspan><tspan x="372" y="354">render, then the rest</tspan></text></g>
+      <g class="sys"><rect x="540" y="296" width="150" height="70" rx="4"/>
+        <text x="552" y="318" class="t">render/ · gates/</text><text class="d"><tspan x="552" y="338">render the plan;</tspan><tspan x="552" y="354">run each gate</tspan></text></g>
+      <g class="sys"><rect x="720" y="296" width="130" height="70" rx="4"/>
+        <text x="732" y="318" class="t">timeline/</text><text class="d"><tspan x="732" y="338">freeze, events,</tspan><tspan x="732" y="354">unsent apps</tspan></text></g>
+
+      <!-- domain -->
+      <g class="sys"><rect x="140" y="412" width="190" height="100" rx="4"/>
+        <text x="152" y="434" class="t">record/ · ontology.py</text><text x="152" y="450" class="k">[the format and its rules]</text>
+        <text class="d"><tspan x="152" y="472">validates every candidate</tspan><tspan x="152" y="488">graph against the whole</tspan><tspan x="152" y="504">record before a write</tspan></text></g>
+      <g class="sys"><rect x="360" y="412" width="150" height="100" rx="4"/>
+        <text x="372" y="434" class="t">matching/</text><text x="372" y="450" class="k">[+ assessment/]</text>
+        <text class="d"><tspan x="372" y="472">derives the match; a</tspan><tspan x="372" y="488">verdict can only be</tspan><tspan x="372" y="504">lowered, never raised</tspan></text></g>
+      <g class="sys hot"><rect x="540" y="412" width="150" height="100" rx="4"/>
+        <text x="552" y="434" class="t">resume/plan.py</text><text x="552" y="450" class="k">[the narrow waist]</text>
+        <text class="d"><tspan x="552" y="472">builds the plan once:</tspan><tspan x="552" y="488">bullet ids in order</tspan><tspan x="552" y="504">and settings</tspan></text></g>
+      <g class="sys"><rect x="720" y="412" width="130" height="100" rx="4"/>
+        <text x="732" y="434" class="t">render/emit_*</text><text x="732" y="450" class="k">[emitters]</text>
+        <text class="d"><tspan x="732" y="472">plan → .tex and</tspan><tspan x="732" y="488">text; they decide</tspan><tspan x="732" y="504">nothing</tspan></text></g>
+
+      <!-- ports -->
+      <g class="sys"><rect x="140" y="556" width="710" height="46" rx="4"/>
+        <text x="152" y="576" class="t">ports/</text><text x="210" y="576" class="k">[typing.Protocol] used by application, implemented by infra</text>
+        <text class="d" x="152" y="594">record · engine · tex · pdf · advert · posting_source · files · outputs · profiles · workspace · queries</text></g>
+
+      <!-- infra -->
+      <g class="sys"><rect x="140" y="648" width="190" height="76" rx="4"/>
+        <text x="152" y="670" class="t">oxigraph/db.py</text><text x="152" y="686" class="k">[+ record.py, queries.py]</text>
+        <text class="d"><tspan x="152" y="708">the only module that opens</tspan><tspan x="152" y="722">or writes the store</tspan></text></g>
+      <g class="sys"><rect x="360" y="648" width="150" height="76" rx="4"/>
+        <text x="372" y="670" class="t">tex.py</text><text class="d"><tspan x="372" y="690">first engine found;</tspan><tspan x="372" y="706">keeps the .log on fail</tspan></text></g>
+      <g class="sys"><rect x="540" y="648" width="150" height="76" rx="4"/>
+        <text x="552" y="670" class="t">pdf.py</text><text class="d"><tspan x="552" y="690">imports pymupdf only</tspan><tspan x="552" y="706">when a PDF is read</tspan></text></g>
+      <g class="sys"><rect x="720" y="648" width="130" height="76" rx="4"/>
+        <text x="732" y="670" class="t">posting_sources</text><text class="d"><tspan x="732" y="690">board JSON, or a</tspan><tspan x="732" y="706">.docx/.html/.txt</tspan></text></g>
+
+      <!-- externals -->
+      <g class="ext"><path d="M140,800 a95,9 0 0 0 190,0 v50 a95,9 0 0 1 -190,0 z"/><path d="M140,800 a95,9 0 0 1 190,0 a95,9 0 0 1 -190,0"/>
+        <text x="156" y="830" class="t">career/store/</text><text x="156" y="846" class="k">[RocksDB]</text></g>
+      <g class="ext"><rect x="360" y="792" width="150" height="62" rx="4"/><text x="372" y="818" class="t">TeX engine</text><text x="372" y="836" class="k">[subprocess]</text></g>
+      <g class="ext"><rect x="540" y="792" width="150" height="62" rx="4"/><text x="552" y="818" class="t">pymupdf</text><text x="552" y="836" class="k">[optional]</text></g>
+      <g class="ext"><rect x="720" y="792" width="130" height="62" rx="4"/><text x="732" y="818" class="t">Job boards</text><text x="732" y="836" class="k">[HTTPS]</text></g>
+
+      <!-- edges -->
+      <path class="e" d="M235,76 V140" marker-end="url(#a3)"/><text class="el" x="243" y="112">tool call, stdio</text>
+      <path class="e" d="M785,76 V140" marker-end="url(#a3)"/><text class="el" x="793" y="112">argv</text>
+      <path class="e" d="M330,170 H360" marker-end="url(#a3)"/>
+      <path class="e" d="M300,140 C300,102 615,102 615,140" marker-end="url(#a3)"/><text class="el" x="470" y="114" text-anchor="middle">gates, via captured.py</text>
+      <path class="e" d="M720,192 H690" marker-end="url(#a3)"/>
+      <!-- bus: adapters -> application -->
+      <path class="e" d="M435,244 V270 M615,244 V270 M235,270 H785"/>
+      <path class="e" d="M235,270 V296" marker-end="url(#a3)"/><path class="e" d="M435,270 V296" marker-end="url(#a3)"/>
+      <path class="e" d="M615,270 V296" marker-end="url(#a3)"/><path class="e" d="M785,270 V296" marker-end="url(#a3)"/>
+      <text class="el" x="525" y="266" text-anchor="middle">call use cases</text>
+      <!-- bus: application -> domain -->
+      <path class="e" d="M235,366 V388 M435,366 V388 M615,366 V388 M785,366 V388 M235,388 H785"/>
+      <path class="e" d="M235,388 V412" marker-end="url(#a3)"/><path class="e" d="M435,388 V412" marker-end="url(#a3)"/>
+      <path class="e" d="M615,388 V412" marker-end="url(#a3)"/><path class="e" d="M785,388 V412" marker-end="url(#a3)"/>
+      <text class="el" x="335" y="384" text-anchor="middle">import inward only</text>
+      <path class="e" d="M690,462 H720" marker-end="url(#a3)"/>
+      <!-- infra implements ports -->
+      <path class="e dash" d="M235,648 V602" marker-end="url(#a3)"/><path class="e dash" d="M435,648 V602" marker-end="url(#a3)"/>
+      <path class="e dash" d="M615,648 V602" marker-end="url(#a3)"/><path class="e dash" d="M785,648 V602" marker-end="url(#a3)"/>
+      <text class="el" x="243" y="630">implements</text>
+      <!-- infra -> externals -->
+      <path class="e" d="M235,724 V790" marker-end="url(#a3)"/><text class="el" x="243" y="762">validate → write → log</text>
+      <path class="e" d="M435,724 V792" marker-end="url(#a3)"/><text class="el" x="443" y="762">runs</text>
+      <path class="e" d="M615,724 V792" marker-end="url(#a3)"/><text class="el" x="623" y="762">imports</text>
+      <path class="e" d="M785,724 V792" marker-end="url(#a3)"/><text class="el" x="793" y="762">GET</text>
+    </svg>
+    </div>
+    <figcaption>A module may import only from its own ring or one further in; <code>tests/test_layers.py</code> walks every import, lazy ones included, and fails on an outward edge. The domain has no I/O, no clock and no Store. Both doors, MCP and CLI, meet at <code>compose/</code> and <code>entry/</code>, so <code>resume_ship</code> runs every gate in one interpreter.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ DYNAMIC ============ -->
+<section id="dynamic">
+  <div class="level">Dynamic view · /tailor</div>
+  <h2>Who calls which tool in a tailor run</h2>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 910 700" role="img" aria-label="Sequence of a tailor run. The person starts /tailor. The main session captures the posting and sends the analyst, which decides requirements and derives and reviews the assessment. The main session asks the gap questions and confirms answers. The resume author writes inferred bullets and the selection. The main session reads new quotes back, confirms them, ships the resume, waits for the person to read the PDF, and freezes the application.">
+      <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="currentColor"/></marker>
+      <marker id="a4h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--accent)"/></marker></defs>
+
+      <g class="person"><rect x="20" y="16" width="130" height="44" rx="8"/><text x="85" y="43" class="t" text-anchor="middle">Job seeker</text></g>
+      <g class="sys"><rect x="190" y="16" width="150" height="44" rx="4"/><text x="265" y="36" class="t" text-anchor="middle">Main session</text><text x="265" y="52" class="k" text-anchor="middle">[jsk skill]</text></g>
+      <g class="sys"><rect x="385" y="16" width="140" height="44" rx="4"/><text x="455" y="36" class="t" text-anchor="middle">tailor-analyst</text><text x="455" y="52" class="k" text-anchor="middle">[subagent]</text></g>
+      <g class="sys"><rect x="565" y="16" width="140" height="44" rx="4"/><text x="635" y="36" class="t" text-anchor="middle">resume-author</text><text x="635" y="52" class="k" text-anchor="middle">[subagent]</text></g>
+      <g class="sys"><rect x="750" y="16" width="140" height="44" rx="4"/><text x="820" y="36" class="t" text-anchor="middle">jsk mcp</text><text x="820" y="52" class="k" text-anchor="middle">[server → store]</text></g>
+
+      <line class="life" x1="85" y1="60" x2="85" y2="690"/><line class="life" x1="265" y1="60" x2="265" y2="690"/>
+      <line class="life" x1="455" y1="60" x2="455" y2="690"/><line class="life" x1="635" y1="60" x2="635" y2="690"/>
+      <line class="life" x1="820" y1="60" x2="820" y2="690"/>
+
+      <!-- y = 100 + 36n -->
+      <path class="e" d="M85,100 H265" marker-end="url(#a4)"/><text class="el" x="94" y="93"><tspan class="num">1</tspan>  /tailor &lt;posting url&gt;</text>
+      <path class="e" d="M265,136 H820" marker-end="url(#a4)"/><text class="el" x="274" y="129"><tspan class="num">2</tspan>  posting_capture → the advert, as numbered lines</text>
+      <path class="e" d="M265,172 H455" marker-end="url(#a4)"/><text class="el" x="274" y="165"><tspan class="num">3</tspan>  Task(stem)</text>
+      <path class="e" d="M455,208 H820" marker-end="url(#a4)"/><text class="el" x="464" y="201"><tspan class="num">4</tspan>  posting_decide · posting_complete</text>
+      <path class="e" d="M455,244 H820" marker-end="url(#a4)"/><text class="el" x="464" y="237"><tspan class="num">5</tspan>  assessment_derive · _review · _complete</text>
+      <path class="e dash" d="M455,280 H265" marker-end="url(#a4)"/><text class="el" x="274" y="273"><tspan class="num">6</tspan>  the assessment</text>
+      <path class="e" d="M265,316 H85" marker-end="url(#a4)"/><text class="el" x="94" y="309"><tspan class="num">7</tspan>  gap questions</text>
+      <path class="e dash" d="M85,352 H265" marker-end="url(#a4)"/><text class="el" x="94" y="345"><tspan class="num">8</tspan>  answers, a "no" included</text>
+      <path class="e hot" d="M265,388 H820" marker-end="url(#a4h)"/><text class="el hot" x="274" y="381">9  career_confirm(answer = their words)</text>
+      <path class="e" d="M265,424 H635" marker-end="url(#a4)"/><text class="el" x="274" y="417"><tspan class="num">10</tspan>  Task(stem, assessment)</text>
+      <path class="e" d="M635,460 H820" marker-end="url(#a4)"/><text class="el" x="815" y="453" text-anchor="end"><tspan class="num">11</tspan>  career_apply (j:inferred) · resume_select · _update</text>
+      <path class="e" d="M265,496 H85" marker-end="url(#a4)"/><text class="el" x="94" y="489"><tspan class="num">12</tspan>  new quotes: confirm, correct or cut</text>
+      <path class="e hot" d="M265,532 H820" marker-end="url(#a4h)"/><text class="el hot" x="274" y="525">13  career_confirm · resume_check</text>
+      <path class="e" d="M265,568 H820" marker-end="url(#a4)"/><text class="el" x="274" y="561"><tspan class="num">14</tspan>  resume_ship: record gate → render → parse, prose, layout</text>
+      <path class="e dash" d="M265,604 H85" marker-end="url(#a4)"/><text class="el" x="94" y="597"><tspan class="num">15</tspan>  the PDF: the render gate is a person reading it</text>
+      <path class="e dash" d="M85,634 H265" marker-end="url(#a4)"/><text class="el" x="94" y="627"><tspan class="num">16</tspan>  send it (or hold it)</text>
+      <path class="e hot" d="M265,664 H820" marker-end="url(#a4h)"/><text class="el hot" x="274" y="657">17  app_freeze(submitted, channel)</text>
+    </svg>
+    </div>
+    <figcaption>The orange calls carry the person's own answer, so only the main session makes them. The analyst decides and reviews but never writes the career; the author's bullets land as <code>j:inferred</code> and can't render until step 13 confirms them. Every arrow into <code>jsk mcp</code> is validated against the whole record before anything is written.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>What these views leave out</h2>
+  <div class="notes">
+    <div><b>Other modes</b>intake and setup send <code>jsk-extractor</code>, review sends <code>jsk-kb-auditor</code>, and ship can call <code>jsk-verifier</code> when a gate fails and its source isn't visible.</div>
+    <div><b>Retired surfaces</b>The 6.0 file pipeline (<code>jsk posting</code>, <code>jsk tailor</code>, <code>resume.json</code>) exits 2 naming its tool. A frozen file-made application stays readable.</div>
+    <div><b>Where to read more</b><code>docs/ARCHITECTURE.md</code> for the rings and the "where do I change X" table; <code>docs/ONTOLOGY.md</code> for the record format.</div>
+  </div>
+</section>
+</div>
+</body>
+</html>

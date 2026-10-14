@@ -3,6 +3,10 @@
 For anyone editing this repo. If you only want to *use* the plugin, read
 [Quickstart](QUICKSTART.md) instead.
 
+[C4.html](C4.html) draws the plugin and `jsk mcp` at four levels: system context, containers,
+the components of the server by ring, and a tailor run as a sequence of tool calls. Open it in a
+browser.
+
 ## The one-way pipeline
 
 ```
