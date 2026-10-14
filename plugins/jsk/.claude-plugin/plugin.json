@@ -24,7 +24,9 @@
     "job-search",
     "knowledge-base",
     "tailoring",
-    "json",
+    "mcp",
+    "rdf",
+    "claude-code",
     "latex",
     "pdf",
     "i18n"

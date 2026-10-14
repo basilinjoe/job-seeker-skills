@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "jsk-resume"
 dynamic = ["version"]
-description = "Render verified, ATS-safe resumes from a career kept as one validated graph file"
+description = "Render verified, ATS-safe resumes from a career kept as one validated graph store"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
